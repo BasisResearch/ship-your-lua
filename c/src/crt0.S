@@ -2,6 +2,7 @@
  * (-machine virt -bios none). Sets up gp/sp, clears .bss, and calls
  * main with argc=0 -- main fetches the real command line over
  * semihosting (see main.c / semihost.c). */
+    .file "crt0.S"
     .section .text.init
     .globl _start
 _start:

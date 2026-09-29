@@ -7,7 +7,8 @@ across F1–F4, floats and coroutines. The F1 bytecode semantics reproduces
 the ELF's output on three programs by kernel-checked derivation. No blockers.
 
 Measured 2026-09-29 on aws-dev. The ELF is `c/lua-riscv-htif.elf`, sha256
-`9e78f5fff4db40e7f3eddec3a83f4d926d91818f5e505461cd241b32475e7a6c`.
+`c019b0b7547131c7f211df75f3e33a06bf6928caf7c2644a1fb305239a309323`.
+`make -C c riscv-htif` reproduces it bit for bit from a fresh clone.
 
 ## 1. Toolchain
 

@@ -3,6 +3,7 @@
  * vendored source). HTIF builds have no filesystem, so main() loads this
  * blob with luaL_loadbufferx(..., "b"). It lives in its own section
  * (.lua_chunk, link.ld) so that no other address depends on it. */
+    .file "chunk.S"
     .section .lua_chunk,"a"
     .globl _chunk_size
     .globl _chunk_start
