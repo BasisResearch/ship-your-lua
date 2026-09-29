@@ -1,14 +1,15 @@
 import Lua.Bytecode.Semantics
 
 /-!
-# An executable stepper for F1, sound for `Step`
+# An executable stepper for F1, sound and complete for `Step`
 
 `step?` computes one F1 step and `run` iterates it to a `Final` state. They
 are *not* the semantics: `BcSem` is the inductive relation. They exist so
 that the kernel can build `BcSem` derivations for concrete programs
 (`Lua/Programs/Validation.lean`): `run_sound` turns a successful run into
-`Steps` plus `Final`. `step?` may be stricter than `Step` (it is only
-required to be sound, not complete).
+`Steps` plus `Final`. `step?` is also complete (`step?_complete`), which
+makes `Step` deterministic (`Step.deterministic`) and `BcSem` a function of
+the program (`BcSem.deterministic`).
 -/
 
 namespace Lua.Bytecode
@@ -101,13 +102,16 @@ def step? (H : Host) (p : Proto) (s : State) : Option State :=
           | _ => none
         | _, _, _ => none
       | .FORLOOP =>
-        match s.regs (w.a + 1), s.regs w.a, s.regs (w.a + 2) with
-        | .int n, .int i, .int st =>
+        match s.regs (w.a + 1), s.regs (w.a + 2) with
+        | .int n, .int st =>
           if n = 0 then some (s.goto (s.pc + 1)) else
-          (jumpTo (s.pc + 1) (-(w.bx : Int))).map fun t =>
-            (((s.set (w.a + 1) (.int (n - 1))).set w.a (.int (i + st))).set (w.a + 3)
-              (.int (i + st))).goto t
-        | _, _, _ => none
+          match s.regs w.a with
+          | .int i =>
+            (jumpTo (s.pc + 1) (-(w.bx : Int))).map fun t =>
+              (((s.set (w.a + 1) (.int (n - 1))).set w.a (.int (i + st))).set (w.a + 3)
+                (.int (i + st))).goto t
+          | _ => none
+        | _, _ => none
       | .CALL =>
         if s.regs w.a = .builtin .print ∧ w.b ≠ 0 ∧ w.c ≠ 0 then
           some (((s.emit (printLine H (s.args (w.a + 1) (w.b - 1)))).setNils w.a (w.c - 1)).goto
@@ -300,16 +304,19 @@ theorem step?_sound {s s' : State} (h : step? H p s = some s') : Step H p s s' :
         · cases h
       case FORLOOP =>
         split at h
-        · rename_i n i st hn hi hst
+        · rename_i n st hn hst
           split at h
           · rename_i hn0
             subst hn0; cases h; exact Step.forloopDone hw ho hn ⟨st, hst⟩
           · rename_i hn0
-            cases hj : jumpTo (s.pc + 1) (-(w.bx : Int)) with
-            | none => simp [hj] at h
-            | some t =>
-              simp only [hj, Option.map_some, Option.some.injEq] at h
-              subst h; exact Step.forloopAgain hw ho hn hn0 hi hst hj
+            split at h
+            · rename_i i hi
+              cases hj : jumpTo (s.pc + 1) (-(w.bx : Int)) with
+              | none => simp [hj] at h
+              | some t =>
+                simp only [hj, Option.map_some, Option.some.injEq] at h
+                subst h; exact Step.forloopAgain hw ho hn hn0 hi hst hj
+            · cases h
         · cases h
       case CALL =>
         split at h
@@ -355,6 +362,70 @@ theorem bcSem_of_run {n : Nat} {out : String}
     simp only [hr, Option.map_some, Option.some.injEq] at h
     obtain ⟨hs, hf⟩ := run_sound hr
     exact ⟨s, hs, hf, h⟩
+
+/-! ## Completeness and determinism -/
+
+theorem arithStep?_complete {s : State} {w : Word} {o : OpCode} {f sh x y r}
+    (hf : intArith o = some f) (hsh : arithShape o = some sh) (hx : s.regs w.b = .int x)
+    (hy : arithOperand p s w sh = some y) (hr : f x y = some r) :
+    arithStep? p s w o = some ((s.set w.a (.int r)).goto (s.pc + 2)) := by
+  simp [arithStep?, hf, hsh, hx, hy, hr]
+
+/-- `step?` is complete for `Step`. -/
+theorem step?_complete {s s' : State} (h : Step H p s s') : step? H p s = some s' := by
+  cases h with
+  | @arith w o f sh x y r hw ho hf hsh hx hy hr =>
+    have hy' : arithOperand p s w sh = some y := by
+      cases sh <;> simp_all [arithOperand]
+    have ha := arithStep?_complete hf hsh hx hy' hr
+    unfold step?; rw [hw]; simp only [ho]
+    cases o <;> first | exact ha | simp [intArith] at hf
+  | forloopDone hw ho hn hst =>
+    obtain ⟨st, hst⟩ := hst
+    simp [step?, hw, ho, hn, hst]
+  | forprepEnter hw ho hi hl hst h0 hn => simp [step?, hw, ho, hi, hl, hst, hn]; exact h0
+  | forprepSkip hw ho hi hl hst h0 hn => simp [step?, hw, ho, hi, hl, hst, hn]; exact h0
+  | forloopAgain hw ho hn h0 hi hst ht =>
+    simp [step?, hw, ho, hn, hi, hst, ht]; intro h; exact absurd h h0
+  | cmpRR hw ho hor hf hx hy ht =>
+    rcases hor with rfl | rfl <;> simp_all [step?]
+  | cmpRI hw ho hor hf hx ht =>
+    rcases hor with rfl | rfl | rfl | rfl <;> simp_all [step?]
+  | testsetJump hw ho hk hni ht => simp [step?, hw, ho, hk, hni, ht]
+  | callPrint hw ho hp hb hc => simp [step?, hw, ho, hp, hb, hc]
+  | _ => simp_all [step?]
+
+/-- **`Step` is deterministic.** -/
+theorem Step.deterministic {s s₁ s₂ : State} (h₁ : Step H p s s₁) (h₂ : Step H p s s₂) :
+    s₁ = s₂ :=
+  Option.some.inj ((step?_complete h₁).symm.trans (step?_complete h₂))
+
+/-- A `Final` state does not step. -/
+theorem Final.not_step {s s' : State} (hf : Final p s) : ¬ Step H p s s' := fun h => by
+  have hs := step?_complete h
+  cases hf with
+  | ret hw ho hor =>
+    rcases hor with rfl | rfl | rfl <;> simp [step?, hw, ho, arithStep?, intArith] at hs
+
+/-- Two runs from one state to `Final` states end in the same state. -/
+theorem Steps.final_unique {s a b : State} (ha : Steps H p s a) (hfa : Final p a)
+    (hb : Steps H p s b) (hfb : Final p b) : a = b := by
+  induction ha with
+  | refl =>
+    cases hb with
+    | refl => rfl
+    | head h _ => exact absurd h hfa.not_step
+  | head h₁ _ ih =>
+    cases hb with
+    | refl => exact absurd h₁ hfb.not_step
+    | head h₂ hs₂ => exact ih hfa ((Step.deterministic h₁ h₂) ▸ hs₂)
+
+/-- **`BcSem` is deterministic in the output.** -/
+theorem BcSem.deterministic {out₁ out₂ : String} (h₁ : BcSem H p out₁) (h₂ : BcSem H p out₂) :
+    out₁ = out₂ := by
+  obtain ⟨a, ha, hfa, rfl⟩ := h₁
+  obtain ⟨b, hb, hfb, rfl⟩ := h₂
+  rw [Steps.final_unique ha hfa hb hfb]
 
 end Soundness
 
