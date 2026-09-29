@@ -1,0 +1,15 @@
+-- F3: error / pcall / error objects (longjmp)
+print(pcall(error, "boom"))
+local ok0, e0 = pcall(error, {code = 42})
+print(ok0, type(e0), e0.code)
+local ok, e = pcall(function() error({code = 7}) end)
+print(ok, e.code)
+print(pcall(function() return 1, 2 end))
+print(select('#', pcall(error)))
+local ok2, msg = pcall(function() local x = nil; return x.y end)
+print(ok2, type(msg))
+local depth = 0
+local function rec() depth = depth + 1; if depth == 500 then error("deep") end; rec() end
+local ok3 = pcall(rec)
+print(ok3, depth > 100)
+print(xpcall(function() error("x", 0) end, function(m) return "handled " .. m end))
