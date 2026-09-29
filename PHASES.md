@@ -157,9 +157,22 @@ covers the new stages.
 * **Errors.** The error paths (`luaG_opinterror`, `luaG_forerror`,
   `luaG_runerror` → `luaD_throw` → `longjmp` → `lua_pcallk` returns →
   `main` exits 2) give `stuck_sim`.
-* **Definite initialisation.** Soundness of `Supported`'s check: a register
-  read on an executed path was written by the semantics, so its
-  `FrameRepr` holds.
+* **Definite initialisation (proved, `Lua/FragmentSound.lean`).** The
+  fixpoint `supportedB` computes is a certificate (`Supported.defInit :
+  DefInit p (defMask p)`).
+  * `DefInit.step` is the invariant to use: two states agreeing on
+    `defMask p pc` step to states agreeing on the successor's mask, and a
+    `CALL` clobbers nothing in it. So `FrameRepr` is needed only for the
+    registers in `defMask p s.pc`; the rest of the frame may hold anything.
+  * `bcSemFrom_iff`: `BcSem` from any entry register file equals `BcSem`
+    from all-`nil`. `cbcSem_iff`: the same with every register at or above a
+    `CALL`'s results clobbered after each call (`CStep`).
+  * `reachable_defInit`: at every reached state the pc is in range, the
+    reads are in the mask, and the masked registers do not depend on the
+    entry registers. `condJump_ne_none`/`condJump_lt`: test targets exist
+    and are in range.
+  * `Step.deterministic`, `BcSem.deterministic` (`Lua/Bytecode/Exec.lean`,
+    via `step?_complete`).
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
 
@@ -169,7 +182,12 @@ Each fragment extends `Value`, `Step`, `Supported` and the representation,
 and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
 `ledger_exact` keeps the ledger honest).
 
-* **A2 (F1b): integer bitwise.** Mechanical. Exit: `.F1b` leaves the ledger.
+* **A2 (F1b): integer bitwise (done).** `BAND`/`BOR`/`BXOR`/`SHL`/`SHR`,
+  the `K` forms and `SHRI`/`SHLI` are integer binary operations
+  (`intArith`, with `luaV_shiftl` as `shiftl`); `BNOT` is its own rule. The
+  opcodes are F1 and left the ledger (29 entries). `c/tests/f1b_bits.lua`
+  passes the difftest; `f1b_bcSem` and `f1b_supported` are kernel-checked.
+  Layer A's F1 arms now include these 11.
 * **A3 (F2): tables.**
   * Semantics: a heap of tables in `State`, and `next` order as the binary's
     order. The array part, and the hash part in node order with

@@ -23,9 +23,11 @@ decidable check on a `Proto` with three parts:
    register from its base up except its results. `BcSem` starts from all-`nil`
    registers and leaves registers unchanged across `print`; the two agree
    exactly on programs that never read a register before writing it on every
-   path. `defInit` is that forward must-analysis (bit masks over the 256
+   path. The check is that forward must-analysis (bit masks over the 256
    registers, fixpoint by iteration, rejecting if no fixpoint within fuel).
-   `luac` output satisfies it.
+   `luac` output satisfies it. `Lua/FragmentSound.lean` proves it sound:
+   `bcSemFrom_iff` (entry registers are unobservable) and `cbcSem_iff` (so
+   is what a call leaves above its results).
 
 `Supported whileProto` is checked by the kernel in `Lua/Programs/Supported.lean`.
 -/
@@ -34,10 +36,10 @@ namespace Lua.Bytecode
 
 /-- Fragments, in the planned order (README.md, PHASES.md). -/
 inductive Fragment where
-  /-- integers, moves, constants, compare+jump, numeric for, return, `print` -/
+  /-- integers, moves, constants, integer arithmetic, integer bitwise
+  operators (the former F1b, phase A2), compare+jump, numeric for, return,
+  `print` -/
   | F1
-  /-- integer bitwise operators (a mechanical extension of F1) -/
-  | F1b
   /-- tables, `next` order, global writes, generic `for` over `pairs` -/
   | F2
   /-- closures, upvalues, Lua calls, varargs, multiple results, tail calls -/
@@ -59,9 +61,9 @@ def OpCode.fragment : OpCode → Fragment
   | .MMBIN | .MMBINI | .MMBINK
   | .UNM | .NOT | .JMP
   | .EQ | .LT | .LE | .EQK | .EQI | .LTI | .LEI | .GTI | .GEI | .TEST | .TESTSET
-  | .CALL | .RETURN | .RETURN0 | .RETURN1 | .FORLOOP | .FORPREP | .VARARGPREP => .F1
+  | .CALL | .RETURN | .RETURN0 | .RETURN1 | .FORLOOP | .FORPREP | .VARARGPREP
   | .BANDK | .BORK | .BXORK | .SHRI | .SHLI | .BAND | .BOR | .BXOR | .SHL | .SHR
-  | .BNOT => .F1b
+  | .BNOT => .F1
   | .LOADKX | .EXTRAARG | .GETTABLE | .GETI | .GETFIELD | .SETTABUP | .SETTABLE | .SETI
   | .SETFIELD | .NEWTABLE | .SETLIST | .LEN | .TFORPREP | .TFORCALL | .TFORLOOP => .F2
   | .GETUPVAL | .SETUPVAL | .CLOSE | .CLOSURE | .TAILCALL | .VARARG | .SELF => .F3
@@ -69,14 +71,9 @@ def OpCode.fragment : OpCode → Fragment
   | .LOADF | .POWK | .DIVK | .POW | .DIV => .Float
 
 /-- **The ledger of opcodes outside F1**, each with its fragment and what it
-needs. (`Coroutine` brings in no opcode: coroutines are library calls.) -/
+needs. (F1b, integer bitwise, is merged into F1: phase A2.) (`Coroutine` brings in no opcode: coroutines are library calls.) -/
 def ledger : List (OpCode × Fragment × String) :=
-  [ (.BANDK, .F1b, "integer bitwise with constant"), (.BORK, .F1b, "integer bitwise with constant"),
-    (.BXORK, .F1b, "integer bitwise with constant"), (.SHRI, .F1b, "shift by immediate"),
-    (.SHLI, .F1b, "shift by immediate"), (.BAND, .F1b, "integer bitwise"),
-    (.BOR, .F1b, "integer bitwise"), (.BXOR, .F1b, "integer bitwise"), (.SHL, .F1b, "shift"),
-    (.SHR, .F1b, "shift"), (.BNOT, .F1b, "integer bitwise not"),
-    (.LOADKX, .F2, "constant tables above 2^17 entries (with EXTRAARG)"),
+  [ (.LOADKX, .F2, "constant tables above 2^17 entries (with EXTRAARG)"),
     (.EXTRAARG, .F2, "operand extension for LOADKX/NEWTABLE/SETLIST"),
     (.GETTABLE, .F2, "table read (luaH_get, luaV_finishget)"), (.GETI, .F2, "table read, integer key"),
     (.GETFIELD, .F2, "table read, short-string key"), (.SETTABUP, .F2, "global write (_ENV table)"),
@@ -102,7 +99,7 @@ theorem ledger_exact :
 /-- Every ledger entry's fragment is its opcode's fragment. -/
 theorem ledger_fragment : ∀ e ∈ ledger, e.1.fragment = e.2.1 := by decide
 
-theorem ledger_length : ledger.length = 40 := rfl
+theorem ledger_length : ledger.length = 29 := rfl
 
 /-! ## Register sets as bit masks -/
 
@@ -126,9 +123,11 @@ variable (p : Proto)
 /-- Registers an F1 instruction reads (as a mask), on any path. -/
 def reads (w : Word) : Nat :=
   match w.op? with
-  | some .MOVE | some .UNM | some .NOT | some .TESTSET => rmask w.b 1
-  | some .ADD | some .SUB | some .MUL | some .MOD | some .IDIV => rmask w.b 1 ||| rmask w.c 1
-  | some .ADDI | some .ADDK | some .SUBK | some .MULK | some .MODK | some .IDIVK => rmask w.b 1
+  | some .MOVE | some .UNM | some .NOT | some .TESTSET | some .BNOT => rmask w.b 1
+  | some .ADD | some .SUB | some .MUL | some .MOD | some .IDIV
+  | some .BAND | some .BOR | some .BXOR | some .SHL | some .SHR => rmask w.b 1 ||| rmask w.c 1
+  | some .ADDI | some .ADDK | some .SUBK | some .MULK | some .MODK | some .IDIVK
+  | some .BANDK | some .BORK | some .BXORK | some .SHRI | some .SHLI => rmask w.b 1
   | some .EQ | some .LT | some .LE => rmask w.a 1 ||| rmask w.b 1
   | some .EQK | some .EQI | some .LTI | some .LEI | some .GTI | some .GEI | some .TEST =>
     rmask w.a 1
@@ -139,10 +138,12 @@ def reads (w : Word) : Nat :=
 /-- Highest register index an instruction touches, plus one (0 if none). -/
 def regTop (w : Word) : Nat :=
   match w.op? with
-  | some .MOVE | some .UNM | some .NOT | some .TESTSET => max (w.a + 1) (w.b + 1)
-  | some .ADD | some .SUB | some .MUL | some .MOD | some .IDIV =>
+  | some .MOVE | some .UNM | some .NOT | some .TESTSET | some .BNOT => max (w.a + 1) (w.b + 1)
+  | some .ADD | some .SUB | some .MUL | some .MOD | some .IDIV
+  | some .BAND | some .BOR | some .BXOR | some .SHL | some .SHR =>
     max (w.a + 1) (max (w.b + 1) (w.c + 1))
-  | some .ADDI | some .ADDK | some .SUBK | some .MULK | some .MODK | some .IDIVK =>
+  | some .ADDI | some .ADDK | some .SUBK | some .MULK | some .MODK | some .IDIVK
+  | some .BANDK | some .BORK | some .BXORK | some .SHRI | some .SHLI =>
     max (w.a + 1) (w.b + 1)
   | some .EQ | some .LT | some .LE => max (w.a + 1) (w.b + 1)
   | some .LOADNIL => w.a + w.b + 1
@@ -152,61 +153,67 @@ def regTop (w : Word) : Nat :=
   | some .MMBIN | some .MMBINI | some .MMBINK => 0
   | _ => w.a + 1
 
-/-- Outgoing edges of the instruction at `pc` (successor, registers written
-on that edge). `none` if a target is out of range or the instruction is not
-F1 or violates an F1 side condition. RETURNs and never-executed `MMBIN*`
-have no edges. -/
-def edges (pc : Nat) : Option (List Edge) := do
-  let w ← p.fetch pc
-  let o ← w.op?
-  let n := p.code.length
-  let inr (t : Nat) : Option Nat := if t < n then some t else none
-  let next (t : Nat) : Option Nat := inr t
-  let cond : Option (List Edge) := do
-    let ni ← p.fetch (pc + 1)
-    let t ← jumpTo (pc + 2) ni.sj
-    let t ← inr t
-    let s ← next (pc + 2)
-    pure [(s, 0), (t, 0)]
-  match o with
-  | .MOVE | .LOADI | .LOADFALSE | .LOADTRUE | .UNM | .NOT =>
-    pure [(← next (pc + 1), rmask w.a 1)]
+/-- The target of the jump that follows a test at `pc` (`donextjump`: the
+`JMP` at `pc + 1`, relative to `pc + 2`). -/
+def nextJump (pc : Nat) : Option Nat :=
+  (p.fetch (pc + 1)).bind fun ni => jumpTo (pc + 2) ni.sj
+
+/-- Edges of a conditional test (`docondjump`): skip the jump, or take it. -/
+def condEdges (pc : Nat) : Option (List Edge) :=
+  (nextJump p pc).map fun t => [(pc + 2, 0), (t, 0)]
+
+/-- Outgoing edges of the instruction `w` (opcode `o`) at `pc`, before the
+range check: (successor, registers written on that edge). `none` if the
+instruction is not F1, violates an F1 side condition, or jumps before 0.
+RETURNs and never-executed `MMBIN*` have no edges. -/
+def edgesOf (pc : Nat) (w : Word) : OpCode → Option (List Edge)
+  | .MOVE | .LOADI | .LOADFALSE | .LOADTRUE | .UNM | .NOT | .BNOT =>
+    some [(pc + 1, rmask w.a 1)]
   | .LOADK =>
     match p.const w.bx with
-    | some (.int _) | some (.bool _) | some .nil => pure [(← next (pc + 1), rmask w.a 1)]
+    | some (.int _) | some (.bool _) | some .nil => some [(pc + 1, rmask w.a 1)]
     | _ => none
-  | .LFALSESKIP => pure [(← next (pc + 2), rmask w.a 1)]
-  | .LOADNIL => pure [(← next (pc + 1), rmask w.a (w.b + 1))]
+  | .LFALSESKIP => some [(pc + 2, rmask w.a 1)]
+  | .LOADNIL => some [(pc + 1, rmask w.a (w.b + 1))]
   | .GETTABUP =>
-    if w.b = 0 ∧ p.const w.c = some (.str printKey) then pure [(← next (pc + 1), rmask w.a 1)]
+    if w.b = 0 ∧ p.const w.c = some (.str printKey) then some [(pc + 1, rmask w.a 1)]
     else none
-  | .ADD | .SUB | .MUL | .MOD | .IDIV | .ADDI => pure [(← next (pc + 2), rmask w.a 1)]
-  | .ADDK | .SUBK | .MULK | .MODK | .IDIVK =>
+  | .ADD | .SUB | .MUL | .MOD | .IDIV | .ADDI
+  | .BAND | .BOR | .BXOR | .SHL | .SHR | .SHRI | .SHLI => some [(pc + 2, rmask w.a 1)]
+  | .ADDK | .SUBK | .MULK | .MODK | .IDIVK | .BANDK | .BORK | .BXORK =>
     match p.const w.c with
-    | some (.int _) => pure [(← next (pc + 2), rmask w.a 1)]
+    | some (.int _) => some [(pc + 2, rmask w.a 1)]
     | _ => none
-  | .MMBIN | .MMBINI | .MMBINK => pure []
-  | .JMP => pure [(← inr (← jumpTo (pc + 1) w.sj), 0)]
+  | .MMBIN | .MMBINI | .MMBINK => some []
+  | .JMP => (jumpTo (pc + 1) w.sj).map fun t => [(t, 0)]
   | .EQK =>
     match p.const w.b with
     | some (.float _) | none => none
-    | _ => cond
-  | .EQ | .LT | .LE | .EQI | .LTI | .LEI | .GTI | .GEI | .TEST => cond
-  | .TESTSET =>
-    let ni ← p.fetch (pc + 1)
-    let t ← inr (← jumpTo (pc + 2) ni.sj)
-    pure [(← next (pc + 2), 0), (t, rmask w.a 1)]
+    | _ => condEdges p pc
+  | .EQ | .LT | .LE | .EQI | .LTI | .LEI | .GTI | .GEI | .TEST => condEdges p pc
+  | .TESTSET => (nextJump p pc).map fun t => [(pc + 2, 0), (t, rmask w.a 1)]
   | .FORPREP =>
-    pure [(← next (pc + 1), rmask (w.a + 1) 1 ||| rmask (w.a + 3) 1),
-          (← inr (pc + 1 + w.bx + 1), rmask (w.a + 3) 1)]
+    some [(pc + 1, rmask (w.a + 1) 1 ||| rmask (w.a + 3) 1), (pc + 1 + w.bx + 1, rmask (w.a + 3) 1)]
   | .FORLOOP =>
-    pure [(← next (pc + 1), 0),
-          (← inr (← jumpTo (pc + 1) (-(w.bx : Int))), rmask w.a 2 ||| rmask (w.a + 3) 1)]
-  | .CALL =>
-    if w.b ≠ 0 ∧ w.c ≠ 0 then pure [(← next (pc + 1), rmask w.a (w.c - 1))] else none
-  | .RETURN | .RETURN0 | .RETURN1 => pure []
-  | .VARARGPREP => pure [(← next (pc + 1), 0)]
+    (jumpTo (pc + 1) (-(w.bx : Int))).map fun t =>
+      [(pc + 1, 0), (t, rmask w.a 2 ||| rmask (w.a + 3) 1)]
+  | .CALL => if w.b ≠ 0 ∧ w.c ≠ 0 then some [(pc + 1, rmask w.a (w.c - 1))] else none
+  | .RETURN | .RETURN0 | .RETURN1 => some []
+  | .VARARGPREP => some [(pc + 1, 0)]
   | _ => none
+
+/-- Outgoing edges of the instruction at `pc` (`edgesOf`), `none` also if a
+target is out of range. -/
+def edges (pc : Nat) : Option (List Edge) :=
+  match p.fetch pc with
+  | none => none
+  | some w =>
+    match w.op? with
+    | none => none
+    | some o =>
+      match edgesOf p pc w o with
+      | none => none
+      | some l => if l.all (fun e => decide (e.1 < p.code.length)) then some l else none
 
 /-- Registers a CALL at `pc` leaves defined below its base: everything a
 call clobbers (base and above) is removed on its edge before its results are

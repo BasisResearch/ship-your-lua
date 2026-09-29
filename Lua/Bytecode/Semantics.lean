@@ -5,7 +5,8 @@ import Lua.Bytecode.Syntax
 
 An inductive small-step relation over VM states of one activation of the main
 chunk, transcribed from `luaV_execute` (`lvm.c`, Lua 5.4.7) opcode by opcode.
-F1 covers integers, moves, constants, integer arithmetic, comparisons and
+F1 covers integers, moves, constants, integer arithmetic and bitwise
+operations (F1b), comparisons and
 conditional jumps, integer numeric `for` (`FORPREP`/`FORLOOP`), `RETURN*`,
 and calls to the builtin `print` fetched from `_ENV`. `Lua/Bytecode/Fragment.lean`
 says which programs are in F1 and ledgers every other opcode.
@@ -14,8 +15,9 @@ Faithfulness conventions (each is what `lvm.c` does, cited per rule):
 
 * `pc` is the index of the instruction being executed; `lvm.c`'s `pc` after
   `vmfetch` is our `pc + 1`, so a C `pc += n` lands on `pc + 1 + n` here.
-* Arithmetic on two integers stores the result and SKIPS the following
-  `MMBIN*` (`op_arith_aux`: `pc++`). A non-integer operand in F1 is a runtime
+* Arithmetic and bitwise operations (F1b, merged into F1) on integers store
+  the result and SKIP the following `MMBIN*` (`op_arith_aux`,
+  `op_bitwise`: `pc++`). A non-integer operand in F1 is a runtime
   error (no floats or strings arise in F1), so no rule applies: the state is
   stuck, the program has no behaviour, and `stuck_sim` must show the binary
   does not exit 0.
@@ -98,15 +100,40 @@ def idiv (m n : BitVec 64) : Option (BitVec 64) :=
 def imod (m n : BitVec 64) : Option (BitVec 64) :=
   if n = 0 then none else some (BitVec.ofInt 64 (Int.fmod m.toInt n.toInt))
 
-/-- The integer operation of an arithmetic opcode (register-register,
-register-constant, or `ADDI`); `none` for opcodes that are not F1 integer
-arithmetic. The inner `Option` is the runtime error. -/
+/-- `luaV_shiftl` (`lvm.c`): a negative `y` shifts right (logically: `intop`
+works on `lua_Unsigned`), and a shift by 64 or more bits in either direction
+gives 0. -/
+def shiftl (x y : BitVec 64) : BitVec 64 :=
+  if y.toInt < 0 then (if y.toInt ≤ -64 then 0 else x >>> (-y.toInt).toNat)
+  else (if 64 ≤ y.toInt then 0 else x <<< y.toNat)
+
+/-- `luaV_shiftr(x,y)` is `luaV_shiftl(x, intop(-, 0, y))` (`lvm.h`): the
+negation wraps, so `y = minint` shifts left by `minint`, giving 0. -/
+def shiftr (x y : BitVec 64) : BitVec 64 := shiftl x (0 - y)
+
+/-- The integer operation of a binary opcode on integers (register-register,
+register-constant, or register-immediate); `none` for opcodes that are not
+F1 integer binary operations. The inner `Option` is the runtime error. The
+second argument is the operand `R[C]`, `K[C]` or `sC`:
+
+* `op_arith`/`op_arithK`/`op_arithI` (`+ - * % //`);
+* `op_bitwise`/`op_bitwiseK` (`& | ~ << >>`, integers only via `tointegerns`);
+* `OP_SHRI`: `luaV_shiftl(ib, -ic)`, which is `shiftr ib sC` (`-ic` of an
+  `int` in `[-127, 128]` is `0 - sC` on 64 bits);
+* `OP_SHLI`: `luaV_shiftl(ic, ib)`, the immediate is the value shifted
+  (`sC << R[B]`). -/
 def intArith : OpCode → Option (BitVec 64 → BitVec 64 → Option (BitVec 64))
   | .ADD | .ADDK | .ADDI => some fun x y => some (x + y)
   | .SUB | .SUBK => some fun x y => some (x - y)
   | .MUL | .MULK => some fun x y => some (x * y)
   | .MOD | .MODK => some imod
   | .IDIV | .IDIVK => some idiv
+  | .BAND | .BANDK => some fun x y => some (x &&& y)
+  | .BOR | .BORK => some fun x y => some (x ||| y)
+  | .BXOR | .BXORK => some fun x y => some (x ^^^ y)
+  | .SHL => some fun x y => some (shiftl x y)
+  | .SHR | .SHRI => some fun x y => some (shiftr x y)
+  | .SHLI => some fun x y => some (shiftl y x)
   | _ => none
 
 /-- Operand shape of an arithmetic opcode. -/
@@ -120,9 +147,9 @@ inductive ArithShape where
   deriving DecidableEq
 
 def arithShape : OpCode → Option ArithShape
-  | .ADD | .SUB | .MUL | .MOD | .IDIV => some .rr
-  | .ADDK | .SUBK | .MULK | .MODK | .IDIVK => some .rk
-  | .ADDI => some .ri
+  | .ADD | .SUB | .MUL | .MOD | .IDIV | .BAND | .BOR | .BXOR | .SHL | .SHR => some .rr
+  | .ADDK | .SUBK | .MULK | .MODK | .IDIVK | .BANDK | .BORK | .BXORK => some .rk
+  | .ADDI | .SHRI | .SHLI => some .ri
   | _ => none
 
 /-- Integer order tests of `LT`/`LE` and the immediate forms. -/
@@ -217,8 +244,9 @@ inductive Step : State → State → Prop where
   | gettabupPrint {s w} : p.fetch s.pc = some w → w.op? = some .GETTABUP →
       w.b = 0 → p.const w.c = some (.str printKey) →
       Step s ((s.set w.a (.builtin .print)).goto (s.pc + 1))
-  /-- Integer arithmetic (`op_arith`, `op_arithK`, `op_arithI`): store and
-  skip the following `MMBIN*`. -/
+  /-- Integer binary operation (`op_arith`, `op_arithK`, `op_arithI`,
+  `op_bitwise`, `op_bitwiseK`, `OP_SHRI`, `OP_SHLI`; see `intArith`): store
+  and skip the following `MMBIN*` (`pc++`). -/
   | arith {s w o f sh x y r} : p.fetch s.pc = some w → w.op? = some o →
       intArith o = some f → arithShape o = some sh →
       s.regs w.b = .int x →
@@ -232,6 +260,11 @@ inductive Step : State → State → Prop where
   | unm {s w x} : p.fetch s.pc = some w → w.op? = some .UNM →
       s.regs w.b = .int x →
       Step s ((s.set w.a (.int (0 - x))).goto (s.pc + 1))
+  /-- `BNOT A B` on an integer: `intop(^, ~l_castS2U(0), ib)`. No `MMBIN`
+  follows a unary operator, so no skip. -/
+  | bnot {s w x} : p.fetch s.pc = some w → w.op? = some .BNOT →
+      s.regs w.b = .int x →
+      Step s ((s.set w.a (.int (~~~x))).goto (s.pc + 1))
   /-- `NOT A B`. -/
   | not {s w} : p.fetch s.pc = some w → w.op? = some .NOT →
       Step s ((s.set w.a (.bool (s.regs w.b).isFalse)).goto (s.pc + 1))

@@ -3,6 +3,7 @@ import Lua.Bytecode.Syntax
 import Lua.Bytecode.Semantics
 import Lua.Bytecode.Exec
 import Lua.Fragment
+import Lua.FragmentSound
 import Lua.Vm.Layout
 import Lua.Vm.Image
 import Lua.Vm.Repr
@@ -17,6 +18,7 @@ import Lua.Theorems
 import Lua.Programs.While
 import Lua.Programs.PrintPrint
 import Lua.Programs.F1Ops
+import Lua.Programs.F1bBits
 import Lua.Programs.Validation
 import Lua.Programs.Supported
 
