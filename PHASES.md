@@ -32,6 +32,8 @@ Every row is currently unassigned.
 | the ELF's `lparser`/`lcode` refine `compile` | — | B3 | open |
 | **`compile_refinement_Statement`** | `Lua/Theorems.lean` | B1/B2 (by `compile_refinement_of_tv`) | **proved for `CorpusCompiles`** (`compile_refinement_corpus`); open for B2's `compile` |
 | **`endToEnd_lua_Statement luaLayout Compiles`** | `Lua/Theorems.lean` | E (by `endToEnd_of_layers`) | open |
+| `HtifPrint_Statement`: `htif.c`'s `write` to fds 1-2 and `read` from fd 0 implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open (traces accept it) |
+| `HtifFs_Statement`: all six system-call functions implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open; **false of the current `htif.c`** (`experiments/os/RESULTS.md` H1-H6) |
 
 ## P0: validation and scaffold (done)
 
@@ -211,14 +213,46 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
   same code; retarget it.
 * **A7 (Coroutine): coroutines.** `lua_resume`/`lua_yield`, a separate
   `lua_State`, and `longjmp` across resumes.
-* **OS (io/os libraries).** Use the shared syscall spec that ship-your-ocaml
-  is building (`tcb/`, Lean library `TCB`):
-  * SibylFS for the file system, and the CakeML basis FFI for console streams;
-  * a relation `OsStep : OsState → Call → Ret → OsState → Prop`, and the
-    executable checker `allowed`.
-  * Copy it wholesale when it lands and add an `OsState` to the semantics.
-  * The in-image file system in `htif.c` is proved against `OsStep`, not
-    trusted.
+* **OS (io/os libraries).** The shared syscall spec of ship-your-ocaml
+  (`tcb/`, Lean library `TCB`): SibylFS for the file system, the CakeML
+  basis FFI for console streams, `OsStep`/`next`, and the checker `allowed`.
+  * **Landed.**
+    * `tcb/` copied verbatim (ship-your-ocaml `b6ffcf9`, ATTRIBUTION.md); it
+      builds, and `TCB.Os.allowed_sound`/`checkTrace_sound` are in check.sh
+      stage 6. Its Linux trace validation reproduces here (6,398 accepted,
+      0 rejected, 92 special).
+    * `Lua/Os/HtifFs.lean`: `HtifFsImplements`, adapted from
+      ship-your-ocaml's `OCaml/Os.lean` (`retOf` also sees the entry; calls
+      the spec leaves unconstrained are allowed).
+    * `Lua/Os/Htif.lean`: the instance for the Lua ELF. `HtifCallAt` decodes
+      `_open`/`_close`/`_read`/`_write`/`_lseek`/`_fstat` at their entry
+      (addresses and newlib's flag, errno and `struct stat` layout from
+      `Lua/Vm/Layout.lean`); `HtifRetAt` reads `a0`, `errno` and the
+      out-buffer at the return; `LuaCallConv`, `HtifRepr`. Two statements:
+      `HtifPrint_Statement` and `HtifFs_Statement` (Obligations).
+    * `experiments/os/run.sh`: ship-your-ocaml's trace driver run on our
+      unchanged `htif.c` (check.sh stage 5b). Our `htif.c` conforms on
+      `write` to fds 1-2 and `read` from fd 0, and deviates on `fstat` of the
+      console (`st_nlink` 0, not 1), unknown or closed descriptors (the
+      console, not `EBADF`), `read` of stdout / `write` of stdin, a bad
+      `whence`, and `open` with `O_CREAT` (`experiments/os/RESULTS.md`;
+      the console deviations are also kernel-checked facts about `next`,
+      `Lua/Os/HtifTraces.lean`).
+  * **Next.**
+    1. Add `io`/`os` to the Lua build (needs the go-ahead: it changes the
+       ELF, `.text`, the image, the code pins and the validation outputs).
+    2. A conforming in-image file system in `htif.c`: a descriptor table
+       (`EBADF` for descriptors it did not issue, `close` that closes),
+       `st_nlink = 1` for the console, files for `open`, and the functions
+       `io`/`os` need (`_stat`, `_unlink`, `rename`, a clock). Rerun
+       `experiments/os/run.sh` until the flat family and the console
+       scripts are accepted.
+    3. An `OsState` in the semantics (`BcSem`/`LuaSem` over the OS), with
+       the frame obligation that the rest of the ELF preserves the
+       representation relation `R` (`HtifRepr` alone does not make `R`
+       hold at a call entry).
+    4. Prove `HtifPrint_Statement`, then `HtifFs_Statement`, with the
+       whole-function machinery (`gen_fn.py`, `FnSummary`).
   * The ELF must stay free of `ecall` (check.sh stage 2).
 * **A8: GC.**
   * Stop calling `lua_gc(L, LUA_GCSTOP)`.

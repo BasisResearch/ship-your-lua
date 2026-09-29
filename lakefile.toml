@@ -23,3 +23,15 @@ name = "iris"
 git = "https://github.com/leanprover-community/iris-lean"
 rev = "740e2c4a9c672c61d76ad2f9c478c922f7461cf6"
 subDir = "Iris"
+
+# The OS interface specification (SibylFS/CakeML ports) and its trace
+# checker, copied verbatim from ship-your-ocaml's `tcb/` (ATTRIBUTION.md).
+# Dependency-free (Lean core only); see tcb/README.md.
+[[lean_lib]]
+name = "TCB"
+srcDir = "tcb"
+
+[[lean_exe]]
+name = "tcbcheck"
+root = "TCBCheck"
+srcDir = "tcb"

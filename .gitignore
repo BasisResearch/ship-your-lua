@@ -15,3 +15,10 @@ __pycache__/
 # local tooling state
 .claude/
 .DS_Store
+
+# OS-spec validation outputs
+tcb/validation/out/
+tcb/validation/out-quick/
+tcb/validation/tmp/
+experiments/os/out/
+experiments/os/out-quick/

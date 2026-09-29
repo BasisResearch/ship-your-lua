@@ -49,6 +49,29 @@ ELF, not WHILE semantics.
 lemmas aside, which are per instruction word) are about the WHILE ELF's
 addresses. PHASES.md A0 retargets them to the Lua ELF.
 
+## Copied from ship-your-ocaml
+
+[ship-your-ocaml](https://github.com/BasisResearch/ship-your-ocaml)
+(BasisResearch), at commit `b6ffcf9`.
+
+| here | there | changes |
+|---|---|---|
+| `tcb/` (Lean library `TCB`, `tcbcheck`, `Audit.lean`, `validation/`, `upstream/`, `LICENSE-*`) | `tcb/` | none. Its `README.md` and `validation/RESULTS.md` describe ship-your-ocaml (its theorems, its `htif.c`); this repository's results are in `experiments/os/RESULTS.md` |
+| `lakefile.toml`: the `TCB` library and `tcbcheck` executable | same | none |
+| `Lua/Os/HtifFs.lean` | `OCaml/Os.lean` (the part over `Vsa.Machine` + `TCB`) | namespace `Lua.Os`; `retOf` takes the entry configuration too; `OsSpecial` calls allowed (the file's header says why) |
+
+`experiments/os/htif_shim.h` and `experiments/os/run.sh` are new: they run
+the copied `tcb/validation/driver.c` against this repository's `htif.c`.
+
+`tcb/` contains third-party material, under its own licences:
+
+* **SibylFS** (`tcb/upstream/sibylfs/`, ported in `tcb/TCB/Os/Fs.lean`,
+  `Syscall.lean`): `sibylfs/sibylfs_src` at `30675bc3`, ISC licence
+  (`tcb/LICENSE-sibylfs`).
+* **CakeML** basis FFI model (`tcb/upstream/cakeml/fsFFIScript.sml`, ported in
+  `tcb/TCB/Os/Streams.lean`): `CakeML/cakeml` at `530c7dee`, BSD-3-Clause
+  (`tcb/LICENSE-cakeml`).
+
 ## Third party
 
 * **Lua 5.4.7** (`vendor/lua-5.4.7/`): Lua.org, PUC-Rio, MIT licence

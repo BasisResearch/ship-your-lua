@@ -10,7 +10,7 @@
 #     its committed AST dump);
 # (2) the committed ELF's sha256 matches c/lua-riscv-htif.elf.sha256, and it
 #     contains no `ecall`;
-# (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/: sorry,
+# (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/, tcb/: sorry,
 #     axiom declarations, native_decide, bv_decide, ofReduceBool,
 #     trustCompiler, and raised maxHeartbeats/maxRecDepth in Lua/;
 # (3b) proof discipline (scripts/check_discipline.py, scripts/discipline_rules.tsv);
@@ -18,6 +18,7 @@
 #     (experiments/port/port_census.py --copyset; needs a syi checkout,
 #     skipped if absent);
 # (5) lake build Lua Vsa VsaIris   (skipped with --static-only);
+# (5b) the OS-spec trace validation, quick subset (skipped with --static-only);
 # (6) #print axioms of the key theorems ⊆ {propext, Classical.choice, Quot.sound}.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
@@ -71,7 +72,7 @@ def strip(src):
     src = re.sub(r"/-.*?-/", "", src, flags=re.S)
     src = re.sub(r"--[^\n]*", "", src)
     return re.sub(r'"(?:\\.|[^"\\])*"', '""', src)
-for d in ["Lua", "Vsa", "VsaIris"]:
+for d in ["Lua", "Vsa", "VsaIris", "tcb"]:
     for dp, _, fs in os.walk(d):
         for f in fs:
             if not f.endswith(".lean"): continue
@@ -97,6 +98,15 @@ else echo "skipped (no syi checkout)"; fi
 echo "== (5) build"
 lake build Lua Vsa VsaIris 2>&1 | tail -1 | grep -q "Build completed successfully" || fail "lake build"
 echo "ok"
+
+echo "== (5b) OS-spec traces (tcb/, experiments/os/run.sh --quick)"
+experiments/os/run.sh --quick > /dev/null 2>&1 || fail "OS trace run"
+grep -q " rejected 0 " experiments/os/out-quick/linux.summary || fail "Linux traces rejected by TCB.Os.next"
+cat experiments/os/out-quick/linux.summary
+# htif.c's console verdicts are pinned: a change means RESULTS.md is stale
+grep -q "accepted 7 rejected 16 special 1 " experiments/os/out-quick/console-htif.summary \
+  || fail "htif.c console verdicts changed (update experiments/os/RESULTS.md)"
+cat experiments/os/out-quick/console-htif.summary
 
 echo "== (6) axioms"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
@@ -140,11 +150,17 @@ import Lua
 #print axioms Lua.Compile.f1Src_tv
 #print axioms Lua.Compile.corpus_compileTV
 #print axioms Lua.Compile.compile_refinement_corpus
+#print axioms TCB.Os.allowed_sound
+#print axioms TCB.Os.allowed_complete
+#print axioms TCB.Os.checkTrace_sound
+#print axioms Lua.Os.HtifTraces.accepts_write_stdout
+#print axioms Lua.Os.HtifTraces.rejects_write_unknown_fd
+#print axioms Lua.Os.HtifTraces.rejects_fstat_stdout_nlink0
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -c "depends on axioms" "$tmp/out.txt")
-[ "$n" = 38 ] || fail "expected 38 axiom reports, got $n"
+[ "$n" = 44 ] || fail "expected 44 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

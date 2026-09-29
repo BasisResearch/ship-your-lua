@@ -28,6 +28,9 @@ import Lua.Programs.F1SrcAst
 import Lua.Programs.F1Src
 import Lua.Compile.TV
 import Lua.Compile.Corpus
+import Lua.Os.HtifFs
+import Lua.Os.Htif
+import Lua.Os.HtifTraces
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/
