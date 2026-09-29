@@ -1,0 +1,98 @@
+# Proof discipline — the exponentiating layer is MANDATORY
+
+This repository proves the Lua 5.4 bare-metal ELF (`c/lua-riscv-htif.elf`)
+against its bytecode semantics (Layer A), and the bytecode against Lua
+source (Layer B). The discipline is ship-your-interpreter's
+(BasisResearch/ship-your-interpreter), where proof effort went
+subexponential exactly when work was done by hand beside an abstraction that
+already existed. `scripts/check.sh` stage 3b
+(`scripts/check_discipline.py` + `scripts/discipline_rules.tsv`) FAILS new
+files that bypass it.
+
+**Before ANY proof work:**
+* Run `scripts/abs_inventory.sh` and reuse by name.
+* Read PHASES.md for which abstractions are ported yet.
+
+## Mandatory tool per task shape
+
+The Availability column says:
+* **here**: in this repository's copied layer (`Vsa/`, `VsaIris/`);
+* **A0**: in ship-your-interpreter, blocked on the import cuts in
+  `experiments/port/CUTS.txt`, to be ported first.
+
+| Task shape | Use (never hand-roll) | Availability |
+|---|---|---|
+| Whole function (multi-block: branches, loops, calls, tail jumps, `tohost` seams) | `scripts/syi/gen_fn.py --fn <f> --entry <pc> [--fold]`, which emits the block arms plus the derived `FnSummary` fold; fold combinators `FnSummary.{seq,callSplice,tailJump}` | generator + `FnSummary`: here; `segRowFramed`: A0 |
+| Straight-line or branch/jump-terminated span | `#derive_case` segment + `segToTriple` (`SegToTripleFramed`) | A0 |
+| Span ending in a call (`jal`) | `BridgeSeg.bridgeOfSeg` + `jalStep_of_obs`; `bridgeOfSegFull` when non-ABI registers must be kept | A0 |
+| ABI register frame / memory frame on a run | `FrameMeta.abiFrame_of_wrChain`, `FrameMeta.memFrame_of_chain` (one `decide`); never per-site frame threading | A0 |
+| Call splice (prefix ≫ callee ≫ suffix) | `callSeg`/`callSegConseq` (`DeriveCallSeg`) | here |
+| Loop | `loopFromBody` (`DeriveLoop`) | here |
+| Load / byte-read obligation | total reads, `RamRead{Policy,Single,Data,Scalar,Virtual,Load,Value}`; the model's `readByte` is `getD 0`, so never demand presence the densification (`fillZero`) already gives | here |
+| Allocator machine run (`_malloc_r`, `_free_r`, `_realloc_r`) | `SWP pc R Mt` (`VsaIris/Vsa/SymRun.lean`) with generated step tables (`scripts/syi/gen_alloc_steps.py`); never a hand stage over `seg_step` | A0 |
+| Iris-route block (segment, helper call, fuel loop) for total and partial WP | state it `∀ (Wp : MachWP M)` and use `Wp.run`/`wp_segW`/`wp_callW`/`wp_retW`/`wp_localRunW` (`VsaIris/MachWP.lean`) | here |
+| Newlib stdout call (`print` → `fwrite` → `__sfvwrite_r` → `_write`) | the stdio step tables (`VsaIris/Vsa/Stdout/*`) | A0 |
+| libgcc soft-int (`__muldi3`, `__udivdi3`, `__moddi3`, …) | the site/spec batteries (`Muldi3Spec`, `DivSpec`), regenerated at Lua addresses | here (WHILE addresses) |
+| Decode of an instruction word | the generated decode table (`experiments/syi/gen_decode_table.py`), one lemma per word | here (43% of Lua's reached words) |
+| Fixed image bytes | `Lua/Vm/Image.lean` (`scripts/gen_lua_image.py`) + `Vsa.Sim.Code.FixedBytesLoaded` | here |
+| Struct offsets, tags, symbol addresses | `Lua/Vm/Layout.lean` (`scripts/gen_lua_layout.py`, read from the cross compiler) — never a hand-written offset | here |
+| A concrete program as a `Proto` | `scripts/gen_proto.py` on the `luac -s` chunk | here |
+| `BcSem` derivation for a concrete program | `bcSem_of_run` + `decide +kernel` (`Lua/Bytecode/Exec.lean`) | here |
+| New post/entry predicate | named-field `structure ... : Prop where` (model: `VmEntryData`); never an anonymous ∃/∧ tower | — |
+| Consuming a landed ∃/∧ tower | write ONE named destructuring lemma beside its definition | — |
+
+## Laws
+
+1. **Elaboration budget.** NEVER raise `maxHeartbeats`/`maxRecDepth`
+   (rule R2). A heartbeat bump or whnf timeout means the construction is
+   wrong:
+   * check ground literals first, then use more abstraction;
+   * use one small `decide` per fact;
+   * reflect on the first-order write log; never whnf the Sail state;
+   * emit terms, not tactic scripts.
+2. **No `sorry`/`axiom`/`native_decide`/`bv_decide`.** A theorem not yet
+   proved is a `def …_Statement : Prop` or a named obligation structure
+   (`VmSim`, `CompileTV`), listed in PHASES.md. A genuine gap is a NAMED,
+   typed premise with a doc comment saying what supplies it.
+3. **Duplication is a signal.** If work feels duplicated or mechanical,
+   STOP. An abstraction is missing; build or name it, then instantiate. Two
+   similar proofs means factor before writing the third.
+4. **Infeasible steps.** If a plan step is infeasible, return the
+   machine-checked obstruction, not a workaround.
+5. **Builds and axioms.**
+   * Build with `lake build <Module>` for the modules you touch; run one
+     build at a time.
+   * On shared machines, run it under a memory cap
+     (`systemd-run --user --scope -p MemoryMax=30G …`).
+   * The axioms of every new theorem must be ⊆ {propext, Classical.choice,
+     Quot.sound}; `scripts/check.sh` stage 6 checks this.
+6. **Hide complexity by shape.** If you are counting conjuncts
+   (`h.2.2.2.2…`) or tracking positional indices, the statement wants a
+   named-field structure. Rules R6 and R7 enforce this.
+7. **Generated files are generated.**
+   * Every file with a `GENERATED by` header is rewritten by its script, and
+     check.sh stage 1 fails on drift.
+   * Change the generator or its input, never the output.
+
+## Extending the discipline
+
+- **New enforced rule.** Append a TSV line to `scripts/discipline_rules.tsv`
+  (id, glob, regex or `COUNT>N:needle`, message). No code changes are needed.
+- **Genuine exception.** Put `-- discipline: allow(<rule-id>) <justification>`
+  on or above the line.
+- **Copied files.** Files copied from ship-your-interpreter are exempt
+  (`experiments/port/copied.txt`). A copied file that you change is no longer
+  a copy: remove it from that list.
+- **New abstraction.** When one lands or is ported, update the Availability
+  column above. If it can be bypassed by hand, add a rule that catches the
+  hand version.
+
+## Documentation
+
+- **README.md** holds the plan and the headline numbers.
+- **VALIDATION.md** holds the Phase 1 measurements.
+- **PHASES.md** holds the plan, the obligations and the exit criteria.
+  Update its obligations table when a statement is discharged.
+- **ATTRIBUTION.md** records provenance.
+- State the current design, commands and proof obligations. Omit discussion
+  history. Use Git for session history.
