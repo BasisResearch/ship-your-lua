@@ -3,6 +3,7 @@ import Lua.Bytecode.Syntax
 import Lua.Bytecode.Semantics
 import Lua.Bytecode.Exec
 import Lua.Fragment
+import Lua.FragmentSound
 import Lua.Vm.Layout
 import Lua.Vm.Image
 import Lua.Vm.Repr

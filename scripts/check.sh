@@ -102,11 +102,21 @@ import Lua
 #print axioms Lua.Programs.readsStale_unsupported
 #print axioms Lua.Programs.f1b_bcSem
 #print axioms Lua.Programs.f1b_supported
+#print axioms Lua.Bytecode.step?_complete
+#print axioms Lua.Bytecode.Step.deterministic
+#print axioms Lua.Bytecode.BcSem.deterministic
+#print axioms Lua.Bytecode.Supported.defInit
+#print axioms Lua.Bytecode.DefInit.step
+#print axioms Lua.Bytecode.bcSemFrom_iff
+#print axioms Lua.Bytecode.cbcSem_iff
+#print axioms Lua.Bytecode.reachable_defInit
+#print axioms Lua.Bytecode.condJump_ne_none
+#print axioms Lua.Bytecode.condJump_lt
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -c "depends on axioms" "$tmp/out.txt")
-[ "$n" = 16 ] || fail "expected 16 axiom reports, got $n"
+[ "$n" = 26 ] || fail "expected 26 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"
