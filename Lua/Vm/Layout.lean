@@ -189,6 +189,84 @@ def maxShortLen : Nat := 40
 /-- `NUM_OPCODES` -/
 def numOpcodes : Nat := 83
 
+/-! newlib's system-call ABI (`struct _reent`, `struct stat`, `<fcntl.h>`, `<errno.h>`). -/
+/-- `offsetof(struct _reent, _errno)` — `errno` is `_impure_ptr->_errno` -/
+def reentErrnoOff : Nat := 0
+/-- `sizeof(struct stat)` -/
+def statSize : Nat := 104
+/-- `offsetof(struct stat, st_mode)` — 32-bit `mode_t` -/
+def statModeOff : Nat := 4
+/-- `offsetof(struct stat, st_nlink)` — 16-bit `nlink_t` -/
+def statNlinkOff : Nat := 8
+/-- `offsetof(struct stat, st_size)` — 64-bit `off_t` -/
+def statSizeOff : Nat := 16
+/-- `S_IFMT` -/
+def sIfmt : Nat := 61440
+/-- `S_IFCHR` -/
+def sIfchr : Nat := 8192
+/-- `S_IFREG` -/
+def sIfreg : Nat := 32768
+/-- `S_IFDIR` -/
+def sIfdir : Nat := 16384
+/-- `O_ACCMODE` -/
+def oAccmode : Nat := 3
+/-- `O_RDONLY` -/
+def oRdonly : Nat := 0
+/-- `O_WRONLY` -/
+def oWronly : Nat := 1
+/-- `O_RDWR` -/
+def oRdwr : Nat := 2
+/-- `O_APPEND` -/
+def oAppend : Nat := 8
+/-- `O_CREAT` -/
+def oCreat : Nat := 512
+/-- `O_TRUNC` -/
+def oTrunc : Nat := 1024
+/-- `O_EXCL` -/
+def oExcl : Nat := 2048
+/-- `_FDIRECTORY` — `O_DIRECTORY` (hidden under -std=gnu11) -/
+def oDirectory : Nat := 2097152
+/-- `EPERM` -/
+def errnoEPERM : Nat := 1
+/-- `ENOENT` -/
+def errnoENOENT : Nat := 2
+/-- `EBADF` -/
+def errnoEBADF : Nat := 9
+/-- `EACCES` -/
+def errnoEACCES : Nat := 13
+/-- `EBUSY` -/
+def errnoEBUSY : Nat := 16
+/-- `EEXIST` -/
+def errnoEEXIST : Nat := 17
+/-- `EXDEV` -/
+def errnoEXDEV : Nat := 18
+/-- `ENOTDIR` -/
+def errnoENOTDIR : Nat := 20
+/-- `EISDIR` -/
+def errnoEISDIR : Nat := 21
+/-- `EINVAL` -/
+def errnoEINVAL : Nat := 22
+/-- `EMFILE` -/
+def errnoEMFILE : Nat := 24
+/-- `ESPIPE` -/
+def errnoESPIPE : Nat := 29
+/-- `ENOSPC` -/
+def errnoENOSPC : Nat := 28
+/-- `EROFS` -/
+def errnoEROFS : Nat := 30
+/-- `EMLINK` -/
+def errnoEMLINK : Nat := 31
+/-- `ENAMETOOLONG` -/
+def errnoENAMETOOLONG : Nat := 91
+/-- `ENOSYS` -/
+def errnoENOSYS : Nat := 88
+/-- `ENOTEMPTY` -/
+def errnoENOTEMPTY : Nat := 90
+/-- `ELOOP` -/
+def errnoELOOP : Nat := 92
+/-- `EOVERFLOW` -/
+def errnoEOVERFLOW : Nat := 139
+
 /-! Symbol addresses in `c/lua-riscv-htif.elf` (`nm`). -/
 /-- `_start` -/
 def symStart : Nat := 0x80000000
@@ -232,5 +310,27 @@ def symEnd : Nat := 0x80059870
 def symHeapEnd : Nat := 0x87800000
 /-- `__stack_top` -/
 def symStackTop : Nat := 0x88000000
+/-- `_open` -/
+def symOpen : Nat := 0x80000074
+/-- `_close` -/
+def symClose : Nat := 0x80000098
+/-- `_read` -/
+def symRead : Nat := 0x8000006c
+/-- `_write` -/
+def symWrite : Nat := 0x8000003c
+/-- `_lseek` -/
+def symLseek : Nat := 0x800000a0
+/-- `_fstat` -/
+def symFstat : Nat := 0x800000c4
+/-- `_isatty` -/
+def symIsatty : Nat := 0x80000110
+/-- `_sbrk` -/
+def symSbrk : Nat := 0x80000118
+/-- `_kill` -/
+def symKill : Nat := 0x80000198
+/-- `_getpid` -/
+def symGetpid : Nat := 0x800001bc
+/-- `_impure_ptr` -/
+def symImpurePtr : Nat := 0x80049070
 
 end Lua.Vm.Layout
