@@ -1,0 +1,56 @@
+# Console-stream scripts for the Lua image's htif.c (no fixture: the
+# generated families start with mkdir, which the Lua ELF does not have).
+# Syntax: tcb/TCB/Os/Trace.lean. One behaviour per script.
+## c01 write stdout
+write 1 "hello" 5
+## c02 write stderr
+write 2 "oops\n" 5
+## c03 write stdout zero bytes
+write 1 "" 0
+## c04 read stdin at end of input
+read 0 16
+## c05 read stdin zero bytes
+read 0 0
+## c06 read stdout
+read 1 4
+## c07 write stdin
+write 0 "x" 1
+## c08 fstat stdin
+fstat 0
+## c09 fstat stdout
+fstat 1
+## c10 fstat stderr
+fstat 2
+## c11 lseek stdout
+lseek 1 0 0
+## c12 lseek stdin, bad whence
+lseek 0 0 7
+## c13 close stdout
+close 1
+## c14 write after close stdout
+close 1
+write 1 "x" 1
+## c15 close twice
+close 2
+close 2
+## c16 fstat after close
+close 0
+fstat 0
+## c17 write unknown fd
+write 3 "x" 1
+## c18 read unknown fd
+read 3 1
+## c19 close unknown fd
+close 3
+## c20 fstat unknown fd
+fstat 3
+## c21 lseek unknown fd
+lseek 3 0 0
+## c22 open missing, no O_CREAT
+open "/a" O_RDONLY
+## c23 open with O_CREAT
+open "/a" O_WRONLY|O_CREAT
+## c24 print-like sequence (newlib stdout: fstat, then writes)
+fstat 1
+write 1 "hello world\n" 12
+write 1 "1\n" 2
