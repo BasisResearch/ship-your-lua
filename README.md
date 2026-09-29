@@ -45,8 +45,7 @@ LuaSem s out  ↔  BcSem (compile s) out  ↔  Halts c out 0
 
 | fragment | contents |
 |---|---|
-| **F1** | integers, moves, constants, integer arithmetic, compare+jump, `FORPREP`/`FORLOOP`, `RETURN`, calls to `print` |
-| F1b | integer bitwise |
+| **F1** | integers, moves, constants, integer arithmetic and bitwise operators (F1b, merged), compare+jump, `FORPREP`/`FORLOOP`, `RETURN`, calls to `print` |
 | F2 | tables (the real `next` order) |
 | F3 | closures, upvalues, calls, varargs, multret |
 | F4 | strings, metatables |
@@ -79,14 +78,20 @@ def endToEnd_lua_Statement (Lay : VmLayout) (Compiles : Chunk → Proto → Prop
     the CompCert-style refinement pattern plus densification.
   * `compile_refinement_of_tv`: Layer B from `CompileTV`.
 * **Semantics validated against the binary.**
-  * `while_bcSem`, `f1Ops_bcSem`, `printPrint_bcSem`: `BcSem` gives exactly
-    the output the ELF prints on Sail.
+  * `while_bcSem`, `f1Ops_bcSem`, `printPrint_bcSem`, `f1b_bcSem`: `BcSem`
+    gives exactly the output the ELF prints on Sail.
   * These are kernel evaluation of a stepper proved sound for `Step`
-    (`step?_sound`, `run_sound`).
+    (`step?_sound`, `run_sound`). It is also complete (`step?_complete`), so
+    `Step` and `BcSem` are deterministic (`Step.deterministic`,
+    `BcSem.deterministic`).
 * **Fragment check.**
-  * `while_supported` and `f1Ops_supported` hold.
+  * `while_supported`, `f1Ops_supported` and `f1b_supported` hold.
   * `readsStale_unsupported`: a read of an unwritten register is rejected.
   * `ledger_exact`: the ledger is exactly the non-F1 opcodes.
+  * The definite-initialisation check is sound (`Lua/FragmentSound.lean`):
+    for a supported program, `BcSem` does not depend on the registers at
+    entry (`bcSemFrom_iff`) or on what a call leaves above its results
+    (`cbcSem_iff`).
 
 ## Validation numbers (VALIDATION.md)
 
@@ -124,9 +129,9 @@ def endToEnd_lua_Statement (Lay : VmLayout) (Compiles : Chunk → Proto → Prop
 | `vendor/lua-5.4.7/` | Lua 5.4.7, unmodified (MIT, `LICENSE`) |
 | `c/` | bare-metal build: `Makefile`, `src/{main.c,baremetal.h,chunk.S,crt0.S,htif.c,link.ld}` |
 | `c/lua-riscv-htif.elf` | the ELF, with sha256 in `lua-riscv-htif.elf.sha256` and embedded chunk `c/tests/while.luac` |
-| `c/tests/` | `while.lua` (a port of WHILE's `while.wl`), the F1 validation programs, and `difftest/` with `difftest.sh` |
+| `c/tests/` | `while.lua` (a port of WHILE's `while.wl`), the F1 validation programs (`f1_ops.lua`, `f1b_bits.lua`, `print_print.lua`), and `difftest/` with `difftest.sh` |
 | `Lua/Bytecode/` | opcodes (generated from `lopcodes.h`), instruction decoding, `Proto`, **`BcSem`** (F1), and the sound stepper |
-| `Lua/Fragment.lean` | `Supported`, the fragments, and the ledger of unsupported opcodes |
+| `Lua/Fragment.lean`, `Lua/FragmentSound.lean` | `Supported`, the fragments, the ledger of unsupported opcodes, and the soundness of the definite-initialisation check |
 | `Lua/Vm/` | struct layout (generated from the cross compiler), the image (generated from the ELF), representation predicates, `VmLoaded`, and the binary's `Host` |
 | `Lua/Ast/` | F1 source AST and **`LuaSem`** |
 | `Lua/Refinement.lean`, `Lua/Theorems.lean` | the refinement pattern and the three statements with their proved compositions |
