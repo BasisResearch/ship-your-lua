@@ -27,10 +27,10 @@ Every row is currently unassigned.
 | `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | new `Lua/Vm/Boot/` | A0 | open |
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | new `Lua/Vm/Sim/` | A1 | open |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
-| `CompileTV (LuacOutput)` per program (translation validation) | new `Lua/Compile/TV.lean` | B1 | open |
+| `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
 | `CompileTV (fun s p => compile s = some p)` for a Lean `compile` | new `Lua/Compile/` | B2 | open |
 | the ELF's `lparser`/`lcode` refine `compile` | — | B3 | open |
-| **`compile_refinement_Statement`** | `Lua/Theorems.lean` | B1/B2 (by `compile_refinement_of_tv`) | open |
+| **`compile_refinement_Statement`** | `Lua/Theorems.lean` | B1/B2 (by `compile_refinement_of_tv`) | **proved for `CorpusCompiles`** (`compile_refinement_corpus`); open for B2's `compile` |
 | **`endToEnd_lua_Statement luaLayout Compiles`** | `Lua/Theorems.lean` | E (by `endToEnd_of_layers`) | open |
 
 ## P0: validation and scaffold (done)
@@ -227,14 +227,32 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
 
 ## B: Layer B, source to bytecode
 
-* **B1: translation validation.** For concrete F1 chunks and the host
-  `luac`'s output, prove both directions of `CompileTV`.
-  * `BcSem` side: from `run_sound`, as `Lua/Programs/Validation.lean` does.
-  * `LuaSem` side: from a derivation tactic like ship-your-interpreter's
-    `bigstep_derive`, plus determinism of `LuaSem` and `BcSem`.
-  * Exit: `compile_refinement_Statement` for the relation "is the host
-    `luac -s` output" restricted to a corpus. `f1_ops.lua` is the first
-    target; `while.lua` needs `goto`, which is outside the F1 AST.
+* **B1: translation validation (done for the corpus).** For concrete F1
+  chunks and the host `luac -s`'s output, both directions of `CompileTV`.
+  * Source side: `scripts/gen_ast.py` parses an F1 `.lua` file into a Lean
+    `Chunk` (check.sh stage 1 checks drift, and that the committed `.luac`
+    is `luac -s` of the `.lua`). The F1 AST has multi-name `local`
+    (`Stat.locals`, `adjust_assign`: missing values `nil`, extras dropped).
+  * `LuaSem` side: the fuel-bounded interpreter `luaRun`
+    (`Lua/Ast/Exec.lean`) with `luaRun_sound`, by `decide +kernel`.
+  * `BcSem` side: `bcSem_of_run`, by `decide +kernel`.
+  * Determinism: `LuaSem.deterministic` (`Lua/Ast/Determinism.lean`),
+    `Step.deterministic`, `Final.not_step`, `BcSem.deterministic`
+    (`Lua/Bytecode/Exec.lean`); `agree_of_outputs` turns one common
+    output into `∀ out, LuaSem s out ↔ BcSem p out`.
+  * Per program: `ProgramTV s p` (`AstSupported s`, `Supported p`, the `↔`)
+    and `CompileTV.of_programTV` (`Lua/Compile/TV.lean`).
+  * Corpus (`Lua/Compile/Corpus.lean`): `f1_ops.lua` and `f1_src.lua`
+    (`if`/`elseif`, `repeat` over body locals, `break` from
+    `while`/`for`/`repeat`, shadowing, padded/extra `local` values); expected
+    outputs are the ELF's on the Sail model (`c/tests/*.expected`).
+    `while.lua` needs `goto` and `print_print.lua` reads `print` as a value:
+    both outside the F1 AST.
+  * Exit (met): `compile_refinement_corpus :
+    compile_refinement_Statement CorpusCompiles`, standard axioms only.
+  * Adding a program: write `c/tests/x.lua`, commit `luac -s` output and
+    the ELF's output, run `gen_ast.py`/`gen_proto.py`, add both to check.sh's
+    drift lists, and add a `ProgramTV` plus a `CorpusCompiles` constructor.
 * **B2: a Lean compiler.** Write `compile : Chunk → Option Proto`, a model of
   `lparser.c`/`lcode.c` for F1 (register allocation, jump patching, the
   `RK`/immediate/constant selection that `luac` does).

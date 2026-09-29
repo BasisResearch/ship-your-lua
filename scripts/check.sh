@@ -38,7 +38,19 @@ c/tests/while.luac whileProto Lua/Programs/While.lean
 c/tests/print_print.luac printPrintProto Lua/Programs/PrintPrint.lean
 c/tests/f1_ops.luac f1OpsProto Lua/Programs/F1Ops.lean
 c/tests/f1b_bits.luac f1bProto Lua/Programs/F1bBits.lean
+c/tests/f1_src.luac f1SrcProto Lua/Programs/F1Src.lean
 LIST
+# source ASTs (Layer B translation validation) <- the .lua files; the
+# committed .luac chunks <- the host luac on the same files
+while read -r src name out; do
+  python3 scripts/gen_ast.py "$src" --name "$name" -o "$out" --check || fail "$out drift"
+done <<'LIST'
+c/tests/f1_ops.lua f1OpsAst Lua/Programs/F1OpsAst.lean
+c/tests/f1_src.lua f1SrcAst Lua/Programs/F1SrcAst.lean
+LIST
+for f in f1_ops f1_src; do
+  ./c/luac -s -o - "c/tests/$f.lua" | cmp -s - "c/tests/$f.luac" || fail "c/tests/$f.luac is not luac -s of $f.lua"
+done
 
 echo "== (2) ELF hash"
 (cd c && sha256sum -c lua-riscv-htif.elf.sha256) || fail "ELF hash"
@@ -120,11 +132,19 @@ import Lua
 #print axioms Lua.Bytecode.reachable_defInit
 #print axioms Lua.Bytecode.condJump_ne_none
 #print axioms Lua.Bytecode.condJump_lt
+#print axioms Lua.Ast.luaRun_sound
+#print axioms Lua.Ast.LuaSem.deterministic
+#print axioms Lua.Bytecode.Final.not_step
+#print axioms Lua.Compile.agree_of_outputs
+#print axioms Lua.Compile.f1Ops_tv
+#print axioms Lua.Compile.f1Src_tv
+#print axioms Lua.Compile.corpus_compileTV
+#print axioms Lua.Compile.compile_refinement_corpus
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -c "depends on axioms" "$tmp/out.txt")
-[ "$n" = 30 ] || fail "expected 30 axiom reports, got $n"
+[ "$n" = 38 ] || fail "expected 38 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

@@ -14,6 +14,8 @@ import Lua.Vm.Code
 import Lua.Refinement
 import Lua.Ast.Syntax
 import Lua.Ast.Semantics
+import Lua.Ast.Exec
+import Lua.Ast.Determinism
 import Lua.Theorems
 import Lua.Programs.While
 import Lua.Programs.PrintPrint
@@ -21,6 +23,11 @@ import Lua.Programs.F1Ops
 import Lua.Programs.F1bBits
 import Lua.Programs.Validation
 import Lua.Programs.Supported
+import Lua.Programs.F1OpsAst
+import Lua.Programs.F1SrcAst
+import Lua.Programs.F1Src
+import Lua.Compile.TV
+import Lua.Compile.Corpus
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/

@@ -34,6 +34,11 @@ inductive Expr where
 inductive Stat where
   /-- `local x = e` -/
   | local_ (x : String) (e : Expr)
+  /-- `local x₁, …, xₙ = e₁, …, eₘ`: every `eᵢ` is evaluated in the outer
+  scope, then the names are bound left to right, missing values are `nil`
+  and extra values are dropped (`adjust_assign`; F1 has no multi-value
+  expressions). -/
+  | locals (xs : List String) (es : List Expr)
   /-- `x = e` (to a local) -/
   | assign (x : String) (e : Expr)
   /-- `print(e₁, …, eₙ)` -/
