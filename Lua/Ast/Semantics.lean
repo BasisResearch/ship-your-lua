@@ -29,6 +29,14 @@ def Env.update : Env → String → Value → Option Env
   | [], _, _ => none
   | (y, w) :: ρ, x, v => if y = x then some ((y, v) :: ρ) else ((y, w) :: ·) <$> Env.update ρ x v
 
+/-- Bind the names of `local x₁, …, xₙ = …` to the values, left to right
+(the last name is innermost); missing values are `nil`, extra ones are
+dropped. -/
+def bindLocals : List String → List Value → Env → Env
+  | [], _, ρ => ρ
+  | x :: xs, [], ρ => bindLocals xs [] ((x, .nil) :: ρ)
+  | x :: xs, v :: vs, ρ => bindLocals xs vs ((x, v) :: ρ)
+
 /-- Leave a block: drop the locals it pushed, keep its updates to outer
 locals. -/
 def scope (outer inner : Env) : Env := inner.drop (inner.length - outer.length)
@@ -85,6 +93,8 @@ inductive Exec (H : Host) : Env → String → List Stat → Env → String → 
   | nil {ρ o} : Exec H ρ o [] ρ o .normal
   | local_ {ρ o x e v ss ρ' o' sg} : Eval ρ e v → Exec H ((x, v) :: ρ) o ss ρ' o' sg →
       Exec H ρ o (.local_ x e :: ss) ρ' o' sg
+  | locals {ρ o xs es vs ss ρ' o' sg} : EvalList ρ es vs →
+      Exec H (bindLocals xs vs ρ) o ss ρ' o' sg → Exec H ρ o (.locals xs es :: ss) ρ' o' sg
   | assign {ρ o x e v ρ₁ ss ρ' o' sg} : Eval ρ e v → ρ.update x v = some ρ₁ →
       Exec H ρ₁ o ss ρ' o' sg → Exec H ρ o (.assign x e :: ss) ρ' o' sg
   | print {ρ o args vs ss ρ' o' sg} : EvalList ρ args vs →
@@ -157,6 +167,8 @@ mutual
 def scopedS (bound : List String) (inLoop : Bool) : List Stat → Bool
   | [] => true
   | .local_ x e :: ss => x != "print" && scopedE bound e && scopedS (x :: bound) inLoop ss
+  | .locals xs es :: ss => xs.all (· != "print") && scopedEs bound es &&
+      scopedS (xs.reverse ++ bound) inLoop ss
   | .assign x e :: ss => bound.contains x && scopedE bound e && scopedS bound inLoop ss
   | .print args :: ss => scopedEs bound args && scopedS bound inLoop ss
   | .while_ c b :: ss => scopedE bound c && scopedS bound true b && scopedS bound inLoop ss
@@ -174,6 +186,7 @@ def scopedRepeat (bound : List String) : List Stat → Expr → Bool
 def declared : List Stat → List String
   | [] => []
   | .local_ x _ :: ss => x :: declared ss
+  | .locals xs _ :: ss => xs ++ declared ss
   | _ :: ss => declared ss
 end
 
