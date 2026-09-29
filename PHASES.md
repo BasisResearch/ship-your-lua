@@ -71,16 +71,35 @@ instances, however, are at the WHILE ELF's addresses.
    * Most of those edges supply shared geometry lemmas. Move those lemmas
      below the WHILE modules, then copy the targets.
    * Exit: `port_census.py --copyset` is clean with the targets included.
-3. **Decode table.**
-   * Run `experiments/syi/gen_decode_table.py` on the Lua ELF's reached
-     words.
-   * 43% of the difftest union's 8,346 words are already covered by the
-     copied lemmas.
-4. **Code pins.**
-   * `Lua/Vm/Image.lean` pins `.text`/`.rodata` already.
-   * Generate per-function projections (`scripts/syi/gen_fixed_image.py`
-     retargeted, `experiments/syi/gen_code_lemmas.py`) for `luaV_execute`
-     and its F1 callees.
+3. **Decode (done).** The generic decoder replaces per-word tables.
+   * `Vsa.Sim.decodeW σ hmisa hpriv hsec : (ext_decode w).run σ = .ok i σ`
+     (`Vsa/Sim/DecodeNF.lean`, from ship-your-interpreter's `#simp_nf`,
+     `Vsa/Meta/SimpNF.lean`). The instruction `i` is found by an autoParam
+     `rfl` for any concrete word, so no per-word lemma is generated.
+   * Drop-in rule: `DecodeTable.decode_<hex> σ h1 h2 h3` becomes
+     `Vsa.Sim.decodeW (w := 0x<hex>#32) σ h1 h2 h3`. A `DecodeFactM`/`DecodeFactT`
+     leaf is `fun s h1 h2 h3 => Vsa.Sim.decodeW s h1 h2 h3`.
+   * Coverage: `Lua/Vm/DecodeCheck/*` (`scripts/gen_lua_decode_check.py`)
+     kernel-checks one `example` per unique word of `luaV_execute` (1,641
+     words, 4,020 instructions), each stating the instruction the Lean
+     evaluator decodes the word to. It builds in 13 modules of 128 words:
+     6 s wall, 54 s CPU, about 1.7 GB per module. check.sh stage 1 checks drift.
+4. **Code pins (done).** `scripts/gen_lua_code.py` emits `Lua/Vm/Code/*`
+   (index module `Lua.Vm.Code`). It retargets `gen_code_lemmas.py` and
+   `gen_fixed_image.py --projection`.
+   * Functions: `luaV_execute`, the non-float callees of the F1 arms read from
+     `experiments/census/luaV_execute_arms.tsv`, and `luaB_print`,
+     `luaL_tolstring`, `fwrite` (`lua_writestring`) and `luaG_opinterror`.
+     That is 25 functions. `__udivdi3` is pinned as `__hidden___udivdi3`,
+     the same code.
+   * Per function `F`: `<F>Loaded` and fetch lemmas `<f>_at_<addr>`, plus
+     `textLoaded_<F>Loaded : FixedBytesLoaded textBase textSize textByte m →
+     <F>Loaded m`. Each pinned byte is `h off (by decide)` against
+     `Lua/Vm/Image.lean`.
+   * `luaV_execute` (252 chunks) is split into 16 parts `LuaV_execute_p<k>Loaded`,
+     each of the syi shape. Its fetch lemmas take the part, via
+     `luaV_execute_part<k>`.
+   * Build: 83 modules, 21 s wall, 5m47 CPU.
 5. **Library proofs at Lua addresses.**
    * Regenerate the 74 reused functions' step tables and specs with the
      generators (`gen_alloc_steps.py`, `gen_str_steps.py`,
@@ -98,8 +117,19 @@ instances, however, are at the WHILE ELF's addresses.
    * Retarget `scripts/syi/gen_boot_witness.py` to stop at `luaV_execute`
      (step 124,808 for `while.lua`). It should emit the kernel witness
      `VmLoaded luaLayout whileProto (fillZero c)` at the traced entry state.
-7. Fix `scripts/syi/disasm_to_segment.py`, which silently drops unsupported
-   rows (VALIDATION.md §4).
+7. **`disasm_to_segment.py` (done).**
+   * It no longer drops rows. An `#UNSUPPORTED` row in the range, or an
+     address with no row, is an error; `--allow-unsupported` drafts an
+     explicit `UNSUPPORTED` step instead.
+   * `disasm_to_sites.py` classifies every instruction of `luaV_execute`
+     (4,396 rows, 0 unsupported). The added classes are the immediate and
+     register shifts and logic ops, `addw`, `lui`/`auipc`,
+     `lb`/`lh`/`lhu`/`lwu`, `sh` and general `jalr`.
+   * `scripts/draft_f1_arms.py` drafts all 34 F1 arms: 2,050 instructions in
+     496 segments (`experiments/census/demo/f1_arm_drafts.tsv`).
+   * 376 of those steps need a site class that `gen_sites.py` or
+     `gen_segment.py` lacks (`slli`, `andi`, `srliw`, `sh`, `jalr`, …). Each
+     carries a blocking `TODO` marker. Those batteries are open.
 
 **Exit:** `VmLoaded luaLayout p (fillZero c)` is kernel-checked for
 `while.lua` and `f1_ops.lua` at their real entry states, and check.sh

@@ -23,13 +23,24 @@ Supported classes (see gen_sites.py's docstring):
     ld lw lbu    sd sw sb
     jal (rd != x0)    j (jal x0)    jr (jalr x0,0(rs1), incl. `ret`)
 
+ship-your-lua addition (the luaV_execute arms need them; gen_sites.py has
+no battery for them yet and REJECTS these rows with "unknown class", so they
+are never skipped silently; disasm_to_segment.py drafts them):
+    andi ori xori slti sltiu   rd rs1 imm12     (zext.b = andi 0xff, not, seqz)
+    slli srli srai             rd rs1 shamt6
+    slliw srliw sraiw          rd rs1 shamt5
+    and or xor slt sltu sll srl sra   rd rs1 rs2   (snez/sgtz)
+    addw sllw srlw sraw        rd rs1 rs2
+    lb lh lhu lwu              rd rs1 imm12     sh  rs2 rs1 imm12
+    lui auipc                  rd imm20
+    jalr                       rd rs1 imm12     (any jalr but the jr shape)
+
 Branches: by default BOTH arms are emitted (taken first), each on its own
 row with a `# branch:` comment above — delete the dead arm by hand.  Or pass
 `--path FILE` with lines `<addr-hex> taken|nottaken` to pick one arm per
 branch address (missing addresses still get both arms).
 
-Anything else (64-bit `sub` was one until gen_sites.py grew the class;
-`lh`/`sh`/`sll`/... still are) is emitted as a clearly-marked
+Anything else (M-extension ops, fences, CSR ops, ...) is emitted as a clearly-marked
 `#UNSUPPORTED <addr> <word> <raw disasm>` comment line, which gen_sites.py
 skips, so the gap is visible in the TSV instead of silently dropped.
 gen_sites.py-side per-class operand restrictions that this tool can see
@@ -43,14 +54,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_ELF = ROOT / "c" / "while-riscv-htif.elf"
-DEFAULT_OBJDUMP = "riscv64-elf-objdump"
+ROOT = Path(__file__).resolve().parents[2]   # repository root (scripts/syi/../..)
+DEFAULT_ELF = ROOT / "c" / "lua-riscv-htif.elf"
+DEFAULT_OBJDUMP = str(Path.home() / "toolchains/xpack-riscv-none-elf-gcc-15.2.0-1"
+                      / "bin/riscv-none-elf-objdump")
 
 BRANCH_F3 = {0b000: "BEQ", 0b001: "BNE", 0b100: "BLT", 0b101: "BGE",
              0b110: "BLTU", 0b111: "BGEU"}
-LOAD_F3 = {0b011: "ld", 0b010: "lw", 0b100: "lbu"}   # width/signedness key
-STORE_F3 = {0b011: "sd", 0b010: "sw", 0b000: "sb"}
+LOAD_F3 = {0b011: "ld", 0b010: "lw", 0b100: "lbu",   # width/signedness key
+           0b000: "lb", 0b001: "lh", 0b101: "lhu", 0b110: "lwu"}
+STORE_F3 = {0b011: "sd", 0b010: "sw", 0b000: "sb", 0b001: "sh"}
 
 DISASM_RE = re.compile(r"^\s*([0-9a-f]+):\s+([0-9a-f]{8})\s+(.*?)\s*$")
 
@@ -120,38 +133,67 @@ def classify(addr: int, word: int, raw: str, path: dict) -> list[Row]:
     op = f["opcode"]
 
     if op == 0b0010011:                                   # OP-IMM
-        if f["funct3"] != 0b000:                          # only ADDI
-            return [unsupported(addr, word, raw, "OP-IMM funct3 != ADDI")]
+        f3 = f["funct3"]
+        if f3 in (0b001, 0b101):                          # SHIFTIOP
+            top = (word >> 26) & 0x3f
+            cls = {(0b001, 0): "slli", (0b101, 0): "srli",
+                   (0b101, 0b010000): "srai"}.get((f3, top))
+            if cls is None:
+                return [unsupported(addr, word, raw, "OP-IMM shift shape")]
+            ops = [f["rd"], f["rs1"], f"{(word >> 20) & 0x3f:02x}"]
+        else:
+            cls = {0b000: "alu_addi", 0b111: "andi", 0b110: "ori",
+                   0b100: "xori", 0b010: "slti", 0b011: "sltiu"}[f3]
+            ops = [f["rd"], f["rs1"], f"{f['imm_i']:03x}"]
         if f["rd"] == 0:
-            return [unsupported(addr, word, raw, "alu_addi with rd=x0")]
-        return [Row(addr, word, "alu_addi",
-                    [f["rd"], f["rs1"], f"{f['imm_i']:03x}"], raw=raw)]
+            return [unsupported(addr, word, raw, f"{cls} with rd=x0")]
+        return [Row(addr, word, cls, ops, raw=raw)]
 
     if op == 0b0011011:                                   # OP-IMM-32
-        if f["funct3"] != 0b000:                          # only ADDIW/sext.w
-            return [unsupported(addr, word, raw, "OP-IMM-32 funct3 != ADDIW")]
+        f3, top = f["funct3"], f["funct7"]
+        if f3 == 0b000:
+            cls, ops = "addiw", [f["rd"], f["rs1"], f"{f['imm_i']:03x}"]
+        else:
+            cls = {(0b001, 0): "slliw", (0b101, 0): "srliw",
+                   (0b101, 0b0100000): "sraiw"}.get((f3, top))
+            if cls is None:
+                return [unsupported(addr, word, raw, "OP-IMM-32 shape")]
+            ops = [f["rd"], f["rs1"], f"{f['rs2']:02x}"]
         if f["rd"] == 0:
-            return [unsupported(addr, word, raw, "addiw with rd=x0")]
-        return [Row(addr, word, "addiw",
-                    [f["rd"], f["rs1"], f"{f['imm_i']:03x}"], raw=raw)]
+            return [unsupported(addr, word, raw, f"{cls} with rd=x0")]
+        return [Row(addr, word, cls, ops, raw=raw)]
 
     if op == 0b0110011:                                   # OP (RTYPE)
         key = (f["funct3"], f["funct7"])
         cls = {(0b000, 0b0000000): "alu_add",
-               (0b000, 0b0100000): "sub"}.get(key)
+               (0b000, 0b0100000): "sub",
+               (0b111, 0): "and", (0b110, 0): "or", (0b100, 0): "xor",
+               (0b010, 0): "slt", (0b011, 0): "sltu",
+               (0b001, 0): "sll", (0b101, 0): "srl",
+               (0b101, 0b0100000): "sra"}.get(key)
         if cls is None:
-            return [unsupported(addr, word, raw, "RTYPE op not ADD/SUB")]
+            return [unsupported(addr, word, raw,
+                                "RTYPE op not in the base integer set (M?)")]
         if f["rd"] == 0:
             return [unsupported(addr, word, raw, f"{cls} with rd=x0")]
         return [Row(addr, word, cls, [f["rd"], f["rs1"], f["rs2"]], raw=raw)]
 
     if op == 0b0111011:                                   # OP-32 (RTYPEW)
-        if (f["funct3"], f["funct7"]) != (0b000, 0b0100000):   # only SUBW
-            return [unsupported(addr, word, raw, "RTYPEW op not SUBW")]
+        cls = {(0b000, 0): "addw", (0b000, 0b0100000): "subw",
+               (0b001, 0): "sllw", (0b101, 0): "srlw",
+               (0b101, 0b0100000): "sraw"}.get((f["funct3"], f["funct7"]))
+        if cls is None:
+            return [unsupported(addr, word, raw, "RTYPEW op (M?)")]
         if f["rd"] == 0:
-            return [unsupported(addr, word, raw, "subw with rd=x0")]
-        return [Row(addr, word, "subw", [f["rd"], f["rs1"], f["rs2"]],
+            return [unsupported(addr, word, raw, f"{cls} with rd=x0")]
+        return [Row(addr, word, cls, [f["rd"], f["rs1"], f["rs2"]],
                     raw=raw)]
+
+    if op in (0b0110111, 0b0010111):                      # LUI / AUIPC
+        cls = "lui" if op == 0b0110111 else "auipc"
+        if f["rd"] == 0:
+            return [unsupported(addr, word, raw, f"{cls} with rd=x0")]
+        return [Row(addr, word, cls, [f["rd"], f"{word >> 12:05x}"], raw=raw)]
 
     if op == 0b1100011:                                   # BRANCH
         bop = BRANCH_F3.get(f["funct3"])
@@ -175,8 +217,7 @@ def classify(addr: int, word: int, raw: str, path: dict) -> list[Row]:
     if op == 0b0000011:                                   # LOAD
         cls = LOAD_F3.get(f["funct3"])
         if cls is None:
-            return [unsupported(addr, word, raw,
-                                "load width/signedness (lb/lh/lhu/lwu?)")]
+            return [unsupported(addr, word, raw, "load funct3 unknown")]
         if f["rd"] == 0 or f["rs1"] == 0:
             return [unsupported(addr, word, raw, f"{cls} with x0 operand")]
         return [Row(addr, word, cls,
@@ -185,7 +226,7 @@ def classify(addr: int, word: int, raw: str, path: dict) -> list[Row]:
     if op == 0b0100011:                                   # STORE
         cls = STORE_F3.get(f["funct3"])
         if cls is None:
-            return [unsupported(addr, word, raw, "store width (sh?)")]
+            return [unsupported(addr, word, raw, "store funct3 unknown")]
         if f["rs1"] == 0:
             return [unsupported(addr, word, raw, f"{cls} with rs1=x0")]
         return [Row(addr, word, cls,
@@ -198,12 +239,15 @@ def classify(addr: int, word: int, raw: str, path: dict) -> list[Row]:
         return [Row(addr, word, "jal", [f["rd"], f"{imm:06x}"], raw=raw)]
 
     if op == 0b1100111:                                   # JALR
-        if f["funct3"] != 0 or f["rd"] != 0 or f["imm_i"] != 0:
-            return [unsupported(addr, word, raw,
-                                "jalr shape != jr rs1 (rd=x0, imm=0)")]
+        if f["funct3"] != 0:
+            return [unsupported(addr, word, raw, "jalr funct3 != 0")]
         if f["rs1"] == 0:
-            return [unsupported(addr, word, raw, "jr with rs1=x0")]
-        return [Row(addr, word, "jr", [f["rs1"]], raw=raw)]
+            return [unsupported(addr, word, raw, "jalr with rs1=x0")]
+        if f["rd"] == 0 and f["imm_i"] == 0:
+            return [Row(addr, word, "jr", [f["rs1"]], raw=raw)]
+        # indirect call / general jalr (`jalr ra,off(a5)`)
+        return [Row(addr, word, "jalr",
+                    [f["rd"], f["rs1"], f"{f['imm_i']:03x}"], raw=raw)]
 
     return [unsupported(addr, word, raw, f"opcode 0x{op:02x}")]
 
