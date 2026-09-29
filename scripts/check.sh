@@ -6,7 +6,8 @@
 # (1) generator drift: every generated Lean file matches its inputs
 #     (opcodes <- lopcodes.h, layout <- the cross compiler + ELF symbols,
 #     image <- the ELF, programs <- the committed .luac chunks);
-# (2) the committed ELF's sha256 matches c/lua-riscv-htif.elf.sha256;
+# (2) the committed ELF's sha256 matches c/lua-riscv-htif.elf.sha256, and it
+#     contains no `ecall`;
 # (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/: sorry,
 #     axiom declarations, native_decide, bv_decide, ofReduceBool,
 #     trustCompiler, and raised maxHeartbeats/maxRecDepth in Lua/;
@@ -36,6 +37,12 @@ LIST
 
 echo "== (2) ELF hash"
 (cd c && sha256sum -c lua-riscv-htif.elf.sha256) || fail "ELF hash"
+# no `ecall`: on the bare Sail machine it traps with no handler and hangs
+# (newlib's libgloss _gettimeofday/_times use it; htif.c must provide them)
+OBJDUMP=${OBJDUMP:-$(ls -d $HOME/toolchains/xpack-riscv-none-elf-gcc-15.2.0-*/bin | head -1)/riscv-none-elf-objdump}
+n=$("$OBJDUMP" -d c/lua-riscv-htif.elf | grep -cw ecall)
+[ "$n" = 0 ] || fail "$n ecall instruction(s) in the ELF"
+echo "no ecall"
 
 echo "== (3) forbidden tokens"
 python3 - <<'PY' || fail "forbidden tokens"

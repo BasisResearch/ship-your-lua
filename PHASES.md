@@ -163,6 +163,15 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
   same code; retarget it.
 * **A7 (Coroutine): coroutines.** `lua_resume`/`lua_yield`, a separate
   `lua_State`, and `longjmp` across resumes.
+* **OS (io/os libraries).** Use the shared syscall spec that ship-your-ocaml
+  is building (`tcb/`, Lean library `TCB`):
+  * SibylFS for the file system, and the CakeML basis FFI for console streams;
+  * a relation `OsStep : OsState → Call → Ret → OsState → Prop`, and the
+    executable checker `allowed`.
+  * Copy it wholesale when it lands and add an `OsState` to the semantics.
+  * The in-image file system in `htif.c` is proved against `OsStep`, not
+    trusted.
+  * The ELF must stay free of `ecall` (check.sh stage 2).
 * **A8: GC.**
   * Stop calling `lua_gc(L, LUA_GCSTOP)`.
   * Prove the semantics GC-invariant (unreachable objects unobservable);
