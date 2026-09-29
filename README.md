@@ -93,6 +93,11 @@ def endToEnd_lua_Statement (Lay : VmLayout) (Compiles : Chunk → Proto → Prop
     entry (`bcSemFrom_iff`) or on what a call leaves above its results
     (`cbcSem_iff`).
 
+**OS boundary.** ship-your-ocaml's OS spec (`tcb/`, SibylFS + CakeML) is
+copied in; `Lua/Os/Htif.lean` states what `c/src/htif.c` must do to
+implement it, and its traces (`experiments/os/RESULTS.md`) show the current
+console-only `htif.c` meets it only on `print`'s writes (PHASES.md, OS).
+
 ## Validation numbers (VALIDATION.md)
 
 * **Toolchain.** xPack GCC 15.2.0 with newlib 4.5.0, the release that built
