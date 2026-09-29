@@ -14,15 +14,20 @@ their own licences, listed below.
 | `riscv-lean/` | `riscv-lean/` | none (added `README.md`, `LICENCE-sail-riscv`) |
 | `Vsa/` (663 modules) | `Vsa/` | none; `Vsa.lean` imports only the copied modules |
 | `VsaIris/` (19 modules) | `VsaIris/` | none; `VsaIris.lean` likewise |
-| `scripts/syi/` | `scripts/` | none (generators, checks, boot-witness generator, difftest library) |
+| `Vsa/Meta/SimpNF.lean`, `Vsa/Sim/DecodeNF.lean` | same (branch `exponentiate`, uncommitted there at `182e80d1`) | none: the generic decoder `#simp_nf` / `Vsa.Sim.decodeW` |
+| `scripts/syi/` | `scripts/` | none (generators, checks, boot-witness generator, difftest library), except the two below |
+| `scripts/syi/disasm_to_sites.py` | `scripts/disasm_to_sites.py` | classifies the classes the `luaV_execute` arms need (`andi`/`ori`/`xori`/`slti`/`sltiu`, the immediate and register shifts, `and`/`or`/`xor`/`slt`/`sltu`, `addw`/`sllw`/`srlw`/`sraw`, `lui`/`auipc`, `lb`/`lh`/`lhu`/`lwu`, `sh`, general `jalr`); defaults to the Lua ELF and the xPack objdump; `ROOT` is the repository root |
+| `scripts/syi/disasm_to_segment.py` | `scripts/disasm_to_segment.py` | fails on `#UNSUPPORTED` rows and on addresses without a row instead of dropping them (`--allow-unsupported` drafts explicit `UNSUPPORTED` steps); drafts the new classes, marking steps gen_sites.py/gen_segment.py cannot emit with a blocking `TODO`; `--from-elf` |
 | `experiments/syi/` | `experiments/` | none (`gen_decode_table.py`, `gen_code_lemmas.py`, `disasm_census.py`, `disasm_reachable.py`) |
+| `scripts/gen_lua_code.py` | `experiments/gen_code_lemmas.py`, `scripts/gen_fixed_image.py --projection` | retargeted to the Lua ELF and `Lua/Vm/Image.lean`; a function over 16 chunks is split into parts of the original shape |
+| `scripts/lua_decode_ast_dump.lean` | `experiments/M2_decode_ast_dump.lean` | ELF and word list as arguments |
 | `c/src/crt0.S`, `c/src/htif.c`, `c/src/link.ld` | `c/src/` | `WHILE_HTIF` → `LUA_HTIF`; link.ld adds the `.lua_chunk` region |
 | `lakefile.toml`, `lean-toolchain`, `lake-manifest.json` | same | new package name, new `Lua` library |
 | `CLAUDE.md` (the discipline) | `CLAUDE.md` | rows for WHILE-specific abstractions dropped; availability column added |
 | `Lua/Refinement.lean` | `Vsa/Refinement.lean` | generalised over the specification |
 
 **What "copied" covers.** The 682 copied Lean modules are the import closure
-of these roots:
+of these roots (plus the two later copies `Vsa.Meta.SimpNF`, `Vsa.Sim.DecodeNF`):
 
 * the machine relation (`Vsa.Machine`, `Vsa.Elf`, `Vsa.Triple`);
 * densification (`Vsa.Densify.*`);

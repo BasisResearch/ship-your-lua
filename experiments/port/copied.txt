@@ -680,3 +680,5 @@ Vsa/Sim/TripleCat.lean
 Vsa/Sim/UntilSequence.lean
 Vsa/Sim/ValueSites.lean
 Vsa/Triple.lean
+Vsa/Meta/SimpNF.lean
+Vsa/Sim/DecodeNF.lean
