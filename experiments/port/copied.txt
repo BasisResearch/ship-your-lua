@@ -610,18 +610,14 @@ Vsa/Sim/Fetch.lean
 Vsa/Sim/FnSummary.lean
 Vsa/Sim/Frame.lean
 Vsa/Sim/GoodState.lean
-Vsa/Sim/Hooks.lean
 Vsa/Sim/Htif.lean
 Vsa/Sim/HtifLift.lean
 Vsa/Sim/HtifMmio.lean
-Vsa/Sim/InitValues.lean
 Vsa/Sim/KeepRegs.lean
 Vsa/Sim/MemcpySites2.lean
 Vsa/Sim/MemcpySites3.lean
 Vsa/Sim/MemcpySites4.lean
 Vsa/Sim/MemcpySites.lean
-Vsa/Sim/MemcpySpec.lean
-Vsa/Sim/MemLoad.lean
 Vsa/Sim/MemLoadTotal.lean
 Vsa/Sim/MemRead.lean
 Vsa/Sim/MemStore.lean
@@ -632,7 +628,6 @@ Vsa/Sim/PageReadSplit.lean
 Vsa/Sim/Pmp.lean
 Vsa/Sim/PtrArith.lean
 Vsa/Sim/RamReadBytes.lean
-Vsa/Sim/RamReadData.lean
 Vsa/Sim/RamReadLoad.lean
 Vsa/Sim/RamReadPins.lean
 Vsa/Sim/RamReadPolicy.lean

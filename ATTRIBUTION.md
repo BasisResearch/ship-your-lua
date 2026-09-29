@@ -12,7 +12,9 @@ their own licences, listed below.
 | here | there | changes |
 |---|---|---|
 | `riscv-lean/` | `riscv-lean/` | none (added `README.md`, `LICENCE-sail-riscv`) |
-| `Vsa/` (663 modules) | `Vsa/` | none; `Vsa.lean` imports only the copied modules |
+| `Vsa/` (663 modules) | `Vsa/` | none, except the rows below; `Vsa.lean` imports only the copied modules |
+| `Vsa/Sim/InitValues.lean` | same | `tohostAddr` is the Lua ELF's `0x80048400` (was the WHILE ELF's `0x8001ad00`); `Lua.Vm.tohostAddr_eq_symTohost` ties it to the generated layout |
+| `Vsa/Sim/{Hooks,MemLoad,RamReadData,MemcpySpec}.lean` | same | the literal `tohost` bounds in their proofs follow `tohostAddr`; the `maxHeartbeats`/`maxRecDepth` raises are dropped (the proofs build without them) |
 | `VsaIris/` (19 modules) | `VsaIris/` | none; `VsaIris.lean` likewise |
 | `scripts/syi/` | `scripts/` | none (generators, checks, boot-witness generator, difftest library) |
 | `experiments/syi/` | `experiments/` | none (`gen_decode_table.py`, `gen_code_lemmas.py`, `disasm_census.py`, `disasm_reachable.py`) |
