@@ -5,7 +5,9 @@
 #
 # (1) generator drift: every generated Lean file matches its inputs
 #     (opcodes <- lopcodes.h, layout <- the cross compiler + ELF symbols,
-#     image <- the ELF, programs <- the committed .luac chunks);
+#     image <- the ELF, programs <- the committed .luac chunks, code pins
+#     <- the ELF + Lua/Vm/Image.lean, decodeW coverage check <- the ELF +
+#     its committed AST dump);
 # (2) the committed ELF's sha256 matches c/lua-riscv-htif.elf.sha256, and it
 #     contains no `ecall`;
 # (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/: sorry,
@@ -27,6 +29,8 @@ echo "== (1) generator drift"
 python3 scripts/gen_opcodes.py --check || fail "opcodes drift"
 python3 scripts/gen_lua_layout.py --check || fail "layout drift"
 python3 scripts/gen_lua_image.py --check || fail "image drift"
+python3 scripts/gen_lua_code.py --check || fail "code pins drift"
+python3 scripts/gen_lua_decode_check.py --check || fail "decode check drift"
 while read -r chunk name out; do
   python3 scripts/gen_proto.py "$chunk" --name "$name" -o "$out" --check || fail "$out drift"
 done <<'LIST'
@@ -99,11 +103,15 @@ import Lua
 #print axioms Lua.Programs.while_supported
 #print axioms Lua.Programs.f1Ops_supported
 #print axioms Lua.Programs.readsStale_unsupported
+#print axioms Vsa.Sim.decodeW
+#print axioms Lua.Vm.Code.textLoaded_LuaV_executeLoaded
+#print axioms Lua.Vm.Code.textLoaded_LuaD_precallLoaded
+#print axioms Lua.Vm.Code.textLoaded_LuaB_printLoaded
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -c "depends on axioms" "$tmp/out.txt")
-[ "$n" = 14 ] || fail "expected 14 axiom reports, got $n"
+[ "$n" = 18 ] || fail "expected 18 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

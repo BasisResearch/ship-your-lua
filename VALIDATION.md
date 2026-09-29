@@ -183,8 +183,8 @@ about 2 minutes.
   union's 8,346 unique words and 51.1% of `while.lua`'s.
 * **`gen_fn.py` budget.** 614 of the 693 statically reachable functions fit it.
 * **A `disasm_to_segment.py` flaw.** It silently drops unsupported rows. On
-  the `OP_MOVE` arm it drafted 2 steps for 5 instructions. This must be fixed
-  before it is used here.
+  the `OP_MOVE` arm it drafted 2 steps for 5 instructions. Fixed in A0.7
+  (PHASES.md): it now fails on unsupported rows and drafts all F1 arms.
 
 **`luaV_execute`.**
 * **Size.** 4,020 instructions (16 KB) at `0x8001aa00–0x8001e8d0`.
