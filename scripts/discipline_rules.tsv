@@ -1,0 +1,13 @@
+# Proof-discipline rules for this repository — one rule per line, TAB-separated.
+# Columns: rule_id	scope_glob	pattern(regex, python)	message
+# The language-agnostic rules of ship-your-interpreter's scripts/discipline_rules.tsv
+# (same ids; its WHILE-address rules R10-R13 and allocator-ledger rule R14 are
+# retargeted when their abstractions are ported, PHASES.md A0). Exempt a line with
+#   -- discipline: allow(<rule_id>) <justification>
+R1-site-battery	**/*.lean	^\s*theorem\s+site_[0-9a-fA-F]{8}	hand per-site StepObs lemma: use #derive_case/block_facts over the decode table
+R2-heartbeat-raise	**/*.lean	set_option\s+(maxHeartbeats|maxRecDepth)\s+\d+	raised elaboration limit: a timeout means the construction is wrong — fix with more abstraction (check ground literals first), never a budget raise
+R5-stepobs-volume	**/*.lean	COUNT>12:stepObs_	>12 stepObs_ references in one file: a hand-threaded chain — use the seg/block-reflection layer
+R6-anon-projection-tower	**/*.lean	\.2\.2\.2\.2	deep anonymous projection into an ∃/∧ tower: state posts/entries as named-field `structure ... : Prop where`, or consume through ONE named destructuring lemma
+R7-conj-tower-def	**/*.lean	COUNT>8:∃	>8 existentials in one file suggests anonymous ∃/∧-tower definitions: new posts/entries must be named-field structures
+R8-conseq-not-dimap	**/*.lean	Triple\.conseq\s+\S+\s+\(fun\s+_\s+h\s*=>\s*h\)|Triple\.conseq\s+\S+\s+\S+\s+\(fun\s+_\s+h\s*=>\s*h\)	conseq with an identity side: use Triple.dimap/lmap/rmap (TripleCat)
+R9-handrolled-fn-assembly	**/*.lean	COUNT>3:#derive_case	multi-block whole-function assemblies must be GENERATED (scripts/syi/gen_fn.py); never hand-roll block batteries
