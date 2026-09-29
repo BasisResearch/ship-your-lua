@@ -682,3 +682,14 @@ Vsa/Sim/ValueSites.lean
 Vsa/Triple.lean
 Vsa/Meta/SimpNF.lean
 Vsa/Sim/DecodeNF.lean
+tcb/Audit.lean
+tcb/TCBCheck.lean
+tcb/TCB.lean
+tcb/TCB/Os/Clock.lean
+tcb/TCB/Os/Errno.lean
+tcb/TCB/Os/Examples.lean
+tcb/TCB/Os/Fs.lean
+tcb/TCB/Os/Process.lean
+tcb/TCB/Os/Streams.lean
+tcb/TCB/Os/Syscall.lean
+tcb/TCB/Os/Trace.lean

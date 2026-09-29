@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Proof-discipline gate: enforce the exponentiating layer programmatically.
 
-Scans Lua/**/*.lean and any Vsa/, VsaIris/ file not copied from
-ship-your-interpreter (experiments/port/copied.txt) against
+Scans Lua/**/*.lean and any Vsa/, VsaIris/, tcb/ file not copied from
+ship-your-interpreter or ship-your-ocaml (experiments/port/copied.txt) against
 scripts/discipline_rules.tsv. Copied from ship-your-interpreter
 (scripts/check_discipline.py); the scan roots are the only change.
 Files listed in scripts/discipline_grandfather.txt are exempt (legacy, pre-layer);
@@ -61,7 +61,7 @@ def main():
     violations = []
     copied = set((ROOT / "experiments" / "port" / "copied.txt").read_text().split())
     files = sorted((ROOT / "Lua").rglob("*.lean"))
-    files += [f for d in ("Vsa", "VsaIris") for f in sorted((ROOT / d).rglob("*.lean"))
+    files += [f for d in ("Vsa", "VsaIris", "tcb") for f in sorted((ROOT / d).rglob("*.lean"))
               if str(f.relative_to(ROOT)) not in copied]
     for f in files:
         rel = str(f.relative_to(ROOT))

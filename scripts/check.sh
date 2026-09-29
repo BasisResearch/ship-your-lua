@@ -10,7 +10,7 @@
 #     its committed AST dump);
 # (2) the committed ELF's sha256 matches c/lua-riscv-htif.elf.sha256, and it
 #     contains no `ecall`;
-# (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/: sorry,
+# (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/, tcb/: sorry,
 #     axiom declarations, native_decide, bv_decide, ofReduceBool,
 #     trustCompiler, and raised maxHeartbeats/maxRecDepth in Lua/;
 # (3b) proof discipline (scripts/check_discipline.py, scripts/discipline_rules.tsv);
@@ -71,7 +71,7 @@ def strip(src):
     src = re.sub(r"/-.*?-/", "", src, flags=re.S)
     src = re.sub(r"--[^\n]*", "", src)
     return re.sub(r'"(?:\\.|[^"\\])*"', '""', src)
-for d in ["Lua", "Vsa", "VsaIris"]:
+for d in ["Lua", "Vsa", "VsaIris", "tcb"]:
     for dp, _, fs in os.walk(d):
         for f in fs:
             if not f.endswith(".lean"): continue
