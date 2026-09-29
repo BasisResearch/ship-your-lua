@@ -15,6 +15,7 @@ import Lua.Theorems
 import Lua.Programs.While
 import Lua.Programs.PrintPrint
 import Lua.Programs.F1Ops
+import Lua.Programs.F1bBits
 import Lua.Programs.Validation
 import Lua.Programs.Supported
 

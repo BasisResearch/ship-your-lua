@@ -2,6 +2,7 @@ import Lua.Fragment
 import Lua.Programs.While
 import Lua.Programs.PrintPrint
 import Lua.Programs.F1Ops
+import Lua.Programs.F1bBits
 
 /-! Kernel-checked `Supported` for the validation programs, and a negative
 example that reads a register before writing it. -/
@@ -13,6 +14,8 @@ open Lua.Bytecode
 theorem while_supported : Supported whileProto := by decide +kernel
 
 theorem f1Ops_supported : Supported f1OpsProto := by decide +kernel
+
+theorem f1b_supported : Supported f1bProto := by decide +kernel
 
 theorem printPrint_supported : Supported printPrintProto := by decide +kernel
 

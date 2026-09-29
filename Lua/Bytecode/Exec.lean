@@ -58,6 +58,10 @@ def step? (H : Host) (p : Proto) (s : State) : Option State :=
         match s.regs w.b with
         | .int x => some ((s.set w.a (.int (0 - x))).goto (s.pc + 1))
         | _ => none
+      | .BNOT =>
+        match s.regs w.b with
+        | .int x => some ((s.set w.a (.int (~~~x))).goto (s.pc + 1))
+        | _ => none
       | .NOT => some ((s.set w.a (.bool (s.regs w.b).isFalse)).goto (s.pc + 1))
       | .JMP => (jumpTo (s.pc + 1) w.sj).map s.goto
       | .EQ => (condJump p s.pc (decide (s.regs w.a = s.regs w.b)) w.k).map s.goto
@@ -209,6 +213,10 @@ theorem step?_sound {s s' : State} (h : step? H p s = some s') : Step H p s s' :
       case UNM =>
         split at h
         · rename_i x hx; cases h; exact Step.unm hw ho hx
+        · cases h
+      case BNOT =>
+        split at h
+        · rename_i x hx; cases h; exact Step.bnot hw ho hx
         · cases h
       case NOT => cases h; exact Step.not hw ho
       case JMP =>

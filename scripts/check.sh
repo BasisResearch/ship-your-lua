@@ -33,6 +33,7 @@ done <<'LIST'
 c/tests/while.luac whileProto Lua/Programs/While.lean
 c/tests/print_print.luac printPrintProto Lua/Programs/PrintPrint.lean
 c/tests/f1_ops.luac f1OpsProto Lua/Programs/F1Ops.lean
+c/tests/f1b_bits.luac f1bProto Lua/Programs/F1bBits.lean
 LIST
 
 echo "== (2) ELF hash"
@@ -99,11 +100,13 @@ import Lua
 #print axioms Lua.Programs.while_supported
 #print axioms Lua.Programs.f1Ops_supported
 #print axioms Lua.Programs.readsStale_unsupported
+#print axioms Lua.Programs.f1b_bcSem
+#print axioms Lua.Programs.f1b_supported
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -c "depends on axioms" "$tmp/out.txt")
-[ "$n" = 14 ] || fail "expected 14 axiom reports, got $n"
+[ "$n" = 16 ] || fail "expected 16 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

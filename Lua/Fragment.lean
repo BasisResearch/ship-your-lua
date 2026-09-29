@@ -34,10 +34,10 @@ namespace Lua.Bytecode
 
 /-- Fragments, in the planned order (README.md, PHASES.md). -/
 inductive Fragment where
-  /-- integers, moves, constants, compare+jump, numeric for, return, `print` -/
+  /-- integers, moves, constants, integer arithmetic, integer bitwise
+  operators (the former F1b, phase A2), compare+jump, numeric for, return,
+  `print` -/
   | F1
-  /-- integer bitwise operators (a mechanical extension of F1) -/
-  | F1b
   /-- tables, `next` order, global writes, generic `for` over `pairs` -/
   | F2
   /-- closures, upvalues, Lua calls, varargs, multiple results, tail calls -/
@@ -59,9 +59,9 @@ def OpCode.fragment : OpCode → Fragment
   | .MMBIN | .MMBINI | .MMBINK
   | .UNM | .NOT | .JMP
   | .EQ | .LT | .LE | .EQK | .EQI | .LTI | .LEI | .GTI | .GEI | .TEST | .TESTSET
-  | .CALL | .RETURN | .RETURN0 | .RETURN1 | .FORLOOP | .FORPREP | .VARARGPREP => .F1
+  | .CALL | .RETURN | .RETURN0 | .RETURN1 | .FORLOOP | .FORPREP | .VARARGPREP
   | .BANDK | .BORK | .BXORK | .SHRI | .SHLI | .BAND | .BOR | .BXOR | .SHL | .SHR
-  | .BNOT => .F1b
+  | .BNOT => .F1
   | .LOADKX | .EXTRAARG | .GETTABLE | .GETI | .GETFIELD | .SETTABUP | .SETTABLE | .SETI
   | .SETFIELD | .NEWTABLE | .SETLIST | .LEN | .TFORPREP | .TFORCALL | .TFORLOOP => .F2
   | .GETUPVAL | .SETUPVAL | .CLOSE | .CLOSURE | .TAILCALL | .VARARG | .SELF => .F3
@@ -71,12 +71,7 @@ def OpCode.fragment : OpCode → Fragment
 /-- **The ledger of opcodes outside F1**, each with its fragment and what it
 needs. (`Coroutine` brings in no opcode: coroutines are library calls.) -/
 def ledger : List (OpCode × Fragment × String) :=
-  [ (.BANDK, .F1b, "integer bitwise with constant"), (.BORK, .F1b, "integer bitwise with constant"),
-    (.BXORK, .F1b, "integer bitwise with constant"), (.SHRI, .F1b, "shift by immediate"),
-    (.SHLI, .F1b, "shift by immediate"), (.BAND, .F1b, "integer bitwise"),
-    (.BOR, .F1b, "integer bitwise"), (.BXOR, .F1b, "integer bitwise"), (.SHL, .F1b, "shift"),
-    (.SHR, .F1b, "shift"), (.BNOT, .F1b, "integer bitwise not"),
-    (.LOADKX, .F2, "constant tables above 2^17 entries (with EXTRAARG)"),
+  [ (.LOADKX, .F2, "constant tables above 2^17 entries (with EXTRAARG)"),
     (.EXTRAARG, .F2, "operand extension for LOADKX/NEWTABLE/SETLIST"),
     (.GETTABLE, .F2, "table read (luaH_get, luaV_finishget)"), (.GETI, .F2, "table read, integer key"),
     (.GETFIELD, .F2, "table read, short-string key"), (.SETTABUP, .F2, "global write (_ENV table)"),
@@ -102,7 +97,7 @@ theorem ledger_exact :
 /-- Every ledger entry's fragment is its opcode's fragment. -/
 theorem ledger_fragment : ∀ e ∈ ledger, e.1.fragment = e.2.1 := by decide
 
-theorem ledger_length : ledger.length = 40 := rfl
+theorem ledger_length : ledger.length = 29 := rfl
 
 /-! ## Register sets as bit masks -/
 
@@ -126,9 +121,11 @@ variable (p : Proto)
 /-- Registers an F1 instruction reads (as a mask), on any path. -/
 def reads (w : Word) : Nat :=
   match w.op? with
-  | some .MOVE | some .UNM | some .NOT | some .TESTSET => rmask w.b 1
-  | some .ADD | some .SUB | some .MUL | some .MOD | some .IDIV => rmask w.b 1 ||| rmask w.c 1
-  | some .ADDI | some .ADDK | some .SUBK | some .MULK | some .MODK | some .IDIVK => rmask w.b 1
+  | some .MOVE | some .UNM | some .NOT | some .TESTSET | some .BNOT => rmask w.b 1
+  | some .ADD | some .SUB | some .MUL | some .MOD | some .IDIV
+  | some .BAND | some .BOR | some .BXOR | some .SHL | some .SHR => rmask w.b 1 ||| rmask w.c 1
+  | some .ADDI | some .ADDK | some .SUBK | some .MULK | some .MODK | some .IDIVK
+  | some .BANDK | some .BORK | some .BXORK | some .SHRI | some .SHLI => rmask w.b 1
   | some .EQ | some .LT | some .LE => rmask w.a 1 ||| rmask w.b 1
   | some .EQK | some .EQI | some .LTI | some .LEI | some .GTI | some .GEI | some .TEST =>
     rmask w.a 1
@@ -139,10 +136,12 @@ def reads (w : Word) : Nat :=
 /-- Highest register index an instruction touches, plus one (0 if none). -/
 def regTop (w : Word) : Nat :=
   match w.op? with
-  | some .MOVE | some .UNM | some .NOT | some .TESTSET => max (w.a + 1) (w.b + 1)
-  | some .ADD | some .SUB | some .MUL | some .MOD | some .IDIV =>
+  | some .MOVE | some .UNM | some .NOT | some .TESTSET | some .BNOT => max (w.a + 1) (w.b + 1)
+  | some .ADD | some .SUB | some .MUL | some .MOD | some .IDIV
+  | some .BAND | some .BOR | some .BXOR | some .SHL | some .SHR =>
     max (w.a + 1) (max (w.b + 1) (w.c + 1))
-  | some .ADDI | some .ADDK | some .SUBK | some .MULK | some .MODK | some .IDIVK =>
+  | some .ADDI | some .ADDK | some .SUBK | some .MULK | some .MODK | some .IDIVK
+  | some .BANDK | some .BORK | some .BXORK | some .SHRI | some .SHLI =>
     max (w.a + 1) (w.b + 1)
   | some .EQ | some .LT | some .LE => max (w.a + 1) (w.b + 1)
   | some .LOADNIL => w.a + w.b + 1
@@ -169,7 +168,7 @@ def edges (pc : Nat) : Option (List Edge) := do
     let s ← next (pc + 2)
     pure [(s, 0), (t, 0)]
   match o with
-  | .MOVE | .LOADI | .LOADFALSE | .LOADTRUE | .UNM | .NOT =>
+  | .MOVE | .LOADI | .LOADFALSE | .LOADTRUE | .UNM | .NOT | .BNOT =>
     pure [(← next (pc + 1), rmask w.a 1)]
   | .LOADK =>
     match p.const w.bx with
@@ -180,8 +179,9 @@ def edges (pc : Nat) : Option (List Edge) := do
   | .GETTABUP =>
     if w.b = 0 ∧ p.const w.c = some (.str printKey) then pure [(← next (pc + 1), rmask w.a 1)]
     else none
-  | .ADD | .SUB | .MUL | .MOD | .IDIV | .ADDI => pure [(← next (pc + 2), rmask w.a 1)]
-  | .ADDK | .SUBK | .MULK | .MODK | .IDIVK =>
+  | .ADD | .SUB | .MUL | .MOD | .IDIV | .ADDI
+  | .BAND | .BOR | .BXOR | .SHL | .SHR | .SHRI | .SHLI => pure [(← next (pc + 2), rmask w.a 1)]
+  | .ADDK | .SUBK | .MULK | .MODK | .IDIVK | .BANDK | .BORK | .BXORK =>
     match p.const w.c with
     | some (.int _) => pure [(← next (pc + 2), rmask w.a 1)]
     | _ => none
