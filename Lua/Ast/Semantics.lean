@@ -149,45 +149,51 @@ def LuaSem (H : Host) (s : Chunk) (out : String) : Prop :=
 
 /-! ## The source fragment -/
 
-mutual
-/-- Every variable is a declared local in scope, no local is called
-`print`, and `break` only occurs inside a loop. -/
+/-- Every variable of an expression is a declared local in scope. -/
 def scopedE (bound : List String) : Expr → Bool
   | .nil | .bool _ | .int _ => true
   | .var x => bound.contains x
   | .binop _ a b | .and a b | .or a b => scopedE bound a && scopedE bound b
   | .neg a | .not a => scopedE bound a
 
-def scopedEs (bound : List String) : List Expr → Bool
-  | [] => true
-  | e :: es => scopedE bound e && scopedEs bound es
-end
+def scopedEs (bound : List String) (es : List Expr) : Bool := es.all (scopedE bound)
 
-mutual
-def scopedS (bound : List String) (inLoop : Bool) : List Stat → Bool
-  | [] => true
-  | .local_ x e :: ss => x != "print" && scopedE bound e && scopedS (x :: bound) inLoop ss
-  | .locals xs es :: ss => xs.all (· != "print") && scopedEs bound es &&
-      scopedS (xs.reverse ++ bound) inLoop ss
-  | .assign x e :: ss => bound.contains x && scopedE bound e && scopedS bound inLoop ss
-  | .print args :: ss => scopedEs bound args && scopedS bound inLoop ss
-  | .while_ c b :: ss => scopedE bound c && scopedS bound true b && scopedS bound inLoop ss
-  | .repeat_ b c :: ss => scopedRepeat bound b c && scopedS bound inLoop ss
-  | .if_ c t e :: ss => scopedE bound c && scopedS bound inLoop t && scopedS bound inLoop e &&
-      scopedS bound inLoop ss
-  | .numFor x a b c body :: ss => x != "print" && scopedE bound a && scopedE bound b &&
-      scopedE bound c && scopedS (x :: bound) true body && scopedS bound inLoop ss
-  | .break_ :: ss => inLoop && scopedS bound inLoop ss
-
-/-- `repeat b until c`: `c` sees `b`'s locals. -/
-def scopedRepeat (bound : List String) : List Stat → Expr → Bool
-  | b, c => scopedS bound true b && scopedE (bound ++ declared b) c
-
+/-- The locals a block declares at its top level (visible to a `repeat`
+condition). -/
 def declared : List Stat → List String
   | [] => []
   | .local_ x _ :: ss => x :: declared ss
   | .locals xs _ :: ss => xs ++ declared ss
   | _ :: ss => declared ss
+
+/-- The locals a statement brings into scope for the rest of its block,
+innermost first. -/
+def Stat.binds : Stat → List String
+  | .local_ x _ => [x]
+  | .locals xs _ => xs.reverse
+  | _ => []
+
+mutual
+/-- Every variable is a declared local in scope, no local is called
+`print`, and `break` only occurs inside a loop. (Structural, so the kernel
+evaluates it.) -/
+def scopedS (bound : List String) (inLoop : Bool) : List Stat → Bool
+  | [] => true
+  | st :: ss => scopedStat bound inLoop st && scopedS (st.binds ++ bound) inLoop ss
+
+/-- One statement, in scope `bound`. For `repeat b until c`, `c` sees
+`b`'s locals. -/
+def scopedStat (bound : List String) (inLoop : Bool) : Stat → Bool
+  | .local_ x e => x != "print" && scopedE bound e
+  | .locals xs es => xs.all (· != "print") && scopedEs bound es
+  | .assign x e => bound.contains x && scopedE bound e
+  | .print args => scopedEs bound args
+  | .while_ c b => scopedE bound c && scopedS bound true b
+  | .repeat_ b c => scopedS bound true b && scopedE (bound ++ declared b) c
+  | .if_ c t e => scopedE bound c && scopedS bound inLoop t && scopedS bound inLoop e
+  | .numFor x a b c body => x != "print" && scopedE bound a && scopedE bound b &&
+      scopedE bound c && scopedS (x :: bound) true body
+  | .break_ => inLoop
 end
 
 /-- **`AstSupported s`**: `s` is a well-scoped F1 chunk. -/
