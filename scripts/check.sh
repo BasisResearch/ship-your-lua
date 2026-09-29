@@ -21,6 +21,8 @@ cd "$(dirname "$0")/.." || exit 2
 fail() { echo "check: FAIL: $*"; exit 1; }
 
 echo "== (1) generator drift"
+# gen_proto.py embeds the host luac's listing: build lua/luac if absent
+[ -x c/luac ] || make -s -C c host >/dev/null || fail "host luac build"
 python3 scripts/gen_opcodes.py --check || fail "opcodes drift"
 python3 scripts/gen_lua_layout.py --check || fail "layout drift"
 python3 scripts/gen_lua_image.py --check || fail "image drift"
