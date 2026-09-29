@@ -1,0 +1,84 @@
+idx	op	target	reach	exclusive	linear	branches	disp_while	disp_union	callees
+0	OP_MOVE	0x8001be84	15	5	5	0	3	145	
+1	OP_LOADI	0x8001be54	12	12	12	0	9	411	
+2	OP_LOADF	0x8001be98	14	14	14	0	0	10	__floatsidf
+3	OP_LOADK	0x8001ba94	14	4	14	0	0	111	
+4	OP_LOADKX	0x8001bef0	15	15	15	0	0	0	
+5	OP_LOADFALSE	0x8001bd54	8	8	8	0	0	155	
+6	OP_LFALSESKIP	0x8001bed0	8	8	8	0	0	14	
+7	OP_LOADTRUE	0x8001b5d0	8	8	8	0	0	222	
+8	OP_LOADNIL	0x8001bd1c	14	14	14	1	0	7	
+9	OP_GETUPVAL	0x8001bb40	17	17	17	0	0	13493	
+10	OP_SETUPVAL	0x8001bca8	33	29	29	3	0	503	luaC_barrier_
+11	OP_GETTABUP	0x8001ba1c	48	43	20	2	3	240	luaH_getshortstr,luaV_finishget
+12	OP_GETTABLE	0x8001bacc	71	71	16	5	0	145	luaH_get,luaH_getint,luaV_finishget
+13	OP_GETI	0x8001b6e8	50	45	13	3	0	15	luaH_getint,luaV_finishget
+14	OP_GETFIELD	0x8001b67c	45	40	17	2	0	70	luaH_getshortstr,luaV_finishget
+15	OP_SETTABUP	0x8001b5f0	68	48	25	6	0	18	luaC_barrierback_,luaH_getshortstr,luaV_finishset
+16	OP_SETTABLE	0x8001b994	93	73	21	10	0	179	luaC_barrierback_,luaH_get,luaH_getint,luaV_finishset
+17	OP_SETI	0x8001b8cc	74	54	18	7	0	3	luaC_barrierback_,luaH_getint,luaV_finishset
+18	OP_SETFIELD	0x8001b84c	65	45	22	6	0	32	luaC_barrierback_,luaH_getshortstr,luaV_finishset
+19	OP_NEWTABLE	0x8001b7a0	48	48	33	4	0	36	luaC_step,luaH_new,luaH_resize
+20	OP_SELF	0x8001b540	52	52	26	3	0	11	luaH_getstr,luaV_finishget
+21	OP_ADDI	0x8001b4dc	33	31	13	2	123	13318	__adddf3,__floatsidf
+22	OP_ADDK	0x8001b46c	55	51	15	6	0	10	__adddf3,__floatdidfx2
+23	OP_SUBK	0x8001b41c	55	51	15	6	0	0	__floatdidfx2,__subdf3
+24	OP_MULK	0x8001c5d4	54	50	17	6	0	16	__floatdidfx2,__muldf3,__muldi3
+25	OP_MODK	0x8001c568	98	88	27	14	100	201	__adddf3,__floatdidfx2,__gedf2x2,__ledf2x2,__moddi3,fmod,luaG_runerror
+26	OP_POWK	0x8001c29c	61	57	8	6	0	0	__eqdf2,__floatdidfx2,__muldf3,pow
+27	OP_DIVK	0x8001c270	48	46	9	5	0	5	__divdf3,__floatdidfx2
+28	OP_IDIVK	0x8001c200	80	72	24	9	0	4	__divdf3,__divdi3,__floatdidfx2,__moddi3,floor,luaG_runerror
+29	OP_BANDK	0x8001c1a8	54	52	7	5	0	0	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+30	OP_BORK	0x8001c150	54	54	7	5	0	0	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+31	OP_BXORK	0x8001c0f8	54	54	7	5	0	0	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+32	OP_SHRI	0x8001c824	63	63	7	8	0	0	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+33	OP_SHLI	0x8001c7c8	62	60	7	8	0	0	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+34	OP_ADD	0x8001c460	52	50	16	6	69	11354	__adddf3,__floatdidfx2
+35	OP_SUB	0x8001c3fc	53	49	16	6	0	1	__floatdidfx2,__subdf3
+36	OP_MUL	0x8001c760	53	49	16	6	9	921	__floatdidfx2,__muldf3,__muldi3
+37	OP_MOD	0x8001c6f0	99	89	19	14	0	629	__adddf3,__floatdidfx2,__gedf2x2,__ledf2x2,__moddi3,fmod,luaG_runerror
+38	OP_POW	0x8001bf88	57	55	8	6	0	0	__eqdf2,__floatdidfx2,__muldf3,pow
+39	OP_DIV	0x8001bf2c	49	45	8	5	0	0	__divdf3,__floatdidfx2
+40	OP_IDIV	0x8001c944	79	69	19	9	0	1	__divdf3,__divdi3,__floatdidfx2,__moddi3,floor,luaG_runerror
+41	OP_BAND	0x8001c8e4	83	81	7	10	0	0	__eqdf2x2,__fixdfdix2,__gedf2x2,__ledf2x2,floorx2
+42	OP_BOR	0x8001c508	83	81	7	10	0	0	__eqdf2x2,__fixdfdix2,__gedf2x2,__ledf2x2,floorx2
+43	OP_BXOR	0x8001c4a8	83	81	7	10	0	0	__eqdf2x2,__fixdfdix2,__gedf2x2,__ledf2x2,floorx2
+44	OP_SHL	0x8001c088	93	91	7	13	0	0	__eqdf2x2,__fixdfdix2,__gedf2x2,__ledf2x2,floorx2
+45	OP_SHR	0x8001c014	93	91	7	13	0	0	__eqdf2x2,__fixdfdix2,__gedf2x2,__ledf2x2,floorx2
+46	OP_MMBIN	0x8001c888	23	23	23	0	0	2	luaT_trybinTM
+47	OP_MMBINI	0x8001bfb4	24	24	24	0	0	1	luaT_trybiniTM
+48	OP_MMBINK	0x8001c394	26	26	26	0	0	0	luaT_trybinassocTM
+49	OP_UNM	0x8001c33c	39	37	11	2	0	4	luaT_trybinTM
+50	OP_BNOT	0x8001c9b0	54	54	11	5	0	0	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor,luaT_trybinTM
+51	OP_NOT	0x8001c2fc	20	20	16	2	0	0	
+52	OP_LEN	0x8001c6ac	17	17	17	0	0	47	luaV_objlen
+53	OP_CONCAT	0x8001c640	27	27	21	2	0	12	luaC_step,luaV_concat.part.0
+54	OP_CLOSE	0x8001c9f4	15	15	15	0	0	12	luaF_close
+55	OP_TBC	0x8001b3f0	11	11	11	0	0	0	luaF_newtbcupval
+56	OP_JMP	0x8001b17c	9	9	9	0	122	872	
+57	OP_EQ	0x8001b128	31	31	19	1	0	5	luaV_equalobj
+58	OP_LT	0x8001b32c	160	160	11	16	0	17	__adddf3,__eqdf2,__fixdfdix2,__floatdidfx2,__gedf2x4,__ledf2x5,floorx2,l_strcmp,luaT_callorderTM
+59	OP_LE	0x8001b0a4	166	166	11	16	0	676	__adddf3,__eqdf2,__fixdfdix2,__floatdidfx2,__gedf2x4,__ledf2x5,floorx2,l_strcmp,luaT_callorderTM
+60	OP_EQK	0x8001b2e8	27	27	15	1	0	502	luaV_equalobj
+61	OP_EQI	0x8001b288	41	41	10	4	100	10835	__eqdf2,__floatsidf
+62	OP_LTI	0x8001af04	53	53	10	4	11	2000	__floatsidf,__ledf2,luaT_callorderiTM
+63	OP_LEI	0x8001aea4	51	51	10	3	16	33	__floatsidf,__ledf2,luaT_callorderiTM
+64	OP_GTI	0x8001b044	53	53	10	4	101	203	__floatsidf,__gedf2,luaT_callorderiTM
+65	OP_GEI	0x8001afe0	52	52	10	3	0	10	__floatsidf,__gedf2,luaT_callorderiTM
+66	OP_TEST	0x8001b3b0	26	26	14	2	0	211	
+67	OP_TESTSET	0x8001af64	33	33	14	2	0	0	
+68	OP_CALL	0x8001b234	42	23	17	3	3	2738	luaD_precall,luaG_tracecall
+69	OP_TAILCALL	0x8001b1a0	100	48	13	8	0	10008	luaD_poscall,luaD_pretailcall,luaF_closeupval,luaG_tracecall
+70	OP_RETURN	0x8001adf8	87	47	31	7	1	27	luaD_poscall,luaF_close,luaG_tracecall
+71	OP_RETURN0	0x8001ad54	72	38	3	6	0	2	luaD_poscall,luaG_tracecall
+72	OP_RETURN1	0x8001ace4	84	50	3	6	0	2013	luaD_poscall,luaG_tracecall
+73	OP_FORLOOP	0x8001ac84	55	55	7	4	0	577	__adddf3,__gedf2x2,__ledf2
+74	OP_FORPREP	0x8001ab90	205	203	11	25	0	21	__eqdf2,__gedf2x5,__hidden___udivdi3x2,__ledf2,luaG_forerrorx3,luaG_runerror,luaV_tointegerx2,luaV_tonumber_x4
+75	OP_TFORPREP	0x8001aaa4	71	15	34	4	0	9	luaD_call,luaF_newtbcupval,luaG_traceexec,memcpy
+76	OP_TFORCALL	0x8001aae0	56	0	19	4	0	95	luaD_call,luaG_traceexec,memcpy
+77	OP_TFORLOOP	0x8001ab88	34	2	2	3	0	0	luaG_traceexec
+78	OP_SETLIST	0x8001bd74	75	75	32	8	0	8	luaC_barrierback_,luaH_realasize,luaH_resizearray
+79	OP_CLOSURE	0x8001bbc4	79	77	34	7	0	43	luaC_barrier_,luaC_step,luaF_findupval,luaF_newLclosure
+80	OP_VARARG	0x8001bb84	16	16	16	0	0	6	luaT_getvarargs
+81	OP_VARARGPREP	0x8001b760	22	22	12	1	1	21	luaD_hookcall,luaT_adjustvarargs
+82	OP_EXTRAARG	0x8001ac7c	2	0	2	0	0	2	

@@ -1,0 +1,838 @@
+func	origin	insts	category	while_counterpart	in_while_proof_scope	static_reach	dyn_while	dyn_while_after_exec	dyn_union
+_start	crt0.S	15	identical_mod_reloc	_start	0	1	1	1	1
+_write	htif.c	12	identical_mod_reloc	_write	0	1	1	1	1
+_read	htif.c	2	identical_words	_read	0	1	0	0	0
+_open	htif.c	9	identical_mod_reloc	_open	0	1	0	0	0
+_close	htif.c	2	identical_words	_close	0	1	1	1	1
+_lseek	htif.c	9	identical_mod_reloc	_lseek	0	1	0	0	0
+_fstat	htif.c	19	identical_mod_reloc	_fstat	1	1	1	1	1
+_isatty	htif.c	2	identical_words	_isatty	1	1	1	1	1
+_sbrk	htif.c	26	identical_mod_reloc	_sbrk	1	1	1	0	1
+_exit	htif.c	6	identical_mod_reloc	_exit	1	1	1	1	1
+_kill	htif.c	9	identical_mod_reloc	_kill	1	1	0	0	0
+_getpid	htif.c	2	identical_words	_getpid	1	1	0	0	0
+l_alloc	main.c	11	new		0	1	1	1	1
+main	main.c	82	same_name_differs	main	0	1	1	1	1
+index2value	lapi.c	37	new		0	1	1	0	1
+auxsetstr	lapi.c	66	new		0	1	1	0	1
+f_call	lapi.c	3	new		0	1	1	0	1
+lua_checkstack	lapi.c	36	new		0	1	1	0	1
+lua_xmove	lapi.c	34	new		0	1	0	0	1
+lua_atpanic	lapi.c	4	new		0	0	0	0	0
+lua_version	lapi.c	3	new		0	1	1	0	1
+lua_absindex	lapi.c	14	new		0	1	1	1	1
+lua_gettop	lapi.c	8	new		0	1	1	1	1
+lua_settop	lapi.c	58	new		0	1	1	1	1
+lua_closeslot	lapi.c	23	new		0	1	0	0	0
+lua_rotate	lapi.c	60	new		0	1	1	0	1
+lua_copy	lapi.c	106	new		0	1	0	0	0
+lua_pushvalue	lapi.c	46	new		0	1	1	0	1
+lua_type	lapi.c	45	new		0	1	1	1	1
+lua_typename	lapi.c	7	new		0	1	0	0	1
+lua_iscfunction	lapi.c	47	new		0	0	0	0	0
+lua_isinteger	lapi.c	41	new		0	1	1	1	1
+lua_isnumber	lapi.c	51	new		0	1	0	0	0
+lua_isstring	lapi.c	43	new		0	1	0	0	1
+lua_isuserdata	lapi.c	47	new		0	0	0	0	0
+lua_rawequal	lapi.c	39	new		0	1	0	0	0
+lua_arith	lapi.c	24	new		0	1	0	0	1
+lua_compare	lapi.c	68	new		0	1	0	0	1
+lua_stringtonumber	lapi.c	15	new		0	1	0	0	1
+lua_tonumberx	lapi.c	58	new		0	1	0	0	1
+lua_tointegerx	lapi.c	60	new		0	1	1	1	1
+lua_toboolean	lapi.c	42	new		0	1	1	0	1
+lua_tolstring	lapi.c	91	new		0	1	1	1	1
+lua_rawlen	lapi.c	57	new		0	1	0	0	0
+lua_tocfunction	lapi.c	48	new		0	0	0	0	0
+lua_touserdata	lapi.c	51	new		0	1	0	0	1
+lua_tothread	lapi.c	41	new		0	1	0	0	1
+lua_topointer	lapi.c	66	new		0	1	0	0	0
+lua_pushnil	lapi.c	5	new		0	1	0	0	1
+lua_pushnumber	lapi.c	7	new		0	1	0	0	0
+lua_pushinteger	lapi.c	7	new		0	1	0	0	1
+lua_pushlstring	lapi.c	31	new		0	1	0	0	1
+lua_pushstring	lapi.c	30	new		0	1	1	0	1
+lua_pushvfstring	lapi.c	18	new		0	1	0	0	0
+lua_pushfstring	lapi.c	27	new		0	1	1	1	1
+lua_pushcclosure	lapi.c	53	new		0	1	1	0	1
+lua_pushboolean	lapi.c	8	new		0	1	1	0	1
+lua_pushlightuserdata	lapi.c	7	new		0	1	0	0	1
+lua_pushthread	lapi.c	11	new		0	1	0	0	0
+lua_getglobal	lapi.c	53	new		0	0	0	0	0
+lua_gettable	lapi.c	41	new		0	1	0	0	0
+lua_getfield	lapi.c	55	new		0	1	1	0	1
+lua_geti	lapi.c	57	new		0	1	0	0	1
+lua_rawget	lapi.c	30	new		0	1	0	0	1
+lua_rawgeti	lapi.c	30	new		0	1	1	0	1
+lua_rawgetp	lapi.c	34	new		0	0	0	0	0
+lua_createtable	lapi.c	35	new		0	1	1	0	1
+lua_getmetatable	lapi.c	65	new		0	1	1	1	1
+lua_getiuservalue	lapi.c	54	new		0	0	0	0	0
+lua_setglobal	lapi.c	6	new		0	1	1	0	1
+lua_settable	lapi.c	52	new		0	0	0	0	0
+lua_setfield	lapi.c	35	new		0	1	1	0	1
+lua_seti	lapi.c	71	new		0	1	0	0	1
+lua_rawset	lapi.c	39	new		0	1	0	0	1
+lua_rawsetp	lapi.c	40	new		0	0	0	0	0
+lua_rawseti	lapi.c	35	new		0	0	0	0	0
+lua_setmetatable	lapi.c	78	new		0	1	1	0	1
+lua_setiuservalue	lapi.c	74	new		0	0	0	0	0
+lua_callk	lapi.c	39	new		0	1	1	0	1
+lua_pcallk	lapi.c	74	new		0	1	1	1	1
+lua_load	lapi.c	54	new		0	1	1	0	1
+lua_dump	lapi.c	13	new		0	1	0	0	0
+lua_status	lapi.c	2	new		0	1	0	0	1
+lua_gc	lapi.c	181	new		0	1	1	0	1
+lua_error	lapi.c	15	new		0	1	0	0	1
+lua_next	lapi.c	51	new		0	1	0	0	1
+lua_toclose	lapi.c	25	new		0	1	0	0	0
+lua_concat	lapi.c	33	new		0	1	0	0	1
+lua_len	lapi.c	45	new		0	1	0	0	1
+lua_getallocf	lapi.c	7	new		0	1	0	0	0
+lua_setallocf	lapi.c	4	new		0	0	0	0	0
+lua_setwarnf	lapi.c	4	new		0	0	0	0	0
+lua_warning	lapi.c	1	new		0	1	0	0	0
+lua_newuserdatauv	lapi.c	29	new		0	1	0	0	1
+lua_getupvalue	lapi.c	90	new		0	0	0	0	0
+lua_setupvalue	lapi.c	66	new		0	1	0	0	0
+lua_upvalueid	lapi.c	78	new		0	0	0	0	0
+lua_upvaluejoin	lapi.c	63	new		0	0	0	0	0
+savelineinfo	lcode.c	72	new		0	1	0	0	0
+addk	lcode.c	107	new		0	1	0	0	0
+luaK_numberK	lcode.c	46	new		0	1	0	0	0
+luaK_exp2K	lcode.c	87	new		0	1	0	0	0
+isSCnumber	lcode.c	42	new		0	1	0	0	0
+need_value	lcode.c	34	new		0	1	0	0	0
+removevalues	lcode.c	40	new		0	1	0	0	0
+freeexps	lcode.c	54	new		0	1	0	0	0
+constfolding	lcode.c	150	new		0	1	0	0	0
+patchlistaux	lcode.c	111	new		0	1	0	0	0
+luaK_semerror	lcode.c	4	new		0	1	0	0	0
+luaK_exp2const	lcode.c	60	new		0	1	0	0	0
+luaK_concat	lcode.c	36	new		0	1	0	0	0
+luaK_getlabel	lcode.c	4	new		0	1	0	0	0
+luaK_patchlist	lcode.c	3	new		0	1	0	0	0
+luaK_patchtohere	lcode.c	5	new		0	1	0	0	0
+luaK_code	lcode.c	39	new		0	1	0	0	0
+luaK_jump	lcode.c	3	new		0	1	0	0	0
+luaK_nil	lcode.c	51	new		0	1	0	0	0
+luaK_ret	lcode.c	13	new		0	1	0	0	0
+luaK_codek.isra.0	lcode.c	22	new		0	1	0	0	0
+luaK_codeABCk	lcode.c	9	new		0	1	0	0	0
+luaK_codeABx	lcode.c	5	new		0	1	0	0	0
+luaK_checkstack	lcode.c	15	new		0	1	0	0	0
+luaK_reserveregs	lcode.c	16	new		0	1	0	0	0
+luaK_int	lcode.c	32	new		0	1	0	0	0
+luaK_setreturns	lcode.c	38	new		0	1	0	0	0
+luaK_setoneret	lcode.c	32	new		0	1	0	0	0
+luaK_dischargevars	lcode.c	200	new		0	1	0	0	0
+discharge2reg	lcode.c	120	new		0	1	0	0	0
+exp2reg	lcode.c	95	new		0	1	0	0	0
+jumponcond	lcode.c	104	new		0	1	0	0	0
+luaK_exp2nextreg	lcode.c	50	new		0	1	0	0	0
+luaK_exp2anyreg	lcode.c	35	new		0	1	0	0	0
+codeABRK	lcode.c	38	new		0	1	0	0	0
+luaK_exp2anyregup	lcode.c	8	new		0	1	0	0	0
+luaK_exp2val	lcode.c	5	new		0	1	0	0	0
+luaK_storevar	lcode.c	101	new		0	1	0	0	0
+luaK_self	lcode.c	69	new		0	1	0	0	0
+luaK_goiftrue	lcode.c	60	new		0	1	0	0	0
+luaK_goiffalse	lcode.c	41	new		0	1	0	0	0
+luaK_indexed	lcode.c	125	new		0	1	0	0	0
+luaK_infix	lcode.c	81	new		0	1	0	0	0
+luaK_fixline	lcode.c	24	new		0	1	0	0	0
+luaK_prefix	lcode.c	159	new		0	1	0	0	0
+finishbinexpval	lcode.c	62	new		0	1	0	0	0
+finishbinexpneg	lcode.c	48	new		0	1	0	0	0
+codearith	lcode.c	74	new		0	1	0	0	0
+luaK_posfix	lcode.c	539	new		0	1	0	0	0
+luaK_settablesize	lcode.c	42	new		0	1	0	0	0
+luaK_setlist	lcode.c	45	new		0	1	0	0	0
+luaK_finish	lcode.c	90	new		0	1	0	0	0
+basicgetobjname	ldebug.c	171	new		0	1	0	0	1
+getobjname	ldebug.c	161	new		0	1	0	0	1
+funcnamefromcall	ldebug.c	108	new		0	1	0	0	0
+varinfo	ldebug.c	67	new		0	1	0	0	1
+luaG_getfuncline	ldebug.c	41	new		0	1	0	0	1
+lua_sethook	ldebug.c	25	new		0	0	0	0	0
+lua_gethook	ldebug.c	2	new		0	0	0	0	0
+lua_gethookmask	ldebug.c	2	new		0	0	0	0	0
+lua_gethookcount	ldebug.c	2	new		0	0	0	0	0
+lua_getstack	ldebug.c	16	new		0	1	0	0	1
+luaG_findlocal	ldebug.c	99	new		0	1	0	0	0
+lua_getlocal	ldebug.c	32	new		0	0	0	0	0
+lua_setlocal	ldebug.c	21	new		0	0	0	0	0
+lua_getinfo	ldebug.c	265	new		0	1	0	0	1
+luaG_addinfo	ldebug.c	34	new		0	1	0	0	1
+luaG_errormsg	ldebug.c	27	new		0	1	0	0	1
+luaG_runerror	ldebug.c	51	new		0	1	0	0	1
+luaG_typeerror	ldebug.c	19	new		0	1	0	0	1
+luaG_concaterror	ldebug.c	12	new		0	1	0	0	0
+luaG_opinterror	ldebug.c	9	new		0	1	0	0	0
+luaG_forerror	ldebug.c	12	new		0	1	0	0	0
+luaG_tointerror	ldebug.c	22	new		0	1	0	0	0
+luaG_ordererror	ldebug.c	28	new		0	1	0	0	0
+luaG_callerror	ldebug.c	35	new		0	1	0	0	0
+luaG_tracecall	ldebug.c	26	new		0	1	0	0	1
+luaG_traceexec	ldebug.c	182	new		0	1	0	0	1
+correctstack	ldo.c	30	new		0	1	0	0	1
+closepaux	ldo.c	4	new		0	1	0	0	1
+luaD_seterrorobj	ldo.c	47	new		0	1	0	0	1
+luaD_throw	ldo.c	33	new		0	1	0	0	1
+f_parser	ldo.c	73	new		0	1	1	0	1
+luaD_rawrunprotected	ldo.c	30	new		0	1	1	1	1
+luaD_reallocstack	ldo.c	99	new		0	1	0	0	1
+luaD_growstack	ldo.c	57	new		0	1	0	0	1
+tryfuncTM	ldo.c	55	new		0	1	0	0	1
+luaD_shrinkstack	ldo.c	57	new		0	1	0	0	1
+luaD_inctop	ldo.c	21	new		0	1	1	0	1
+luaD_hook	ldo.c	86	new		0	1	0	0	0
+rethook	ldo.c	59	new		0	1	0	0	0
+luaD_hookcall	ldo.c	29	new		0	1	0	0	1
+luaD_poscall	ldo.c	147	new		0	1	1	1	1
+unroll	ldo.c	85	new		0	1	0	0	1
+luaD_pretailcall	ldo.c	222	new		0	1	0	0	1
+luaD_precall	ldo.c	226	new		0	1	1	1	1
+resume	ldo.c	82	new		0	1	0	0	1
+luaD_call	ldo.c	53	new		0	1	0	0	1
+luaD_callnoyield	ldo.c	57	new		0	1	1	1	1
+lua_resume	ldo.c	137	new		0	1	0	0	1
+lua_isyieldable	ldo.c	6	new		0	1	0	0	0
+lua_yieldk	ldo.c	32	new		0	1	0	0	1
+luaD_closeprotected	ldo.c	34	new		0	1	0	0	1
+luaD_pcall	ldo.c	51	new		0	1	1	1	1
+luaD_protectedparser	ldo.c	70	new		0	1	1	0	1
+dumpSize	ldump.c	28	new		0	1	0	0	0
+dumpString	ldump.c	35	new		0	1	0	0	0
+dumpFunction	ldump.c	305	new		0	1	0	0	0
+luaU_dump	ldump.c	117	new		0	1	0	0	0
+luaF_newCclosure	lfunc.c	13	new		0	1	0	0	1
+luaF_newLclosure	lfunc.c	32	new		0	1	1	0	1
+luaF_initupvals	lfunc.c	47	new		0	1	1	0	1
+luaF_findupval	lfunc.c	41	new		0	1	0	0	1
+luaF_newtbcupval	lfunc.c	59	new		0	1	0	0	1
+luaF_unlinkupval	lfunc.c	7	new		0	1	0	0	0
+luaF_closeupval	lfunc.c	68	new		0	1	0	0	1
+luaF_close	lfunc.c	87	new		0	1	0	0	1
+luaF_newproto	lfunc.c	23	new		0	1	1	0	1
+luaF_freeproto	lfunc.c	47	new		0	1	0	0	0
+luaF_getlocalname	lfunc.c	19	new		0	1	0	0	1
+separatetobefnz	lgc.c	33	new		0	1	0	0	0
+enterinc	lgc.c	37	new		0	1	0	0	0
+freeobj	lgc.c	80	new		0	1	0	0	0
+sweep2old	lgc.c	53	new		0	1	0	0	0
+GCTM	lgc.c	91	new		0	1	0	0	0
+dothecall	lgc.c	4	new		0	1	0	0	0
+sweepstep.constprop.0	lgc.c	77	new		0	1	0	0	0
+sweepgen.isra.0	lgc.c	65	new		0	1	0	0	0
+entersweep	lgc.c	48	new		0	1	0	0	0
+correctgraylist	lgc.c	63	new		0	1	0	0	0
+finishgencycle	lgc.c	69	new		0	1	0	0	0
+atomic2gen	lgc.c	44	new		0	1	0	0	0
+genlink	lgc.c	39	new		0	1	0	0	0
+reallymarkobject	lgc.c	89	new		0	1	0	0	0
+clearbykeys	lgc.c	68	new		0	1	0	0	0
+clearbyvalues	lgc.c	102	new		0	1	0	0	0
+traverseephemeron	lgc.c	160	new		0	1	0	0	0
+propagatemark	lgc.c	629	new		0	1	0	0	0
+convergeephemerons	lgc.c	41	new		0	1	0	0	0
+atomic	lgc.c	188	new		0	1	0	0	0
+singlestep	lgc.c	174	new		0	1	0	0	0
+entergen	lgc.c	47	new		0	1	0	0	0
+luaC_barrier_	lgc.c	32	new		0	1	0	0	0
+luaC_barrierback_	lgc.c	38	new		0	1	0	0	0
+luaC_fix	lgc.c	11	new		0	1	1	0	1
+luaC_newobjdt	lgc.c	24	new		0	1	0	0	1
+luaC_newobj	lgc.c	21	new		0	1	1	1	1
+luaC_checkfinalizer	lgc.c	113	new		0	1	0	0	1
+luaC_changemode	lgc.c	25	new		0	1	0	0	0
+luaC_freeallobjects	lgc.c	46	new		0	1	0	0	0
+luaC_runtilstate	lgc.c	24	new		0	0	0	0	0
+luaC_step	lgc.c	338	new		0	1	1	1	1
+luaC_fullgc	lgc.c	96	new		0	1	0	0	0
+luaX_init	llex.c	38	new		0	1	1	0	1
+luaX_token2str	llex.c	31	new		0	1	0	0	0
+lexerror	llex.c	44	new		0	1	0	0	0
+save	llex.c	39	new		0	1	0	0	0
+skip_sep	llex.c	62	new		0	1	0	0	0
+check_next2	llex.c	38	new		0	1	0	0	0
+inclinenumber	llex.c	57	new		0	1	0	0	0
+esccheck.part.0	llex.c	29	new		0	1	0	0	0
+gethexa	llex.c	33	new		0	1	0	0	0
+read_numeral	llex.c	148	new		0	1	0	0	0
+luaX_syntaxerror	llex.c	4	new		0	1	0	0	0
+luaX_newstring	llex.c	55	new		0	1	0	0	0
+read_long_string	llex.c	173	new		0	1	0	0	0
+llex	llex.c	854	new		0	1	0	0	0
+luaX_setinput	llex.c	36	new		0	1	0	0	0
+luaX_next	llex.c	21	new		0	1	0	0	0
+luaX_lookahead	llex.c	11	new		0	1	0	0	0
+tryagain	lmem.c	27	new		0	1	0	0	0
+luaM_toobig	lmem.c	5	new		0	1	0	0	0
+luaM_free_	lmem.c	17	new		0	1	1	0	1
+luaM_realloc_	lmem.c	35	new		0	1	1	0	1
+luaM_shrinkvector_	lmem.c	39	new		0	1	0	0	0
+luaM_growaux_	lmem.c	58	new		0	1	0	0	0
+luaM_saferealloc_	lmem.c	17	new		0	1	1	0	1
+luaM_malloc_	lmem.c	37	new		0	1	1	1	1
+intarith	lobject.c	46	new		0	1	0	0	1
+numarith	lobject.c	75	new		0	1	0	0	0
+l_str2dloc	lobject.c	41	new		0	1	0	0	1
+pushstr	lobject.c	35	new		0	1	0	0	0
+tostringbuff.part.0.isra.0	lobject.c	33	new		0	1	0	0	1
+addstr2buff	lobject.c	53	new		0	1	1	1	1
+addnum2buff	lobject.c	43	new		0	1	1	1	1
+luaO_ceillog2	lobject.c	15	new		0	1	1	0	1
+luaO_rawarith	lobject.c	156	new		0	1	0	0	1
+luaO_arith	lobject.c	35	new		0	1	0	0	1
+luaO_hexavalue	lobject.c	12	new		0	1	0	0	0
+luaO_str2num	lobject.c	191	new		0	1	0	0	1
+luaO_utf8esc	lobject.c	28	new		0	1	0	0	0
+luaO_tostring	lobject.c	37	new		0	1	0	0	1
+luaO_pushvfstring	lobject.c	282	new		0	1	1	1	1
+luaO_pushfstring	lobject.c	15	new		0	1	0	0	1
+luaO_chunkid	lobject.c	110	new		0	1	0	0	1
+newlabelentry	lparser.c	48	new		0	1	0	0	0
+errorlimit	lparser.c	34	new		0	1	0	0	0
+allocupvalue	lparser.c	48	new		0	1	0	0	0
+new_localvar	lparser.c	46	new		0	1	0	0	0
+check_readonly	lparser.c	55	new		0	1	0	0	0
+error_expected	lparser.c	15	new		0	1	0	0	0
+check_match	lparser.c	31	new		0	1	0	0	0
+adjust_assign.isra.0	lparser.c	56	new		0	1	0	0	0
+singlevaraux.part.0	lparser.c	157	new		0	1	0	0	0
+fieldsel	lparser.c	34	new		0	1	0	0	0
+singlevar	lparser.c	59	new		0	1	0	0	0
+adjustlocalvars	lparser.c	118	new		0	1	0	0	0
+createlabel	lparser.c	163	new		0	1	0	0	0
+leaveblock	lparser.c	220	new		0	1	0	0	0
+close_func	lparser.c	103	new		0	1	0	0	0
+statement	lparser.c	1292	same_name_differs	statement	0	1	0	0	0
+body	lparser.c	268	new		0	1	0	0	0
+subexpr	lparser.c	343	new		0	1	0	0	0
+recfield	lparser.c	72	new		0	1	0	0	0
+constructor	lparser.c	166	new		0	1	0	0	0
+funcargs	lparser.c	114	new		0	1	0	0	0
+suffixedexp	lparser.c	127	new		0	1	0	0	0
+restassign	lparser.c	178	new		0	1	0	0	0
+block	lparser.c	51	same_name_differs	block	0	1	0	0	0
+forbody	lparser.c	172	new		0	1	0	0	0
+test_then_block	lparser.c	148	new		0	1	0	0	0
+luaY_nvarstack	lparser.c	19	new		0	1	0	0	0
+luaY_parser	lparser.c	209	new		0	1	0	0	0
+stack_init	lstate.c	34	new		0	1	1	0	1
+f_luaopen	lstate.c	44	new		0	1	1	0	1
+freestack.part.0	lstate.c	31	new		0	1	0	0	0
+close_state	lstate.c	36	new		0	1	0	0	0
+luaE_setdebt	lstate.c	13	new		0	1	1	1	1
+lua_setcstacklimit	lstate.c	2	new		0	0	0	0	0
+luaE_extendCI	lstate.c	19	new		0	1	1	1	1
+luaE_shrinkCI	lstate.c	33	new		0	1	0	0	1
+luaE_checkcstack	lstate.c	15	new		0	1	0	0	0
+luaE_incCstack	lstate.c	22	new		0	1	0	0	0
+lua_newthread	lstate.c	71	new		0	1	0	0	1
+luaE_freethread	lstate.c	21	new		0	1	0	0	0
+luaE_resetthread	lstate.c	45	new		0	1	0	0	1
+lua_closethread	lstate.c	6	new		0	1	0	0	1
+lua_resetthread	lstate.c	3	new		0	0	0	0	0
+lua_newstate	lstate.c	103	new		0	1	1	0	1
+lua_close	lstate.c	3	new		0	0	0	0	0
+luaE_warning	lstate.c	6	new		0	1	0	0	0
+luaE_warnerror	lstate.c	65	new		0	1	0	0	0
+tablerehash	lstring.c	46	new		0	1	0	0	1
+luaS_eqlngstr	lstring.c	20	new		0	1	0	0	0
+luaS_hash	lstring.c	15	new		0	0	0	0	0
+luaS_hashlongstr	lstring.c	23	new		0	1	0	0	0
+luaS_resize	lstring.c	57	new		0	1	0	0	1
+internshrstr	lstring.c	115	new		0	1	1	1	1
+luaS_clearcache	lstring.c	17	new		0	1	0	0	0
+luaS_init	lstring.c	36	new		0	1	1	0	1
+luaS_createlngstrobj	lstring.c	21	new		0	1	0	0	1
+luaS_remove	lstring.c	20	new		0	1	0	0	0
+luaS_newlstr	lstring.c	38	new		0	1	1	1	1
+luaS_new	lstring.c	49	new		0	1	1	0	1
+luaS_newudata	lstring.c	45	new		0	1	0	0	1
+mainpositionTV.isra.0	ltable.c	159	new		0	1	1	0	1
+getgeneric	ltable.c	84	new		0	1	0	0	1
+luaH_realasize	ltable.c	19	new		0	1	1	0	1
+luaH_next	ltable.c	118	new		0	1	0	0	1
+luaH_new	ltable.c	17	new		0	1	1	0	1
+luaH_free	ltable.c	33	new		0	1	0	0	0
+luaH_getint	ltable.c	76	new		0	1	1	0	1
+luaH_getshortstr	ltable.c	27	new		0	1	1	1	1
+luaH_getstr	ltable.c	42	new		0	1	1	0	1
+luaH_get	ltable.c	69	new		0	1	1	0	1
+luaH_newkey	ltable.c	364	new		0	1	1	0	1
+luaH_resize	ltable.c	249	new		0	1	1	0	1
+luaH_resizearray	ltable.c	7	new		0	1	0	0	1
+luaH_finishset	ltable.c	10	new		0	1	1	0	1
+luaH_set	ltable.c	32	new		0	1	0	0	1
+luaH_setint	ltable.c	39	new		0	1	0	0	0
+luaH_getn	ltable.c	183	new		0	1	0	0	1
+luaT_init	ltm.c	35	new		0	1	1	0	1
+luaT_gettm	ltm.c	27	new		0	1	0	0	1
+luaT_gettmbyobj	ltm.c	24	new		0	1	0	0	1
+luaT_objtypename	ltm.c	57	new		0	1	0	0	1
+luaT_callTM	ltm.c	27	new		0	1	0	0	1
+luaT_callTMres	ltm.c	45	new		0	1	0	0	1
+callbinTM	ltm.c	69	new		0	1	0	0	1
+luaT_trybinTM	ltm.c	64	new		0	1	0	0	1
+luaT_tryconcatTM	ltm.c	22	new		0	1	0	0	1
+luaT_trybinassocTM	ltm.c	9	new		0	1	0	0	0
+luaT_trybiniTM	ltm.c	21	new		0	1	0	0	1
+luaT_callorderTM	ltm.c	29	new		0	1	0	0	1
+luaT_callorderiTM	ltm.c	46	new		0	1	0	0	0
+luaT_adjustvarargs	ltm.c	64	new		0	1	1	1	1
+luaT_getvarargs	ltm.c	112	new		0	1	0	0	1
+error	lundump.c	13	new		0	1	0	0	0
+loadByte	lundump.c	28	new		0	1	1	0	1
+fchecksize.part.0	lundump.c	12	new		0	1	0	0	0
+loadUnsigned	lundump.c	55	new		0	1	1	0	1
+loadStringN	lundump.c	85	new		0	1	1	0	1
+loadFunction	lundump.c	362	new		0	1	1	0	1
+luaU_undump	lundump.c	234	new		0	1	1	0	1
+l_strcmp	lvm.c	55	new		0	1	0	0	1
+luaV_concat.part.0	lvm.c	222	new		0	1	0	0	1
+luaV_tonumber_	lvm.c	48	new		0	1	0	0	0
+luaV_flttointeger	lvm.c	57	new		0	1	0	0	1
+luaV_tointegerns	lvm.c	59	new		0	1	0	0	0
+luaV_tointeger	lvm.c	90	new		0	1	0	0	1
+luaV_finishget	lvm.c	93	new		0	1	1	0	1
+luaV_finishset	lvm.c	143	new		0	1	1	0	1
+luaV_lessthan	lvm.c	143	new		0	1	0	0	1
+luaV_lessequal	lvm.c	145	new		0	1	0	0	0
+luaV_equalobj	lvm.c	212	new		0	1	0	0	1
+luaV_concat	lvm.c	4	new		0	1	0	0	1
+luaV_objlen	lvm.c	82	new		0	1	0	0	1
+luaV_idiv	lvm.c	32	new		0	1	0	0	0
+luaV_mod	lvm.c	28	new		0	1	0	0	0
+luaV_modf	lvm.c	39	new		0	1	0	0	0
+luaV_shiftl	lvm.c	16	new		0	1	0	0	0
+luaV_finishOp	lvm.c	93	new		0	1	0	0	1
+luaV_execute	lvm.c	4020	new		0	1	1	1	1
+luaZ_fill	lzio.c	23	new		0	1	1	0	1
+luaZ_init	lzio.c	6	new		0	1	1	0	1
+luaZ_read	lzio.c	61	new		0	1	1	0	1
+getS	lauxlib.c	8	new		0	1	1	0	1
+findfield	lauxlib.c	70	new		0	1	0	0	0
+resizebox	lauxlib.c	43	new		0	1	0	0	0
+boxgc	lauxlib.c	9	new		0	1	0	0	0
+getF	lauxlib.c	29	new		0	1	0	0	0
+panic	lauxlib.c	30	new		0	0	0	0	0
+l_alloc@8001ed2c	lauxlib.c	11	new		0	0	0	0	0
+skipcomment	lauxlib.c	47	new		0	1	0	0	0
+warnfcont	lauxlib.c	41	new		0	0	0	0	0
+warnfon	lauxlib.c	67	new		0	0	0	0	0
+luaL_getmetafield.part.0	lauxlib.c	33	new		0	1	0	0	1
+errfile.isra.0	lauxlib.c	47	new		0	1	0	0	0
+warnfoff	lauxlib.c	47	new		0	0	0	0	0
+luaL_where	lauxlib.c	31	new		0	1	0	0	1
+luaL_error	lauxlib.c	30	new		0	1	0	0	0
+pushglobalfuncname	lauxlib.c	92	new		0	1	0	0	0
+luaL_argerror	lauxlib.c	72	new		0	1	0	0	0
+luaL_typeerror	lauxlib.c	51	new		0	1	0	0	0
+luaL_fileresult	lauxlib.c	52	new		0	0	0	0	0
+luaL_execresult	lauxlib.c	43	new		0	0	0	0	0
+luaL_newmetatable	lauxlib.c	46	new		0	1	0	0	0
+luaL_setmetatable	lauxlib.c	14	new		0	0	0	0	0
+luaL_testudata	lauxlib.c	44	new		0	0	0	0	0
+luaL_checkudata	lauxlib.c	31	new		0	0	0	0	0
+luaL_checkoption	lauxlib.c	69	new		0	1	0	0	0
+luaL_checkstack	lauxlib.c	31	new		0	1	0	0	1
+luaL_checktype	lauxlib.c	26	new		0	1	0	0	1
+luaL_checkany	lauxlib.c	23	new		0	1	0	0	1
+luaL_checklstring	lauxlib.c	30	new		0	1	0	0	1
+luaL_optlstring	lauxlib.c	50	new		0	1	0	0	1
+luaL_checknumber	lauxlib.c	32	new		0	1	0	0	1
+luaL_optnumber	lauxlib.c	34	new		0	0	0	0	0
+luaL_checkinteger	lauxlib.c	38	new		0	1	0	0	1
+luaL_optinteger	lauxlib.c	25	new		0	1	0	0	1
+luaL_pushresult	lauxlib.c	27	new		0	1	0	0	1
+luaL_pushresultsize	lauxlib.c	4	new		0	1	0	0	1
+luaL_buffinit	lauxlib.c	7	new		0	1	0	0	1
+luaL_ref	lauxlib.c	67	new		0	0	0	0	0
+luaL_unref	lauxlib.c	31	new		0	0	0	0	0
+luaL_loadfilex	lauxlib.c	162	new		0	1	0	0	0
+luaL_loadbufferx	lauxlib.c	12	new		0	1	1	0	1
+luaL_loadstring	lauxlib.c	21	new		0	0	0	0	0
+luaL_getmetafield	lauxlib.c	20	new		0	1	0	0	1
+luaL_callmeta	lauxlib.c	39	new		0	1	1	1	1
+luaL_len	lauxlib.c	27	new		0	1	0	0	1
+luaL_tolstring	lauxlib.c	153	new		0	1	1	1	1
+luaL_setfuncs	lauxlib.c	60	new		0	1	1	0	1
+prepbuffsize	lauxlib.c	108	new		0	1	0	0	1
+luaL_prepbuffsize	lauxlib.c	2	new		0	1	0	0	1
+luaL_addstring	lauxlib.c	31	new		0	1	0	0	0
+luaL_addvalue	lauxlib.c	32	new		0	1	0	0	1
+luaL_buffinitsize	lauxlib.c	19	new		0	1	0	0	1
+luaL_addlstring	lauxlib.c	24	new		0	1	0	0	1
+luaL_traceback	lauxlib.c	243	new		0	0	0	0	0
+luaL_getsubtable	lauxlib.c	43	new		0	1	1	0	1
+luaL_requiref	lauxlib.c	74	new		0	1	1	0	1
+luaL_addgsub	lauxlib.c	81	new		0	0	0	0	0
+luaL_gsub	lauxlib.c	49	new		0	0	0	0	0
+luaL_newstate	lauxlib.c	22	new		0	0	0	0	0
+luaL_checkversion_	lauxlib.c	41	new		0	1	1	0	1
+pairscont	lbaselib.c	2	new		0	1	0	0	0
+dofilecont	lbaselib.c	7	new		0	1	0	0	0
+luaB_type	lbaselib.c	28	new		0	1	0	0	1
+luaB_tostring	lbaselib.c	13	new		0	1	0	0	1
+luaB_select	lbaselib.c	53	new		0	1	0	0	1
+luaB_setmetatable	lbaselib.c	52	new		0	1	0	0	1
+luaB_rawset	lbaselib.c	24	new		0	1	0	0	1
+luaB_rawget	lbaselib.c	21	new		0	1	0	0	1
+luaB_rawlen	lbaselib.c	25	new		0	1	0	0	0
+luaB_rawequal	lbaselib.c	21	new		0	1	0	0	0
+luaB_warn	lbaselib.c	47	new		0	1	0	0	0
+luaB_print	lbaselib.c	62	new		0	1	1	1	1
+luaB_ipairs	lbaselib.c	22	new		0	1	0	0	1
+luaB_next	lbaselib.c	26	new		0	1	0	0	1
+generic_reader	lbaselib.c	57	new		0	1	0	0	0
+ipairsaux	lbaselib.c	21	new		0	1	0	0	1
+luaB_error	lbaselib.c	39	new		0	1	0	0	1
+luaB_dofile	lbaselib.c	39	new		0	1	0	0	0
+finishpcall	lbaselib.c	21	new		0	1	0	0	0
+luaB_pairs	lbaselib.c	42	new		0	1	0	0	1
+load_aux	lbaselib.c	32	new		0	1	0	0	0
+luaB_load	lbaselib.c	69	new		0	1	0	0	0
+luaB_loadfile	lbaselib.c	37	new		0	1	0	0	0
+luaB_getmetatable	lbaselib.c	27	new		0	1	0	0	1
+luaB_assert	lbaselib.c	34	new		0	1	0	0	0
+luaB_tonumber	lbaselib.c	159	new		0	1	0	0	1
+luaB_collectgarbage	lbaselib.c	184	new		0	1	0	0	0
+luaB_pcall	lbaselib.c	41	new		0	1	0	0	1
+luaB_xpcall	lbaselib.c	51	new		0	1	0	0	1
+luaopen_base	lbaselib.c	35	new		0	1	1	0	1
+match_class	lstrlib.c	83	new		0	1	0	0	1
+matchbracketclass	lstrlib.c	53	new		0	1	0	0	0
+str_len	lstrlib.c	15	new		0	1	0	0	0
+unpackint	lstrlib.c	150	new		0	1	0	0	0
+classend	lstrlib.c	59	new		0	1	0	0	1
+packint	lstrlib.c	91	new		0	1	0	0	0
+writer	lstrlib.c	31	new		0	1	0	0	0
+str_upper	lstrlib.c	40	new		0	1	0	0	1
+str_reverse	lstrlib.c	32	new		0	1	0	0	1
+str_lower	lstrlib.c	40	new		0	1	0	0	1
+str_rep	lstrlib.c	108	new		0	1	0	0	1
+str_char	lstrlib.c	47	new		0	1	0	0	1
+addlenmod	lstrlib.c	30	new		0	1	0	0	1
+str_dump	lstrlib.c	37	new		0	1	0	0	0
+tonum	lstrlib.c	32	new		0	1	0	0	1
+singlematch.part.0.isra.0	lstrlib.c	17	new		0	1	0	0	1
+arith.isra.0	lstrlib.c	71	new		0	1	0	0	1
+arith_add	lstrlib.c	10	new		0	1	0	0	1
+arith_sub	lstrlib.c	10	new		0	1	0	0	0
+arith_mul	lstrlib.c	10	new		0	1	0	0	1
+arith_mod	lstrlib.c	10	new		0	1	0	0	0
+arith_pow	lstrlib.c	10	new		0	1	0	0	0
+arith_div	lstrlib.c	10	new		0	1	0	0	0
+arith_idiv	lstrlib.c	10	new		0	1	0	0	0
+arith_unm	lstrlib.c	10	new		0	1	0	0	0
+getnumlimit	lstrlib.c	32	new		0	1	0	0	0
+getoption	lstrlib.c	137	new		0	1	0	0	0
+getdetails	lstrlib.c	90	new		0	1	0	0	0
+str_packsize	lstrlib.c	72	new		0	1	0	0	0
+push_onecapture	lstrlib.c	57	new		0	1	0	0	1
+checkformat	lstrlib.c	74	new		0	1	0	0	1
+str_format	lstrlib.c	521	new		0	1	0	0	1
+str_sub	lstrlib.c	65	new		0	1	0	0	1
+gmatch	lstrlib.c	79	new		0	1	0	0	1
+str_byte	lstrlib.c	83	new		0	1	0	0	1
+str_unpack	lstrlib.c	283	new		0	1	0	0	0
+match	lstrlib.c	330	new		0	1	0	0	1
+gmatch_aux	lstrlib.c	89	new		0	1	0	0	1
+str_gsub	lstrlib.c	334	new		0	1	0	0	1
+str_pack	lstrlib.c	377	new		0	1	0	0	0
+str_find_aux	lstrlib.c	209	new		0	1	0	0	1
+str_match	lstrlib.c	2	new		0	1	0	0	1
+str_find	lstrlib.c	2	new		0	1	0	0	1
+luaopen_string	lstrlib.c	55	new		0	1	1	0	1
+tunpack	ltablib.c	72	new		0	1	0	0	1
+tpack	ltablib.c	40	new		0	1	0	0	1
+addfield	ltablib.c	40	new		0	1	0	0	1
+sort_comp	ltablib.c	50	new		0	1	0	0	1
+checktab.part.0	ltablib.c	76	new		0	1	0	0	0
+auxsort	ltablib.c	241	new		0	1	0	0	1
+sort	ltablib.c	50	new		0	1	0	0	1
+tremove	ltablib.c	72	new		0	1	0	0	1
+tconcat	ltablib.c	65	new		0	1	0	0	1
+tinsert	ltablib.c	72	new		0	1	0	0	1
+tmove	ltablib.c	117	new		0	1	0	0	1
+luaopen_table	ltablib.c	22	new		0	1	1	0	1
+luaB_yield	lcorolib.c	13	new		0	1	0	0	1
+auxresume	lcorolib.c	64	new		0	1	0	0	1
+luaB_auxwrap	lcorolib.c	61	new		0	1	0	0	1
+luaB_corunning	lcorolib.c	13	new		0	1	0	0	0
+luaB_cocreate	lcorolib.c	24	new		0	1	0	0	1
+luaB_yieldable	lcorolib.c	32	new		0	1	0	0	0
+auxstatus	lcorolib.c	32	new		0	1	0	0	1
+luaB_costatus	lcorolib.c	31	new		0	1	0	0	1
+luaB_coresume	lcorolib.c	50	new		0	1	0	0	1
+luaB_close	lcorolib.c	60	new		0	1	0	0	0
+luaB_cowrap	lcorolib.c	29	new		0	1	0	0	1
+luaopen_coroutine	lcorolib.c	22	new		0	1	1	0	1
+fmod	libm:libm_a-w_fmod.o	38	new		0	1	0	0	0
+pow	libm:libm_a-w_pow.o	70	new		0	1	0	0	0
+floor	libm:libm_a-s_floor.o	114	new		0	1	0	0	1
+frexp	libc:libm_a-s_frexp.o	48	identical_mod_reloc	frexp	1	1	0	0	1
+finite	libc:libm_a-s_finite.o	6	new		0	1	0	0	0
+__ieee754_fmod	libm:libm_a-e_fmod.o	317	new		0	1	0	0	0
+__ieee754_pow	libm:libm_a-e_pow.o	893	new		0	1	0	0	0
+scalbn	libc:libm_a-s_scalbn.o	106	new		0	1	0	0	0
+with_errno	libm_a-math_err.o	13	new		0	1	0	0	0
+xflow	libm_a-math_err.o	16	new		0	1	0	0	0
+__math_uflow	libm:libm_a-math_err.o	3	new		0	1	0	0	0
+__math_may_uflow	libm:libm_a-math_err.o	3	new		0	0	0	0	0
+__math_oflow	libm:libm_a-math_err.o	3	new		0	1	0	0	0
+__math_divzero	libm:libm_a-math_err.o	16	new		0	0	0	0	0
+__math_invalid	libm:libm_a-math_err.o	27	new		0	0	0	0	0
+__math_check_uflow	libm:libm_a-math_err.o	18	new		0	0	0	0	0
+__math_check_oflow	libm:libm_a-math_err.o	30	new		0	0	0	0	0
+__ieee754_sqrt	libm:libm_a-e_sqrt.o	209	new		0	1	0	0	0
+fabs	libm:libm_a-s_fabs.o	7	new		0	1	0	0	0
+__adddf3	libgcc:adddf3.o	418	identical_mod_reloc	__adddf3	1	1	0	0	1
+__divdf3	libgcc:divdf3.o	328	identical_mod_reloc	__divdf3	1	1	0	0	1
+__eqdf2	libgcc:eqdf2.o	28	identical_words	__eqdf2	1	1	1	0	1
+__gedf2	libgcc:gedf2.o	40	identical_words	__gedf2	1	1	0	0	1
+__ledf2	libgcc:ledf2.o	41	identical_words	__ledf2	1	1	0	0	1
+__muldf3	libgcc:muldf3.o	307	identical_mod_reloc	__muldf3	1	1	0	0	1
+__subdf3	libgcc:subdf3.o	440	identical_mod_reloc	__subdf3	1	1	0	0	1
+__unorddf2	libgcc:unorddf2.o	18	identical_words	__unorddf2	1	1	0	0	1
+__floatsidf	libgcc:floatsidf.o	36	identical_mod_reloc	__floatsidf	1	1	0	0	1
+__fixdfdi	libgcc:fixdfdi.o	30	new		0	1	0	0	1
+__floatdidf	libgcc:floatdidf.o	86	new		0	1	0	0	1
+__extendsfdf2	libgcc:extendsfdf2.o	63	new		0	1	0	0	0
+__truncdfsf2	libgcc:truncdfsf2.o	86	new		0	1	0	0	0
+__muldi3	libgcc:muldi3.o	9	identical_words	__muldi3	1	1	1	1	1
+__udivsi3	libgcc:div.o	6	identical_words	__udivsi3	0	0	0	0	0
+__umodsi3	libgcc:div.o	8	identical_words	__umodsi3	0	0	0	0	0
+__divsi3	libgcc:div.o	2	identical_words	__divsi3	0	0	0	0	0
+__divdi3	libgcc:div.o	2	identical_words	__divdi3	1	1	0	0	1
+__hidden___udivdi3	libgcc:div.o	18	identical_words	__hidden___udivdi3	1	1	1	1	1
+__umoddi3	libgcc:div.o	13	identical_words	__umoddi3	1	1	1	1	1
+__moddi3	libgcc:div.o	15	identical_words	__moddi3	1	1	1	1	1
+__clzdi2	libgcc:_clzsi2.o	22	identical_mod_reloc	__clzdi2	1	1	0	0	1
+abort	libc:libc_a-abort.o	6	identical_mod_reloc	abort	1	1	0	0	0
+exit	libc:libc_a-exit.o	11	identical_mod_reloc	exit	1	1	1	1	1
+malloc	libc:libc_a-malloc.o	3	identical_words	malloc	1	0	0	0	0
+free	libc:libc_a-malloc.o	3	identical_mod_reloc	free	1	1	1	0	1
+_malloc_r	libc:libc_a-mallocr.o	560	identical_mod_reloc	_malloc_r	1	1	1	1	1
+__malloc_lock	libc:libc_a-mlock.o	2	identical_mod_reloc	__malloc_lock	1	1	1	1	1
+__malloc_unlock	libc:libc_a-mlock.o	2	identical_mod_reloc	__malloc_unlock	1	1	1	1	1
+realloc	libc:libc_a-realloc.o	5	identical_words	realloc	1	1	1	1	1
+_realloc_r	libc:libc_a-reallocr.o	396	identical_mod_reloc	_realloc_r	1	1	1	1	1
+sulp	libc_a-strtod.o	25	new		0	1	0	0	0
+_strtod_l	libc:libc_a-strtod.o	1601	new		0	1	0	0	1
+_strtod_r	libc:libc_a-strtod.o	2	new		0	0	0	0	0
+strtod_l	libc:libc_a-strtod.o	6	new		0	0	0	0	0
+strtod	libc:libc_a-strtod.o	6	new		0	1	0	0	1
+strtof_l	libc:libc_a-strtod.o	76	new		0	0	0	0	0
+strtof	libc:libc_a-strtod.o	84	new		0	0	0	0	0
+__set_ctype	libc:libc_a-ctype_.o	4	identical_mod_reloc	__set_ctype	0	0	0	0	0
+_fclose_r	libc:libc_a-fclose.o	91	identical_mod_reloc	_fclose_r	0	1	1	1	1
+fclose	libc:libc_a-fclose.o	3	identical_words	fclose	0	1	0	0	0
+__sflush_r	libc:libc_a-fflush.o	151	identical_mod_reloc	__sflush_r	1	1	1	1	1
+_fflush_r	libc:libc_a-fflush.o	50	identical_mod_reloc	_fflush_r	1	1	1	1	1
+fflush	libc:libc_a-fflush.o	55	identical_mod_reloc	fflush	0	1	1	1	1
+stdio_exit_handler	libc_a-findfp.o	5	identical_mod_reloc	stdio_exit_handler	0	1	1	1	1
+cleanup_stdio	libc_a-findfp.o	25	identical_mod_reloc	cleanup_stdio	0	1	0	0	0
+__fp_lock	libc_a-findfp.o	16	identical_mod_reloc	__fp_lock	0	0	0	0	0
+__fp_unlock	libc_a-findfp.o	16	identical_mod_reloc	__fp_unlock	0	0	0	0	0
+global_stdio_init.part.0	libc_a-findfp.o	87	same_name_differs	global_stdio_init.part.0	1	1	1	1	1
+__sfp	libc:libc_a-findfp.o	85	identical_mod_reloc	__sfp	0	1	0	0	0
+__sinit	libc:libc_a-findfp.o	24	identical_mod_reloc	__sinit	1	1	1	1	1
+__sfp_lock_acquire	libc:libc_a-findfp.o	2	identical_mod_reloc	__sfp_lock_acquire	0	1	1	1	1
+__sfp_lock_release	libc:libc_a-findfp.o	2	identical_mod_reloc	__sfp_lock_release	0	1	1	1	1
+__fp_lock_all	libc:libc_a-findfp.o	11	identical_mod_reloc	__fp_lock_all	0	0	0	0	0
+__fp_unlock_all	libc:libc_a-findfp.o	11	identical_mod_reloc	__fp_unlock_all	0	0	0	0	0
+_fopen_r	libc:libc_a-fopen.o	96	new		0	1	0	0	0
+fopen	libc:libc_a-fopen.o	5	new		0	1	0	0	0
+_fprintf_r	libc:libc_a-fprintf.o	14	identical_mod_reloc	_fprintf_r	0	0	0	0	0
+fprintf	libc:libc_a-fprintf.o	20	identical_mod_reloc	fprintf	1	1	0	0	1
+_fputc_r	libc:libc_a-fputc.o	52	identical_mod_reloc	_fputc_r	0	0	0	0	0
+fputc	libc:libc_a-fputc.o	54	identical_mod_reloc	fputc	1	0	0	0	0
+_fputs_r	libc:libc_a-fputs.o	82	identical_mod_reloc	_fputs_r	1	0	0	0	0
+fputs	libc:libc_a-fputs.o	5	identical_words	fputs	1	0	0	0	0
+_fread_r	libc:libc_a-fread.o	211	new		0	1	0	0	0
+fread	libc:libc_a-fread.o	7	new		0	1	0	0	0
+_freopen_r	libc:libc_a-freopen.o	187	new		0	1	0	0	0
+freopen	libc:libc_a-freopen.o	6	new		0	1	0	0	0
+_fseek_r	libc:libc_a-fseek.o	1	new		0	1	0	0	0
+fseek	libc:libc_a-fseek.o	6	new		0	0	0	0	0
+__sfvwrite_r	libc:libc_a-fvwrite.o	311	identical_mod_reloc	__sfvwrite_r	1	1	1	1	1
+_fwalk_sglue	libc:libc_a-fwalk.o	52	identical_words	_fwalk_sglue	0	1	1	1	1
+_fwrite_r	libc:libc_a-fwrite.o	122	identical_mod_reloc	_fwrite_r	1	1	1	1	1
+fwrite	libc:libc_a-fwrite.o	7	identical_words	fwrite	1	1	1	1	1
+_getc_r	libc:libc_a-getc.o	57	new		0	0	0	0	0
+getc	libc:libc_a-getc.o	59	new		0	1	0	0	0
+_putc_r	libc:libc_a-putc.o	67	identical_mod_reloc	_putc_r	1	0	0	0	0
+putc	libc:libc_a-putc.o	71	identical_mod_reloc	putc	0	0	0	0	0
+lflush	libc_a-refill.o	8	new		0	1	0	0	0
+__srefill_r	libc:libc_a-refill.o	104	new		0	1	0	0	0
+__srget_r	libc:libc_a-rget.o	42	new		0	1	0	0	0
+__srget	libc:libc_a-rget.o	43	new		0	0	0	0	0
+_snprintf_r	libc:libc_a-snprintf.o	52	identical_mod_reloc	_snprintf_r	0	0	0	0	0
+snprintf	libc:libc_a-snprintf.o	53	identical_mod_reloc	snprintf	1	1	1	1	1
+__sread	libc:libc_a-stdio.o	23	identical_mod_reloc	__sread	0	1	0	0	0
+__seofread	libc:libc_a-stdio.o	2	identical_words	__seofread	0	0	0	0	0
+__swrite	libc:libc_a-stdio.o	34	identical_mod_reloc	__swrite	0	1	1	1	1
+__sseek	libc:libc_a-stdio.o	25	identical_mod_reloc	__sseek	0	1	0	0	0
+__sclose	libc:libc_a-stdio.o	2	identical_mod_reloc	__sclose	0	1	1	1	1
+__swbuf_r	libc:libc_a-wbuf.o	85	identical_mod_reloc	__swbuf_r	1	0	0	0	0
+__swbuf	libc:libc_a-wbuf.o	5	identical_words	__swbuf	0	0	0	0	0
+__swsetup_r	libc:libc_a-wsetup.o	89	identical_mod_reloc	__swsetup_r	1	1	1	1	1
+_fseeko_r	libc:libc_a-fseeko.o	324	new		0	1	0	0	0
+fseeko	libc:libc_a-fseeko.o	6	new		0	0	0	0	0
+memchr	libc:libc_a-memchr.o	48	identical_words	memchr	1	1	1	1	1
+memcmp	libc:libc_a-memcmp.o	27	identical_words	memcmp	0	1	1	0	1
+strchr	libc:libc_a-strchr.o	92	identical_words	strchr	0	1	1	1	1
+strcoll	libc:libc_a-strcoll.o	1	new		0	1	0	0	1
+_strerror_r	libc:libc_a-strerror.o	265	new		0	1	0	0	0
+strerror	libc:libc_a-strerror.o	5	new		0	1	0	0	0
+strerror_l	libc:libc_a-strerror.o	5	new		0	0	0	0	0
+strncmp	libc:libc_a-strncmp.o	46	identical_words	strncmp	0	1	0	0	1
+strpbrk	libc:libc_a-strpbrk.o	24	new		0	1	0	0	1
+strspn	libc:libc_a-strspn.o	19	new		0	1	0	0	1
+critical_factorization	libc_a-strstr.o	73	new		0	0	0	0	0
+two_way_short_needle	libc_a-strstr.o	165	new		0	0	0	0	0
+two_way_long_needle	libc_a-strstr.o	200	new		0	0	0	0	0
+strstr	libc:libc_a-strstr.o	171	new		0	0	0	0	0
+_user_strerror	libc:libc_a-u_strerr.o	2	identical_body_other_name	_read	0	1	0	0	0
+_init_signal_r	libc:libc_a-signal.o	22	identical_mod_reloc	_init_signal_r	0	0	0	0	0
+_signal_r	libc:libc_a-signal.o	39	identical_mod_reloc	_signal_r	0	0	0	0	0
+_raise_r	libc:libc_a-signal.o	42	identical_mod_reloc	_raise_r	0	0	0	0	0
+__sigtramp_r	libc:libc_a-signal.o	51	identical_mod_reloc	__sigtramp_r	0	0	0	0	0
+raise	libc:libc_a-signal.o	42	identical_mod_reloc	raise	1	1	0	0	0
+signal	libc:libc_a-signal.o	41	identical_mod_reloc	signal	0	0	0	0	0
+_init_signal	libc:libc_a-signal.o	24	identical_mod_reloc	_init_signal	0	0	0	0	0
+__sigtramp	libc:libc_a-signal.o	53	identical_mod_reloc	__sigtramp	0	0	0	0	0
+currentlocale	libc_a-locale.o	34	identical_mod_reloc	currentlocale	0	0	0	0	0
+__loadlocale	libc:libc_a-locale.o	527	identical_mod_reloc	__loadlocale	0	0	0	0	0
+__get_locale_env	libc:libc_a-locale.o	35	identical_mod_reloc	__get_locale_env	0	0	0	0	0
+_setlocale_r	libc:libc_a-locale.o	245	identical_mod_reloc	_setlocale_r	0	0	0	0	0
+__locale_mb_cur_max	libc:libc_a-locale.o	2	identical_mod_reloc	__locale_mb_cur_max	1	1	1	1	1
+setlocale	libc:libc_a-locale.o	5	identical_words	setlocale	0	0	0	0	0
+_close_r	libc:libc_a-closer.o	20	identical_mod_reloc	_close_r	0	1	1	1	1
+_reclaim_reent	libc:libc_a-reent.o	57	identical_mod_reloc	_reclaim_reent	0	0	0	0	0
+_fstat_r	libc:libc_a-fstatr.o	22	identical_mod_reloc	_fstat_r	1	1	1	1	1
+_lseek_r	libc:libc_a-lseekr.o	23	identical_mod_reloc	_lseek_r	0	1	0	0	0
+_open_r	libc:libc_a-openr.o	23	new		0	1	0	0	0
+_read_r	libc:libc_a-readr.o	23	identical_mod_reloc	_read_r	0	1	0	0	0
+_kill_r	libc:libc_a-signalr.o	22	identical_mod_reloc	_kill_r	1	1	0	0	0
+_getpid_r	libc:libc_a-signalr.o	1	identical_mod_reloc	_getpid_r	1	1	0	0	0
+_sbrk_r	libc:libc_a-sbrkr.o	20	identical_mod_reloc	_sbrk_r	1	1	1	0	1
+_write_r	libc:libc_a-writer.o	23	identical_mod_reloc	_write_r	0	1	1	1	1
+__errno	libc:libc_a-errno.o	2	identical_words	__errno	1	1	0	0	0
+__retarget_lock_init	libc:libc_a-lock.o	1	identical_words	__retarget_lock_init	0	0	0	0	0
+__retarget_lock_init_recursive	libc:libc_a-lock.o	1	identical_words	__retarget_lock_init_recursive	1	1	1	1	1
+__retarget_lock_close	libc:libc_a-lock.o	1	identical_words	__retarget_lock_close	0	0	0	0	0
+__retarget_lock_close_recursive	libc:libc_a-lock.o	1	identical_words	__retarget_lock_close_recursive	1	1	1	1	1
+__retarget_lock_acquire	libc:libc_a-lock.o	1	identical_words	__retarget_lock_acquire	0	0	0	0	0
+__retarget_lock_acquire_recursive	libc:libc_a-lock.o	1	identical_words	__retarget_lock_acquire_recursive	1	1	1	1	1
+__retarget_lock_try_acquire	libc:libc_a-lock.o	2	identical_words	__retarget_lock_try_acquire	0	0	0	0	0
+__retarget_lock_try_acquire_recursive	libc:libc_a-lock.o	2	identical_words	__retarget_lock_try_acquire_recursive	0	0	0	0	0
+__retarget_lock_release	libc:libc_a-lock.o	1	identical_words	__retarget_lock_release	0	0	0	0	0
+__retarget_lock_release_recursive	libc:libc_a-lock.o	1	identical_words	__retarget_lock_release_recursive	1	1	1	1	1
+memmove	libc:libc_a-memmove-stub.o	74	identical_words	memmove	1	1	1	1	1
+memset	libc:libc_a-memset.o	55	identical_words	memset	1	1	1	1	1
+memcpy	libc:libc_a-memcpy.o	74	identical_words	memcpy	1	1	1	1	1
+strlen	libc:libc_a-strlen.o	53	identical_words	strlen	1	1	1	1	1
+strcpy	libc:libc_a-strcpy.o	55	identical_words	strcpy	1	0	0	0	0
+strcmp	libc:libc_a-strcmp.o	75	identical_mod_reloc	strcmp	1	1	1	0	1
+setjmp	libc:libc_a-setjmp.o	16	identical_words	setjmp	1	1	1	0	1
+longjmp	libc:libc_a-setjmp.o	17	identical_words	longjmp	1	1	0	0	1
+nan	libc:libm_a-s_nan.o	3	new		0	1	0	0	0
+nanf	libc:libm_a-sf_nan.o	3	new		0	0	0	0	0
+register_fini	libc_a-__call_atexit.o	6	identical_mod_reloc	register_fini	0	0	0	0	0
+__call_exitprocs	libc:libc_a-__call_atexit.o	92	identical_mod_reloc	__call_exitprocs	1	1	1	1	1
+atexit	libc:libc_a-atexit.o	5	identical_mod_reloc	atexit	0	0	0	0	0
+_malloc_trim_r	libc:libc_a-freer.o	73	identical_mod_reloc	_malloc_trim_r	1	1	0	0	0
+_free_r	libc:libc_a-freer.o	193	identical_mod_reloc	_free_r	1	1	1	1	1
+rshift	libc_a-gdtoa-gethex.o	59	new		0	1	0	0	0
+__gethex	libc:libc_a-gdtoa-gethex.o	547	new		0	1	0	0	0
+__match	libc:libc_a-gdtoa-hexnan.o	19	new		0	1	0	0	0
+__hexnan	libc:libc_a-gdtoa-hexnan.o	149	new		0	1	0	0	0
+_findenv_r	libc:libc_a-getenv_r.o	80	identical_mod_reloc	_findenv_r	0	0	0	0	0
+_getenv_r	libc:libc_a-getenv_r.o	7	identical_words	_getenv_r	0	0	0	0	0
+_mbtowc_r	libc:libc_a-mbtowc_r.o	2	identical_mod_reloc	_mbtowc_r	0	0	0	0	0
+__ascii_mbtowc	libc:libc_a-mbtowc_r.o	26	identical_words	__ascii_mbtowc	0	1	1	1	1
+__utf8_mbtowc	libc:libc_a-mbtowc_r.o	197	identical_words	__utf8_mbtowc	0	0	0	0	0
+__sjis_mbtowc	libc:libc_a-mbtowc_r.o	96	identical_words	__sjis_mbtowc	0	0	0	0	0
+__eucjp_mbtowc	libc:libc_a-mbtowc_r.o	136	identical_words	__eucjp_mbtowc	0	0	0	0	0
+__jis_mbtowc	libc:libc_a-mbtowc_r.o	120	identical_mod_reloc	__jis_mbtowc	0	0	0	0	0
+_Balloc	libc:libc_a-mprec.o	43	identical_mod_reloc	_Balloc	1	1	0	0	1
+_Bfree	libc:libc_a-mprec.o	9	identical_words	_Bfree	1	1	0	0	1
+__multadd	libc:libc_a-mprec.o	90	identical_mod_reloc	__multadd	1	1	0	0	1
+__s2b	libc:libc_a-mprec.o	89	identical_mod_reloc	__s2b	0	1	0	0	0
+__hi0bits	libc:libc_a-mprec.o	34	identical_words	__hi0bits	1	1	0	0	0
+__lo0bits	libc:libc_a-mprec.o	71	identical_words	__lo0bits	1	1	0	0	1
+__i2b	libc:libc_a-mprec.o	52	identical_mod_reloc	__i2b	1	1	0	0	1
+__multiply	libc:libc_a-mprec.o	185	identical_mod_reloc	__multiply	1	1	0	0	0
+__pow5mult	libc:libc_a-mprec.o	91	identical_mod_reloc	__pow5mult	1	1	0	0	0
+__lshift	libc:libc_a-mprec.o	100	identical_mod_reloc	__lshift	1	1	0	0	1
+__mcmp	libc:libc_a-mprec.o	22	identical_words	__mcmp	1	1	0	0	1
+__mdiff	libc:libc_a-mprec.o	147	identical_mod_reloc	__mdiff	1	1	0	0	0
+__ulp	libc:libc_a-mprec.o	36	identical_words	__ulp	0	1	0	0	0
+__b2d	libc:libc_a-mprec.o	78	identical_words	__b2d	0	1	0	0	0
+__d2b	libc:libc_a-mprec.o	82	identical_mod_reloc	__d2b	1	1	0	0	1
+__ratio	libc:libc_a-mprec.o	47	identical_mod_reloc	__ratio	0	1	0	0	0
+_mprec_log10	libc:libc_a-mprec.o	29	identical_mod_reloc	_mprec_log10	0	0	0	0	0
+__copybits	libc:libc_a-mprec.o	26	identical_words	__copybits	0	1	0	0	0
+__any_on	libc:libc_a-mprec.o	25	identical_words	__any_on	0	1	0	0	0
+_strtol_l.part.0	libc_a-strtol.o	238	identical_mod_reloc	_strtol_l.part.0	0	0	0	0	0
+_strtol_r	libc:libc_a-strtol.o	14	identical_mod_reloc	_strtol_r	0	0	0	0	0
+strtol_l	libc:libc_a-strtol.o	19	identical_mod_reloc	strtol_l	0	0	0	0	0
+strtol	libc:libc_a-strtol.o	19	identical_mod_reloc	strtol	0	0	0	0	0
+_wctomb_r	libc:libc_a-wctomb_r.o	2	identical_mod_reloc	_wctomb_r	0	0	0	0	0
+__ascii_wctomb	libc:libc_a-wctomb_r.o	12	identical_words	__ascii_wctomb	0	1	0	0	0
+__utf8_wctomb	libc:libc_a-wctomb_r.o	59	identical_words	__utf8_wctomb	0	0	0	0	0
+__sjis_wctomb	libc:libc_a-wctomb_r.o	33	identical_words	__sjis_wctomb	0	0	0	0	0
+__eucjp_wctomb	libc:libc_a-wctomb_r.o	40	identical_words	__eucjp_wctomb	0	0	0	0	0
+__jis_wctomb	libc:libc_a-wctomb_r.o	47	identical_words	__jis_wctomb	0	0	0	0	0
+_svfprintf_r	libc:libc_a-svfprintf.o	3212	identical_mod_reloc	_svfprintf_r	1	1	1	1	1
+_vfprintf_r	libc:libc_a-vfprintf.o	3395	identical_mod_reloc	_vfprintf_r	1	1	0	0	1
+vfprintf	libc:libc_a-vfprintf.o	6	identical_words	vfprintf	0	0	0	0	0
+__sbprintf	libc_a-vfprintf.o	57	identical_mod_reloc	__sbprintf	1	1	0	0	0
+__sprint_r	libc:libc_a-sprint_r.o	15	identical_mod_reloc	__sprint_r	1	1	0	0	1
+__ssprint_r	libc:libc_a-ssprint_r.o	60	identical_mod_reloc	__ssprint_r	1	1	1	1	1
+__sflags	libc:libc_a-flags.o	43	new		0	1	0	0	0
+__smakebuf_r	libc:libc_a-makebuf.o	94	identical_mod_reloc	__smakebuf_r	1	1	1	1	1
+__swhatbuf_r	libc:libc_a-makebuf.o	61	identical_mod_reloc	__swhatbuf_r	0	0	0	0	0
+strcasecmp	libc:libc_a-strcasecmp.o	28	identical_mod_reloc	strcasecmp	0	0	0	0	0
+strcat	libc:libc_a-strcat.o	45	identical_mod_reloc	strcat	0	0	0	0	0
+strlcpy	libc:libc_a-strlcpy.o	17	identical_words	strlcpy	0	0	0	0	0
+strncasecmp	libc:libc_a-strncasecmp.o	32	identical_mod_reloc	strncasecmp	0	0	0	0	0
+strncpy	libc:libc_a-strncpy.o	47	identical_words	strncpy	1	1	0	0	0
+strnlen	libc:libc_a-strnlen.o	12	new		0	0	0	0	0
+__localeconv_l	libc:libc_a-localeconv.o	2	identical_words	__localeconv_l	0	0	0	0	0
+_localeconv_r	libc:libc_a-localeconv.o	2	identical_mod_reloc	_localeconv_r	1	1	1	1	1
+localeconv	libc:libc_a-localeconv.o	2	identical_mod_reloc	localeconv	0	0	0	0	0
+_isatty_r	libc:libc_a-isattyr.o	20	identical_mod_reloc	_isatty_r	1	1	1	1	1
+__libc_fini_array	libc:libc_a-fini.o	21	identical_words	__libc_fini_array	0	0	0	0	0
+__register_exitproc	libc:libc_a-__atexit.o	57	identical_mod_reloc	__register_exitproc	0	0	0	0	0
+__assert_func	libc:libc_a-assert.o	20	identical_mod_reloc	__assert_func	1	1	0	0	0
+__assert	libc:libc_a-assert.o	5	identical_words	__assert	0	0	0	0	0
+_calloc_r	libc:libc_a-callocr.o	102	identical_mod_reloc	_calloc_r	1	1	0	0	1
+quorem	libc_a-dtoa.o	155	identical_mod_reloc	quorem	1	1	0	0	1
+_dtoa_r	libc:libc_a-dtoa.o	1407	identical_mod_reloc	_dtoa_r	1	1	0	0	1
+__env_lock	libc:libc_a-envlock.o	2	identical_mod_reloc	__env_lock	0	0	0	0	0
+__env_unlock	libc:libc_a-envlock.o	2	identical_mod_reloc	__env_unlock	0	0	0	0	0
+_wcrtomb_r	libc:libc_a-wcrtomb.o	35	identical_mod_reloc	_wcrtomb_r	1	1	0	0	0
+wcrtomb	libc:libc_a-wcrtomb.o	36	identical_mod_reloc	wcrtomb	0	0	0	0	0
+_wcsrtombs_r	libc:libc_a-wcsrtombs.o	4	identical_mod_reloc	_wcsrtombs_r	1	1	0	0	0
+wcsrtombs	libc:libc_a-wcsrtombs.o	8	identical_mod_reloc	wcsrtombs	0	0	0	0	0
+_fiprintf_r	libc:libc_a-fiprintf.o	14	identical_words	_fiprintf_r	0	0	0	0	0
+fiprintf	libc:libc_a-fiprintf.o	20	identical_words	fiprintf	1	1	0	0	0
+_vfiprintf_r	libc:libc_a-vfiprintf.o	1531	identical_mod_reloc	_vfiprintf_r	1	1	0	0	0
+vfiprintf	libc:libc_a-vfiprintf.o	6	identical_words	vfiprintf	0	0	0	0	0
+__sbprintf@80041f30	libc_a-vfiprintf.o	57	identical_mod_reloc	__sbprintf@8001688c	1	1	0	0	0
+__ssputs_r	libc:libc_a-ssputs_r.o	101	identical_mod_reloc	__ssputs_r	1	1	1	1	1
+_wcsnrtombs_l	libc:libc_a-wcsnrtombs.o	100	identical_words	_wcsnrtombs_l	1	1	0	0	0
+_wcsnrtombs_r	libc:libc_a-wcsnrtombs.o	3	identical_mod_reloc	_wcsnrtombs_r	1	1	0	0	0
+wcsnrtombs	libc:libc_a-wcsnrtombs.o	9	identical_mod_reloc	wcsnrtombs	0	0	0	0	0
+__fixdfsi	libgcc:fixdfsi.o	26	identical_words	__fixdfsi	1	1	0	0	1
+__fixunsdfsi	libgcc:fixunsdfsi.o	22	new		0	1	0	0	0
+__floatunsidf	libgcc:floatunsidf.o	25	identical_mod_reloc	__floatunsidf	1	1	0	0	1
+__lesf2	libgcc:lesf2.o	45	new		0	0	0	0	0
+__unordsf2	libgcc:unordsf2.o	20	new		0	0	0	0	0
+__trunctfdf2	libgcc:trunctfdf2.o	132	identical_words	__trunctfdf2	1	1	0	0	0

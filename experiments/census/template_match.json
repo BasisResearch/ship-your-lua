@@ -1,0 +1,7113 @@
+{
+ "function_match": {
+  "_start": {
+   "cat": "identical_mod_reloc",
+   "while": "_start",
+   "in_while_proof_scope": false,
+   "origin": "crt0.S",
+   "family": "boot",
+   "n": 15
+  },
+  "_write": {
+   "cat": "identical_mod_reloc",
+   "while": "_write",
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 12
+  },
+  "_read": {
+   "cat": "identical_words",
+   "while": "_read",
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 2
+  },
+  "_open": {
+   "cat": "identical_mod_reloc",
+   "while": "_open",
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 9
+  },
+  "_close": {
+   "cat": "identical_words",
+   "while": "_close",
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 2
+  },
+  "_lseek": {
+   "cat": "identical_mod_reloc",
+   "while": "_lseek",
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 9
+  },
+  "_fstat": {
+   "cat": "identical_mod_reloc",
+   "while": "_fstat",
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 19
+  },
+  "_isatty": {
+   "cat": "identical_words",
+   "while": "_isatty",
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 2
+  },
+  "_sbrk": {
+   "cat": "identical_mod_reloc",
+   "while": "_sbrk",
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 26
+  },
+  "_exit": {
+   "cat": "identical_mod_reloc",
+   "while": "_exit",
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 6
+  },
+  "_kill": {
+   "cat": "identical_mod_reloc",
+   "while": "_kill",
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 9
+  },
+  "_getpid": {
+   "cat": "identical_words",
+   "while": "_getpid",
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 2
+  },
+  "l_alloc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "main.c",
+   "family": "boot",
+   "n": 11
+  },
+  "main": {
+   "cat": "same_name_differs",
+   "while": "main",
+   "ratio": 0.109,
+   "n_lua": 82,
+   "n_while": 46,
+   "in_while_proof_scope": false,
+   "origin": "main.c",
+   "family": "boot",
+   "n": 82
+  },
+  "index2value": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 37
+  },
+  "auxsetstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 66
+  },
+  "f_call": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 3
+  },
+  "lua_checkstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 36
+  },
+  "lua_xmove": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 34
+  },
+  "lua_atpanic": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 4
+  },
+  "lua_version": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 3
+  },
+  "lua_absindex": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 14
+  },
+  "lua_gettop": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 8
+  },
+  "lua_settop": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 58
+  },
+  "lua_closeslot": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 23
+  },
+  "lua_rotate": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 60
+  },
+  "lua_copy": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 106
+  },
+  "lua_pushvalue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 46
+  },
+  "lua_type": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 45
+  },
+  "lua_typename": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 7
+  },
+  "lua_iscfunction": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 47
+  },
+  "lua_isinteger": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 41
+  },
+  "lua_isnumber": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 51
+  },
+  "lua_isstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 43
+  },
+  "lua_isuserdata": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 47
+  },
+  "lua_rawequal": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 39
+  },
+  "lua_arith": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 24
+  },
+  "lua_compare": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 68
+  },
+  "lua_stringtonumber": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 15
+  },
+  "lua_tonumberx": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 58
+  },
+  "lua_tointegerx": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 60
+  },
+  "lua_toboolean": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 42
+  },
+  "lua_tolstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 91
+  },
+  "lua_rawlen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 57
+  },
+  "lua_tocfunction": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 48
+  },
+  "lua_touserdata": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 51
+  },
+  "lua_tothread": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 41
+  },
+  "lua_topointer": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 66
+  },
+  "lua_pushnil": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 5
+  },
+  "lua_pushnumber": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 7
+  },
+  "lua_pushinteger": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 7
+  },
+  "lua_pushlstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 31
+  },
+  "lua_pushstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 30
+  },
+  "lua_pushvfstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 18
+  },
+  "lua_pushfstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 27
+  },
+  "lua_pushcclosure": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 53
+  },
+  "lua_pushboolean": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 8
+  },
+  "lua_pushlightuserdata": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 7
+  },
+  "lua_pushthread": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 11
+  },
+  "lua_getglobal": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 53
+  },
+  "lua_gettable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 41
+  },
+  "lua_getfield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 55
+  },
+  "lua_geti": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 57
+  },
+  "lua_rawget": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 30
+  },
+  "lua_rawgeti": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 30
+  },
+  "lua_rawgetp": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 34
+  },
+  "lua_createtable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 35
+  },
+  "lua_getmetatable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 65
+  },
+  "lua_getiuservalue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 54
+  },
+  "lua_setglobal": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 6
+  },
+  "lua_settable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 52
+  },
+  "lua_setfield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 35
+  },
+  "lua_seti": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 71
+  },
+  "lua_rawset": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 39
+  },
+  "lua_rawsetp": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 40
+  },
+  "lua_rawseti": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 35
+  },
+  "lua_setmetatable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 78
+  },
+  "lua_setiuservalue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 74
+  },
+  "lua_callk": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 39
+  },
+  "lua_pcallk": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 74
+  },
+  "lua_load": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 54
+  },
+  "lua_dump": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 13
+  },
+  "lua_status": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 2
+  },
+  "lua_gc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 181
+  },
+  "lua_error": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 15
+  },
+  "lua_next": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 51
+  },
+  "lua_toclose": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 25
+  },
+  "lua_concat": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 33
+  },
+  "lua_len": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 45
+  },
+  "lua_getallocf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 7
+  },
+  "lua_setallocf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 4
+  },
+  "lua_setwarnf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 4
+  },
+  "lua_warning": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 1
+  },
+  "lua_newuserdatauv": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 29
+  },
+  "lua_getupvalue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 90
+  },
+  "lua_setupvalue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 66
+  },
+  "lua_upvalueid": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 78
+  },
+  "lua_upvaluejoin": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lapi.c",
+   "family": "lua",
+   "n": 63
+  },
+  "savelineinfo": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 72
+  },
+  "addk": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 107
+  },
+  "luaK_numberK": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 46
+  },
+  "luaK_exp2K": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 87
+  },
+  "isSCnumber": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 42
+  },
+  "need_value": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 34
+  },
+  "removevalues": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 40
+  },
+  "freeexps": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 54
+  },
+  "constfolding": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 150
+  },
+  "patchlistaux": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 111
+  },
+  "luaK_semerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 4
+  },
+  "luaK_exp2const": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 60
+  },
+  "luaK_concat": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 36
+  },
+  "luaK_getlabel": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 4
+  },
+  "luaK_patchlist": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 3
+  },
+  "luaK_patchtohere": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 5
+  },
+  "luaK_code": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 39
+  },
+  "luaK_jump": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 3
+  },
+  "luaK_nil": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 51
+  },
+  "luaK_ret": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 13
+  },
+  "luaK_codek.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 22
+  },
+  "luaK_codeABCk": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 9
+  },
+  "luaK_codeABx": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 5
+  },
+  "luaK_checkstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 15
+  },
+  "luaK_reserveregs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 16
+  },
+  "luaK_int": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaK_setreturns": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 38
+  },
+  "luaK_setoneret": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaK_dischargevars": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 200
+  },
+  "discharge2reg": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 120
+  },
+  "exp2reg": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 95
+  },
+  "jumponcond": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 104
+  },
+  "luaK_exp2nextreg": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 50
+  },
+  "luaK_exp2anyreg": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 35
+  },
+  "codeABRK": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 38
+  },
+  "luaK_exp2anyregup": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 8
+  },
+  "luaK_exp2val": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 5
+  },
+  "luaK_storevar": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 101
+  },
+  "luaK_self": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 69
+  },
+  "luaK_goiftrue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 60
+  },
+  "luaK_goiffalse": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 41
+  },
+  "luaK_indexed": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 125
+  },
+  "luaK_infix": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 81
+  },
+  "luaK_fixline": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 24
+  },
+  "luaK_prefix": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 159
+  },
+  "finishbinexpval": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 62
+  },
+  "finishbinexpneg": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 48
+  },
+  "codearith": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 74
+  },
+  "luaK_posfix": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 539
+  },
+  "luaK_settablesize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 42
+  },
+  "luaK_setlist": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 45
+  },
+  "luaK_finish": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcode.c",
+   "family": "lua",
+   "n": 90
+  },
+  "basicgetobjname": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 171
+  },
+  "getobjname": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 161
+  },
+  "funcnamefromcall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 108
+  },
+  "varinfo": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 67
+  },
+  "luaG_getfuncline": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 41
+  },
+  "lua_sethook": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 25
+  },
+  "lua_gethook": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 2
+  },
+  "lua_gethookmask": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 2
+  },
+  "lua_gethookcount": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 2
+  },
+  "lua_getstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 16
+  },
+  "luaG_findlocal": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 99
+  },
+  "lua_getlocal": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 32
+  },
+  "lua_setlocal": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 21
+  },
+  "lua_getinfo": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 265
+  },
+  "luaG_addinfo": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 34
+  },
+  "luaG_errormsg": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 27
+  },
+  "luaG_runerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 51
+  },
+  "luaG_typeerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 19
+  },
+  "luaG_concaterror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 12
+  },
+  "luaG_opinterror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 9
+  },
+  "luaG_forerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 12
+  },
+  "luaG_tointerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 22
+  },
+  "luaG_ordererror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 28
+  },
+  "luaG_callerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 35
+  },
+  "luaG_tracecall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 26
+  },
+  "luaG_traceexec": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldebug.c",
+   "family": "lua",
+   "n": 182
+  },
+  "correctstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 30
+  },
+  "closepaux": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 4
+  },
+  "luaD_seterrorobj": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 47
+  },
+  "luaD_throw": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 33
+  },
+  "f_parser": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 73
+  },
+  "luaD_rawrunprotected": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 30
+  },
+  "luaD_reallocstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 99
+  },
+  "luaD_growstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 57
+  },
+  "tryfuncTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 55
+  },
+  "luaD_shrinkstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 57
+  },
+  "luaD_inctop": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaD_hook": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 86
+  },
+  "rethook": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 59
+  },
+  "luaD_hookcall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 29
+  },
+  "luaD_poscall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 147
+  },
+  "unroll": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 85
+  },
+  "luaD_pretailcall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 222
+  },
+  "luaD_precall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 226
+  },
+  "resume": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 82
+  },
+  "luaD_call": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 53
+  },
+  "luaD_callnoyield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 57
+  },
+  "lua_resume": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 137
+  },
+  "lua_isyieldable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 6
+  },
+  "lua_yieldk": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaD_closeprotected": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 34
+  },
+  "luaD_pcall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 51
+  },
+  "luaD_protectedparser": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldo.c",
+   "family": "lua",
+   "n": 70
+  },
+  "dumpSize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldump.c",
+   "family": "lua",
+   "n": 28
+  },
+  "dumpString": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldump.c",
+   "family": "lua",
+   "n": 35
+  },
+  "dumpFunction": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldump.c",
+   "family": "lua",
+   "n": 305
+  },
+  "luaU_dump": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ldump.c",
+   "family": "lua",
+   "n": 117
+  },
+  "luaF_newCclosure": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 13
+  },
+  "luaF_newLclosure": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaF_initupvals": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 47
+  },
+  "luaF_findupval": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 41
+  },
+  "luaF_newtbcupval": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 59
+  },
+  "luaF_unlinkupval": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 7
+  },
+  "luaF_closeupval": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 68
+  },
+  "luaF_close": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 87
+  },
+  "luaF_newproto": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 23
+  },
+  "luaF_freeproto": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 47
+  },
+  "luaF_getlocalname": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lfunc.c",
+   "family": "lua",
+   "n": 19
+  },
+  "separatetobefnz": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 33
+  },
+  "enterinc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 37
+  },
+  "freeobj": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 80
+  },
+  "sweep2old": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 53
+  },
+  "GCTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 91
+  },
+  "dothecall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 4
+  },
+  "sweepstep.constprop.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 77
+  },
+  "sweepgen.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 65
+  },
+  "entersweep": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 48
+  },
+  "correctgraylist": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 63
+  },
+  "finishgencycle": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 69
+  },
+  "atomic2gen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 44
+  },
+  "genlink": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 39
+  },
+  "reallymarkobject": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 89
+  },
+  "clearbykeys": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 68
+  },
+  "clearbyvalues": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 102
+  },
+  "traverseephemeron": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 160
+  },
+  "propagatemark": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 629
+  },
+  "convergeephemerons": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 41
+  },
+  "atomic": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 188
+  },
+  "singlestep": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 174
+  },
+  "entergen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 47
+  },
+  "luaC_barrier_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaC_barrierback_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 38
+  },
+  "luaC_fix": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 11
+  },
+  "luaC_newobjdt": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 24
+  },
+  "luaC_newobj": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaC_checkfinalizer": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 113
+  },
+  "luaC_changemode": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 25
+  },
+  "luaC_freeallobjects": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 46
+  },
+  "luaC_runtilstate": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 24
+  },
+  "luaC_step": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 338
+  },
+  "luaC_fullgc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lgc.c",
+   "family": "lua",
+   "n": 96
+  },
+  "luaX_init": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 38
+  },
+  "luaX_token2str": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 31
+  },
+  "lexerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 44
+  },
+  "save": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 39
+  },
+  "skip_sep": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 62
+  },
+  "check_next2": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 38
+  },
+  "inclinenumber": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 57
+  },
+  "esccheck.part.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 29
+  },
+  "gethexa": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 33
+  },
+  "read_numeral": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 148
+  },
+  "luaX_syntaxerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 4
+  },
+  "luaX_newstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 55
+  },
+  "read_long_string": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 173
+  },
+  "llex": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 854
+  },
+  "luaX_setinput": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 36
+  },
+  "luaX_next": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaX_lookahead": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "llex.c",
+   "family": "lua",
+   "n": 11
+  },
+  "tryagain": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lmem.c",
+   "family": "lua",
+   "n": 27
+  },
+  "luaM_toobig": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lmem.c",
+   "family": "lua",
+   "n": 5
+  },
+  "luaM_free_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lmem.c",
+   "family": "lua",
+   "n": 17
+  },
+  "luaM_realloc_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lmem.c",
+   "family": "lua",
+   "n": 35
+  },
+  "luaM_shrinkvector_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lmem.c",
+   "family": "lua",
+   "n": 39
+  },
+  "luaM_growaux_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lmem.c",
+   "family": "lua",
+   "n": 58
+  },
+  "luaM_saferealloc_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lmem.c",
+   "family": "lua",
+   "n": 17
+  },
+  "luaM_malloc_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lmem.c",
+   "family": "lua",
+   "n": 37
+  },
+  "intarith": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 46
+  },
+  "numarith": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 75
+  },
+  "l_str2dloc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 41
+  },
+  "pushstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 35
+  },
+  "tostringbuff.part.0.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 33
+  },
+  "addstr2buff": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 53
+  },
+  "addnum2buff": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 43
+  },
+  "luaO_ceillog2": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 15
+  },
+  "luaO_rawarith": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 156
+  },
+  "luaO_arith": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 35
+  },
+  "luaO_hexavalue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 12
+  },
+  "luaO_str2num": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 191
+  },
+  "luaO_utf8esc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 28
+  },
+  "luaO_tostring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 37
+  },
+  "luaO_pushvfstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 282
+  },
+  "luaO_pushfstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 15
+  },
+  "luaO_chunkid": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lobject.c",
+   "family": "lua",
+   "n": 110
+  },
+  "newlabelentry": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 48
+  },
+  "errorlimit": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 34
+  },
+  "allocupvalue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 48
+  },
+  "new_localvar": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 46
+  },
+  "check_readonly": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 55
+  },
+  "error_expected": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 15
+  },
+  "check_match": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 31
+  },
+  "adjust_assign.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 56
+  },
+  "singlevaraux.part.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 157
+  },
+  "fieldsel": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 34
+  },
+  "singlevar": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 59
+  },
+  "adjustlocalvars": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 118
+  },
+  "createlabel": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 163
+  },
+  "leaveblock": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 220
+  },
+  "close_func": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 103
+  },
+  "statement": {
+   "cat": "same_name_differs",
+   "while": "statement",
+   "ratio": 0.038,
+   "n_lua": 1292,
+   "n_while": 344,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 1292
+  },
+  "body": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 268
+  },
+  "subexpr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 343
+  },
+  "recfield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 72
+  },
+  "constructor": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 166
+  },
+  "funcargs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 114
+  },
+  "suffixedexp": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 127
+  },
+  "restassign": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 178
+  },
+  "block": {
+   "cat": "same_name_differs",
+   "while": "block",
+   "ratio": 0.013,
+   "n_lua": 51,
+   "n_while": 109,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 51
+  },
+  "forbody": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 172
+  },
+  "test_then_block": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 148
+  },
+  "luaY_nvarstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 19
+  },
+  "luaY_parser": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lparser.c",
+   "family": "lua",
+   "n": 209
+  },
+  "stack_init": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 34
+  },
+  "f_luaopen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 44
+  },
+  "freestack.part.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 31
+  },
+  "close_state": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 36
+  },
+  "luaE_setdebt": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 13
+  },
+  "lua_setcstacklimit": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 2
+  },
+  "luaE_extendCI": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 19
+  },
+  "luaE_shrinkCI": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 33
+  },
+  "luaE_checkcstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 15
+  },
+  "luaE_incCstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 22
+  },
+  "lua_newthread": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 71
+  },
+  "luaE_freethread": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaE_resetthread": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 45
+  },
+  "lua_closethread": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 6
+  },
+  "lua_resetthread": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 3
+  },
+  "lua_newstate": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 103
+  },
+  "lua_close": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 3
+  },
+  "luaE_warning": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 6
+  },
+  "luaE_warnerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstate.c",
+   "family": "lua",
+   "n": 65
+  },
+  "tablerehash": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 46
+  },
+  "luaS_eqlngstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 20
+  },
+  "luaS_hash": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 15
+  },
+  "luaS_hashlongstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 23
+  },
+  "luaS_resize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 57
+  },
+  "internshrstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 115
+  },
+  "luaS_clearcache": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 17
+  },
+  "luaS_init": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 36
+  },
+  "luaS_createlngstrobj": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaS_remove": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 20
+  },
+  "luaS_newlstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 38
+  },
+  "luaS_new": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 49
+  },
+  "luaS_newudata": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstring.c",
+   "family": "lua",
+   "n": 45
+  },
+  "mainpositionTV.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 159
+  },
+  "getgeneric": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 84
+  },
+  "luaH_realasize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 19
+  },
+  "luaH_next": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 118
+  },
+  "luaH_new": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 17
+  },
+  "luaH_free": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 33
+  },
+  "luaH_getint": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 76
+  },
+  "luaH_getshortstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 27
+  },
+  "luaH_getstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 42
+  },
+  "luaH_get": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 69
+  },
+  "luaH_newkey": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 364
+  },
+  "luaH_resize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 249
+  },
+  "luaH_resizearray": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 7
+  },
+  "luaH_finishset": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 10
+  },
+  "luaH_set": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaH_setint": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 39
+  },
+  "luaH_getn": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltable.c",
+   "family": "lua",
+   "n": 183
+  },
+  "luaT_init": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 35
+  },
+  "luaT_gettm": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 27
+  },
+  "luaT_gettmbyobj": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 24
+  },
+  "luaT_objtypename": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 57
+  },
+  "luaT_callTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 27
+  },
+  "luaT_callTMres": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 45
+  },
+  "callbinTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 69
+  },
+  "luaT_trybinTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 64
+  },
+  "luaT_tryconcatTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 22
+  },
+  "luaT_trybinassocTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 9
+  },
+  "luaT_trybiniTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaT_callorderTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 29
+  },
+  "luaT_callorderiTM": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 46
+  },
+  "luaT_adjustvarargs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 64
+  },
+  "luaT_getvarargs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltm.c",
+   "family": "lua",
+   "n": 112
+  },
+  "error": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lundump.c",
+   "family": "lua",
+   "n": 13
+  },
+  "loadByte": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lundump.c",
+   "family": "lua",
+   "n": 28
+  },
+  "fchecksize.part.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lundump.c",
+   "family": "lua",
+   "n": 12
+  },
+  "loadUnsigned": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lundump.c",
+   "family": "lua",
+   "n": 55
+  },
+  "loadStringN": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lundump.c",
+   "family": "lua",
+   "n": 85
+  },
+  "loadFunction": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lundump.c",
+   "family": "lua",
+   "n": 362
+  },
+  "luaU_undump": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lundump.c",
+   "family": "lua",
+   "n": 234
+  },
+  "l_strcmp": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 55
+  },
+  "luaV_concat.part.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 222
+  },
+  "luaV_tonumber_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 48
+  },
+  "luaV_flttointeger": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 57
+  },
+  "luaV_tointegerns": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 59
+  },
+  "luaV_tointeger": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 90
+  },
+  "luaV_finishget": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 93
+  },
+  "luaV_finishset": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 143
+  },
+  "luaV_lessthan": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 143
+  },
+  "luaV_lessequal": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 145
+  },
+  "luaV_equalobj": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 212
+  },
+  "luaV_concat": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 4
+  },
+  "luaV_objlen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 82
+  },
+  "luaV_idiv": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaV_mod": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 28
+  },
+  "luaV_modf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 39
+  },
+  "luaV_shiftl": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 16
+  },
+  "luaV_finishOp": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 93
+  },
+  "luaV_execute": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lvm.c",
+   "family": "lua",
+   "n": 4020
+  },
+  "luaZ_fill": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lzio.c",
+   "family": "lua",
+   "n": 23
+  },
+  "luaZ_init": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lzio.c",
+   "family": "lua",
+   "n": 6
+  },
+  "luaZ_read": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lzio.c",
+   "family": "lua",
+   "n": 61
+  },
+  "getS": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 8
+  },
+  "findfield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 70
+  },
+  "resizebox": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 43
+  },
+  "boxgc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 9
+  },
+  "getF": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 29
+  },
+  "panic": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 30
+  },
+  "l_alloc@8001ed2c": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 11
+  },
+  "skipcomment": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 47
+  },
+  "warnfcont": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 41
+  },
+  "warnfon": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 67
+  },
+  "luaL_getmetafield.part.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 33
+  },
+  "errfile.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 47
+  },
+  "warnfoff": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 47
+  },
+  "luaL_where": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 31
+  },
+  "luaL_error": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 30
+  },
+  "pushglobalfuncname": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 92
+  },
+  "luaL_argerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 72
+  },
+  "luaL_typeerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 51
+  },
+  "luaL_fileresult": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 52
+  },
+  "luaL_execresult": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 43
+  },
+  "luaL_newmetatable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 46
+  },
+  "luaL_setmetatable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 14
+  },
+  "luaL_testudata": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 44
+  },
+  "luaL_checkudata": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 31
+  },
+  "luaL_checkoption": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 69
+  },
+  "luaL_checkstack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 31
+  },
+  "luaL_checktype": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 26
+  },
+  "luaL_checkany": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 23
+  },
+  "luaL_checklstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 30
+  },
+  "luaL_optlstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 50
+  },
+  "luaL_checknumber": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaL_optnumber": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 34
+  },
+  "luaL_checkinteger": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 38
+  },
+  "luaL_optinteger": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 25
+  },
+  "luaL_pushresult": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 27
+  },
+  "luaL_pushresultsize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 4
+  },
+  "luaL_buffinit": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 7
+  },
+  "luaL_ref": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 67
+  },
+  "luaL_unref": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 31
+  },
+  "luaL_loadfilex": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 162
+  },
+  "luaL_loadbufferx": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 12
+  },
+  "luaL_loadstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaL_getmetafield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 20
+  },
+  "luaL_callmeta": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 39
+  },
+  "luaL_len": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 27
+  },
+  "luaL_tolstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 153
+  },
+  "luaL_setfuncs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 60
+  },
+  "prepbuffsize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 108
+  },
+  "luaL_prepbuffsize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 2
+  },
+  "luaL_addstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 31
+  },
+  "luaL_addvalue": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaL_buffinitsize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 19
+  },
+  "luaL_addlstring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 24
+  },
+  "luaL_traceback": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 243
+  },
+  "luaL_getsubtable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 43
+  },
+  "luaL_requiref": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 74
+  },
+  "luaL_addgsub": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 81
+  },
+  "luaL_gsub": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 49
+  },
+  "luaL_newstate": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 22
+  },
+  "luaL_checkversion_": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lauxlib.c",
+   "family": "lua",
+   "n": 41
+  },
+  "pairscont": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 2
+  },
+  "dofilecont": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 7
+  },
+  "luaB_type": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 28
+  },
+  "luaB_tostring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 13
+  },
+  "luaB_select": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 53
+  },
+  "luaB_setmetatable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 52
+  },
+  "luaB_rawset": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 24
+  },
+  "luaB_rawget": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaB_rawlen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 25
+  },
+  "luaB_rawequal": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaB_warn": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 47
+  },
+  "luaB_print": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 62
+  },
+  "luaB_ipairs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 22
+  },
+  "luaB_next": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 26
+  },
+  "generic_reader": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 57
+  },
+  "ipairsaux": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaB_error": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 39
+  },
+  "luaB_dofile": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 39
+  },
+  "finishpcall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 21
+  },
+  "luaB_pairs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 42
+  },
+  "load_aux": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaB_load": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 69
+  },
+  "luaB_loadfile": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 37
+  },
+  "luaB_getmetatable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 27
+  },
+  "luaB_assert": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 34
+  },
+  "luaB_tonumber": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 159
+  },
+  "luaB_collectgarbage": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 184
+  },
+  "luaB_pcall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 41
+  },
+  "luaB_xpcall": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 51
+  },
+  "luaopen_base": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lbaselib.c",
+   "family": "lua",
+   "n": 35
+  },
+  "match_class": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 83
+  },
+  "matchbracketclass": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 53
+  },
+  "str_len": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 15
+  },
+  "unpackint": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 150
+  },
+  "classend": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 59
+  },
+  "packint": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 91
+  },
+  "writer": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 31
+  },
+  "str_upper": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 40
+  },
+  "str_reverse": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "str_lower": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 40
+  },
+  "str_rep": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 108
+  },
+  "str_char": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 47
+  },
+  "addlenmod": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 30
+  },
+  "str_dump": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 37
+  },
+  "tonum": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "singlematch.part.0.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 17
+  },
+  "arith.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 71
+  },
+  "arith_add": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 10
+  },
+  "arith_sub": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 10
+  },
+  "arith_mul": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 10
+  },
+  "arith_mod": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 10
+  },
+  "arith_pow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 10
+  },
+  "arith_div": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 10
+  },
+  "arith_idiv": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 10
+  },
+  "arith_unm": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 10
+  },
+  "getnumlimit": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "getoption": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 137
+  },
+  "getdetails": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 90
+  },
+  "str_packsize": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 72
+  },
+  "push_onecapture": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 57
+  },
+  "checkformat": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 74
+  },
+  "str_format": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 521
+  },
+  "str_sub": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 65
+  },
+  "gmatch": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 79
+  },
+  "str_byte": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 83
+  },
+  "str_unpack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 283
+  },
+  "match": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 330
+  },
+  "gmatch_aux": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 89
+  },
+  "str_gsub": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 334
+  },
+  "str_pack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 377
+  },
+  "str_find_aux": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 209
+  },
+  "str_match": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 2
+  },
+  "str_find": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 2
+  },
+  "luaopen_string": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lstrlib.c",
+   "family": "lua",
+   "n": 55
+  },
+  "tunpack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 72
+  },
+  "tpack": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 40
+  },
+  "addfield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 40
+  },
+  "sort_comp": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 50
+  },
+  "checktab.part.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 76
+  },
+  "auxsort": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 241
+  },
+  "sort": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 50
+  },
+  "tremove": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 72
+  },
+  "tconcat": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 65
+  },
+  "tinsert": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 72
+  },
+  "tmove": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 117
+  },
+  "luaopen_table": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "ltablib.c",
+   "family": "lua",
+   "n": 22
+  },
+  "luaB_yield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 13
+  },
+  "auxresume": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 64
+  },
+  "luaB_auxwrap": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 61
+  },
+  "luaB_corunning": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 13
+  },
+  "luaB_cocreate": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 24
+  },
+  "luaB_yieldable": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "auxstatus": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "luaB_costatus": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 31
+  },
+  "luaB_coresume": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 50
+  },
+  "luaB_close": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 60
+  },
+  "luaB_cowrap": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 29
+  },
+  "luaopen_coroutine": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "lcorolib.c",
+   "family": "lua",
+   "n": 22
+  },
+  "fmod": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-w_fmod.o",
+   "family": "libm",
+   "n": 38
+  },
+  "pow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-w_pow.o",
+   "family": "libm",
+   "n": 70
+  },
+  "floor": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-s_floor.o",
+   "family": "libm",
+   "n": 114
+  },
+  "frexp": {
+   "cat": "identical_mod_reloc",
+   "while": "frexp",
+   "in_while_proof_scope": true,
+   "origin": "libc:libm_a-s_frexp.o",
+   "family": "libc",
+   "n": 48
+  },
+  "finite": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libm_a-s_finite.o",
+   "family": "libc",
+   "n": 6
+  },
+  "__ieee754_fmod": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-e_fmod.o",
+   "family": "libm",
+   "n": 317
+  },
+  "__ieee754_pow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-e_pow.o",
+   "family": "libm",
+   "n": 893
+  },
+  "scalbn": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libm_a-s_scalbn.o",
+   "family": "libc",
+   "n": 106
+  },
+  "with_errno": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm_a-math_err.o",
+   "family": "libm",
+   "n": 13
+  },
+  "xflow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm_a-math_err.o",
+   "family": "libm",
+   "n": 16
+  },
+  "__math_uflow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-math_err.o",
+   "family": "libm",
+   "n": 3
+  },
+  "__math_may_uflow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-math_err.o",
+   "family": "libm",
+   "n": 3
+  },
+  "__math_oflow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-math_err.o",
+   "family": "libm",
+   "n": 3
+  },
+  "__math_divzero": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-math_err.o",
+   "family": "libm",
+   "n": 16
+  },
+  "__math_invalid": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-math_err.o",
+   "family": "libm",
+   "n": 27
+  },
+  "__math_check_uflow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-math_err.o",
+   "family": "libm",
+   "n": 18
+  },
+  "__math_check_oflow": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-math_err.o",
+   "family": "libm",
+   "n": 30
+  },
+  "__ieee754_sqrt": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-e_sqrt.o",
+   "family": "libm",
+   "n": 209
+  },
+  "fabs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libm:libm_a-s_fabs.o",
+   "family": "libm",
+   "n": 7
+  },
+  "__adddf3": {
+   "cat": "identical_mod_reloc",
+   "while": "__adddf3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:adddf3.o",
+   "family": "libgcc",
+   "n": 418
+  },
+  "__divdf3": {
+   "cat": "identical_mod_reloc",
+   "while": "__divdf3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:divdf3.o",
+   "family": "libgcc",
+   "n": 328
+  },
+  "__eqdf2": {
+   "cat": "identical_words",
+   "while": "__eqdf2",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:eqdf2.o",
+   "family": "libgcc",
+   "n": 28
+  },
+  "__gedf2": {
+   "cat": "identical_words",
+   "while": "__gedf2",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:gedf2.o",
+   "family": "libgcc",
+   "n": 40
+  },
+  "__ledf2": {
+   "cat": "identical_words",
+   "while": "__ledf2",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:ledf2.o",
+   "family": "libgcc",
+   "n": 41
+  },
+  "__muldf3": {
+   "cat": "identical_mod_reloc",
+   "while": "__muldf3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:muldf3.o",
+   "family": "libgcc",
+   "n": 307
+  },
+  "__subdf3": {
+   "cat": "identical_mod_reloc",
+   "while": "__subdf3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:subdf3.o",
+   "family": "libgcc",
+   "n": 440
+  },
+  "__unorddf2": {
+   "cat": "identical_words",
+   "while": "__unorddf2",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:unorddf2.o",
+   "family": "libgcc",
+   "n": 18
+  },
+  "__floatsidf": {
+   "cat": "identical_mod_reloc",
+   "while": "__floatsidf",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:floatsidf.o",
+   "family": "libgcc",
+   "n": 36
+  },
+  "__fixdfdi": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libgcc:fixdfdi.o",
+   "family": "libgcc",
+   "n": 30
+  },
+  "__floatdidf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libgcc:floatdidf.o",
+   "family": "libgcc",
+   "n": 86
+  },
+  "__extendsfdf2": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libgcc:extendsfdf2.o",
+   "family": "libgcc",
+   "n": 63
+  },
+  "__truncdfsf2": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libgcc:truncdfsf2.o",
+   "family": "libgcc",
+   "n": 86
+  },
+  "__muldi3": {
+   "cat": "identical_words",
+   "while": "__muldi3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:muldi3.o",
+   "family": "libgcc",
+   "n": 9
+  },
+  "__udivsi3": {
+   "cat": "identical_words",
+   "while": "__udivsi3",
+   "in_while_proof_scope": false,
+   "origin": "libgcc:div.o",
+   "family": "libgcc",
+   "n": 6
+  },
+  "__umodsi3": {
+   "cat": "identical_words",
+   "while": "__umodsi3",
+   "in_while_proof_scope": false,
+   "origin": "libgcc:div.o",
+   "family": "libgcc",
+   "n": 8
+  },
+  "__divsi3": {
+   "cat": "identical_words",
+   "while": "__divsi3",
+   "in_while_proof_scope": false,
+   "origin": "libgcc:div.o",
+   "family": "libgcc",
+   "n": 2
+  },
+  "__divdi3": {
+   "cat": "identical_words",
+   "while": "__divdi3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:div.o",
+   "family": "libgcc",
+   "n": 2
+  },
+  "__hidden___udivdi3": {
+   "cat": "identical_words",
+   "while": "__hidden___udivdi3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:div.o",
+   "family": "libgcc",
+   "n": 18
+  },
+  "__umoddi3": {
+   "cat": "identical_words",
+   "while": "__umoddi3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:div.o",
+   "family": "libgcc",
+   "n": 13
+  },
+  "__moddi3": {
+   "cat": "identical_words",
+   "while": "__moddi3",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:div.o",
+   "family": "libgcc",
+   "n": 15
+  },
+  "__clzdi2": {
+   "cat": "identical_mod_reloc",
+   "while": "__clzdi2",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:_clzsi2.o",
+   "family": "libgcc",
+   "n": 22
+  },
+  "abort": {
+   "cat": "identical_mod_reloc",
+   "while": "abort",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-abort.o",
+   "family": "libc",
+   "n": 6
+  },
+  "exit": {
+   "cat": "identical_mod_reloc",
+   "while": "exit",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-exit.o",
+   "family": "libc",
+   "n": 11
+  },
+  "malloc": {
+   "cat": "identical_words",
+   "while": "malloc",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-malloc.o",
+   "family": "libc",
+   "n": 3
+  },
+  "free": {
+   "cat": "identical_mod_reloc",
+   "while": "free",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-malloc.o",
+   "family": "libc",
+   "n": 3
+  },
+  "_malloc_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_malloc_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mallocr.o",
+   "family": "libc",
+   "n": 560
+  },
+  "__malloc_lock": {
+   "cat": "identical_mod_reloc",
+   "while": "__malloc_lock",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mlock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__malloc_unlock": {
+   "cat": "identical_mod_reloc",
+   "while": "__malloc_unlock",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mlock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "realloc": {
+   "cat": "identical_words",
+   "while": "realloc",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-realloc.o",
+   "family": "libc",
+   "n": 5
+  },
+  "_realloc_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_realloc_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-reallocr.o",
+   "family": "libc",
+   "n": 396
+  },
+  "sulp": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strtod.o",
+   "family": "libc",
+   "n": 25
+  },
+  "_strtod_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtod.o",
+   "family": "libc",
+   "n": 1601
+  },
+  "_strtod_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtod.o",
+   "family": "libc",
+   "n": 2
+  },
+  "strtod_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtod.o",
+   "family": "libc",
+   "n": 6
+  },
+  "strtod": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtod.o",
+   "family": "libc",
+   "n": 6
+  },
+  "strtof_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtod.o",
+   "family": "libc",
+   "n": 76
+  },
+  "strtof": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtod.o",
+   "family": "libc",
+   "n": 84
+  },
+  "__set_ctype": {
+   "cat": "identical_mod_reloc",
+   "while": "__set_ctype",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-ctype_.o",
+   "family": "libc",
+   "n": 4
+  },
+  "_fclose_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_fclose_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fclose.o",
+   "family": "libc",
+   "n": 91
+  },
+  "fclose": {
+   "cat": "identical_words",
+   "while": "fclose",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fclose.o",
+   "family": "libc",
+   "n": 3
+  },
+  "__sflush_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__sflush_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fflush.o",
+   "family": "libc",
+   "n": 151
+  },
+  "_fflush_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_fflush_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fflush.o",
+   "family": "libc",
+   "n": 50
+  },
+  "fflush": {
+   "cat": "identical_mod_reloc",
+   "while": "fflush",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fflush.o",
+   "family": "libc",
+   "n": 55
+  },
+  "stdio_exit_handler": {
+   "cat": "identical_mod_reloc",
+   "while": "stdio_exit_handler",
+   "in_while_proof_scope": false,
+   "origin": "libc_a-findfp.o",
+   "family": "libc",
+   "n": 5
+  },
+  "cleanup_stdio": {
+   "cat": "identical_mod_reloc",
+   "while": "cleanup_stdio",
+   "in_while_proof_scope": false,
+   "origin": "libc_a-findfp.o",
+   "family": "libc",
+   "n": 25
+  },
+  "__fp_lock": {
+   "cat": "identical_mod_reloc",
+   "while": "__fp_lock",
+   "in_while_proof_scope": false,
+   "origin": "libc_a-findfp.o",
+   "family": "libc",
+   "n": 16
+  },
+  "__fp_unlock": {
+   "cat": "identical_mod_reloc",
+   "while": "__fp_unlock",
+   "in_while_proof_scope": false,
+   "origin": "libc_a-findfp.o",
+   "family": "libc",
+   "n": 16
+  },
+  "global_stdio_init.part.0": {
+   "cat": "same_name_differs",
+   "while": "global_stdio_init.part.0",
+   "ratio": 0.989,
+   "n_lua": 87,
+   "n_while": 87,
+   "in_while_proof_scope": true,
+   "origin": "libc_a-findfp.o",
+   "family": "libc",
+   "n": 87
+  },
+  "__sfp": {
+   "cat": "identical_mod_reloc",
+   "while": "__sfp",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-findfp.o",
+   "family": "libc",
+   "n": 85
+  },
+  "__sinit": {
+   "cat": "identical_mod_reloc",
+   "while": "__sinit",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-findfp.o",
+   "family": "libc",
+   "n": 24
+  },
+  "__sfp_lock_acquire": {
+   "cat": "identical_mod_reloc",
+   "while": "__sfp_lock_acquire",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-findfp.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__sfp_lock_release": {
+   "cat": "identical_mod_reloc",
+   "while": "__sfp_lock_release",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-findfp.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__fp_lock_all": {
+   "cat": "identical_mod_reloc",
+   "while": "__fp_lock_all",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-findfp.o",
+   "family": "libc",
+   "n": 11
+  },
+  "__fp_unlock_all": {
+   "cat": "identical_mod_reloc",
+   "while": "__fp_unlock_all",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-findfp.o",
+   "family": "libc",
+   "n": 11
+  },
+  "_fopen_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fopen.o",
+   "family": "libc",
+   "n": 96
+  },
+  "fopen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fopen.o",
+   "family": "libc",
+   "n": 5
+  },
+  "_fprintf_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_fprintf_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fprintf.o",
+   "family": "libc",
+   "n": 14
+  },
+  "fprintf": {
+   "cat": "identical_mod_reloc",
+   "while": "fprintf",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fprintf.o",
+   "family": "libc",
+   "n": 20
+  },
+  "_fputc_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_fputc_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fputc.o",
+   "family": "libc",
+   "n": 52
+  },
+  "fputc": {
+   "cat": "identical_mod_reloc",
+   "while": "fputc",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fputc.o",
+   "family": "libc",
+   "n": 54
+  },
+  "_fputs_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_fputs_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fputs.o",
+   "family": "libc",
+   "n": 82
+  },
+  "fputs": {
+   "cat": "identical_words",
+   "while": "fputs",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fputs.o",
+   "family": "libc",
+   "n": 5
+  },
+  "_fread_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fread.o",
+   "family": "libc",
+   "n": 211
+  },
+  "fread": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fread.o",
+   "family": "libc",
+   "n": 7
+  },
+  "_freopen_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-freopen.o",
+   "family": "libc",
+   "n": 187
+  },
+  "freopen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-freopen.o",
+   "family": "libc",
+   "n": 6
+  },
+  "_fseek_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fseek.o",
+   "family": "libc",
+   "n": 1
+  },
+  "fseek": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fseek.o",
+   "family": "libc",
+   "n": 6
+  },
+  "__sfvwrite_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__sfvwrite_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fvwrite.o",
+   "family": "libc",
+   "n": 311
+  },
+  "_fwalk_sglue": {
+   "cat": "identical_words",
+   "while": "_fwalk_sglue",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fwalk.o",
+   "family": "libc",
+   "n": 52
+  },
+  "_fwrite_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_fwrite_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fwrite.o",
+   "family": "libc",
+   "n": 122
+  },
+  "fwrite": {
+   "cat": "identical_words",
+   "while": "fwrite",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fwrite.o",
+   "family": "libc",
+   "n": 7
+  },
+  "_getc_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-getc.o",
+   "family": "libc",
+   "n": 57
+  },
+  "getc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-getc.o",
+   "family": "libc",
+   "n": 59
+  },
+  "_putc_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_putc_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-putc.o",
+   "family": "libc",
+   "n": 67
+  },
+  "putc": {
+   "cat": "identical_mod_reloc",
+   "while": "putc",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-putc.o",
+   "family": "libc",
+   "n": 71
+  },
+  "lflush": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-refill.o",
+   "family": "libc",
+   "n": 8
+  },
+  "__srefill_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-refill.o",
+   "family": "libc",
+   "n": 104
+  },
+  "__srget_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-rget.o",
+   "family": "libc",
+   "n": 42
+  },
+  "__srget": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-rget.o",
+   "family": "libc",
+   "n": 43
+  },
+  "_snprintf_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_snprintf_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-snprintf.o",
+   "family": "libc",
+   "n": 52
+  },
+  "snprintf": {
+   "cat": "identical_mod_reloc",
+   "while": "snprintf",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-snprintf.o",
+   "family": "libc",
+   "n": 53
+  },
+  "__sread": {
+   "cat": "identical_mod_reloc",
+   "while": "__sread",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-stdio.o",
+   "family": "libc",
+   "n": 23
+  },
+  "__seofread": {
+   "cat": "identical_words",
+   "while": "__seofread",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-stdio.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__swrite": {
+   "cat": "identical_mod_reloc",
+   "while": "__swrite",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-stdio.o",
+   "family": "libc",
+   "n": 34
+  },
+  "__sseek": {
+   "cat": "identical_mod_reloc",
+   "while": "__sseek",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-stdio.o",
+   "family": "libc",
+   "n": 25
+  },
+  "__sclose": {
+   "cat": "identical_mod_reloc",
+   "while": "__sclose",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-stdio.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__swbuf_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__swbuf_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-wbuf.o",
+   "family": "libc",
+   "n": 85
+  },
+  "__swbuf": {
+   "cat": "identical_words",
+   "while": "__swbuf",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wbuf.o",
+   "family": "libc",
+   "n": 5
+  },
+  "__swsetup_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__swsetup_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-wsetup.o",
+   "family": "libc",
+   "n": 89
+  },
+  "_fseeko_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fseeko.o",
+   "family": "libc",
+   "n": 324
+  },
+  "fseeko": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fseeko.o",
+   "family": "libc",
+   "n": 6
+  },
+  "memchr": {
+   "cat": "identical_words",
+   "while": "memchr",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-memchr.o",
+   "family": "libc",
+   "n": 48
+  },
+  "memcmp": {
+   "cat": "identical_words",
+   "while": "memcmp",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-memcmp.o",
+   "family": "libc",
+   "n": 27
+  },
+  "strchr": {
+   "cat": "identical_words",
+   "while": "strchr",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strchr.o",
+   "family": "libc",
+   "n": 92
+  },
+  "strcoll": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strcoll.o",
+   "family": "libc",
+   "n": 1
+  },
+  "_strerror_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strerror.o",
+   "family": "libc",
+   "n": 265
+  },
+  "strerror": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strerror.o",
+   "family": "libc",
+   "n": 5
+  },
+  "strerror_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strerror.o",
+   "family": "libc",
+   "n": 5
+  },
+  "strncmp": {
+   "cat": "identical_words",
+   "while": "strncmp",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strncmp.o",
+   "family": "libc",
+   "n": 46
+  },
+  "strpbrk": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strpbrk.o",
+   "family": "libc",
+   "n": 24
+  },
+  "strspn": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strspn.o",
+   "family": "libc",
+   "n": 19
+  },
+  "critical_factorization": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strstr.o",
+   "family": "libc",
+   "n": 73
+  },
+  "two_way_short_needle": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strstr.o",
+   "family": "libc",
+   "n": 165
+  },
+  "two_way_long_needle": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strstr.o",
+   "family": "libc",
+   "n": 200
+  },
+  "strstr": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strstr.o",
+   "family": "libc",
+   "n": 171
+  },
+  "_user_strerror": {
+   "cat": "identical_body_other_name",
+   "while": "_read",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-u_strerr.o",
+   "family": "libc",
+   "n": 2
+  },
+  "_init_signal_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_init_signal_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-signal.o",
+   "family": "libc",
+   "n": 22
+  },
+  "_signal_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_signal_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-signal.o",
+   "family": "libc",
+   "n": 39
+  },
+  "_raise_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_raise_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-signal.o",
+   "family": "libc",
+   "n": 42
+  },
+  "__sigtramp_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__sigtramp_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-signal.o",
+   "family": "libc",
+   "n": 51
+  },
+  "raise": {
+   "cat": "identical_mod_reloc",
+   "while": "raise",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-signal.o",
+   "family": "libc",
+   "n": 42
+  },
+  "signal": {
+   "cat": "identical_mod_reloc",
+   "while": "signal",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-signal.o",
+   "family": "libc",
+   "n": 41
+  },
+  "_init_signal": {
+   "cat": "identical_mod_reloc",
+   "while": "_init_signal",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-signal.o",
+   "family": "libc",
+   "n": 24
+  },
+  "__sigtramp": {
+   "cat": "identical_mod_reloc",
+   "while": "__sigtramp",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-signal.o",
+   "family": "libc",
+   "n": 53
+  },
+  "currentlocale": {
+   "cat": "identical_mod_reloc",
+   "while": "currentlocale",
+   "in_while_proof_scope": false,
+   "origin": "libc_a-locale.o",
+   "family": "libc",
+   "n": 34
+  },
+  "__loadlocale": {
+   "cat": "identical_mod_reloc",
+   "while": "__loadlocale",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-locale.o",
+   "family": "libc",
+   "n": 527
+  },
+  "__get_locale_env": {
+   "cat": "identical_mod_reloc",
+   "while": "__get_locale_env",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-locale.o",
+   "family": "libc",
+   "n": 35
+  },
+  "_setlocale_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_setlocale_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-locale.o",
+   "family": "libc",
+   "n": 245
+  },
+  "__locale_mb_cur_max": {
+   "cat": "identical_mod_reloc",
+   "while": "__locale_mb_cur_max",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-locale.o",
+   "family": "libc",
+   "n": 2
+  },
+  "setlocale": {
+   "cat": "identical_words",
+   "while": "setlocale",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-locale.o",
+   "family": "libc",
+   "n": 5
+  },
+  "_close_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_close_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-closer.o",
+   "family": "libc",
+   "n": 20
+  },
+  "_reclaim_reent": {
+   "cat": "identical_mod_reloc",
+   "while": "_reclaim_reent",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-reent.o",
+   "family": "libc",
+   "n": 57
+  },
+  "_fstat_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_fstat_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fstatr.o",
+   "family": "libc",
+   "n": 22
+  },
+  "_lseek_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_lseek_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lseekr.o",
+   "family": "libc",
+   "n": 23
+  },
+  "_open_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-openr.o",
+   "family": "libc",
+   "n": 23
+  },
+  "_read_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_read_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-readr.o",
+   "family": "libc",
+   "n": 23
+  },
+  "_kill_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_kill_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-signalr.o",
+   "family": "libc",
+   "n": 22
+  },
+  "_getpid_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_getpid_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-signalr.o",
+   "family": "libc",
+   "n": 1
+  },
+  "_sbrk_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_sbrk_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-sbrkr.o",
+   "family": "libc",
+   "n": 20
+  },
+  "_write_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_write_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-writer.o",
+   "family": "libc",
+   "n": 23
+  },
+  "__errno": {
+   "cat": "identical_words",
+   "while": "__errno",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-errno.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__retarget_lock_init": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_init",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 1
+  },
+  "__retarget_lock_init_recursive": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_init_recursive",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 1
+  },
+  "__retarget_lock_close": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_close",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 1
+  },
+  "__retarget_lock_close_recursive": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_close_recursive",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 1
+  },
+  "__retarget_lock_acquire": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_acquire",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 1
+  },
+  "__retarget_lock_acquire_recursive": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_acquire_recursive",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 1
+  },
+  "__retarget_lock_try_acquire": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_try_acquire",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__retarget_lock_try_acquire_recursive": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_try_acquire_recursive",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__retarget_lock_release": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_release",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 1
+  },
+  "__retarget_lock_release_recursive": {
+   "cat": "identical_words",
+   "while": "__retarget_lock_release_recursive",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-lock.o",
+   "family": "libc",
+   "n": 1
+  },
+  "memmove": {
+   "cat": "identical_words",
+   "while": "memmove",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-memmove-stub.o",
+   "family": "libc",
+   "n": 74
+  },
+  "memset": {
+   "cat": "identical_words",
+   "while": "memset",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-memset.o",
+   "family": "libc",
+   "n": 55
+  },
+  "memcpy": {
+   "cat": "identical_words",
+   "while": "memcpy",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-memcpy.o",
+   "family": "libc",
+   "n": 74
+  },
+  "strlen": {
+   "cat": "identical_words",
+   "while": "strlen",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-strlen.o",
+   "family": "libc",
+   "n": 53
+  },
+  "strcpy": {
+   "cat": "identical_words",
+   "while": "strcpy",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-strcpy.o",
+   "family": "libc",
+   "n": 55
+  },
+  "strcmp": {
+   "cat": "identical_mod_reloc",
+   "while": "strcmp",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-strcmp.o",
+   "family": "libc",
+   "n": 75
+  },
+  "setjmp": {
+   "cat": "identical_words",
+   "while": "setjmp",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-setjmp.o",
+   "family": "libc",
+   "n": 16
+  },
+  "longjmp": {
+   "cat": "identical_words",
+   "while": "longjmp",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-setjmp.o",
+   "family": "libc",
+   "n": 17
+  },
+  "nan": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libm_a-s_nan.o",
+   "family": "libc",
+   "n": 3
+  },
+  "nanf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libm_a-sf_nan.o",
+   "family": "libc",
+   "n": 3
+  },
+  "register_fini": {
+   "cat": "identical_mod_reloc",
+   "while": "register_fini",
+   "in_while_proof_scope": false,
+   "origin": "libc_a-__call_atexit.o",
+   "family": "libc",
+   "n": 6
+  },
+  "__call_exitprocs": {
+   "cat": "identical_mod_reloc",
+   "while": "__call_exitprocs",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-__call_atexit.o",
+   "family": "libc",
+   "n": 92
+  },
+  "atexit": {
+   "cat": "identical_mod_reloc",
+   "while": "atexit",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-atexit.o",
+   "family": "libc",
+   "n": 5
+  },
+  "_malloc_trim_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_malloc_trim_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-freer.o",
+   "family": "libc",
+   "n": 73
+  },
+  "_free_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_free_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-freer.o",
+   "family": "libc",
+   "n": 193
+  },
+  "rshift": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-gdtoa-gethex.o",
+   "family": "libc",
+   "n": 59
+  },
+  "__gethex": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-gdtoa-gethex.o",
+   "family": "libc",
+   "n": 547
+  },
+  "__match": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-gdtoa-hexnan.o",
+   "family": "libc",
+   "n": 19
+  },
+  "__hexnan": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-gdtoa-hexnan.o",
+   "family": "libc",
+   "n": 149
+  },
+  "_findenv_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_findenv_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-getenv_r.o",
+   "family": "libc",
+   "n": 80
+  },
+  "_getenv_r": {
+   "cat": "identical_words",
+   "while": "_getenv_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-getenv_r.o",
+   "family": "libc",
+   "n": 7
+  },
+  "_mbtowc_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_mbtowc_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mbtowc_r.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__ascii_mbtowc": {
+   "cat": "identical_words",
+   "while": "__ascii_mbtowc",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mbtowc_r.o",
+   "family": "libc",
+   "n": 26
+  },
+  "__utf8_mbtowc": {
+   "cat": "identical_words",
+   "while": "__utf8_mbtowc",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mbtowc_r.o",
+   "family": "libc",
+   "n": 197
+  },
+  "__sjis_mbtowc": {
+   "cat": "identical_words",
+   "while": "__sjis_mbtowc",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mbtowc_r.o",
+   "family": "libc",
+   "n": 96
+  },
+  "__eucjp_mbtowc": {
+   "cat": "identical_words",
+   "while": "__eucjp_mbtowc",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mbtowc_r.o",
+   "family": "libc",
+   "n": 136
+  },
+  "__jis_mbtowc": {
+   "cat": "identical_mod_reloc",
+   "while": "__jis_mbtowc",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mbtowc_r.o",
+   "family": "libc",
+   "n": 120
+  },
+  "_Balloc": {
+   "cat": "identical_mod_reloc",
+   "while": "_Balloc",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 43
+  },
+  "_Bfree": {
+   "cat": "identical_words",
+   "while": "_Bfree",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 9
+  },
+  "__multadd": {
+   "cat": "identical_mod_reloc",
+   "while": "__multadd",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 90
+  },
+  "__s2b": {
+   "cat": "identical_mod_reloc",
+   "while": "__s2b",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 89
+  },
+  "__hi0bits": {
+   "cat": "identical_words",
+   "while": "__hi0bits",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 34
+  },
+  "__lo0bits": {
+   "cat": "identical_words",
+   "while": "__lo0bits",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 71
+  },
+  "__i2b": {
+   "cat": "identical_mod_reloc",
+   "while": "__i2b",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 52
+  },
+  "__multiply": {
+   "cat": "identical_mod_reloc",
+   "while": "__multiply",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 185
+  },
+  "__pow5mult": {
+   "cat": "identical_mod_reloc",
+   "while": "__pow5mult",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 91
+  },
+  "__lshift": {
+   "cat": "identical_mod_reloc",
+   "while": "__lshift",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 100
+  },
+  "__mcmp": {
+   "cat": "identical_words",
+   "while": "__mcmp",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 22
+  },
+  "__mdiff": {
+   "cat": "identical_mod_reloc",
+   "while": "__mdiff",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 147
+  },
+  "__ulp": {
+   "cat": "identical_words",
+   "while": "__ulp",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 36
+  },
+  "__b2d": {
+   "cat": "identical_words",
+   "while": "__b2d",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 78
+  },
+  "__d2b": {
+   "cat": "identical_mod_reloc",
+   "while": "__d2b",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 82
+  },
+  "__ratio": {
+   "cat": "identical_mod_reloc",
+   "while": "__ratio",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 47
+  },
+  "_mprec_log10": {
+   "cat": "identical_mod_reloc",
+   "while": "_mprec_log10",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 29
+  },
+  "__copybits": {
+   "cat": "identical_words",
+   "while": "__copybits",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 26
+  },
+  "__any_on": {
+   "cat": "identical_words",
+   "while": "__any_on",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mprec.o",
+   "family": "libc",
+   "n": 25
+  },
+  "_strtol_l.part.0": {
+   "cat": "identical_mod_reloc",
+   "while": "_strtol_l.part.0",
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strtol.o",
+   "family": "libc",
+   "n": 238
+  },
+  "_strtol_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_strtol_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtol.o",
+   "family": "libc",
+   "n": 14
+  },
+  "strtol_l": {
+   "cat": "identical_mod_reloc",
+   "while": "strtol_l",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtol.o",
+   "family": "libc",
+   "n": 19
+  },
+  "strtol": {
+   "cat": "identical_mod_reloc",
+   "while": "strtol",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtol.o",
+   "family": "libc",
+   "n": 19
+  },
+  "_wctomb_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_wctomb_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wctomb_r.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__ascii_wctomb": {
+   "cat": "identical_words",
+   "while": "__ascii_wctomb",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wctomb_r.o",
+   "family": "libc",
+   "n": 12
+  },
+  "__utf8_wctomb": {
+   "cat": "identical_words",
+   "while": "__utf8_wctomb",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wctomb_r.o",
+   "family": "libc",
+   "n": 59
+  },
+  "__sjis_wctomb": {
+   "cat": "identical_words",
+   "while": "__sjis_wctomb",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wctomb_r.o",
+   "family": "libc",
+   "n": 33
+  },
+  "__eucjp_wctomb": {
+   "cat": "identical_words",
+   "while": "__eucjp_wctomb",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wctomb_r.o",
+   "family": "libc",
+   "n": 40
+  },
+  "__jis_wctomb": {
+   "cat": "identical_words",
+   "while": "__jis_wctomb",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wctomb_r.o",
+   "family": "libc",
+   "n": 47
+  },
+  "_svfprintf_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_svfprintf_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-svfprintf.o",
+   "family": "libc",
+   "n": 3212
+  },
+  "_vfprintf_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_vfprintf_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-vfprintf.o",
+   "family": "libc",
+   "n": 3395
+  },
+  "vfprintf": {
+   "cat": "identical_words",
+   "while": "vfprintf",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-vfprintf.o",
+   "family": "libc",
+   "n": 6
+  },
+  "__sbprintf": {
+   "cat": "identical_mod_reloc",
+   "while": "__sbprintf",
+   "in_while_proof_scope": true,
+   "origin": "libc_a-vfprintf.o",
+   "family": "libc",
+   "n": 57
+  },
+  "__sprint_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__sprint_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-sprint_r.o",
+   "family": "libc",
+   "n": 15
+  },
+  "__ssprint_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__ssprint_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-ssprint_r.o",
+   "family": "libc",
+   "n": 60
+  },
+  "__sflags": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-flags.o",
+   "family": "libc",
+   "n": 43
+  },
+  "__smakebuf_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__smakebuf_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-makebuf.o",
+   "family": "libc",
+   "n": 94
+  },
+  "__swhatbuf_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__swhatbuf_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-makebuf.o",
+   "family": "libc",
+   "n": 61
+  },
+  "strcasecmp": {
+   "cat": "identical_mod_reloc",
+   "while": "strcasecmp",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strcasecmp.o",
+   "family": "libc",
+   "n": 28
+  },
+  "strcat": {
+   "cat": "identical_mod_reloc",
+   "while": "strcat",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strcat.o",
+   "family": "libc",
+   "n": 45
+  },
+  "strlcpy": {
+   "cat": "identical_words",
+   "while": "strlcpy",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strlcpy.o",
+   "family": "libc",
+   "n": 17
+  },
+  "strncasecmp": {
+   "cat": "identical_mod_reloc",
+   "while": "strncasecmp",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strncasecmp.o",
+   "family": "libc",
+   "n": 32
+  },
+  "strncpy": {
+   "cat": "identical_words",
+   "while": "strncpy",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-strncpy.o",
+   "family": "libc",
+   "n": 47
+  },
+  "strnlen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strnlen.o",
+   "family": "libc",
+   "n": 12
+  },
+  "__localeconv_l": {
+   "cat": "identical_words",
+   "while": "__localeconv_l",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-localeconv.o",
+   "family": "libc",
+   "n": 2
+  },
+  "_localeconv_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_localeconv_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-localeconv.o",
+   "family": "libc",
+   "n": 2
+  },
+  "localeconv": {
+   "cat": "identical_mod_reloc",
+   "while": "localeconv",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-localeconv.o",
+   "family": "libc",
+   "n": 2
+  },
+  "_isatty_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_isatty_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-isattyr.o",
+   "family": "libc",
+   "n": 20
+  },
+  "__libc_fini_array": {
+   "cat": "identical_words",
+   "while": "__libc_fini_array",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fini.o",
+   "family": "libc",
+   "n": 21
+  },
+  "__register_exitproc": {
+   "cat": "identical_mod_reloc",
+   "while": "__register_exitproc",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-__atexit.o",
+   "family": "libc",
+   "n": 57
+  },
+  "__assert_func": {
+   "cat": "identical_mod_reloc",
+   "while": "__assert_func",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-assert.o",
+   "family": "libc",
+   "n": 20
+  },
+  "__assert": {
+   "cat": "identical_words",
+   "while": "__assert",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-assert.o",
+   "family": "libc",
+   "n": 5
+  },
+  "_calloc_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_calloc_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-callocr.o",
+   "family": "libc",
+   "n": 102
+  },
+  "quorem": {
+   "cat": "identical_mod_reloc",
+   "while": "quorem",
+   "in_while_proof_scope": true,
+   "origin": "libc_a-dtoa.o",
+   "family": "libc",
+   "n": 155
+  },
+  "_dtoa_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_dtoa_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-dtoa.o",
+   "family": "libc",
+   "n": 1407
+  },
+  "__env_lock": {
+   "cat": "identical_mod_reloc",
+   "while": "__env_lock",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-envlock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__env_unlock": {
+   "cat": "identical_mod_reloc",
+   "while": "__env_unlock",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-envlock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "_wcrtomb_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_wcrtomb_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-wcrtomb.o",
+   "family": "libc",
+   "n": 35
+  },
+  "wcrtomb": {
+   "cat": "identical_mod_reloc",
+   "while": "wcrtomb",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wcrtomb.o",
+   "family": "libc",
+   "n": 36
+  },
+  "_wcsrtombs_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_wcsrtombs_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-wcsrtombs.o",
+   "family": "libc",
+   "n": 4
+  },
+  "wcsrtombs": {
+   "cat": "identical_mod_reloc",
+   "while": "wcsrtombs",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wcsrtombs.o",
+   "family": "libc",
+   "n": 8
+  },
+  "_fiprintf_r": {
+   "cat": "identical_words",
+   "while": "_fiprintf_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fiprintf.o",
+   "family": "libc",
+   "n": 14
+  },
+  "fiprintf": {
+   "cat": "identical_words",
+   "while": "fiprintf",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-fiprintf.o",
+   "family": "libc",
+   "n": 20
+  },
+  "_vfiprintf_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_vfiprintf_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-vfiprintf.o",
+   "family": "libc",
+   "n": 1531
+  },
+  "vfiprintf": {
+   "cat": "identical_words",
+   "while": "vfiprintf",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-vfiprintf.o",
+   "family": "libc",
+   "n": 6
+  },
+  "__sbprintf@80041f30": {
+   "cat": "identical_mod_reloc",
+   "while": "__sbprintf@8001688c",
+   "in_while_proof_scope": true,
+   "origin": "libc_a-vfiprintf.o",
+   "family": "libc",
+   "n": 57
+  },
+  "__ssputs_r": {
+   "cat": "identical_mod_reloc",
+   "while": "__ssputs_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-ssputs_r.o",
+   "family": "libc",
+   "n": 101
+  },
+  "_wcsnrtombs_l": {
+   "cat": "identical_words",
+   "while": "_wcsnrtombs_l",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-wcsnrtombs.o",
+   "family": "libc",
+   "n": 100
+  },
+  "_wcsnrtombs_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_wcsnrtombs_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-wcsnrtombs.o",
+   "family": "libc",
+   "n": 3
+  },
+  "wcsnrtombs": {
+   "cat": "identical_mod_reloc",
+   "while": "wcsnrtombs",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-wcsnrtombs.o",
+   "family": "libc",
+   "n": 9
+  },
+  "__fixdfsi": {
+   "cat": "identical_words",
+   "while": "__fixdfsi",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:fixdfsi.o",
+   "family": "libgcc",
+   "n": 26
+  },
+  "__fixunsdfsi": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libgcc:fixunsdfsi.o",
+   "family": "libgcc",
+   "n": 22
+  },
+  "__floatunsidf": {
+   "cat": "identical_mod_reloc",
+   "while": "__floatunsidf",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:floatunsidf.o",
+   "family": "libgcc",
+   "n": 25
+  },
+  "__lesf2": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libgcc:lesf2.o",
+   "family": "libgcc",
+   "n": 45
+  },
+  "__unordsf2": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libgcc:unordsf2.o",
+   "family": "libgcc",
+   "n": 20
+  },
+  "__trunctfdf2": {
+   "cat": "identical_words",
+   "while": "__trunctfdf2",
+   "in_while_proof_scope": true,
+   "origin": "libgcc:trunctfdf2.o",
+   "family": "libgcc",
+   "n": 132
+  }
+ },
+ "summary": {
+  "whole": {
+   "funcs": {
+    "identical_mod_reloc": 131,
+    "identical_words": 77,
+    "new": 624,
+    "same_name_differs": 4,
+    "identical_body_other_name": 1
+   },
+   "insts": {
+    "identical_mod_reloc": 18226,
+    "identical_words": 2216,
+    "new": 46116,
+    "same_name_differs": 1512,
+    "identical_body_other_name": 2
+   },
+   "total_funcs": 837,
+   "total_insts": 68072,
+   "reused_and_in_while_proof_scope": 16441
+  },
+  "static_reach": {
+   "funcs": {
+    "identical_mod_reloc": 84,
+    "identical_words": 47,
+    "new": 557,
+    "same_name_differs": 4,
+    "identical_body_other_name": 1
+   },
+   "insts": {
+    "identical_mod_reloc": 15705,
+    "identical_words": 1431,
+    "new": 43262,
+    "same_name_differs": 1512,
+    "identical_body_other_name": 2
+   },
+   "total_funcs": 693,
+   "total_insts": 61912,
+   "reused_and_in_while_proof_scope": 16090
+  },
+  "dyn_while": {
+   "funcs": {
+    "identical_mod_reloc": 39,
+    "identical_words": 23,
+    "new": 99,
+    "same_name_differs": 2
+   },
+   "insts": {
+    "identical_mod_reloc": 5979,
+    "identical_words": 620,
+    "new": 10393,
+    "same_name_differs": 169
+   },
+   "total_funcs": 163,
+   "total_insts": 17161,
+   "reused_and_in_while_proof_scope": 6139
+  },
+  "dyn_while_after_exec": {
+   "funcs": {
+    "identical_mod_reloc": 35,
+    "identical_words": 20,
+    "new": 32,
+    "same_name_differs": 2
+   },
+   "insts": {
+    "identical_mod_reloc": 5855,
+    "identical_words": 549,
+    "new": 6329,
+    "same_name_differs": 169
+   },
+   "total_funcs": 89,
+   "total_insts": 12902,
+   "reused_and_in_while_proof_scope": 5971
+  },
+  "dyn_union": {
+   "funcs": {
+    "identical_mod_reloc": 58,
+    "identical_words": 33,
+    "new": 286,
+    "same_name_differs": 2
+   },
+   "insts": {
+    "identical_mod_reloc": 13064,
+    "identical_words": 912,
+    "new": 23199,
+    "same_name_differs": 169
+   },
+   "total_funcs": 379,
+   "total_insts": 37344,
+   "reused_and_in_while_proof_scope": 13470
+  },
+  "dyn_union_after_exec": {
+   "funcs": {
+    "identical_mod_reloc": 58,
+    "identical_words": 33,
+    "new": 249,
+    "same_name_differs": 2
+   },
+   "insts": {
+    "identical_mod_reloc": 13064,
+    "identical_words": 912,
+    "new": 21105,
+    "same_name_differs": 169
+   },
+   "total_funcs": 342,
+   "total_insts": 35250,
+   "reused_and_in_while_proof_scope": 13470
+  },
+  "pcs_while": {
+   "pcs_by_cat": {
+    "identical_words": 375,
+    "identical_mod_reloc": 1523,
+    "new": 3882,
+    "same_name_differs": 137
+   },
+   "total": 5917
+  },
+  "pcs_union": {
+   "pcs_by_cat": {
+    "identical_words": 769,
+    "identical_mod_reloc": 4604,
+    "new": 13493,
+    "same_name_differs": 152
+   },
+   "total": 19018
+  }
+ },
+ "sites": {
+  "static_reach": {
+   "insts": 61912,
+   "site_classified": 54359,
+   "pct": 87.8,
+   "blocks": 15797,
+   "blocks_all_classified": 11621,
+   "blocks_pct": 73.6,
+   "unsupported_by_reason": {
+    "OP-IMM funct3 != ADDI": 3731,
+    "opcode 0x17": 1022,
+    "RTYPE op not ADD/SUB": 868,
+    "OP-IMM-32 funct3 != ADDIW": 674,
+    "opcode 0x37": 416,
+    "RTYPEW op not SUBW": 401,
+    "load width/signedness (lb/lh/lhu/lwu?)": 236,
+    "store width (sh?)": 124,
+    "jalr shape != jr rs1 (rd=x0, imm=0)": 67,
+    "opcode 0x73": 7,
+    "sd with rs1=x0": 4,
+    "ld with x0 operand": 2,
+    "sw with rs1=x0": 1
+   },
+   "unsupported_by_mnemonic": {
+    "slli": 1426,
+    "andi": 1114,
+    "auipc": 1022,
+    "srli": 490,
+    "lui": 416,
+    "or": 406,
+    "srliw": 370,
+    "addw": 299,
+    "zext.b": 224,
+    "and": 218,
+    "slliw": 216,
+    "ori": 215,
+    "sh": 124,
+    "lhu": 121,
+    "lh": 91,
+    "sraiw": 88,
+    "not": 73,
+    "snez": 72,
+    "sllw": 70,
+    "srai": 67,
+    "jalr": 66,
+    "xor": 56,
+    "sll": 49,
+    "seqz": 46,
+    "xori": 35,
+    "srl": 34,
+    "slti": 31,
+    "srlw": 23,
+    "slt": 19,
+    "lwu": 14,
+    "sltiu": 10,
+    "lb": 10,
+    "sraw": 9,
+    "sgtz": 8,
+    "ebreak": 7,
+    "sltu": 4,
+    "sd": 4,
+    "ld": 2,
+    "sra": 2,
+    "sw": 1,
+    "jr": 1
+   }
+  },
+  "dyn_while": {
+   "insts": 5917,
+   "site_classified": 5173,
+   "pct": 87.4,
+   "blocks": 1286,
+   "blocks_all_classified": 886,
+   "blocks_pct": 68.9,
+   "unsupported_by_reason": {
+    "OP-IMM funct3 != ADDI": 417,
+    "opcode 0x17": 69,
+    "RTYPE op not ADD/SUB": 57,
+    "opcode 0x37": 54,
+    "OP-IMM-32 funct3 != ADDIW": 54,
+    "load width/signedness (lb/lh/lhu/lwu?)": 33,
+    "RTYPEW op not SUBW": 26,
+    "store width (sh?)": 20,
+    "jalr shape != jr rs1 (rd=x0, imm=0)": 14
+   },
+   "unsupported_by_mnemonic": {
+    "slli": 176,
+    "andi": 115,
+    "auipc": 69,
+    "lui": 54,
+    "srliw": 45,
+    "zext.b": 34,
+    "srli": 33,
+    "ori": 23,
+    "and": 22,
+    "lh": 21,
+    "sh": 20,
+    "or": 19,
+    "addw": 19,
+    "not": 17,
+    "jalr": 13,
+    "srai": 10,
+    "lhu": 10,
+    "sllw": 7,
+    "xor": 5,
+    "slliw": 5,
+    "snez": 4,
+    "sraiw": 4,
+    "slti": 3,
+    "seqz": 3,
+    "slt": 3,
+    "sll": 3,
+    "xori": 2,
+    "lb": 1,
+    "lwu": 1,
+    "sltu": 1,
+    "jr": 1,
+    "sltiu": 1
+   }
+  },
+  "dyn_union": {
+   "insts": 19018,
+   "site_classified": 16620,
+   "pct": 87.4,
+   "blocks": 4401,
+   "blocks_all_classified": 3178,
+   "blocks_pct": 72.2,
+   "unsupported_by_reason": {
+    "OP-IMM funct3 != ADDI": 1410,
+    "RTYPE op not ADD/SUB": 246,
+    "OP-IMM-32 funct3 != ADDIW": 233,
+    "opcode 0x17": 188,
+    "opcode 0x37": 117,
+    "RTYPEW op not SUBW": 87,
+    "load width/signedness (lb/lh/lhu/lwu?)": 67,
+    "store width (sh?)": 33,
+    "jalr shape != jr rs1 (rd=x0, imm=0)": 17
+   },
+   "unsupported_by_mnemonic": {
+    "slli": 571,
+    "andi": 379,
+    "srliw": 196,
+    "auipc": 188,
+    "srli": 178,
+    "zext.b": 122,
+    "lui": 117,
+    "or": 96,
+    "and": 72,
+    "addw": 64,
+    "ori": 51,
+    "srai": 36,
+    "sh": 33,
+    "not": 33,
+    "lh": 29,
+    "snez": 27,
+    "lhu": 27,
+    "seqz": 23,
+    "slliw": 21,
+    "sllw": 20,
+    "xor": 19,
+    "jalr": 16,
+    "sraiw": 16,
+    "sll": 14,
+    "xori": 8,
+    "slt": 8,
+    "srl": 8,
+    "lwu": 7,
+    "slti": 5,
+    "sltiu": 4,
+    "lb": 4,
+    "sltu": 2,
+    "srlw": 2,
+    "sraw": 1,
+    "jr": 1
+   }
+  },
+  "while_elf_whole": {
+   "insts": 25336,
+   "site_classified": 22278,
+   "pct": 87.9,
+   "blocks": 6485,
+   "blocks_all_classified": 4740,
+   "blocks_pct": 73.1,
+   "unsupported_by_reason": {
+    "OP-IMM funct3 != ADDI": 1615,
+    "RTYPE op not ADD/SUB": 431,
+    "opcode 0x17": 424,
+    "OP-IMM-32 funct3 != ADDIW": 147,
+    "RTYPEW op not SUBW": 133,
+    "load width/signedness (lb/lh/lhu/lwu?)": 124,
+    "opcode 0x37": 103,
+    "store width (sh?)": 51,
+    "jalr shape != jr rs1 (rd=x0, imm=0)": 30
+   },
+   "unsupported_by_mnemonic": {
+    "slli": 534,
+    "andi": 534,
+    "auipc": 424,
+    "srli": 271,
+    "or": 196,
+    "ori": 125,
+    "addw": 110,
+    "and": 108,
+    "lui": 103,
+    "lh": 65,
+    "slliw": 57,
+    "lhu": 54,
+    "zext.b": 52,
+    "srliw": 52,
+    "sh": 51,
+    "snez": 47,
+    "sraiw": 38,
+    "not": 35,
+    "sll": 30,
+    "jalr": 29,
+    "xor": 23,
+    "sltiu": 22,
+    "srl": 19,
+    "seqz": 18,
+    "sllw": 13,
+    "slti": 11,
+    "srlw": 9,
+    "srai": 8,
+    "lwu": 5,
+    "xori": 5,
+    "sltu": 4,
+    "slt": 3,
+    "sgtz": 1,
+    "jr": 1,
+    "sraw": 1
+   }
+  }
+ },
+ "gen_fn": {
+  "static_reach": {
+   "within_budget": 614,
+   "within_budget_no_indirect": 569,
+   "within_budget_no_indirect_and_new": 462,
+   "over_budget": 79
+  },
+  "dyn_while": {
+   "within_budget": 146,
+   "within_budget_no_indirect": 133,
+   "within_budget_no_indirect_and_new": 84,
+   "over_budget": 17
+  },
+  "dyn_union": {
+   "within_budget": 338,
+   "within_budget_no_indirect": 319,
+   "within_budget_no_indirect_and_new": 248,
+   "over_budget": 41
+  }
+ },
+ "decode_index": {
+  "whole": {
+   "unique_words": 23140,
+   "in_syi_decode_index": 7165,
+   "pct": 31.0
+  },
+  "static_reach": {
+   "unique_words": 21565,
+   "in_syi_decode_index": 7080,
+   "pct": 32.8
+  },
+  "dyn_while": {
+   "unique_words": 3315,
+   "in_syi_decode_index": 1693,
+   "pct": 51.1
+  },
+  "dyn_union": {
+   "unique_words": 8346,
+   "in_syi_decode_index": 3616,
+   "pct": 43.3
+  }
+ }
+}

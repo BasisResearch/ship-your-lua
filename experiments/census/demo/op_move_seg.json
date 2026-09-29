@@ -1,0 +1,66 @@
+{
+  "theorem": "tr_op_move",
+  "doc": "DRAFT (disasm_to_segment.py) — segment 0x8001be90 → 0x8001be98, 2 steps, 2 read-before-written pins. Fill every TODO.",
+  "namespace": "Vsa.Sim",
+  "imports": [
+    "TODO(site battery module)",
+    "Vsa.Sim.RegPins"
+  ],
+  "params": [
+    "TODO: extra ghost binders (region facts, callee params, ...)",
+    "(v25 v14 : BitVec 64)",
+    "(m0 : Std.ExtHashMap Nat (BitVec 8))"
+  ],
+  "pre": "TODO",
+  "post": "TODO",
+  "loaded_pred": "TODO",
+  "pre_bind": {
+    "obtain": "⟨hgood, hloaded, hpc, hv25, hv14, ⟨vmi, hmi⟩, htick, hmemeq, TODO(rest)⟩",
+    "good": "hgood",
+    "pc": "hpc",
+    "minstret_var": "vmi",
+    "minstret": "hmi",
+    "tick": "htick",
+    "loaded": "hloaded",
+    "mem0": "m0",
+    "memeq": "hmemeq"
+  },
+  "pins": [
+    {
+      "reg": "x25",
+      "val": "v25",
+      "hyp": "hv25"
+    },
+    {
+      "reg": "x14",
+      "val": "v14",
+      "hyp": "hv14"
+    }
+  ],
+  "prelude": [],
+  "steps": [
+    {
+      "addr": "0x8001be90",
+      "site": "site_8001be90",
+      "class": "alu",
+      "asm": "add a4,s9,a4",
+      "rd": "x14",
+      "rd_val": "TODO",
+      "rw": "TODO",
+      "raw_val": "(v25 + v14)",
+      "call": "$vmi $v:x25 $v:x14 $hG $hpc $hmi $pin:x25 $pin:x14 $hmem rfl $hi"
+    },
+    {
+      "addr": "0x8001be94",
+      "site": "site_8001be94",
+      "class": "j",
+      "asm": "j 8001baa4 <luaV_execute+0x10a4>",
+      "imm": "0x1ffc10#21",
+      "target": "0x8001baa4",
+      "call": "$vmi $hG $hpc $hmi $hmem rfl (by decide) $hi"
+    }
+  ],
+  "post_proof": [
+    "TODO"
+  ]
+}

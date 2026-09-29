@@ -1,0 +1,6 @@
+traces/
+*_disasm.txt
+lua_census.json
+while_census.json
+old/
+match.out

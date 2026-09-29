@@ -1,0 +1,1359 @@
+{
+ "arms": {
+  "per_arm": {
+   "OP_ADD": [
+    52,
+    50,
+    16,
+    69,
+    11354
+   ],
+   "OP_ADDI": [
+    33,
+    31,
+    13,
+    123,
+    13318
+   ],
+   "OP_ADDK": [
+    55,
+    51,
+    15,
+    0,
+    10
+   ],
+   "OP_BAND": [
+    83,
+    81,
+    7,
+    0,
+    0
+   ],
+   "OP_BANDK": [
+    54,
+    52,
+    7,
+    0,
+    0
+   ],
+   "OP_BNOT": [
+    54,
+    54,
+    11,
+    0,
+    0
+   ],
+   "OP_BOR": [
+    83,
+    81,
+    7,
+    0,
+    0
+   ],
+   "OP_BORK": [
+    54,
+    54,
+    7,
+    0,
+    0
+   ],
+   "OP_BXOR": [
+    83,
+    81,
+    7,
+    0,
+    0
+   ],
+   "OP_BXORK": [
+    54,
+    54,
+    7,
+    0,
+    0
+   ],
+   "OP_CALL": [
+    42,
+    23,
+    17,
+    3,
+    2738
+   ],
+   "OP_CLOSE": [
+    15,
+    15,
+    15,
+    0,
+    12
+   ],
+   "OP_CLOSURE": [
+    79,
+    77,
+    34,
+    0,
+    43
+   ],
+   "OP_CONCAT": [
+    27,
+    27,
+    21,
+    0,
+    12
+   ],
+   "OP_DIV": [
+    49,
+    45,
+    8,
+    0,
+    0
+   ],
+   "OP_DIVK": [
+    48,
+    46,
+    9,
+    0,
+    5
+   ],
+   "OP_EQ": [
+    31,
+    31,
+    19,
+    0,
+    5
+   ],
+   "OP_EQI": [
+    41,
+    41,
+    10,
+    100,
+    10835
+   ],
+   "OP_EQK": [
+    27,
+    27,
+    15,
+    0,
+    502
+   ],
+   "OP_EXTRAARG": [
+    2,
+    0,
+    2,
+    0,
+    2
+   ],
+   "OP_FORLOOP": [
+    55,
+    55,
+    7,
+    0,
+    577
+   ],
+   "OP_FORPREP": [
+    205,
+    203,
+    11,
+    0,
+    21
+   ],
+   "OP_GEI": [
+    52,
+    52,
+    10,
+    0,
+    10
+   ],
+   "OP_GETFIELD": [
+    45,
+    40,
+    17,
+    0,
+    70
+   ],
+   "OP_GETI": [
+    50,
+    45,
+    13,
+    0,
+    15
+   ],
+   "OP_GETTABLE": [
+    71,
+    71,
+    16,
+    0,
+    145
+   ],
+   "OP_GETTABUP": [
+    48,
+    43,
+    20,
+    3,
+    240
+   ],
+   "OP_GETUPVAL": [
+    17,
+    17,
+    17,
+    0,
+    13493
+   ],
+   "OP_GTI": [
+    53,
+    53,
+    10,
+    101,
+    203
+   ],
+   "OP_IDIV": [
+    79,
+    69,
+    19,
+    0,
+    1
+   ],
+   "OP_IDIVK": [
+    80,
+    72,
+    24,
+    0,
+    4
+   ],
+   "OP_JMP": [
+    9,
+    9,
+    9,
+    122,
+    872
+   ],
+   "OP_LE": [
+    166,
+    166,
+    11,
+    0,
+    676
+   ],
+   "OP_LEI": [
+    51,
+    51,
+    10,
+    16,
+    33
+   ],
+   "OP_LEN": [
+    17,
+    17,
+    17,
+    0,
+    47
+   ],
+   "OP_LFALSESKIP": [
+    8,
+    8,
+    8,
+    0,
+    14
+   ],
+   "OP_LOADF": [
+    14,
+    14,
+    14,
+    0,
+    10
+   ],
+   "OP_LOADFALSE": [
+    8,
+    8,
+    8,
+    0,
+    155
+   ],
+   "OP_LOADI": [
+    12,
+    12,
+    12,
+    9,
+    411
+   ],
+   "OP_LOADK": [
+    14,
+    4,
+    14,
+    0,
+    111
+   ],
+   "OP_LOADKX": [
+    15,
+    15,
+    15,
+    0,
+    0
+   ],
+   "OP_LOADNIL": [
+    14,
+    14,
+    14,
+    0,
+    7
+   ],
+   "OP_LOADTRUE": [
+    8,
+    8,
+    8,
+    0,
+    222
+   ],
+   "OP_LT": [
+    160,
+    160,
+    11,
+    0,
+    17
+   ],
+   "OP_LTI": [
+    53,
+    53,
+    10,
+    11,
+    2000
+   ],
+   "OP_MMBIN": [
+    23,
+    23,
+    23,
+    0,
+    2
+   ],
+   "OP_MMBINI": [
+    24,
+    24,
+    24,
+    0,
+    1
+   ],
+   "OP_MMBINK": [
+    26,
+    26,
+    26,
+    0,
+    0
+   ],
+   "OP_MOD": [
+    99,
+    89,
+    19,
+    0,
+    629
+   ],
+   "OP_MODK": [
+    98,
+    88,
+    27,
+    100,
+    201
+   ],
+   "OP_MOVE": [
+    15,
+    5,
+    5,
+    3,
+    145
+   ],
+   "OP_MUL": [
+    53,
+    49,
+    16,
+    9,
+    921
+   ],
+   "OP_MULK": [
+    54,
+    50,
+    17,
+    0,
+    16
+   ],
+   "OP_NEWTABLE": [
+    48,
+    48,
+    33,
+    0,
+    36
+   ],
+   "OP_NOT": [
+    20,
+    20,
+    16,
+    0,
+    0
+   ],
+   "OP_POW": [
+    57,
+    55,
+    8,
+    0,
+    0
+   ],
+   "OP_POWK": [
+    61,
+    57,
+    8,
+    0,
+    0
+   ],
+   "OP_RETURN": [
+    87,
+    47,
+    31,
+    1,
+    27
+   ],
+   "OP_RETURN0": [
+    72,
+    38,
+    3,
+    0,
+    2
+   ],
+   "OP_RETURN1": [
+    84,
+    50,
+    3,
+    0,
+    2013
+   ],
+   "OP_SELF": [
+    52,
+    52,
+    26,
+    0,
+    11
+   ],
+   "OP_SETFIELD": [
+    65,
+    45,
+    22,
+    0,
+    32
+   ],
+   "OP_SETI": [
+    74,
+    54,
+    18,
+    0,
+    3
+   ],
+   "OP_SETLIST": [
+    75,
+    75,
+    32,
+    0,
+    8
+   ],
+   "OP_SETTABLE": [
+    93,
+    73,
+    21,
+    0,
+    179
+   ],
+   "OP_SETTABUP": [
+    68,
+    48,
+    25,
+    0,
+    18
+   ],
+   "OP_SETUPVAL": [
+    33,
+    29,
+    29,
+    0,
+    503
+   ],
+   "OP_SHL": [
+    93,
+    91,
+    7,
+    0,
+    0
+   ],
+   "OP_SHLI": [
+    62,
+    60,
+    7,
+    0,
+    0
+   ],
+   "OP_SHR": [
+    93,
+    91,
+    7,
+    0,
+    0
+   ],
+   "OP_SHRI": [
+    63,
+    63,
+    7,
+    0,
+    0
+   ],
+   "OP_SUB": [
+    53,
+    49,
+    16,
+    0,
+    1
+   ],
+   "OP_SUBK": [
+    55,
+    51,
+    15,
+    0,
+    0
+   ],
+   "OP_TAILCALL": [
+    100,
+    48,
+    13,
+    0,
+    10008
+   ],
+   "OP_TBC": [
+    11,
+    11,
+    11,
+    0,
+    0
+   ],
+   "OP_TEST": [
+    26,
+    26,
+    14,
+    0,
+    211
+   ],
+   "OP_TESTSET": [
+    33,
+    33,
+    14,
+    0,
+    0
+   ],
+   "OP_TFORCALL": [
+    56,
+    0,
+    19,
+    0,
+    95
+   ],
+   "OP_TFORLOOP": [
+    34,
+    2,
+    2,
+    0,
+    0
+   ],
+   "OP_TFORPREP": [
+    71,
+    15,
+    34,
+    0,
+    9
+   ],
+   "OP_UNM": [
+    39,
+    37,
+    11,
+    0,
+    4
+   ],
+   "OP_VARARG": [
+    16,
+    16,
+    16,
+    0,
+    6
+   ],
+   "OP_VARARGPREP": [
+    22,
+    22,
+    12,
+    1,
+    21
+   ]
+  },
+  "summary": {
+   "F1_sum_exclusive": 1812,
+   "F1_sum_linear": 463,
+   "F1_sum_reach": 2028,
+   "F1_union_reach": 1901,
+   "arms_union_insts": 4001,
+   "insts_not_in_any_arm": 19,
+   "jump_table": {
+    "addr": "0x800466dc",
+    "bound_check": "bltu 81 < (i & 0x7f) -> default",
+    "default_target": "0x8001ac7c",
+    "dispatch_jr": "0x8001aaa0",
+    "distinct_targets": 82,
+    "encoding": "int32 offset relative to table base (target = base + sext(entry))",
+    "entries": 82,
+    "entry_bytes": 4,
+    "fetch_dispatch_insts": 10,
+    "fetch_head": "0x8001aa7c",
+    "jr_sites_in_luaV_execute": 1,
+    "note": "OP_EXTRAARG (82) is out of table range -> default target"
+   },
+   "luaV_execute": {
+    "bytes": 16080,
+    "end": "0x8001e8d0",
+    "insts": 4020,
+    "start": "0x8001aa00"
+   },
+   "ops_dispatched_union": [
+    "OP_MOVE",
+    "OP_LOADI",
+    "OP_LOADF",
+    "OP_LOADK",
+    "OP_LOADFALSE",
+    "OP_LFALSESKIP",
+    "OP_LOADTRUE",
+    "OP_LOADNIL",
+    "OP_GETUPVAL",
+    "OP_SETUPVAL",
+    "OP_GETTABUP",
+    "OP_GETTABLE",
+    "OP_GETI",
+    "OP_GETFIELD",
+    "OP_SETTABUP",
+    "OP_SETTABLE",
+    "OP_SETI",
+    "OP_SETFIELD",
+    "OP_NEWTABLE",
+    "OP_SELF",
+    "OP_ADDI",
+    "OP_ADDK",
+    "OP_MULK",
+    "OP_MODK",
+    "OP_DIVK",
+    "OP_IDIVK",
+    "OP_ADD",
+    "OP_SUB",
+    "OP_MUL",
+    "OP_MOD",
+    "OP_IDIV",
+    "OP_MMBIN",
+    "OP_MMBINI",
+    "OP_UNM",
+    "OP_LEN",
+    "OP_CONCAT",
+    "OP_CLOSE",
+    "OP_JMP",
+    "OP_EQ",
+    "OP_LT",
+    "OP_LE",
+    "OP_EQK",
+    "OP_EQI",
+    "OP_LTI",
+    "OP_LEI",
+    "OP_GTI",
+    "OP_GEI",
+    "OP_TEST",
+    "OP_CALL",
+    "OP_TAILCALL",
+    "OP_RETURN",
+    "OP_RETURN0",
+    "OP_RETURN1",
+    "OP_FORLOOP",
+    "OP_FORPREP",
+    "OP_TFORPREP",
+    "OP_TFORCALL",
+    "OP_SETLIST",
+    "OP_CLOSURE",
+    "OP_VARARG",
+    "OP_VARARGPREP",
+    "OP_EXTRAARG"
+   ],
+   "ops_dispatched_while": [
+    "OP_MOVE",
+    "OP_LOADI",
+    "OP_GETTABUP",
+    "OP_ADDI",
+    "OP_MODK",
+    "OP_ADD",
+    "OP_MUL",
+    "OP_JMP",
+    "OP_EQI",
+    "OP_LTI",
+    "OP_LEI",
+    "OP_GTI",
+    "OP_CALL",
+    "OP_RETURN",
+    "OP_VARARGPREP"
+   ],
+   "total_dispatches_while": 671
+  }
+ },
+ "constructs": {
+  "dyn_union": {
+   "  ...tag load feeding andi/addi/branch within 4": 117,
+   "  sf:__adddf3": 26,
+   "  sf:__divdf3": 11,
+   "  sf:__eqdf2": 59,
+   "  sf:__fixdfdi": 28,
+   "  sf:__fixdfsi": 8,
+   "  sf:__fixunsdfsi": 2,
+   "  sf:__floatdidf": 38,
+   "  sf:__floatsidf": 19,
+   "  sf:__floatunsidf": 5,
+   "  sf:__gedf2": 57,
+   "  sf:__ledf2": 61,
+   "  sf:__muldf3": 40,
+   "  sf:__subdf3": 16,
+   "  sf:__trunctfdf2": 2,
+   "  sf:__unorddf2": 4,
+   "128-bit long double (tf) call sites": 3,
+   "16-bit lh/lhu/sh": 176,
+   "branches": 3846,
+   "direct jal call sites": 2067,
+   "jalr (indirect call)": 26,
+   "jr non-ret (table or indirect tail)": 23,
+   "jump table entries": 582,
+   "jump tables (distinct)": 17,
+   "lb (signed byte)": 8,
+   "lbu_off_8mod16(tt_ tag load)": 334,
+   "lbu_total": 845,
+   "longjmp call sites": 1,
+   "lui": 214,
+   "lwu": 12,
+   "memcpy call sites": 26,
+   "memmove call sites": 9,
+   "memset call sites": 21,
+   "setjmp call sites": 1,
+   "softfloat call sites": 376,
+   "softint mul/div call sites": 82,
+   "softint mul/div tail sites": 1,
+   "tail-call j to another function": 111,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 6,
+   "variable shifts": 98
+  },
+  "luaV_execute": {
+   "  ...tag load feeding andi/addi/branch within 4": 23,
+   "  sf:__adddf3": 8,
+   "  sf:__divdf3": 4,
+   "  sf:__eqdf2": 22,
+   "  sf:__fixdfdi": 20,
+   "  sf:__floatdidf": 32,
+   "  sf:__floatsidf": 7,
+   "  sf:__gedf2": 37,
+   "  sf:__ledf2": 34,
+   "  sf:__muldf3": 4,
+   "  sf:__subdf3": 2,
+   "16-bit lh/lhu/sh": 4,
+   "branches": 376,
+   "direct jal call sites": 285,
+   "jr non-ret (table or indirect tail)": 1,
+   "jump table entries": 82,
+   "jump tables (distinct)": 1,
+   "lbu_off_8mod16(tt_ tag load)": 118,
+   "lbu_total": 127,
+   "lui": 24,
+   "lwu": 4,
+   "memcpy call sites": 1,
+   "softfloat call sites": 170,
+   "softint mul/div call sites": 10,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 0,
+   "variable shifts": 9
+  },
+  "static_reach": {
+   "  ...tag load feeding andi/addi/branch within 4": 175,
+   "  sf:__adddf3": 63,
+   "  sf:__divdf3": 24,
+   "  sf:__eqdf2": 70,
+   "  sf:__extendsfdf2": 1,
+   "  sf:__fixdfdi": 31,
+   "  sf:__fixdfsi": 8,
+   "  sf:__fixunsdfsi": 2,
+   "  sf:__floatdidf": 43,
+   "  sf:__floatsidf": 23,
+   "  sf:__floatunsidf": 5,
+   "  sf:__gedf2": 66,
+   "  sf:__ledf2": 76,
+   "  sf:__muldf3": 97,
+   "  sf:__subdf3": 56,
+   "  sf:__truncdfsf2": 1,
+   "  sf:__trunctfdf2": 2,
+   "  sf:__unorddf2": 7,
+   "128-bit long double (tf) call sites": 4,
+   "16-bit lh/lhu/sh": 336,
+   "branches": 6206,
+   "direct jal call sites": 3691,
+   "ebreak (isolated null-deref trap)": 7,
+   "jalr (indirect call)": 66,
+   "jr non-ret (table or indirect tail)": 59,
+   "jump table entries": 1783,
+   "jump tables (distinct)": 49,
+   "lb (signed byte)": 10,
+   "lbu_off_8mod16(tt_ tag load)": 438,
+   "lbu_total": 1506,
+   "longjmp call sites": 1,
+   "lui": 416,
+   "lwu": 14,
+   "memcpy call sites": 31,
+   "memmove call sites": 10,
+   "memset call sites": 31,
+   "setjmp call sites": 1,
+   "softfloat call sites": 575,
+   "softint mul/div call sites": 106,
+   "softint mul/div tail sites": 1,
+   "tail-call j to another function": 210,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 8,
+   "variable shifts": 187
+  },
+  "whole": {
+   "  ...tag load feeding andi/addi/branch within 4": 191,
+   "  sf:__adddf3": 63,
+   "  sf:__divdf3": 26,
+   "  sf:__eqdf2": 71,
+   "  sf:__extendsfdf2": 1,
+   "  sf:__fixdfdi": 31,
+   "  sf:__fixdfsi": 8,
+   "  sf:__fixunsdfsi": 2,
+   "  sf:__floatdidf": 43,
+   "  sf:__floatsidf": 23,
+   "  sf:__floatunsidf": 5,
+   "  sf:__gedf2": 66,
+   "  sf:__ledf2": 79,
+   "  sf:__lesf2": 2,
+   "  sf:__muldf3": 98,
+   "  sf:__subdf3": 57,
+   "  sf:__truncdfsf2": 3,
+   "  sf:__trunctfdf2": 2,
+   "  sf:__unorddf2": 13,
+   "  sf:__unordsf2": 2,
+   "128-bit long double (tf) call sites": 4,
+   "16-bit lh/lhu/sh": 364,
+   "branches": 6942,
+   "direct jal call sites": 4017,
+   "ebreak (isolated null-deref trap)": 7,
+   "jalr (indirect call)": 72,
+   "jr non-ret (table or indirect tail)": 67,
+   "jump table entries": 1890,
+   "jump tables (distinct)": 52,
+   "lb (signed byte)": 10,
+   "lbu_off_8mod16(tt_ tag load)": 472,
+   "lbu_total": 1723,
+   "longjmp call sites": 1,
+   "lui": 466,
+   "lwu": 14,
+   "memcpy call sites": 37,
+   "memmove call sites": 10,
+   "memset call sites": 32,
+   "setjmp call sites": 1,
+   "softfloat call sites": 595,
+   "softint mul/div call sites": 116,
+   "softint mul/div tail sites": 1,
+   "tail-call j to another function": 255,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 10,
+   "variable shifts": 192
+  },
+  "whole_lib_origin": {
+   "  sf:__adddf3": 46,
+   "  sf:__divdf3": 20,
+   "  sf:__eqdf2": 29,
+   "  sf:__fixdfdi": 1,
+   "  sf:__fixdfsi": 8,
+   "  sf:__fixunsdfsi": 2,
+   "  sf:__floatdidf": 1,
+   "  sf:__floatsidf": 13,
+   "  sf:__floatunsidf": 5,
+   "  sf:__gedf2": 12,
+   "  sf:__ledf2": 27,
+   "  sf:__lesf2": 2,
+   "  sf:__muldf3": 89,
+   "  sf:__subdf3": 54,
+   "  sf:__truncdfsf2": 2,
+   "  sf:__trunctfdf2": 2,
+   "  sf:__unorddf2": 13,
+   "  sf:__unordsf2": 2,
+   "128-bit long double (tf) call sites": 4,
+   "16-bit lh/lhu/sh": 217,
+   "branches": 3353,
+   "direct jal call sites": 1108,
+   "jalr (indirect call)": 33,
+   "jr non-ret (table or indirect tail)": 21,
+   "jump table entries": 606,
+   "jump tables (distinct)": 11,
+   "lbu_off_8mod16(tt_ tag load)": 2,
+   "lbu_total": 408,
+   "lui": 231,
+   "lwu": 5,
+   "memcpy call sites": 9,
+   "memmove call sites": 9,
+   "memset call sites": 24,
+   "softfloat call sites": 328,
+   "softint mul/div call sites": 63,
+   "softint mul/div tail sites": 1,
+   "tail-call j to another function": 72,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 5,
+   "variable shifts": 135
+  },
+  "whole_lua_origin": {
+   "  ...tag load feeding andi/addi/branch within 4": 191,
+   "  sf:__adddf3": 17,
+   "  sf:__divdf3": 6,
+   "  sf:__eqdf2": 42,
+   "  sf:__extendsfdf2": 1,
+   "  sf:__fixdfdi": 30,
+   "  sf:__floatdidf": 42,
+   "  sf:__floatsidf": 10,
+   "  sf:__gedf2": 54,
+   "  sf:__ledf2": 52,
+   "  sf:__muldf3": 9,
+   "  sf:__subdf3": 3,
+   "  sf:__truncdfsf2": 1,
+   "16-bit lh/lhu/sh": 147,
+   "branches": 3577,
+   "direct jal call sites": 2892,
+   "ebreak (isolated null-deref trap)": 7,
+   "jalr (indirect call)": 39,
+   "jr non-ret (table or indirect tail)": 46,
+   "jump table entries": 1284,
+   "jump tables (distinct)": 41,
+   "lb (signed byte)": 10,
+   "lbu_off_8mod16(tt_ tag load)": 470,
+   "lbu_total": 1314,
+   "longjmp call sites": 1,
+   "lui": 233,
+   "lwu": 9,
+   "memcpy call sites": 28,
+   "memmove call sites": 1,
+   "memset call sites": 7,
+   "setjmp call sites": 1,
+   "softfloat call sites": 267,
+   "softint mul/div call sites": 53,
+   "tail-call j to another function": 181,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 5,
+   "variable shifts": 57
+  }
+ },
+ "constructs_while": {
+  "static_reach": {
+   "  sf:__adddf3": 7,
+   "  sf:__divdf3": 5,
+   "  sf:__eqdf2": 22,
+   "  sf:__fixdfsi": 8,
+   "  sf:__floatsidf": 12,
+   "  sf:__floatunsidf": 1,
+   "  sf:__gedf2": 6,
+   "  sf:__ledf2": 12,
+   "  sf:__muldf3": 22,
+   "  sf:__subdf3": 12,
+   "  sf:__trunctfdf2": 2,
+   "  sf:__unorddf2": 4,
+   "128-bit long double (tf) call sites": 4,
+   "16-bit lh/lhu/sh": 161,
+   "branches": 2407,
+   "direct jal call sites": 955,
+   "jalr (indirect call)": 23,
+   "jr non-ret (table or indirect tail)": 19,
+   "jump table entries": 547,
+   "jump tables (distinct)": 14,
+   "lbu_off_8mod16(tt_ tag load)": 2,
+   "lbu_total": 236,
+   "longjmp call sites": 2,
+   "lui": 74,
+   "lwu": 5,
+   "memcpy call sites": 12,
+   "memmove call sites": 9,
+   "memset call sites": 20,
+   "setjmp call sites": 2,
+   "softfloat call sites": 113,
+   "softint mul/div call sites": 59,
+   "softint mul/div tail sites": 1,
+   "tail-call j to another function": 35,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 3,
+   "variable shifts": 57
+  },
+  "whole": {
+   "  sf:__adddf3": 7,
+   "  sf:__divdf3": 6,
+   "  sf:__eqdf2": 22,
+   "  sf:__fixdfsi": 8,
+   "  sf:__floatsidf": 12,
+   "  sf:__floatunsidf": 1,
+   "  sf:__gedf2": 6,
+   "  sf:__ledf2": 12,
+   "  sf:__muldf3": 23,
+   "  sf:__subdf3": 12,
+   "  sf:__trunctfdf2": 2,
+   "  sf:__unorddf2": 4,
+   "128-bit long double (tf) call sites": 4,
+   "16-bit lh/lhu/sh": 170,
+   "branches": 2850,
+   "direct jal call sites": 1106,
+   "jalr (indirect call)": 29,
+   "jr non-ret (table or indirect tail)": 27,
+   "jump table entries": 654,
+   "jump tables (distinct)": 17,
+   "lbu_off_8mod16(tt_ tag load)": 3,
+   "lbu_total": 342,
+   "longjmp call sites": 2,
+   "lui": 103,
+   "lwu": 5,
+   "memcpy call sites": 12,
+   "memmove call sites": 9,
+   "memset call sites": 22,
+   "setjmp call sites": 2,
+   "softfloat call sites": 115,
+   "softint mul/div call sites": 70,
+   "softint mul/div tail sites": 1,
+   "tail-call j to another function": 56,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 5,
+   "variable shifts": 72
+  }
+ },
+ "decode_index": {
+  "dyn_union": {
+   "in_syi_decode_index": 3616,
+   "pct": 43.3,
+   "unique_words": 8346
+  },
+  "dyn_while": {
+   "in_syi_decode_index": 1693,
+   "pct": 51.1,
+   "unique_words": 3315
+  },
+  "static_reach": {
+   "in_syi_decode_index": 7080,
+   "pct": 32.8,
+   "unique_words": 21565
+  },
+  "whole": {
+   "in_syi_decode_index": 7165,
+   "pct": 31.0,
+   "unique_words": 23140
+  }
+ },
+ "dynamic": {
+  "difftest_union_after_exec": {
+   "funcs": 342,
+   "pcs": 17256,
+   "unique_words": 7722
+  },
+  "difftest_union_all": {
+   "funcs": 379,
+   "pcs": 19018,
+   "unique_words": 8346
+  },
+  "difftest_union_before_exec": {
+   "funcs": 110,
+   "pcs": 4115,
+   "unique_words": 2409
+  },
+  "everything_union": {
+   "funcs": 379,
+   "pcs": 19018,
+   "unique_words": 8346
+  },
+  "everything_union_after_exec": {
+   "funcs": 342,
+   "pcs": 17256,
+   "unique_words": 7722
+  },
+  "while_after_exec": {
+   "funcs": 89,
+   "pcs": 2655,
+   "unique_words": 1758
+  },
+  "while_after_only": {
+   "funcs": 65,
+   "pcs": 2124,
+   "unique_words": 1443
+  },
+  "while_all": {
+   "funcs": 163,
+   "pcs": 5917,
+   "unique_words": 3315
+  },
+  "while_before_exec": {
+   "funcs": 106,
+   "pcs": 3793,
+   "unique_words": 2230
+  },
+  "while_before_only": {
+   "funcs": 90,
+   "pcs": 3262,
+   "unique_words": 1944
+  }
+ },
+ "dynamic_not_static": [],
+ "gen_fn": {
+  "dyn_union": {
+   "over_budget": 41,
+   "within_budget": 338,
+   "within_budget_no_indirect": 319,
+   "within_budget_no_indirect_and_new": 248
+  },
+  "dyn_while": {
+   "over_budget": 17,
+   "within_budget": 146,
+   "within_budget_no_indirect": 133,
+   "within_budget_no_indirect_and_new": 84
+  },
+  "static_reach": {
+   "over_budget": 79,
+   "within_budget": 614,
+   "within_budget_no_indirect": 569,
+   "within_budget_no_indirect_and_new": 462
+  }
+ },
+ "jumptables": {
+  "count": 52,
+  "entries": 1890,
+  "indirect_sites": {
+   "call": 72,
+   "tailjump": 15
+  }
+ },
+ "luaV_execute_start": "0x8001aa00",
+ "sites": {
+  "dyn_union": {
+   "blocks_pct": 72.2,
+   "pct": 87.4
+  },
+  "dyn_while": {
+   "blocks_pct": 68.9,
+   "pct": 87.4
+  },
+  "static_reach": {
+   "blocks_pct": 73.6,
+   "pct": 87.8
+  },
+  "while_elf_whole": {
+   "blocks_pct": 73.1,
+   "pct": 87.9
+  }
+ },
+ "static": {
+  "address_flow": {
+   "data_objects_reached": 829,
+   "funcs": 693,
+   "insts": 61912,
+   "unique_words": 21565
+  },
+  "all_address_taken_upper": {
+   "funcs": 718,
+   "insts": 63254,
+   "n_address_taken": 114,
+   "unique_words": 21942
+  },
+  "direct_only": {
+   "funcs": 305,
+   "insts": 36632,
+   "unique_words": 14635
+  }
+ },
+ "template": {
+  "dyn_union": {
+   "funcs": {
+    "identical_mod_reloc": 58,
+    "identical_words": 33,
+    "new": 286,
+    "same_name_differs": 2
+   },
+   "insts": {
+    "identical_mod_reloc": 13064,
+    "identical_words": 912,
+    "new": 23199,
+    "same_name_differs": 169
+   },
+   "reused_and_in_while_proof_scope": 13470,
+   "total_funcs": 379,
+   "total_insts": 37344
+  },
+  "dyn_union_after_exec": {
+   "funcs": {
+    "identical_mod_reloc": 58,
+    "identical_words": 33,
+    "new": 249,
+    "same_name_differs": 2
+   },
+   "insts": {
+    "identical_mod_reloc": 13064,
+    "identical_words": 912,
+    "new": 21105,
+    "same_name_differs": 169
+   },
+   "reused_and_in_while_proof_scope": 13470,
+   "total_funcs": 342,
+   "total_insts": 35250
+  },
+  "dyn_while": {
+   "funcs": {
+    "identical_mod_reloc": 39,
+    "identical_words": 23,
+    "new": 99,
+    "same_name_differs": 2
+   },
+   "insts": {
+    "identical_mod_reloc": 5979,
+    "identical_words": 620,
+    "new": 10393,
+    "same_name_differs": 169
+   },
+   "reused_and_in_while_proof_scope": 6139,
+   "total_funcs": 163,
+   "total_insts": 17161
+  },
+  "dyn_while_after_exec": {
+   "funcs": {
+    "identical_mod_reloc": 35,
+    "identical_words": 20,
+    "new": 32,
+    "same_name_differs": 2
+   },
+   "insts": {
+    "identical_mod_reloc": 5855,
+    "identical_words": 549,
+    "new": 6329,
+    "same_name_differs": 169
+   },
+   "reused_and_in_while_proof_scope": 5971,
+   "total_funcs": 89,
+   "total_insts": 12902
+  },
+  "pcs_union": {
+   "pcs_by_cat": {
+    "identical_mod_reloc": 4604,
+    "identical_words": 769,
+    "new": 13493,
+    "same_name_differs": 152
+   },
+   "total": 19018
+  },
+  "pcs_while": {
+   "pcs_by_cat": {
+    "identical_mod_reloc": 1523,
+    "identical_words": 375,
+    "new": 3882,
+    "same_name_differs": 137
+   },
+   "total": 5917
+  },
+  "static_reach": {
+   "funcs": {
+    "identical_body_other_name": 1,
+    "identical_mod_reloc": 84,
+    "identical_words": 47,
+    "new": 557,
+    "same_name_differs": 4
+   },
+   "insts": {
+    "identical_body_other_name": 2,
+    "identical_mod_reloc": 15705,
+    "identical_words": 1431,
+    "new": 43262,
+    "same_name_differs": 1512
+   },
+   "reused_and_in_while_proof_scope": 16090,
+   "total_funcs": 693,
+   "total_insts": 61912
+  },
+  "whole": {
+   "funcs": {
+    "identical_body_other_name": 1,
+    "identical_mod_reloc": 131,
+    "identical_words": 77,
+    "new": 624,
+    "same_name_differs": 4
+   },
+   "insts": {
+    "identical_body_other_name": 2,
+    "identical_mod_reloc": 18226,
+    "identical_words": 2216,
+    "new": 46116,
+    "same_name_differs": 1512
+   },
+   "reused_and_in_while_proof_scope": 16441,
+   "total_funcs": 837,
+   "total_insts": 68072
+  }
+ },
+ "traces": {
+  "f1_arith": {
+   "luaV_execute_entry_step": 126438,
+   "steps": 261038
+  },
+  "f1_cond": {
+   "luaV_execute_entry_step": 126350,
+   "steps": 344831
+  },
+  "f1_for": {
+   "luaV_execute_entry_step": 127339,
+   "steps": 154507
+  },
+  "f1_while": {
+   "luaV_execute_entry_step": 124808,
+   "steps": 159140
+  },
+  "f2_array": {
+   "luaV_execute_entry_step": 125061,
+   "steps": 210290
+  },
+  "f2_next": {
+   "luaV_execute_entry_step": 133960,
+   "steps": 266758
+  },
+  "f2_tablelib": {
+   "luaV_execute_entry_step": 130880,
+   "steps": 200640
+  },
+  "f3_closures": {
+   "luaV_execute_entry_step": 136107,
+   "steps": 619147
+  },
+  "f3_pcall": {
+   "luaV_execute_entry_step": 139905,
+   "steps": 459225
+  },
+  "f3_uncaught": {
+   "luaV_execute_entry_step": 125411,
+   "steps": 133641
+  },
+  "f3_varargs": {
+   "luaV_execute_entry_step": 133112,
+   "steps": 2591307
+  },
+  "f4_metatables": {
+   "luaV_execute_entry_step": 157461,
+   "steps": 222048
+  },
+  "f4_objects": {
+   "luaV_execute_entry_step": 141168,
+   "steps": 235669
+  },
+  "f4_strings": {
+   "luaV_execute_entry_step": 145060,
+   "steps": 229942
+  },
+  "f5_floats": {
+   "luaV_execute_entry_step": 132274,
+   "steps": 438430
+  },
+  "f6_coroutines": {
+   "luaV_execute_entry_step": 134990,
+   "steps": 180349
+  },
+  "lua-riscv-htif": {
+   "luaV_execute_entry_step": 124808,
+   "steps": 159140
+  }
+ },
+ "whole": {
+  "funcs": 837,
+  "insts": 68072,
+  "unique_mnemonics": 69,
+  "unique_words": 23140
+ }
+}

@@ -1,0 +1,50 @@
+functions: 257
+total instructions: 25336
+unique words: 10399
+unique mnemonics: 66
+
+top 20 mnemonics:
+  ld           3267
+  sd           3059
+  mv           2669
+  li           2376
+  addi         2065
+  j            1376
+  jal          1106
+  beqz         801
+  bnez         592
+  slli         534
+  lw           534
+  andi         534
+  addiw        510
+  sw           467
+  add          461
+  auipc        424
+  ret          400
+  beq          343
+  lbu          342
+  srli         271
+
+top 20 most-repeated words:
+  0x00008067 ret          ×400
+  0x00040513 mv           ×204
+  0x00048513 mv           ×115
+  0x00000513 li           ×102
+  0x00813583 ld           ×100
+  0x00040593 mv           ×74
+  0x0e010613 addi         ×74
+  0x00100793 li           ×73
+  0x00000593 li           ×71
+  0x0ec13823 sd           ×68
+  0x02013023 sd           ×67
+  0x0f013603 ld           ×67
+  0x00100513 li           ×66
+  0x00000713 li           ×62
+  0x000a0513 mv           ×61
+  0x00050413 mv           ×60
+  0x00000a13 li           ×60
+  0x00813683 ld           ×55
+  0x00100713 li           ×54
+  0x00000693 li           ×53
+
+wrote experiments/disasm_census.json
