@@ -1,0 +1,25 @@
+name = "ShipYourLua"
+defaultTargets = ["Lua"]
+
+# Machine layer copied from ship-your-interpreter (module names kept so
+# that its proofs and generators apply unchanged; see ATTRIBUTION.md).
+[[lean_lib]]
+name = "Vsa"
+leanOptions.backward.isDefEq.respectTransparency = false
+
+[[lean_lib]]
+name = "VsaIris"
+
+# New: Lua 5.4 bytecode semantics, VM representation, theorem statements.
+[[lean_lib]]
+name = "Lua"
+
+[[require]]
+name = "lean-riscv"
+path = "riscv-lean/lean_emulator"
+
+[[require]]
+name = "iris"
+git = "https://github.com/leanprover-community/iris-lean"
+rev = "740e2c4a9c672c61d76ad2f9c478c922f7461cf6"
+subDir = "Iris"

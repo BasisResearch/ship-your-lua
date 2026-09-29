@@ -1,0 +1,76 @@
+closure of the generator/library targets: 1221 modules
+modules importing a WHILE root directly: 40
+
+Vsa.MemRepr <- 12
+  Vsa.Refinement
+  Vsa.Sim.AstTransport
+  Vsa.Sim.ConsoleStream
+  Vsa.Sim.DlHeap
+  Vsa.Sim.ExecEntry
+  Vsa.Sim.InterpEntry
+  Vsa.Sim.ReprSurvival
+  Vsa.Sim.StaticImageSupport
+  Vsa.Sim.StrcmpSpec
+  Vsa.Sim.StrlenSpec
+  Vsa.Sim.ValueSpec
+  VsaIris.Vsa.MallocFastCode
+
+Vsa.MemReprReadFields <- 1
+  Vsa.Sim.EntryGroundKit
+
+Vsa.MemReprWithin <- 4
+  Vsa.Sim.LayoutInstance
+  Vsa.Sim.MemRegionWithin
+  Vsa.Sim.RuntimeOwnershipInitial
+  VsaIris.Interp.Repr
+
+Vsa.RuntimeRepr <- 17
+  Vsa.Alloc
+  Vsa.AllocResource
+  Vsa.Sim.AstMutableByte
+  Vsa.Sim.EnvDefSpec
+  Vsa.Sim.EnvGetSpec
+  Vsa.Sim.EnvGetSpec2
+  Vsa.Sim.EnvNewSpec
+  Vsa.Sim.ExecEntry
+  Vsa.Sim.ExitRuntimeData
+  Vsa.Sim.InterpEntry
+  Vsa.Sim.LayoutInstance
+  Vsa.Sim.ReprSurvival
+  Vsa.Sim.ValueEqualityIdentity
+  Vsa.Sim.ValueSpec
+  Vsa.Sim.ValueWordRepr
+  Vsa.Sim.rows.StoreReprPhicRebase
+  VsaIris.Interp.Repr
+
+Vsa.While.Cost <- 7
+  Vsa.Sim.DlHeap
+  Vsa.Sim.EvalNegSim3
+  Vsa.Sim.ExecSeqIndexed
+  Vsa.Sim.ExecSeqLoop
+  Vsa.Sim.rows.StoreWF
+  VsaIris.Interp.SpecEval
+  VsaIris.Vsa.HeapRoom
+
+Vsa.While.ErrorSem <- 2
+  Vsa.Sim.DivergeSim
+  Vsa.Sim.ErrorSim
+
+Vsa.While.Semantics <- 5
+  Vsa.Refinement
+  Vsa.Sim.EnvGetSpec
+  Vsa.Sim.EnvGetSpec2
+  Vsa.Sim.SnprintfSpec
+  Vsa.Sim.StoreInvariant
+
+Vsa.While.StackNeed <- 4
+  Vsa.Sim.InterpEntry
+  Vsa.Sim.LayoutInstance
+  VsaIris.Interp.Need
+  VsaIris.Interp.Repr
+
+Vsa.While.StoreBodiesBoundPreservation <- 1
+  Vsa.Sim.rows.InitSomeReturnReady
+
+Vsa.While.Trichotomy <- 1
+  Vsa.Sim.DivergeSim
