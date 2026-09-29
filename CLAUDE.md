@@ -22,10 +22,10 @@ The Availability column says:
 
 | Task shape | Use (never hand-roll) | Availability |
 |---|---|---|
-| Whole function (multi-block: branches, loops, calls, tail jumps, `tohost` seams) | `scripts/syi/gen_fn.py --fn <f> --entry <pc> [--fold]`, which emits the block arms plus the derived `FnSummary` fold; fold combinators `FnSummary.{seq,callSplice,tailJump}` | generator + `FnSummary`: here; `segRowFramed`: A0 |
-| Straight-line or branch/jump-terminated span | `#derive_case` segment + `segToTriple` (`SegToTripleFramed`) | A0 |
-| Span ending in a call (`jal`) | `BridgeSeg.bridgeOfSeg` + `jalStep_of_obs`; `bridgeOfSegFull` when non-ABI registers must be kept | A0 |
-| ABI register frame / memory frame on a run | `FrameMeta.abiFrame_of_wrChain`, `FrameMeta.memFrame_of_chain` (one `decide`); never per-site frame threading | A0 |
+| Whole function (multi-block: branches, loops, calls, tail jumps, `tohost` seams) | `scripts/syi/gen_fn.py --fn <f> --entry <pc> [--fold]`, which emits the block arms plus the derived `FnSummary` fold; fold combinators `FnSummary.{seq,callSplice,tailJump}` | here (the per-function `Vsa.Sim.Code.<fn>` pins it imports: A0.4) |
+| Straight-line or branch/jump-terminated span | `#derive_case` segment + `segToTriple` (`SegToTripleFramed`) | here |
+| Span ending in a call (`jal`) | `BridgeSeg.bridgeOfSeg` + `jalStep_of_obs`; `bridgeOfSegFull` when non-ABI registers must be kept | here |
+| ABI register frame / memory frame on a run | `FrameMeta.abiFrame_of_wrChain`, `FrameMeta.memFrame_of_chain` (one `decide`); never per-site frame threading | here |
 | Call splice (prefix ≫ callee ≫ suffix) | `callSeg`/`callSegConseq` (`DeriveCallSeg`) | here |
 | Loop | `loopFromBody` (`DeriveLoop`) | here |
 | Load / byte-read obligation | total reads, `RamRead{Policy,Single,Data,Scalar,Virtual,Load,Value}`; the model's `readByte` is `getD 0`, so never demand presence the densification (`fillZero`) already gives | here |

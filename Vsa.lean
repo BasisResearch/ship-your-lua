@@ -10,13 +10,24 @@ import Vsa.Densify.Transport
 import Vsa.Elf
 import Vsa.Machine
 import Vsa.Sim.Attr
+import Vsa.Sim.BlockDecode
+import Vsa.Sim.BlockMem
 import Vsa.Sim.BlockPilot
+import Vsa.Sim.BlockTactics
+import Vsa.Sim.BlockTactics2
+import Vsa.Sim.BlockTerm
+import Vsa.Sim.BlockTermDemo
+import Vsa.Sim.BridgeSeg
+import Vsa.Sim.BridgeSegFull
 import Vsa.Sim.BvNormAttr
+import Vsa.Sim.ChainFactsTac
 import Vsa.Sim.ChainFrameOut
 import Vsa.Sim.CheckedSplitRead
+import Vsa.Sim.Code.Eval_expr
 import Vsa.Sim.Code.FixedImage
 import Vsa.Sim.Code.FixedImageData
 import Vsa.Sim.Code.Memcpy
+import Vsa.Sim.Code.Memmove
 import Vsa.Sim.Code.Memset
 import Vsa.Sim.Code.Snprintf
 import Vsa.Sim.Code.Strcmp
@@ -38,6 +49,7 @@ import Vsa.Sim.Code.«__ssprint_r»
 import Vsa.Sim.Code.«__ssputs_r»
 import Vsa.Sim.Code.«__umoddi3»
 import Vsa.Sim.Code.«_localeconv_r»
+import Vsa.Sim.CodeRangeInsert
 import Vsa.Sim.Decode
 import Vsa.Sim.DecodeTable
 import Vsa.Sim.DecodeTable.Batch01
@@ -574,6 +586,8 @@ import Vsa.Sim.DecodeTable.Batch19
 import Vsa.Sim.DecodeTable.DecodeCommon
 import Vsa.Sim.DecodeTable.RetSupp
 import Vsa.Sim.DeriveCallSeg
+import Vsa.Sim.DeriveCase
+import Vsa.Sim.DeriveCaseRow
 import Vsa.Sim.DeriveLoop
 import Vsa.Sim.Dispatch
 import Vsa.Sim.DivLoops
@@ -581,6 +595,7 @@ import Vsa.Sim.DivSites
 import Vsa.Sim.DivSites2
 import Vsa.Sim.DivSites3
 import Vsa.Sim.DivSpec
+import Vsa.Sim.ExecLoadTotal
 import Vsa.Sim.Execute
 import Vsa.Sim.ExecuteAlu
 import Vsa.Sim.ExecuteBranch
@@ -590,6 +605,13 @@ import Vsa.Sim.ExecuteStore
 import Vsa.Sim.Fetch
 import Vsa.Sim.FnSummary
 import Vsa.Sim.Frame
+import Vsa.Sim.FrameMeta
+import Vsa.Sim.FrameOn
+import Vsa.Sim.Generic.Abi
+import Vsa.Sim.Generic.BvArith
+import Vsa.Sim.Generic.MapReads
+import Vsa.Sim.Generic.ObsOther
+import Vsa.Sim.Generic.Pins
 import Vsa.Sim.GoodState
 import Vsa.Sim.Hooks
 import Vsa.Sim.Htif
@@ -606,9 +628,13 @@ import Vsa.Sim.MemcpySites2
 import Vsa.Sim.MemcpySites3
 import Vsa.Sim.MemcpySites4
 import Vsa.Sim.MemcpySpec
+import Vsa.Sim.Mfr
 import Vsa.Sim.MfrAttr
 import Vsa.Sim.Muldi3Sites
 import Vsa.Sim.Muldi3Spec
+import Vsa.Sim.NegBlockProto
+import Vsa.Sim.NegTailSites
+import Vsa.Sim.ObsAvoid
 import Vsa.Sim.PageReadSplit
 import Vsa.Sim.Pmp
 import Vsa.Sim.PtrArith
@@ -624,6 +650,9 @@ import Vsa.Sim.RamReadValue
 import Vsa.Sim.RamReadVirtual
 import Vsa.Sim.RegAccess
 import Vsa.Sim.RegPins
+import Vsa.Sim.SegEval
+import Vsa.Sim.SegEvalSound
+import Vsa.Sim.SegToTripleFramed
 import Vsa.Sim.Skeleton
 import Vsa.Sim.SnprintfSites
 import Vsa.Sim.SnprintfSites2
@@ -660,6 +689,7 @@ import Vsa.Sim.Tick
 import Vsa.Sim.TripleCat
 import Vsa.Sim.UntilSequence
 import Vsa.Sim.ValueSites
+import Vsa.Sim.WriteLogNF
 import Vsa.Triple
 
 /-! Language-agnostic machine layer copied from ship-your-interpreter

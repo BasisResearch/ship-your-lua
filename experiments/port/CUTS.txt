@@ -1,4 +1,5 @@
-closure of the generator/library targets: 1221 modules
+ported targets: 5 of 26
+closure of the targets not yet ported: 1211 modules
 modules importing a WHILE root directly: 40
 
 Vsa.MemRepr <- 12

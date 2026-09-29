@@ -12,9 +12,12 @@ their own licences, listed below.
 | here | there | changes |
 |---|---|---|
 | `riscv-lean/` | `riscv-lean/` | none (added `README.md`, `LICENCE-sail-riscv`) |
-| `Vsa/` (663 modules) | `Vsa/` | none, except the rows below; `Vsa.lean` imports only the copied modules |
+| `Vsa/` (663 modules at first copy) | `Vsa/` | none, except the rows below; `Vsa.lean` imports only the copied modules |
 | `Vsa/Sim/InitValues.lean` | same | `tohostAddr` is the Lua ELF's `0x80048400` (was the WHILE ELF's `0x8001ad00`); `Lua.Vm.tohostAddr_eq_symTohost` ties it to the generated layout |
 | `Vsa/Sim/{Hooks,MemLoad,RamReadData,MemcpySpec}.lean` | same | the literal `tohost` bounds in their proofs follow `tohostAddr`; the `maxHeartbeats`/`maxRecDepth` raises are dropped (the proofs build without them) |
+| `Vsa/Sim/{SegToTripleFramed,BridgeSegFull,FrameMeta,SegEval,SegEvalSound,BlockMem,BlockTerm,BlockDecode,BlockTactics,ChainFactsTac,ExecLoadTotal,NegBlockProto,NegTailSites}.lean`, `Vsa/Sim/Code/{Eval_expr,Memmove}.lean` | same | none (the segment layer, PHASES A0.2a) |
+| `Vsa/Sim/{DeriveCase,DeriveCaseRow,BridgeSeg,WriteLogNF,FrameOn,Mfr,CodeRangeInsert,ObsAvoid,BlockTactics2,BlockTermDemo}.lean` | same | import lines only: the WHILE-reaching imports are replaced by `Vsa/Sim/Generic/*` (below); heartbeat raises dropped; `ObsAvoid`/`BlockTermDemo` destructure their conjunction hypotheses with `obtain` instead of `.2.2.2.2…` projections |
+| `Vsa/Sim/Generic/{Abi,MapReads,ObsOther,BvArith,Pins}.lean` (new) | declarations of `Vsa/Alloc.lean`, `Vsa/Sim/{InterpEntry,ValueSpec,ValueTruthySpec,EnvNewSpec,StrlenSpec,SnprintfSpec5,SnprintfSpec18,SnprintfSpec19,SnprintfSpec25}.lean` | the WHILE-free declarations the segment layer uses, copied verbatim (same names) out of modules that import the WHILE representation; `Pin8_frame` destructures instead of projecting |
 | `VsaIris/` (19 modules) | `VsaIris/` | none; `VsaIris.lean` likewise |
 | `scripts/syi/` | `scripts/` | none (generators, checks, boot-witness generator, difftest library) |
 | `experiments/syi/` | `experiments/` | none (`gen_decode_table.py`, `gen_code_lemmas.py`, `disasm_census.py`, `disasm_reachable.py`) |

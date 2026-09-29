@@ -85,6 +85,9 @@ echo "== (6) axioms"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 cat > "$tmp/Axioms.lean" <<'LEAN'
 import Lua
+import Vsa.Sim.SegToTripleFramed
+import Vsa.Sim.BridgeSegFull
+import Vsa.Sim.DeriveCase
 #print axioms Lua.vm_refinement_of_sim
 #print axioms Lua.compile_refinement_of_tv
 #print axioms Lua.endToEnd_of_layers
@@ -99,11 +102,19 @@ import Lua
 #print axioms Lua.Programs.while_supported
 #print axioms Lua.Programs.f1Ops_supported
 #print axioms Lua.Programs.readsStale_unsupported
+#print axioms Lua.Vm.tohostAddr_eq_symTohost
+#print axioms Vsa.Sim.segToTripleFramed
+#print axioms Vsa.Sim.segRowFramed
+#print axioms Vsa.Sim.bridgeOfSeg
+#print axioms Vsa.Sim.jalStep_of_obs
+#print axioms Vsa.Sim.bridgeOfSegFull
+#print axioms Vsa.Sim.abiFrame_of_wrChain
+#print axioms Vsa.Sim.memFrame_of_chain
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
-n=$(grep -c "depends on axioms" "$tmp/out.txt")
-[ "$n" = 14 ] || fail "expected 14 axiom reports, got $n"
+n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
+[ "$n" = 22 ] || fail "expected 22 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"
