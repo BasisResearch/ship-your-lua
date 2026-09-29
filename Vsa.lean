@@ -18,12 +18,15 @@ import Vsa.Sim.BlockTactics2
 import Vsa.Sim.BlockTerm
 import Vsa.Sim.BlockTermDemo
 import Vsa.Sim.BridgeSeg
+import Vsa.Sim.BridgeSegFramed
 import Vsa.Sim.BridgeSegFull
 import Vsa.Sim.BvNormAttr
 import Vsa.Sim.ChainFactsTac
 import Vsa.Sim.ChainFrameOut
 import Vsa.Sim.CheckedSplitRead
+import Vsa.Sim.Code.Env_new
 import Vsa.Sim.Code.Eval_expr
+import Vsa.Sim.Code.Exec_stmt
 import Vsa.Sim.Code.FixedImage
 import Vsa.Sim.Code.FixedImageData
 import Vsa.Sim.Code.Memcpy
@@ -595,7 +598,9 @@ import Vsa.Sim.DivSites
 import Vsa.Sim.DivSites2
 import Vsa.Sim.DivSites3
 import Vsa.Sim.DivSpec
+import Vsa.Sim.EnvNewSites
 import Vsa.Sim.ExecLoadTotal
+import Vsa.Sim.ExecRetEpilogue
 import Vsa.Sim.Execute
 import Vsa.Sim.ExecuteAlu
 import Vsa.Sim.ExecuteBranch
@@ -609,7 +614,9 @@ import Vsa.Sim.FrameMeta
 import Vsa.Sim.FrameOn
 import Vsa.Sim.Generic.Abi
 import Vsa.Sim.Generic.BvArith
+import Vsa.Sim.Generic.GRegs
 import Vsa.Sim.Generic.MapReads
+import Vsa.Sim.Generic.MemRead
 import Vsa.Sim.Generic.ObsOther
 import Vsa.Sim.Generic.Pins
 import Vsa.Sim.GoodState
@@ -618,6 +625,7 @@ import Vsa.Sim.Htif
 import Vsa.Sim.HtifLift
 import Vsa.Sim.HtifMmio
 import Vsa.Sim.InitValues
+import Vsa.Sim.InterpSpillReads
 import Vsa.Sim.KeepRegs
 import Vsa.Sim.MemLoad
 import Vsa.Sim.MemLoadTotal
@@ -650,6 +658,7 @@ import Vsa.Sim.RamReadValue
 import Vsa.Sim.RamReadVirtual
 import Vsa.Sim.RegAccess
 import Vsa.Sim.RegPins
+import Vsa.Sim.SegEffect
 import Vsa.Sim.SegEval
 import Vsa.Sim.SegEvalSound
 import Vsa.Sim.SegToTripleFramed
@@ -677,6 +686,7 @@ import Vsa.Sim.StepAddi
 import Vsa.Sim.StepAlu
 import Vsa.Sim.StepBeq
 import Vsa.Sim.StepBranch
+import Vsa.Sim.StepCount
 import Vsa.Sim.StepFrameOut
 import Vsa.Sim.StepJump
 import Vsa.Sim.StepObs
@@ -690,6 +700,7 @@ import Vsa.Sim.TripleCat
 import Vsa.Sim.UntilSequence
 import Vsa.Sim.ValueSites
 import Vsa.Sim.WriteLogNF
+import Vsa.Sim.rows.DriveSpillGen
 import Vsa.Triple
 
 /-! Language-agnostic machine layer copied from ship-your-interpreter

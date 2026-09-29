@@ -89,6 +89,7 @@ for m in acc:
         for i in eff[m]:
             if root(i): cuts[i].append(m)
 print(f"ported targets: {len(targets) - len(todo)} of {len(targets)}")
+print(f"not yet ported: {' '.join(todo)}")
 print(f"closure of the targets not yet ported: {len(acc)} modules")
 print(f"modules importing a WHILE root directly: {len({m for v in cuts.values() for m in v})}")
 for r, v in sorted(cuts.items()):

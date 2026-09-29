@@ -25,8 +25,21 @@ VsaIris/PartialWP.lean
 VsaIris/Ptsto.lean
 VsaIris/Stack.lean
 VsaIris/Step.lean
+VsaIris/Vsa/AllocCode.lean
+VsaIris/Vsa/AllocRun.lean
+VsaIris/Vsa/AllocSteps/Part01.lean
+VsaIris/Vsa/AllocSteps/Part03.lean
+VsaIris/Vsa/AllocSteps/Part04.lean
+VsaIris/Vsa/AllocSteps/Part05.lean
+VsaIris/Vsa/AllocSteps/Part06.lean
+VsaIris/Vsa/AllocSteps/Part07.lean
+VsaIris/Vsa/AllocSteps/Part09.lean
+VsaIris/Vsa/AllocSteps/Part11.lean
 VsaIris/Vsa/BinDom.lean
 VsaIris/Vsa/BvLits.lean
+VsaIris/Vsa/Instance.lean
+VsaIris/Vsa/SymRun.lean
+VsaIris/Vsa/Tools.lean
 Vsa/Machine.lean
 Vsa/Sim/Attr.lean
 Vsa/Sim/BlockDecode.lean
@@ -34,6 +47,7 @@ Vsa/Sim/BlockMem.lean
 Vsa/Sim/BlockPilot.lean
 Vsa/Sim/BlockTactics.lean
 Vsa/Sim/BlockTerm.lean
+Vsa/Sim/BridgeSegFramed.lean
 Vsa/Sim/BridgeSegFull.lean
 Vsa/Sim/BvNormAttr.lean
 Vsa/Sim/ChainFactsTac.lean
@@ -41,7 +55,9 @@ Vsa/Sim/ChainFrameOut.lean
 Vsa/Sim/CheckedSplitRead.lean
 Vsa/Sim/Code/__ascii_mbtowc.lean
 Vsa/Sim/Code/__divdi3.lean
+Vsa/Sim/Code/Env_new.lean
 Vsa/Sim/Code/Eval_expr.lean
+Vsa/Sim/Code/Exec_stmt.lean
 Vsa/Sim/Code/FixedImageData.lean
 Vsa/Sim/Code/FixedImage.lean
 Vsa/Sim/Code/__hidden___udivdi3.lean
@@ -608,6 +624,7 @@ Vsa/Sim/DivSites2.lean
 Vsa/Sim/DivSites3.lean
 Vsa/Sim/DivSites.lean
 Vsa/Sim/DivSpec.lean
+Vsa/Sim/EnvNewSites.lean
 Vsa/Sim/ExecLoadTotal.lean
 Vsa/Sim/ExecuteAlu.lean
 Vsa/Sim/ExecuteBranch.lean
@@ -650,6 +667,7 @@ Vsa/Sim/RamReadValue.lean
 Vsa/Sim/RamReadVirtual.lean
 Vsa/Sim/RegAccess.lean
 Vsa/Sim/RegPins.lean
+Vsa/Sim/rows/DriveSpillGen.lean
 Vsa/Sim/SegEval.lean
 Vsa/Sim/SegEvalSound.lean
 Vsa/Sim/SegToTripleFramed.lean
@@ -677,6 +695,7 @@ Vsa/Sim/StepAddi.lean
 Vsa/Sim/StepAlu.lean
 Vsa/Sim/StepBeq.lean
 Vsa/Sim/StepBranch.lean
+Vsa/Sim/StepCount.lean
 Vsa/Sim/StepFrameOut.lean
 Vsa/Sim/StepJump.lean
 Vsa/Sim/StepObs.lean
