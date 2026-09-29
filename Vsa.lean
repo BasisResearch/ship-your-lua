@@ -9,6 +9,7 @@ import Vsa.Densify.Tactic
 import Vsa.Densify.Transport
 import Vsa.Elf
 import Vsa.Machine
+import Vsa.Meta.SimpNF
 import Vsa.Sim.Attr
 import Vsa.Sim.BlockPilot
 import Vsa.Sim.BvNormAttr
@@ -39,6 +40,7 @@ import Vsa.Sim.Code.«__ssputs_r»
 import Vsa.Sim.Code.«__umoddi3»
 import Vsa.Sim.Code.«_localeconv_r»
 import Vsa.Sim.Decode
+import Vsa.Sim.DecodeNF
 import Vsa.Sim.DecodeTable
 import Vsa.Sim.DecodeTable.Batch01
 import Vsa.Sim.DecodeTable.Batch01Part01
