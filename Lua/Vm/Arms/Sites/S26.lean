@@ -2,6 +2,7 @@ import Vsa.Sim.ValueSites
 import Vsa.Sim.DecodeNF
 import Vsa.Sim.RamReadPins
 import Vsa.Sim.ExecLoadTotal
+import Vsa.Sim.StrcpySites
 import Lua.Vm.Code.FixedImage_LuaV_execute
 import Lua.Vm.Arms.Text
 
@@ -25,1358 +26,1378 @@ open Vsa.Sim
 
 namespace Lua.Vm.Arms
 
-/-- 0x8001e24c: `beq x13,x14` (NOT taken). -/
+/-- 0x8001d9e4: `srliw x13,x20,24`. -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e24c_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v13 v14 : BitVec 64)
+theorem site_8001d9e4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v20 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx20 : σ.regs.get? Register.x20 = some v20)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001d9e4#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x13 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x18#5)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001d9e4 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001d9e4#64) vminstret (0x018a569b#32)
+    (instruction.SHIFTIWOP (0x18#5, regidx.Regidx 0x14#5, regidx.Regidx 0x0d#5, sopw.SRLIW))
+    Register.x13 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x18#5)))
+    (0x9b#8) (0x56#8) (0x8a#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x018a569b#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiwop_srliw_char (0x18#5) (regidx.Regidx 0x14#5) (regidx.Regidx 0x0d#5) v20
+      (afterNextPC (afterPrelude σ) (0x8001d9e4#64))
+      (sigma3_alu σ (0x8001d9e4#64) Register.x13 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x18#5))))
+      (rX_bits_x20 _ v20
+        (by rw [get?_afterNextPC σ (0x8001d9e4#64) _ (by decide) (by decide)]; exact hx20))
+      (wX_bits_x13 _ (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x18#5)))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001d9e8: `slli x14,x14,4`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001d9e8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v14 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx14 : σ.regs.get? Register.x14 = some v14)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001d9e8#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x14 (shift_bits_left v14 (Sail.BitVec.extractLsb (0x04#6) 5 0))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001d9e8 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001d9e8#64) vminstret (0x00471713#32)
+    (instruction.SHIFTIOP (0x04#6, regidx.Regidx 0x0e#5, regidx.Regidx 0x0e#5, sop.SLLI))
+    Register.x14 (shift_bits_left v14 (Sail.BitVec.extractLsb (0x04#6) 5 0))
+    (0x13#8) (0x17#8) (0x47#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00471713#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiop_slli_char (0x04#6) (regidx.Regidx 0x0e#5) (regidx.Regidx 0x0e#5) v14
+      (afterNextPC (afterPrelude σ) (0x8001d9e8#64))
+      (sigma3_alu σ (0x8001d9e8#64) Register.x14 (shift_bits_left v14 (Sail.BitVec.extractLsb (0x04#6) 5 0)))
+      (rX_bits_x14 _ v14
+        (by rw [get?_afterNextPC σ (0x8001d9e8#64) _ (by decide) (by decide)]; exact hx14))
+      (wX_bits_x14 _ (shift_bits_left v14 (Sail.BitVec.extractLsb (0x04#6) 5 0))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001d9ec: `slli x13,x13,4`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001d9ec (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v13 : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
     (hx13 : σ.regs.get? Register.x13 = some v13)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001d9ec#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x13 (shift_bits_left v13 (Sail.BitVec.extractLsb (0x04#6) 5 0))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001d9ec (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001d9ec#64) vminstret (0x00469693#32)
+    (instruction.SHIFTIOP (0x04#6, regidx.Regidx 0x0d#5, regidx.Regidx 0x0d#5, sop.SLLI))
+    Register.x13 (shift_bits_left v13 (Sail.BitVec.extractLsb (0x04#6) 5 0))
+    (0x93#8) (0x96#8) (0x46#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00469693#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiop_slli_char (0x04#6) (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0d#5) v13
+      (afterNextPC (afterPrelude σ) (0x8001d9ec#64))
+      (sigma3_alu σ (0x8001d9ec#64) Register.x13 (shift_bits_left v13 (Sail.BitVec.extractLsb (0x04#6) 5 0)))
+      (rX_bits_x13 _ v13
+        (by rw [get?_afterNextPC σ (0x8001d9ec#64) _ (by decide) (by decide)]; exact hx13))
+      (wX_bits_x13 _ (shift_bits_left v13 (Sail.BitVec.extractLsb (0x04#6) 5 0))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001d9f0: `add x22,x25,x14`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001d9f0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v25 v14 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx25 : σ.regs.get? Register.x25 = some v25)
     (hx14 : σ.regs.get? Register.x14 = some v14)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e24c#64 : BitVec 64))
-    (hv : (v13 == v14) = false) (hi : i < 2) :
+    (hpcv : pc = (0x8001d9f0#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x22 (v25 + v14)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001d9f0 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001d9f0#64) vminstret (0x00ec8b33#32)
+    (instruction.RTYPE (regidx.Regidx 0x0e#5, regidx.Regidx 0x19#5, regidx.Regidx 0x16#5, rop.ADD))
+    Register.x22 (v25 + v14)
+    (0x33#8) (0x8b#8) (0xec#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00ec8b33#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_rtype_add_char (regidx.Regidx 0x0e#5) (regidx.Regidx 0x19#5) (regidx.Regidx 0x16#5)
+      v25 v14 (afterNextPC (afterPrelude σ) (0x8001d9f0#64))
+      (sigma3_alu σ (0x8001d9f0#64) Register.x22 (v25 + v14))
+      (rX_bits_x25 _ v25
+        (by rw [get?_afterNextPC σ (0x8001d9f0#64) _ (by decide) (by decide)]; exact hx25))
+      (rX_bits_x14 _ v14
+        (by rw [get?_afterNextPC σ (0x8001d9f0#64) _ (by decide) (by decide)]; exact hx14))
+      (wX_bits_x22 _ (v25 + v14)))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001d9f4: `add x26,x25,x13`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001d9f4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v25 v13 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx25 : σ.regs.get? Register.x25 = some v25)
+    (hx13 : σ.regs.get? Register.x13 = some v13)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001d9f4#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x26 (v25 + v13)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001d9f4 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001d9f4#64) vminstret (0x00dc8d33#32)
+    (instruction.RTYPE (regidx.Regidx 0x0d#5, regidx.Regidx 0x19#5, regidx.Regidx 0x1a#5, rop.ADD))
+    Register.x26 (v25 + v13)
+    (0x33#8) (0x8d#8) (0xdc#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00dc8d33#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_rtype_add_char (regidx.Regidx 0x0d#5) (regidx.Regidx 0x19#5) (regidx.Regidx 0x1a#5)
+      v25 v13 (afterNextPC (afterPrelude σ) (0x8001d9f4#64))
+      (sigma3_alu σ (0x8001d9f4#64) Register.x26 (v25 + v13))
+      (rX_bits_x25 _ v25
+        (by rw [get?_afterNextPC σ (0x8001d9f4#64) _ (by decide) (by decide)]; exact hx25))
+      (rX_bits_x13 _ v13
+        (by rw [get?_afterNextPC σ (0x8001d9f4#64) _ (by decide) (by decide)]; exact hx13))
+      (wX_bits_x26 _ (v25 + v13)))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001d9f8: `beq x12,x18` (NOT taken). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001d9f8_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 v18 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx12 : σ.regs.get? Register.x12 = some v12)
+    (hx18 : σ.regs.get? Register.x18 = some v18)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001d9f8#64 : BitVec 64))
+    (hv : (v12 == v18) = false) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e24c (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_branch_nottaken σ i u (0x8001e24c#64) vminstret (0x0008#13)
-    (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0e#5) bop.BEQ (0x00e68463#32)
-    (0x63#8) (0x84#8) (0xe6#8) (0x00#8)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001d9f8 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_branch_nottaken σ i u (0x8001d9f8#64) vminstret (0x0dd8#13)
+    (regidx.Regidx 0x0c#5) (regidx.Regidx 0x12#5) bop.BEQ (0x5d260ce3#32)
+    (0xe3#8) (0x0c#8) (0x26#8) (0x5d#8)
     hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00e68463#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0x5d260ce3#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_btype_beq_nottaken (0x0008#13) (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0e#5)
-      v13 v14 (afterNextPC (afterPrelude σ) (0x8001e24c#64))
-      (rX_bits_x13 _ v13
-        (by rw [get?_afterNextPC σ (0x8001e24c#64) _ (by decide) (by decide)]; exact hx13))
-      (rX_bits_x14 _ v14
-        (by rw [get?_afterNextPC σ (0x8001e24c#64) _ (by decide) (by decide)]; exact hx14))
+    (execute_btype_beq_nottaken (0x0dd8#13) (regidx.Regidx 0x0c#5) (regidx.Regidx 0x12#5)
+      v12 v18 (afterNextPC (afterPrelude σ) (0x8001d9f8#64))
+      (rX_bits_x12 _ v12
+        (by rw [get?_afterNextPC σ (0x8001d9f8#64) _ (by decide) (by decide)]; exact hx12))
+      (rX_bits_x18 _ v18
+        (by rw [get?_afterNextPC σ (0x8001d9f8#64) _ (by decide) (by decide)]; exact hx18))
       hv)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
 
-/-- Branch target of the taken site at 0x8001e24c. -/
+/-- Branch target of the taken site at 0x8001d9f8. -/
 -- discipline: allow(R1-site-battery) machine-emitted by scripts/gen_sites.py
-theorem site_8001e24c_taken_tgt :
-    (0x8001e24c#64 + sign_extend (m := 64) (0x0008#13)) = (0x8001e254#64 : BitVec 64) := by
+theorem site_8001d9f8_taken_tgt :
+    (0x8001d9f8#64 + sign_extend (m := 64) (0x0dd8#13)) = (0x8001e7d0#64 : BitVec 64) := by
   apply BitVec.eq_of_toNat_eq; decide
 
-/-- 0x8001e24c: `beq x13,x14 → 0x8001e254` (TAKEN). -/
+/-- 0x8001d9f8: `beq x12,x18 → 0x8001e7d0` (TAKEN). -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e24c_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v13 v14 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx13 : σ.regs.get? Register.x13 = some v13)
-    (hx14 : σ.regs.get? Register.x14 = some v14)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e24c#64 : BitVec 64))
-    (hv : (v13 == v14) = true) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0008#13)) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e24c (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_branch_taken σ i u (0x8001e24c#64) vminstret (0x0008#13)
-    (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0e#5) bop.BEQ (0x00e68463#32)
-    (0x63#8) (0x84#8) (0xe6#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00e68463#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_btype_beq_taken (0x0008#13) (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0e#5)
-      v13 v14 (0x8001e24c#64) initMisa (afterNextPC (afterPrelude σ) (0x8001e24c#64))
-      (rX_bits_x13 _ v13
-        (by rw [get?_afterNextPC σ (0x8001e24c#64) _ (by decide) (by decide)]; exact hx13))
-      (rX_bits_x14 _ v14
-        (by rw [get?_afterNextPC σ (0x8001e24c#64) _ (by decide) (by decide)]; exact hx14))
-      (by rw [get?_afterNextPC σ (0x8001e24c#64) _ (by decide) (by decide)]; exact hpc)
-      (by rw [get?_afterNextPC σ (0x8001e24c#64) _ (by decide) (by decide)]; exact hG.misa)
-      (by rw [site_8001e24c_taken_tgt]; decide) hv)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e250: `j 0x8001c8e8`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e250 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e250#64 : BitVec 64))
-    (htgt : (pc + sign_extend (m := 64) (0x1fe698#21)).toNat % 4 = 0) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1fe698#21))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e250 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_j σ i u (0x8001e250#64) vminstret (0xe98fe06f#32) (0x1fe698#21)
-    (0x6f#8) (0xe0#8) (0x8f#8) (0xe9#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0xe98fe06f#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    htgt hi
-
-/-- 0x8001e254: `ld x11,0x0(x12)` — TOTAL (no byte-presence hypothesis). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e254 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 : BitVec 64)
+theorem site_8001d9f8_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 v18 : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
     (hx12 : σ.regs.get? Register.x12 = some v12)
+    (hx18 : σ.regs.get? Register.x18 = some v18)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e254#64 : BitVec 64))
-    (hlo : 0x80000000 ≤ (v12 + sign_extend (m := 64) (0x000#12)).toNat)
-    (hhiram : (v12 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
-    (hhtif : (v12 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ tohostAddr
-      ∨ tohostAddr + 8 ≤ (v12 + sign_extend (m := 64) (0x000#12)).toNat)
-    (hi : i < 2) :
+    (hpcv : pc = (0x8001d9f8#64 : BitVec 64))
+    (hv : (v12 == v18) = true) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
-        (sign_extend (m := 64)
-          (bytesT8 σ.mem (v12 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))) := by
+      ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0dd8#13)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e254 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e254#64) vminstret (0x00063583#32)
-    (instruction.LOAD (0x000#12, regidx.Regidx 0x0c#5, regidx.Regidx 0x0b#5, false, 8))
-    Register.x11 (sign_extend (m := 64) (bytesT8 σ.mem (v12 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))
-    (0x83#8) (0x35#8) (0x06#8) (0x00#8)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001d9f8 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_branch_taken σ i u (0x8001d9f8#64) vminstret (0x0dd8#13)
+    (regidx.Regidx 0x0c#5) (regidx.Regidx 0x12#5) bop.BEQ (0x5d260ce3#32)
+    (0xe3#8) (0x0c#8) (0x26#8) (0x5d#8)
     hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00063583#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0x5d260ce3#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_ld_ram σ (0x8001e254#64) (0x000#12) (regidx.Regidx 0x0c#5) (regidx.Regidx 0x0b#5)
-      (sigma3_alu σ (0x8001e254#64) Register.x11 (sign_extend (m := 64) (bytesT8 σ.mem (v12 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
-      v12 hG
+    (execute_btype_beq_taken (0x0dd8#13) (regidx.Regidx 0x0c#5) (regidx.Regidx 0x12#5)
+      v12 v18 (0x8001d9f8#64) initMisa (afterNextPC (afterPrelude σ) (0x8001d9f8#64))
       (rX_bits_x12 _ v12
-        (by rw [get?_afterNextPC σ (0x8001e254#64) _ (by decide) (by decide)]; exact hx12))
-      (wX_bits_x11 _ (sign_extend (m := 64) (bytesT8 σ.mem (v12 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
-      hlo hhiram hhtif)
-    (by decide) (by decide) (by decide) (by decide) (by decide)
+        (by rw [get?_afterNextPC σ (0x8001d9f8#64) _ (by decide) (by decide)]; exact hx12))
+      (rX_bits_x18 _ v18
+        (by rw [get?_afterNextPC σ (0x8001d9f8#64) _ (by decide) (by decide)]; exact hx18))
+      (by rw [get?_afterNextPC σ (0x8001d9f8#64) _ (by decide) (by decide)]; exact hpc)
+      (by rw [get?_afterNextPC σ (0x8001d9f8#64) _ (by decide) (by decide)]; exact hG.misa)
+      (by rw [site_8001d9f8_taken_tgt]; decide) hv)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
 
-/-- 0x8001e258: `ld x10,0x0(x15)` — TOTAL (no byte-presence hypothesis). -/
+/-- 0x8001d9fc: `addi x14,x0,0x13`. -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e258 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx15 : σ.regs.get? Register.x15 = some v15)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e258#64 : BitVec 64))
-    (hlo : 0x80000000 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
-    (hhiram : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
-    (hhtif : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ tohostAddr
-      ∨ tohostAddr + 8 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
-    (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
-        (sign_extend (m := 64)
-          (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e258 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e258#64) vminstret (0x0007b503#32)
-    (instruction.LOAD (0x000#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0a#5, false, 8))
-    Register.x10 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))
-    (0x03#8) (0xb5#8) (0x07#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x0007b503#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_ld_ram σ (0x8001e258#64) (0x000#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0a#5)
-      (sigma3_alu σ (0x8001e258#64) Register.x10 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
-      v15 hG
-      (rX_bits_x15 _ v15
-        (by rw [get?_afterNextPC σ (0x8001e258#64) _ (by decide) (by decide)]; exact hx15))
-      (wX_bits_x10 _ (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
-      hlo hhiram hhtif)
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e25c: `jal x1,0x8001a704` (link `x1 := 0x8001e260`). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e25c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
+theorem site_8001d9fc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e25c#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x1fc4a8#21) Register.x1 (BitVec.addInt pc 4)) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e25c (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  refine stepObs_jal σ i u (0x8001e25c#64) vminstret (0xca8fc0ef#32) (0x1fc4a8#21)
-    (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x8001e25c#64) 4)
-    (0xef#8) (0xc0#8) (0x8f#8) (0xca#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide) (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0xca8fc0ef#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (by decide)
-    (by decide) (by decide) (by decide) (by decide) (by decide) ?_ hi
-  exact wX_bits_x1 _ (BitVec.addInt (0x8001e25c#64) 4)
-
-/-- 0x8001e260: `srliw x10,x10,31`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e260 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx10 : σ.regs.get? Register.x10 = some v10)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e260#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v10 31 0) (0x1f#5)))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e260 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e260#64) vminstret (0x01f5551b#32)
-    (instruction.SHIFTIWOP (0x1f#5, regidx.Regidx 0x0a#5, regidx.Regidx 0x0a#5, sopw.SRLIW))
-    Register.x10 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v10 31 0) (0x1f#5)))
-    (0x1b#8) (0x55#8) (0xf5#8) (0x01#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x01f5551b#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_shiftiwop_srliw_char (0x1f#5) (regidx.Regidx 0x0a#5) (regidx.Regidx 0x0a#5) v10
-      (afterNextPC (afterPrelude σ) (0x8001e260#64))
-      (sigma3_alu σ (0x8001e260#64) Register.x10 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v10 31 0) (0x1f#5))))
-      (rX_bits_x10 _ v10
-        (by rw [get?_afterNextPC σ (0x8001e260#64) _ (by decide) (by decide)]; exact hx10))
-      (wX_bits_x10 _ (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v10 31 0) (0x1f#5)))))
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e264: `j 0x8001c8f8`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e264 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e264#64 : BitVec 64))
-    (htgt : (pc + sign_extend (m := 64) (0x1fe694#21)).toNat % 4 = 0) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1fe694#21))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e264 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_j σ i u (0x8001e264#64) vminstret (0xe94fe06f#32) (0x1fe694#21)
-    (0x6f#8) (0xe0#8) (0x4f#8) (0xe9#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0xe94fe06f#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    htgt hi
-
-/-- 0x8001e268: `ld x11,0x8(x23)` — TOTAL (no byte-presence hypothesis). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e268 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v23 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx23 : σ.regs.get? Register.x23 = some v23)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e268#64 : BitVec 64))
-    (hlo : 0x80000000 ≤ (v23 + sign_extend (m := 64) (0x008#12)).toNat)
-    (hhiram : (v23 + sign_extend (m := 64) (0x008#12)).toNat + 8 ≤ 0x100000000)
-    (hhtif : (v23 + sign_extend (m := 64) (0x008#12)).toNat + 8 ≤ tohostAddr
-      ∨ tohostAddr + 8 ≤ (v23 + sign_extend (m := 64) (0x008#12)).toNat)
-    (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
-        (sign_extend (m := 64)
-          (bytesT8 σ.mem (v23 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 8)))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e268 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e268#64) vminstret (0x008bb583#32)
-    (instruction.LOAD (0x008#12, regidx.Regidx 0x17#5, regidx.Regidx 0x0b#5, false, 8))
-    Register.x11 (sign_extend (m := 64) (bytesT8 σ.mem (v23 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 8)))
-    (0x83#8) (0xb5#8) (0x8b#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x008bb583#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_ld_ram σ (0x8001e268#64) (0x008#12) (regidx.Regidx 0x17#5) (regidx.Regidx 0x0b#5)
-      (sigma3_alu σ (0x8001e268#64) Register.x11 (sign_extend (m := 64) (bytesT8 σ.mem (v23 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 8))))
-      v23 hG
-      (rX_bits_x23 _ v23
-        (by rw [get?_afterNextPC σ (0x8001e268#64) _ (by decide) (by decide)]; exact hx23))
-      (wX_bits_x11 _ (sign_extend (m := 64) (bytesT8 σ.mem (v23 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 8))))
-      hlo hhiram hhtif)
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e26c: `sd x19,0x20(x23)`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e26c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v23 v19 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx23 : σ.regs.get? Register.x23 = some v23)
-    (hx19 : σ.regs.get? Register.x19 = some v19)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e26c#64 : BitVec 64))
-    (halo : 0x80000000 ≤ (v23 + sign_extend (m := 64) (0x020#12)).toNat)
-    (hahiram : (v23 + sign_extend (m := 64) (0x020#12)).toNat + 8 ≤ 0x100000000)
-    (hahiwin : tohostAddr + 16 ≤ (v23 + sign_extend (m := 64) (0x020#12)).toNat)
-    (haalign : (v23 + sign_extend (m := 64) (0x020#12)).toNat % 8 = 0) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = writeMap8 (afterNextPC (afterPrelude σ) (0x8001e26c#64)).mem
-        (v23 + sign_extend (m := 64) (0x020#12)).toNat (sdData_val v19) ∧
-      ReadsLikePost σ' (sigmaPost_store σ pc vminstret
-        (writeMap8 (afterNextPC (afterPrelude σ) (0x8001e26c#64)).mem (v23 + sign_extend (m := 64) (0x020#12)).toNat (sdData_val v19))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e26c (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_store σ i u (0x8001e26c#64) vminstret (0x033bb023#32)
-    (instruction.STORE (0x020#12, regidx.Regidx 0x13#5, regidx.Regidx 0x17#5, 8))
-    (writeMap8 (afterNextPC (afterPrelude σ) (0x8001e26c#64)).mem (v23 + sign_extend (m := 64) (0x020#12)).toNat (sdData_val v19))
-    (0x23#8) (0xb0#8) (0x3b#8) (0x03#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x033bb023#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_sd_val σ (0x8001e26c#64) (0x020#12) (regidx.Regidx 0x13#5) (regidx.Regidx 0x17#5)
-      v23 v19 hG
-      (rX_bits_x23 _ v23
-        (by rw [get?_afterNextPC σ (0x8001e26c#64) _ (by decide) (by decide)]; exact hx23))
-      (rX_bits_x19 _ v19
-        (by rw [get?_afterNextPC σ (0x8001e26c#64) _ (by decide) (by decide)]; exact hx19))
-      halo hahiram hahiwin haalign)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e270: `addi x13,x0,0x4`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e270 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e270#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x13
-        ((0#64) + sign_extend (m := 64) (0x004#12))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e270 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e270#64) vminstret (0x00400693#32)
-    (instruction.ITYPE (0x004#12, regidx.Regidx 0x00#5, regidx.Regidx 0x0d#5, iop.ADDI))
-    Register.x13 ((0#64) + sign_extend (m := 64) (0x004#12))
-    (0x93#8) (0x06#8) (0x40#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00400693#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_addi_char (0x004#12) (regidx.Regidx 0x00#5) (regidx.Regidx 0x0d#5) (0#64)
-      (afterNextPC (afterPrelude σ) (0x8001e270#64))
-      (sigma3_alu σ (0x8001e270#64) Register.x13 ((0#64) + sign_extend (m := 64) (0x004#12)))
-      (rX_bits_zero _)
-      (wX_bits_x13 _ ((0#64) + sign_extend (m := 64) (0x004#12))))
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e274: `sd x11,0x10(x8)`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e274 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v8 v11 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx8 : σ.regs.get? Register.x8 = some v8)
-    (hx11 : σ.regs.get? Register.x11 = some v11)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e274#64 : BitVec 64))
-    (halo : 0x80000000 ≤ (v8 + sign_extend (m := 64) (0x010#12)).toNat)
-    (hahiram : (v8 + sign_extend (m := 64) (0x010#12)).toNat + 8 ≤ 0x100000000)
-    (hahiwin : tohostAddr + 16 ≤ (v8 + sign_extend (m := 64) (0x010#12)).toNat)
-    (haalign : (v8 + sign_extend (m := 64) (0x010#12)).toNat % 8 = 0) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = writeMap8 (afterNextPC (afterPrelude σ) (0x8001e274#64)).mem
-        (v8 + sign_extend (m := 64) (0x010#12)).toNat (sdData_val v11) ∧
-      ReadsLikePost σ' (sigmaPost_store σ pc vminstret
-        (writeMap8 (afterNextPC (afterPrelude σ) (0x8001e274#64)).mem (v8 + sign_extend (m := 64) (0x010#12)).toNat (sdData_val v11))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e274 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_store σ i u (0x8001e274#64) vminstret (0x00b43823#32)
-    (instruction.STORE (0x010#12, regidx.Regidx 0x0b#5, regidx.Regidx 0x08#5, 8))
-    (writeMap8 (afterNextPC (afterPrelude σ) (0x8001e274#64)).mem (v8 + sign_extend (m := 64) (0x010#12)).toNat (sdData_val v11))
-    (0x23#8) (0x38#8) (0xb4#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00b43823#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_sd_val σ (0x8001e274#64) (0x010#12) (regidx.Regidx 0x0b#5) (regidx.Regidx 0x08#5)
-      v8 v11 hG
-      (rX_bits_x8 _ v8
-        (by rw [get?_afterNextPC σ (0x8001e274#64) _ (by decide) (by decide)]; exact hx8))
-      (rX_bits_x11 _ v11
-        (by rw [get?_afterNextPC σ (0x8001e274#64) _ (by decide) (by decide)]; exact hx11))
-      halo hahiram hahiwin haalign)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e278: `beq x14,x13` (NOT taken). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e278_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v14 v13 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx14 : σ.regs.get? Register.x14 = some v14)
-    (hx13 : σ.regs.get? Register.x13 = some v13)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e278#64 : BitVec 64))
-    (hv : (v14 == v13) = false) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e278 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_branch_nottaken σ i u (0x8001e278#64) vminstret (0x0008#13)
-    (regidx.Regidx 0x0e#5) (regidx.Regidx 0x0d#5) bop.BEQ (0x00d70463#32)
-    (0x63#8) (0x04#8) (0xd7#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00d70463#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_btype_beq_nottaken (0x0008#13) (regidx.Regidx 0x0e#5) (regidx.Regidx 0x0d#5)
-      v14 v13 (afterNextPC (afterPrelude σ) (0x8001e278#64))
-      (rX_bits_x14 _ v14
-        (by rw [get?_afterNextPC σ (0x8001e278#64) _ (by decide) (by decide)]; exact hx14))
-      (rX_bits_x13 _ v13
-        (by rw [get?_afterNextPC σ (0x8001e278#64) _ (by decide) (by decide)]; exact hx13))
-      hv)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- Branch target of the taken site at 0x8001e278. -/
--- discipline: allow(R1-site-battery) machine-emitted by scripts/gen_sites.py
-theorem site_8001e278_taken_tgt :
-    (0x8001e278#64 + sign_extend (m := 64) (0x0008#13)) = (0x8001e280#64 : BitVec 64) := by
-  apply BitVec.eq_of_toNat_eq; decide
-
-/-- 0x8001e278: `beq x14,x13 → 0x8001e280` (TAKEN). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e278_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v14 v13 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx14 : σ.regs.get? Register.x14 = some v14)
-    (hx13 : σ.regs.get? Register.x13 = some v13)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e278#64 : BitVec 64))
-    (hv : (v14 == v13) = true) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0008#13)) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e278 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_branch_taken σ i u (0x8001e278#64) vminstret (0x0008#13)
-    (regidx.Regidx 0x0e#5) (regidx.Regidx 0x0d#5) bop.BEQ (0x00d70463#32)
-    (0x63#8) (0x04#8) (0xd7#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00d70463#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_btype_beq_taken (0x0008#13) (regidx.Regidx 0x0e#5) (regidx.Regidx 0x0d#5)
-      v14 v13 (0x8001e278#64) initMisa (afterNextPC (afterPrelude σ) (0x8001e278#64))
-      (rX_bits_x14 _ v14
-        (by rw [get?_afterNextPC σ (0x8001e278#64) _ (by decide) (by decide)]; exact hx14))
-      (rX_bits_x13 _ v13
-        (by rw [get?_afterNextPC σ (0x8001e278#64) _ (by decide) (by decide)]; exact hx13))
-      (by rw [get?_afterNextPC σ (0x8001e278#64) _ (by decide) (by decide)]; exact hpc)
-      (by rw [get?_afterNextPC σ (0x8001e278#64) _ (by decide) (by decide)]; exact hG.misa)
-      (by rw [site_8001e278_taken_tgt]; decide) hv)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e27c: `j 0x8001c660`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e27c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e27c#64 : BitVec 64))
-    (htgt : (pc + sign_extend (m := 64) (0x1fe3e4#21)).toNat % 4 = 0) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1fe3e4#21))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e27c (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_j σ i u (0x8001e27c#64) vminstret (0xbe4fe06f#32) (0x1fe3e4#21)
-    (0x6f#8) (0xe0#8) (0x4f#8) (0xbe#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0xbe4fe06f#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    htgt hi
-
-/-- 0x8001e280: `lbu x13,0x8(x12)` — TOTAL (no byte-presence hypothesis). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e280 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx12 : σ.regs.get? Register.x12 = some v12)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e280#64 : BitVec 64))
-    (hlo : 0x80000000 ≤ (v12 + sign_extend (m := 64) (0x008#12)).toNat)
-    (hhiram : (v12 + sign_extend (m := 64) (0x008#12)).toNat + 1 ≤ 0x100000000)
-    (hhtif : (v12 + sign_extend (m := 64) (0x008#12)).toNat + 1 ≤ tohostAddr
-      ∨ tohostAddr + 8 ≤ (v12 + sign_extend (m := 64) (0x008#12)).toNat)
-    (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x13 (zero_extend (m := 64) (bytesT1 σ.mem (v12 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e280 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e280#64) vminstret (0x00864683#32)
-    (instruction.LOAD (0x008#12, regidx.Regidx 0x0c#5, regidx.Regidx 0x0d#5, true, 1))
-    Register.x13 (zero_extend (m := 64) (bytesT1 σ.mem (v12 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))
-    (0x83#8) (0x46#8) (0x86#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00864683#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_lbu_tot σ (0x8001e280#64) (0x008#12) (regidx.Regidx 0x0c#5) (regidx.Regidx 0x0d#5)
-      (sigma3_alu σ (0x8001e280#64) Register.x13 (zero_extend (m := 64) (bytesT1 σ.mem (v12 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1))))
-      v12 hG
-      (rX_bits_x12 _ v12
-        (by rw [get?_afterNextPC σ (0x8001e280#64) _ (by decide) (by decide)]; exact hx12))
-      (wX_bits_x13 _ (zero_extend (m := 64) (bytesT1 σ.mem (v12 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1))))
-      hlo hhiram hhtif)
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e284: `andi x13,x13,0xf`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e284 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v13 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx13 : σ.regs.get? Register.x13 = some v13)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e284#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x13 (v13 &&& sign_extend (m := 64) (0x00f#12))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e284 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e284#64) vminstret (0x00f6f693#32)
-    (instruction.ITYPE (0x00f#12, regidx.Regidx 0x0d#5, regidx.Regidx 0x0d#5, iop.ANDI))
-    Register.x13 (v13 &&& sign_extend (m := 64) (0x00f#12))
-    (0x93#8) (0xf6#8) (0xf6#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00f6f693#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_andi_char (0x00f#12) (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0d#5) v13
-      (afterNextPC (afterPrelude σ) (0x8001e284#64))
-      (sigma3_alu σ (0x8001e284#64) Register.x13 (v13 &&& sign_extend (m := 64) (0x00f#12)))
-      (rX_bits_x13 _ v13
-        (by rw [get?_afterNextPC σ (0x8001e284#64) _ (by decide) (by decide)]; exact hx13))
-      (wX_bits_x13 _ (v13 &&& sign_extend (m := 64) (0x00f#12))))
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e288: `beq x13,x14` (NOT taken). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e288_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v13 v14 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx13 : σ.regs.get? Register.x13 = some v13)
-    (hx14 : σ.regs.get? Register.x14 = some v14)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e288#64 : BitVec 64))
-    (hv : (v13 == v14) = false) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e288 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_branch_nottaken σ i u (0x8001e288#64) vminstret (0x0008#13)
-    (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0e#5) bop.BEQ (0x00e68463#32)
-    (0x63#8) (0x84#8) (0xe6#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00e68463#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_btype_beq_nottaken (0x0008#13) (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0e#5)
-      v13 v14 (afterNextPC (afterPrelude σ) (0x8001e288#64))
-      (rX_bits_x13 _ v13
-        (by rw [get?_afterNextPC σ (0x8001e288#64) _ (by decide) (by decide)]; exact hx13))
-      (rX_bits_x14 _ v14
-        (by rw [get?_afterNextPC σ (0x8001e288#64) _ (by decide) (by decide)]; exact hx14))
-      hv)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- Branch target of the taken site at 0x8001e288. -/
--- discipline: allow(R1-site-battery) machine-emitted by scripts/gen_sites.py
-theorem site_8001e288_taken_tgt :
-    (0x8001e288#64 + sign_extend (m := 64) (0x0008#13)) = (0x8001e290#64 : BitVec 64) := by
-  apply BitVec.eq_of_toNat_eq; decide
-
-/-- 0x8001e288: `beq x13,x14 → 0x8001e290` (TAKEN). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e288_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v13 v14 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx13 : σ.regs.get? Register.x13 = some v13)
-    (hx14 : σ.regs.get? Register.x14 = some v14)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e288#64 : BitVec 64))
-    (hv : (v13 == v14) = true) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0008#13)) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e288 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_branch_taken σ i u (0x8001e288#64) vminstret (0x0008#13)
-    (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0e#5) bop.BEQ (0x00e68463#32)
-    (0x63#8) (0x84#8) (0xe6#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00e68463#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_btype_beq_taken (0x0008#13) (regidx.Regidx 0x0d#5) (regidx.Regidx 0x0e#5)
-      v13 v14 (0x8001e288#64) initMisa (afterNextPC (afterPrelude σ) (0x8001e288#64))
-      (rX_bits_x13 _ v13
-        (by rw [get?_afterNextPC σ (0x8001e288#64) _ (by decide) (by decide)]; exact hx13))
-      (rX_bits_x14 _ v14
-        (by rw [get?_afterNextPC σ (0x8001e288#64) _ (by decide) (by decide)]; exact hx14))
-      (by rw [get?_afterNextPC σ (0x8001e288#64) _ (by decide) (by decide)]; exact hpc)
-      (by rw [get?_afterNextPC σ (0x8001e288#64) _ (by decide) (by decide)]; exact hG.misa)
-      (by rw [site_8001e288_taken_tgt]; decide) hv)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e28c: `j 0x8001c660`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e28c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e28c#64 : BitVec 64))
-    (htgt : (pc + sign_extend (m := 64) (0x1fe3d4#21)).toNat % 4 = 0) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1fe3d4#21))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e28c (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_j σ i u (0x8001e28c#64) vminstret (0xbd4fe06f#32) (0x1fe3d4#21)
-    (0x6f#8) (0xe0#8) (0x4f#8) (0xbd#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0xbd4fe06f#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    htgt hi
-
-/-- 0x8001e290: `ld x11,0x0(x12)` — TOTAL (no byte-presence hypothesis). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e290 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx12 : σ.regs.get? Register.x12 = some v12)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e290#64 : BitVec 64))
-    (hlo : 0x80000000 ≤ (v12 + sign_extend (m := 64) (0x000#12)).toNat)
-    (hhiram : (v12 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
-    (hhtif : (v12 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ tohostAddr
-      ∨ tohostAddr + 8 ≤ (v12 + sign_extend (m := 64) (0x000#12)).toNat)
-    (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
-        (sign_extend (m := 64)
-          (bytesT8 σ.mem (v12 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e290 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e290#64) vminstret (0x00063583#32)
-    (instruction.LOAD (0x000#12, regidx.Regidx 0x0c#5, regidx.Regidx 0x0b#5, false, 8))
-    Register.x11 (sign_extend (m := 64) (bytesT8 σ.mem (v12 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))
-    (0x83#8) (0x35#8) (0x06#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00063583#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_ld_ram σ (0x8001e290#64) (0x000#12) (regidx.Regidx 0x0c#5) (regidx.Regidx 0x0b#5)
-      (sigma3_alu σ (0x8001e290#64) Register.x11 (sign_extend (m := 64) (bytesT8 σ.mem (v12 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
-      v12 hG
-      (rX_bits_x12 _ v12
-        (by rw [get?_afterNextPC σ (0x8001e290#64) _ (by decide) (by decide)]; exact hx12))
-      (wX_bits_x11 _ (sign_extend (m := 64) (bytesT8 σ.mem (v12 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
-      hlo hhiram hhtif)
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e294: `ld x10,0x0(x15)` — TOTAL (no byte-presence hypothesis). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e294 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx15 : σ.regs.get? Register.x15 = some v15)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e294#64 : BitVec 64))
-    (hlo : 0x80000000 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
-    (hhiram : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
-    (hhtif : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ tohostAddr
-      ∨ tohostAddr + 8 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
-    (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
-        (sign_extend (m := 64)
-          (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e294 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e294#64) vminstret (0x0007b503#32)
-    (instruction.LOAD (0x000#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0a#5, false, 8))
-    Register.x10 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))
-    (0x03#8) (0xb5#8) (0x07#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x0007b503#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_ld_ram σ (0x8001e294#64) (0x000#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0a#5)
-      (sigma3_alu σ (0x8001e294#64) Register.x10 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
-      v15 hG
-      (rX_bits_x15 _ v15
-        (by rw [get?_afterNextPC σ (0x8001e294#64) _ (by decide) (by decide)]; exact hx15))
-      (wX_bits_x10 _ (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
-      hlo hhiram hhtif)
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e298: `jal x1,0x8001a704` (link `x1 := 0x8001e29c`). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e298 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e298#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x1fc46c#21) Register.x1 (BitVec.addInt pc 4)) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e298 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  refine stepObs_jal σ i u (0x8001e298#64) vminstret (0xc6cfc0ef#32) (0x1fc46c#21)
-    (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x8001e298#64) 4)
-    (0xef#8) (0xc0#8) (0xcf#8) (0xc6#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide) (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0xc6cfc0ef#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (by decide)
-    (by decide) (by decide) (by decide) (by decide) (by decide) ?_ hi
-  exact wX_bits_x1 _ (BitVec.addInt (0x8001e298#64) 4)
-
-/-- 0x8001e29c: `slti x10,x10,0x1`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e29c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx10 : σ.regs.get? Register.x10 = some v10)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e29c#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10 (zero_extend (m := 64) (bool_to_bit (zopz0zI_s v10 (sign_extend (m := 64) (0x001#12)))))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e29c (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e29c#64) vminstret (0x00152513#32)
-    (instruction.ITYPE (0x001#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x0a#5, iop.SLTI))
-    Register.x10 (zero_extend (m := 64) (bool_to_bit (zopz0zI_s v10 (sign_extend (m := 64) (0x001#12)))))
-    (0x13#8) (0x25#8) (0x15#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00152513#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_slti_char (0x001#12) (regidx.Regidx 0x0a#5) (regidx.Regidx 0x0a#5) v10
-      (afterNextPC (afterPrelude σ) (0x8001e29c#64))
-      (sigma3_alu σ (0x8001e29c#64) Register.x10 (zero_extend (m := 64) (bool_to_bit (zopz0zI_s v10 (sign_extend (m := 64) (0x001#12))))))
-      (rX_bits_x10 _ v10
-        (by rw [get?_afterNextPC σ (0x8001e29c#64) _ (by decide) (by decide)]; exact hx10))
-      (wX_bits_x10 _ (zero_extend (m := 64) (bool_to_bit (zopz0zI_s v10 (sign_extend (m := 64) (0x001#12)))))))
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e2a0: `j 0x8001c670`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2a0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2a0#64 : BitVec 64))
-    (htgt : (pc + sign_extend (m := 64) (0x1fe3d0#21)).toNat % 4 = 0) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1fe3d0#21))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2a0 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_j σ i u (0x8001e2a0#64) vminstret (0xbd0fe06f#32) (0x1fe3d0#21)
-    (0x6f#8) (0xe0#8) (0x0f#8) (0xbd#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0xbd0fe06f#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    htgt hi
-
-/-- 0x8001e2a4: `addi x11,x2,0x28`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2a4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx2 : σ.regs.get? Register.x2 = some v2)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2a4#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
-        (v2 + sign_extend (m := 64) (0x028#12))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2a4 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2a4#64) vminstret (0x02810593#32)
-    (instruction.ITYPE (0x028#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0b#5, iop.ADDI))
-    Register.x11 (v2 + sign_extend (m := 64) (0x028#12))
-    (0x93#8) (0x05#8) (0x81#8) (0x02#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x02810593#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_addi_char (0x028#12) (regidx.Regidx 0x02#5) (regidx.Regidx 0x0b#5) v2
-      (afterNextPC (afterPrelude σ) (0x8001e2a4#64))
-      (sigma3_alu σ (0x8001e2a4#64) Register.x11 (v2 + sign_extend (m := 64) (0x028#12)))
-      (rX_bits_x2 _ v2
-        (by rw [get?_afterNextPC σ (0x8001e2a4#64) _ (by decide) (by decide)]; exact hx2))
-      (wX_bits_x11 _ (v2 + sign_extend (m := 64) (0x028#12))))
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e2a8: `addi x10,x27,0x0`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2a8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v27 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx27 : σ.regs.get? Register.x27 = some v27)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2a8#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
-        (v27 + sign_extend (m := 64) (0x000#12))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2a8 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2a8#64) vminstret (0x000d8513#32)
-    (instruction.ITYPE (0x000#12, regidx.Regidx 0x1b#5, regidx.Regidx 0x0a#5, iop.ADDI))
-    Register.x10 (v27 + sign_extend (m := 64) (0x000#12))
-    (0x13#8) (0x85#8) (0x0d#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x000d8513#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_addi_char (0x000#12) (regidx.Regidx 0x1b#5) (regidx.Regidx 0x0a#5) v27
-      (afterNextPC (afterPrelude σ) (0x8001e2a8#64))
-      (sigma3_alu σ (0x8001e2a8#64) Register.x10 (v27 + sign_extend (m := 64) (0x000#12)))
-      (rX_bits_x27 _ v27
-        (by rw [get?_afterNextPC σ (0x8001e2a8#64) _ (by decide) (by decide)]; exact hx27))
-      (wX_bits_x10 _ (v27 + sign_extend (m := 64) (0x000#12))))
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e2ac: `sd x15,0x10(x2)`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2ac (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v15 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx2 : σ.regs.get? Register.x2 = some v2)
-    (hx15 : σ.regs.get? Register.x15 = some v15)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2ac#64 : BitVec 64))
-    (halo : 0x80000000 ≤ (v2 + sign_extend (m := 64) (0x010#12)).toNat)
-    (hahiram : (v2 + sign_extend (m := 64) (0x010#12)).toNat + 8 ≤ 0x100000000)
-    (hahiwin : tohostAddr + 16 ≤ (v2 + sign_extend (m := 64) (0x010#12)).toNat)
-    (haalign : (v2 + sign_extend (m := 64) (0x010#12)).toNat % 8 = 0) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = writeMap8 (afterNextPC (afterPrelude σ) (0x8001e2ac#64)).mem
-        (v2 + sign_extend (m := 64) (0x010#12)).toNat (sdData_val v15) ∧
-      ReadsLikePost σ' (sigmaPost_store σ pc vminstret
-        (writeMap8 (afterNextPC (afterPrelude σ) (0x8001e2ac#64)).mem (v2 + sign_extend (m := 64) (0x010#12)).toNat (sdData_val v15))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2ac (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_store σ i u (0x8001e2ac#64) vminstret (0x00f13823#32)
-    (instruction.STORE (0x010#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x02#5, 8))
-    (writeMap8 (afterNextPC (afterPrelude σ) (0x8001e2ac#64)).mem (v2 + sign_extend (m := 64) (0x010#12)).toNat (sdData_val v15))
-    (0x23#8) (0x38#8) (0xf1#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00f13823#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_sd_val σ (0x8001e2ac#64) (0x010#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x02#5)
-      v2 v15 hG
-      (rX_bits_x2 _ v2
-        (by rw [get?_afterNextPC σ (0x8001e2ac#64) _ (by decide) (by decide)]; exact hx2))
-      (rX_bits_x15 _ v15
-        (by rw [get?_afterNextPC σ (0x8001e2ac#64) _ (by decide) (by decide)]; exact hx15))
-      halo hahiram hahiwin haalign)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e2b0: `jal x1,0x8001ab58` (link `x1 := 0x8001e2b4`). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2b0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2b0#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x1fc8a8#21) Register.x1 (BitVec.addInt pc 4)) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2b0 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  refine stepObs_jal σ i u (0x8001e2b0#64) vminstret (0x8a9fc0ef#32) (0x1fc8a8#21)
-    (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x8001e2b0#64) 4)
-    (0xef#8) (0xc0#8) (0x9f#8) (0x8a#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide) (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x8a9fc0ef#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (by decide)
-    (by decide) (by decide) (by decide) (by decide) (by decide) ?_ hi
-  exact wX_bits_x1 _ (BitVec.addInt (0x8001e2b0#64) 4)
-
-/-- 0x8001e2b4: `addi x14,x0,0x1`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2b4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2b4#64 : BitVec 64)) (hi : i < 2) :
+    (hpcv : pc = (0x8001d9fc#64 : BitVec 64)) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x14
-        ((0#64) + sign_extend (m := 64) (0x001#12))) := by
+        ((0#64) + sign_extend (m := 64) (0x013#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2b4 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2b4#64) vminstret (0x00100713#32)
-    (instruction.ITYPE (0x001#12, regidx.Regidx 0x00#5, regidx.Regidx 0x0e#5, iop.ADDI))
-    Register.x14 ((0#64) + sign_extend (m := 64) (0x001#12))
-    (0x13#8) (0x07#8) (0x10#8) (0x00#8)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001d9fc (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001d9fc#64) vminstret (0x01300713#32)
+    (instruction.ITYPE (0x013#12, regidx.Regidx 0x00#5, regidx.Regidx 0x0e#5, iop.ADDI))
+    Register.x14 ((0#64) + sign_extend (m := 64) (0x013#12))
+    (0x13#8) (0x07#8) (0x30#8) (0x01#8)
     hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00100713#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0x01300713#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_addi_char (0x001#12) (regidx.Regidx 0x00#5) (regidx.Regidx 0x0e#5) (0#64)
-      (afterNextPC (afterPrelude σ) (0x8001e2b4#64))
-      (sigma3_alu σ (0x8001e2b4#64) Register.x14 ((0#64) + sign_extend (m := 64) (0x001#12)))
+    (execute_itype_addi_char (0x013#12) (regidx.Regidx 0x00#5) (regidx.Regidx 0x0e#5) (0#64)
+      (afterNextPC (afterPrelude σ) (0x8001d9fc#64))
+      (sigma3_alu σ (0x8001d9fc#64) Register.x14 ((0#64) + sign_extend (m := 64) (0x013#12)))
       (rX_bits_zero _)
-      (wX_bits_x14 _ ((0#64) + sign_extend (m := 64) (0x001#12))))
+      (wX_bits_x14 _ ((0#64) + sign_extend (m := 64) (0x013#12))))
     (by decide) (by decide) (by decide) (by decide) (by decide)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
 
-/-- 0x8001e2b8: `ld x15,0x10(x2)` — TOTAL (no byte-presence hypothesis). -/
+/-- 0x8001da00: `bne x12,x14` (NOT taken). -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2b8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 : BitVec 64)
+theorem site_8001da00_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 v14 : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx2 : σ.regs.get? Register.x2 = some v2)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2b8#64 : BitVec 64))
-    (hlo : 0x80000000 ≤ (v2 + sign_extend (m := 64) (0x010#12)).toNat)
-    (hhiram : (v2 + sign_extend (m := 64) (0x010#12)).toNat + 8 ≤ 0x100000000)
-    (hhtif : (v2 + sign_extend (m := 64) (0x010#12)).toNat + 8 ≤ tohostAddr
-      ∨ tohostAddr + 8 ≤ (v2 + sign_extend (m := 64) (0x010#12)).toNat)
-    (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15
-        (sign_extend (m := 64)
-          (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2b8 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2b8#64) vminstret (0x01013783#32)
-    (instruction.LOAD (0x010#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0f#5, false, 8))
-    Register.x15 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))
-    (0x83#8) (0x37#8) (0x01#8) (0x01#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x01013783#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (exec_ld_ram σ (0x8001e2b8#64) (0x010#12) (regidx.Regidx 0x02#5) (regidx.Regidx 0x0f#5)
-      (sigma3_alu σ (0x8001e2b8#64) Register.x15 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))))
-      v2 hG
-      (rX_bits_x2 _ v2
-        (by rw [get?_afterNextPC σ (0x8001e2b8#64) _ (by decide) (by decide)]; exact hx2))
-      (wX_bits_x15 _ (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))))
-      hlo hhiram hhtif)
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e2bc: `bne x10,x14` (NOT taken). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2bc_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 v14 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx10 : σ.regs.get? Register.x10 = some v10)
+    (hx12 : σ.regs.get? Register.x12 = some v12)
     (hx14 : σ.regs.get? Register.x14 = some v14)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2bc#64 : BitVec 64))
-    (hv : (v10 != v14) = false) (hi : i < 2) :
+    (hpcv : pc = (0x8001da00#64 : BitVec 64))
+    (hv : (v12 != v14) = false) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2bc (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_branch_nottaken σ i u (0x8001e2bc#64) vminstret (0x0008#13)
-    (regidx.Regidx 0x0a#5) (regidx.Regidx 0x0e#5) bop.BNE (0x00e51463#32)
-    (0x63#8) (0x14#8) (0xe5#8) (0x00#8)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da00 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_branch_nottaken σ i u (0x8001da00#64) vminstret (0x0008#13)
+    (regidx.Regidx 0x0c#5) (regidx.Regidx 0x0e#5) bop.BNE (0x00e61463#32)
+    (0x63#8) (0x14#8) (0xe6#8) (0x00#8)
     hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00e51463#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0x00e61463#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_btype_bne_nottaken (0x0008#13) (regidx.Regidx 0x0a#5) (regidx.Regidx 0x0e#5)
-      v10 v14 (afterNextPC (afterPrelude σ) (0x8001e2bc#64))
-      (rX_bits_x10 _ v10
-        (by rw [get?_afterNextPC σ (0x8001e2bc#64) _ (by decide) (by decide)]; exact hx10))
+    (execute_btype_bne_nottaken (0x0008#13) (regidx.Regidx 0x0c#5) (regidx.Regidx 0x0e#5)
+      v12 v14 (afterNextPC (afterPrelude σ) (0x8001da00#64))
+      (rX_bits_x12 _ v12
+        (by rw [get?_afterNextPC σ (0x8001da00#64) _ (by decide) (by decide)]; exact hx12))
       (rX_bits_x14 _ v14
-        (by rw [get?_afterNextPC σ (0x8001e2bc#64) _ (by decide) (by decide)]; exact hx14))
+        (by rw [get?_afterNextPC σ (0x8001da00#64) _ (by decide) (by decide)]; exact hx14))
       hv)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
 
-/-- Branch target of the taken site at 0x8001e2bc. -/
+/-- Branch target of the taken site at 0x8001da00. -/
 -- discipline: allow(R1-site-battery) machine-emitted by scripts/gen_sites.py
-theorem site_8001e2bc_taken_tgt :
-    (0x8001e2bc#64 + sign_extend (m := 64) (0x0008#13)) = (0x8001e2c4#64 : BitVec 64) := by
+theorem site_8001da00_taken_tgt :
+    (0x8001da00#64 + sign_extend (m := 64) (0x0008#13)) = (0x8001da08#64 : BitVec 64) := by
   apply BitVec.eq_of_toNat_eq; decide
 
-/-- 0x8001e2bc: `bne x10,x14 → 0x8001e2c4` (TAKEN). -/
+/-- 0x8001da00: `bne x12,x14 → 0x8001da08` (TAKEN). -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2bc_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 v14 : BitVec 64)
+theorem site_8001da00_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 v14 : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx10 : σ.regs.get? Register.x10 = some v10)
+    (hx12 : σ.regs.get? Register.x12 = some v12)
     (hx14 : σ.regs.get? Register.x14 = some v14)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2bc#64 : BitVec 64))
-    (hv : (v10 != v14) = true) (hi : i < 2) :
+    (hpcv : pc = (0x8001da00#64 : BitVec 64))
+    (hv : (v12 != v14) = true) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0008#13)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2bc (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_branch_taken σ i u (0x8001e2bc#64) vminstret (0x0008#13)
-    (regidx.Regidx 0x0a#5) (regidx.Regidx 0x0e#5) bop.BNE (0x00e51463#32)
-    (0x63#8) (0x14#8) (0xe5#8) (0x00#8)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da00 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_branch_taken σ i u (0x8001da00#64) vminstret (0x0008#13)
+    (regidx.Regidx 0x0c#5) (regidx.Regidx 0x0e#5) bop.BNE (0x00e61463#32)
+    (0x63#8) (0x14#8) (0xe6#8) (0x00#8)
     hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00e51463#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0x00e61463#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_btype_bne_taken (0x0008#13) (regidx.Regidx 0x0a#5) (regidx.Regidx 0x0e#5)
-      v10 v14 (0x8001e2bc#64) initMisa (afterNextPC (afterPrelude σ) (0x8001e2bc#64))
-      (rX_bits_x10 _ v10
-        (by rw [get?_afterNextPC σ (0x8001e2bc#64) _ (by decide) (by decide)]; exact hx10))
+    (execute_btype_bne_taken (0x0008#13) (regidx.Regidx 0x0c#5) (regidx.Regidx 0x0e#5)
+      v12 v14 (0x8001da00#64) initMisa (afterNextPC (afterPrelude σ) (0x8001da00#64))
+      (rX_bits_x12 _ v12
+        (by rw [get?_afterNextPC σ (0x8001da00#64) _ (by decide) (by decide)]; exact hx12))
       (rX_bits_x14 _ v14
-        (by rw [get?_afterNextPC σ (0x8001e2bc#64) _ (by decide) (by decide)]; exact hx14))
-      (by rw [get?_afterNextPC σ (0x8001e2bc#64) _ (by decide) (by decide)]; exact hpc)
-      (by rw [get?_afterNextPC σ (0x8001e2bc#64) _ (by decide) (by decide)]; exact hG.misa)
-      (by rw [site_8001e2bc_taken_tgt]; decide) hv)
+        (by rw [get?_afterNextPC σ (0x8001da00#64) _ (by decide) (by decide)]; exact hx14))
+      (by rw [get?_afterNextPC σ (0x8001da00#64) _ (by decide) (by decide)]; exact hpc)
+      (by rw [get?_afterNextPC σ (0x8001da00#64) _ (by decide) (by decide)]; exact hG.misa)
+      (by rw [site_8001da00_taken_tgt]; decide) hv)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
 
-/-- 0x8001e2c0: `j 0x8001c13c`. -/
+/-- 0x8001da04: `j 0x8001ed08`. -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2c0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
+theorem site_8001da04 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2c0#64 : BitVec 64))
-    (htgt : (pc + sign_extend (m := 64) (0x1fde7c#21)).toNat % 4 = 0) (hi : i < 2) :
+    (hpcv : pc = (0x8001da04#64 : BitVec 64))
+    (htgt : (pc + sign_extend (m := 64) (0x001304#21)).toNat % 4 = 0) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1fde7c#21))) := by
+      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x001304#21))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2c0 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_j σ i u (0x8001e2c0#64) vminstret (0xe7dfd06f#32) (0x1fde7c#21)
-    (0x6f#8) (0xd0#8) (0xdf#8) (0xe7#8)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da04 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_j σ i u (0x8001da04#64) vminstret (0x3040106f#32) (0x001304#21)
+    (0x6f#8) (0x10#8) (0x40#8) (0x30#8)
     hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0xe7dfd06f#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0x3040106f#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
     htgt hi
 
-/-- 0x8001e2c4: `addi x11,x27,0x0`. -/
+/-- 0x8001da08: `addi x27,x19,0x0`. -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2c4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v27 : BitVec 64)
+theorem site_8001da08 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v19 : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx27 : σ.regs.get? Register.x27 = some v27)
+    (hx19 : σ.regs.get? Register.x19 = some v19)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2c4#64 : BitVec 64)) (hi : i < 2) :
+    (hpcv : pc = (0x8001da08#64 : BitVec 64)) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
-        (v27 + sign_extend (m := 64) (0x000#12))) := by
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x27
+        (v19 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2c4 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2c4#64) vminstret (0x000d8593#32)
-    (instruction.ITYPE (0x000#12, regidx.Regidx 0x1b#5, regidx.Regidx 0x0b#5, iop.ADDI))
-    Register.x11 (v27 + sign_extend (m := 64) (0x000#12))
-    (0x93#8) (0x85#8) (0x0d#8) (0x00#8)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da08 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da08#64) vminstret (0x00098d93#32)
+    (instruction.ITYPE (0x000#12, regidx.Regidx 0x13#5, regidx.Regidx 0x1b#5, iop.ADDI))
+    Register.x27 (v19 + sign_extend (m := 64) (0x000#12))
+    (0x93#8) (0x8d#8) (0x09#8) (0x00#8)
     hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x000d8593#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0x00098d93#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_addi_char (0x000#12) (regidx.Regidx 0x1b#5) (regidx.Regidx 0x0b#5) v27
-      (afterNextPC (afterPrelude σ) (0x8001e2c4#64))
-      (sigma3_alu σ (0x8001e2c4#64) Register.x11 (v27 + sign_extend (m := 64) (0x000#12)))
-      (rX_bits_x27 _ v27
-        (by rw [get?_afterNextPC σ (0x8001e2c4#64) _ (by decide) (by decide)]; exact hx27))
-      (wX_bits_x11 _ (v27 + sign_extend (m := 64) (0x000#12))))
+    (execute_itype_addi_char (0x000#12) (regidx.Regidx 0x13#5) (regidx.Regidx 0x1b#5) v19
+      (afterNextPC (afterPrelude σ) (0x8001da08#64))
+      (sigma3_alu σ (0x8001da08#64) Register.x27 (v19 + sign_extend (m := 64) (0x000#12)))
+      (rX_bits_x19 _ v19
+        (by rw [get?_afterNextPC σ (0x8001da08#64) _ (by decide) (by decide)]; exact hx19))
+      (wX_bits_x27 _ (v19 + sign_extend (m := 64) (0x000#12))))
     (by decide) (by decide) (by decide) (by decide) (by decide)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
 
-/-- 0x8001e2c8: `addi x10,x8,0x0`. -/
+/-- 0x8001da0c: `j 0x8001bfe4`. -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2c8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v8 : BitVec 64)
+theorem site_8001da0c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx8 : σ.regs.get? Register.x8 = some v8)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2c8#64 : BitVec 64)) (hi : i < 2) :
+    (hpcv : pc = (0x8001da0c#64 : BitVec 64))
+    (htgt : (pc + sign_extend (m := 64) (0x1fe5d8#21)).toNat % 4 = 0) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
-        (v8 + sign_extend (m := 64) (0x000#12))) := by
+      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1fe5d8#21))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2c8 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2c8#64) vminstret (0x00040513#32)
-    (instruction.ITYPE (0x000#12, regidx.Regidx 0x08#5, regidx.Regidx 0x0a#5, iop.ADDI))
-    Register.x10 (v8 + sign_extend (m := 64) (0x000#12))
-    (0x13#8) (0x05#8) (0x04#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da0c (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_j σ i u (0x8001da0c#64) vminstret (0xdd8fe06f#32) (0x1fe5d8#21)
+    (0x6f#8) (0xe0#8) (0x8f#8) (0xdd#8)
+    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00040513#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0xdd8fe06f#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_addi_char (0x000#12) (regidx.Regidx 0x08#5) (regidx.Regidx 0x0a#5) v8
-      (afterNextPC (afterPrelude σ) (0x8001e2c8#64))
-      (sigma3_alu σ (0x8001e2c8#64) Register.x10 (v8 + sign_extend (m := 64) (0x000#12)))
-      (rX_bits_x8 _ v8
-        (by rw [get?_afterNextPC σ (0x8001e2c8#64) _ (by decide) (by decide)]; exact hx8))
-      (wX_bits_x10 _ (v8 + sign_extend (m := 64) (0x000#12))))
+    htgt hi
+
+/-- 0x8001da10: `srliw x15,x20,16`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da10 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v20 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx20 : σ.regs.get? Register.x20 = some v20)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da10#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x10#5)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da10 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da10#64) vminstret (0x010a579b#32)
+    (instruction.SHIFTIWOP (0x10#5, regidx.Regidx 0x14#5, regidx.Regidx 0x0f#5, sopw.SRLIW))
+    Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x10#5)))
+    (0x9b#8) (0x57#8) (0x0a#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x010a579b#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiwop_srliw_char (0x10#5) (regidx.Regidx 0x14#5) (regidx.Regidx 0x0f#5) v20
+      (afterNextPC (afterPrelude σ) (0x8001da10#64))
+      (sigma3_alu σ (0x8001da10#64) Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x10#5))))
+      (rX_bits_x20 _ v20
+        (by rw [get?_afterNextPC σ (0x8001da10#64) _ (by decide) (by decide)]; exact hx20))
+      (wX_bits_x15 _ (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x10#5)))))
     (by decide) (by decide) (by decide) (by decide) (by decide)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
 
-/-- 0x8001e2cc: `auipc x12,0x32`. -/
+/-- 0x8001da14: `andi x15,x15,0xff`. -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2cc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2cc#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x12 ((0x8001e2cc#64) + sign_extend (m := 64) ((0x00032#20) +++ 0x000#12))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2cc (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2cc#64) vminstret (0x00032617#32)
-    (instruction.UTYPE (0x00032#20, regidx.Regidx 0x0c#5, uop.AUIPC))
-    Register.x12 ((0x8001e2cc#64) + sign_extend (m := 64) ((0x00032#20) +++ 0x000#12))
-    (0x17#8) (0x26#8) (0x03#8) (0x00#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x00032617#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_utype_auipc_char (0x00032#20) (regidx.Regidx 0x0c#5) (0x8001e2cc#64)
-      (afterNextPC (afterPrelude σ) (0x8001e2cc#64))
-      (sigma3_alu σ (0x8001e2cc#64) Register.x12 ((0x8001e2cc#64) + sign_extend (m := 64) ((0x00032#20) +++ 0x000#12)))
-      (by rw [get?_afterNextPC σ (0x8001e2cc#64) _ (by decide) (by decide)]; exact hpc)
-      (wX_bits_x12 _ ((0x8001e2cc#64) + sign_extend (m := 64) ((0x00032#20) +++ 0x000#12))))
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e2d0: `addi x12,x12,0x824`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2d0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hx12 : σ.regs.get? Register.x12 = some v12)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2d0#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x12
-        (v12 + sign_extend (m := 64) (0x824#12))) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2d0 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2d0#64) vminstret (0x82460613#32)
-    (instruction.ITYPE (0x824#12, regidx.Regidx 0x0c#5, regidx.Regidx 0x0c#5, iop.ADDI))
-    Register.x12 (v12 + sign_extend (m := 64) (0x824#12))
-    (0x13#8) (0x06#8) (0x46#8) (0x82#8)
-    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
-    (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x82460613#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_addi_char (0x824#12) (regidx.Regidx 0x0c#5) (regidx.Regidx 0x0c#5) v12
-      (afterNextPC (afterPrelude σ) (0x8001e2d0#64))
-      (sigma3_alu σ (0x8001e2d0#64) Register.x12 (v12 + sign_extend (m := 64) (0x824#12)))
-      (rX_bits_x12 _ v12
-        (by rw [get?_afterNextPC σ (0x8001e2d0#64) _ (by decide) (by decide)]; exact hx12))
-      (wX_bits_x12 _ (v12 + sign_extend (m := 64) (0x824#12))))
-    (by decide) (by decide) (by decide) (by decide) (by decide)
-    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
-
-/-- 0x8001e2d4: `jal x1,0x80009438` (link `x1 := 0x8001e2d8`). -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2d4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
-    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
-    (hminstret : σ.regs.get? Register.minstret = some vminstret)
-    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2d4#64 : BitVec 64)) (hi : i < 2) :
-    ∃ (σ' : MState) (i' : Nat),
-      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
-      σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x1eb164#21) Register.x1 (BitVec.addInt pc 4)) := by
-  subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2d4 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  refine stepObs_jal σ i u (0x8001e2d4#64) vminstret (0x964eb0ef#32) (0x1eb164#21)
-    (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x8001e2d4#64) 4)
-    (0xef#8) (0xb0#8) (0x4e#8) (0x96#8)
-    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)
-    (by apply BitVec.eq_of_toNat_eq; decide) (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x964eb0ef#32) (afterPrelude σ)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
-      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (by decide)
-    (by decide) (by decide) (by decide) (by decide) (by decide) ?_ hi
-  exact wX_bits_x1 _ (BitVec.addInt (0x8001e2d4#64) 4)
-
-/-- 0x8001e2d8: `addi x22,x15,0x20`. -/
--- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
-theorem site_8001e2d8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+theorem site_8001da14 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
     (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
     (hminstret : σ.regs.get? Register.minstret = some vminstret)
     (hx15 : σ.regs.get? Register.x15 = some v15)
     (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
-    (hpcv : pc = (0x8001e2d8#64 : BitVec 64)) (hi : i < 2) :
+    (hpcv : pc = (0x8001da14#64 : BitVec 64)) (hi : i < 2) :
     ∃ (σ' : MState) (i' : Nat),
       Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
       σ'.mem = σ.mem ∧
-      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x22
-        (v15 + sign_extend (m := 64) (0x020#12))) := by
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v15 &&& sign_extend (m := 64) (0x0ff#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001e2d8 (Lua.Vm.Code.textLoaded_LuaV_execute_p08Loaded hmem)
-  exact stepObs_alu σ i u (0x8001e2d8#64) vminstret (0x02078b13#32)
-    (instruction.ITYPE (0x020#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x16#5, iop.ADDI))
-    Register.x22 (v15 + sign_extend (m := 64) (0x020#12))
-    (0x13#8) (0x8b#8) (0x07#8) (0x02#8)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da14 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da14#64) vminstret (0x0ff7f793#32)
+    (instruction.ITYPE (0x0ff#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, iop.ANDI))
+    Register.x15 (v15 &&& sign_extend (m := 64) (0x0ff#12))
+    (0x93#8) (0xf7#8) (0xf7#8) (0x0f#8)
     hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
     (by apply BitVec.eq_of_toNat_eq; decide)
-    (Vsa.Sim.decodeW (w := 0x02078b13#32) (afterPrelude σ)
+    (Vsa.Sim.decodeW (w := 0x0ff7f793#32) (afterPrelude σ)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
       (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
-    (execute_itype_addi_char (0x020#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x16#5) v15
-      (afterNextPC (afterPrelude σ) (0x8001e2d8#64))
-      (sigma3_alu σ (0x8001e2d8#64) Register.x22 (v15 + sign_extend (m := 64) (0x020#12)))
+    (execute_itype_andi_char (0x0ff#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0f#5) v15
+      (afterNextPC (afterPrelude σ) (0x8001da14#64))
+      (sigma3_alu σ (0x8001da14#64) Register.x15 (v15 &&& sign_extend (m := 64) (0x0ff#12)))
       (rX_bits_x15 _ v15
-        (by rw [get?_afterNextPC σ (0x8001e2d8#64) _ (by decide) (by decide)]; exact hx15))
-      (wX_bits_x22 _ (v15 + sign_extend (m := 64) (0x020#12))))
+        (by rw [get?_afterNextPC σ (0x8001da14#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x15 _ (v15 &&& sign_extend (m := 64) (0x0ff#12))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da18: `slli x15,x15,4`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da18 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da18#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da18 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da18#64) vminstret (0x00479793#32)
+    (instruction.SHIFTIOP (0x04#6, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, sop.SLLI))
+    Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))
+    (0x93#8) (0x97#8) (0x47#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00479793#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiop_slli_char (0x04#6) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0f#5) v15
+      (afterNextPC (afterPrelude σ) (0x8001da18#64))
+      (sigma3_alu σ (0x8001da18#64) Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0)))
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da18#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x15 _ (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da1c: `add x15,x25,x15`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da1c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v25 v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx25 : σ.regs.get? Register.x25 = some v25)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da1c#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v25 + v15)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da1c (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da1c#64) vminstret (0x00fc87b3#32)
+    (instruction.RTYPE (regidx.Regidx 0x0f#5, regidx.Regidx 0x19#5, regidx.Regidx 0x0f#5, rop.ADD))
+    Register.x15 (v25 + v15)
+    (0xb3#8) (0x87#8) (0xfc#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00fc87b3#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_rtype_add_char (regidx.Regidx 0x0f#5) (regidx.Regidx 0x19#5) (regidx.Regidx 0x0f#5)
+      v25 v15 (afterNextPC (afterPrelude σ) (0x8001da1c#64))
+      (sigma3_alu σ (0x8001da1c#64) Register.x15 (v25 + v15))
+      (rX_bits_x25 _ v25
+        (by rw [get?_afterNextPC σ (0x8001da1c#64) _ (by decide) (by decide)]; exact hx25))
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da1c#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x15 _ (v25 + v15)))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da20: `lbu x14,0x8(x15)` — TOTAL (no byte-presence hypothesis). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da20 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da20#64 : BitVec 64))
+    (hlo : 0x80000000 ≤ (v15 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hhiram : (v15 + sign_extend (m := 64) (0x008#12)).toNat + 1 ≤ 0x100000000)
+    (hhtif : (v15 + sign_extend (m := 64) (0x008#12)).toNat + 1 ≤ tohostAddr
+      ∨ tohostAddr + 8 ≤ (v15 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x14 (zero_extend (m := 64) (bytesT1 σ.mem (v15 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da20 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da20#64) vminstret (0x0087c703#32)
+    (instruction.LOAD (0x008#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0e#5, true, 1))
+    Register.x14 (zero_extend (m := 64) (bytesT1 σ.mem (v15 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))
+    (0x03#8) (0xc7#8) (0x87#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x0087c703#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (exec_lbu_tot σ (0x8001da20#64) (0x008#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0e#5)
+      (sigma3_alu σ (0x8001da20#64) Register.x14 (zero_extend (m := 64) (bytesT1 σ.mem (v15 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1))))
+      v15 hG
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da20#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x14 _ (zero_extend (m := 64) (bytesT1 σ.mem (v15 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1))))
+      hlo hhiram hhtif)
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da24: `beq x14,x18` (NOT taken). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da24_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v14 v18 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx14 : σ.regs.get? Register.x14 = some v14)
+    (hx18 : σ.regs.get? Register.x18 = some v18)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da24#64 : BitVec 64))
+    (hv : (v14 == v18) = false) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da24 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_branch_nottaken σ i u (0x8001da24#64) vminstret (0x0008#13)
+    (regidx.Regidx 0x0e#5) (regidx.Regidx 0x12#5) bop.BEQ (0x01270463#32)
+    (0x63#8) (0x04#8) (0x27#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x01270463#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_btype_beq_nottaken (0x0008#13) (regidx.Regidx 0x0e#5) (regidx.Regidx 0x12#5)
+      v14 v18 (afterNextPC (afterPrelude σ) (0x8001da24#64))
+      (rX_bits_x14 _ v14
+        (by rw [get?_afterNextPC σ (0x8001da24#64) _ (by decide) (by decide)]; exact hx14))
+      (rX_bits_x18 _ v18
+        (by rw [get?_afterNextPC σ (0x8001da24#64) _ (by decide) (by decide)]; exact hx18))
+      hv)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- Branch target of the taken site at 0x8001da24. -/
+-- discipline: allow(R1-site-battery) machine-emitted by scripts/gen_sites.py
+theorem site_8001da24_taken_tgt :
+    (0x8001da24#64 + sign_extend (m := 64) (0x0008#13)) = (0x8001da2c#64 : BitVec 64) := by
+  apply BitVec.eq_of_toNat_eq; decide
+
+/-- 0x8001da24: `beq x14,x18 → 0x8001da2c` (TAKEN). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da24_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v14 v18 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx14 : σ.regs.get? Register.x14 = some v14)
+    (hx18 : σ.regs.get? Register.x18 = some v18)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da24#64 : BitVec 64))
+    (hv : (v14 == v18) = true) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0008#13)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da24 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_branch_taken σ i u (0x8001da24#64) vminstret (0x0008#13)
+    (regidx.Regidx 0x0e#5) (regidx.Regidx 0x12#5) bop.BEQ (0x01270463#32)
+    (0x63#8) (0x04#8) (0x27#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x01270463#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_btype_beq_taken (0x0008#13) (regidx.Regidx 0x0e#5) (regidx.Regidx 0x12#5)
+      v14 v18 (0x8001da24#64) initMisa (afterNextPC (afterPrelude σ) (0x8001da24#64))
+      (rX_bits_x14 _ v14
+        (by rw [get?_afterNextPC σ (0x8001da24#64) _ (by decide) (by decide)]; exact hx14))
+      (rX_bits_x18 _ v18
+        (by rw [get?_afterNextPC σ (0x8001da24#64) _ (by decide) (by decide)]; exact hx18))
+      (by rw [get?_afterNextPC σ (0x8001da24#64) _ (by decide) (by decide)]; exact hpc)
+      (by rw [get?_afterNextPC σ (0x8001da24#64) _ (by decide) (by decide)]; exact hG.misa)
+      (by rw [site_8001da24_taken_tgt]; decide) hv)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da28: `j 0x8001f21c`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da28 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da28#64 : BitVec 64))
+    (htgt : (pc + sign_extend (m := 64) (0x0017f4#21)).toNat % 4 = 0) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x0017f4#21))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da28 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_j σ i u (0x8001da28#64) vminstret (0x7f40106f#32) (0x0017f4#21)
+    (0x6f#8) (0x10#8) (0x40#8) (0x7f#8)
+    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x7f40106f#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    htgt hi
+
+/-- 0x8001da2c: `ld x26,0x0(x15)` — TOTAL (no byte-presence hypothesis). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da2c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da2c#64 : BitVec 64))
+    (hlo : 0x80000000 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hhiram : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
+    (hhtif : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ tohostAddr
+      ∨ tohostAddr + 8 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x26
+        (sign_extend (m := 64)
+          (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da2c (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da2c#64) vminstret (0x0007bd03#32)
+    (instruction.LOAD (0x000#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x1a#5, false, 8))
+    Register.x26 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))
+    (0x03#8) (0xbd#8) (0x07#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x0007bd03#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (exec_ld_ram σ (0x8001da2c#64) (0x000#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x1a#5)
+      (sigma3_alu σ (0x8001da2c#64) Register.x26 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
+      v15 hG
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da2c#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x26 _ (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
+      hlo hhiram hhtif)
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da30: `srliw x15,x20,24`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da30 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v20 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx20 : σ.regs.get? Register.x20 = some v20)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da30#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x18#5)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da30 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da30#64) vminstret (0x018a579b#32)
+    (instruction.SHIFTIWOP (0x18#5, regidx.Regidx 0x14#5, regidx.Regidx 0x0f#5, sopw.SRLIW))
+    Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x18#5)))
+    (0x9b#8) (0x57#8) (0x8a#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x018a579b#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiwop_srliw_char (0x18#5) (regidx.Regidx 0x14#5) (regidx.Regidx 0x0f#5) v20
+      (afterNextPC (afterPrelude σ) (0x8001da30#64))
+      (sigma3_alu σ (0x8001da30#64) Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x18#5))))
+      (rX_bits_x20 _ v20
+        (by rw [get?_afterNextPC σ (0x8001da30#64) _ (by decide) (by decide)]; exact hx20))
+      (wX_bits_x15 _ (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x18#5)))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da34: `slli x15,x15,4`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da34 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da34#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da34 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da34#64) vminstret (0x00479793#32)
+    (instruction.SHIFTIOP (0x04#6, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, sop.SLLI))
+    Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))
+    (0x93#8) (0x97#8) (0x47#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00479793#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiop_slli_char (0x04#6) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0f#5) v15
+      (afterNextPC (afterPrelude σ) (0x8001da34#64))
+      (sigma3_alu σ (0x8001da34#64) Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0)))
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da34#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x15 _ (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da38: `add x15,x25,x15`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da38 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v25 v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx25 : σ.regs.get? Register.x25 = some v25)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da38#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v25 + v15)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da38 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da38#64) vminstret (0x00fc87b3#32)
+    (instruction.RTYPE (regidx.Regidx 0x0f#5, regidx.Regidx 0x19#5, regidx.Regidx 0x0f#5, rop.ADD))
+    Register.x15 (v25 + v15)
+    (0xb3#8) (0x87#8) (0xfc#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00fc87b3#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_rtype_add_char (regidx.Regidx 0x0f#5) (regidx.Regidx 0x19#5) (regidx.Regidx 0x0f#5)
+      v25 v15 (afterNextPC (afterPrelude σ) (0x8001da38#64))
+      (sigma3_alu σ (0x8001da38#64) Register.x15 (v25 + v15))
+      (rX_bits_x25 _ v25
+        (by rw [get?_afterNextPC σ (0x8001da38#64) _ (by decide) (by decide)]; exact hx25))
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da38#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x15 _ (v25 + v15)))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da3c: `lbu x14,0x8(x15)` — TOTAL (no byte-presence hypothesis). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da3c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da3c#64 : BitVec 64))
+    (hlo : 0x80000000 ≤ (v15 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hhiram : (v15 + sign_extend (m := 64) (0x008#12)).toNat + 1 ≤ 0x100000000)
+    (hhtif : (v15 + sign_extend (m := 64) (0x008#12)).toNat + 1 ≤ tohostAddr
+      ∨ tohostAddr + 8 ≤ (v15 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x14 (zero_extend (m := 64) (bytesT1 σ.mem (v15 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da3c (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da3c#64) vminstret (0x0087c703#32)
+    (instruction.LOAD (0x008#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0e#5, true, 1))
+    Register.x14 (zero_extend (m := 64) (bytesT1 σ.mem (v15 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))
+    (0x03#8) (0xc7#8) (0x87#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x0087c703#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (exec_lbu_tot σ (0x8001da3c#64) (0x008#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0e#5)
+      (sigma3_alu σ (0x8001da3c#64) Register.x14 (zero_extend (m := 64) (bytesT1 σ.mem (v15 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1))))
+      v15 hG
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da3c#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x14 _ (zero_extend (m := 64) (bytesT1 σ.mem (v15 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1))))
+      hlo hhiram hhtif)
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da40: `beq x14,x18` (NOT taken). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da40_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v14 v18 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx14 : σ.regs.get? Register.x14 = some v14)
+    (hx18 : σ.regs.get? Register.x18 = some v18)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da40#64 : BitVec 64))
+    (hv : (v14 == v18) = false) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da40 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_branch_nottaken σ i u (0x8001da40#64) vminstret (0x0008#13)
+    (regidx.Regidx 0x0e#5) (regidx.Regidx 0x12#5) bop.BEQ (0x01270463#32)
+    (0x63#8) (0x04#8) (0x27#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x01270463#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_btype_beq_nottaken (0x0008#13) (regidx.Regidx 0x0e#5) (regidx.Regidx 0x12#5)
+      v14 v18 (afterNextPC (afterPrelude σ) (0x8001da40#64))
+      (rX_bits_x14 _ v14
+        (by rw [get?_afterNextPC σ (0x8001da40#64) _ (by decide) (by decide)]; exact hx14))
+      (rX_bits_x18 _ v18
+        (by rw [get?_afterNextPC σ (0x8001da40#64) _ (by decide) (by decide)]; exact hx18))
+      hv)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- Branch target of the taken site at 0x8001da40. -/
+-- discipline: allow(R1-site-battery) machine-emitted by scripts/gen_sites.py
+theorem site_8001da40_taken_tgt :
+    (0x8001da40#64 + sign_extend (m := 64) (0x0008#13)) = (0x8001da48#64 : BitVec 64) := by
+  apply BitVec.eq_of_toNat_eq; decide
+
+/-- 0x8001da40: `beq x14,x18 → 0x8001da48` (TAKEN). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da40_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v14 v18 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx14 : σ.regs.get? Register.x14 = some v14)
+    (hx18 : σ.regs.get? Register.x18 = some v18)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da40#64 : BitVec 64))
+    (hv : (v14 == v18) = true) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0008#13)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da40 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_branch_taken σ i u (0x8001da40#64) vminstret (0x0008#13)
+    (regidx.Regidx 0x0e#5) (regidx.Regidx 0x12#5) bop.BEQ (0x01270463#32)
+    (0x63#8) (0x04#8) (0x27#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x01270463#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_btype_beq_taken (0x0008#13) (regidx.Regidx 0x0e#5) (regidx.Regidx 0x12#5)
+      v14 v18 (0x8001da40#64) initMisa (afterNextPC (afterPrelude σ) (0x8001da40#64))
+      (rX_bits_x14 _ v14
+        (by rw [get?_afterNextPC σ (0x8001da40#64) _ (by decide) (by decide)]; exact hx14))
+      (rX_bits_x18 _ v18
+        (by rw [get?_afterNextPC σ (0x8001da40#64) _ (by decide) (by decide)]; exact hx18))
+      (by rw [get?_afterNextPC σ (0x8001da40#64) _ (by decide) (by decide)]; exact hpc)
+      (by rw [get?_afterNextPC σ (0x8001da40#64) _ (by decide) (by decide)]; exact hG.misa)
+      (by rw [site_8001da40_taken_tgt]; decide) hv)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da44: `j 0x8001f638`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da44 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da44#64 : BitVec 64))
+    (htgt : (pc + sign_extend (m := 64) (0x001bf4#21)).toNat % 4 = 0) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x001bf4#21))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da44 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_j σ i u (0x8001da44#64) vminstret (0x3f50106f#32) (0x001bf4#21)
+    (0x6f#8) (0x10#8) (0x50#8) (0x3f#8)
+    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x3f50106f#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    htgt hi
+
+/-- 0x8001da48: `ld x14,0x0(x15)` — TOTAL (no byte-presence hypothesis). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da48 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da48#64 : BitVec 64))
+    (hlo : 0x80000000 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hhiram : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
+    (hhtif : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ tohostAddr
+      ∨ tohostAddr + 8 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x14
+        (sign_extend (m := 64)
+          (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da48 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da48#64) vminstret (0x0007b703#32)
+    (instruction.LOAD (0x000#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0e#5, false, 8))
+    Register.x14 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))
+    (0x03#8) (0xb7#8) (0x07#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x0007b703#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (exec_ld_ram σ (0x8001da48#64) (0x000#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0e#5)
+      (sigma3_alu σ (0x8001da48#64) Register.x14 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
+      v15 hG
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da48#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x14 _ (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))))
+      hlo hhiram hhtif)
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da4c: `srliw x15,x20,7`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da4c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v20 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx20 : σ.regs.get? Register.x20 = some v20)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da4c#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x07#5)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da4c (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da4c#64) vminstret (0x007a579b#32)
+    (instruction.SHIFTIWOP (0x07#5, regidx.Regidx 0x14#5, regidx.Regidx 0x0f#5, sopw.SRLIW))
+    Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x07#5)))
+    (0x9b#8) (0x57#8) (0x7a#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x007a579b#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiwop_srliw_char (0x07#5) (regidx.Regidx 0x14#5) (regidx.Regidx 0x0f#5) v20
+      (afterNextPC (afterPrelude σ) (0x8001da4c#64))
+      (sigma3_alu σ (0x8001da4c#64) Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x07#5))))
+      (rX_bits_x20 _ v20
+        (by rw [get?_afterNextPC σ (0x8001da4c#64) _ (by decide) (by decide)]; exact hx20))
+      (wX_bits_x15 _ (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x07#5)))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da50: `andi x15,x15,0xff`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da50 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da50#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v15 &&& sign_extend (m := 64) (0x0ff#12))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da50 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da50#64) vminstret (0x0ff7f793#32)
+    (instruction.ITYPE (0x0ff#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, iop.ANDI))
+    Register.x15 (v15 &&& sign_extend (m := 64) (0x0ff#12))
+    (0x93#8) (0xf7#8) (0xf7#8) (0x0f#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x0ff7f793#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_itype_andi_char (0x0ff#12) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0f#5) v15
+      (afterNextPC (afterPrelude σ) (0x8001da50#64))
+      (sigma3_alu σ (0x8001da50#64) Register.x15 (v15 &&& sign_extend (m := 64) (0x0ff#12)))
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da50#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x15 _ (v15 &&& sign_extend (m := 64) (0x0ff#12))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da54: `slli x15,x15,4`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da54 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da54#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da54 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da54#64) vminstret (0x00479793#32)
+    (instruction.SHIFTIOP (0x04#6, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, sop.SLLI))
+    Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))
+    (0x93#8) (0x97#8) (0x47#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00479793#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiop_slli_char (0x04#6) (regidx.Regidx 0x0f#5) (regidx.Regidx 0x0f#5) v15
+      (afterNextPC (afterPrelude σ) (0x8001da54#64))
+      (sigma3_alu σ (0x8001da54#64) Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0)))
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da54#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x15 _ (shift_bits_left v15 (Sail.BitVec.extractLsb (0x04#6) 5 0))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da58: `add x15,x25,x15`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da58 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v25 v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx25 : σ.regs.get? Register.x25 = some v25)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da58#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v25 + v15)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da58 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da58#64) vminstret (0x00fc87b3#32)
+    (instruction.RTYPE (regidx.Regidx 0x0f#5, regidx.Regidx 0x19#5, regidx.Regidx 0x0f#5, rop.ADD))
+    Register.x15 (v25 + v15)
+    (0xb3#8) (0x87#8) (0xfc#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00fc87b3#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_rtype_add_char (regidx.Regidx 0x0f#5) (regidx.Regidx 0x19#5) (regidx.Regidx 0x0f#5)
+      v25 v15 (afterNextPC (afterPrelude σ) (0x8001da58#64))
+      (sigma3_alu σ (0x8001da58#64) Register.x15 (v25 + v15))
+      (rX_bits_x25 _ v25
+        (by rw [get?_afterNextPC σ (0x8001da58#64) _ (by decide) (by decide)]; exact hx25))
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da58#64) _ (by decide) (by decide)]; exact hx15))
+      (wX_bits_x15 _ (v25 + v15)))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da5c: `xor x26,x26,x14`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da5c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v26 v14 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx26 : σ.regs.get? Register.x26 = some v26)
+    (hx14 : σ.regs.get? Register.x14 = some v14)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da5c#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x26 (v26 ^^^ v14)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da5c (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da5c#64) vminstret (0x00ed4d33#32)
+    (instruction.RTYPE (regidx.Regidx 0x0e#5, regidx.Regidx 0x1a#5, regidx.Regidx 0x1a#5, rop.XOR))
+    Register.x26 (v26 ^^^ v14)
+    (0x33#8) (0x4d#8) (0xed#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x00ed4d33#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_rtype_xor_char (regidx.Regidx 0x0e#5) (regidx.Regidx 0x1a#5) (regidx.Regidx 0x1a#5) v26 v14
+      (afterNextPC (afterPrelude σ) (0x8001da5c#64))
+      (sigma3_alu σ (0x8001da5c#64) Register.x26 (v26 ^^^ v14))
+      (rX_bits_x26 _ v26
+        (by rw [get?_afterNextPC σ (0x8001da5c#64) _ (by decide) (by decide)]; exact hx26))
+      (rX_bits_x14 _ v14
+        (by rw [get?_afterNextPC σ (0x8001da5c#64) _ (by decide) (by decide)]; exact hx14))
+      (wX_bits_x26 _ (v26 ^^^ v14)))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da60: `sb x18,0x8(x15)`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da60 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 v18 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hx18 : σ.regs.get? Register.x18 = some v18)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da60#64 : BitVec 64))
+    (hlo : 0x80000000 ≤ (v15 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hhiram : (v15 + sign_extend (m := 64) (0x008#12)).toNat + 1 ≤ 0x100000000)
+    (hhiwin : tohostAddr + 16 ≤ (v15 + sign_extend (m := 64) (0x008#12)).toNat) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = ((afterNextPC (afterPrelude σ) (0x8001da60#64)).mem.insert
+        (v15 + sign_extend (m := 64) (0x008#12)).toNat (stData 1 v18)) ∧
+      ReadsLikePost σ' (sigmaPost_store σ pc vminstret
+        (((afterNextPC (afterPrelude σ) (0x8001da60#64)).mem.insert (v15 + sign_extend (m := 64) (0x008#12)).toNat (stData 1 v18)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da60 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_store σ i u (0x8001da60#64) vminstret (0x01278423#32)
+    (instruction.STORE (0x008#12, regidx.Regidx 0x12#5, regidx.Regidx 0x0f#5, 1))
+    (((afterNextPC (afterPrelude σ) (0x8001da60#64)).mem.insert (v15 + sign_extend (m := 64) (0x008#12)).toNat (stData 1 v18)))
+    (0x23#8) (0x84#8) (0x27#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x01278423#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (exec_sb σ (0x8001da60#64) (0x008#12) (regidx.Regidx 0x12#5) (regidx.Regidx 0x0f#5)
+      v15 v18 hG
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da60#64) _ (by decide) (by decide)]; exact hx15))
+      (rX_bits_x18 _ v18
+        (by rw [get?_afterNextPC σ (0x8001da60#64) _ (by decide) (by decide)]; exact hx18))
+      hlo hhiram hhiwin)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da64: `sd x26,0x0(x15)`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da64 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 v26 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hx26 : σ.regs.get? Register.x26 = some v26)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da64#64 : BitVec 64))
+    (halo : 0x80000000 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hahiram : (v15 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
+    (hahiwin : tohostAddr + 16 ≤ (v15 + sign_extend (m := 64) (0x000#12)).toNat)
+    (haalign : (v15 + sign_extend (m := 64) (0x000#12)).toNat % 8 = 0) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = writeMap8 (afterNextPC (afterPrelude σ) (0x8001da64#64)).mem
+        (v15 + sign_extend (m := 64) (0x000#12)).toNat (sdData_val v26) ∧
+      ReadsLikePost σ' (sigmaPost_store σ pc vminstret
+        (writeMap8 (afterNextPC (afterPrelude σ) (0x8001da64#64)).mem (v15 + sign_extend (m := 64) (0x000#12)).toNat (sdData_val v26))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da64 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_store σ i u (0x8001da64#64) vminstret (0x01a7b023#32)
+    (instruction.STORE (0x000#12, regidx.Regidx 0x1a#5, regidx.Regidx 0x0f#5, 8))
+    (writeMap8 (afterNextPC (afterPrelude σ) (0x8001da64#64)).mem (v15 + sign_extend (m := 64) (0x000#12)).toNat (sdData_val v26))
+    (0x23#8) (0xb0#8) (0xa7#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x01a7b023#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (exec_sd_val σ (0x8001da64#64) (0x000#12) (regidx.Regidx 0x1a#5) (regidx.Regidx 0x0f#5)
+      v15 v26 hG
+      (rX_bits_x15 _ v15
+        (by rw [get?_afterNextPC σ (0x8001da64#64) _ (by decide) (by decide)]; exact hx15))
+      (rX_bits_x26 _ v26
+        (by rw [get?_afterNextPC σ (0x8001da64#64) _ (by decide) (by decide)]; exact hx26))
+      halo hahiram hahiwin haalign)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da68: `addi x27,x27,0x8`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da68 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v27 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx27 : σ.regs.get? Register.x27 = some v27)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da68#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x27
+        (v27 + sign_extend (m := 64) (0x008#12))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da68 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da68#64) vminstret (0x008d8d93#32)
+    (instruction.ITYPE (0x008#12, regidx.Regidx 0x1b#5, regidx.Regidx 0x1b#5, iop.ADDI))
+    Register.x27 (v27 + sign_extend (m := 64) (0x008#12))
+    (0x93#8) (0x8d#8) (0x8d#8) (0x00#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x008d8d93#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_itype_addi_char (0x008#12) (regidx.Regidx 0x1b#5) (regidx.Regidx 0x1b#5) v27
+      (afterNextPC (afterPrelude σ) (0x8001da68#64))
+      (sigma3_alu σ (0x8001da68#64) Register.x27 (v27 + sign_extend (m := 64) (0x008#12)))
+      (rX_bits_x27 _ v27
+        (by rw [get?_afterNextPC σ (0x8001da68#64) _ (by decide) (by decide)]; exact hx27))
+      (wX_bits_x27 _ (v27 + sign_extend (m := 64) (0x008#12))))
+    (by decide) (by decide) (by decide) (by decide) (by decide)
+    hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8001da6c: `j 0x8001bfe4`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da6c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da6c#64 : BitVec 64))
+    (htgt : (pc + sign_extend (m := 64) (0x1fe578#21)).toNat % 4 = 0) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1fe578#21))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da6c (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_j σ i u (0x8001da6c#64) vminstret (0xd78fe06f#32) (0x1fe578#21)
+    (0x6f#8) (0xe0#8) (0x8f#8) (0xd7#8)
+    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0xd78fe06f#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    htgt hi
+
+/-- 0x8001da70: `srliw x15,x20,16`. -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8001da70 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v20 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx20 : σ.regs.get? Register.x20 = some v20)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8001da70#64 : BitVec 64)) (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x10#5)))) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaV_execute_at_8001da70 (Lua.Vm.Code.textLoaded_LuaV_execute_p06Loaded hmem)
+  exact stepObs_alu σ i u (0x8001da70#64) vminstret (0x010a579b#32)
+    (instruction.SHIFTIWOP (0x10#5, regidx.Regidx 0x14#5, regidx.Regidx 0x0f#5, sopw.SRLIW))
+    Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x10#5)))
+    (0x9b#8) (0x57#8) (0x0a#8) (0x01#8)
+    hG hpc hminstret (by apply BitVec.eq_of_toNat_eq; decide)
+    (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x010a579b#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (execute_shiftiwop_srliw_char (0x10#5) (regidx.Regidx 0x14#5) (regidx.Regidx 0x0f#5) v20
+      (afterNextPC (afterPrelude σ) (0x8001da70#64))
+      (sigma3_alu σ (0x8001da70#64) Register.x15 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x10#5))))
+      (rX_bits_x20 _ v20
+        (by rw [get?_afterNextPC σ (0x8001da70#64) _ (by decide) (by decide)]; exact hx20))
+      (wX_bits_x15 _ (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x10#5)))))
     (by decide) (by decide) (by decide) (by decide) (by decide)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
 
