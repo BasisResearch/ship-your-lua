@@ -473,3 +473,27 @@ baseline ast-construct-fanout 84c45e2
 - **F2 survival.** Oracle `Host` and two-speed footprints (C10) go into PHASES
   as design constraints for F2.
 - **Plan change.** Strings must land with floats (SUITE.md finding).
+
+## Carried to round 2 (A1)
+
+**Incumbent to evaluate.** syi-7e reports that the "verified symbolic
+evaluator, one check per arm" candidate (C7) already exists on
+ship-your-interpreter's `exponentiate` branch:
+
+- `VsaIris/Vsa/SymExec.lean`: `symRun`, `symRun_auto` (proved sound against
+  `SWP`), the reflective obligation checker `obCheck` over interval `Geom`
+  facts, and the image code pins `CodeAt`/`rangeText`;
+- the tactic `sym_run` (`VsaIris/Interp/SymInterp.lean`).
+
+**Measured there:** 3.3–5.7× less CPU per run piece than per-pc lemma
+stepping.
+
+**Known gaps** (a v2 is in progress there):
+- decode is paid per instruction;
+- only 64-bit store forwarding;
+- no call nodes, so every `jal ra` stops the run;
+- no branch merging.
+
+**Plan.** Round 2's A1 bake-off should include it as a contender, copied once
+merged, rather than build a second evaluator. The ship-your-lua segment
+batteries (A0.7/A0.8) are the per-site incumbent it competes with.
