@@ -18,7 +18,7 @@
  * them (Linux's choice where it has one). The clock is frozen at 0
  * (`TCB.Os.Clock.frozen`). Validated against the spec by trace checking:
  * experiments/os/run.sh and experiments/os/RESULTS.md. */
-#if defined(LUA_HTIF) || defined(HOST_MIRROR)
+#if defined(LUA_HTIF) || defined(OCAML_HTIF) || defined(HOST_MIRROR)
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -41,15 +41,19 @@ volatile uint64_t fromhost __attribute__((section(".tohost"), aligned(8)));
 
 /* Each 8-byte store is a complete HTIF command; the sail model processes
  * it synchronously and clears the mailbox, so no ready-polling is needed. */
+#ifndef HOST_MIRROR
 static void htif_putc(char c) {
     tohost = HTIF_DEV_CONSOLE | HTIF_CMD_WRITE | (uint8_t)c;
 }
 
-#ifndef HOST_MIRROR
 void _exit(int code) {
     tohost = ((uint64_t)(uint32_t)code << 1) | 1;
     for (;;) {}
 }
+#else
+/* Compiled natively (tcb/validation/driver.c, ship-your-ocaml's
+ * tests/hostmirror.sh): the console is the host's stdout. */
+static void htif_putc(char c) { write(1, &c, 1); }
 #endif
 
 /* --- in-memory file system ----------------------------------------------- */

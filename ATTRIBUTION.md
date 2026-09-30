@@ -56,12 +56,16 @@ addresses. PHASES.md A0 retargets them to the Lua ELF.
 
 | here | there | changes |
 |---|---|---|
-| `tcb/` (Lean library `TCB`, `tcbcheck`, `Audit.lean`, `validation/`, `upstream/`, `LICENSE-*`) | `tcb/` | none. Its `README.md` and `validation/RESULTS.md` describe ship-your-ocaml (its theorems, its `htif.c`); this repository's results are in `experiments/os/RESULTS.md` |
+| `tcb/` (Lean library `TCB`, `tcbcheck`, `Audit.lean`, `validation/`, `upstream/`, `LICENSE-*`) | `tcb/` | `b6ffcf9` plus ship-your-ocaml's diff of `tcb/` from `main` to branch `f5-htif` at `39e79b2` (spec DEVIATION 10 in `osReaddir`; `driver.c`'s MEMFS back end calls `mkdir`/`rmdir` and passes paths unchanged; RESULTS.md), so `tcb/` equals ship-your-ocaml's at `39e79b2`. Its `README.md` and `validation/RESULTS.md` describe ship-your-ocaml (its theorems, its `htif.c`); this repository's results are in `experiments/os/RESULTS.md` |
 | `lakefile.toml`: the `TCB` library and `tcbcheck` executable | same | none |
 | `Lua/Os/HtifFs.lean` | `OCaml/Os.lean` (the part over `Vsa.Machine` + `TCB`) | namespace `Lua.Os`; `retOf` takes the entry configuration too; `OsSpecial` calls allowed (the file's header says why) |
 
 `experiments/os/htif_shim.h` and `experiments/os/run.sh` are new: they run
 the copied `tcb/validation/driver.c` against this repository's `htif.c`.
+
+`c/src/htif.c`'s in-image file system was written here and adopted by
+ship-your-ocaml (`f5-htif` `39e79b2`, its OCaml-only parts marked `OCAML`);
+the shared parts are kept identical in both.
 
 `tcb/` contains third-party material, under its own licences:
 

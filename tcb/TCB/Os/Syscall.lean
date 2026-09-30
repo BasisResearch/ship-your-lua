@@ -269,9 +269,16 @@ def osOpendirFd (s : OsState) (path : String) : List Out :=
 
 /-- `os_readdir` (spec:5165): consume the observed changes (added names may
 be reported, removed ones need not be), then return any name that must or
-may still be reported, or the end if none must. Faithful to a quirk of the
-source (spec:5214-5216): the end-of-directory result drops the updated
-handle (the changes are consumed but not recorded). -/
+may still be reported, or the end if none must.
+
+DEVIATION 10: at the end of the directory the source (spec:5214-5216)
+drops the updated handle — the observed changes are consumed but not
+recorded — so after an entry that still had to be reported is removed, a
+first `readdir` may return the end and a second one must then return the
+removed name. That rejects POSIX/Linux behaviour (once at the end, `readdir`
+keeps returning the end); found by the in-image file system's run
+(`tcb/validation/RESULTS.md`). Here the end result records the updated
+handle. -/
 def osReaddir (s : OsState) (dh : Nat) : List Out :=
   match lookupDh s dh with
   | none => [.ok s (.err .EBADF)]
@@ -292,7 +299,7 @@ def osReaddir (s : OsState) (dh : Nat) : List Out :=
         let h'' := if h'.must.contains n then { h' with must := h'.must.erase n }
           else { h' with may := h'.may.erase n }
         Out.ok { s1 with dhs := aupdate s.dhs dh h'' } (.bytes n.toUTF8.toList)
-      if h'.must.isEmpty then .ok s1 .none :: named else named
+      if h'.must.isEmpty then .ok { s1 with dhs := aupdate s.dhs dh h' } .none :: named else named
 
 /-- `os_closedir` (spec:5237). -/
 def osClosedir (s : OsState) (dh : Nat) : List Out :=

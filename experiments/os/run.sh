@@ -12,19 +12,7 @@ Q=${1:-}
 O=experiments/os/out${Q:+-quick}
 mkdir -p "$O/sandbox"
 gcc -O1 -Wall -o "$O/driver-linux" tcb/validation/driver.c
-# driver.c's MEMFS branch answers mkdir/rmdir with `unsupported` and puts
-# absolute paths under "/sb" (ship-your-ocaml's htif.c has no directories
-# and no path resolution); ours has both, so the copy compiled here calls
-# htif.c's mkdir/rmdir and passes paths unchanged (its root is the
-# script's "/", as the fresh sandbox directory is on Linux). These three
-# lines are the only change.
-sed -e 's|^static const char \*ROOT = "/sb";|static const char *ROOT = "";|' \
-    -e '/"mkdir")) {/,/^#endif/ s|fprintf(out, "unsupported\\n");|if (mkdir(mapp(\&t[1]), 0777) < 0) ret_err(); else fprintf(out, "none\\n");|' \
-    -e '/"rmdir")) {/,/^#endif/ s|fprintf(out, "unsupported\\n");|if (rmdir(mapp(\&t[1])) < 0) ret_err(); else fprintf(out, "none\\n");|' \
-    tcb/validation/driver.c > "$O/driver-htif.c"
-[ "$(diff tcb/validation/driver.c "$O/driver-htif.c" | grep -c '^>')" = 3 ] || { echo "driver patch failed"; exit 1; }
-sed -i 's|"../../c/src/htif.c"|"'"$(pwd)"'/c/src/htif.c"|' "$O/driver-htif.c"
-gcc -O1 -w -DMEMFS -include experiments/os/htif_shim.h -o "$O/driver-htif" "$O/driver-htif.c"
+gcc -O1 -w -DMEMFS -include experiments/os/htif_shim.h -o "$O/driver-htif" tcb/validation/driver.c
 python3 tcb/validation/gen.py "$O/all.scripts" ${Q:+--quick}
 "$O/driver-linux" "$O/all.scripts" "$O/linux.trace" "$(realpath "$O/sandbox")" < /dev/null > /dev/null
 # console.scripts only on htif.c: the Linux driver does not reset fds 0-2

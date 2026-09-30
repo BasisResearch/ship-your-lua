@@ -1,14 +1,15 @@
-/* Pre-include for tcb/validation/driver.c (copied verbatim from
- * ship-your-ocaml): run its MEMFS back end against OUR c/src/htif.c,
- * unchanged, compiled natively (experiments/os/run.sh).
+/* Pre-include for tcb/validation/driver.c (copied from ship-your-ocaml):
+ * run its MEMFS back end against OUR c/src/htif.c, unchanged, compiled
+ * natively (experiments/os/run.sh).
  *
  * driver.c's MEMFS branch #includes "../../c/src/htif.c" (this repository's
  * htif.c, compiled with -DHOST_MIRROR) and resets it between scripts by
  * zeroing `files`, `fds`, `dirs` and `fs_ready`. Our htif.c has `files`,
  * `fds` and `fs_ready` (zeroed, the file system is empty again) and every
  * function the driver calls except the directory streams: the Lua ELF
- * has no opendir/readdir/closedir (Lua's io/os libraries do not use them).
- * This header supplies what is left:
+ * has no opendir/readdir/closedir (Lua's io/os libraries do not use them;
+ * ship-your-ocaml's htif.c has them, marked OCAML). This header supplies
+ * what is left:
  *   - `struct embedded_file` (driver.c defines an empty `embedded_files[]`;
  *     the Lua image embeds no files);
  *   - `dirs` and the three directory functions, each failing with an errno

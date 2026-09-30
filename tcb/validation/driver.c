@@ -60,7 +60,7 @@ static void backend_reset(void) {
 #define B_READDIR(d) readdir(d)
 #define B_CLOSEDIR(d) closedir(d)
 #define DIRENT struct direct
-static const char *ROOT = "/sb";
+static const char *ROOT = "";   /* real path resolution: no prefix needed */
 #else
 #include <dirent.h>
 #include <ftw.h>
@@ -220,17 +220,9 @@ static void run_call(char *line) {
         char a[8192]; snprintf(a, sizeof a, "%s", mapp(&t[1]));
         if (B_RENAME(a, mapp(&t[2])) < 0) ret_err(); else fprintf(out, "none\n");
     } else if (!strcmp(c, "mkdir")) {
-#ifdef MEMFS
-        fprintf(out, "unsupported\n");
-#else
         if (mkdir(mapp(&t[1]), 0777) < 0) ret_err(); else fprintf(out, "none\n");
-#endif
     } else if (!strcmp(c, "rmdir")) {
-#ifdef MEMFS
-        fprintf(out, "unsupported\n");
-#else
         if (rmdir(mapp(&t[1])) < 0) ret_err(); else fprintf(out, "none\n");
-#endif
     } else if (!strcmp(c, "opendir")) {
         void *d = B_OPENDIR(mapp(&t[1]));
         if (!d) { ret_err(); }

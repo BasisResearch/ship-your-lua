@@ -103,8 +103,12 @@ echo "== (5b) OS-spec traces (tcb/, experiments/os/run.sh --quick)"
 experiments/os/run.sh --quick > /dev/null 2>&1 || fail "OS trace run"
 grep -q " rejected 0 " experiments/os/out-quick/linux.summary || fail "Linux traces rejected by TCB.Os.next"
 cat experiments/os/out-quick/linux.summary
-# htif.c's console verdicts are pinned: a change means RESULTS.md is stale
-grep -q "accepted 7 rejected 16 special 1 " experiments/os/out-quick/console-htif.summary \
+# htif.c's in-image file system: no trace rejected, and its verdicts are
+# pinned (a change means experiments/os/RESULTS.md is stale)
+grep -q "accepted 264 rejected 0 special 4 unsupported 61" experiments/os/out-quick/htif.summary \
+  || fail "htif.c generated-script verdicts changed (update experiments/os/RESULTS.md)"
+cat experiments/os/out-quick/htif.summary
+grep -q "accepted 25 rejected 0 special 1 " experiments/os/out-quick/console-htif.summary \
   || fail "htif.c console verdicts changed (update experiments/os/RESULTS.md)"
 cat experiments/os/out-quick/console-htif.summary
 
