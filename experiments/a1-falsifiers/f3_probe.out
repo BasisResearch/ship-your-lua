@@ -1,0 +1,29 @@
+locals8        dispatches=13 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=0/0 base_change_within=1 across=0
+locals8          within-activation base change after op81 x1
+locals12       dispatches=17 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=0/0 base_change_within=1 across=0
+locals12         within-activation base change after op81 x1
+locals14       dispatches=19 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=0/0 base_change_within=1 across=0
+locals14         within-activation base change after op81 x1
+locals15       dispatches=20 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=1/1 base_change_within=2 across=0 grow@180982(ra=8000ac14,n=20) realloc@181015(ra=8000ac14,n=80)
+locals15         within-activation base change after op68+realloc x1
+locals15         within-activation base change after op81 x1
+locals16       dispatches=21 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=1/1 base_change_within=2 across=0 grow@181024(ra=8000ac14,n=20) realloc@181057(ra=8000ac14,n=80)
+locals16         within-activation base change after op68+realloc x1
+locals16         within-activation base change after op81 x1
+locals17       dispatches=22 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=1/1 base_change_within=2 across=0 grow@181066(ra=8000ac14,n=20) realloc@181099(ra=8000ac14,n=80)
+locals17         within-activation base change after op68+realloc x1
+locals17         within-activation base change after op81 x1
+locals18       dispatches=23 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=1/1 base_change_within=2 across=0 grow@181108(ra=8000ac14,n=20) realloc@181141(ra=8000ac14,n=80)
+locals18         within-activation base change after op68+realloc x1
+locals18         within-activation base change after op81 x1
+locals20       dispatches=25 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=1/1 base_change_within=2 across=0 grow@181192(ra=8000ac14,n=20) realloc@181225(ra=8000ac14,n=80)
+locals20         within-activation base change after op68+realloc x1
+locals20         within-activation base change after op81 x1
+locals24       dispatches=29 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=1/1 base_change_within=2 across=0 grow@181360(ra=8000ac14,n=20) realloc@181393(ra=8000ac14,n=80)
+locals24         within-activation base change after op68+realloc x1
+locals24         within-activation base change after op81 x1
+locals30       dispatches=35 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=0/0 after=1/1 base_change_within=2 across=0 grow@181612(ra=8000ac14,n=20) realloc@181645(ra=8000ac14,n=80)
+locals30         within-activation base change after op68+realloc x1
+locals30         within-activation base change after op81 x1
+locals40       dispatches=45 vx_entries=1 activations=1 (calls=1 tailcalls=0 returns=0 unmatched=0) realloc/grow before first luaV_execute=1/1 after=0/0 base_change_within=1 across=0
+locals40         within-activation base change after op81 x1

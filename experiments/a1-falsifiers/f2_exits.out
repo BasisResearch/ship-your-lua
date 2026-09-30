@@ -1,0 +1,42 @@
+== ADD: 7 exit paths; 52 static insts; static head-return sites: 8001da0c:j 8001e440:j 8001e804:j 8001eebc:j 8001f084:j
+  x3   head                   next=+4    trap=same     stores=0 calls=[] helpers=[]
+  x1   head                   next=+8    trap=same     stores=2 calls=[] helpers=[]
+  x1   head                   next=+8    trap=same     stores=2 calls=[] helpers=[__adddf3]
+  x2   head                   next=+8    trap=same     stores=2 calls=[] helpers=[__adddf3,__floatdidf]
+== EQI: 6 exit paths; 41 static insts; static head-return sites: 8001c84c:j 8001ea34:j
+  x2   head                   next=+8    trap=same     stores=0 calls=[] helpers=[]
+  x1   head                   next=+8    trap=same     stores=0 calls=[] helpers=[__eqdf2,__floatsidf]
+  x2   head                   next=jump  trap=reloaded stores=0 calls=[] helpers=[]
+  x1   head                   next=jump  trap=reloaded stores=0 calls=[] helpers=[__eqdf2,__floatsidf]
+== FORLOOP: 6 exit paths; 55 static insts; static head-return sites: 8001c248:j
+  x1   head                   next=+4    trap=reloaded stores=0 calls=[] helpers=[]
+  x1   head                   next=+4    trap=reloaded stores=0 calls=[] helpers=[__adddf3,__gedf2]
+  x1   head                   next=+4    trap=reloaded stores=0 calls=[] helpers=[__adddf3,__gedf2,__ledf2]
+  x1   head                   next=jump  trap=reloaded stores=3 calls=[] helpers=[__adddf3,__gedf2]
+  x1   head                   next=jump  trap=reloaded stores=3 calls=[] helpers=[__adddf3,__gedf2,__ledf2]
+  x1   head                   next=jump  trap=reloaded stores=4 calls=[] helpers=[]
+
+== arithmetic family: normal exits (head, no effectful call) by next pc
+  ADD    normal={'+8': 4, '+4': 3} other={}
+  SUB    normal={'+8': 4, '+4': 3} other={}
+  MUL    normal={'+8': 4, '+4': 3} other={}
+  MOD    normal={'+8': 19, '+4': 3} other={'noreturn': 1}
+  IDIV   normal={'+8': 6, '+4': 3} other={'noreturn': 1}
+  ADDI   normal={'+8': 2, '+4': 1} other={}
+  ADDK   normal={'+8': 4, '+4': 3} other={}
+  SUBK   normal={'+8': 4, '+4': 3} other={}
+  MULK   normal={'+8': 4, '+4': 3} other={}
+  MODK   normal={'+8': 19, '+4': 3} other={'noreturn': 1}
+  IDIVK  normal={'+8': 6, '+4': 3} other={'noreturn': 1}
+  BAND   normal={'+8': 4, '+4': 12} other={}
+  BOR    normal={'+8': 4, '+4': 12} other={}
+  BXOR   normal={'+8': 4, '+4': 12} other={}
+  SHL    normal={'+8': 16, '+4': 12} other={}
+  SHR    normal={'+8': 16, '+4': 12} other={}
+  BANDK  normal={'+8': 2, '+4': 4} other={}
+  BORK   normal={'+8': 2, '+4': 4} other={}
+  BXORK  normal={'+8': 2, '+4': 4} other={}
+  SHRI   normal={'+8': 8, '+4': 4} other={}
+  SHLI   normal={'+8': 8, '+4': 4} other={}
+  UNM    normal={'+4': 2} other={'head:luaT_trybinTM': 1}
+  BNOT   normal={'+4': 2} other={'head:luaT_trybinTM': 4}

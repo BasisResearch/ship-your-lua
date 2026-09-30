@@ -1,0 +1,9 @@
+exact : 54 classes; merged []
+alu   : 46 classes; merged [['ADD', 'SUB', 'MUL'], ['ADDK', 'SUBK', 'MULK'], ['BAND', 'BOR', 'BXOR'], ['BANDK', 'BORK', 'BXORK']]
+alu2  : 46 classes; merged [['ADD', 'SUB', 'MUL'], ['ADDK', 'SUBK', 'MULK'], ['BAND', 'BOR', 'BXOR'], ['BANDK', 'BORK', 'BXORK']]
+rule 1 (merge mod ALU): {'MUL,ADD,SUB': True, 'MULK,ADDK,SUBK': True, 'MUL,MULK': False}
+mst_canon_exact: MST 3472 / 6454 = 0.538 (with root 0.539)
+mst_canon_alu: MST 3364 / 6454 = 0.521 (with root 0.523)
+mst_raw: MST 1705 / 2993 = 0.57 (with root 0.572)
+sensitivity_49_canon_alu: MST 1328 / 4024 = 0.33 (with root 0.332)
+sensitivity_49_raw: MST 1316 / 2525 = 0.521 (with root 0.524)
