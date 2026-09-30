@@ -26,7 +26,7 @@ Every row is currently unassigned.
 | `VmLayout.runtimeReady` concrete instance `luaLayout` | `Lua/Vm/Runtime.lean` | A0 | **defined** (`luaRuntimeReady`); every field holds at both traced entries (checked natively by `gen_lua_boot_witness.py`) |
 | `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | `Lua/Vm/Boot/` | A0 | open: the generator, the entry data and the reconstruction lemmas are landed; the kernel witness is not written (A0.6) |
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **pilot proved**: the relation `VmRel`, `dispatch`, and `sim_MOVE`/`sim_LOADI`/`sim_JMP` (A1 status) |
-| `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | open |
+| `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
 | `CompileTV (fun s p => compile s = some p)` for a Lean `compile` | new `Lua/Compile/` | B2 | open |
@@ -160,8 +160,10 @@ instances, however, are at the WHILE ELF's addresses.
      `setjmp`/`longjmp`.
 6. **`luaLayout` (defined; kernel witness open).**
    * **`luaRuntimeReady`** (`Lua/Vm/Runtime.lean`) is `∃ w : RtPtrs,
-     RuntimeReadyAt c.σ L ci w`, six named structures. Each field's doc
+     RuntimeReadyAt c L ci w`, eight named structures. Each field's doc
      comment names the callee that reads it:
+     * `HarnessAt`: the platform loop's `tick < 2` and the empty console
+       (read by A1's `vmRel_entry`);
      * `CStackAt`: `sp`, `ra` (into `ccall`, `retCcall_after_call`), `gp`, the
        saved registers `s0 … s11`, the caller frames' bytes above `sp`, and
        every RAM byte present (true of the zero fill);
@@ -177,7 +179,12 @@ instances, however, are at the WHILE ELF's addresses.
        `tbclist`, the stack bounds, `L->top = func + 1`, `ci->top`,
        `CIST_FRESH`, `nresults = 0`, `ci->previous`/`ci->next`, the `mt` of
        nil/booleans/numbers, the string table (`StrtAt`, chains by
-       `StrChain`) and the string cache.
+       `StrChain`) and the string cache;
+     * `VmRegionsAt`: `L`, `ci`, the Lua stack, the main closure, its `Proto`
+       and code array lie in the heap `[_end, __heap_end)`, and `ci` and the
+       code array lie apart from the Lua stack (read by `vmRel_entry`: the
+       prologue's loads and `VmRel`'s `Ranges`). `RtPtrs` names the closure,
+       the `Proto`, `code` and `sizecode`.
    * `luaLayout : VmLayout := ⟨luaRuntimeReady⟩`. The boot-invariant values it
      pins (entry `sp`/`ra`, the `jmp_buf`, the caller frames, the return
      chain, `nCcalls`) are `Lua/Vm/RuntimeData.lean`. The offsets are
@@ -192,7 +199,9 @@ instances, however, are at the WHILE ELF's addresses.
      * It rebuilds the entry memory: the PT_LOAD `p_filesz` bytes plus the
        store log.
      * It evaluates every field of `VmEntryData` and `luaRuntimeReady`, and
-       requires the boot-invariant values to agree across programs.
+       requires the boot-invariant values to agree across programs. For
+       `HarnessAt` it checks `plat_insns_per_tick ≤ 2` and that no boot store
+       touches `tohost`.
      * It emits `RuntimeData.lean`, `Boot/ImageData.lean` and
        `Boot/Gen/{While,F1Ops}.lean`: the chunk region, the `PackedLog`, the
        `RunTree`, the registers and the witnesses `e`, `w`, `printSlot`, as
@@ -356,10 +365,24 @@ covers the new stages.
 
     The segments of `SIM_OPS` arms carry the fetch-head registers and
     `sailOutput` (`gen_lua_arms.py` `KEEP`).
+  * **Entry lemma (proved,** `Lua/Vm/Sim/Entry.lean`, `vmRel_entry :
+    vmRel_entry_Statement`**).** From `VmLoaded luaLayout p c`, the prologue
+    runs to the fetch head in `VmRel p c' State.init`. It composes the two
+    generated prologue segments (`Lua/Vm/Arms/Prologue.lean`,
+    `gen_lua_arms.py`, cut at `startfunc`):
+    * `seg_8001bf68_8001bfb0` (the C frame, `L`/`ci`, the jump table): 52 ground
+      side conditions, one `decide` each;
+    * `seg_8001bfb0_8001bfe4` (`startfunc`'s loads, s1/s2, the `trap` check,
+      `base`): 27 side conditions, one normalising `simp` plus `omega` over
+      `VmRegionsAt`.
+
+    The relation's pointers are `VmEntryData`'s and `w.mo` is the entry
+    memory; `rdLE_spec` turns `rd32`/`rd64` into the total reads. It needed
+    two new `luaRuntimeReady` structures, `VmRegionsAt` and `HarnessAt`
+    (A0.6). Costs: `abstractions/pilot/A1-incumbent.md`.
   * **Open:**
     * the other 31 F1 arms: ADD, EQI and FORLOOP are held out for the round-2
       bake-off;
-    * the entry lemma (the prologue run from `VmLoaded` to `VmRel … State.init`);
     * `CALL` (heap, stdio and relocation evolve the complement);
     * the error paths;
     * the `term_sim`/`stuck_sim` fold.
