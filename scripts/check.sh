@@ -167,8 +167,10 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Bytecode.bcSemFrom_iff
 #print axioms Lua.Bytecode.cbcSem_iff
 #print axioms Lua.Bytecode.reachable_defInit
-#print axioms Lua.Bytecode.condJump_ne_none
-#print axioms Lua.Bytecode.condJump_lt
+#print axioms Lua.Bytecode.kstep_iff
+#print axioms Lua.Bytecode.footprint
+#print axioms Lua.Bytecode.certain_answers
+#print axioms Lua.Bytecode.DefInit.cert
 #print axioms Lua.Ast.luaRun_sound
 #print axioms Lua.Ast.LuaSem.deterministic
 #print axioms Lua.Bytecode.Final.not_step
