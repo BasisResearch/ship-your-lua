@@ -1,7 +1,9 @@
-closure of the generator/library targets: 1221 modules
-modules importing a WHILE root directly: 40
+ported targets: 16 of 26
+not yet ported: Vsa.Sim.DlHeap Vsa.Sim.AllocLedger VsaIris.Vsa.Fprintf.Run VsaIris.Vsa.Stdout.Code VsaIris.Vsa.ExitH.RunWritten VsaIris.Vsa.AllocSteps VsaIris.Vsa.AllocSteps.Part02 VsaIris.Vsa.AllocSteps.Part10 VsaIris.Vsa.AllocSteps.Part08 VsaIris.Vsa.AllocSteps.Part00
+closure of the targets not yet ported: 1209 modules
+modules importing a WHILE root directly: 39
 
-Vsa.MemRepr <- 12
+Vsa.MemRepr <- 11
   Vsa.Refinement
   Vsa.Sim.AstTransport
   Vsa.Sim.ConsoleStream
@@ -13,7 +15,6 @@ Vsa.MemRepr <- 12
   Vsa.Sim.StrcmpSpec
   Vsa.Sim.StrlenSpec
   Vsa.Sim.ValueSpec
-  VsaIris.Vsa.MallocFastCode
 
 Vsa.MemReprReadFields <- 1
   Vsa.Sim.EntryGroundKit

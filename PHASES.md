@@ -58,21 +58,61 @@ Every row is currently unassigned.
 The copied layer (`Vsa/`, `VsaIris/`) is language-agnostic. Its proof
 instances, however, are at the WHILE ELF's addresses.
 
-1. **`tohost`.**
-   * The problem: `Vsa.Sim.tohostAddr` (`0x8001ad00`) is baked into
-     `GoodState` and the `RamRead*` lemmas.
-   * Fix: make it the Lua image's `0x8005c6c0` (`Layout.symTohost`), or
-     generalise it to a parameter.
-   * Then retire `LuaGoodState`, which is a field-for-field copy.
-2. **Cut the 40 WHILE import edges.** `experiments/port/CUTS.txt` lists them,
-   from `python3 experiments/port/port_census.py`.
-   * They tie the segment bridges (`SegToTripleFramed`, `BridgeSeg*`,
-     `FrameMeta`, `DeriveCase`) to WHILE representation modules.
-   * They do the same to the allocator ledger (`AllocLedger`, `DlHeap`) and
-     to the newlib/dlmalloc Iris proofs (`VsaIris/Vsa/{SymRun,AllocSteps,Stdout,Fprintf,ExitH}`).
-   * Most of those edges supply shared geometry lemmas. Move those lemmas
-     below the WHILE modules, then copy the targets.
-   * Exit: `port_census.py --copyset` is clean with the targets included.
+1. **`tohost` (done).**
+   * `Vsa.Sim.tohostAddr` (`Vsa/Sim/InitValues.lean`) is the Lua ELF's
+     `tohost`. It is the only place the number is written: the copied proofs
+     that used the WHILE literal go through `tohostAddr`, and
+     `Lua.Vm.tohostAddr_eq_symTohost : Vsa.Sim.tohostAddr = Layout.symTohost`
+     (`rfl`) fails the build when a regenerated ELF moves `tohost`.
+   * Changing the value was cheaper than generalising: the whole copied layer
+     rebuilt unchanged apart from four literal bounds.
+   * `LuaGoodState` is retired; `MachineAt.good` and `Lua/Os/Htif.lean` use
+     `Vsa.Sim.GoodState`.
+2. **Cut the WHILE import edges (partly done).** `experiments/port/CUTS.txt`
+   (`python3 experiments/port/port_census.py`) lists what is left.
+   * **Method.** `experiments/port/term/` follows, over a built syi checkout,
+     every constant a module set uses (theorem bodies included). The import
+     edges into the WHILE layer mostly carried no WHILE constant. The generic
+     declarations they did carry are copied verbatim, under their own names,
+     into `Vsa/Sim/Generic/*` and `VsaIris/Vsa/Generic/*`. The importing
+     modules get rewritten import lines. `port_census.py --copyset` follows
+     this repository's import lines, and must stay WHILE-free and complete.
+   * **Ported (here):**
+     * the segment layer: `SegToTripleFramed` (`segRowFramed`), `DeriveCase`
+       (`#derive_case`), `DeriveCaseRow`, `BridgeSeg`, `BridgeSegFull`,
+       `BridgeSegFramed`, `FrameMeta`, `SegEffect`, `ExecRetEpilogue`,
+       `InterpSpillReads`;
+     * the dlmalloc Iris route: `VsaIris.Vsa.{SymRun,Instance,Tools,RunBase,AllocRun,AllocCode}`
+       and `AllocSteps/Part{01,03,04,05,06,07,09,11}`;
+     * the output/exit machinery of the stdio route: `SymRunO` (`SWPO`),
+       `SymObs`, `SymJalr`, `SymLeaf`, `SymBridge`, `SymData`, `SymHavoc`,
+       `SymCompact`, `SegRun`, `AllocSltu`, `Console` (`TohostSite`,
+       `putc_runFact`, `exit_haltFact`, `vsa_adequacy_exit`), `HtifStepObs`,
+       and `Vsa.Sim.Generic.ExitStep`;
+     * `SeparationLogic`, `MemPresence`.
+   * **Not ported, with the obstruction:**
+     * `AllocSteps/Part{00,02,08,10}`: seven store lemmas to the WHILE ELF's
+       `gp`-relative dlmalloc globals, which lie below the Lua `tohost`, so their
+       `StOK` side conditions are false
+       (`VsaIris.Sym.allocSteps_whileGlobals_not_stOK`). They are WHILE-address
+       instances; A0.5 regenerates the tables.
+     * ship-your-interpreter's `_write`/`_exit` `TohostSite` instances: their
+       stores miss the Lua mailbox (`VsaIris.Inst.whileSites_not_tohost`). The
+       Lua ELF's sites are instantiated in A0.5.
+     * `Stdout.*`, `Fprintf.*`, `ExitH.*` (the stdio chain). The step tables
+       are WHILE-address instances, and they also need about 27 helper
+       declarations and the `ITac`/`AllocTac` tactic layer. The top-level specs
+       (`fwrite_out`, `fprintf_out`, …) are stated in the WHILE interpreter's
+       Iris world (`VsaIris.Interp.Repr`: `InterpGS`, `Newlib.binImg`,
+       `FrameReads`). Following constructors, the census reaches
+       `Vsa.MemRepr.CString`, `Vsa.RuntimeRepr.NativeAddrs` and `Vsa.While.*`
+       (`experiments/port/term/CtorRoots.lean`). Seventy constants over 24
+       modules depend on the WHILE HTIF sites (`RevDeps.lean`). Porting means
+       restating that world for Lua. It is done together with A0.5's
+       regeneration.
+     * `DlHeap`, `AllocLedger`: the ledger is the WHILE runtime's ownership
+       (`RuntimeOwnership*`, `Vsa.While.{Ast,Semantics}`; 29 + 26 WHILE-root
+       constants reached).
 3. **Decode (done).** The generic decoder replaces per-word tables.
    * `Vsa.Sim.decodeW σ hmisa hpriv hsec : (ext_decode w).run σ = .ok i σ`
      (`Vsa/Sim/DecodeNF.lean`, from ship-your-interpreter's `#simp_nf`,

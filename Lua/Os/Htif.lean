@@ -208,7 +208,7 @@ structure LuaCallConv (scope : Call → Prop) (cc : CallConv) : Prop where
   /-- a decoded call is an in-scope call at its function's entry -/
   callAt_sound : ∀ c call, cc.callAt c = some call → HtifCallAt c call ∧ scope call
   /-- every in-scope call at a function's entry, in a good state, is decoded -/
-  callAt_complete : ∀ c call, LuaGoodState c.σ → HtifCallAt c call → scope call →
+  callAt_complete : ∀ c call, Vsa.Sim.GoodState c.σ → HtifCallAt c call → scope call →
     cc.callAt c = some call
   returnsTo_sound : ∀ c c', cc.returnsTo c c' → ReturnsTo c c'
   retOf_sound : ∀ c c' call, cc.callAt c = some call → cc.returnsTo c c' →
@@ -219,7 +219,7 @@ The in-image file system's state is in `.bss` (`files`, `fds`,
 `fs_ready`), which `crt0.S` zeroes; `fs_ready = 0` makes the first call
 set up the root and fds 0-2, so the initial state needs no data here. -/
 structure BootAt (c : Config) : Prop where
-  good : LuaGoodState c.σ
+  good : Vsa.Sim.GoodState c.σ
   pc : PcAt c symStart
   text : Vsa.Sim.Code.FixedBytesLoaded Image.textBase Image.textSize Image.textByte c.σ.mem
   rodata : Vsa.Sim.Code.FixedBytesLoaded Image.rodataBase Image.rodataSize Image.rodataByte c.σ.mem
@@ -236,7 +236,7 @@ output alone). That frame obligation comes with `OsState` in the semantics
 (PHASES.md, OS). -/
 structure HtifRepr (R : Config → OsState → Prop) : Prop where
   init : ∀ c, BootAt c → R c (OsState.init)
-  good : ∀ c st, R c st → LuaGoodState c.σ
+  good : ∀ c st, R c st → Vsa.Sim.GoodState c.σ
   console : ∀ c st, R c st → (output c.σ).toList = st.streams.console.map (fun b => Char.ofNat b.toNat)
 
 /-- **`htif.c` implements the OS spec** on every call of its twelve

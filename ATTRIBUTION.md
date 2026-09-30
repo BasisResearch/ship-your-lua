@@ -12,7 +12,20 @@ their own licences, listed below.
 | here | there | changes |
 |---|---|---|
 | `riscv-lean/` | `riscv-lean/` | none (added `README.md`, `LICENCE-sail-riscv`) |
-| `Vsa/` (663 modules) | `Vsa/` | none; `Vsa.lean` imports only the copied modules |
+| `Vsa/` (663 modules at first copy) | `Vsa/` | none, except the rows below; `Vsa.lean` imports only the copied modules |
+| `Vsa/Sim/InitValues.lean` | same | `tohostAddr` is the Lua ELF's `tohost` (was the WHILE ELF's `0x8001ad00`); `Lua.Vm.tohostAddr_eq_symTohost` (`rfl`) ties it to the generated `Layout.symTohost`, so an ELF change that moves `tohost` fails the build until this one number follows |
+| `Vsa/Sim/{Hooks,MemLoad,RamReadData,MemcpySpec}.lean` | same | the literal `tohost` bounds in their proofs are stated through `tohostAddr` (no number written); the `maxHeartbeats`/`maxRecDepth` raises are dropped (the proofs build without them) |
+| `Vsa/Sim/{SegToTripleFramed,BridgeSegFull,FrameMeta,SegEval,SegEvalSound,BlockMem,BlockTerm,BlockDecode,BlockTactics,ChainFactsTac,ExecLoadTotal,NegBlockProto,NegTailSites}.lean`, `Vsa/Sim/Code/{Eval_expr,Memmove}.lean` | same | none (the segment layer, PHASES A0.2a) |
+| `Vsa/Sim/{DeriveCase,DeriveCaseRow,BridgeSeg,WriteLogNF,FrameOn,Mfr,CodeRangeInsert,ObsAvoid,BlockTactics2,BlockTermDemo}.lean` | same | import lines only: the WHILE-reaching imports are replaced by `Vsa/Sim/Generic/*` (below); heartbeat raises dropped; `ObsAvoid`/`BlockTermDemo` destructure their conjunction hypotheses with `obtain` instead of `.2.2.2.2…` projections |
+| `Vsa/Sim/Generic/{Abi,MapReads,ObsOther,BvArith,Pins}.lean` (new) | declarations of `Vsa/Alloc.lean`, `Vsa/Sim/{InterpEntry,ValueSpec,ValueTruthySpec,EnvNewSpec,StrlenSpec,SnprintfSpec5,SnprintfSpec18,SnprintfSpec19,SnprintfSpec25}.lean` | the WHILE-free declarations the segment layer uses, copied verbatim (same names) out of modules that import the WHILE representation; `Pin8_frame` destructures instead of projecting |
+| `VsaIris/Vsa/{SymRun,Instance,Tools,AllocRun,AllocCode}.lean`, `VsaIris/Vsa/AllocSteps/Part{01,03,04,05,06,07,09,11}.lean`, `Vsa/Sim/{StepCount,BridgeSegFramed,EnvNewSites}.lean`, `Vsa/Sim/rows/DriveSpillGen.lean`, `Vsa/Sim/Code/{Env_new,Exec_stmt}.lean` | same | none (the allocator Iris route, PHASES A0.2b; the step tables are at WHILE addresses) |
+| `VsaIris/Vsa/RunBase.lean`, `Vsa/Sim/{ExecRetEpilogue,InterpSpillReads,SegEffect}.lean` | same | import lines only, as above |
+| `Vsa/Sim/Generic/{MemRead,GRegs}.lean`, `VsaIris/Vsa/Generic/FastWords.lean` (new) | declarations of `Vsa/MemRepr.lean` (`Mem`, `readLE`, `read64`), `Vsa/Sim/{ValueSpec,ValueTruthySpec,ReprSurvival,EnvGetSpec3,SegFrameFactsAuto,SegReadback}.lean`, `VsaIris/Vsa/MallocFastSegs.lean` | copied verbatim, same names; the `Vsa.MemRepr` module itself is not copied |
+| `VsaIris/Vsa/AllocStepsTohost.lean` (new) | — | why `AllocSteps/Part{00,02,08,10}.lean` are not copied (machine-checked) |
+| `VsaIris/Vsa/{SymRunO,SymObs,SymJalr,SymLeaf,SymBridge,SymData,SymHavoc,SymCompact,SegRun}.lean` | same | none (output/exit machinery of the stdio route, PHASES A0.2) |
+| `VsaIris/Vsa/{AllocSltu,Console}.lean`, `Vsa/Sim/{HtifStepObs,SeparationLogic,MemPresence}.lean` | same | import lines only; `Console` drops the WHILE ELF's `putcSite`/`exitSite` instances (false at the Lua `tohost`, `whileSites_not_tohost`); `HtifStepObs` drops its heartbeat raise |
+| `Vsa/Sim/Generic/{ExitStep,MemExtends}.lean` (new) | declarations of `Vsa/Sim/{TermEntry,EvalSimCommon,JmpSpec,ValueSpec}.lean` | copied verbatim, same names |
+| `experiments/port/term/` (new) | — | the term-level census that decided the cuts |
 | `VsaIris/` (19 modules) | `VsaIris/` | none; `VsaIris.lean` likewise |
 | `Vsa/Meta/SimpNF.lean`, `Vsa/Sim/DecodeNF.lean` | same (branch `exponentiate`, uncommitted there at `182e80d1`) | none: the generic decoder `#simp_nf` / `Vsa.Sim.decodeW` |
 | `scripts/syi/` | `scripts/` | none (generators, checks, boot-witness generator, difftest library), except the two below |

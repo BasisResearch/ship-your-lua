@@ -15,8 +15,35 @@ import VsaIris.PartialWP
 import VsaIris.Ptsto
 import VsaIris.Stack
 import VsaIris.Step
+import VsaIris.Vsa.AllocCode
+import VsaIris.Vsa.AllocRun
+import VsaIris.Vsa.AllocSltu
+import VsaIris.Vsa.AllocSteps.Part01
+import VsaIris.Vsa.AllocSteps.Part03
+import VsaIris.Vsa.AllocSteps.Part04
+import VsaIris.Vsa.AllocSteps.Part05
+import VsaIris.Vsa.AllocSteps.Part06
+import VsaIris.Vsa.AllocSteps.Part07
+import VsaIris.Vsa.AllocSteps.Part09
+import VsaIris.Vsa.AllocSteps.Part11
+import VsaIris.Vsa.AllocStepsTohost
 import VsaIris.Vsa.BinDom
 import VsaIris.Vsa.BvLits
+import VsaIris.Vsa.Console
+import VsaIris.Vsa.Generic.FastWords
+import VsaIris.Vsa.Instance
+import VsaIris.Vsa.RunBase
+import VsaIris.Vsa.SegRun
+import VsaIris.Vsa.SymBridge
+import VsaIris.Vsa.SymCompact
+import VsaIris.Vsa.SymData
+import VsaIris.Vsa.SymHavoc
+import VsaIris.Vsa.SymJalr
+import VsaIris.Vsa.SymLeaf
+import VsaIris.Vsa.SymObs
+import VsaIris.Vsa.SymRun
+import VsaIris.Vsa.SymRunO
+import VsaIris.Vsa.Tools
 
 /-! Iris machine WP (MachCSL), dlmalloc heap and call/stack rules, copied from
 ship-your-interpreter (BasisResearch/ship-your-interpreter @ 46b1eb8e); see ATTRIBUTION.md. -/

@@ -31,12 +31,13 @@ theorem within_mmio_readable_ram_false_width
     rw [BitVec.toNat_add, hw, Nat.mod_eq_of_lt (by omega)]
   refine ⟨fun _ => by omega, fun _ => by omega, fun _ => ?_⟩
   rename_i hx
-  have hxlt : a.toNat < 2147593480 := by
-    have hxv : (2147593472#64 + 8#64).toNat = 2147593480 := by decide
-    omega
-  have hle : (a + BitVec.ofNat 64 w).toNat ≤ 2147593472 := by rw [hadd]; omega
-  have hrhs : ((2147593472 : Nat) : Int) % 18446744073709551616
-      = ((2147593472 : Nat) : Int) := by decide
+  have hxlt : a.toNat < tohostAddr + 8 := by
+    have hxv : (BitVec.ofNat 64 tohostAddr + 8#64).toNat = tohostAddr + 8 := by decide
+    simp only [tohostAddr] at hxv ⊢; omega
+  have hle : (a + BitVec.ofNat 64 w).toNat ≤ tohostAddr := by simp only [tohostAddr]; rw [hadd]; omega
+  have hrhs : ((tohostAddr : Nat) : Int) % 18446744073709551616
+      = ((tohostAddr : Nat) : Int) := by decide
+  simp only [tohostAddr] at hxlt hle hrhs
   rw [hrhs]
   intro hbad
   omega
