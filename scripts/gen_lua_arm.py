@@ -364,10 +364,10 @@ def render():
         fname, text = render_arm(op, specs, arms)
         files[OUT / f"{fname}.lean"] = text
     files[ROOT / "Lua/Vm/Sim.lean"] = (
-        "import Lua.Vm.Sim.Rel\nimport Lua.Vm.Sim.Dispatch\n"
+        "import Lua.Vm.Sim.Rel\nimport Lua.Vm.Sim.Dispatch\nimport Lua.Vm.Sim.Entry\n"
         + "".join(f"import Lua.Vm.Sim.Arms.{ARMS[op][1]}\n" for op in ARMS)
-        + f"\n/-! {HEADER}\n\nA1: the relation `VmRel`, the dispatch lemma, and the "
-        "simulation lemmas of the arms with a proof (`Lua/Vm/Sim/Arms`). -/\n")
+        + f"\n/-! {HEADER}\n\nA1: the relation `VmRel`, the entry lemma, the dispatch lemma, "
+        "and the simulation lemmas of the arms with a proof (`Lua/Vm/Sim/Arms`). -/\n")
     return files
 
 
