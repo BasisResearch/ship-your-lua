@@ -25,6 +25,8 @@ import Lua.Programs.Validation
 import Lua.Programs.Supported
 import Lua.Programs.F1OpsAst
 import Lua.Programs.F1SrcAst
+import Lua.Programs.WhileAst
+import Lua.Programs.F1bBitsAst
 import Lua.Programs.F1Src
 import Lua.Compile.TV
 import Lua.Compile.Corpus

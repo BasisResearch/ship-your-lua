@@ -33,34 +33,34 @@ namespace Lua.Programs
 
 open Lua.Ast
 
-/-- The F1 AST of `c/tests/f1_ops.lua`. -/
-def f1OpsAst : Chunk := [
-  .local_ "s" (.int 0),
-  .numFor "i" (.int 1) (.int 10) (.int 1) [
-    .assign "s" (.binop .add (.var "s") (.binop .mul (.var "i") (.var "i")))],
-  .print [(.var "s")],
-  .numFor "i" (.int 10) (.int 1) (.neg (.int 3)) [
-    .print [(.var "i")]],
-  .numFor "i" (.int 1) (.int 0) (.int 1) [
-    .print [(.var "i")]],
-  .locals ["a", "b"] [(.int 7), (.neg (.int 3))],
-  .print [(.binop .idiv (.var "a") (.var "b")), (.binop .mod (.var "a") (.var "b")), (.binop .idiv (.neg (.var "a")) (.int 2)), (.binop .mod (.neg (.var "a")) (.int 2)), (.binop .idiv (.var "a") (.neg (.int 1))), (.binop .sub (.int 0) (.var "a"))],
-  .local_ "big" (.int 9223372036854775807),
-  .print [(.binop .add (.var "big") (.int 1)), (.binop .mul (.var "big") (.int 2)), (.binop .sub (.neg (.var "big")) (.int 1))],
-  .print [(.binop .idiv (.binop .sub (.neg (.int 9223372036854775807)) (.int 1)) (.neg (.int 1))), (.binop .mod (.binop .sub (.neg (.int 9223372036854775807)) (.int 1)) (.neg (.int 1)))],
-  .local_ "x" .nil,
-  .local_ "y" (.or (.var "x") (.int 5)),
-  .local_ "z" (.and (.var "y") (.int 6)),
-  .print [(.var "y"), (.var "z"), (.not (.var "x")), (.not (.var "y")), (.binop .eq (.var "x") .nil), (.binop .eq (.var "y") (.int 5)), (.binop .ne (.var "z") (.int 6))],
-  .local_ "n" (.int 0),
-  .numFor "i" (.int 9223372036854775800) (.int 9223372036854775807) (.int 1) [
-    .assign "n" (.binop .add (.var "n") (.int 1))],
-  .print [(.var "n"), (.binop .lt (.int 3) (.int 4)), (.binop .le (.int 4) (.int 3)), (.binop .gt (.int 5) (.int 2)), (.binop .ge (.int 5) (.int 6))],
-  .local_ "c" (.int 0),
-  .local_ "k" (.int 1),
-  .while_ (.binop .lt (.var "k") (.int 1000)) [
-    .assign "k" (.binop .mul (.var "k") (.int 3)),
-    .assign "c" (.binop .add (.var "c") (.int 1))],
-  .print [(.var "c"), (.var "k"), (.bool true), (.bool false)]]
+/-- The AST of `c/tests/f1_ops.lua`. -/
+def f1OpsAst : Chunk := (.mk [
+  .local_ [⟨"s", .reg⟩] [(.numeral (.int 0))],
+  .fornum "i" (.numeral (.int 1)) (.numeral (.int 10)) none (.mk [
+    .assign [(.name "s")] [(.binop .add (.prefixexp (.var (.name "s"))) (.binop .mul (.prefixexp (.var (.name "i"))) (.prefixexp (.var (.name "i")))))]] none),
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "s")))])),
+  .fornum "i" (.numeral (.int 10)) (.numeral (.int 1)) (some (.unop .neg (.numeral (.int 3)))) (.mk [
+    .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "i")))]))] none),
+  .fornum "i" (.numeral (.int 1)) (.numeral (.int 0)) none (.mk [
+    .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "i")))]))] none),
+  .local_ [⟨"a", .reg⟩, ⟨"b", .reg⟩] [(.numeral (.int 7)), (.unop .neg (.numeral (.int 3)))],
+  .functioncall (.call (.var (.name "print")) (.explist [(.binop .idiv (.prefixexp (.var (.name "a"))) (.prefixexp (.var (.name "b")))), (.binop .mod (.prefixexp (.var (.name "a"))) (.prefixexp (.var (.name "b")))), (.binop .idiv (.unop .neg (.prefixexp (.var (.name "a")))) (.numeral (.int 2))), (.binop .mod (.unop .neg (.prefixexp (.var (.name "a")))) (.numeral (.int 2))), (.binop .idiv (.prefixexp (.var (.name "a"))) (.unop .neg (.numeral (.int 1)))), (.binop .sub (.numeral (.int 0)) (.prefixexp (.var (.name "a"))))])),
+  .local_ [⟨"big", .reg⟩] [(.numeral (.int 9223372036854775807))],
+  .functioncall (.call (.var (.name "print")) (.explist [(.binop .add (.prefixexp (.var (.name "big"))) (.numeral (.int 1))), (.binop .mul (.prefixexp (.var (.name "big"))) (.numeral (.int 2))), (.binop .sub (.unop .neg (.prefixexp (.var (.name "big")))) (.numeral (.int 1)))])),
+  .functioncall (.call (.var (.name "print")) (.explist [(.binop .idiv (.prefixexp (.paren (.binop .sub (.unop .neg (.numeral (.int 9223372036854775807))) (.numeral (.int 1))))) (.unop .neg (.numeral (.int 1)))), (.binop .mod (.prefixexp (.paren (.binop .sub (.unop .neg (.numeral (.int 9223372036854775807))) (.numeral (.int 1))))) (.unop .neg (.numeral (.int 1))))])),
+  .local_ [⟨"x", .reg⟩] [.nil],
+  .local_ [⟨"y", .reg⟩] [(.binop .or (.prefixexp (.var (.name "x"))) (.numeral (.int 5)))],
+  .local_ [⟨"z", .reg⟩] [(.binop .and (.prefixexp (.var (.name "y"))) (.numeral (.int 6)))],
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "y"))), (.prefixexp (.var (.name "z"))), (.unop .not (.prefixexp (.var (.name "x")))), (.unop .not (.prefixexp (.var (.name "y")))), (.binop .eq (.prefixexp (.var (.name "x"))) .nil), (.binop .eq (.prefixexp (.var (.name "y"))) (.numeral (.int 5))), (.binop .ne (.prefixexp (.var (.name "z"))) (.numeral (.int 6)))])),
+  .local_ [⟨"n", .reg⟩] [(.numeral (.int 0))],
+  .fornum "i" (.numeral (.int 9223372036854775800)) (.numeral (.int 9223372036854775807)) none (.mk [
+    .assign [(.name "n")] [(.binop .add (.prefixexp (.var (.name "n"))) (.numeral (.int 1)))]] none),
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "n"))), (.binop .lt (.numeral (.int 3)) (.numeral (.int 4))), (.binop .le (.numeral (.int 4)) (.numeral (.int 3))), (.binop .gt (.numeral (.int 5)) (.numeral (.int 2))), (.binop .ge (.numeral (.int 5)) (.numeral (.int 6)))])),
+  .local_ [⟨"c", .reg⟩] [(.numeral (.int 0))],
+  .local_ [⟨"k", .reg⟩] [(.numeral (.int 1))],
+  .while_ (.binop .lt (.prefixexp (.var (.name "k"))) (.numeral (.int 1000))) (.mk [
+    .assign [(.name "k")] [(.binop .mul (.prefixexp (.var (.name "k"))) (.numeral (.int 3)))],
+    .assign [(.name "c")] [(.binop .add (.prefixexp (.var (.name "c"))) (.numeral (.int 1)))]] none),
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "c"))), (.prefixexp (.var (.name "k"))), .true, .false]))] none)
 
 end Lua.Programs
