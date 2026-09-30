@@ -14,6 +14,7 @@
 #     axiom declarations, native_decide, bv_decide, ofReduceBool,
 #     trustCompiler, and raised maxHeartbeats/maxRecDepth in Lua/;
 # (3b) proof discipline (scripts/check_discipline.py, scripts/discipline_rules.tsv);
+# (3c) the abstraction gate (abstractions/gate.py, abstractions/clusters.tsv);
 # (4) the copied machine layer imports nothing WHILE-specific
 #     (experiments/port/port_census.py --copyset; needs a syi checkout,
 #     skipped if absent);
@@ -93,6 +94,11 @@ echo "ok"
 
 echo "== (3b) proof discipline"
 python3 scripts/check_discipline.py || fail "discipline"
+
+echo "== (3c) abstraction gate"
+# a cluster of 8+ hand proofs whose per-case cost is not falling by a
+# third fails here with "run /abstraction-discovery" (abstractions/gate.py)
+python3 abstractions/gate.py || fail "abstraction gate (run /abstraction-discovery; see abstractions/)"
 
 echo "== (4) copied layer is WHILE-free"
 if [ -d "${SYI:-$HOME/Documents/code/syi}" ]; then
