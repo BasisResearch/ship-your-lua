@@ -368,3 +368,101 @@ The target is therefore:
 | (b) callee contracts | L-C3′ pure / runtime / noreturn | pure: 377 activations, 0 bad; runtime and noreturn are footprints named from traces |
 | (c) closes and store shapes | L-C6′: after an arm, the def slots represent the new values and the window is otherwise unchanged; stores are free up to shape | 4 store shapes; 0 violations after refinement |
 | (d1) relation widening | L-C3′ runtime plus L-C6′: the relation's complement is the kill-port and heap-ownership footprint, not a list of fields added one resource at a time | counterexamples 2–4 name the fields |
+
+## 3. Blind ontologist fan-out (deep seeded, 2 rounds × 5)
+
+The brief is `abstractions/pilot/ONTOLOGIST_BRIEF_R3.md`. The raw answers are
+in `abstractions/fanout/R3-R1-*.md` and `R3-R2-*.md` (3 character seeds and
+2 word seeds per round). Round 3 was not run, because round 2 converged on
+refinements of round-1 mechanisms.
+
+**Agreement.** 22–25 of the 25 round-1 ideas reduce to six mechanisms; three
+round-2 agents tabulated this independently (R2-1, R2-2, R2-3).
+
+### Mechanisms (the cheapest member of each, per round 2)
+
+| # | mechanism | cheapest form | rounds, agents |
+|---|---|---|---|
+| M1 | arm proof by forward kernel evaluation (no inversion) | `kstep_iff` + `simp`, with the δ entry restated in `lvm.c`'s branch order, e.g. `imodC_eq` | R1-3#5, R1-5#1, R1-1#4 → R2-1#2, R2-4#4, R2-5#3 |
+| M2 | guards factor through a canonical value representation | about 7 tag lemmas over a TIGHTENED `ValRepr` (nil tag = 0, string variant by length ≤ 40) | R1-2#2, R1-3#1, R1-1#4 → R2-3#2, R2-5#2 |
+| M3 | one close on final memory | `bleach`, no write-log or patch datatype | R1-5#2, R1-1#1, R1-2#3, R1-3#3 → R2-5#1 |
+| M4 | dead-at-head cells without widening `VmRel` | re-witness `∃ w` (`Complement.rebase` + `PhaseOk`) or a stale-complement `Scratch` premise; NOT a larger `Win` (it breaks `Ranges.ci_out`, R2-4 N2) | R1-1#2, R1-4#1/#5, R1-5#2 → R2-1#1, R2-2#1, R2-3#1, R2-4#1 |
+| M5 | callee summaries after F1 value pruning | a call node returning to `ra₀`/`t0`, helpers classified *after* pruning; the libgcc integer block `[0x8002f6c8,0x8002f7ec)` has no memory operations, so one region spec (or relocation of the WHILE specs) covers it | R1-2#4, R1-3#4, R1-4#2, R1-5#3 → R2-1#3, R2-2#4/#5, R2-3#4, R2-4#3, R2-5#4/#5 |
+| M6 | string equality without heap-wide interning | an intern map `ι : content → ptr` in the witness; CONCAT pays for it | R1-5#1 → R2-4#2, R2-5#2 (R2-2#2's "strings only from K" fails: CONCAT is in F1, R2-4 N3) |
+
+### One-offs worth keeping
+
+- **Tablebase tails** (R2-3 #3). GCC shares tails heavily: the pc+1 tail has
+  more than 64 in-edges. Prove each shared tail once, keyed by the decoded
+  kernel value at the join, and stop arm proofs there.
+- **An executable decoder as the gate** (R2-4 #5). The Python L-C4 checker
+  held on 1,424 steps while `sim_MOD`/`sim_EQ` are *false* against `VmRel`.
+  Make the decoder executable Lean, tied to `VmRelAt` by one lemma, so traces
+  test relation changes.
+- **A lockstep product executor, KProd** (R1-2 #5). Round 2 keeps it as the
+  fallback carrier if the direct kit leaves `sim_ADD` at 20 lines or more
+  (R2-3's stop rule).
+
+### Soundness corrections found (independent of any abstraction)
+
+- **`sim_MOD`/`sim_EQ` are false against today's `VmRel`.** Three causes:
+  - `LuaStateAt.top` pins `L->top = func+16`, but `Protect` rewrites it;
+  - `savedpc` is written;
+  - `luaV_equalobj`'s `sd ra` falls outside `Win`.
+
+  Found by R1-1, R1-3, R1-5, R2-2 N3 and R2-4 N1.
+- **`L->top` is not dead in general.** It is live after `CALL print` with
+  C=1 (`ldo.c` `moveresults`: `L->top = ra`), and GC reads it (R2-1 N4/N5,
+  R2-2 N2). It is dead at the head only for F1 non-IT instructions; in F1
+  the only IT head is VARARGPREP at pc 0.
+- **`LuaStateAt.next = 0` breaks at the first CALL** (`luaE_extendCI`) and is
+  read by the next CALL (R2-3 N6).
+- **`ValRepr` is too loose for EQ.**
+  - nil is any `t % 16 = 0`, while the machine compares `tt & 63`;
+  - equal-content short and long strings compare unequal on the machine but
+    equal under δ (R2-3 N2, R2-2 N5).
+- **Soft-int helpers.**
+  - `__moddi3` returns through `t0` and gets the remainder from
+    `__udivdi3`'s `a1`;
+  - `__divdi3` falls through;
+  - symbol names are not code regions (R2-5 N2, R2-2 N4, R2-4 N5).
+- **`luaV_equalobj` is neither pure nor position-independent.** It uses an
+  `auipc` jump table and can reach `luaT_callTMres` (R2-5 N3, R2-3 N1).
+
+| seed type | agents | ideas | only that seed type |
+|---|---|---|---|
+| chars | 6 | 30 | tablebase tails (R2-3), region spec for the libgcc block (R2-2), KProd (R1-2), stale snapshot (R2-2) |
+| words | 4 | 20 | executable decoder as gate (R2-4), call nodes with residual rows (R1-4), graded footprint rings (R1-4), camera-square decode (R1-5) |
+
+## 4. Retrieval by law
+
+- **L-C4 / M1 (the arm refines the rule, via its C handler):**
+  - Necula, "Translation Validation for an Optimizing Compiler", PLDI 2000,
+    which validates gcc's register allocation, scheduling and branch
+    optimisation, the source of our 46 dependence classes;
+  - Tristan and Leroy, "Formal verification of translation validators",
+    POPL 2008;
+  - RISC-V interaction-tree semantics (arXiv 2605.04933).
+- **M5 (callee summaries):** Myreen's decompilation into logic handles
+  subroutines with specifications that name only the changed state
+  (FMCAD 2012 "Improved"; "Machine-code verification for multiple
+  architectures").
+- **M3/M4 (frame, dead cells):** separation logic's frame rule; lenses with
+  constant complement (Bancilhon & Spyratos, TODS 1981).
+- **M6:** hash-consing and interning, the standard technique for pointer
+  equality as content equality (Filliâtre & Conchon, ML Workshop 2006;
+  recalled, to check).
+
+## 5. Variation (ideonomy, 1 operator: negation)
+
+- *Negate "prove each path"* → prove each join (tablebase tails, already in
+  the pool).
+- *Negate "relation carries the heap"* → the relation carries only
+  registers and the heap is a rely (R1-4 #3 `regrow`, kept as the M4
+  fallback).
+- *Negate "helpers are callees"* → helpers inlined as arm code when
+  loop-free after pruning (R2-1 #3). This is already in M5 as "classified
+  after pruning".
+
+No new survivor. The pool for the bake-off is M1–M6, plus tails, plus the
+decoder gate. The executor is optional.
