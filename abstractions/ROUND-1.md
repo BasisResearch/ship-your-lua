@@ -497,3 +497,22 @@ stepping.
 **Plan.** Round 2's A1 bake-off should include it as a contender, copied once
 merged, rather than build a second evaluator. The ship-your-lua segment
 batteries (A0.7/A0.8) are the per-site incumbent it competes with.
+
+**Update from syi-7e (2026-09-30).**
+- *Status.* `exp-A` is merged into `exponentiate` (draft PR
+  BasisResearch/ship-your-interpreter#13, base `cleanup` #8). It is not on syi
+  main, so not yet copyable here.
+- *Contents:*
+  - `Vsa/Sim/TextImage.lean`: code residency as image ranges, with generic
+    byte pins in `chain_facts`;
+  - `VsaIris/Vsa/StepGen.lean`: `#step_table`, step lemmas elaborated from the
+    image, with a per-ELF `Tbl`. Its compile cost is about that of generated
+    tables;
+  - `SymExec`/`sym_run`.
+- *Their round-1 allocator bake-off:*
+  - surgery permits: −29–66% lines, CPU neutral;
+  - region-keyed memory: −53–63% lines, but 1.6–1.85× slower per theorem;
+  - a combined candidate is being measured.
+- *For our round 2.* Include `SymExec` and `TextImage` as A1 contenders once
+  merged. Their region-keyed memory result says to record per-theorem CPU,
+  not only lines.
