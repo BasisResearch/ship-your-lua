@@ -1,0 +1,266 @@
+import Lua.Vm.Runtime
+import Lua.Vm.Host
+import Lua.Vm.Sim.Mem
+import Lua.Vm.Sim.Step
+import Vsa.Sim.SegState
+
+/-!
+# `VmRel`: the machine at `luaV_execute`'s fetch head represents a `BcSem` state (A1)
+
+`VmRel p c s` relates a machine configuration `c` to a bytecode state `s` of
+the main chunk `p` when `c` sits at the fetch head of `luaV_execute`
+(`Lua.Vm.Arms.headPc`, the `bnez s5` before `lw s4,0(s11)`) about to execute
+instruction `s.pc`. It is `∃ w, VmRelAt p c s w` over the pointers `w`
+(`RelPtrs`), and every part is a named field:
+
+* **Registers** (`Pins`). `luaV_execute` keeps its state in callee-saved
+  registers at the head: s0 = `L`, s7 = `ci`, s8 = the jump table, s1 = 81
+  (the last opcode in the table), s2 = 3 (`LUA_VNUMINT`), s5 = `trap` (0: no
+  hooks), s9 = `base`, s11 = the cached `pc` (`code + 4·s.pc`; the
+  `ci->u.l.savedpc` in memory is only written back by `savepc` before calls,
+  so the relation pins the register, not the memory word), plus `sp` and `gp`.
+* **Registers of the chunk** (`Core.stack`). Every register `j <
+  maxstacksize` that holds a value (`s.regs j = some v`) is represented by
+  the stack slot `base + 16·j` (`ValRepr` of its tag byte and payload). The
+  kernel semantics already marks the registers the definite-initialisation
+  analysis cannot see as ⊥ (`none`: stale, kill ports), so this is the
+  `FrameRepr` of the defined registers: at a reachable state it covers
+  `defMask p s.pc` (`Lua/FragmentSound.lean`), and it holds of the entry
+  state (all ⊥) for any stack contents.
+* **Output** (`Core.out`): the HTIF console so far is `s.out`.
+* **Frame** (`Core.frame`, `Complement`). Outside the window `Win` (the
+  register slots and `luaV_execute`'s own C frame) the memory is a fixed
+  complement `w.mo`, of which `Complement` states the image (`.text`,
+  `.rodata`), the prototype (`ProtoRepr`, and its code words as `lw` reads
+  them), `ci->func` and `ci->u.l.trap`, and the Lua state and heap of
+  `luaLayout` (`LuaStateAt`, `DlHeap.HeapAt`, `ErrorJmpAt`).
+
+**Relocation.** Registers are decoded relative to `ci->func` as the complement
+holds it (`w.func`, `base = func + 16`), not to a fixed address. `OP_VARARGPREP`
+moves `ci->func` inside the main activation (`luaT_adjustvarargs`), and
+`CALL print` can reallocate the Lua stack (`luaD_precall` → `checkstackGCp`,
+`correctstack` rewrites `ci->func`); after either, `luaV_execute` reloads
+`base` from `ci->func` (`updatebase`) and the relation holds again with a new
+`func` and the moved slots. The pilot arms (`MOVE`, `LOADI`, `JMP`) keep `w`.
+-/
+
+open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
+open Vsa.Sim
+
+namespace Lua.Vm.Sim
+
+open Lua.Bytecode Lua.Vm.Layout
+open Vsa.Machine (MState Config)
+
+/-- **A register's value from its slot's tag byte `t` and payload `x`.**
+The `TValueRepr` of `Lua/Vm/Repr.lean` in the form the arms read it (`lbu`
+of the tag, `ld` of the payload); a string's bytes live in the complement
+memory `mo`. -/
+inductive ValRepr (mo : Mem) : BitVec 8 → BitVec 64 → Value → Prop where
+  | nil {t x} : t.toNat % 16 = 0 → ValRepr mo t x .nil
+  | false_ {x} : ValRepr mo (BitVec.ofNat 8 vFalse) x (.bool false)
+  | true_ {x} : ValRepr mo (BitVec.ofNat 8 vTrue) x (.bool true)
+  | int {i} : ValRepr mo (BitVec.ofNat 8 vNumInt) i (.int i)
+  | str {t x s} : (t.toNat = vShrStr ∨ t.toNat = vLngStr) → TStringRepr mo x.toNat s →
+      ValRepr mo t x (.str s)
+  | print {x} : x = BitVec.ofNat 64 symLuaBPrint → ValRepr mo (BitVec.ofNat 8 vLcf) x (.builtin .print)
+
+/-- `luaV_execute`'s own C frame (`addi sp,sp,-176` in its prologue). -/
+def execFrame : Nat := 176
+
+/-- The pointers of the relation. -/
+structure RelPtrs where
+  /-- `lua_State *L` (s0) -/
+  L : Nat
+  /-- `CallInfo *ci` (s7) -/
+  ci : Nat
+  /-- `ci->func` as the complement holds it; `base = func + 16` -/
+  func : Nat
+  /-- the `Proto` and its `code` array -/
+  pa : Nat
+  code : Nat
+  /-- `sp` inside `luaV_execute` -/
+  sp : Nat
+  /-- the memory outside the window -/
+  mo : Mem
+
+namespace RelPtrs
+
+/-- `base = ci->func + 1` (s9). -/
+def base (w : RelPtrs) : Nat := w.func + stackValueSize
+
+/-- The stack slot of register `j`. -/
+def slot (w : RelPtrs) (j : Nat) : Nat := w.base + stackValueSize * j
+
+end RelPtrs
+
+/-- **The window**: the register slots `[base, base + 16·maxstacksize)` and
+`luaV_execute`'s C frame `[sp, sp + 176)`. -/
+def Win (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
+  (w.base ≤ a ∧ a < w.base + stackValueSize * p.maxstacksize) ∨ (w.sp ≤ a ∧ a < w.sp + execFrame)
+
+/-- The parts of `luaRuntimeReady` that live in memory and that the F1 arms
+keep: the Lua state (with `ci->func = func`), the heap and the error
+handler. (`StdioBoot`/`MemfsBoot` describe the state before the first
+`print` and belong to the `CALL` arm.) -/
+structure RuntimeMem (m : Mem) (L ci func : Nat) (rt : RtPtrs) : Prop where
+  func : rt.func = func
+  lua : LuaStateAt m L ci rt
+  heap : DlHeap.HeapAt m rt.top rt.brkv rt.chunks (fun i => rt.bins.getD i [])
+  error_jmp : ErrorJmpAt m L
+
+/-- **The complement**: what the relation knows about `w.mo`. -/
+structure Complement (p : Proto) (w : RelPtrs) : Prop where
+  text : Arms.TextLoaded w.mo
+  rodata : RodataLoaded w.mo
+  /-- `VmEntryData.proto`/`proto_code`: the prototype is loaded -/
+  proto : ProtoRepr w.mo w.pa p
+  proto_code : rd64 w.mo (w.pa + protoCodeOff) = some w.code
+  /-- `proto`'s code words, as `lw` reads them (the total-read form) -/
+  code_word : ∀ i ins, p.fetch i = some ins → bytesT4 w.mo (w.code + 4 * i) = ins
+  /-- `ci->func`, as `updatebase` reads it -/
+  func_word : bytesT8 w.mo (w.ci + ciFuncOff) = BitVec.ofNat 64 w.func
+  /-- `ci->u.l.trap = 0` (no hooks), as `updatetrap` reads it -/
+  trap_word : bytesT4 w.mo (w.ci + ciTrapOff) = 0
+  runtime : ∃ rt, RuntimeMem w.mo w.L w.ci w.func rt
+
+/-- **Where things are**: the address ranges the arms' side conditions need,
+and the window's separation from the code array and the `CallInfo`. -/
+structure Ranges (p : Proto) (w : RelPtrs) : Prop where
+  sp_eq : w.sp + execFrame = RuntimeData.spEntry
+  base_lo : tohostAddr + 16 ≤ w.base
+  base_hi : w.base + stackValueSize * p.maxstacksize ≤ 0x100000000
+  base_al : w.base % 8 = 0
+  code_lo : tohostAddr + 16 ≤ w.code
+  code_hi : w.code + 4 * p.code.length ≤ 0x100000000
+  ci_lo : tohostAddr + 16 ≤ w.ci
+  ci_hi : w.ci + ciSize ≤ 0x100000000
+  code_out : ∀ a, w.code ≤ a → a < w.code + 4 * p.code.length → ¬ Win p w a
+  ci_out : ∀ a, w.ci ≤ a → a < w.ci + ciSize → ¬ Win p w a
+
+/-- **The fetch-head registers** for pointers `w` and bytecode pc `pc`. -/
+structure Pins (σ : MState) (w : RelPtrs) (pc : Nat) : Prop where
+  sp : σ.regs.get? Register.x2 = some (BitVec.ofNat 64 w.sp)
+  gp : σ.regs.get? Register.x3 = some (BitVec.ofNat 64 symGlobalPointer)
+  L : σ.regs.get? Register.x8 = some (BitVec.ofNat 64 w.L)
+  opMax : σ.regs.get? Register.x9 = some (BitVec.ofNat 64 (Arms.jtEntries - 1))
+  intTag : σ.regs.get? Register.x18 = some (BitVec.ofNat 64 vNumInt)
+  trap : σ.regs.get? Register.x21 = some (0#64)
+  ci : σ.regs.get? Register.x23 = some (BitVec.ofNat 64 w.ci)
+  jt : σ.regs.get? Register.x24 = some (BitVec.ofNat 64 Arms.jtBase)
+  base : σ.regs.get? Register.x25 = some (BitVec.ofNat 64 w.base)
+  pc : σ.regs.get? Register.x27 = some (BitVec.ofNat 64 (w.code + 4 * pc))
+
+/-- Everything but the machine pc: shared by the head (`VmRelAt`) and the arm
+entry after dispatch (`ArmAt`). -/
+structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
+  good : GoodState c.σ
+  minstret : ∃ v, c.σ.regs.get? Register.minstret = some v
+  tick : c.tick < 2
+  pins : Pins c.σ w s.pc
+  out : Vsa.Machine.output c.σ = s.out
+  frame : ∀ a, ¬ Win p w a → c.σ.mem[a]? = w.mo[a]?
+  stack : ∀ j v, j < p.maxstacksize → s.regs j = some v →
+    ValRepr w.mo (slotTag c.σ.mem (w.slot j)) (slotVal c.σ.mem (w.slot j)) v
+  comp : Complement p w
+  ranges : Ranges p w
+
+/-- **The relation at the fetch head**, for pointers `w`. -/
+structure VmRelAt (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
+  core : Core p c s w
+  pcAt : c.σ.regs.get? Register.PC = some Arms.headPc
+
+/-- **`VmRel p c s`**: `c` is at `luaV_execute`'s fetch head about to run
+instruction `s.pc` of `p`, representing `s`. -/
+def VmRel (p : Proto) (c : Config) (s : State) : Prop := ∃ w, VmRelAt p c s w
+
+/-- **After dispatch**: at the arm of `ins`'s opcode, with s3 = `pc + 1` and
+s4 = the instruction (sign-extended by `lw`). -/
+structure ArmAt (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop where
+  core : Core p c s w
+  pcAt : c.σ.regs.get? Register.PC = some (armTarget ins.opNum)
+  s3 : c.σ.regs.get? Register.x19 = some (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1)))
+  s4 : c.σ.regs.get? Register.x20 = some (sign_extend (m := 64) ins)
+
+/-! ## Reading the machine through the relation -/
+
+section
+variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
+
+theorem Win.above (hr : Ranges p w) {a : Nat} (h : Win p w a) : tohostAddr + 16 ≤ a := by
+  have := hr.sp_eq
+  have := hr.base_lo
+  simp only [Win, execFrame, RuntimeData.spEntry, tohostAddr] at *
+  omega
+
+/-- The machine's `.text` and `.rodata` are the image's. -/
+theorem Core.image (hc : Core p c s w) : Arms.TextLoaded c.σ.mem ∧ RodataLoaded c.σ.mem := by
+  have hout : ∀ a, a < tohostAddr → c.σ.mem[a]? = w.mo[a]? := fun a ha =>
+    hc.frame a fun hw => by have := Win.above hc.ranges hw; omega
+  refine ⟨Vsa.Sim.Code.FixedBytesLoaded.transport hc.comp.text fun a _ h2 => hout a ?_,
+    Vsa.Sim.Code.FixedBytesLoaded.transport hc.comp.rodata fun a _ h2 => hout a ?_⟩
+  · have := Arms.text_below_tohost; omega
+  · have := rodata_below_tohost; omega
+
+/-- The instruction at `pc`, as `lw s4,0(s11)` reads it. -/
+theorem Core.fetch (hc : Core p c s w) {pc : Nat} {ins : Word} (hf : p.fetch pc = some ins) :
+    bytesT4 c.σ.mem (w.code + 4 * pc) = ins := by
+  have hlt := fetch_lt hf
+  refine (bytesT4_congr fun i hi => ?_).trans (hc.comp.code_word pc ins hf)
+  exact hc.frame _ (hc.ranges.code_out _ (by omega) (by omega))
+
+/-- `ci->u.l.trap`, as `updatetrap` reads it. -/
+theorem Core.trap (hc : Core p c s w) : bytesT4 c.σ.mem (w.ci + ciTrapOff) = 0 := by
+  refine (bytesT4_congr fun i hi => ?_).trans hc.comp.trap_word
+  exact hc.frame _ (hc.ranges.ci_out _ (by omega) (by simp only [ciTrapOff, ciSize]; omega))
+
+/-! ## Re-establishing the relation after an arm -/
+
+theorem output_congr {σ σ' : MState} (h : σ'.sailOutput = σ.sailOutput) :
+    Vsa.Machine.output σ' = Vsa.Machine.output σ := by
+  simp only [Vsa.Machine.output, h]
+
+/-- **An arm that writes `R[a]`**: the machine stored the slot of `a` (and
+nothing else), with a tag and payload that represent `v`. -/
+theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List Pin}
+    {P : MState → Prop} (hseg : SegSt pcv L P c') {pc' a : Nat} {v : Value} {tag : BitVec 8}
+    {val : BitVec 64} (ha : a < p.maxstacksize) (hpins : Pins c'.σ w pc')
+    (hout : c'.σ.sailOutput = c.σ.sailOutput) (hst : SlotStore c.σ.mem c'.σ.mem (w.slot a) tag val)
+    (hv : ValRepr w.mo tag val v) :
+    Core p c' ⟨pc', fun j => if j = a then some v else s.regs j, s.out⟩ w := by
+  have hwin : ∀ x, ¬ (x < w.slot a ∨ w.slot a + 9 ≤ x) → Win p w x := fun x hx => by
+    simp only [RelPtrs.slot, Win, stackValueSize] at hx ⊢
+    left; constructor <;> omega
+  refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hout).trans hc.out,
+    fun x hx => ?_, fun j v' hj hv' => ?_, hc.comp, hc.ranges⟩
+  · exact (hst.frame x (Classical.byContradiction fun h => hx (hwin x h))).trans (hc.frame x hx)
+  · simp only at hv'
+    by_cases hja : j = a
+    · subst hja
+      simp only [if_true, Option.some.injEq] at hv'
+      subst hv'
+      simp only [slotTag, slotVal, tvalueTagOff, tvalueValOff, Nat.add_zero, hst.val, hst.tag]
+      exact hv
+    · simp only [hja, if_false] at hv'
+      obtain ⟨ht, hv2⟩ := slot_congr (m := c'.σ.mem) (m' := c.σ.mem) (a := w.slot j) fun i hi =>
+        hst.frame _ (by
+          simp only [RelPtrs.slot, stackValueSize]
+          rcases Nat.lt_or_gt_of_ne hja with h | h
+          · left; omega
+          · right; omega)
+      rw [ht, hv2]
+      exact hc.stack j v' hj hv'
+
+/-- **An arm that writes no register** and no memory (a jump). -/
+theorem Core.jump (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List Pin}
+    {P : MState → Prop} (hseg : SegSt pcv L P c') {pc' : Nat} (hpins : Pins c'.σ w pc')
+    (hout : c'.σ.sailOutput = c.σ.sailOutput) (hmem : c'.σ.mem = c.σ.mem) :
+    Core p c' ⟨pc', s.regs, s.out⟩ w := by
+  refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hout).trans hc.out,
+    fun x hx => hmem ▸ hc.frame x hx, fun j v hj hv => ?_, hc.comp, hc.ranges⟩
+  rw [hmem]
+  exact hc.stack j v hj hv
+
+end
+
+end Lua.Vm.Sim
