@@ -125,4 +125,11 @@ theorem dispatch {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelA
   exact ⟨c', hs, steps_lt hs hne,
     ⟨hc.jump hpost hpins hpost.extra.2.2 hpost.extra.2.1, hpc', hs3, hs4⟩⟩
 
+/-- A non-empty run to the head is a positive `StepsN` run to `VmRel`. -/
+theorem sim_of_run {p : Proto} {c : Config} {s' : State} {w : RelPtrs}
+    (h : ∃ c', Steps c c' ∧ c.steps < c'.steps ∧ VmRelAt p c' s' w) :
+    ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
+  obtain ⟨c', hs, hlt, hR⟩ := h
+  exact ⟨c', c'.steps - c.steps, by omega, hs.toN_of_stepsField, w, hR⟩
+
 end Lua.Vm.Sim

@@ -125,6 +125,18 @@ theorem slot_addr (base k : Nat) (x : BitVec 32) (hk : 1 ≤ k) (hk2 : k < 32) :
   congr 1
   omega
 
+/-- A slot address plus an immediate, read as a `Nat`. -/
+theorem slot_toNat (base k j : Nat) (x : BitVec 32) (hk : 1 ≤ k) (hk2 : k < 32) (hj : j < 2048)
+    (hb : base + 16 * 256 + j < 2 ^ 64) :
+    ((BitVec.ofNat 64 base + shift_bits_left ((sign_extend (m := 64) (shift_bits_right
+      (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (BitVec.ofNat 5 k))) &&&
+      sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0))
+      + sign_extend (m := 64) (BitVec.ofNat 12 j)).toNat
+      = base + 16 * ((x.toNat >>> k) % 2 ^ 8) + j := by
+  rw [slot_addr base k x hk hk2, add_imm _ j hj, BitVec.toNat_ofNat]
+  have : (x.toNat >>> k) % 2 ^ 8 < 256 := Nat.mod_lt _ (by decide)
+  omega
+
 /-- `sd` of a 64-bit register stores it unchanged. -/
 theorem sdData_sext (x : BitVec 64) : sdData_val (sign_extend (m := 64) x) = x := by
   simp only [sdData_val, sign_extend, Sail.BitVec.signExtend, Sail.BitVec.extractLsb]
@@ -147,5 +159,23 @@ theorem ofNat_bias (n off : Nat) (h : off ≤ 2 ^ 63) :
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat, BitVec.toNat_ofInt]
   omega
+
+end Lua.Vm.Sim
+
+namespace Lua.Vm.Sim
+
+/-- `sd` of a 64-bit value stores it unchanged. -/
+theorem sdData_id (x : BitVec 64) : sdData_val x = x := by
+  have := sdData_sext x
+  simp only [sign_extend, Sail.BitVec.signExtend, BitVec.signExtend_eq] at this
+  exact this
+
+/-- **The arms' address arithmetic**: normalise the slot, immediate and
+field terms of a generated segment's side condition to `BitVec.ofNat`, read
+`toNat`, and close with `omega` over the facts in context. -/
+macro "arm_arith" : tactic => `(tactic| (
+  simp (config := { decide := true }) only [extract_sext, field8, add_imm, shl_ofNat,
+    BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat, Nat.add_zero]
+  omega))
 
 end Lua.Vm.Sim

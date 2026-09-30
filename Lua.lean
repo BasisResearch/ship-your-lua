@@ -16,6 +16,7 @@ import Lua.Vm.Host
 import Lua.Vm.DecodeCheck
 import Lua.Vm.Code
 import Lua.Vm.Arms
+import Lua.Vm.Sim
 import Lua.Refinement
 import Lua.Ast.Syntax
 import Lua.Ast.Rulebook
