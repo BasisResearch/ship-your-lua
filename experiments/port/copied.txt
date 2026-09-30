@@ -25,16 +25,7 @@ VsaIris/PartialWP.lean
 VsaIris/Ptsto.lean
 VsaIris/Stack.lean
 VsaIris/Step.lean
-VsaIris/Vsa/AllocCode.lean
 VsaIris/Vsa/AllocRun.lean
-VsaIris/Vsa/AllocSteps/Part01.lean
-VsaIris/Vsa/AllocSteps/Part03.lean
-VsaIris/Vsa/AllocSteps/Part04.lean
-VsaIris/Vsa/AllocSteps/Part05.lean
-VsaIris/Vsa/AllocSteps/Part06.lean
-VsaIris/Vsa/AllocSteps/Part07.lean
-VsaIris/Vsa/AllocSteps/Part09.lean
-VsaIris/Vsa/AllocSteps/Part11.lean
 VsaIris/Vsa/BinDom.lean
 VsaIris/Vsa/BvLits.lean
 VsaIris/Vsa/Instance.lean
@@ -59,7 +50,6 @@ Vsa/Sim/BlockTerm.lean
 Vsa/Sim/BridgeSegFramed.lean
 Vsa/Sim/BridgeSegFull.lean
 Vsa/Sim/BvNormAttr.lean
-Vsa/Sim/ChainFactsTac.lean
 Vsa/Sim/ChainFrameOut.lean
 Vsa/Sim/CheckedSplitRead.lean
 Vsa/Sim/Code/__ascii_mbtowc.lean

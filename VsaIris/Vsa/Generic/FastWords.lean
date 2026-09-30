@@ -19,8 +19,10 @@ open Vsa.Sim
 
 /-! ### From `VsaIris.Vsa.MallocFastSegs` -/
 
-/-- `__global_pointer$`. -/
-abbrev gpV : BitVec 64 := 0x8001b510#64
+/-- `__global_pointer$` of the Lua ELF (`c/lua-riscv-htif.elf`).
+`VsaIris.Sym.alloc_gp` (`AllocCode.lean`, generated from the ELF by
+`gen_alloc_steps.py`) fails the build when a regenerated ELF moves it. -/
+abbrev gpV : BitVec 64 := 0x8005ced0#64
 
 theorem uge_iff (a b : BitVec 64) : zopz0zKzJ_u a b = true ↔ b.toNat ≤ a.toNat := by
   unfold zopz0zKzJ_u; simp [Sail.BitVec.toNatInt]

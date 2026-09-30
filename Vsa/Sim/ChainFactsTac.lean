@@ -1,5 +1,7 @@
+-- discipline: allow(R9-handrolled-fn-assembly) the `chain_facts` tactic and its demos, not a function assembly
 import Vsa.Sim.DeriveCase
 import Vsa.Sim.DecodeTable
+import Vsa.Sim.DecodeNF
 import Vsa.Sim.Code.Eval_expr
 
 /-!
@@ -23,7 +25,8 @@ chain_facts h with "<prefix>"
 to CLOSE the `ChainFacts` goal a `name_seg` carries as a hypothesis, instead of
 assuming it.  It walks the chain: for each block it closes every
 `BytePinsM`/`DecodeFactM`/`BytePinsT`/`DecodeFactT`/`True` leaf by generating and
-applying the named `Code.<fn>_at_<pc>` / `DecodeTable.decode_<word>` lemma from
+applying the named `Code.<fn>_at_<pc>` lemma, or `Vsa.Sim.decodeW (w := <word>)`
+for a decode leaf (ship-your-lua: rule R15, no per-word decode lemma), from
 the instruction literal, and leaves the genuinely data-dependent leaves
 (load/store `MemFacts` windows + byte pins, branch/jump terminator guards) as
 fresh goals in program order — exactly the leftovers `block_facts` leaves,
@@ -78,6 +81,17 @@ private def cfCloseLeaf (h : Term) (g : MVarId) (ty : Expr) (nm : Nat → String
   let stx ← if applyH then `($(mkIdent (nm n).toName) $h) else `($(mkIdent (nm n).toName))
   g.assign (← g.withContext (Term.elabTermEnsuringType stx ty))
 
+/-- Close one `DecodeFact*` leaf `g` with the generic decoder: the word is the
+instruction literal's `word` field, and `Vsa.Sim.decodeW (w := 0x<word>#32)`
+proves the decode fact for it (rule R15; ship-your-lua change). -/
+private def cfCloseDecode (g : MVarId) (ty : Expr) : TacticM Unit := do
+  let some a ← cfLastArg? ty | throwError "chain_facts: no instruction literal"
+  let some fE := cfStructField? a 1 | throwError "chain_facts: no word field"
+  let some n ← cfBvLitNat? fE | throwError "chain_facts: word not a literal"
+  let w := Syntax.mkNumLit (toString n)
+  let stx ← `(fun s h1 h2 h3 => Vsa.Sim.decodeW (w := BitVec.ofNat 32 $w) s h1 h2 h3)
+  g.assign (← g.withContext (Term.elabTermEnsuringType stx ty))
+
 /-- Walk a `ChainFacts` (or `BBlockFacts`) goal `g`: reduce container layers
 (`ChainFacts`/`BBlockFacts`/`ProgFactsM`/`TermPins`/`TermFactsO`) with `whnf`
 (which unfolds the concrete chain/block + the list recursion but stops at the
@@ -87,7 +101,7 @@ guards) in program order.  This is `block_facts`'s `bfSolve` walker verbatim; th
 `ChainFacts` container case is what makes it traverse a whole chain. -/
 private partial def cfSolve (h : Term) (prefixStr : String) (g : MVarId) :
     TacticM (List MVarId) := do
-  let decodeName (w : Nat) : String := "Vsa.Sim.DecodeTable.decode_" ++ cfHexName w
+
   let pinName (pc : Nat) : String := prefixStr ++ cfHexName pc
   let ty := (← instantiateMVars (← g.getType)).consumeMData
   match ty.getAppFn.constName? with
@@ -97,9 +111,9 @@ private partial def cfSolve (h : Term) (prefixStr : String) (g : MVarId) :
       for g' in gs do acc := acc ++ (← cfSolve h prefixStr g')
       return acc
   | some ``BytePinsM => cfCloseLeaf h g ty pinName 0 true; return []
-  | some ``DecodeFactM => cfCloseLeaf h g ty decodeName 1 false; return []
+  | some ``DecodeFactM => cfCloseDecode g ty; return []
   | some ``BytePinsT => cfCloseLeaf h g ty pinName 0 true; return []
-  | some ``DecodeFactT => cfCloseLeaf h g ty decodeName 1 false; return []
+  | some ``DecodeFactT => cfCloseDecode g ty; return []
   | some ``True => g.assign (mkConst ``True.intro); return []
   | some ``ChainFacts | some ``BBlockFacts | some ``ProgFactsM
   | some ``TermPins | some ``TermFactsO =>

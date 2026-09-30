@@ -7,82 +7,126 @@ Outputs (do not hand-edit):
   allocator function (`FUNCS`) plus the `_impure_ptr` word, as a balanced
   append tree of 16-byte chunks. It also emits `alloc_at_<pc>` (the four code
   bytes at `pc`, the shape `chain_facts` consumes), `alloc_code_<pc>` (a jal
-  site's code footprint lies in `allocText`) and `alloc_impure` (the
-  `_impure_ptr` word).
+  or `sltu`/`sltiu` site's code footprint lies in `allocText`) and
+  `alloc_impure` (the `_impure_ptr` word).
 * `VsaIris/Vsa/AllocSteps/Part<k>.lean`: per instruction, one `#derive_case`
   segment (two for a branch: taken `axT_`, fall-through `axF_`) and one step
   lemma `VsaIris.Sym.st_<pc>` over `AW` (`AllocRun.lean`). Its continuation is
   the successor's symbolic state. Each `jal` site also gets `JalExec`
   (`jalx_<pc>`).
+* `VsaIris/Vsa/AllocSteps.lean`: the aggregator.
 
-Kinds: ALU, loads, stores, branches, `j`, `ret`, `jal`. `sltu`/`sltiu` (outside
-`MKind`) get no step lemma. They are listed in the report and at the file
-head.
+Kinds: ALU, loads, stores, branches, `j`, `ret`, `jal`, and `sltu`/`sltiu`
+(outside `MKind`): those go through VSA's observational ALU step as one `SWP`
+step (`swp_aluRR` + `AluStep`, `AllocSltu.lean`), with the execute lemma
+`execute_rtype_sltu_char`/`execute_itype_sltiu_char`.
 
-Usage: python3 scripts/gen_alloc_steps.py [--target alloc|env]
+ship-your-lua changes (ATTRIBUTION.md):
 
-`--target env` (lane H1) emits the same two outputs for `env.c`'s helpers
-(`env_new`, `env_define`, `env_get`, `env_set`): `VsaIris/Interp/EnvCode.lean`
-(`envText`, `env_at_<pc>`, `env_code_<pc>`, `env_impure`) and
-`VsaIris/Interp/EnvSteps/Part<k>.lean` (`st_<pc>` over `EW`, `EnvRun.lean`).
-The allocator is the default target.
+* The ELF is the Lua image, `c/lua-riscv-htif.elf`, read directly with the
+  xPack `objdump`/`nm` (no `experiments/disasm.txt`); `ROOT` is the
+  repository root.
+* `FUNCS` is the call closure of `malloc`, `free`, `realloc`, `_malloc_r`,
+  `_free_r` and `_realloc_r` in that ELF (every `jal` target, transitively);
+  `gp` (`__global_pointer$`) and the `_impure_ptr` word are read from it.
+* Decode is `Vsa.Sim.decodeW (w := 0x<hex>#32)` (rule R15): the `jalx_`
+  lemmas use it, and `chain_facts` closes the decode leaves with it; no
+  decode-table import.
+* `sltu`/`sltiu` get generated step lemmas (the WHILE ELF's one was
+  hand-written in `AllocSltu.lean`).
+* The WHILE interpreter's `--target env` is dropped (the Lua ELF has no
+  `env.c`).
+
+Usage: python3 scripts/syi/gen_alloc_steps.py [--check]
 """
-import re, pathlib, sys
+import pathlib
+import re
+import subprocess
+import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-TARGETS = {
-    'alloc': dict(
-        P='alloc', RUN='AW',
-        FUNCS=['malloc', 'free', 'realloc', '_malloc_r', '_free_r', '_realloc_r', '_malloc_trim_r',
-               '_sbrk_r', '_sbrk', '__malloc_lock', '__malloc_unlock',
-               '__retarget_lock_acquire_recursive', '__retarget_lock_release_recursive',
-               '__errno', 'memcpy', 'memmove'],
-        CODE_OUT='VsaIris/Vsa/AllocCode.lean', STEPS_DIR='VsaIris/Vsa/AllocSteps',
-        STEPS_MOD='VsaIris.Vsa.AllocSteps', RUN_MOD='VsaIris.Vsa.AllocRun',
-        CODE_DOC=['/-! The allocator\'s code bytes (`malloc`, `free`, `realloc`, `_malloc_r`, `_free_r`,',
-                  '`_realloc_r`, `_malloc_trim_r`, `_sbrk_r`, `_sbrk`, the lock hooks, `__errno`, `memcpy`,',
-                  '`memmove`) and the `_impure_ptr` word, as a balanced append tree of 16-byte chunks. -/'],
-        WHO='The allocator\'s'),
-    'env': dict(
-        P='env', RUN='EW',
-        FUNCS=['env_new', 'env_define', 'env_get', 'env_set'],
-        CODE_OUT='VsaIris/Interp/EnvCode.lean', STEPS_DIR='VsaIris/Interp/EnvSteps',
-        STEPS_MOD='VsaIris.Interp.EnvSteps', RUN_MOD='VsaIris.Interp.EnvRun',
-        CODE_DOC=['/-! The code bytes of `env.c`\'s helpers (`env_new`, `env_define`, `env_get`,',
-                  '`env_set`) and the `_impure_ptr` word, as a balanced append tree of 16-byte chunks. -/'],
-        WHO='`env.c`\'s'),
-}
-TGT = 'alloc'
-if '--target' in sys.argv:
-    TGT = sys.argv[sys.argv.index('--target') + 1]
-CFG = TARGETS[TGT]
-P, RUN, FUNCS = CFG['P'], CFG['RUN'], CFG['FUNCS']
-IMPURE = (0x8001b970, [0x38, 0xb5, 0x01, 0x80, 0, 0, 0, 0])
-GPV = 0x8001b510
+ROOT = pathlib.Path(__file__).resolve().parents[2]   # scripts/syi/../..
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+ELF = ROOT / 'c/lua-riscv-htif.elf'
+TOOLS = pathlib.Path.home() / 'toolchains/xpack-riscv-none-elf-gcc-15.2.0-1/bin'
+OBJDUMP, NM = str(TOOLS / 'riscv-none-elf-objdump'), str(TOOLS / 'riscv-none-elf-nm')
+CFG = dict(
+    P='alloc', RUN='AW',
+    ROOTS=['malloc', 'free', 'realloc', '_malloc_r', '_free_r', '_realloc_r'],
+    CODE_OUT='VsaIris/Vsa/AllocCode.lean', STEPS_DIR='VsaIris/Vsa/AllocSteps',
+    STEPS_MOD='VsaIris.Vsa.AllocSteps', RUN_MOD='VsaIris.Vsa.AllocRun',
+    WHO='The allocator\'s')
+P, RUN = CFG['P'], CFG['RUN']
 PER_FILE = 120
 
-# ---------------------------------------------------------------- disassembly
+# ---------------------------------------------------------------- the ELF
+SYM = {}
+for l in subprocess.run([NM, '-n', str(ELF)], capture_output=True, text=True,
+                        check=True).stdout.splitlines():
+    parts = l.split()
+    if len(parts) == 3:
+        SYM.setdefault(parts[2], int(parts[0], 16))
+GPV = SYM['__global_pointer$']
+
+
+def elf_bytes(lo, n):
+    """`n` bytes of the ELF image at `lo` (`objdump -s`)."""
+    out = subprocess.run([OBJDUMP, '-s', f'--start-address=0x{lo:x}',
+                          f'--stop-address=0x{lo + n:x}', str(ELF)],
+                         capture_output=True, text=True, check=True).stdout
+    bs = {}
+    for l in out.splitlines():
+        m = re.match(r'^ ([0-9a-f]{8,16}) ((?:[0-9a-f]{2,8} ){1,4})', l)
+        if m:
+            a = int(m.group(1), 16)
+            for b in bytes.fromhex(m.group(2).replace(' ', '')):
+                bs[a] = b
+                a += 1
+    return [bs[lo + i] for i in range(n)]
+
+
+IMPURE = (SYM['_impure_ptr'], elf_bytes(SYM['_impure_ptr'], 8))
+
 W, FN, MN = {}, {}, {}
 fn = None
-for l in open(ROOT / 'experiments/disasm.txt'):
+for l in subprocess.run([OBJDUMP, '-d', str(ELF)], capture_output=True, text=True,
+                        check=True).stdout.splitlines():
     m = re.match(r'^([0-9a-f]+) <(.*)>:$', l)
     if m:
         fn = m.group(2)
         continue
     m = re.match(r'^\s+([0-9a-f]+):\t([0-9a-f]{8})\s+\t(\S+)', l)
-    if m and fn in FUNCS:
+    if m:
         pc = int(m.group(1), 16)
         W[pc] = int(m.group(2), 16)
         FN[pc] = fn
         MN[pc] = m.group(3)
-PCS = sorted(W)
-
-DEC = {}
-for l in open(ROOT / 'scripts/decode_index.tsv'):
-    w, mod = l.split()
-    DEC[int(w, 16)] = mod
 
 from rv_steps import M64, sext, lit64, fields, i12, sx12, classify_word  # noqa: E402
+from rv_steps import src as _src  # noqa: E402
+
+# the call closure of the roots
+BY_FN = {}
+for pc, f in FN.items():
+    BY_FN.setdefault(f, []).append(pc)
+FUNCS, work = [], list(CFG['ROOTS'])
+while work:
+    f = work.pop()
+    if f in FUNCS:
+        continue
+    FUNCS.append(f)
+    for pc in BY_FN[f]:
+        c, d = classify_word(pc, W[pc], GPV)
+        if c in ('jal', 'j', 'br') and FN.get(d['tgt']) != f:
+            work.append(FN[d['tgt']])       # calls and tail jumps
+FUNCS.sort(key=lambda f: SYM[f])
+W = {pc: w for pc, w in W.items() if FN[pc] in FUNCS}
+PCS = sorted(W)
+CFG['CODE_DOC'] = [
+    '/-! The allocator\'s code bytes (the call closure of `malloc`, `free`, `realloc`,',
+    '`_malloc_r`, `_free_r`, `_realloc_r` in `c/lua-riscv-htif.elf`: '
+    + ', '.join(f'`{f}`' for f in FUNCS) + ')',
+    'and the `_impure_ptr` word, as a balanced append tree of 16-byte chunks. -/']
+
 from rv_steps import src as _src  # noqa: E402
 
 
@@ -92,6 +136,17 @@ def src(r):
 
 def classify(pc):
     return classify_word(pc, W[pc], GPV)
+
+
+def sltu_kind(pc):
+    """`('sltu', rd, rs1, rs2)` / `('sltiu', rd, rs1, imm12)` for the two ALU
+    shapes outside `MKind`, else None."""
+    f = fields(W[pc])
+    if f['op'] == 0x33 and f['f3'] == 3 and f['f7'] == 0 and f['rd'] != 0:
+        return ('sltu', f['rd'], f['rs1'], f['rs2'])
+    if f['op'] == 0x13 and f['f3'] == 3 and f['rd'] != 0:
+        return ('sltiu', f['rd'], f['rs1'], f['immI'] & 0xfff)
+    return None
 
 
 # ---------------------------------------------------------------- the code bytes
@@ -150,7 +205,7 @@ def mem_proof(a):
     return pf
 
 
-C = ['-- Generated by scripts/gen_alloc_steps.py; do not edit.',
+C = ['-- GENERATED by scripts/syi/gen_alloc_steps.py; do not edit.',
      'import VsaIris.Vsa.SymRun', '',
      *CFG['CODE_DOC'], '',
      'namespace VsaIris.Sym', '', 'open Vsa.MemRepr Vsa.Sim', '']
@@ -166,7 +221,7 @@ for pc in PCS:
     C.append('    ' + ' ∧\n    '.join(f'm[(0x{pc + i:x} : Nat)]? = some (0x{bs[i]:02x} : BitVec 8)'
                                        for i in range(4)) + ' :=')
     C.append('  ⟨' + ',\n   '.join(f'h _ ({mem_proof(pc + i)})' for i in range(4)) + '⟩\n')
-JALS = [pc for pc in PCS if classify(pc)[0] == 'jal']
+JALS = [pc for pc in PCS if classify(pc)[0] == 'jal' or sltu_kind(pc)]
 for pc in JALS:
     bs = [BYTE[pc + i] for i in range(4)]
     code = ', '.join(f'0x{b:02x}#8' for b in bs)
@@ -184,8 +239,10 @@ C.append(f'theorem {P}_impure {{m : Mem}} (h : TextLoaded {P}Text m) :')
 C.append(f'    LPins8 m ({lit64(GPV)} + {lit64(a0 - GPV)}).toNat [' + ', '.join(f'0x{b:02x}#8' for b in ib) + '] := by')
 C.append(f'  rw [show ({lit64(GPV)} + {lit64(a0 - GPV)}).toNat = 0x{a0:x} by decide]')
 C.append('  exact ⟨' + ',\n   '.join(f'by rw [h _ ({mem_proof(a0 + i)})]; rfl' for i in range(8)) + '⟩\n')
+C.append('/-- The `gp` the step table computes with is the ELF\'s `__global_pointer$`. -/')
+C.append(f'theorem {P}_gp : VsaIris.MallocFast.gpV = {lit64(GPV)} := rfl\n')
 C.append('end VsaIris.Sym\n')
-(ROOT / CFG['CODE_OUT']).write_text('\n'.join(C))
+OUT = {ROOT / CFG['CODE_OUT']: '\n'.join(C)}
 
 # ---------------------------------------------------------------- the step table
 
@@ -233,6 +290,15 @@ def step(seg, ks, lds, LD, W, cover, tail, gp, hpc, R, Ro, hk, ind='  '):
             f'{ind}  {Ro} rfl {hk}')
 
 
+def okfact(thm, kind, pc, prop):
+    """A concrete `LdOK`/`StOK` side condition as its own lemma, closed by one
+    `decide` at top level (inside the `swp_step` term the same `decide` runs
+    past the default recursion depth)."""
+    name = f'{kind}_{pc:08x}'
+    thm.append(f'theorem {name} : {prop} := by decide')
+    return name
+
+
 def ea_expr(rs1, imm):
     """The effective address, as the segment computes it (`gp`-relative ones
     are closed terms, decided in place)."""
@@ -240,6 +306,8 @@ def ea_expr(rs1, imm):
 
 
 def emit(pc):
+    if sltu_kind(pc):
+        return emit_sltu(pc)
     cls, d = classify(pc)
     w = W[pc]
     bs = [(w >> (8 * i)) & 0xff for i in range(4)]
@@ -273,12 +341,12 @@ def emit(pc):
     (hk : {RUN} live S Q {nxt} (upd R {d['rd']} ({val})) Mt) :
     {RUN} live S Q 0x{pc:x}#64 R Mt :=
 """ + step(f'ax_{pc:08x}', ks, lds, '[]', '[]', NIL,
-           f'exact ⟨(show LdOK {ea} 8 by decide), {P}_impure hm⟩', hgp(ks), 'rfl', hR(ks),
+           f'exact ⟨{okfact(thm, "ldok", pc, f"LdOK {ea} 8")}, {P}_impure hm⟩', hgp(ks), 'rfl', hR(ks),
            hRo(ks, d['rd']), 'hk'))
         else:
             pin = {8: 'lpins8_img hLD', 4: 'lpins4_img hLD', 1: 'lpins1_img hLD', 2: 'lpins2_img hLD'}[wd]
             okh = '' if conc else f'\n    (hea : LdOK {ea} {wd})'
-            okp = f'(show LdOK {ea} {wd} by decide)' if conc else 'hea'
+            okp = okfact(thm, 'ldok', pc, f'LdOK {ea} {wd}') if conc else 'hea'
             thm.append(HDR.format(pc=pc) + f"""{okh}
     (hLDS : ∀ b ∈ accAddrs {ea} {wd}, S b)
     (hk : {RUN} live S Q {nxt} (upd R {d['rd']} (ldv .{d['kind']} Mt {ea})) Mt) :
@@ -292,7 +360,7 @@ def emit(pc):
         ks = ks_of([d['rs1'], d['rs2']])
         ok = f'StOKb {ea}' if d['kind'] == 'sb' else f'StOK {ea} {wd}'
         okh = '' if conc else f'\n    (hea : {ok})'
-        okp = f'(show {ok} by decide)' if conc else 'hea'
+        okp = okfact(thm, 'stok', pc, ok) if conc else 'hea'
         thm.append(HDR.format(pc=pc) + f"""{okh}
     (hS : ∀ b ∈ accAddrs {ea} {wd}, S b)
     (hk : {RUN} live S Q {nxt} R (writeLog Mt [({ea}, {wd}, {src(d['rs2'])})])) :
@@ -355,7 +423,7 @@ theorem jalx_{pc:08x} (live : Nat → Prop)
       {' '.join(f'(0x{b:02x}#8)' for b in bs)}
       hG hpc hmi hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)
       (by apply BitVec.eq_of_toNat_eq; decide) (by apply BitVec.eq_of_toNat_eq; decide)
-      (Vsa.Sim.DecodeTable.decode_{w:08x} (afterPrelude c.σ)
+      (Vsa.Sim.decodeW (w := 0x{w:08x}#32) (afterPrelude c.σ)
         (by rw [get?_afterPrelude c.σ _ (by decide)]; exact hG.misa)
         (by rw [get?_afterPrelude c.σ _ (by decide)]; exact hG.cur_privilege)
         (by rw [get?_afterPrelude c.σ _ (by decide)]; exact hG.mseccfg))
@@ -377,6 +445,33 @@ theorem jalx_{pc:08x} (live : Nat → Prop)
     return segs, thm
 
 
+def extra_imports(pc):
+    return {'VsaIris.Vsa.AllocSltu'} if sltu_kind(pc) else set()
+
+
+def emit_sltu(pc):
+    """The `st_<pc>` of an `sltu`: VSA's observational ALU step (`stepObs_alu`,
+    decoded by `decodeW`) as one `SWP` step (`swp_aluRR`), from
+    `AllocSltu.sltuAluStepAt`, which covers `_realloc_r`'s `sltu a4,a5,a4` at
+    any address. Any other shape is reported as unsupported."""
+    kind, rd, rs1, x = sltu_kind(pc)
+    if (kind, rd, rs1, x) != ('sltu', 14, 15, 14):
+        return None, None
+    val = 'zero_extend (m := 64) (bool_to_bit (zopz0zI_u (R 15) (R 14)))'
+    thm = HDR.format(pc=pc) + f"""
+    (hk : {RUN} live S Q 0x{pc + 4:x}#64 (upd R 14 ({val})) Mt) :
+    {RUN} live S Q 0x{pc:x}#64 R Mt :=
+  swp_aluRR 0x{pc:x} _ _ 14 _
+    (sltuAluStepAt hlive 0x{pc:x} {P}_code_{pc:08x} (by decide) (by decide) (by decide) (by decide)
+      (by apply BitVec.eq_of_toNat_eq; decide) (R 14) (R 15))
+    {P}_code_{pc:08x}
+    (fun p hp => by
+      simp only [List.mem_cons, List.not_mem_nil, or_false] at hp
+      rcases hp with rfl | rfl <;> exact ⟨by dsimp only; decide, by dsimp only; decide, rfl⟩)
+    (by decide) (by decide) rfl hk"""
+    return [], [thm]
+
+
 unsupported = []
 parts = []
 cur_segs, cur_thms, cur_mods, cur_pcs = [], [], set(), []
@@ -387,7 +482,7 @@ for pc in PCS:
         continue
     cur_segs += segs
     cur_thms += thms
-    cur_mods.add(DEC[W[pc]])
+    cur_mods |= extra_imports(pc)
     cur_pcs.append(pc)
     if len(cur_pcs) >= PER_FILE:
         parts.append((cur_segs, cur_thms, cur_mods, cur_pcs))
@@ -396,22 +491,32 @@ if cur_pcs:
     parts.append((cur_segs, cur_thms, cur_mods, cur_pcs))
 
 outdir = ROOT / CFG['STEPS_DIR']
-outdir.mkdir(exist_ok=True)
-for old in outdir.glob('Part*.lean'):
-    old.unlink()
 for k, (segs, thms, mods, pcs) in enumerate(parts):
-    L = ['-- Generated by scripts/gen_alloc_steps.py; do not edit.',
-         f'import {CFG["RUN_MOD"]}', 'import Vsa.Sim.EnvNewSites'] + \
+    L = ['-- GENERATED by scripts/syi/gen_alloc_steps.py; do not edit.',
+         f'import {CFG["RUN_MOD"]}', 'import Vsa.Sim.DecodeNF'] + \
         [f'import {m}' for m in sorted(mods)] + ['',
          f'/-! {CFG["WHO"]} step table, `0x{pcs[0]:x}` to `0x{pcs[-1]:x}` (one lemma `st_<pc>` per',
-         'instruction; see `scripts/gen_alloc_steps.py`). -/', '',
+         'instruction; see `scripts/syi/gen_alloc_steps.py`). -/', '',
          'open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail', '',
          'namespace Vsa.Sim', ''] + segs + ['', 'end Vsa.Sim', '',
          'namespace VsaIris.Sym', '', 'open Vsa.Sim Vsa.MemRepr VsaIris.Inst VsaIris.MallocFast', ''] + \
         [t + '\n' for t in thms] + ['end VsaIris.Sym', '']
-    (outdir / f'Part{k:02d}.lean').write_text('\n'.join(L))
-agg = ['-- Generated by scripts/gen_alloc_steps.py; do not edit.'] + \
+    OUT[outdir / f'Part{k:02d}.lean'] = '\n'.join(L)
+agg = ['-- GENERATED by scripts/syi/gen_alloc_steps.py; do not edit.'] + \
       [f'import {CFG["STEPS_MOD"]}.Part{k:02d}' for k in range(len(parts))] + ['']
-(ROOT / (CFG['STEPS_DIR'] + '.lean')).write_text('\n'.join(agg))
+OUT[ROOT / (CFG['STEPS_DIR'] + '.lean')] = '\n'.join(agg)
+if unsupported:
+    sys.exit('unsupported: ' + ', '.join(f'0x{pc:x} {MN[pc]}' for pc in unsupported))
+if '--check' in sys.argv:
+    bad = [p for p, t in OUT.items() if not p.exists() or p.read_text() != t]
+    bad += [p for p in outdir.glob('Part*.lean') if p not in OUT]
+    for p in bad:
+        print(f'drift: {p.relative_to(ROOT)}', file=sys.stderr)
+    sys.exit(1 if bad else 0)
+outdir.mkdir(exist_ok=True)
+for old in outdir.glob('Part*.lean'):
+    if old not in OUT:
+        old.unlink()
+for p, t in OUT.items():
+    p.write_text(t)
 print(f'{len(PCS)} instructions, {len(text)} bytes, {len(chunks)} chunks, {len(parts)} parts')
-print('unsupported:', ', '.join(f'0x{pc:x} {MN[pc]}' for pc in unsupported))

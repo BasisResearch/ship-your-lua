@@ -18,15 +18,7 @@ import VsaIris.Step
 import VsaIris.Vsa.AllocCode
 import VsaIris.Vsa.AllocRun
 import VsaIris.Vsa.AllocSltu
-import VsaIris.Vsa.AllocSteps.Part01
-import VsaIris.Vsa.AllocSteps.Part03
-import VsaIris.Vsa.AllocSteps.Part04
-import VsaIris.Vsa.AllocSteps.Part05
-import VsaIris.Vsa.AllocSteps.Part06
-import VsaIris.Vsa.AllocSteps.Part07
-import VsaIris.Vsa.AllocSteps.Part09
-import VsaIris.Vsa.AllocSteps.Part11
-import VsaIris.Vsa.AllocStepsTohost
+import VsaIris.Vsa.AllocSteps
 import VsaIris.Vsa.BinDom
 import VsaIris.Vsa.BvLits
 import VsaIris.Vsa.Console

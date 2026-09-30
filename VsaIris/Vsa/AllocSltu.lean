@@ -1,18 +1,18 @@
 import VsaIris.Vsa.AllocRun
-import Vsa.Sim.DecodeTable.Batch04Part25
+import Vsa.Sim.DecodeNF
 import Vsa.Sim.Generic.MemRead
 import VsaIris.Vsa.SegRun
 import Vsa.Sim.StepFrameOut
 
 /-!
-# The allocator's `sltu` (`0x800052d0`)
+# The allocator's `sltu`
 
-`_realloc_r`'s request check `sltu a4,a5,a4` is outside `MKind`, so
-`gen_alloc_steps.py` emits no step lemma for it. As for `strlen`'s `snez`
-(`Strlen.lean`), the instruction is VSA's observational ALU step
-(`stepObs_alu` with the decode-table entry `decode_00e7b733`), turned into a
-one-step run by `Inst.runFact_of_aluStep`; `swp_aluRR` makes any such step one
-`SWP` step, and `st_800052d0` is the lemma the generator would emit.
+`_realloc_r`'s request check `sltu a4,a5,a4` is outside `MKind`. As for
+`strlen`'s `snez` (`Strlen.lean`), the instruction is VSA's observational ALU
+step (`stepObs_alu`, decoded by `Vsa.Sim.decodeW`), turned into a one-step run
+by `Inst.runFact_of_aluStep`; `swp_aluRR` makes any such step one `SWP` step.
+`sltuAluStepAt` is that step at any address; `gen_alloc_steps.py` emits the
+site's `st_<pc>` from it (the WHILE ELF's `st_800052d0` was hand-written here).
 -/
 
 namespace VsaIris.Sym
@@ -82,18 +82,6 @@ theorem exec_sltu_a4_a5_a4 (σ : MState) (pc : BitVec 64) (v14 v15 : BitVec 64)
     (rX_bits_x15 _ v15 h15) (rX_bits_x14 _ v14 h14)
     (wX_bits_x14 _ (zero_extend (m := 64) (bool_to_bit (zopz0zI_u v15 v14))))
 
-/-- The code bytes of the `sltu` are allocator text. -/
-theorem alloc_code_800052d0 :
-    ∀ p ∈ codeFoot 0x800052d0 [0x33#8, 0xb7#8, 0xe7#8, 0x00#8], (p.1, p.2.2) ∈ allocText := by
-  intro p hp
-  simp only [codeFoot, List.zipIdx, List.zipIdx_cons, List.zipIdx_nil, List.map_cons, List.map_nil,
-    List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl
-  · exact List.mem_append_left allocNode180_360 (List.mem_append_right allocNode0_90 (List.mem_append_right allocNode90_135 (List.mem_append_left allocNode157_180 (List.mem_append_right allocNode135_146 (List.mem_append_right allocNode146_151 (List.mem_append_right allocNode151_154 (List.mem_append_left allocNode155_157 ((by decide : ((0x800052d0 : Nat), (0x33#8 : BitVec 8)) ∈ allocChunk154)))))))))
-  · exact List.mem_append_left allocNode180_360 (List.mem_append_right allocNode0_90 (List.mem_append_right allocNode90_135 (List.mem_append_left allocNode157_180 (List.mem_append_right allocNode135_146 (List.mem_append_right allocNode146_151 (List.mem_append_right allocNode151_154 (List.mem_append_left allocNode155_157 ((by decide : ((0x800052d1 : Nat), (0xb7#8 : BitVec 8)) ∈ allocChunk154)))))))))
-  · exact List.mem_append_left allocNode180_360 (List.mem_append_right allocNode0_90 (List.mem_append_right allocNode90_135 (List.mem_append_left allocNode157_180 (List.mem_append_right allocNode135_146 (List.mem_append_right allocNode146_151 (List.mem_append_right allocNode151_154 (List.mem_append_left allocNode155_157 ((by decide : ((0x800052d2 : Nat), (0xe7#8 : BitVec 8)) ∈ allocChunk154)))))))))
-  · exact List.mem_append_left allocNode180_360 (List.mem_append_right allocNode0_90 (List.mem_append_right allocNode90_135 (List.mem_append_left allocNode157_180 (List.mem_append_right allocNode135_146 (List.mem_append_right allocNode146_151 (List.mem_append_right allocNode151_154 (List.mem_append_left allocNode155_157 ((by decide : ((0x800052d3 : Nat), (0x00#8 : BitVec 8)) ∈ allocChunk154)))))))))
-
 theorem sltu_word :
     (((0x00#8).append (0xe7#8)).append (0xb7#8)).append (0x33#8) = (0x00e7b733#32 : BitVec 32) := by
   apply BitVec.eq_of_toNat_eq; decide
@@ -103,23 +91,31 @@ theorem sltu_notrvc :
       = (0b11#2 : BitVec 2) := by
   apply BitVec.eq_of_toNat_eq; decide
 
-/-- The `sltu` as one observational ALU step. -/
-theorem sltuAluStep {live : Nat → Prop} (hlive : ∀ p ∈ allocText, live p.1) (v14 v15 : BitVec 64) :
-    AluStep live 0x800052d0 [(14, DFrac.own 1, v14), (15, DFrac.own 1, v15)]
-      (codeFoot 0x800052d0 [0x33#8, 0xb7#8, 0xe7#8, 0x00#8]) 14
+/-- The `sltu a4,a5,a4` at any allocator address `pc` as one observational
+ALU step. `gen_alloc_steps.py` instantiates it at each such site, with the
+site's code-footprint lemma `alloc_code_<pc>` and the address facts by
+`decide`. -/
+theorem sltuAluStepAt {live : Nat → Prop} (hlive : ∀ p ∈ allocText, live p.1) (pc : Nat)
+    (hcode : ∀ p ∈ codeFoot pc [0x33#8, 0xb7#8, 0xe7#8, 0x00#8], (p.1, p.2.2) ∈ allocText)
+    (hpcN : (BitVec.ofNat 64 pc).toNat = pc) (hlo : 0x80000000 ≤ pc)
+    (hhi : pc + 4 ≤ tohostAddr) (hal : pc % 4 = 0)
+    (hnext : BitVec.addInt (BitVec.ofNat 64 pc) 4 = BitVec.ofNat 64 (pc + 4))
+    (v14 v15 : BitVec 64) :
+    AluStep live pc [(14, DFrac.own 1, v14), (15, DFrac.own 1, v15)]
+      (codeFoot pc [0x33#8, 0xb7#8, 0xe7#8, 0x00#8]) 14
       (zero_extend (m := 64) (bool_to_bit (zopz0zI_u v15 v14))) := by
   intro c hok hpc hRR hMR
-  have hread := readBytes_present hok _ hMR (fun p hp => hlive _ (alloc_code_800052d0 p hp))
-  have hb : ∀ k (b : BitVec 8), ((0x800052d0 + k : Nat), DFrac.discard, b) ∈
-      codeFoot 0x800052d0 [0x33#8, 0xb7#8, 0xe7#8, 0x00#8] → c.σ.mem[0x800052d0 + k]? = some b :=
+  have hread := readBytes_present hok _ hMR (fun p hp => hlive _ (hcode p hp))
+  have hb : ∀ k (b : BitVec 8), ((pc + k : Nat), DFrac.discard, b) ∈
+      codeFoot pc [0x33#8, 0xb7#8, 0xe7#8, 0x00#8] → c.σ.mem[pc + k]? = some b :=
     fun k b h => hread _ h
   have hb0 := hb 0 0x33#8 (by simp [codeFoot])
   have hb1 := hb 1 0xb7#8 (by simp [codeFoot])
   have hb2 := hb 2 0xe7#8 (by simp [codeFoot])
   have hb3 := hb 3 0x00#8 (by simp [codeFoot])
-  have hpcσ : c.σ.regs.get? Register.PC = some (0x800052d0#64 : BitVec 64) := by
+  have hpcσ : c.σ.regs.get? Register.PC = some (BitVec.ofNat 64 pc : BitVec 64) := by
     obtain ⟨w, hw⟩ := hok.good.PC
-    have h : pcVal c.σ = BitVec.ofNat 64 0x800052d0 := hpc
+    have h : pcVal c.σ = BitVec.ofNat 64 pc := hpc
     unfold pcVal at h
     rw [hw] at h ⊢
     exact congrArg some h
@@ -129,18 +125,20 @@ theorem sltuAluStep {live : Nat → Prop} (hlive : ∀ p ∈ allocText, live p.1
     gprGet_eq_of_vsaReg hok (by omega) (by omega) (hRR _ (.tail _ List.mem_cons_self))
   obtain ⟨vm, hvm⟩ := hok.good.minstret
   obtain ⟨σ', i', hstep, hi', hG', hmem', hobs⟩ :=
-    stepObs_alu c.σ c.tick c.steps (0x800052d0#64) vm (0x00e7b733#32)
+    stepObs_alu c.σ c.tick c.steps (BitVec.ofNat 64 pc) vm (0x00e7b733#32)
       (instruction.RTYPE (regidx.Regidx 0x0e#5, regidx.Regidx 0x0f#5, regidx.Regidx 0x0e#5, rop.SLTU))
       Register.x14 (zero_extend (m := 64) (bool_to_bit (zopz0zI_u v15 v14)))
       (0x33#8) (0xb7#8) (0xe7#8) (0x00#8)
       hok.good hpcσ hvm sltu_word sltu_notrvc
-      (Vsa.Sim.DecodeTable.decode_00e7b733 (afterPrelude c.σ)
+      (Vsa.Sim.decodeW (w := 0x00e7b733#32) (afterPrelude c.σ)
         (by rw [get?_afterPrelude c.σ _ (by decide)]; exact hok.good.misa)
         (by rw [get?_afterPrelude c.σ _ (by decide)]; exact hok.good.cur_privilege)
         (by rw [get?_afterPrelude c.σ _ (by decide)]; exact hok.good.mseccfg))
-      (exec_sltu_a4_a5_a4 c.σ (0x800052d0#64) v14 v15 ha4 ha5)
+      (exec_sltu_a4_a5_a4 c.σ (BitVec.ofNat 64 pc) v14 v15 ha4 ha5)
       (by decide) (by decide) (by decide) (by decide) (by decide)
-      hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hok.tick
+      (by rw [hpcN]; exact hb0) (by rw [hpcN]; exact hb1) (by rw [hpcN]; exact hb2)
+      (by rw [hpcN]; exact hb3)
+      (by rw [hpcN]; exact hlo) (by rw [hpcN]; exact hhi) (by rw [hpcN]; exact hal) hok.tick
   have hframe := StepFrameOut.of_alu hobs
   have hnoise : ∀ n, n < 32 → 1 ≤ n → ∀ R ∈ noiseRegs, (R == gprReg n) = false := by decide
   have hgprFrame : ∀ n, 1 ≤ n → n ≤ 31 → n ≠ 14 → gprGet σ' n = gprGet c.σ n := by
@@ -170,7 +168,7 @@ theorem sltuAluStep {live : Nat → Prop} (hlive : ∀ p ∈ allocText, live p.1
   · change pcVal σ' = _
     unfold pcVal
     rw [obs_alu_pc hobs]
-    rfl
+    exact hnext
   · change vsaReg ⟨σ', i', c.steps + 1⟩ 14 = _
     rw [vsaReg_gpr (by decide)]
     change (gprGet σ' 14).getD 0 = _
@@ -188,18 +186,5 @@ theorem sltuAluStep {live : Nat → Prop} (hlive : ∀ p ∈ allocText, live p.1
   · show Vsa.Machine.output σ' = Vsa.Machine.output c.σ
     unfold Vsa.Machine.output
     rw [hframe.out]
-
-/-- **`sltu a4,a5,a4`** (`0x800052d0`): `a4 := (a5 <u a4)`. -/
-theorem st_800052d0 {live : Nat → Prop} {S : Nat → Prop}
-    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
-    (hlive : ∀ p ∈ allocText, live p.1)
-    (hk : AW live S Q 0x800052d4#64
-      (upd R 14 (zero_extend (m := 64) (bool_to_bit (zopz0zI_u (R 15) (R 14))))) Mt) :
-    AW live S Q 0x800052d0#64 R Mt :=
-  swp_aluRR 0x800052d0 _ _ 14 _ (sltuAluStep hlive (R 14) (R 15)) alloc_code_800052d0
-    (fun p hp => by
-      simp only [List.mem_cons, List.not_mem_nil, or_false] at hp
-      rcases hp with rfl | rfl <;> exact ⟨by dsimp only; decide, by dsimp only; decide, rfl⟩)
-    (by decide) (by decide) rfl hk
 
 end VsaIris.Sym
