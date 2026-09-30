@@ -137,6 +137,13 @@ def BinOp.int : BinOp → BitVec 64 → BitVec 64 → Option (BitVec 64)
   | .shl, x, y => some (shiftl x y)
   | .shr, x, y => some (shiftr x y)
 
+/-- A concatenation operand as bytes (`tostring`: integers with `%lld`);
+anything else is an error (`luaG_concaterror`). -/
+def Value.toStr? : Value → Option (List UInt8)
+  | .str s => some s
+  | .int i => some ((toString i.toInt).toList.map fun c => c.toNat.toUInt8)
+  | _ => none
+
 /-- `l_strcmp(a, b) < 0` in the "C" locale: byte-lexicographic order on
 unsigned bytes, a proper prefix first. -/
 def lexLt : List UInt8 → List UInt8 → Bool
@@ -152,6 +159,8 @@ inductive Prim where
   | unm | bnot | not | eq | lt | le
   /-- `luaV_objlen` -/
   | len
+  /-- `luaV_concat` -/
+  | concat
 
 /-- **δ**: the value of a primitive on its operands; `none` is a runtime
 error (no rule). Order tests give booleans (`luaV_lessthan`,
@@ -167,6 +176,7 @@ def δ : Prim → List Value → Option Value
   | .len, [.str s] => some (.int (BitVec.ofNat 64 s.length))
   | .lt, [.str a, .str b] => some (.bool (lexLt a b))
   | .le, [.str a, .str b] => some (.bool (!lexLt b a))
+  | .concat, vs => (vs.mapM Value.toStr?).map fun ss => .str ss.flatten
   | _, _ => none
 
 /-! ## States -/
@@ -314,6 +324,14 @@ def callK : Kernel Value where
       some { edge := 0, vals := List.replicate (w.c - 1) .nil, print := some args }
     | _ => none
 
+/-- `OP_CONCAT A B` (`luaV_concat`, `B ≥ 2`): `R[A] := R[A] .. … ..
+R[A+B-1]`. It works in place, so the slots above `A` are scratch space
+afterwards: kill ports. -/
+def concatK : Kernel Value where
+  reads := List.range' w.a w.b
+  edges := [{ tgt := pc + 1, defs := [w.a], killLo := w.a + 1, killN := w.b - 1 }]
+  body vs := (δ .concat vs).map fun v => { edge := 0, vals := [v] }
+
 /-- `R[A] op x`: the arithmetic kernel of a register-register, -constant or
 -immediate opcode. -/
 def arithRR (o : BinOp) : Option (Kernel Value) := some (opArith pc w.a o [.reg w.b, .reg w.c])
@@ -365,6 +383,7 @@ def opKernel : OpCode → Option (Kernel Value)
   | .BNOT => some (setR w.a (pc + 1) [.reg w.b] (δ .bnot))
   | .NOT => some (setR w.a (pc + 1) [.reg w.b] (δ .not))
   | .LEN => some (setR w.a (pc + 1) [.reg w.b] (δ .len))
+  | .CONCAT => if 2 ≤ w.b then some (concatK pc w) else none
   | .JMP => (jumpTo (pc + 1) w.sj).map jump
   | .EQ => docondjump p pc w.k [.reg w.a, .reg w.b] (δ .eq)
   | .EQK => (kval p w.b).bind fun v => docondjump p pc w.k [.reg w.a, .imm v] (δ .eq)
