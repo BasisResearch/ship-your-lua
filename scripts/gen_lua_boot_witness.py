@@ -16,9 +16,10 @@ For each program (`PROGRAMS`):
 3. reconstruct the entry memory: the PT_LOAD segment's `p_filesz` bytes (the
    loader), then every traced store in program order (the binary is rv64i:
    stores are its only memory writes);
-4. evaluate natively every field of `VmEntryData` (Lua/Vm/Repr.lean) and of
-   `luaRuntimeReady` (Lua/Vm/Runtime.lean) at that memory and the entry
-   registers, and fail on the first false one;
+4. evaluate natively every field of `VmEntryData` (Lua/Vm/Repr.lean), of
+   `luaRuntimeReady` (Lua/Vm/Runtime.lean) and of `MachineAt.regs`
+   (`RegsOk`: every GPR present, the HTIF mailbox idle) at that memory and the
+   entry registers, and fail on the first false one;
 5. check that the boot-invariant values are the same for every program.
 
 It writes (all GENERATED, drift-checked by `--check`):
@@ -356,6 +357,22 @@ def check_harness(lay, log):
     need(plat_insns_per_tick() <= 2, "tick < 2")
     t = lay["symTohost"]
     need(all(a + wd <= t or t + 8 <= a for a, wd, _ in log), "no console output before the entry")
+
+
+def check_regs(lay, entry, log):
+    """`MachineAt.regs` (`RegsOk`): every GPR `x1 … x31` holds a value at the
+    entry (the traced row has all 31), and the HTIF mailbox is idle:
+    `htif_payload_writes` starts at the model's `undefined_bitvector 4`, which
+    the machine's choice source (`trivialChoiceSource`, lean-sail) makes 0,
+    and only a store to the `tohost` word changes it; no boot store touches
+    it."""
+    need(len(entry) >= 35 and all(re.fullmatch(r"[0-9a-fA-F]{1,16}", x) for x in entry[4:35]),
+         "every GPR present at the entry")
+    src = (ROOT / "riscv-lean" / "lean-sail" / "Sail" / "ConcurrencyInterfaceV1.lean").read_text()
+    need(re.search(r"def trivialChoiceSource[\s\S]*?\| \.bitvector _ => 0\n", src) is not None,
+         "the choice source's undefined bit vectors are 0")
+    t = lay["symTohost"]
+    need(all(a + wd <= t or t + 8 <= a for a, wd, _ in log), "the HTIF mailbox is idle at the entry")
 
 
 def check_tstring(lay, M, ts, s):
@@ -730,6 +747,7 @@ def main():
         try:
             e, w, slot, inv = evaluate(lay, M, regs, proto)
             check_harness(lay, log)
+            check_regs(lay, entry, log)
         except Fail as ex:
             raise SystemExit(f"{name}: the entry state fails {ex}")
         need(calls[-1][0] == regs[1] and calls[-1][2] is None, "the innermost call is ccall's, in ra")

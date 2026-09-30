@@ -167,7 +167,7 @@ def close(kind, post, k):
     if kind == "copy":
         return f"""  have hA0 : w.base + 16 * ((ins.toNat >>> 7) % 2 ^ 8) + 8 < 2 ^ 64 := by omega
   have hB0 : w.base + 16 * ((ins.toNat >>> 16) % 2 ^ 8) + 8 < 2 ^ 64 := by omega
-  have hm := {P}.extra.2.1
+  have hm := {P}.armMem
   rw [slot_toNat w.base 7 0 ins (by decide) (by decide) (by decide) (by omega),
     slot_toNat w.base 7 8 ins (by decide) (by decide) (by decide) (by omega)] at hm
   simp only [add_imm _ 0 (by decide), add_imm _ 8 (by decide), BitVec.toNat_ofNat, Nat.add_zero,
@@ -180,10 +180,10 @@ def close(kind, post, k):
 {x27}  have hcore := hc1.write {P} (a := ins.a) (pc' := s.pc + 1)
     (by simp only [Word.a, Word.field]; omega)
     ⟨{pins({"x27": "hx27"})}⟩
-    {P}.extra.2.2 hst (hc1.stack ins.b v0 (by simp only [Word.b, Word.field]; omega) hb)
+    hst (hc1.stack ins.b v0 (by simp only [Word.b, Word.field]; omega) hb)
 {done}"""
     if kind == "imm":
-        return f"""  have hm := {P}.extra.2.1
+        return f"""  have hm := {P}.armMem
   have hK32 : Sail.BitVec.extractLsb ((sign_extend (m := 64) ((0xffff0#20) +++ 0x000#12))
       + sign_extend (m := 64) (0x001#12)) 31 0 = 0xffff0001#32 := by decide
   have hT : stData 1 (BitVec.ofNat 64 vNumInt) = BitVec.ofNat 8 vNumInt := by decide
@@ -202,7 +202,7 @@ def close(kind, post, k):
 {x27}  have hcore := hc1.write {P} (a := ins.a) (pc' := s.pc + 1)
     (v := .int (BitVec.ofInt 64 ins.sbx)) (by simp only [Word.a, Word.field]; omega)
     ⟨{pins({"x27": "hx27"})}⟩
-    {P}.extra.2.2 hst (by rw [hval]; exact ValRepr.int)
+    hst (by rw [hval]; exact ValRepr.int)
 {done}"""
     assert kind == "jump"
     return f"""  have hKj : Sail.BitVec.extractLsb ((sign_extend (m := 64) ((0xff000#20) +++ 0x000#12))
@@ -237,7 +237,7 @@ def close(kind, post, k):
     omega
   have hcore := hc1.jump {P} (pc' := t)
     ⟨{pins({"x21": "hx21", "x27": "hx27"})}⟩
-    {P}.extra.2.2 {P}.extra.2.1
+    {P}.armMem
 {done}"""
 
 
@@ -296,9 +296,9 @@ theorem sim_{lean_op} {{p : Proto}} ({"_hS" if kind == "jump" else "hS"} : Suppo
                 proofs.append(f"h{r}_{k}")
         pre_ok = "hpc1" if prev is None else f"hq{k - 1}.pcAt"
         good = "hc1.good" if prev is None else f"hq{k - 1}.good"
-        rest = ("hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩" if prev is None else
-                f"hq{k - 1}.minstret, hq{k - 1}.tick, ⟨hq{k - 1}.extra.1, hq{k - 1}.extra.2.1, "
-                f"hq{k - 1}.extra.2.2⟩")
+        rest = ("hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩" if prev is None else
+                f"hq{k - 1}.minstret, hq{k - 1}.tick, ⟨hq{k - 1}.armText, hq{k - 1}.armMem, "
+                f"hq{k - 1}.armOut, hq{k - 1}.armOk⟩")
         hyps = " ".join(["(by arm_arith)"] * n_hyps(spec))
         L.append(f"  obtain ⟨c{k + 1}, hs{k + 1}, hq{k}⟩ := Arms.{name}\n    "
                  + "\n    ".join(wrap(args)) + "\n    c1.σ.mem c1.σ.sailOutput"
@@ -414,12 +414,12 @@ def chain2(segs, guards):
         regs = pin_regs(spec)
         if k == 1:
             pre = (f"c1 ⟨hc1.good, hpc1,\n      ⟨{', '.join(prf[r] for r in regs)}, trivial⟩,"
-                   "\n      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩")
+                   "\n      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩⟩")
         else:
-            memp = "rfl" if base == f"c{k}.σ.mem" else f"hq{k - 1}.extra.2.1"
+            memp = "rfl" if base == f"c{k}.σ.mem" else f"hq{k - 1}.armMem"
             pre = (f"c{k} ⟨hq{k - 1}.good, hq{k - 1}.pcAt,\n      ⟨{', '.join(prf[r] for r in regs)}, "
-                   f"trivial⟩,\n      hq{k - 1}.minstret, hq{k - 1}.tick, ⟨hq{k - 1}.extra.1, {memp}, "
-                   f"hq{k - 1}.extra.2.2⟩⟩")
+                   f"trivial⟩,\n      hq{k - 1}.minstret, hq{k - 1}.tick, ⟨hq{k - 1}.armText, {memp}, "
+                   f"hq{k - 1}.armOut, hq{k - 1}.armOk⟩⟩")
         L.append(f"  obtain ⟨c{k + 1}, hs{k + 1}, hq{k}⟩ := Arms.{name}\n    "
                  + "\n    ".join(wrap([env[r] for r in regs])) + f"\n    {base} c1.σ.sailOutput"
                  + ("\n    " + "\n    ".join(wrap(hyps)) if hyps else "") + f"\n    {pre}")
@@ -427,11 +427,11 @@ def chain2(segs, guards):
         prf = {r: f"pinsHold_get hq{k}.pins {i} (by len_arith)" for i, (r, _) in enumerate(em.pins)}
         if em.mem_expr.strip("() ") != "m0":
             writer, base = k, f"c{k + 1}.σ.mem"
-            L.append(f"  have hW := hq{k}.extra.2.1")
+            L.append(f"  have hW := hq{k}.armMem")
     assert gi == len(guards), (gi, guards)
     k = len(segs)
     if writer != k:
-        L.append(f"  have hmE : c{k + 1}.σ.mem = {base} := hq{k}.extra.2.1")
+        L.append(f"  have hmE : c{k + 1}.σ.mem = {base} := hq{k}.armMem")
     L.append(f"  have hsteps : Steps c1 c{k + 1} := "
              + (f"hs{k + 1}" if k == 1 else
                 " ".join(f"(hs{i}.trans" for i in range(2, k + 1)) + f" hs{k + 1}" + ")" * (k - 1)))
@@ -477,7 +477,7 @@ def close_skip(post, k, tgt, x21=None):
         over["x21"] = "hx21"
         pre += x21_trap(post, k, x21)
     return pre + (f"  have hcore := hc1.jump hq{k} (pc' := {tgt})\n    ⟨{pins2(post, k, over)}⟩\n"
-                  f"    hq{k}.extra.2.2 hmE\n") + done2(k)
+                  f"    hmE\n") + done2(k)
 
 
 # kind -> bytecode inversion (after `refine sim_of_run`)
@@ -588,7 +588,7 @@ def paths2(kind):
     (v := .int (slotVal c1.σ.mem (w.slot ins.b) + slotVal c1.σ.mem (w.slot ins.c)))
     (by simp only [Word.a, Word.field]; omega)
     ⟨{pins2(post, k, {"x27": "hx27"})}⟩
-    hq{k}.extra.2.2 hst (by
+    hst (by
       rw [stData_int, add_val (n1 := w.slot ins.b) (n2 := w.slot ins.c) ?_ ?_]
       · exact .int
       all_goals slot_arith)
@@ -632,7 +632,7 @@ def paths2(kind):
     slot_arith
 """) + f"""  have hcore := hc1.jump hq{k} (pc' := t)
     ⟨{pins2(post, k, {"x21": "hx21", "x27": "hx27"})}⟩
-    hq{k}.extra.2.2 hmE
+    hmE
 """ + done2(k))
 
         def skip(post, k):
@@ -669,7 +669,7 @@ def paths2(kind):
                 + x27_to(post, k, "(s.pc + 1 - ins.bx)")
                 + f"""  have hcore := hc1.forloop hq{k} (pc' := s.pc + 1 - ins.bx) (a := ins.a)
     ⟨{pins2(post, k, {"x21": "hx21", "x27": "hx27"})}⟩
-    hq{k}.extra.2.2 hA3 (by rw [hmE]; exact hfs) hn hi
+    hA3 (by rw [hmE]; exact hfs) hn hi
 """ + done2(k))
     return split, {
         "exit": ("tt", [g2, "(by refine guard_zero_t (n := w.slot (ins.a + 1)) ?_ hvn.2; slot_arith)"],

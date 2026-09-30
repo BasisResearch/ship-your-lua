@@ -56,7 +56,7 @@ theorem sim_MOVE {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     c1.σ.mem c1.σ.sailOutput
     c1 ⟨hc1.good, hpc1,
       ⟨hA.s4, hc1.pins.base, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hc1.pins.intTag, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
+      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩⟩
   have hx14_2 : c2.σ.regs.get? Register.x14 = some (BitVec.ofNat 64 (w.base + 16 * ((ins.toNat >>> 16) % 2 ^ 8))) := by
     have h := pinsHold_get hq1.pins 0 (by simp)
     simp only [List.getElem_cons_succ, List.getElem_cons_zero] at h
@@ -71,11 +71,11 @@ theorem sim_MOVE {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith)
     c2 ⟨hq1.good, hq1.pcAt,
       ⟨pinsHold_get hq1.pins 1 (by simp), hx14_2, pinsHold_get hq1.pins 2 (by simp), pinsHold_get hq1.pins 8 (by simp), pinsHold_get hq1.pins 3 (by simp), pinsHold_get hq1.pins 4 (by simp), pinsHold_get hq1.pins 5 (by simp), pinsHold_get hq1.pins 6 (by simp), pinsHold_get hq1.pins 7 (by simp), pinsHold_get hq1.pins 9 (by simp), pinsHold_get hq1.pins 10 (by simp), pinsHold_get hq1.pins 11 (by simp), pinsHold_get hq1.pins 12 (by simp), trivial⟩,
-      hq1.minstret, hq1.tick, ⟨hq1.extra.1, hq1.extra.2.1, hq1.extra.2.2⟩⟩
+      hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩
   have hsteps : Steps c1 c3 := (hs2.trans hs3)
   have hA0 : w.base + 16 * ((ins.toNat >>> 7) % 2 ^ 8) + 8 < 2 ^ 64 := by omega
   have hB0 : w.base + 16 * ((ins.toNat >>> 16) % 2 ^ 8) + 8 < 2 ^ 64 := by omega
-  have hm := hq2.extra.2.1
+  have hm := hq2.armMem
   rw [slot_toNat w.base 7 0 ins (by decide) (by decide) (by decide) (by omega),
     slot_toNat w.base 7 8 ins (by decide) (by decide) (by decide) (by omega)] at hm
   simp only [add_imm _ 0 (by decide), add_imm _ 8 (by decide), BitVec.toNat_ofNat, Nat.add_zero,
@@ -92,7 +92,7 @@ theorem sim_MOVE {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
   have hcore := hc1.write hq2 (a := ins.a) (pc' := s.pc + 1)
     (by simp only [Word.a, Word.field]; omega)
     ⟨pinsHold_get hq2.pins 7 (by simp), pinsHold_get hq2.pins 8 (by simp), pinsHold_get hq2.pins 9 (by simp), pinsHold_get hq2.pins 10 (by simp), pinsHold_get hq2.pins 11 (by simp), pinsHold_get hq2.pins 12 (by simp), pinsHold_get hq2.pins 13 (by simp), pinsHold_get hq2.pins 14 (by simp), pinsHold_get hq2.pins 5 (by simp), hx27⟩
-    hq2.extra.2.2 hst (hc1.stack ins.b v0 (by simp only [Word.b, Word.field]; omega) hb)
+    hst (hc1.stack ins.b v0 (by simp only [Word.b, Word.field]; omega) hb)
   exact ⟨c3, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq2.pcAt⟩⟩
 
 end Lua.Vm.Sim

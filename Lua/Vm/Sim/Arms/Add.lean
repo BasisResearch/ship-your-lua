@@ -79,7 +79,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
           (by refine guard_tag_eq (n := w.slot ins.b) ?_ hB (by decide); slot_arith)
           c1 ⟨hc1.good, hpc1,
             ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-            hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
+            hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩⟩
         obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001e7d0_8001e7d8_t
           ((BitVec.ofNat 64 w.base) + (shift_bits_left (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x18#5))) (Sail.BitVec.extractLsb (0x04#6) 5 0)))
           (BitVec.ofNat 64 vNumInt) (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer)
@@ -94,7 +94,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
           (by refine guard_tag_eq (n := w.slot ins.c) ?_ hC (by decide); slot_arith)
           c2 ⟨hq1.good, hq1.pcAt,
             ⟨pinsHold_get hq1.pins 0 (by len_arith), pinsHold_get hq1.pins 8 (by len_arith), pinsHold_get hq1.pins 9 (by len_arith), pinsHold_get hq1.pins 10 (by len_arith), pinsHold_get hq1.pins 11 (by len_arith), pinsHold_get hq1.pins 12 (by len_arith), pinsHold_get hq1.pins 13 (by len_arith), pinsHold_get hq1.pins 6 (by len_arith), pinsHold_get hq1.pins 14 (by len_arith), pinsHold_get hq1.pins 15 (by len_arith), pinsHold_get hq1.pins 16 (by len_arith), pinsHold_get hq1.pins 7 (by len_arith), pinsHold_get hq1.pins 17 (by len_arith), pinsHold_get hq1.pins 5 (by len_arith), pinsHold_get hq1.pins 1 (by len_arith), trivial⟩,
-            hq1.minstret, hq1.tick, ⟨hq1.extra.1, hq1.extra.2.1, hq1.extra.2.2⟩⟩
+            hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩
         obtain ⟨c4, hs4, hq3⟩ := Arms.seg_8001f06c_8001f088
           ((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x10#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0)))
           ((BitVec.ofNat 64 w.base) + (shift_bits_left (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x18#5))) (Sail.BitVec.extractLsb (0x04#6) 5 0)))
@@ -110,8 +110,8 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
           (by slot_arith) (by slot_arith) (by slot_arith)
           c3 ⟨hq2.good, hq2.pcAt,
             ⟨pinsHold_get hq2.pins 14 (by len_arith), pinsHold_get hq2.pins 1 (by len_arith), pinsHold_get hq2.pins 13 (by len_arith), pinsHold_get hq2.pins 15 (by len_arith), pinsHold_get hq2.pins 2 (by len_arith), pinsHold_get hq2.pins 3 (by len_arith), pinsHold_get hq2.pins 4 (by len_arith), pinsHold_get hq2.pins 5 (by len_arith), pinsHold_get hq2.pins 6 (by len_arith), pinsHold_get hq2.pins 7 (by len_arith), pinsHold_get hq2.pins 8 (by len_arith), pinsHold_get hq2.pins 9 (by len_arith), pinsHold_get hq2.pins 10 (by len_arith), pinsHold_get hq2.pins 11 (by len_arith), pinsHold_get hq2.pins 12 (by len_arith), trivial⟩,
-            hq2.minstret, hq2.tick, ⟨hq2.extra.1, hq2.extra.2.1, hq2.extra.2.2⟩⟩
-        have hW := hq3.extra.2.1
+            hq2.minstret, hq2.tick, ⟨hq2.armText, hq2.armMem, hq2.armOut, hq2.armOk⟩⟩
+        have hW := hq3.armMem
         have hsteps : Steps c1 c4 := (hs2.trans (hs3.trans hs4))
         have hst := slotStore_sb_sd (A := w.slot ins.a) hW (by slot_arith) (by slot_arith)
         have hx27 : c4.σ.regs.get? Register.x27 = some (BitVec.ofNat 64 (w.code + 4 * (s.pc + 2))) := by
@@ -124,7 +124,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
           (v := .int (slotVal c1.σ.mem (w.slot ins.b) + slotVal c1.σ.mem (w.slot ins.c)))
           (by simp only [Word.a, Word.field]; omega)
           ⟨pinsHold_get hq3.pins 6 (by len_arith), pinsHold_get hq3.pins 7 (by len_arith), pinsHold_get hq3.pins 8 (by len_arith), pinsHold_get hq3.pins 9 (by len_arith), pinsHold_get hq3.pins 5 (by len_arith), pinsHold_get hq3.pins 12 (by len_arith), pinsHold_get hq3.pins 13 (by len_arith), pinsHold_get hq3.pins 14 (by len_arith), pinsHold_get hq3.pins 15 (by len_arith), hx27⟩
-          hq3.extra.2.2 hst (by
+          hst (by
             rw [stData_int, add_val (n1 := w.slot ins.b) (n2 := w.slot ins.c) ?_ ?_]
             · exact .int
             all_goals slot_arith)
@@ -143,7 +143,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (by refine guard_tag_eq (n := w.slot ins.b) ?_ hB (by decide); slot_arith)
         c1 ⟨hc1.good, hpc1,
           ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-          hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
+          hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩⟩
       obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001e7d0_8001e7d8_n
         ((BitVec.ofNat 64 w.base) + (shift_bits_left (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x18#5))) (Sail.BitVec.extractLsb (0x04#6) 5 0)))
         (BitVec.ofNat 64 vNumInt) (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer)
@@ -157,7 +157,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (by refine guard_tag_ne (n := w.slot ins.c) ?_ hC (by decide); slot_arith)
         c2 ⟨hq1.good, hq1.pcAt,
           ⟨pinsHold_get hq1.pins 0 (by len_arith), pinsHold_get hq1.pins 8 (by len_arith), pinsHold_get hq1.pins 9 (by len_arith), pinsHold_get hq1.pins 10 (by len_arith), pinsHold_get hq1.pins 11 (by len_arith), pinsHold_get hq1.pins 12 (by len_arith), pinsHold_get hq1.pins 13 (by len_arith), pinsHold_get hq1.pins 6 (by len_arith), pinsHold_get hq1.pins 14 (by len_arith), pinsHold_get hq1.pins 15 (by len_arith), pinsHold_get hq1.pins 16 (by len_arith), pinsHold_get hq1.pins 7 (by len_arith), pinsHold_get hq1.pins 17 (by len_arith), pinsHold_get hq1.pins 5 (by len_arith), trivial⟩,
-          hq1.minstret, hq1.tick, ⟨hq1.extra.1, hq1.extra.2.1, hq1.extra.2.2⟩⟩
+          hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩
       obtain ⟨c4, hs4, hq3⟩ := Arms.seg_8001e7d8_8001e7e0_t
         (zero_extend (m := 64) (bytesT1 (c1.σ.mem) (((BitVec.ofNat 64 w.base) + (shift_bits_left (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x18#5))) (Sail.BitVec.extractLsb (0x04#6) 5 0))) + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))
         (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer) (BitVec.ofNat 64 w.L)
@@ -169,7 +169,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (by refine guard_not_float (n := w.slot ins.c) ?_ hvc; slot_arith)
         c3 ⟨hq2.good, hq2.pcAt,
           ⟨pinsHold_get hq2.pins 0 (by len_arith), pinsHold_get hq2.pins 3 (by len_arith), pinsHold_get hq2.pins 4 (by len_arith), pinsHold_get hq2.pins 5 (by len_arith), pinsHold_get hq2.pins 6 (by len_arith), pinsHold_get hq2.pins 2 (by len_arith), pinsHold_get hq2.pins 7 (by len_arith), pinsHold_get hq2.pins 8 (by len_arith), pinsHold_get hq2.pins 9 (by len_arith), pinsHold_get hq2.pins 10 (by len_arith), pinsHold_get hq2.pins 11 (by len_arith), pinsHold_get hq2.pins 12 (by len_arith), pinsHold_get hq2.pins 13 (by len_arith), trivial⟩,
-          hq2.minstret, hq2.tick, ⟨hq2.extra.1, hq2.extra.2.1, hq2.extra.2.2⟩⟩
+          hq2.minstret, hq2.tick, ⟨hq2.armText, hq2.armMem, hq2.armOut, hq2.armOk⟩⟩
       obtain ⟨c5, hs5, hq4⟩ := Arms.seg_8001e43c_8001e444
         (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) (BitVec.ofNat 64 w.sp)
         (BitVec.ofNat 64 symGlobalPointer) (BitVec.ofNat 64 w.L)
@@ -179,8 +179,8 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         c1.σ.mem c1.σ.sailOutput
         c4 ⟨hq3.good, hq3.pcAt,
           ⟨pinsHold_get hq3.pins 7 (by len_arith), pinsHold_get hq3.pins 2 (by len_arith), pinsHold_get hq3.pins 3 (by len_arith), pinsHold_get hq3.pins 4 (by len_arith), pinsHold_get hq3.pins 5 (by len_arith), pinsHold_get hq3.pins 6 (by len_arith), pinsHold_get hq3.pins 8 (by len_arith), pinsHold_get hq3.pins 9 (by len_arith), pinsHold_get hq3.pins 10 (by len_arith), pinsHold_get hq3.pins 11 (by len_arith), pinsHold_get hq3.pins 12 (by len_arith), pinsHold_get hq3.pins 13 (by len_arith), trivial⟩,
-          hq3.minstret, hq3.tick, ⟨hq3.extra.1, hq3.extra.2.1, hq3.extra.2.2⟩⟩
-      have hmE : c5.σ.mem = c1.σ.mem := hq4.extra.2.1
+          hq3.minstret, hq3.tick, ⟨hq3.armText, hq3.armMem, hq3.armOut, hq3.armOk⟩⟩
+      have hmE : c5.σ.mem = c1.σ.mem := hq4.armMem
       have hsteps : Steps c1 c5 := (hs2.trans (hs3.trans (hs4.trans hs5)))
       have hx27 : c5.σ.regs.get? Register.x27 = some (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) := by
         have h := pinsHold_get hq4.pins 0 (by len_arith)
@@ -190,7 +190,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         all_goals slot_arith
       have hcore := hc1.jump hq4 (pc' := (s.pc + 1))
         ⟨pinsHold_get hq4.pins 2 (by len_arith), pinsHold_get hq4.pins 3 (by len_arith), pinsHold_get hq4.pins 4 (by len_arith), pinsHold_get hq4.pins 5 (by len_arith), pinsHold_get hq4.pins 6 (by len_arith), pinsHold_get hq4.pins 8 (by len_arith), pinsHold_get hq4.pins 9 (by len_arith), pinsHold_get hq4.pins 10 (by len_arith), pinsHold_get hq4.pins 11 (by len_arith), hx27⟩
-        hq4.extra.2.2 hmE
+        hmE
       exact ⟨c5, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq4.pcAt⟩⟩
   · obtain ⟨x, y, v, hxy, -, -⟩ | ⟨-, rfl⟩ := hcase
     · simp only [List.cons.injEq] at hxy
@@ -205,7 +205,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by refine guard_tag_ne (n := w.slot ins.b) ?_ hB (by decide); slot_arith)
       c1 ⟨hc1.good, hpc1,
         ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-        hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
+        hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩⟩
     obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001d9fc_8001da04_t
       (zero_extend (m := 64) (bytesT1 (c1.σ.mem) (((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x10#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0))) + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))
       (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer) (BitVec.ofNat 64 w.L)
@@ -217,7 +217,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by refine guard_not_float (n := w.slot ins.b) ?_ hvb; slot_arith)
       c2 ⟨hq1.good, hq1.pcAt,
         ⟨pinsHold_get hq1.pins 4 (by len_arith), pinsHold_get hq1.pins 9 (by len_arith), pinsHold_get hq1.pins 10 (by len_arith), pinsHold_get hq1.pins 11 (by len_arith), pinsHold_get hq1.pins 12 (by len_arith), pinsHold_get hq1.pins 8 (by len_arith), pinsHold_get hq1.pins 13 (by len_arith), pinsHold_get hq1.pins 6 (by len_arith), pinsHold_get hq1.pins 14 (by len_arith), pinsHold_get hq1.pins 15 (by len_arith), pinsHold_get hq1.pins 16 (by len_arith), pinsHold_get hq1.pins 7 (by len_arith), pinsHold_get hq1.pins 17 (by len_arith), trivial⟩,
-        hq1.minstret, hq1.tick, ⟨hq1.extra.1, hq1.extra.2.1, hq1.extra.2.2⟩⟩
+        hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩
     obtain ⟨c4, hs4, hq3⟩ := Arms.seg_8001da08_8001da10
       (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) (BitVec.ofNat 64 w.sp)
       (BitVec.ofNat 64 symGlobalPointer) (BitVec.ofNat 64 w.L)
@@ -227,8 +227,8 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       c1.σ.mem c1.σ.sailOutput
       c3 ⟨hq2.good, hq2.pcAt,
         ⟨pinsHold_get hq2.pins 7 (by len_arith), pinsHold_get hq2.pins 2 (by len_arith), pinsHold_get hq2.pins 3 (by len_arith), pinsHold_get hq2.pins 4 (by len_arith), pinsHold_get hq2.pins 5 (by len_arith), pinsHold_get hq2.pins 6 (by len_arith), pinsHold_get hq2.pins 8 (by len_arith), pinsHold_get hq2.pins 9 (by len_arith), pinsHold_get hq2.pins 10 (by len_arith), pinsHold_get hq2.pins 11 (by len_arith), pinsHold_get hq2.pins 12 (by len_arith), pinsHold_get hq2.pins 13 (by len_arith), trivial⟩,
-        hq2.minstret, hq2.tick, ⟨hq2.extra.1, hq2.extra.2.1, hq2.extra.2.2⟩⟩
-    have hmE : c4.σ.mem = c1.σ.mem := hq3.extra.2.1
+        hq2.minstret, hq2.tick, ⟨hq2.armText, hq2.armMem, hq2.armOut, hq2.armOk⟩⟩
+    have hmE : c4.σ.mem = c1.σ.mem := hq3.armMem
     have hsteps : Steps c1 c4 := (hs2.trans (hs3.trans hs4))
     have hx27 : c4.σ.regs.get? Register.x27 = some (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) := by
       have h := pinsHold_get hq3.pins 0 (by len_arith)
@@ -238,7 +238,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       all_goals slot_arith
     have hcore := hc1.jump hq3 (pc' := (s.pc + 1))
       ⟨pinsHold_get hq3.pins 2 (by len_arith), pinsHold_get hq3.pins 3 (by len_arith), pinsHold_get hq3.pins 4 (by len_arith), pinsHold_get hq3.pins 5 (by len_arith), pinsHold_get hq3.pins 6 (by len_arith), pinsHold_get hq3.pins 8 (by len_arith), pinsHold_get hq3.pins 9 (by len_arith), pinsHold_get hq3.pins 10 (by len_arith), pinsHold_get hq3.pins 11 (by len_arith), hx27⟩
-      hq3.extra.2.2 hmE
+      hmE
     exact ⟨c4, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq3.pcAt⟩⟩
 
 end Lua.Vm.Sim

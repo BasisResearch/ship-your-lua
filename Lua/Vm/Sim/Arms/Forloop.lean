@@ -69,7 +69,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by refine guard_tag_eq (n := w.slot (ins.a + 2)) ?_ hvs.1 (by decide); slot_arith)
       c1 ⟨hc1.good, hpc1,
         ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-        hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
+        hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩⟩
     obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001c208_8001c214_t
       ((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x07#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0)))
       (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) (BitVec.ofNat 64 w.sp)
@@ -83,7 +83,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by refine guard_zero_t (n := w.slot (ins.a + 1)) ?_ hvn.2; slot_arith)
       c2 ⟨hq1.good, hq1.pcAt,
         ⟨pinsHold_get hq1.pins 1 (by len_arith), pinsHold_get hq1.pins 10 (by len_arith), pinsHold_get hq1.pins 6 (by len_arith), pinsHold_get hq1.pins 7 (by len_arith), pinsHold_get hq1.pins 8 (by len_arith), pinsHold_get hq1.pins 9 (by len_arith), pinsHold_get hq1.pins 5 (by len_arith), pinsHold_get hq1.pins 3 (by len_arith), pinsHold_get hq1.pins 11 (by len_arith), pinsHold_get hq1.pins 12 (by len_arith), pinsHold_get hq1.pins 4 (by len_arith), pinsHold_get hq1.pins 2 (by len_arith), trivial⟩,
-        hq1.minstret, hq1.tick, ⟨hq1.extra.1, hq1.extra.2.1, hq1.extra.2.2⟩⟩
+        hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩
     obtain ⟨c4, hs4, hq3⟩ := Arms.seg_8001c240_8001c24c
       (BitVec.ofNat 64 w.ci) (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer)
       (BitVec.ofNat 64 w.L) (BitVec.ofNat 64 (Arms.jtEntries - 1)) (BitVec.ofNat 64 vNumInt)
@@ -95,8 +95,8 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by slot_arith) (by slot_arith) (by slot_arith)
       c3 ⟨hq2.good, hq2.pcAt,
         ⟨pinsHold_get hq2.pins 10 (by len_arith), pinsHold_get hq2.pins 4 (by len_arith), pinsHold_get hq2.pins 5 (by len_arith), pinsHold_get hq2.pins 6 (by len_arith), pinsHold_get hq2.pins 7 (by len_arith), pinsHold_get hq2.pins 8 (by len_arith), pinsHold_get hq2.pins 3 (by len_arith), pinsHold_get hq2.pins 9 (by len_arith), pinsHold_get hq2.pins 2 (by len_arith), pinsHold_get hq2.pins 11 (by len_arith), pinsHold_get hq2.pins 12 (by len_arith), pinsHold_get hq2.pins 0 (by len_arith), trivial⟩,
-        hq2.minstret, hq2.tick, ⟨hq2.extra.1, hq2.extra.2.1, hq2.extra.2.2⟩⟩
-    have hmE : c4.σ.mem = c1.σ.mem := hq3.extra.2.1
+        hq2.minstret, hq2.tick, ⟨hq2.armText, hq2.armMem, hq2.armOut, hq2.armOk⟩⟩
+    have hmE : c4.σ.mem = c1.σ.mem := hq3.armMem
     have hsteps : Steps c1 c4 := (hs2.trans (hs3.trans hs4))
     have hx27 : c4.σ.regs.get? Register.x27 = some (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) := by
       have h := pinsHold_get hq3.pins 12 (by len_arith)
@@ -112,7 +112,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       · slot_arith
     have hcore := hc1.jump hq3 (pc' := (s.pc + 1))
       ⟨pinsHold_get hq3.pins 3 (by len_arith), pinsHold_get hq3.pins 4 (by len_arith), pinsHold_get hq3.pins 5 (by len_arith), pinsHold_get hq3.pins 6 (by len_arith), pinsHold_get hq3.pins 7 (by len_arith), hx21, pinsHold_get hq3.pins 2 (by len_arith), pinsHold_get hq3.pins 10 (by len_arith), pinsHold_get hq3.pins 11 (by len_arith), hx27⟩
-      hq3.extra.2.2 hmE
+      hmE
     exact ⟨c4, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq3.pcAt⟩⟩
   · -- jump back
     have hvi := (hc1.stack ins.a _ (by omega) hi).tag_of_int
@@ -126,7 +126,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by refine guard_tag_eq (n := w.slot (ins.a + 2)) ?_ hvs.1 (by decide); slot_arith)
       c1 ⟨hc1.good, hpc1,
         ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-        hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
+        hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩⟩
     obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001c208_8001c214_n
       ((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x07#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0)))
       (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) (BitVec.ofNat 64 w.sp)
@@ -140,7 +140,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by refine guard_zero_f (n := w.slot (ins.a + 1)) ?_ hvn.2 hn0; slot_arith)
       c2 ⟨hq1.good, hq1.pcAt,
         ⟨pinsHold_get hq1.pins 1 (by len_arith), pinsHold_get hq1.pins 10 (by len_arith), pinsHold_get hq1.pins 6 (by len_arith), pinsHold_get hq1.pins 7 (by len_arith), pinsHold_get hq1.pins 8 (by len_arith), pinsHold_get hq1.pins 9 (by len_arith), pinsHold_get hq1.pins 5 (by len_arith), pinsHold_get hq1.pins 3 (by len_arith), pinsHold_get hq1.pins 11 (by len_arith), pinsHold_get hq1.pins 12 (by len_arith), pinsHold_get hq1.pins 4 (by len_arith), pinsHold_get hq1.pins 2 (by len_arith), trivial⟩,
-        hq1.minstret, hq1.tick, ⟨hq1.extra.1, hq1.extra.2.1, hq1.extra.2.2⟩⟩
+        hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩
     obtain ⟨c4, hs4, hq3⟩ := Arms.seg_8001c214_8001c240
       (sign_extend (m := 64) ins)
       (sign_extend (m := 64) (bytesT8 (c1.σ.mem) (((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x07#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0))) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))
@@ -158,8 +158,8 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by slot_arith)
       c3 ⟨hq2.good, hq2.pcAt,
         ⟨pinsHold_get hq2.pins 9 (by len_arith), pinsHold_get hq2.pins 1 (by len_arith), pinsHold_get hq2.pins 3 (by len_arith), pinsHold_get hq2.pins 2 (by len_arith), pinsHold_get hq2.pins 8 (by len_arith), pinsHold_get hq2.pins 4 (by len_arith), pinsHold_get hq2.pins 5 (by len_arith), pinsHold_get hq2.pins 6 (by len_arith), pinsHold_get hq2.pins 7 (by len_arith), pinsHold_get hq2.pins 10 (by len_arith), pinsHold_get hq2.pins 11 (by len_arith), pinsHold_get hq2.pins 12 (by len_arith), pinsHold_get hq2.pins 0 (by len_arith), trivial⟩,
-        hq2.minstret, hq2.tick, ⟨hq2.extra.1, hq2.extra.2.1, hq2.extra.2.2⟩⟩
-    have hW := hq3.extra.2.1
+        hq2.minstret, hq2.tick, ⟨hq2.armText, hq2.armMem, hq2.armOut, hq2.armOk⟩⟩
+    have hW := hq3.armMem
     obtain ⟨c5, hs5, hq4⟩ := Arms.seg_8001c240_8001c24c
       (BitVec.ofNat 64 w.ci) (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer)
       (BitVec.ofNat 64 w.L) (BitVec.ofNat 64 (Arms.jtEntries - 1)) (BitVec.ofNat 64 vNumInt)
@@ -171,8 +171,8 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by slot_arith) (by slot_arith) (by slot_arith)
       c4 ⟨hq3.good, hq3.pcAt,
         ⟨pinsHold_get hq3.pins 11 (by len_arith), pinsHold_get hq3.pins 7 (by len_arith), pinsHold_get hq3.pins 8 (by len_arith), pinsHold_get hq3.pins 9 (by len_arith), pinsHold_get hq3.pins 10 (by len_arith), pinsHold_get hq3.pins 6 (by len_arith), pinsHold_get hq3.pins 4 (by len_arith), pinsHold_get hq3.pins 3 (by len_arith), pinsHold_get hq3.pins 5 (by len_arith), pinsHold_get hq3.pins 12 (by len_arith), pinsHold_get hq3.pins 13 (by len_arith), pinsHold_get hq3.pins 2 (by len_arith), trivial⟩,
-        hq3.minstret, hq3.tick, ⟨hq3.extra.1, rfl, hq3.extra.2.2⟩⟩
-    have hmE : c5.σ.mem = c4.σ.mem := hq4.extra.2.1
+        hq3.minstret, hq3.tick, ⟨hq3.armText, rfl, hq3.armOut, hq3.armOk⟩⟩
+    have hmE : c5.σ.mem = c4.σ.mem := hq4.armMem
     have hsteps : Steps c1 c5 := (hs2.trans (hs3.trans (hs4.trans hs5)))
     have hfs : ForStore c1.σ.mem c4.σ.mem (w.slot ins.a) (n - 1) (x + st)
         (BitVec.ofNat 8 vNumInt) := by
@@ -199,7 +199,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       all_goals slot_arith
     have hcore := hc1.forloop hq4 (pc' := s.pc + 1 - ins.bx) (a := ins.a)
       ⟨pinsHold_get hq4.pins 3 (by len_arith), pinsHold_get hq4.pins 4 (by len_arith), pinsHold_get hq4.pins 5 (by len_arith), pinsHold_get hq4.pins 6 (by len_arith), pinsHold_get hq4.pins 7 (by len_arith), hx21, pinsHold_get hq4.pins 2 (by len_arith), pinsHold_get hq4.pins 10 (by len_arith), pinsHold_get hq4.pins 11 (by len_arith), hx27⟩
-      hq4.extra.2.2 hA3 (by rw [hmE]; exact hfs) hn hi
+      hA3 (by rw [hmE]; exact hfs) hn hi
     exact ⟨c5, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq4.pcAt⟩⟩
 
 end Lua.Vm.Sim

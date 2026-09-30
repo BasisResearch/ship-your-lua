@@ -1,3 +1,4 @@
+import Lua.Vm.Arms.RegsOk
 import Lua.Vm.Arms.Sites.S38
 import Lua.Vm.Arms.Sites.S39
 import Lua.Vm.Arms.Text
@@ -24,10 +25,10 @@ theorem seg_8001ed14_8001ed18_t
     (o0 : Array String)
     (hg_1 : (v14 != v18) = true)
     : Triple (SegSt (0x8001ed14#64) [⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) (SegSt (0x8001eeb8#64) [⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) := by
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8001eeb8#64) [⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
-  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout⟩⟩ := hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
   -- === step 1: 0x8001ed14 `site_8001ed14_taken` (btaken) ===
   obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
     site_8001ed14_taken c.σ c.tick (c.steps) (0x8001ed14#64)
@@ -44,10 +45,12 @@ theorem seg_8001ed14_8001ed18_t
     rw [hmem1]; exact hloaded
   have hout1 : σ1.sailOutput = o0 :=
     (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.btaken hobs1 hok
   have hsteps1 : Steps c ⟨σ1, i1, c.steps + 1⟩ :=
     Steps.single hs1
   exact ⟨⟨σ1, i1, c.steps + 1⟩, hsteps1,
-    ⟨hG1, hpc1, hp1, ⟨vmi1, hmi1⟩, hi1, ⟨hload1, hmemE1, hout1⟩⟩⟩
+    ⟨hG1, hpc1, hp1, ⟨vmi1, hmi1⟩, hi1, ⟨hload1, hmemE1, hout1, hok1⟩⟩⟩
 
 /-- `0x8001ed18`–`0x8001ed24` (3 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8001ed18_8001ed24
@@ -62,10 +65,10 @@ theorem seg_8001ed18_8001ed24
     (hwin_2 : tohostAddr + 16 ≤ (v2 + sign_extend (m := 64) (0x010#12)).toNat)
     (hal_2 : (v2 + sign_extend (m := 64) (0x010#12)).toNat % 8 = 0)
     : Triple (SegSt (0x8001ed18#64) [⟨Register.x26, v26⟩, ⟨Register.x2, v2⟩, ⟨Register.x11, v11⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) (SegSt (0x8002f200#64) [⟨Register.x1, (0x8001ed24#64 : BitVec 64)⟩, ⟨Register.x10, (sign_extend (m := 64) (bytesT8 (m0) (v26 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))⟩, ⟨Register.x26, v26⟩, ⟨Register.x2, v2⟩, ⟨Register.x11, v11⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = writeMap8 (m0) ((v2 + sign_extend (m := 64) (0x010#12)).toNat) (sdData_val v11) ∧ σ.sailOutput = o0)) := by
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8002f200#64) [⟨Register.x1, (0x8001ed24#64 : BitVec 64)⟩, ⟨Register.x10, (sign_extend (m := 64) (bytesT8 (m0) (v26 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))⟩, ⟨Register.x26, v26⟩, ⟨Register.x2, v2⟩, ⟨Register.x11, v11⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = writeMap8 (m0) ((v2 + sign_extend (m := 64) (0x010#12)).toNat) (sdData_val v11) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
-  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout⟩⟩ := hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
   -- === step 1: 0x8001ed18 `site_8001ed18` (alu) ===
   obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
     site_8001ed18 c.σ c.tick (c.steps) (0x8001ed18#64)
@@ -85,6 +88,8 @@ theorem seg_8001ed18_8001ed24
     rw [hmem1]; exact hloaded
   have hout1 : σ1.sailOutput = o0 :=
     (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
   -- === step 2: 0x8001ed1c `site_8001ed1c` (sd) ===
   obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
     site_8001ed1c σ1 i1 (c.steps + 1) (0x8001ed1c#64)
@@ -102,6 +107,8 @@ theorem seg_8001ed18_8001ed24
     exact Lua.Vm.Arms.TextLoaded.writeMap8 (hmemE1 ▸ hload1) _ hwin_2
   have hout2 : σ2.sailOutput = o0 :=
     (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.store hobs2 hok1
   -- === step 3: 0x8001ed20 `site_8001ed20` (jal) ===
   obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
     site_8001ed20 σ2 i2 (c.steps + 1 + 1) (0x8001ed20#64)
@@ -121,10 +128,12 @@ theorem seg_8001ed18_8001ed24
     rw [hmem3]; exact hload2
   have hout3 : σ3.sailOutput = o0 :=
     (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.jal hobs3 (by decide) hok2
   have hsteps3 : Steps c ⟨σ3, i3, c.steps + 1 + 1 + 1⟩ :=
     ((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)
   exact ⟨⟨σ3, i3, c.steps + 1 + 1 + 1⟩, hsteps3,
-    ⟨hG3, hpc3, hp3, ⟨vmi3, hmi3⟩, hi3, ⟨hload3, hmemE3, hout3⟩⟩⟩
+    ⟨hG3, hpc3, hp3, ⟨vmi3, hmi3⟩, hi3, ⟨hload3, hmemE3, hout3, hok3⟩⟩⟩
 
 /-- `0x8001ed24`–`0x8001ed2c` (2 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8001ed24_8001ed2c
@@ -135,10 +144,10 @@ theorem seg_8001ed24_8001ed2c
     (hhi_1 : (v2 + sign_extend (m := 64) (0x010#12)).toNat + 8 ≤ 0x100000000)
     (hht_1 : (v2 + sign_extend (m := 64) (0x010#12)).toNat + 8 ≤ tohostAddr ∨ tohostAddr + 8 ≤ (v2 + sign_extend (m := 64) (0x010#12)).toNat)
     : Triple (SegSt (0x8001ed24#64) [⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) (SegSt (0x8001e7f0#64) [⟨Register.x11, (sign_extend (m := 64) (bytesT8 (m0) (v2 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) := by
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8001e7f0#64) [⟨Register.x11, (sign_extend (m := 64) (bytesT8 (m0) (v2 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
-  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout⟩⟩ := hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
   -- === step 1: 0x8001ed24 `site_8001ed24` (alu) ===
   obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
     site_8001ed24 c.σ c.tick (c.steps) (0x8001ed24#64)
@@ -158,6 +167,8 @@ theorem seg_8001ed24_8001ed2c
     rw [hmem1]; exact hloaded
   have hout1 : σ1.sailOutput = o0 :=
     (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
   -- === step 2: 0x8001ed28 `site_8001ed28` (j) ===
   obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
     site_8001ed28 σ1 i1 (c.steps + 1) (0x8001ed28#64)
@@ -174,10 +185,12 @@ theorem seg_8001ed24_8001ed2c
     rw [hmem2]; exact hload1
   have hout2 : σ2.sailOutput = o0 :=
     (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.jr hobs2 hok1
   have hsteps2 : Steps c ⟨σ2, i2, c.steps + 1 + 1⟩ :=
     (Steps.single hs1).trans (Steps.single hs2)
   exact ⟨⟨σ2, i2, c.steps + 1 + 1⟩, hsteps2,
-    ⟨hG2, hpc2, hp2, ⟨vmi2, hmi2⟩, hi2, ⟨hload2, hmemE2, hout2⟩⟩⟩
+    ⟨hG2, hpc2, hp2, ⟨vmi2, hmi2⟩, hi2, ⟨hload2, hmemE2, hout2, hok2⟩⟩⟩
 
 /-- `0x8001ed2c`–`0x8001ed58` (11 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8001ed2c_8001ed58_n
@@ -1017,10 +1030,10 @@ theorem seg_8001edf0_8001edfc
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     : Triple (SegSt (0x8001edf0#64) [⟨Register.x26, v26⟩, ⟨Register.x22, v22⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) (SegSt (0x8002e460#64) [⟨Register.x1, (0x8001edfc#64 : BitVec 64)⟩, ⟨Register.x11, (v22 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x10, (v26 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x26, v26⟩, ⟨Register.x22, v22⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) := by
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8002e460#64) [⟨Register.x1, (0x8001edfc#64 : BitVec 64)⟩, ⟨Register.x11, (v22 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x10, (v26 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x26, v26⟩, ⟨Register.x22, v22⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
-  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout⟩⟩ := hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
   -- === step 1: 0x8001edf0 `site_8001edf0` (alu) ===
   obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
     site_8001edf0 c.σ c.tick (c.steps) (0x8001edf0#64)
@@ -1039,6 +1052,8 @@ theorem seg_8001edf0_8001edfc
     rw [hmem1]; exact hloaded
   have hout1 : σ1.sailOutput = o0 :=
     (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
   -- === step 2: 0x8001edf4 `site_8001edf4` (alu) ===
   obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
     site_8001edf4 σ1 i1 (c.steps + 1) (0x8001edf4#64)
@@ -1057,6 +1072,8 @@ theorem seg_8001edf0_8001edfc
     rw [hmem2]; exact hload1
   have hout2 : σ2.sailOutput = o0 :=
     (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
   -- === step 3: 0x8001edf8 `site_8001edf8` (jal) ===
   obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
     site_8001edf8 σ2 i2 (c.steps + 1 + 1) (0x8001edf8#64)
@@ -1076,10 +1093,12 @@ theorem seg_8001edf0_8001edfc
     rw [hmem3]; exact hload2
   have hout3 : σ3.sailOutput = o0 :=
     (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.jal hobs3 (by decide) hok2
   have hsteps3 : Steps c ⟨σ3, i3, c.steps + 1 + 1 + 1⟩ :=
     ((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)
   exact ⟨⟨σ3, i3, c.steps + 1 + 1 + 1⟩, hsteps3,
-    ⟨hG3, hpc3, hp3, ⟨vmi3, hmi3⟩, hi3, ⟨hload3, hmemE3, hout3⟩⟩⟩
+    ⟨hG3, hpc3, hp3, ⟨vmi3, hmi3⟩, hi3, ⟨hload3, hmemE3, hout3, hok3⟩⟩⟩
 
 /-- `0x8001edfc`–`0x8001ee04` (2 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8001edfc_8001ee04
@@ -1087,10 +1106,10 @@ theorem seg_8001edfc_8001ee04
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     : Triple (SegSt (0x8001edfc#64) [⟨Register.x10, v10⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩, ⟨Register.x22, v22⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) (SegSt (0x8001e194#64) [⟨Register.x15, (zero_extend (m := 64) (bool_to_bit (zopz0zI_s v10 (sign_extend (m := 64) (0x001#12)))))⟩, ⟨Register.x10, v10⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩, ⟨Register.x22, v22⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) := by
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8001e194#64) [⟨Register.x15, (zero_extend (m := 64) (bool_to_bit (zopz0zI_s v10 (sign_extend (m := 64) (0x001#12)))))⟩, ⟨Register.x10, v10⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩, ⟨Register.x22, v22⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
-  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout⟩⟩ := hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
   -- === step 1: 0x8001edfc `site_8001edfc` (alu) ===
   obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
     site_8001edfc c.σ c.tick (c.steps) (0x8001edfc#64)
@@ -1109,6 +1128,8 @@ theorem seg_8001edfc_8001ee04
     rw [hmem1]; exact hloaded
   have hout1 : σ1.sailOutput = o0 :=
     (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
   -- === step 2: 0x8001ee00 `site_8001ee00` (j) ===
   obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
     site_8001ee00 σ1 i1 (c.steps + 1) (0x8001ee00#64)
@@ -1125,9 +1146,11 @@ theorem seg_8001edfc_8001ee04
     rw [hmem2]; exact hload1
   have hout2 : σ2.sailOutput = o0 :=
     (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.jr hobs2 hok1
   have hsteps2 : Steps c ⟨σ2, i2, c.steps + 1 + 1⟩ :=
     (Steps.single hs1).trans (Steps.single hs2)
   exact ⟨⟨σ2, i2, c.steps + 1 + 1⟩, hsteps2,
-    ⟨hG2, hpc2, hp2, ⟨vmi2, hmi2⟩, hi2, ⟨hload2, hmemE2, hout2⟩⟩⟩
+    ⟨hG2, hpc2, hp2, ⟨vmi2, hmi2⟩, hi2, ⟨hload2, hmemE2, hout2, hok2⟩⟩⟩
 
 end Lua.Vm.Arms

@@ -152,9 +152,9 @@ theorem vmRel_entry : vmRel_entry_Statement := by
   repeat (specialize H1 (by decide))
   obtain ⟨c1, hs1, hq1⟩ := H1 c ⟨hM.good, hM.pc,
     ⟨hcs.sp, h8, h23, h24, hcs.ra, h9, h18, h19, h20, h21, h22, h25, h26, h27, hM.a0, hM.a1,
-      hcs.gp, trivial⟩, hM.good.minstret, hRt.harness.tick, ⟨hM.text, rfl, rfl⟩⟩
+      hcs.gp, trivial⟩, hM.good.minstret, hRt.harness.tick, ⟨hM.text, rfl, rfl, hM.regs⟩⟩
   have hA1 : AgreeOut c1.σ.mem c.σ.mem (RuntimeData.spEntry - execFrame) RuntimeData.spEntry := by
-    rw [hq1.extra.2.1]
+    rw [hq1.armMem]
     repeat (refine AgreeOut.writeMap8 ?_ _ (by decide) (by decide))
     exact AgreeOut.refl _ _ _
   -- where things are
@@ -248,7 +248,7 @@ theorem vmRel_entry : vmRel_entry_Statement := by
           Nat.mod_eq_of_lt, hRci, hRpc, hRhook, hRfunc, hRcl, hTH]; decide)))
   obtain ⟨c2, hs2, hq2⟩ := H2 c1 ⟨hq1.good, hq1.pcAt,
     ⟨hx23, hx8, hx2, pinsHold_get hp1 16 (by simp), hx24, trivial⟩,
-    hq1.minstret, hq1.tick, ⟨hq1.extra.1, rfl, rfl⟩⟩
+    hq1.minstret, hq1.tick, ⟨hq1.armText, rfl, rfl, hq1.armOk⟩⟩
   -- the fetch-head registers
   have hp2 := hq2.pins
   have hx25 : c2.σ.regs.get? Register.x25 = some (BitVec.ofNat 64 (e.func + 16)) := by
@@ -276,14 +276,14 @@ theorem vmRel_entry : vmRel_entry_Statement := by
     exact h
   -- the memory frame: every store of the prologue is in its C frame
   have hA2 : AgreeOut c2.σ.mem c.σ.mem (RuntimeData.spEntry - execFrame) RuntimeData.spEntry := by
-    rw [hq2.extra.2.1]
+    rw [hq2.armMem]
     exact (hA1.writeMap8 _ (by decide) (by decide)).writeMap8 _ (by decide) (by decide)
   simp only [stackValueSize] at hfits
   refine ⟨c2, hs1.trans hs2, ⟨L, ci, e.func, e.pa, e.code, RuntimeData.spEntry - execFrame,
     c.σ.mem⟩, ⟨hq2.good, hq2.minstret, hq2.tick,
     ⟨pinsHold_get hp2 10 (by simp), pinsHold_get hp2 11 (by simp), pinsHold_get hp2 9 (by simp),
       hx9, hx18, hx21, pinsHold_get hp2 8 (by simp), pinsHold_get hp2 12 (by simp), hx25, hx27⟩,
-    (output_congr (hq2.extra.2.2.trans hq1.extra.2.2)).trans hRt.harness.console, hq2.extra.1,
+    (output_congr (hq2.armOut.trans hq1.armOut)).trans hRt.harness.console, hq2.armOk, hq2.armText,
     fun a ha => congrArg (Option.getD · 0) (hA2 a ?_), fun j v _ h => ?_, ⟨hM.text, hM.rodata, hE.proto, hE.proto_code,
       fun i ins hf => ?_, bytesT8_of_rd64 hE.ci_func, ?_, rt, efunc.symm, hlua, hRt.heap,
       hRt.error_jmp⟩, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun a h1 h2 hw => ?_,

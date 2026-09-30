@@ -56,7 +56,7 @@ theorem sim_JMP {p : Proto} (_hS : Supported p) {c : Config} {s s' : State}
     (by arm_arith) (by arm_arith) (by arm_arith)
     c1 ⟨hc1.good, hpc1,
       ⟨hc1.pins.ci, hA.s4, hA.s3, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hc1.pins.intTag, hc1.pins.trap, hc1.pins.jt, hc1.pins.base, hc1.pins.pc, trivial⟩,
-      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
+      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl, hc1.ok⟩⟩
   have hsteps : Steps c1 c2 := hs2
   have hKj : Sail.BitVec.extractLsb ((sign_extend (m := 64) ((0xff000#20) +++ 0x000#12))
       + sign_extend (m := 64) (0x001#12)) 31 0 = 0xff000001#32 := by decide
@@ -90,7 +90,7 @@ theorem sim_JMP {p : Proto} (_hS : Supported p) {c : Config} {s s' : State}
     omega
   have hcore := hc1.jump hq1 (pc' := t)
     ⟨pinsHold_get hq1.pins 8 (by simp), pinsHold_get hq1.pins 9 (by simp), pinsHold_get hq1.pins 10 (by simp), pinsHold_get hq1.pins 11 (by simp), pinsHold_get hq1.pins 12 (by simp), hx21, pinsHold_get hq1.pins 5 (by simp), pinsHold_get hq1.pins 13 (by simp), pinsHold_get hq1.pins 14 (by simp), hx27⟩
-    hq1.extra.2.2 hq1.extra.2.1
+    hq1.armMem
   exact ⟨c2, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq1.pcAt⟩⟩
 
 end Lua.Vm.Sim

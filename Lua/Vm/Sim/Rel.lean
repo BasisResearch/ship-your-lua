@@ -1,5 +1,6 @@
 import Lua.Vm.Runtime
 import Lua.Vm.Host
+import Lua.Vm.RegsOk
 import Lua.Vm.Sim.Mem
 import Lua.Vm.Sim.Step
 import Vsa.Sim.SegState
@@ -28,6 +29,10 @@ instruction `s.pc`. It is `∃ w, VmRelAt p c s w` over the pointers `w`
   `defMask p s.pc` (`Lua/FragmentSound.lean`), and it holds of the entry
   state (all ⊥) for any stack contents.
 * **Output** (`Core.out`): the HTIF console so far is `s.out`.
+* **Registers present, mailbox idle** (`Core.ok`, `RegsOk`): every GPR holds a
+  value and no `tohost` word is half-written (ship-your-interpreter's `VsaOk`
+  register half), established by `MachineAt.regs` and threaded by every
+  segment (`gen_segment.py`'s `"ok"` option).
 * **Frame** (`Core.frame`, `Complement`). Outside the window `Win` (the
   register slots and `luaV_execute`'s own C frame) the memory reads TOTALLY
   (`bytesT1`, the model's `getD 0`) as a fixed complement `w.mo`: presence is
@@ -162,6 +167,8 @@ structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
   tick : c.tick < 2
   pins : Pins c.σ w s.pc
   out : Vsa.Machine.output c.σ = s.out
+  /-- every GPR present, the HTIF mailbox idle -/
+  ok : RegsOk c.σ
   /-- `.text` is present: the segments' fetches (`SegSt`'s `TextLoaded`) demand it -/
   text : Arms.TextLoaded c.σ.mem
   /-- outside the window, every TOTAL read (`bytesT1`, the model's `getD 0`) is the
@@ -171,6 +178,22 @@ structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
     ValRepr w.mo (slotTag c.σ.mem (w.slot j)) (slotVal c.σ.mem (w.slot j)) v
   comp : Complement p w
   ranges : Ranges p w
+
+/-- **The payload of an arm's segments** (`gen_lua_arms.py`, `sim` segments):
+`.text` present, the memory `m`, the console `o`, `RegsOk`. -/
+abbrev ArmPay (m : Mem) (o : Array String) : MState → Prop :=
+  fun σ => Arms.TextLoaded σ.mem ∧ σ.mem = m ∧ σ.sailOutput = o ∧ RegsOk σ
+
+section
+variable {pcv : BitVec 64} {L : List Pin} {m : Mem} {o : Array String} {c : Config}
+
+/-- The payload's fields (its one destructuring point). -/
+theorem _root_.Vsa.Sim.SegSt.armText (h : SegSt pcv L (ArmPay m o) c) : Arms.TextLoaded c.σ.mem := h.extra.1
+theorem _root_.Vsa.Sim.SegSt.armMem (h : SegSt pcv L (ArmPay m o) c) : c.σ.mem = m := h.extra.2.1
+theorem _root_.Vsa.Sim.SegSt.armOut (h : SegSt pcv L (ArmPay m o) c) : c.σ.sailOutput = o := h.extra.2.2.1
+theorem _root_.Vsa.Sim.SegSt.armOk (h : SegSt pcv L (ArmPay m o) c) : RegsOk c.σ := h.extra.2.2.2
+
+end
 
 /-- **The relation at the fetch head**, for pointers `w`. -/
 structure VmRelAt (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
@@ -245,9 +268,9 @@ theorem output_congr {σ σ' : MState} (h : σ'.sailOutput = σ.sailOutput) :
 /-- **An arm that writes `R[a]`**: the machine stored the slot of `a` (and
 nothing else), with a tag and payload that represent `v`. -/
 theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List Pin}
-    {P : MState → Prop} (hseg : SegSt pcv L P c') {pc' a : Nat} {v : Value} {tag : BitVec 8}
-    {val : BitVec 64} (ha : a < p.maxstacksize) (hpins : Pins c'.σ w pc')
-    (hout : c'.σ.sailOutput = c.σ.sailOutput) (hst : SlotStore c.σ.mem c'.σ.mem (w.slot a) tag val)
+    {m : Mem} (hseg : SegSt pcv L (ArmPay m c.σ.sailOutput) c') {pc' a : Nat} {v : Value}
+    {tag : BitVec 8} {val : BitVec 64} (ha : a < p.maxstacksize) (hpins : Pins c'.σ w pc')
+    (hst : SlotStore c.σ.mem c'.σ.mem (w.slot a) tag val)
     (hv : ValRepr w.mo tag val v) :
     Core p c' ⟨pc', fun j => if j = a then some v else s.regs j, s.out⟩ w := by
   have hwin : ∀ x, ¬ (x < w.slot a ∨ w.slot a + 9 ≤ x) → Win p w x := fun x hx => by
@@ -255,8 +278,8 @@ theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List
     left; constructor <;> omega
   have hfr : ∀ x, ¬ Win p w x → c'.σ.mem[x]? = c.σ.mem[x]? := fun x hx =>
     hst.frame x (Classical.byContradiction fun h => hx (hwin x h))
-  refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hout).trans hc.out,
-    hc.text_of hfr, hc.frame_of hfr, fun j v' hj hv' => ?_, hc.comp, hc.ranges⟩
+  refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
+    hseg.armOk, hc.text_of hfr, hc.frame_of hfr, fun j v' hj hv' => ?_, hc.comp, hc.ranges⟩
   · simp only at hv'
     by_cases hja : j = a
     · subst hja
@@ -276,11 +299,11 @@ theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List
 
 /-- **An arm that writes no register** and no memory (a jump). -/
 theorem Core.jump (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List Pin}
-    {P : MState → Prop} (hseg : SegSt pcv L P c') {pc' : Nat} (hpins : Pins c'.σ w pc')
-    (hout : c'.σ.sailOutput = c.σ.sailOutput) (hmem : c'.σ.mem = c.σ.mem) :
+    {m : Mem} (hseg : SegSt pcv L (ArmPay m c.σ.sailOutput) c') {pc' : Nat}
+    (hpins : Pins c'.σ w pc') (hmem : c'.σ.mem = c.σ.mem) :
     Core p c' ⟨pc', s.regs, s.out⟩ w := by
-  refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hout).trans hc.out,
-    hmem ▸ hc.text, hmem ▸ hc.frame, fun j v hj hv => ?_, hc.comp, hc.ranges⟩
+  refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
+    hseg.armOk, hmem ▸ hc.text, hmem ▸ hc.frame, fun j v hj hv => ?_, hc.comp, hc.ranges⟩
   rw [hmem]
   exact hc.stack j v hj hv
 

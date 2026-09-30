@@ -198,14 +198,14 @@ variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
 /-- **Any register writes inside the window**: the memory outside the window
 is unchanged and every defined register of the new file is represented. -/
 theorem Core.update (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List Pin}
-    {P : MState → Prop} (hseg : SegSt pcv L P c') {pc' : Nat} {regs' : Nat → Option Value}
-    (hpins : Pins c'.σ w pc') (hout : c'.σ.sailOutput = c.σ.sailOutput)
+    {m : Mem} (hseg : SegSt pcv L (ArmPay m c.σ.sailOutput) c') {pc' : Nat}
+    {regs' : Nat → Option Value} (hpins : Pins c'.σ w pc')
     (hframe : ∀ x, ¬ Win p w x → c'.σ.mem[x]? = c.σ.mem[x]?)
     (hstack : ∀ j v, j < p.maxstacksize → regs' j = some v →
       ValRepr w.mo (slotTag c'.σ.mem (w.slot j)) (slotVal c'.σ.mem (w.slot j)) v) :
     Core p c' ⟨pc', regs', s.out⟩ w :=
-  ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hout).trans hc.out,
-    hc.text_of hframe, hc.frame_of hframe, hstack, hc.comp, hc.ranges⟩
+  ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
+    hseg.armOk, hc.text_of hframe, hc.frame_of hframe, hstack, hc.comp, hc.ranges⟩
 
 end
 
@@ -406,8 +406,8 @@ theorem ForStore.frame_mo (hc : Core p c s w) {m' : Mem} {a : Nat} {d1 d2 : BitV
 /-- **`OP_FORLOOP`'s jump back**: count−1 to `R[A+1]`, the index to `R[A]`
 and `R[A+3]` (payload stores keep the integer tags of `R[A]`, `R[A+1]`). -/
 theorem Core.forloop (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List Pin}
-    {P : MState → Prop} (hseg : SegSt pcv L P c') {pc' a : Nat} {n st x : BitVec 64}
-    (hpins : Pins c'.σ w pc') (hout : c'.σ.sailOutput = c.σ.sailOutput)
+    {m : Mem} (hseg : SegSt pcv L (ArmPay m c.σ.sailOutput) c') {pc' a : Nat}
+    {n st x : BitVec 64} (hpins : Pins c'.σ w pc')
     (ha : a + 3 < p.maxstacksize)
     (hfs : ForStore c.σ.mem c'.σ.mem (w.slot a) (n - 1) (x + st) (BitVec.ofNat 8 vNumInt))
     (hn : s.regs (a + 1) = some (.int n)) (hi : s.regs a = some (.int x)) :
@@ -417,7 +417,7 @@ theorem Core.forloop (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Li
     simp only [RelPtrs.slot, stackValueSize]; omega
   have ht1 := (hc.stack (a + 1) _ (by omega) hn).tag_of_int.1
   have ht0 := (hc.stack a _ (by omega) hi).tag_of_int.1
-  refine hc.update hseg hpins hout (fun y hy => ?_) (fun j v hj hv => ?_)
+  refine hc.update hseg hpins (fun y hy => ?_) (fun j v hj hv => ?_)
   · exact hfs.frame_mo hc ha y hy
   · simp only [upd] at hv
     by_cases h1 : j = a + 1

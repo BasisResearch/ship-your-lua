@@ -3,6 +3,7 @@ import Lua.Vm.Image
 import Vsa.Sim.GoodState
 import Vsa.Sim.BlockPilot
 import Vsa.Sim.Code.FixedImage
+import Lua.Vm.RegsOk
 
 /-!
 # `VmLoaded`: the machine at `luaV_execute`'s entry with a loaded `Proto`
@@ -15,6 +16,8 @@ for the main closure of `p`, with
 * the machine in its good state (`Vsa.Sim.GoodState`, whose `tohost` is the
   Lua image's, `tohostAddr_eq_symTohost`),
 * `pc = luaV_execute`, `a0 = L`, `a1 = ci` (the RISC-V ABI),
+* every GPR present and the HTIF mailbox idle (`RegsOk`, checked on the boot
+  traces by `scripts/gen_lua_boot_witness.py`),
 * the exact `.text` and `.rodata` bytes of `c/lua-riscv-htif.elf`
   (`Lua/Vm/Image.lean`; the same bytes for every program, link.ld),
 * the Lua-side data `VmEntryData` (`Lua/Vm/Repr.lean`): the `CallInfo`, the
@@ -53,6 +56,8 @@ structure MachineAt (c : Config) (L ci : Nat) : Prop where
   pc : c.σ.regs.get? Register.PC = some (BitVec.ofNat 64 Layout.symLuaVExecute)
   a0 : gprGet c.σ 10 = some (BitVec.ofNat 64 L)
   a1 : gprGet c.σ 11 = some (BitVec.ofNat 64 ci)
+  /-- every GPR present, the HTIF mailbox idle -/
+  regs : RegsOk c.σ
   text : Vsa.Sim.Code.FixedBytesLoaded Image.textBase Image.textSize Image.textByte c.σ.mem
   rodata : Vsa.Sim.Code.FixedBytesLoaded Image.rodataBase Image.rodataSize Image.rodataByte c.σ.mem
 

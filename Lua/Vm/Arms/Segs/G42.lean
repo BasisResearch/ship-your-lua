@@ -1,3 +1,4 @@
+import Lua.Vm.Arms.RegsOk
 import Lua.Vm.Arms.Sites.S32
 import Lua.Vm.Arms.Sites.S33
 import Lua.Vm.Arms.Sites.S34
@@ -803,10 +804,10 @@ theorem seg_8001e9f4_8001ea0c_n
     (hht_1 : (v22 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ tohostAddr ∨ tohostAddr + 8 ≤ (v22 + sign_extend (m := 64) (0x000#12)).toNat)
     (hg_6 : (((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x0f#5))) &&& sign_extend (m := 64) (0x001#12)) == (zero_extend (m := 64) (bool_to_bit (zopz0zI_u ((sign_extend (m := 64) (bytesT8 (m0) (v22 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))) - v10) (sign_extend (m := 64) (0x001#12)))))) = false)
     : Triple (SegSt (0x8001e9f4#64) [⟨Register.x22, v22⟩, ⟨Register.x10, v10⟩, ⟨Register.x20, v20⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) (SegSt (0x8001ea0c#64) [⟨Register.x15, ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x0f#5))) &&& sign_extend (m := 64) (0x001#12))⟩, ⟨Register.x14, (zero_extend (m := 64) (bool_to_bit (zopz0zI_u ((sign_extend (m := 64) (bytesT8 (m0) (v22 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))) - v10) (sign_extend (m := 64) (0x001#12)))))⟩, ⟨Register.x22, v22⟩, ⟨Register.x10, v10⟩, ⟨Register.x20, v20⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) := by
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8001ea0c#64) [⟨Register.x15, ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x0f#5))) &&& sign_extend (m := 64) (0x001#12))⟩, ⟨Register.x14, (zero_extend (m := 64) (bool_to_bit (zopz0zI_u ((sign_extend (m := 64) (bytesT8 (m0) (v22 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))) - v10) (sign_extend (m := 64) (0x001#12)))))⟩, ⟨Register.x22, v22⟩, ⟨Register.x10, v10⟩, ⟨Register.x20, v20⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
-  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout⟩⟩ := hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
   -- === step 1: 0x8001e9f4 `site_8001e9f4` (alu) ===
   obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
     site_8001e9f4 c.σ c.tick (c.steps) (0x8001e9f4#64)
@@ -826,6 +827,8 @@ theorem seg_8001e9f4_8001ea0c_n
     rw [hmem1]; exact hloaded
   have hout1 : σ1.sailOutput = o0 :=
     (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
   -- === step 2: 0x8001e9f8 `site_8001e9f8` (alu) ===
   obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
     site_8001e9f8 σ1 i1 (c.steps + 1) (0x8001e9f8#64)
@@ -847,6 +850,8 @@ theorem seg_8001e9f4_8001ea0c_n
     rw [hmem2]; exact hload1
   have hout2 : σ2.sailOutput = o0 :=
     (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
   -- === step 3: 0x8001e9fc `site_8001e9fc` (alu) ===
   obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
     site_8001e9fc σ2 i2 (c.steps + 1 + 1) (0x8001e9fc#64)
@@ -865,6 +870,8 @@ theorem seg_8001e9f4_8001ea0c_n
     rw [hmem3]; exact hload2
   have hout3 : σ3.sailOutput = o0 :=
     (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
   -- === step 4: 0x8001ea00 `site_8001ea00` (alu) ===
   obtain ⟨σ4, i4, hs4, hi4, hG4, hmem4, hobs4⟩ :=
     site_8001ea00 σ3 i3 (c.steps + 1 + 1 + 1) (0x8001ea00#64)
@@ -887,6 +894,8 @@ theorem seg_8001e9f4_8001ea0c_n
     rw [hmem4]; exact hload3
   have hout4 : σ4.sailOutput = o0 :=
     (ReadsLikePost.out hobs4).trans hout3
+  have hok4 : Lua.Vm.RegsOk σ4 :=
+    Lua.Vm.RegsOk.alu hobs4 (by decide) hok3
   -- === step 5: 0x8001ea04 `site_8001ea04` (alu) ===
   obtain ⟨σ5, i5, hs5, hi5, hG5, hmem5, hobs5⟩ :=
     site_8001ea04 σ4 i4 (c.steps + 1 + 1 + 1 + 1) (0x8001ea04#64)
@@ -908,6 +917,8 @@ theorem seg_8001e9f4_8001ea0c_n
     rw [hmem5]; exact hload4
   have hout5 : σ5.sailOutput = o0 :=
     (ReadsLikePost.out hobs5).trans hout4
+  have hok5 : Lua.Vm.RegsOk σ5 :=
+    Lua.Vm.RegsOk.alu hobs5 (by decide) hok4
   -- === step 6: 0x8001ea08 `site_8001ea08_nottaken` (bnottaken) ===
   obtain ⟨σ6, i6, hs6, hi6, hG6, hmem6, hobs6⟩ :=
     site_8001ea08_nottaken σ5 i5 (c.steps + 1 + 1 + 1 + 1 + 1) (0x8001ea08#64)
@@ -924,10 +935,12 @@ theorem seg_8001e9f4_8001ea0c_n
     rw [hmem6]; exact hload5
   have hout6 : σ6.sailOutput = o0 :=
     (ReadsLikePost.out hobs6).trans hout5
+  have hok6 : Lua.Vm.RegsOk σ6 :=
+    Lua.Vm.RegsOk.bnottaken hobs6 hok5
   have hsteps6 : Steps c ⟨σ6, i6, c.steps + 1 + 1 + 1 + 1 + 1 + 1⟩ :=
     (((((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)).trans (Steps.single hs4)).trans (Steps.single hs5)).trans (Steps.single hs6)
   exact ⟨⟨σ6, i6, c.steps + 1 + 1 + 1 + 1 + 1 + 1⟩, hsteps6,
-    ⟨hG6, hpc6, hp6, ⟨vmi6, hmi6⟩, hi6, ⟨hload6, hmemE6, hout6⟩⟩⟩
+    ⟨hG6, hpc6, hp6, ⟨vmi6, hmi6⟩, hi6, ⟨hload6, hmemE6, hout6, hok6⟩⟩⟩
 
 /-- `0x8001e9f4`–`0x8001ea0c` (6 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8001e9f4_8001ea0c_t
@@ -939,10 +952,10 @@ theorem seg_8001e9f4_8001ea0c_t
     (hht_1 : (v22 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ tohostAddr ∨ tohostAddr + 8 ≤ (v22 + sign_extend (m := 64) (0x000#12)).toNat)
     (hg_6 : (((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x0f#5))) &&& sign_extend (m := 64) (0x001#12)) == (zero_extend (m := 64) (bool_to_bit (zopz0zI_u ((sign_extend (m := 64) (bytesT8 (m0) (v22 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))) - v10) (sign_extend (m := 64) (0x001#12)))))) = true)
     : Triple (SegSt (0x8001e9f4#64) [⟨Register.x22, v22⟩, ⟨Register.x10, v10⟩, ⟨Register.x20, v20⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) (SegSt (0x8001ea10#64) [⟨Register.x15, ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x0f#5))) &&& sign_extend (m := 64) (0x001#12))⟩, ⟨Register.x14, (zero_extend (m := 64) (bool_to_bit (zopz0zI_u ((sign_extend (m := 64) (bytesT8 (m0) (v22 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))) - v10) (sign_extend (m := 64) (0x001#12)))))⟩, ⟨Register.x22, v22⟩, ⟨Register.x10, v10⟩, ⟨Register.x20, v20⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0)) := by
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8001ea10#64) [⟨Register.x15, ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v20 31 0) (0x0f#5))) &&& sign_extend (m := 64) (0x001#12))⟩, ⟨Register.x14, (zero_extend (m := 64) (bool_to_bit (zopz0zI_u ((sign_extend (m := 64) (bytesT8 (m0) (v22 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))) - v10) (sign_extend (m := 64) (0x001#12)))))⟩, ⟨Register.x22, v22⟩, ⟨Register.x10, v10⟩, ⟨Register.x20, v20⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x21, v21⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
-  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout⟩⟩ := hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
   -- === step 1: 0x8001e9f4 `site_8001e9f4` (alu) ===
   obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
     site_8001e9f4 c.σ c.tick (c.steps) (0x8001e9f4#64)
@@ -962,6 +975,8 @@ theorem seg_8001e9f4_8001ea0c_t
     rw [hmem1]; exact hloaded
   have hout1 : σ1.sailOutput = o0 :=
     (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
   -- === step 2: 0x8001e9f8 `site_8001e9f8` (alu) ===
   obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
     site_8001e9f8 σ1 i1 (c.steps + 1) (0x8001e9f8#64)
@@ -983,6 +998,8 @@ theorem seg_8001e9f4_8001ea0c_t
     rw [hmem2]; exact hload1
   have hout2 : σ2.sailOutput = o0 :=
     (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
   -- === step 3: 0x8001e9fc `site_8001e9fc` (alu) ===
   obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
     site_8001e9fc σ2 i2 (c.steps + 1 + 1) (0x8001e9fc#64)
@@ -1001,6 +1018,8 @@ theorem seg_8001e9f4_8001ea0c_t
     rw [hmem3]; exact hload2
   have hout3 : σ3.sailOutput = o0 :=
     (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
   -- === step 4: 0x8001ea00 `site_8001ea00` (alu) ===
   obtain ⟨σ4, i4, hs4, hi4, hG4, hmem4, hobs4⟩ :=
     site_8001ea00 σ3 i3 (c.steps + 1 + 1 + 1) (0x8001ea00#64)
@@ -1023,6 +1042,8 @@ theorem seg_8001e9f4_8001ea0c_t
     rw [hmem4]; exact hload3
   have hout4 : σ4.sailOutput = o0 :=
     (ReadsLikePost.out hobs4).trans hout3
+  have hok4 : Lua.Vm.RegsOk σ4 :=
+    Lua.Vm.RegsOk.alu hobs4 (by decide) hok3
   -- === step 5: 0x8001ea04 `site_8001ea04` (alu) ===
   obtain ⟨σ5, i5, hs5, hi5, hG5, hmem5, hobs5⟩ :=
     site_8001ea04 σ4 i4 (c.steps + 1 + 1 + 1 + 1) (0x8001ea04#64)
@@ -1044,6 +1065,8 @@ theorem seg_8001e9f4_8001ea0c_t
     rw [hmem5]; exact hload4
   have hout5 : σ5.sailOutput = o0 :=
     (ReadsLikePost.out hobs5).trans hout4
+  have hok5 : Lua.Vm.RegsOk σ5 :=
+    Lua.Vm.RegsOk.alu hobs5 (by decide) hok4
   -- === step 6: 0x8001ea08 `site_8001ea08_taken` (btaken) ===
   obtain ⟨σ6, i6, hs6, hi6, hG6, hmem6, hobs6⟩ :=
     site_8001ea08_taken σ5 i5 (c.steps + 1 + 1 + 1 + 1 + 1) (0x8001ea08#64)
@@ -1060,9 +1083,11 @@ theorem seg_8001e9f4_8001ea0c_t
     rw [hmem6]; exact hload5
   have hout6 : σ6.sailOutput = o0 :=
     (ReadsLikePost.out hobs6).trans hout5
+  have hok6 : Lua.Vm.RegsOk σ6 :=
+    Lua.Vm.RegsOk.btaken hobs6 hok5
   have hsteps6 : Steps c ⟨σ6, i6, c.steps + 1 + 1 + 1 + 1 + 1 + 1⟩ :=
     (((((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)).trans (Steps.single hs4)).trans (Steps.single hs5)).trans (Steps.single hs6)
   exact ⟨⟨σ6, i6, c.steps + 1 + 1 + 1 + 1 + 1 + 1⟩, hsteps6,
-    ⟨hG6, hpc6, hp6, ⟨vmi6, hmi6⟩, hi6, ⟨hload6, hmemE6, hout6⟩⟩⟩
+    ⟨hG6, hpc6, hp6, ⟨vmi6, hmi6⟩, hi6, ⟨hload6, hmemE6, hout6, hok6⟩⟩⟩
 
 end Lua.Vm.Arms

@@ -94,7 +94,7 @@ theorem dispatch {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelA
     c ⟨hc.good, hR.pcAt,
       ⟨hc.pins.trap, hc.pins.pc, hc.pins.opMax, hc.pins.jt, hc.pins.sp, hc.pins.gp, hc.pins.L,
         hc.pins.intTag, hc.pins.ci, hc.pins.base, trivial⟩,
-      hc.minstret, hc.tick, ⟨hc.text, rfl, rfl⟩⟩
+      hc.minstret, hc.tick, ⟨hc.text, rfl, rfl, hc.ok⟩⟩
   have hP := hpost.pins
   have hpc' : c'.σ.regs.get? Register.PC = some (armTarget ins.opNum) := by
     have h := hpost.pcAt
@@ -123,7 +123,7 @@ theorem dispatch {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelA
     rw [h, hpc', Option.some.injEq] at h1
     exact armTarget_ne_head _ hop h1
   exact ⟨c', hs, steps_lt hs hne,
-    ⟨hc.jump hpost hpins hpost.extra.2.2 hpost.extra.2.1, hpc', hs3, hs4⟩⟩
+    ⟨hc.jump hpost hpins hpost.armMem, hpc', hs3, hs4⟩⟩
 
 /-- A non-empty run to the head is a positive `StepsN` run to `VmRel`. -/
 theorem sim_of_run {p : Proto} {c : Config} {s' : State} {w : RelPtrs}
