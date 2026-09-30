@@ -11,6 +11,7 @@ import Lua.Vm.Loaded
 import Lua.Vm.Host
 import Lua.Vm.DecodeCheck
 import Lua.Vm.Code
+import Lua.Vm.Arms
 import Lua.Refinement
 import Lua.Ast.Syntax
 import Lua.Ast.Semantics

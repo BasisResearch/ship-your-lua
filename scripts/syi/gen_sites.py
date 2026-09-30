@@ -46,16 +46,40 @@ code module are derived from it (`Vsa.Sim.Code.MemmoveLoaded` ->
 `Vsa.Sim.Code.memmove_at_<addr>` / `import Vsa.Sim.Code.Memmove`); override
 with --code-accessor / --code-import when the derivation is wrong.
 
-Decode-table imports are looked up per instruction word in
-scripts/decode_index.tsv (regenerate with scripts/gen_decode_index.py).
+ship-your-lua changes (ATTRIBUTION.md):
+
+  * Decode goes through `Vsa.Sim.decodeW (w := 0x<hex>#32)` (Vsa/Sim/DecodeNF.lean,
+    discipline rule R15) for every word; no per-word decode lemma and no
+    decode index. `ROOT` is the repository root.
+  * No raised elaboration limits are emitted (rule R2); `--default-limits`
+    is accepted and ignored.
+  * `--accessor-template` / `--part-dir`: the code-byte fetch for a function
+    split into parts (`luaV_execute`, `Lua/Vm/Code/LuaV_execute/P*.lean`) is
+    `<template>` with `{addr}` and `{part}` filled in (the part holding the
+    address's `<f>_at_<addr>` lemma).
+  * Classes for every instruction of the F1 arms of `luaV_execute`, each
+    through an existing execute characterisation (`Vsa/Sim/ExecuteAlu.lean`,
+    `ExecLoadTotal.lean`, `RamReadLoad.lean`):
+
+    andi ori xori slti sltiu   rd rs1 imm12   (execute_itype_*_char)
+    slli srli srai             rd rs1 shamt6  (execute_shiftiop_*_char)
+    slliw srliw sraiw          rd rs1 shamt5  (execute_shiftiwop_*_char)
+    and or xor slt sltu sll srl sra  rd rs1 rs2  (execute_rtype_*_char)
+    addw sllw srlw sraw        rd rs1 rs2     (execute_rtypew_*_char)
+    lui auipc                  rd imm20       (execute_utype_*_char)
+    lh_tot lhu_tot lwu_tot     rd rs1 imm12   (exec_*_tot, TOTAL reads)
+
+    `--check-ast Lua/Vm/DecodeCheck/ast_dump.txt` checks every emitted
+    instruction against the evaluator's decode of its word.
 """
 
 import argparse
+import re
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_INDEX = ROOT / "scripts" / "decode_index.tsv"
+ROOT = Path(__file__).resolve().parents[2]      # repository root (scripts/syi/../..)
+DEFAULT_AST_DUMP = ROOT / "Lua" / "Vm" / "DecodeCheck" / "ast_dump.txt"
 
 BRANCH_OPS = {
     # bop -> (execute-lemma op fragment, guard format string)
@@ -66,16 +90,6 @@ BRANCH_OPS = {
     "BLTU": ("bltu", "zopz0zI_u {v1} {v2}"),
     "BGEU": ("bgeu", "zopz0zKzJ_u {v1} {v2}"),
 }
-
-
-def load_index(path: Path) -> dict[str, str]:
-    index = {}
-    for line in path.read_text().splitlines():
-        if not line.strip():
-            continue
-        word, module = line.split("\t")
-        index[word] = module
-    return index
 
 
 def word_bytes(word: int) -> list[str]:
@@ -111,7 +125,7 @@ def reg_hyp(n: int) -> str:
 
 
 def decode_block(word: int) -> str:
-    return (f"    (Vsa.Sim.DecodeTable.decode_{word:08x} (afterPrelude σ)\n"
+    return (f"    (Vsa.Sim.decodeW (w := 0x{word:08x}#32) (afterPrelude σ)\n"
             "      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)\n"
             "      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)\n"
             "      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))")
@@ -137,10 +151,22 @@ class Site:
 
 
 class Emitter:
-    def __init__(self, pred: str, accessor: str, suffix: str):
+    def __init__(self, pred: str, accessor: str, suffix: str,
+                 template: str | None = None, parts: dict | None = None):
         self.pred = pred           # fully-qualified predicate, e.g. Vsa.Sim.Code.MemmoveLoaded
         self.accessor = accessor   # fully-qualified prefix, e.g. Vsa.Sim.Code.memmove_at_
         self.suffix = suffix
+        self.template = template   # e.g. "F.f_at_{addr} (F.textLoaded_p{part}Loaded hmem)"
+        self.parts = parts or {}   # addr -> part number (for `template`)
+
+    def fetch(self, addr: int) -> str:
+        """The code-byte fetch term `⟨hb0, hb1, hb2, hb3⟩` is destructured from."""
+        if self.template is None:
+            return f"{self.accessor}{self.addr_key(addr)} hmem"
+        if addr not in self.parts:
+            raise ValueError(f"0x{addr:08x}: no code part pins this address")
+        return self.template.format(addr=self.addr_key(addr),
+                                    part=f"{self.parts[addr]:02d}")
 
     # -- shared scaffolding ---------------------------------------------------
 
@@ -165,7 +191,7 @@ class Emitter:
             f"      {mem_clause} ∧\n"
             f"      ReadsLikePost σ' ({post}) := by\n"
             "  subst hpcv\n"
-            f"  obtain ⟨hb0, hb1, hb2, hb3⟩ := {self.accessor}{self.addr_key(addr)} hmem\n"
+            f"  obtain ⟨hb0, hb1, hb2, hb3⟩ := {self.fetch(addr)}\n"
         )
 
     @staticmethod
@@ -314,6 +340,7 @@ class Emitter:
             # Per-site target-collapse lemma (mirrors `bne_target_mv`).
             pre = (
                 f"/-- Branch target of the taken site at 0x{s.addr:08x}. -/\n"
+                "-- discipline: allow(R1-site-battery) machine-emitted by scripts/gen_sites.py\n"
                 f"theorem {name}_tgt :\n"
                 f"    (0x{s.addr:08x}#64 + sign_extend (m := 64) (0x{imm:04x}#13)) "
                 f"= (0x{tgt:08x}#64 : BitVec 64) := by\n"
@@ -729,6 +756,179 @@ class Emitter:
         return head + body
 
 
+    # -- ship-your-lua: the remaining classes of the luaV_execute arms --------
+    #
+    # Every class goes through the existing execute characterisation of its
+    # instruction (Vsa/Sim/ExecuteAlu.lean, ExecLoadTotal.lean); the written
+    # value is exactly the one that lemma's `hwr` names, so `obs_alu_rd`
+    # returns it verbatim.
+
+    def _alu_site(self, s: Site, asm: str, rd: int, vregs: list[int],
+                  instr: str, value: str, exec_head: str, reads: list[str]) -> str:
+        """An ALU-shaped site: `exec_head` applied to the site state, the
+        `sigma3_alu` result, the register reads `reads` and the write."""
+        if rd == 0:
+            raise ValueError(f"line {s.lineno}: {s.cls} with rd=x0 unsupported")
+        value_flat = " ".join(value.split())
+        read_lines = "".join(f"      {r}\n" for r in reads)
+        exec_proof = (
+            f"    ({exec_head}\n"
+            f"      (afterNextPC (afterPrelude σ) (0x{s.addr:08x}#64))\n"
+            f"      (sigma3_alu σ (0x{s.addr:08x}#64) Register.x{rd} {value_flat})\n"
+            f"{read_lines}"
+            f"      (wX_bits_x{rd} _ {value_flat}))")
+        vregs = [n for n in dict.fromkeys(vregs) if n != 0]
+        head = self.head(
+            self.site_name(s.addr), s.addr, asm, vregs, "",
+            "".join(reg_hyp(n) for n in vregs), "",
+            "σ'.mem = σ.mem",
+            f"sigmaPost_alu σ pc vminstret Register.x{rd} {value_flat}")
+        return head + self.alu_body(s, instr, rd, value_flat, exec_proof)
+
+    ITYPE_VAL = {
+        "andi": "({v} &&& sign_extend (m := 64) ({imm}))",
+        "ori": "({v} ||| sign_extend (m := 64) ({imm}))",
+        "xori": "({v} ^^^ sign_extend (m := 64) ({imm}))",
+        "slti": "(zero_extend (m := 64) (bool_to_bit (zopz0zI_s {v} "
+                "(sign_extend (m := 64) ({imm})))))",
+        "sltiu": "(zero_extend (m := 64) (bool_to_bit (zopz0zI_u {v} "
+                 "(sign_extend (m := 64) ({imm})))))",
+    }
+
+    def emit_itype(self, s: Site) -> str:
+        rd, rs1, imm = int(s.fields[0]), int(s.fields[1]), int(s.fields[2], 16)
+        immt = f"0x{imm:03x}#12"
+        value = self.ITYPE_VAL[s.cls].format(v=vname(rs1), imm=immt)
+        instr = (f"instruction.ITYPE ({immt}, {regidx(rs1)}, {regidx(rd)}, "
+                 f"iop.{s.cls.upper()})")
+        return self._alu_site(
+            s, f"`{s.cls} x{rd},x{rs1},0x{imm:x}`.", rd, [rs1], instr, value,
+            f"execute_itype_{s.cls}_char ({immt}) ({regidx(rs1)}) ({regidx(rd)}) "
+            f"{vname(rs1)}", [rx_read(rs1, s.addr)])
+
+    SHIFT_FN = {"sll": "shift_bits_left", "srl": "shift_bits_right",
+                "sra": "shift_bits_right_arith"}
+
+    def emit_shiftiop(self, s: Site) -> str:
+        rd, rs1, sh = int(s.fields[0]), int(s.fields[1]), int(s.fields[2], 16)
+        sht = f"0x{sh:02x}#6"
+        fn = self.SHIFT_FN[s.cls[:3]]
+        value = f"({fn} {vname(rs1)} (Sail.BitVec.extractLsb ({sht}) 5 0))"
+        instr = (f"instruction.SHIFTIOP ({sht}, {regidx(rs1)}, {regidx(rd)}, "
+                 f"sop.{s.cls.upper()})")
+        return self._alu_site(
+            s, f"`{s.cls} x{rd},x{rs1},{sh}`.", rd, [rs1], instr, value,
+            f"execute_shiftiop_{s.cls}_char ({sht}) ({regidx(rs1)}) ({regidx(rd)}) "
+            f"{vname(rs1)}", [rx_read(rs1, s.addr)])
+
+    def emit_shiftiwop(self, s: Site) -> str:
+        rd, rs1, sh = int(s.fields[0]), int(s.fields[1]), int(s.fields[2], 16)
+        sht = f"0x{sh:02x}#5"
+        fn = self.SHIFT_FN[s.cls[:3]]
+        value = (f"(sign_extend (m := 64) ({fn} (Sail.BitVec.extractLsb "
+                 f"{vname(rs1)} 31 0) ({sht})))")
+        instr = (f"instruction.SHIFTIWOP ({sht}, {regidx(rs1)}, {regidx(rd)}, "
+                 f"sopw.{s.cls.upper()})")
+        return self._alu_site(
+            s, f"`{s.cls} x{rd},x{rs1},{sh}`.", rd, [rs1], instr, value,
+            f"execute_shiftiwop_{s.cls}_char ({sht}) ({regidx(rs1)}) ({regidx(rd)}) "
+            f"{vname(rs1)}", [rx_read(rs1, s.addr)])
+
+    RTYPE_VAL = {
+        "and": "({a} &&& {b})", "or": "({a} ||| {b})", "xor": "({a} ^^^ {b})",
+        "slt": "(zero_extend (m := 64) (bool_to_bit (zopz0zI_s {a} {b})))",
+        "sltu": "(zero_extend (m := 64) (bool_to_bit (zopz0zI_u {a} {b})))",
+        "sll": "(shift_bits_left {a} (Sail.BitVec.extractLsb {b} 5 0))",
+        "srl": "(shift_bits_right {a} (Sail.BitVec.extractLsb {b} 5 0))",
+        "sra": "(shift_bits_right_arith {a} (Sail.BitVec.extractLsb {b} 5 0))",
+    }
+    RTYPEW_VAL = {
+        "addw": "(sign_extend (m := 64) ((Sail.BitVec.extractLsb {a} 31 0) + "
+                "(Sail.BitVec.extractLsb {b} 31 0)))",
+        "sllw": "(sign_extend (m := 64) (shift_bits_left (Sail.BitVec.extractLsb {a} 31 0) "
+                "(Sail.BitVec.extractLsb (Sail.BitVec.extractLsb {b} 31 0) 4 0)))",
+        "srlw": "(sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb {a} 31 0) "
+                "(Sail.BitVec.extractLsb (Sail.BitVec.extractLsb {b} 31 0) 4 0)))",
+        "sraw": "(sign_extend (m := 64) (shift_bits_right_arith (Sail.BitVec.extractLsb "
+                "{a} 31 0) (Sail.BitVec.extractLsb (Sail.BitVec.extractLsb {b} 31 0) 4 0)))",
+    }
+
+    def emit_rtype2(self, s: Site) -> str:
+        rd, rs1, rs2 = int(s.fields[0]), int(s.fields[1]), int(s.fields[2])
+        w = s.cls in self.RTYPEW_VAL
+        value = (self.RTYPEW_VAL if w else self.RTYPE_VAL)[s.cls].format(
+            a=vname(rs1), b=vname(rs2))
+        ctor, opty = ("RTYPEW", "ropw") if w else ("RTYPE", "rop")
+        instr = (f"instruction.{ctor} ({regidx(rs2)}, {regidx(rs1)}, {regidx(rd)}, "
+                 f"{opty}.{s.cls.upper()})")
+        return self._alu_site(
+            s, f"`{s.cls} x{rd},x{rs1},x{rs2}`.", rd, [rs1, rs2], instr, value,
+            f"execute_{ctor.lower()}_{s.cls}_char ({regidx(rs2)}) ({regidx(rs1)}) "
+            f"({regidx(rd)}) {vname(rs1)} {vname(rs2)}",
+            [rx_read(rs1, s.addr), rx_read(rs2, s.addr)])
+
+    def emit_utype(self, s: Site) -> str:
+        rd, imm = int(s.fields[0]), int(s.fields[1], 16)
+        immt = f"0x{imm:05x}#20"
+        instr = f"instruction.UTYPE ({immt}, {regidx(rd)}, uop.{s.cls.upper()})"
+        if s.cls == "lui":
+            value = f"(sign_extend (m := 64) (({immt}) +++ 0x000#12))"
+            return self._alu_site(
+                s, f"`lui x{rd},0x{imm:x}`.", rd, [], instr, value,
+                f"execute_utype_lui_char ({immt}) ({regidx(rd)})", [])
+        pc = f"(0x{s.addr:08x}#64)"
+        value = f"({pc} + sign_extend (m := 64) (({immt}) +++ 0x000#12))"
+        # the execute lemma reads the PC of the site state: `hpc` transported
+        hpc = (f"(by rw [get?_afterNextPC σ {pc} _ (by decide) (by decide)]; "
+               "exact hpc)")
+        return self._alu_site(
+            s, f"`auipc x{rd},0x{imm:x}`.", rd, [], instr, value,
+            f"execute_utype_auipc_char ({immt}) ({regidx(rd)}) {pc}", [hpc])
+
+    def _load_tot_aligned(self, s: Site, mn: str, nbytes: int, signed: bool) -> str:
+        """TOTAL `lh`/`lhu`/`lwu` (`exec_*_tot`, Vsa/Sim/ExecLoadTotal.lean): the
+        value is the total read `bytesT<n>`; the alignment is a hypothesis."""
+        rd, rs1, imm = int(s.fields[0]), int(s.fields[1]), int(s.fields[2], 16)
+        if rd == 0 or rs1 == 0:
+            raise ValueError(f"line {s.lineno}: load with x0 operand unsupported")
+        ea = f"(v{rs1} + sign_extend (m := 64) (0x{imm:03x}#12))"
+        tot = f"(bytesT{nbytes} σ.mem {ea}.toNat : BitVec (8 * {nbytes}))"
+        ext = "sign_extend" if signed else "zero_extend"
+        value = f"({ext} (m := 64) {tot})"
+        extra_hyps = (
+            f"\n    (hlo : 0x80000000 ≤ {ea}.toNat)\n"
+            f"    (hhiram : {ea}.toNat + {nbytes} ≤ 0x100000000)\n"
+            f"    (hhtif : {ea}.toNat + {nbytes} ≤ tohostAddr\n"
+            f"      ∨ tohostAddr + 8 ≤ {ea}.toNat)\n"
+            f"    (halign : {ea}.toNat % {nbytes} = 0)\n   ")
+        instr = (f"instruction.LOAD (0x{imm:03x}#12, {regidx(rs1)}, "
+                 f"{regidx(rd)}, {'false' if signed else 'true'}, {nbytes})")
+        exec_proof = (
+            f"    (exec_{mn}_tot σ (0x{s.addr:08x}#64) (0x{imm:03x}#12) ({regidx(rs1)}) "
+            f"({regidx(rd)})\n"
+            f"      (sigma3_alu σ (0x{s.addr:08x}#64) Register.x{rd} {value})\n"
+            f"      v{rs1} hG\n"
+            f"      {rx_read(rs1, s.addr)}\n"
+            f"      (wX_bits_x{rd} _ {value})\n"
+            "      hlo hhiram hhtif halign)")
+        head = self.head(
+            self.site_name(s.addr), s.addr,
+            f"`{mn} x{rd},0x{imm:x}(x{rs1})` — TOTAL (no byte-presence hypothesis).",
+            [rs1], "", reg_hyp(rs1), extra_hyps,
+            "σ'.mem = σ.mem",
+            f"sigmaPost_alu σ pc vminstret Register.x{rd} {value}")
+        return head + self.alu_body(s, instr, rd, value, exec_proof)
+
+    def emit_lh_tot(self, s: Site) -> str:
+        return self._load_tot_aligned(s, "lh", 2, True)
+
+    def emit_lhu_tot(self, s: Site) -> str:
+        return self._load_tot_aligned(s, "lhu", 2, False)
+
+    def emit_lwu_tot(self, s: Site) -> str:
+        return self._load_tot_aligned(s, "lwu", 4, False)
+
+
 CLASS_EMITTERS = {
     "alu_addi": "emit_alu_addi",
     "addiw": "emit_addiw",
@@ -751,6 +951,16 @@ CLASS_EMITTERS = {
     "jal": "emit_jal",
     "j": "emit_j",
     "jr": "emit_jr",
+    **{c: "emit_itype" for c in ("andi", "ori", "xori", "slti", "sltiu")},
+    **{c: "emit_shiftiop" for c in ("slli", "srli", "srai")},
+    **{c: "emit_shiftiwop" for c in ("slliw", "srliw", "sraiw")},
+    **{c: "emit_rtype2" for c in ("and", "or", "xor", "slt", "sltu", "sll",
+                                  "srl", "sra", "addw", "sllw", "srlw", "sraw")},
+    "lui": "emit_utype",
+    "auipc": "emit_utype",
+    "lh_tot": "emit_lh_tot",
+    "lhu_tot": "emit_lhu_tot",
+    "lwu_tot": "emit_lwu_tot",
 }
 
 NEEDS_STRCPY_SITES = {"lbu", "sb"}
@@ -787,6 +997,96 @@ def derive_code_names(pred: str, accessor: str | None, code_import: str | None):
     return accessor, code_import
 
 
+def load_parts(part_dir: Path) -> dict[int, int]:
+    """addr -> part number, from the `<f>_at_<addr>` fetch lemmas of the
+    generated code-pin parts `<part_dir>/P<nn>.lean`."""
+    parts = {}
+    for f in sorted(part_dir.glob("P*.lean")):
+        k = int(f.stem[1:])
+        for m in re.finditer(r"^theorem \w+_at_([0-9a-f]{8})\b", f.read_text(), re.M):
+            parts[int(m.group(1), 16)] = k
+    return parts
+
+
+AST_NS = re.compile(r"LeanRV64DExecutable\.")
+
+
+def load_ast_dump(path: Path) -> dict[int, str]:
+    """word -> the instruction the evaluator decodes it to (namespaces stripped)."""
+    out = {}
+    for line in path.read_text().splitlines():
+        w, ok, ast = line.split(";", 2)
+        if ok == "OK":
+            out[int(w, 16)] = " ".join(AST_NS.sub("", ast).split())
+    return out
+
+
+INSTR_RE = re.compile(r"\n    \((instruction\.[A-Z]+ \(.*?\))\)\n", re.S)
+
+
+def check_ast(theorem: str, word: int, dump: dict[int, str]) -> None:
+    """The instruction an ALU/store site passes to its `stepObs_*` lemma is the
+    decode of its word (the `decodeW` autoParam `rfl` would reject a wrong one;
+    this reports it before Lean does)."""
+    if word not in dump:
+        return
+    m = INSTR_RE.search(theorem)
+    if m is None:
+        return
+    got = " ".join(m.group(1).split())
+    if got != dump[word]:
+        raise ValueError(f"word {word:08x}: emitted `{got}`, decodes to `{dump[word]}`")
+
+
+def emit_battery(sites: list, pred: str, accessor: str, imports_extra: list[str],
+                 suffix: str = "", namespace: str = "Vsa.Sim",
+                 template: str | None = None, parts: dict | None = None,
+                 origin: str = "a site TSV", ast_dump: dict | None = None) -> str:
+    """The Lean text of the battery for `sites` (shared by `main` and the
+    Lua arm driver `scripts/gen_lua_arms.py`)."""
+    imports = ["Vsa.Sim.ValueSites", "Vsa.Sim.DecodeNF"]
+    if any(s.cls in {"ld", "lw", "ld_tot", "lw_tot", "ld_totb", "lw_totb"} for s in sites):
+        imports.append("Vsa.Sim.RamReadPins")
+    if any(s.cls.endswith("_tot") or s.cls.endswith("_totb") for s in sites):
+        imports.append("Vsa.Sim.ExecLoadTotal")
+    if any(s.cls in NEEDS_STRCPY_SITES for s in sites):
+        imports.append("Vsa.Sim.StrcpySites")
+    imports.extend(m for m in imports_extra if m not in imports)
+
+    em = Emitter(pred, accessor, suffix, template, parts)
+    theorems = []
+    for s in sites:
+        t = getattr(em, CLASS_EMITTERS[s.cls])(s)
+        if ast_dump is not None:
+            check_ast(t, s.word, ast_dump)
+        theorems.append(t)
+    out = ["\n".join(f"import {m}" for m in imports)]
+    out.append(f"""
+/-!
+Per-site `StepObs` battery GENERATED by scripts/syi/gen_sites.py from
+{origin} against `{pred}`.
+Do not hand-edit; regenerate instead.
+-/
+
+open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
+open Register
+open Sail.ConcurrencyInterfaceV1.PreSail
+open Vsa.Machine (MState Config Step Steps)
+open Vsa.Sim
+
+-- discipline: allow(R5-stepobs-volume) a per-site battery is one `stepObs_` per
+-- site BY CONSTRUCTION; this file is machine-emitted from a TSV, not a
+-- hand-threaded chain.
+-- discipline: allow(R7-conj-tower-def) the existentials are the `∃ σ' i'` of each
+-- site's `StepObs` conclusion (the landed shape), not new ∃/∧-tower posts.
+
+namespace {namespace}
+""")
+    out.append("\n".join(theorems))
+    out.append(f"end {namespace}\n")
+    return "\n".join(out)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -801,82 +1101,44 @@ def main() -> int:
     ap.add_argument("--code-import", default=None,
                     help="Lean module of the Code file "
                          "(default derived: Vsa.Sim.Code.Memmove)")
+    ap.add_argument("--accessor-template", default=None,
+                    help="fetch term with {addr} and {part}, e.g. "
+                         "'Lua.Vm.Code.luaV_execute_at_{addr} "
+                         "(Lua.Vm.Code.textLoaded_LuaV_execute_p{part}Loaded hmem)'")
+    ap.add_argument("--part-dir", type=Path, default=None,
+                    help="directory of the code-pin parts P<nn>.lean "
+                         "(for --accessor-template)")
+    ap.add_argument("--check-ast", type=Path, default=None,
+                    help="decode dump (Lua/Vm/DecodeCheck/ast_dump.txt) to check "
+                         "every emitted instruction against")
     ap.add_argument("--suffix", default="",
                     help="suffix appended to every site theorem name, e.g. _gen")
     ap.add_argument("--namespace", default="Vsa.Sim")
     ap.add_argument("--default-limits", action="store_true",
-                    help="retain Lean's default elaboration limits")
-    ap.add_argument("--index", type=Path, default=DEFAULT_INDEX,
-                    help="decode_index.tsv (word -> DecodeTable module)")
+                    help="accepted for compatibility; no limit is ever raised")
     args = ap.parse_args()
 
     sites = parse_sites(args.sites_tsv)
     if not sites:
         print("error: no sites in input", file=sys.stderr)
         return 1
-    index = load_index(args.index)
     accessor, code_import = derive_code_names(
         args.code_loaded, args.code_accessor, args.code_import)
-
-    decode_imports = set()
-    for s in sites:
-        key = f"{s.word:08x}"
-        if key not in index:
-            print(f"error: no decode lemma for word {key} "
-                  f"(line {s.lineno}); regenerate {args.index}?", file=sys.stderr)
-            return 1
-        decode_imports.add(index[key])
-
-    imports = ["Vsa.Sim.ValueSites"]
-    if any(s.cls in {"ld", "lw", "ld_tot", "lw_tot", "ld_totb", "lw_totb"} for s in sites):
-        imports.append("Vsa.Sim.RamReadPins")
-    if any(s.cls.endswith("_tot") or s.cls.endswith("_totb") for s in sites):
-        imports.append("Vsa.Sim.ExecLoadTotal")
-    if any(s.cls in NEEDS_STRCPY_SITES for s in sites):
-        imports.append("Vsa.Sim.StrcpySites")
-    imports.append(code_import)
-    imports.extend(sorted(decode_imports))
-
-    em = Emitter(args.code_loaded, accessor, args.suffix)
-    theorems = []
-    for s in sites:
-        theorems.append(getattr(em, CLASS_EMITTERS[s.cls])(s))
-
-    limits = "" if args.default_limits else (
-        "set_option maxHeartbeats 8000000\nset_option maxRecDepth 1000000"
-    )
-    out = []
-    out.append("\n".join(f"import {m}" for m in imports))
-    out.append(f"""
-/-!
-Per-site `StepObs` battery generated by scripts/gen_sites.py from
-{args.sites_tsv.name} against `{args.code_loaded}`.
-Do not hand-edit; regenerate instead.
--/
-
-open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
-open Register
-open Sail.ConcurrencyInterfaceV1.PreSail
-open Vsa.Machine (MState Config Step Steps)
-
-{limits}
-
--- discipline: allow(R5-stepobs-volume) a per-site battery is one `stepObs_` per
--- site BY CONSTRUCTION; this file is machine-emitted from a TSV, not a
--- hand-threaded chain.
--- discipline: allow(R7-conj-tower-def) the existentials are the `∃ σ' i'` of each
--- site's `StepObs` conclusion (the landed shape), not new ∃/∧-tower posts.
-
-namespace {args.namespace}
-""")
-    out.append("\n".join(theorems))
-    out.append(f"end {args.namespace}\n")
-
-    args.output.write_text("\n".join(out))
-    print(f"wrote {args.output} ({len(theorems)} site theorems, "
-          f"{len(decode_imports)} decode imports)")
+    parts = load_parts(args.part_dir) if args.part_dir else None
+    dump = load_ast_dump(args.check_ast) if args.check_ast else None
+    try:
+        text = emit_battery(sites, args.code_loaded, accessor, [code_import],
+                            args.suffix, args.namespace, args.accessor_template,
+                            parts, args.sites_tsv.name, ast_dump=dump)
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    args.output.write_text(text)
+    print(f"wrote {args.output} ({len(sites)} site theorems)")
     return 0
 
 
 if __name__ == "__main__":
     sys.exit(main())
+
+

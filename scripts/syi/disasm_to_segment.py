@@ -88,10 +88,13 @@ SEG_CLASS = {**{c: "alu" for c in ALU_IMM | SHIFT_IMM | ALU_RR | UTYPE},
              **{c: c for c in STORE_BYTES},
              "branch_taken": "btaken", "branch_nottaken": "bnottaken",
              "jal": "jal", "j": "j", "jr": "jr", "jalr": "jalr"}
-# Classes scripts/syi/gen_sites.py has a site battery for.
-GEN_SITES = {"alu_addi", "addiw", "alu_add", "sub", "subw", "ld", "lw",
-             "lbu", "sd", "sw", "sb", "branch_taken", "branch_nottaken",
-             "jal", "j", "jr"}
+# Classes scripts/syi/gen_sites.py has a site battery for (a load through its
+# TOTAL class, `TOT_LOAD`).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gen_sites as _gen_sites  # noqa: E402
+_TOT = {"ld": "ld_tot", "lw": "lw_tot", "lbu": "lbu_tot", "lh": "lh_tot",
+        "lhu": "lhu_tot", "lwu": "lwu_tot"}
+GEN_SITES = {c for c in KNOWN if _TOT.get(c, c) in _gen_sites.CLASS_EMITTERS}
 # Step classes scripts/syi/gen_segment.py can emit.
 GEN_SEGMENT = {"alu", "sd", "sw", "sb", "btaken", "bnottaken", "jal", "jr",
                "j", "call"}
@@ -472,6 +475,235 @@ class DraftBuilder:
             "steps": steps,
             "post_proof": ["TODO"],
         }
+
+
+# ---------------------------------------------------------------------------
+# ship-your-lua: COMPLETE `"boundary": "segst"` specs (no TODO)
+#
+# Every slot the draft leaves as a TODO is mechanical once the segment is
+# stated over `SegSt` with its side conditions as NAMED HYPOTHESES:
+#   * values: a symbolic register file tracks each write as the exact term
+#     the site lemma produces (the `hwr` value of its execute lemma), so
+#     `rd_val` needs no rewrite; loads read the TOTAL bytes (`*_tot` classes)
+#     of the running memory expression (`rw` by the previous `hmemE`);
+#   * stores: key `ea.toNat`, source value, and `.text` survival from the
+#     store window (`survival` templates, e.g. `TextLoaded.writeMap8`);
+#   * load/store address side conditions, branch guards and `jr` target
+#     alignment: theorem hypotheses `h<kind>_<k>` over the entry values, to be
+#     discharged by whoever instantiates the segment (the arm proof).
+
+TOT_LOAD = {"ld": "ld_tot", "lw": "lw_tot", "lbu": "lbu_tot",
+            "lh": "lh_tot", "lhu": "lhu_tot", "lwu": "lwu_tot"}
+SIGNED_LOAD = {"ld", "lw", "lh", "lb"}
+ALIGNED_TOT = {"lh", "lhu", "lwu"}          # exec_*_tot take the alignment
+
+
+def site_class(ins: "Instr") -> str:
+    """The scripts/syi/gen_sites.py class that proves this instruction."""
+    return TOT_LOAD.get(ins.cls, ins.cls)
+
+
+def site_name(ins: "Instr", suffix: str = "") -> str:
+    arm = {"branch_taken": "_taken", "branch_nottaken": "_nottaken"}.get(ins.cls, "")
+    return f"site_{ins.addr:08x}{arm}{suffix}"
+
+
+class SegStBuilder:
+    """A complete `boundary: segst` spec for one straight-line segment."""
+
+    def __init__(self, instrs, theorem: str, loaded_pred: str, namespace: str,
+                 imports: list[str], survival: dict[str, str], suffix: str = ""):
+        self.instrs, self.theorem = instrs, theorem
+        self.loaded_pred, self.namespace = loaded_pred, namespace
+        self.imports, self.survival, self.suffix = imports, survival, suffix
+
+    def build(self) -> dict:
+        import gen_sites as gs                       # same directory
+        instrs = self.instrs
+        for ins in instrs:
+            if isinstance(ins, Unsupported) or site_class(ins) not in gs.CLASS_EMITTERS:
+                raise ValueError(f"0x{ins.addr:08x}: no site class for {ins}")
+        pinned, written = [], set()
+        for ins in instrs:
+            for r in ins.reads():
+                if r not in written and r not in pinned:
+                    pinned.append(r)
+            if ins.writes():
+                written.add(ins.writes())
+        val = {r: f"v{r}" for r in pinned}
+        V = lambda r: "(0#64)" if r == 0 else val[r]
+        mem = "m0"
+        hyps: list[str] = []
+        steps = []
+        for k, ins in enumerate(instrs, 1):
+            c, o = ins.cls, ins.ops
+            st = {"addr": f"0x{ins.addr:08x}", "site": site_name(ins, self.suffix),
+                  "class": SEG_CLASS[c]}
+            if ins.asm:
+                st["asm"] = ins.asm
+            vregs = ins.vregs()
+            vals = "".join(f"$v:x{r} " for r in vregs)
+            pins = "".join(f"$pin:x{r} " for r in vregs)
+            pre = f"$vmi {vals}$hG $hpc $hmi {pins}$hmem rfl "
+            rd = ins.writes()
+            if c in LOAD_BYTES:
+                n = LOAD_BYTES[c]
+                ea = f"({V(int(o[1]))} + sign_extend (m := 64) (0x{o[2]}#12))"
+                names = [f"hlo_{k}", f"hhi_{k}", f"hht_{k}"]
+                hyps += [f"({names[0]} : 0x80000000 ≤ {ea}.toNat)",
+                         f"({names[1]} : {ea}.toNat + {n} ≤ 0x100000000)",
+                         f"({names[2]} : {ea}.toNat + {n} ≤ tohostAddr ∨ "
+                         f"tohostAddr + 8 ≤ {ea}.toNat)"]
+                if c in ALIGNED_TOT:
+                    names.append(f"hal_{k}")
+                    hyps.append(f"(hal_{k} : {ea}.toNat % {n} = 0)")
+                ext = "sign_extend" if c in SIGNED_LOAD else "zero_extend"
+                value = (f"({ext} (m := 64) (bytesT{n} ({mem}) {ea}.toNat : "
+                         f"BitVec (8 * {n})))")
+                st.update(rd=f"x{rd}", rd_val=value, rw="$memeq",
+                          call=pre + " ".join(names) + " $hi")
+                val[rd] = value
+            elif c in STORE_BYTES:
+                n = STORE_BYTES[c]
+                if c not in ("sd", "sw", "sb"):
+                    raise ValueError(f"0x{ins.addr:08x}: no store class {c}")
+                ea = f"({V(int(o[1]))} + sign_extend (m := 64) (0x{o[2]}#12))"
+                key = f"{ea}.toNat"
+                names = [f"hlo_{k}", f"hhi_{k}", f"hwin_{k}"]
+                hyps += [f"(hlo_{k} : 0x80000000 ≤ {key})",
+                         f"(hhi_{k} : {key} + {n} ≤ 0x100000000)",
+                         f"(hwin_{k} : tohostAddr + 16 ≤ {key})"]
+                if c != "sb":
+                    names.append(f"hal_{k}")
+                    hyps.append(f"(hal_{k} : {key} % {n} = 0)")
+                src = V(int(o[0]))
+                if c == "sb":
+                    src = f"(stData 1 {src})"
+                    mem = f"(({mem}).insert ({key}) ({src}))"
+                else:
+                    fn, data = {"sd": ("writeMap8", "sdData_val"),
+                                "sw": ("writeMap4", "swData")}[c]
+                    mem = f"{fn} ({mem}) ({key}) ({data} {src})"
+                st.update(key=key, src_val=src,
+                          loaded_via=self.survival[c].format(hwin=f"hwin_{k}"),
+                          call=pre + " ".join(names) + " $hi")
+            elif c in BRANCH:
+                bop = o[0]
+                v1, v2 = V(int(o[1])), V(int(o[2]))
+                guard = gs.BRANCH_OPS[bop][1].format(v1=v1, v2=v2)
+                taken = c == "branch_taken"
+                hyps.append(f"(hg_{k} : {guard} = {'true' if taken else 'false'})")
+                if taken:
+                    imm = int(o[3], 16)
+                    st["imm"] = f"0x{imm:04x}#13"
+                    st["target"] = f"0x{(ins.addr + sext(imm, 13)) % 2**64:08x}"
+                st["call"] = pre + f"hg_{k} $hi"
+            elif c == "jal":
+                imm = int(o[1], 16)
+                st["imm"] = f"0x{imm:06x}#21"
+                st["target"] = f"0x{(ins.addr + sext(imm, 21)) % 2**64:08x}"
+                st["rd"] = f"x{rd}"
+                st["call"] = "$vmi $hG $hpc $hmi $hmem rfl $hi"
+                val[rd] = f"(0x{ins.addr + 4:08x}#64 : BitVec 64)"
+            elif c == "j":
+                imm = int(o[0], 16)
+                st["imm"] = f"0x{imm:06x}#21"
+                st["target"] = f"0x{(ins.addr + sext(imm, 21)) % 2**64:08x}"
+                st["call"] = "$vmi $hG $hpc $hmi $hmem rfl (by decide) $hi"
+            elif c == "jr":
+                upd = (f"(BitVec.update ({V(int(o[0]))} + sign_extend (m := 64) "
+                       f"(0x000#12)) 0 0#1)")
+                hyps.append(f"(htgt_{k} : {upd}.toNat % 4 = 0)")
+                st["pc_val"] = upd
+                st["call"] = pre + f"htgt_{k} $hi"
+            else:                                    # register write
+                value = self.alu_value(ins, V, gs)
+                st.update(rd=f"x{rd}", rd_val=value, call=pre + "$hi")
+                val[rd] = value
+            steps.append(st)
+        params = []
+        if pinned:
+            params.append("(" + " ".join(f"v{r}" for r in pinned) + " : BitVec 64)")
+        params.append("(m0 : Std.ExtHashMap Nat (BitVec 8))")
+        params += hyps
+        n = len(instrs)
+        return {
+            "theorem": self.theorem,
+            "doc": (f"`0x{instrs[0].addr:08x}`–`0x{instrs[-1].addr + 4:08x}` "
+                    f"({n} instruction{'s' if n > 1 else ''}), from "
+                    f"`SegSt` to `SegSt`; side conditions are the `h*_<step>` "
+                    f"hypotheses."),
+            "namespace": self.namespace,
+            "imports": self.imports,
+            "boundary": "segst",
+            "entry": f"0x{instrs[0].addr:08x}",
+            "mem_param": "m0",
+            "params": params,
+            "loaded_pred": self.loaded_pred,
+            "pins": [{"reg": f"x{r}", "val": f"v{r}", "hyp": f"hv{r}"}
+                     for r in pinned],
+            "steps": steps,
+        }
+
+    @staticmethod
+    def alu_value(ins: "Instr", V, gs) -> str:
+        """The value gen_sites.py's site lemma for `ins` writes, over `V`."""
+        c, o = ins.cls, ins.ops
+        a = V(int(o[1])) if c not in UTYPE else None
+        E = gs.Emitter
+        if c == "alu_addi":
+            return f"({a} + sign_extend (m := 64) (0x{o[2]}#12))"
+        if c == "addiw":
+            return (f"(sign_extend (m := 64) (Sail.BitVec.extractLsb ({a} + "
+                    f"sign_extend (m := 64) (0x{o[2]}#12)) 31 0))")
+        if c in E.ITYPE_VAL:
+            return E.ITYPE_VAL[c].format(v=a, imm=f"0x{o[2]}#12")
+        if c in ("slli", "srli", "srai"):
+            return (f"({E.SHIFT_FN[c[:3]]} {a} (Sail.BitVec.extractLsb "
+                    f"(0x{int(o[2], 16):02x}#6) 5 0))")
+        if c in ("slliw", "srliw", "sraiw"):
+            return (f"(sign_extend (m := 64) ({E.SHIFT_FN[c[:3]]} "
+                    f"(Sail.BitVec.extractLsb {a} 31 0) (0x{int(o[2], 16):02x}#5)))")
+        b = V(int(o[2])) if c in ALU_RR else None
+        if c == "alu_add":
+            return f"({a} + {b})"
+        if c == "sub":
+            return f"({a} - {b})"
+        if c == "subw":
+            return (f"(sign_extend (m := 64) ((Sail.BitVec.extractLsb {a} 31 0) - "
+                    f"(Sail.BitVec.extractLsb {b} 31 0)))")
+        if c in E.RTYPE_VAL:
+            return E.RTYPE_VAL[c].format(a=a, b=b)
+        if c in E.RTYPEW_VAL:
+            return E.RTYPEW_VAL[c].format(a=a, b=b)
+        if c == "lui":
+            return f"(sign_extend (m := 64) ((0x{int(o[1], 16):05x}#20) +++ 0x000#12))"
+        if c == "auipc":
+            return (f"((0x{ins.addr:08x}#64) + sign_extend (m := 64) "
+                    f"((0x{int(o[1], 16):05x}#20) +++ 0x000#12))")
+        raise ValueError(f"0x{ins.addr:08x}: no value rule for {c}")
+
+
+def site_rows(instrs) -> list[str]:
+    """gen_sites.py TSV rows (loads as their TOTAL classes) for `instrs`."""
+    rows = []
+    for ins in instrs:
+        ops = ins.ops
+        rows.append("\t".join([f"{ins.addr:08x}", f"{ins.word:08x}",
+                               site_class(ins)] + [str(x) for x in ops]))
+    return rows
+
+
+def complete(lo: int, hi: int, lines: list[str], origin: str, theorem: str,
+             loaded_pred: str, namespace: str, imports: list[str],
+             survival: dict[str, str], suffix: str = "") -> tuple[dict, list[str]]:
+    """The complete segst spec of [lo, hi) and the site rows it needs."""
+    instrs = parse_rows(lines, origin, lo, hi)
+    if not instrs:
+        raise ValueError("no site rows in range")
+    spec = SegStBuilder(instrs, theorem, loaded_pred, namespace, imports,
+                        survival, suffix).build()
+    return spec, site_rows(instrs)
 
 
 def rows_from_elf(lo: int, hi: int, path_file: Path | None) -> list[str]:

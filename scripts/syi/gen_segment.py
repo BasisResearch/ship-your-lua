@@ -9,6 +9,13 @@ minstret threading, memory threading (`hmemE<k>` equations + code-pin
 survival), ghost register-frame threading, the `Steps.single/.trans` chain,
 and the final postcondition assembly.
 
+ship-your-lua changes (ATTRIBUTION.md): no raised elaboration limits are
+emitted (rule R2); a `jr` step may omit `pc_rw` when `pc_val` is the site's
+own target; an empty pin bundle is `trivial`; every generated line that
+projects deep into a `PinsHold` bundle carries the R6 exemption; `open
+Vsa.Sim`, so a spec may use another namespace (`Lua.Vm.Arms`); the theorem
+text without the header is `SegmentEmitter.body_text` after `emit()`.
+
 Modes
 =====
   --mode straight   plain straight-line segment; the spec JSON is the core
@@ -196,12 +203,34 @@ def pin_term(reg: str, val: str) -> str:
     return f"⟨Register.{reg}, {val}⟩"
 
 
+def bundle(projs) -> str:
+    """A `PinsHold` proof from its per-pin proofs (`trivial` for the empty list)."""
+    return f"⟨{', '.join(projs + ['trivial'])}⟩" if projs else "trivial"
+
+
 def pin_list(pins) -> str:
     return "[" + ", ".join(pin_term(r, v) for r, v in pins) + "]"
 
 
 class SpecError(Exception):
     pass
+
+
+R6_ALLOW = ("-- discipline: allow(R6-anon-projection-tower) pin-bundle "
+            "projection emitted by gen_segment.py (the bundle is a PinsHold list)")
+
+
+def allow_projections(lines: list[str]) -> list[str]:
+    """Mark every emitted line that projects deep into a `PinsHold` bundle
+    (`hp.2.2.2.2.1`) with the R6 exemption: the bundle is a list, and its
+    positions are computed by this generator."""
+    out = []
+    for block in lines:
+        for ln in block.split("\n"):
+            if ".2.2.2.2" in ln:
+                out.append(" " * (len(ln) - len(ln.lstrip())) + R6_ALLOW)
+            out.append(ln)
+    return out
 
 
 def file_header(spec: dict) -> str:
@@ -218,9 +247,7 @@ open Register
 open Sail.ConcurrencyInterfaceV1.PreSail
 open Vsa.Machine (MState Config Step Steps)
 open Vsa.Logic
-
-set_option maxHeartbeats 8000000
-set_option maxRecDepth 1000000
+open Vsa.Sim
 
 namespace {spec.get('namespace', 'Vsa.Sim')}
 """
@@ -314,7 +341,7 @@ class SegmentEmitter:
             projs = [proj(prev_hp, i) for i in range(len(self.pins)) if i != idx]
             self.lines.append(
                 f"  have hq{k} : PinsHold {self.state} {pin_list(rest)} :=\n"
-                f"    ⟨{', '.join(projs + ['trivial'])}⟩")
+                f"    {bundle(projs)}")
             transported = f"pins_{fam} hobs{k} (by rfl) hq{k}"
             base = rest
         else:
@@ -389,10 +416,12 @@ class SegmentEmitter:
             end_pc = bv64(tgt)[1:-1]
         elif cls == "jr":
             pc_val = self.subst(st["pc_val"], k)
-            pc_rw = self.subst(st["pc_rw"], k)
+            rws = [f"obs_jr_pc hobs{k}"]
+            if st.get("pc_rw"):        # none: pc_val is the site's own target
+                rws.append(self.subst(st["pc_rw"], k))
             self.lines.append(
                 f"  have hpc{k} : σ{k}.regs.get? Register.PC = some {pc_val} "
-                f":= by\n    rw [obs_jr_pc hobs{k}, {pc_rw}]")
+                f":= by\n    rw [{', '.join(rws)}]")
             end_pc = pc_val
         else:
             raise SpecError(f"unknown class {cls}")
@@ -526,7 +555,7 @@ class SegmentEmitter:
                      if p[0] not in drops]
             self.lines.append(
                 f"  have hq{k} : PinsHold {self.state} {pin_list(kept)} :=\n"
-                f"    ⟨{', '.join(projs + ['trivial'])}⟩")
+                f"    {bundle(projs)}")
             src_hp = f"hq{k}"
         else:
             src_hp = prev_hp
@@ -715,9 +744,10 @@ class SegmentEmitter:
             head.append(hclose_param)
         head.append(f"    : Triple ({spec['pre']}) ({post}) := by")
         body.append("\n".join(head))
-        body.extend(self.lines)
+        body.extend(allow_projections(self.lines))
         ns = spec.get("namespace", "Vsa.Sim")
-        return header + "\n" + "\n".join(body) + f"\n\nend {ns}\n"
+        self.body_text = "\n".join(body)
+        return header + "\n" + self.body_text + f"\n\nend {ns}\n"
 
 
 # ---------------------------------------------------------------------------
