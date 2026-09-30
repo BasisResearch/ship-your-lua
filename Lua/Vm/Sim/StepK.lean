@@ -133,6 +133,7 @@ theorem mapM3 {f : Nat → Option Value} {a b c : Nat} {vs : List Value}
 `k`, skip (`pc + 2`), else `R[A] := v` and jump to `t`. -/
 theorem step_testset {s s' : State} {w : Word} {t : Nat}
     (h : Step H p s s') (hK : kernelAt p s.pc = some (testsetK s.pc w t)) :
+    -- discipline: allow(R7-conj-tower-def) a kernel inversion's conclusion (one per combinator, each consumed at once by `obtain` in the generated arms), not a post/entry predicate
     ∃ v, s.regs w.b = some v ∧
       ((v.isFalse = w.k ∧ s' = ⟨s.pc + 2, s.regs, s.out⟩) ∨
        (¬ v.isFalse = w.k ∧ s' = ⟨t, upd s.regs w.a v, s.out⟩)) := by

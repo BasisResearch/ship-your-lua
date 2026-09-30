@@ -228,6 +228,16 @@ def vmRel_entry_Statement : Prop :=
   ∀ p c, Supported p → VmLoaded luaLayout p c →
     ∃ c', Vsa.Machine.Steps c c' ∧ VmRel p c' State.init
 
+/-- **Open (A1): the `Final` side of the fold (`term_sim`).** At the fetch
+head in the relation with a final state (the pc at `RETURN`, `RETURN0` or
+`RETURN1`), the machine halts with exit code 0 and console `s.out`. The run is
+`OP_RETURN*` → `luaD_poscall` → `luaV_execute`'s return (`CIST_FRESH`) →
+`ccall` → `lua_pcallk` → the harness's `main` → `exit(0)` through HTIF: it
+never comes back to the fetch head, so it is not a `sim_<OP>`; it is the
+`Final` clause of the `VmSim` fold, with the return chain's callee contracts. -/
+def vmRel_final_Statement : Prop :=
+  ∀ p c s, Supported p → VmRel p c s → Final p s → Vsa.Machine.Halts c s.out 0
+
 /-- **After dispatch**: at the arm of `ins`'s opcode, with s3 = `pc + 1` and
 s4 = the instruction (sign-extended by `lw`). -/
 structure ArmAt (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop where
