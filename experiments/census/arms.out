@@ -1,20 +1,20 @@
 {
  "luaV_execute": {
-  "start": "0x8001aa00",
-  "end": "0x8001e8d0",
+  "start": "0x8001bf68",
+  "end": "0x8001fe38",
   "insts": 4020,
   "bytes": 16080
  },
  "jump_table": {
-  "addr": "0x800466dc",
+  "addr": "0x8005336c",
   "entries": 82,
   "entry_bytes": 4,
   "encoding": "int32 offset relative to table base (target = base + sext(entry))",
   "bound_check": "bltu 81 < (i & 0x7f) -> default",
-  "default_target": "0x8001ac7c",
+  "default_target": "0x8001c1e4",
   "distinct_targets": 82,
-  "dispatch_jr": "0x8001aaa0",
-  "fetch_head": "0x8001aa7c",
+  "dispatch_jr": "0x8001c008",
+  "fetch_head": "0x8001bfe4",
   "fetch_dispatch_insts": 10,
   "jr_sites_in_luaV_execute": 1,
   "note": "OP_EXTRAARG (82) is out of table range -> default target"

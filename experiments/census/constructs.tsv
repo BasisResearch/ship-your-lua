@@ -1,14 +1,15 @@
 metric	lua:whole	lua:whole_lua_origin	lua:whole_lib_origin	lua:static_reach	lua:dyn_union	lua:luaV_execute	while:whole	while:static_reach
-  ...tag load feeding andi/addi/branch within 4	191	191	0	175	117	23	0	0
+  ...tag load feeding andi/addi/branch within 4	191	191	0	175	122	23	0	0
   sf:__adddf3	63	17	46	63	26	8	7	7
-  sf:__divdf3	26	6	20	24	11	4	6	5
+  sf:__divdf3	27	7	20	25	12	4	6	5
   sf:__eqdf2	71	42	29	70	59	22	22	22
   sf:__extendsfdf2	1	1	0	1	0	0	0	0
   sf:__fixdfdi	31	30	1	31	28	20	0	0
   sf:__fixdfsi	8	0	8	8	8	0	8	8
   sf:__fixunsdfsi	2	0	2	2	2	0	0	0
-  sf:__floatdidf	43	42	1	43	38	32	0	0
+  sf:__floatdidf	44	42	2	44	39	32	0	0
   sf:__floatsidf	23	10	13	23	19	7	12	12
+  sf:__floatundidf	1	1	0	1	1	0	0	0
   sf:__floatunsidf	5	0	5	5	5	0	1	1
   sf:__gedf2	66	54	12	66	57	37	6	6
   sf:__ledf2	79	52	27	76	61	34	12	12
@@ -20,35 +21,35 @@ metric	lua:whole	lua:whole_lua_origin	lua:whole_lib_origin	lua:static_reach	lua:
   sf:__unorddf2	13	0	13	7	4	0	4	4
   sf:__unordsf2	2	0	2	0	0	0	0	0
 128-bit long double (tf) call sites	4	0	4	4	3	0	4	4
-16-bit lh/lhu/sh	364	147	217	336	176	4	170	161
-branches	6942	3577	3353	6206	3846	376	2850	2407
-direct jal call sites	4017	2892	1108	3691	2067	285	1106	955
+16-bit lh/lhu/sh	521	153	358	490	290	4	170	161
+branches	8295	3714	4381	7839	4897	376	2850	2407
+direct jal call sites	4763	3200	1481	4516	2745	285	1106	955
 ebreak (isolated null-deref trap)	7	7	0	7	0	0	0	0
-jalr (indirect call)	72	39	33	66	26	0	29	23
-jr non-ret (table or indirect tail)	67	46	21	59	23	1	27	19
-jump table entries	1890	1284	606	1783	582	82	654	547
-jump tables (distinct)	52	41	11	49	17	1	17	14
+jalr (indirect call)	83	41	42	75	35	0	29	23
+jr non-ret (table or indirect tail)	74	48	26	69	29	1	27	19
+jump table entries	2239	1284	955	2239	946	82	654	547
+jump tables (distinct)	57	41	16	57	21	1	17	14
 lb (signed byte)	10	10	0	10	8	0	0	0
-lbu_off_8mod16(tt_ tag load)	472	470	2	438	334	118	3	2
-lbu_total	1723	1314	408	1506	845	127	342	236
+lbu_off_8mod16(tt_ tag load)	472	470	2	439	345	118	3	2
+lbu_total	1932	1334	568	1815	988	127	342	236
 longjmp call sites	1	1	0	1	1	0	2	2
-lui	466	233	231	416	214	24	103	74
+lui	549	249	295	513	278	24	103	74
 lwu	14	9	5	14	12	4	5	5
-memcpy call sites	37	28	9	31	26	1	12	12
+memcpy call sites	46	29	12	40	35	1	12	12
 memmove call sites	10	1	9	10	9	0	9	9
-memset call sites	32	7	24	31	21	0	22	20
+memset call sites	46	7	35	45	32	0	22	20
 setjmp call sites	1	1	0	1	1	0	2	2
-softfloat call sites	595	267	328	575	376	170	115	113
-softint mul/div call sites	116	53	63	106	82	10	70	59
+softfloat call sites	598	269	329	578	379	170	115	113
+softint mul/div call sites	218	53	165	216	161	10	70	59
 softint mul/div tail sites	1	0	1	1	1	0	1	1
-tail-call j to another function	255	181	72	210	111	0	56	35
-varargs functions (a5,a6,a7 spilled in prologue)	10	5	5	8	6	0	5	3
-variable shifts	192	57	135	187	98	9	72	57
-lua whole varargs: lua_pushfstring lua_gc luaG_runerror luaO_pushfstring luaL_error _fprintf_r fprintf snprintf _fiprintf_r fiprintf
+tail-call j to another function	316	210	104	266	160	0	56	35
+varargs functions (a5,a6,a7 spilled in prologue)	15	5	10	11	8	0	5	3
+variable shifts	198	57	141	195	103	9	72	57
+lua whole varargs: lua_pushfstring lua_gc luaG_runerror luaO_pushfstring luaL_error _fprintf_r fprintf snprintf siscanf _siscanf_r sniprintf _sprintf_r sprintf _fiprintf_r fiprintf
 lua whole_lua_origin varargs: lua_pushfstring lua_gc luaG_runerror luaO_pushfstring luaL_error
-lua whole_lib_origin varargs: _fprintf_r fprintf snprintf _fiprintf_r fiprintf
-lua static_reach varargs: lua_pushfstring lua_gc luaG_runerror luaO_pushfstring luaL_error fprintf snprintf fiprintf
-lua dyn_union varargs: lua_pushfstring lua_gc luaG_runerror luaO_pushfstring fprintf snprintf
+lua whole_lib_origin varargs: _fprintf_r fprintf snprintf siscanf _siscanf_r sniprintf _sprintf_r sprintf _fiprintf_r fiprintf
+lua static_reach varargs: lua_pushfstring lua_gc luaG_runerror luaO_pushfstring luaL_error fprintf snprintf siscanf sniprintf _sprintf_r fiprintf
+lua dyn_union varargs: lua_pushfstring lua_gc luaG_runerror luaO_pushfstring luaL_error fprintf snprintf sniprintf
 lua luaV_execute varargs: 
 while whole varargs: snprintf _fprintf_r fprintf _fiprintf_r fiprintf
 while static_reach varargs: snprintf fprintf fiprintf

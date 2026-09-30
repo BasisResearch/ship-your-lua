@@ -1,84 +1,97 @@
 # OS-spec traces of the Lua image's `htif.c`
 
-The method and tools are ship-your-ocaml's (`tcb/validation/`, copied
-verbatim; its `RESULTS.md` there is about ship-your-ocaml's `htif.c`). Call
-scripts are run on a back end, each call's return is recorded, and
-`tcbcheck` checks every trace against `TCB.Os.next` (sound by
-`TCB.Os.checkTrace_sound`).
+The method and tools are ship-your-ocaml's (`tcb/validation/`, copied; its
+`RESULTS.md` there is about ship-your-ocaml's `htif.c`). Call scripts are
+run on a back end, each call's return is recorded, and `tcbcheck` checks
+every trace against `TCB.Os.next` (sound by `TCB.Os.checkTrace_sound`).
 
-The back end here is this repository's `c/src/htif.c`, unchanged, compiled
-natively: `tcb/validation/driver.c`'s MEMFS branch includes
-`../../c/src/htif.c`, and `experiments/os/htif_shim.h` (a pre-include)
-supplies what our console-only `htif.c` lacks. The functions the Lua ELF
-does not link (`_stat`, `_unlink`, `rename`, `opendir`/`readdir`/`closedir`,
-`_gettimeofday`) report `unsupported`, and the checker skips the rest of
-that trace.
+The back end here is this repository's `c/src/htif.c`, unchanged,
+compiled natively. `tcb/validation/driver.c`'s MEMFS branch includes
+`../../c/src/htif.c` (with `-DHOST_MIRROR`), calls its functions, and
+resets its file system between scripts. The MEMFS branch passes paths
+unchanged, so `htif.c`'s root is the script's `/`.
+`experiments/os/htif_shim.h` (a pre-include) supplies the only thing the
+Lua ELF does not have: `opendir`/`readdir`/`closedir`, which report
+`unsupported`, so the checker skips the rest of that trace.
 
 Reproduce: `experiments/os/run.sh` (about 4 s; `--quick` is the gate subset,
-`scripts/check.sh` stage 5b). Outputs go to `experiments/os/out/` (not
-committed). Measured 2026-09-29, Linux 7.0.0-1012-aws, ext4, glibc 2.43.
+`scripts/check.sh` stage 5b, which pins the verdicts below). Outputs go to
+`experiments/os/out/` (not committed). Measured 2026-09-30, Linux
+7.0.0-1012-aws, ext4, glibc 2.43.
 
 ## Linux control
 
 The generated scripts (`tcb/validation/gen.py`, 6,490 scripts, 101,621
-calls) on the Linux host: **6,398 accepted, 0 rejected, 92 special**. This is
-the same result as ship-your-ocaml's RESULTS.md: the copied spec, checker
-and generator behave the same here.
+calls) on the Linux host: **6,398 accepted, 0 rejected, 92 special**. This
+is the same result as ship-your-ocaml's RESULTS.md, before and after
+DEVIATION 10 (`osReaddir`, `tcb/TCB/Os/Syscall.lean`).
 
-## `htif.c`, generated scripts: 0 accepted, 874 rejected, 5,616 unsupported
+## `htif.c`, generated scripts: 5,275 accepted, 0 rejected, 79 special, 1,136 unsupported
 
-5,616 traces reach a call the ELF does not have (every fixture starts with
-`mkdir`). Of the rest, no trace is accepted:
+| verdict | traces | what |
+|---|---|---|
+| accepted | 5,275 | every call allowed by `next` (90,268 calls run) |
+| special | 79 | a call the spec leaves unconstrained, where `htif.c` returns what Linux does: `open` with `O_RDONLY\|O_TRUNC` on a directory (`EISDIR`); `lseek` `SEEK_END` on a directory (`EINVAL`); `lseek` on the console (`ESPIPE`) |
+| unsupported | 1,136 | the trace reaches `opendir` |
+| rejected | 0 | |
 
-| class | rejections | `htif.c` returns | the spec says |
-|---|---|---|---|
-| `open` with `O_CREAT` | 263 | `ENOENT` (`_open` always fails) | success, a new descriptor |
-| `read` on a descriptor it never issued | 207 | `bytes ""` (end of input) | `EBADF` |
-| `write` on a descriptor it never issued | 257 | the byte count (HTIF output) | `EBADF` |
-| `lseek` on a descriptor it never issued | 102 | `ESPIPE` | `EBADF` |
-| `close` on a descriptor it never issued | 36 | success | `EBADF` |
-| `fstat` on a descriptor it never issued | 9 | a regular file of size 0, `st_nlink` 0 | `EBADF` |
+The quick subset (329 scripts): 264 accepted, 0 rejected, 4 special, 61
+unsupported.
 
-## `htif.c`, console scripts: 7 accepted, 16 rejected, 1 special
+## `htif.c`, console scripts: 25 accepted, 0 rejected, 1 special
 
-`experiments/os/console.scripts` has one script per behaviour of fds 0-2 and
-of unknown descriptors (the generated families barely reach them). The
-scripts from c06 on also have kernel-checked counterparts in
-`Lua/Os/HtifTraces.lean` (`accepts_*`, `rejects_*`: facts about `next`).
-
-**Conforms.**
+`experiments/os/console.scripts` has one script per behaviour of fds 0-2,
+of unknown descriptors and of the clock (the generated families barely
+reach them). The scripts c06-c19 also have kernel-checked counterparts in
+`Lua/Os/HtifTraces.lean`: facts about `next`, `accepts_*` for what
+`htif.c` returns now, and `rejects_*` for what the console-only `htif.c`
+returned before (H1-H5 below).
 
 | script | call | `htif.c` |
 |---|---|---|
 | c01, c02, c03 | `write` to fd 1 or 2 | all bytes to the HTIF console |
 | c04, c05 | `read` fd 0 | end of input (the spec's stdin is empty) |
-| c13 | `close 1` | success |
-| c22 | `open` without `O_CREAT` | `ENOENT` (the file system is empty) |
-| c11 (special) | `lseek 1 0 0` | `ESPIPE`; the spec leaves `lseek` on a stream unconstrained |
+| c06, c07 | `read` fd 1, `write` fd 0 | `EBADF` |
+| c08, c09, c10, c24 | `fstat` fd 0-2 | `S_IFCHR`, `st_nlink = 1` |
+| c11 (special) | `lseek 1 0 0` | `ESPIPE`; unconstrained on a stream |
+| c12 | `lseek` with a bad `whence` | `EINVAL` |
+| c13-c16 | `close` of fd 0-2, then use | success, then `EBADF` |
+| c17-c21 | a descriptor it never issued | `EBADF` |
+| c22, c23 | `open "/a"` without and with `O_CREAT` | `ENOENT`; `num 3` |
+| c25 | `close 1`, then `open` | the new file gets fd 1 (smallest free) |
+| c26 | `clock` twice | `num 0` both times (`TCB.Os.Clock.frozen`) |
 
-**Deviates.**
+## The deviations of the console-only `htif.c`, and their fixes
 
-| id | scripts | `htif.c` | the spec says |
-|---|---|---|---|
-| H1 | c08, c09, c10, c24 | `fstat` on fd 0-2: `S_IFCHR`, `st_nlink = 0` (the struct is `memset` to 0) | `st_nlink = 1` (`rejects_fstat_stdout_nlink0`). newlib calls `_fstat(1)` before the first `print`, so every printing program hits this |
-| H2 | c06, c07 | `read` on fd 1 returns end of input; `write` on fd 0 prints | `EBADF` both (`rejects_read_stdout`, `rejects_write_stdin`) |
-| H3 | c17-c21 | any descriptor it never issued acts as the console | `EBADF` (`rejects_write_unknown_fd`, `rejects_close_unknown_fd`); ship-your-ocaml's M1 |
-| H4 | c14, c15, c16 | `close` does not close: later `write`/`close`/`fstat` on that fd succeed | `EBADF` (`rejects_write_after_close`) |
-| H5 | c12 | `lseek` with a bad `whence` returns `ESPIPE` | `EINVAL` (`rejects_lseek_bad_whence`) |
-| H6 | c23 | `open` with `O_CREAT` returns `ENOENT` | success: there is no file system |
+Before the in-image file system, the generated scripts gave 0 accepted,
+874 rejected, 5,616 unsupported, and the console scripts 7/16/1. Each
+deviation is fixed in the current `htif.c`:
 
-Not in the ELF (reported `unsupported`): `stat`, `unlink`, `rename`,
-`mkdir`, `rmdir`, `opendir`, `readdir`, `closedir`, and the clock (no
-`_gettimeofday`; the Lua build has no `os` library).
+| id | console-only `htif.c` | now |
+|---|---|---|
+| H1 | `fstat` on fd 0-2: `st_nlink = 0` | `st_nlink = 1` |
+| H2 | `read` fd 1 is end of input, `write` fd 0 prints | `EBADF` |
+| H3 | any descriptor it never issued acts as the console (ship-your-ocaml's M1) | one descriptor table; `EBADF` outside it |
+| H4 | `close` does not close | it does; the number is reused |
+| H5 | a bad `whence` gives `ESPIPE` | `EINVAL` |
+| H6 | `open` with `O_CREAT` gives `ENOENT` | files and directories, the spec's path resolution (M2, M3), link count 0 after `unlink` (M4) |
+
+The file system's design is shared with ship-your-ocaml, which adopted this
+`htif.c` (branch `f5-htif` `39e79b2`). While running it there, they found
+DEVIATION 10 in the spec's `osReaddir`, now in `tcb/` here too.
 
 ## What this means for the obligations
 
-`Lua.Os.HtifFs_Statement` (`Lua/Os/Htif.lean`), every call of the six
-functions, is false of the current `htif.c`: H1-H6 each give a counterexample
-once the representation relation reaches that call. It needs an `htif.c` with
-a descriptor table that returns `EBADF` for descriptors it did not issue,
-`st_nlink = 1` for the console, and an in-image file system for `open`.
+`Lua.Os.HtifFs_Statement` (`Lua/Os/Htif.lean`) covers every call of the
+twelve functions, and the traces reject none of them. So it is plausibly
+true, with two caveats recorded there.
+* `htif.c`'s limits (64 files and directories, 32 descriptors, the heap)
+  give `EMFILE`/`ENOSPC`, which the spec does not allow. A proof needs a
+  resource bound in its scope.
+* As stated, the relation `R` may hold at boot only, which makes the
+  statement vacuous until the frame obligation of `OsState` in the
+  semantics is added (PHASES.md, OS).
 
-`Lua.Os.HtifPrint_Statement`, the calls a `print`-only program makes that the
-spec constrains (`write` to fds 1-2, `read` from fd 0), is what the traces
-accept (c01-c05). Its scope excludes `_fstat(1)` because of H1.
+`Lua.Os.HtifPrint_Statement` is the console calls of a `print`-only
+program: `write` to fds 1-2, `read` from fd 0, and `fstat` of fds 0-2. The
+traces accept these (c01-c05, c08-c10, c24).

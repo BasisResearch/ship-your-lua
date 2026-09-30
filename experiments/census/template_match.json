@@ -8,61 +8,170 @@
    "family": "boot",
    "n": 15
   },
-  "_write": {
-   "cat": "identical_mod_reloc",
-   "while": "_write",
+  "new_node": {
+   "cat": "new",
+   "while": null,
    "in_while_proof_scope": false,
    "origin": "htif.c",
    "family": "boot",
-   "n": 12
+   "n": 65
   },
-  "_read": {
-   "cat": "identical_words",
-   "while": "_read",
+  "release": {
+   "cat": "new",
+   "while": null,
    "in_while_proof_scope": false,
    "origin": "htif.c",
    "family": "boot",
-   "n": 2
+   "n": 31
+  },
+  "resolve": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 235
+  },
+  "fill_stat": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 53
+  },
+  "_exit": {
+   "cat": "identical_mod_reloc",
+   "while": "_exit",
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 6
   },
   "_open": {
-   "cat": "identical_mod_reloc",
+   "cat": "same_name_differs",
    "while": "_open",
+   "ratio": 0.025,
+   "n_lua": 148,
+   "n_while": 9,
    "in_while_proof_scope": false,
    "origin": "htif.c",
    "family": "boot",
-   "n": 9
+   "n": 148
   },
   "_close": {
-   "cat": "identical_words",
+   "cat": "same_name_differs",
    "while": "_close",
+   "ratio": 0.069,
+   "n_lua": 56,
+   "n_while": 2,
    "in_while_proof_scope": false,
    "origin": "htif.c",
    "family": "boot",
-   "n": 2
+   "n": 56
+  },
+  "_read": {
+   "cat": "same_name_differs",
+   "while": "_read",
+   "ratio": 0.022,
+   "n_lua": 89,
+   "n_while": 2,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 89
+  },
+  "_write": {
+   "cat": "same_name_differs",
+   "while": "_write",
+   "ratio": 0.056,
+   "n_lua": 166,
+   "n_while": 12,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 166
   },
   "_lseek": {
-   "cat": "identical_mod_reloc",
+   "cat": "same_name_differs",
    "while": "_lseek",
+   "ratio": 0.125,
+   "n_lua": 71,
+   "n_while": 9,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 71
+  },
+  "_fstat": {
+   "cat": "same_name_differs",
+   "while": "_fstat",
+   "ratio": 0.242,
+   "n_lua": 47,
+   "n_while": 19,
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 47
+  },
+  "_stat": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 33
+  },
+  "_unlink": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 42
+  },
+  "mkdir": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 36
+  },
+  "rmdir": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 72
+  },
+  "rename": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 217
+  },
+  "_isatty": {
+   "cat": "same_name_differs",
+   "while": "_isatty",
+   "ratio": 0.05,
+   "n_lua": 38,
+   "n_while": 2,
+   "in_while_proof_scope": true,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 38
+  },
+  "_link": {
+   "cat": "new",
+   "while": null,
    "in_while_proof_scope": false,
    "origin": "htif.c",
    "family": "boot",
    "n": 9
-  },
-  "_fstat": {
-   "cat": "identical_mod_reloc",
-   "while": "_fstat",
-   "in_while_proof_scope": true,
-   "origin": "htif.c",
-   "family": "boot",
-   "n": 19
-  },
-  "_isatty": {
-   "cat": "identical_words",
-   "while": "_isatty",
-   "in_while_proof_scope": true,
-   "origin": "htif.c",
-   "family": "boot",
-   "n": 2
   },
   "_sbrk": {
    "cat": "identical_mod_reloc",
@@ -72,13 +181,21 @@
    "family": "boot",
    "n": 26
   },
-  "_exit": {
-   "cat": "identical_mod_reloc",
-   "while": "_exit",
-   "in_while_proof_scope": true,
+  "_gettimeofday": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
    "origin": "htif.c",
    "family": "boot",
-   "n": 6
+   "n": 5
+  },
+  "_times": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "htif.c",
+   "family": "boot",
+   "n": 12
   },
   "_kill": {
    "cat": "identical_mod_reloc",
@@ -3369,7 +3486,7 @@
    "family": "lua",
    "n": 30
   },
-  "l_alloc@8001ed2c": {
+  "l_alloc@80020294": {
    "cat": "new",
    "while": null,
    "in_while_proof_scope": false,
@@ -4585,6 +4702,390 @@
    "family": "lua",
    "n": 22
   },
+  "g_write": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 86
+  },
+  "io_type": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 38
+  },
+  "io_noclose": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 22
+  },
+  "io_fclose": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 23
+  },
+  "read_chars": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 25
+  },
+  "read_all": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 26
+  },
+  "read_line": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 80
+  },
+  "io_pclose": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 16
+  },
+  "aux_lines": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 43
+  },
+  "io_flush": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 39
+  },
+  "f_tostring": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 29
+  },
+  "readdigits": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 43
+  },
+  "io_tmpfile": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 37
+  },
+  "opencheck": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 49
+  },
+  "g_iofile.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 52
+  },
+  "io_input": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 11
+  },
+  "io_output": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 11
+  },
+  "io_write": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 37
+  },
+  "io_popen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 61
+  },
+  "io_open": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 86
+  },
+  "g_read": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 399
+  },
+  "io_read": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 37
+  },
+  "io_readline": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 108
+  },
+  "f_gc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 29
+  },
+  "f_read": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 31
+  },
+  "f_lines": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 23
+  },
+  "f_write": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 32
+  },
+  "f_flush": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 33
+  },
+  "f_close": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 30
+  },
+  "f_setvbuf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 55
+  },
+  "io_close": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 48
+  },
+  "f_seek": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 67
+  },
+  "io_lines": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 79
+  },
+  "luaopen_io": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "liolib.c",
+   "family": "lua",
+   "n": 134
+  },
+  "getfield": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 70
+  },
+  "os_setlocale": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 33
+  },
+  "os_rename": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 27
+  },
+  "os_remove": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 21
+  },
+  "os_getenv": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 16
+  },
+  "os_exit": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 33
+  },
+  "os_execute": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 33
+  },
+  "os_difftime": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 23
+  },
+  "os_clock": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 17
+  },
+  "os_tmpname": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 23
+  },
+  "setallfields": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 91
+  },
+  "os_time": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 103
+  },
+  "os_date": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 167
+  },
+  "luaopen_os": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "loslib.c",
+   "family": "lua",
+   "n": 22
+  },
   "fmod": {
    "cat": "new",
    "while": null,
@@ -4825,6 +5326,14 @@
    "family": "libgcc",
    "n": 86
   },
+  "__floatundidf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libgcc:floatundidf.o",
+   "family": "libgcc",
+   "n": 71
+  },
   "__extendsfdf2": {
    "cat": "new",
    "while": null,
@@ -4929,8 +5438,40 @@
    "family": "libc",
    "n": 11
   },
-  "malloc": {
+  "_findenv": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-getenv.o",
+   "family": "libc",
+   "n": 5
+  },
+  "getenv": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-getenv.o",
+   "family": "libc",
+   "n": 9
+  },
+  "_findenv_r": {
+   "cat": "identical_mod_reloc",
+   "while": "_findenv_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-getenv_r.o",
+   "family": "libc",
+   "n": 80
+  },
+  "_getenv_r": {
    "cat": "identical_words",
+   "while": "_getenv_r",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-getenv_r.o",
+   "family": "libc",
+   "n": 7
+  },
+  "malloc": {
+   "cat": "identical_mod_reloc",
    "while": "malloc",
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-malloc.o",
@@ -4946,12 +5487,15 @@
    "n": 3
   },
   "_malloc_r": {
-   "cat": "identical_mod_reloc",
+   "cat": "same_name_differs",
    "while": "_malloc_r",
+   "ratio": 0.886,
+   "n_lua": 562,
+   "n_while": 560,
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-mallocr.o",
    "family": "libc",
-   "n": 560
+   "n": 562
   },
   "__malloc_lock": {
    "cat": "identical_mod_reloc",
@@ -4970,7 +5514,7 @@
    "n": 2
   },
   "realloc": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "realloc",
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-realloc.o",
@@ -5058,7 +5602,7 @@
    "n": 91
   },
   "fclose": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "fclose",
    "in_while_proof_scope": false,
    "origin": "libc:libc_a-fclose.o",
@@ -5098,12 +5642,15 @@
    "n": 5
   },
   "cleanup_stdio": {
-   "cat": "identical_mod_reloc",
+   "cat": "same_name_differs",
    "while": "cleanup_stdio",
+   "ratio": 0.717,
+   "n_lua": 28,
+   "n_while": 25,
    "in_while_proof_scope": false,
    "origin": "libc_a-findfp.o",
    "family": "libc",
-   "n": 25
+   "n": 28
   },
   "__fp_lock": {
    "cat": "identical_mod_reloc",
@@ -5124,13 +5671,13 @@
   "global_stdio_init.part.0": {
    "cat": "same_name_differs",
    "while": "global_stdio_init.part.0",
-   "ratio": 0.989,
-   "n_lua": 87,
+   "ratio": 0.852,
+   "n_lua": 96,
    "n_while": 87,
    "in_while_proof_scope": true,
    "origin": "libc_a-findfp.o",
    "family": "libc",
-   "n": 87
+   "n": 96
   },
   "__sfp": {
    "cat": "identical_mod_reloc",
@@ -5237,7 +5784,7 @@
    "n": 82
   },
   "fputs": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "fputs",
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-fputs.o",
@@ -5292,6 +5839,22 @@
    "family": "libc",
    "n": 6
   },
+  "_ftell_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-ftell.o",
+   "family": "libc",
+   "n": 1
+  },
+  "ftell": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-ftell.o",
+   "family": "libc",
+   "n": 3
+  },
   "__sfvwrite_r": {
    "cat": "identical_mod_reloc",
    "while": "__sfvwrite_r",
@@ -5317,7 +5880,7 @@
    "n": 122
   },
   "fwrite": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "fwrite",
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-fwrite.o",
@@ -5372,6 +5935,22 @@
    "family": "libc",
    "n": 104
   },
+  "_remove_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-remove.o",
+   "family": "libc",
+   "n": 9
+  },
+  "remove": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-remove.o",
+   "family": "libc",
+   "n": 11
+  },
   "__srget_r": {
    "cat": "new",
    "while": null,
@@ -5387,6 +5966,14 @@
    "origin": "libc:libc_a-rget.o",
    "family": "libc",
    "n": 43
+  },
+  "setvbuf": {
+   "cat": "identical_mod_reloc",
+   "while": "setvbuf",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-setvbuf.o",
+   "family": "libc",
+   "n": 173
   },
   "_snprintf_r": {
    "cat": "identical_mod_reloc",
@@ -5444,6 +6031,86 @@
    "family": "libc",
    "n": 2
   },
+  "_tmpfile_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tmpfile.o",
+   "family": "libc",
+   "n": 57
+  },
+  "tmpfile": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tmpfile.o",
+   "family": "libc",
+   "n": 2
+  },
+  "worker": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-tmpnam.o",
+   "family": "libc",
+   "n": 55
+  },
+  "_tmpnam_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tmpnam.o",
+   "family": "libc",
+   "n": 31
+  },
+  "_tempnam_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tmpnam.o",
+   "family": "libc",
+   "n": 60
+  },
+  "tempnam": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tmpnam.o",
+   "family": "libc",
+   "n": 5
+  },
+  "tmpnam": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tmpnam.o",
+   "family": "libc",
+   "n": 31
+  },
+  "__submore": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-ungetc.o",
+   "family": "libc",
+   "n": 51
+  },
+  "_ungetc_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-ungetc.o",
+   "family": "libc",
+   "n": 153
+  },
+  "ungetc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-ungetc.o",
+   "family": "libc",
+   "n": 5
+  },
   "__swbuf_r": {
    "cat": "identical_mod_reloc",
    "while": "__swbuf_r",
@@ -5453,7 +6120,7 @@
    "n": 85
   },
   "__swbuf": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "__swbuf",
    "in_while_proof_scope": false,
    "origin": "libc:libc_a-wbuf.o",
@@ -5483,6 +6150,22 @@
    "origin": "libc:libc_a-fseeko.o",
    "family": "libc",
    "n": 6
+  },
+  "_ftello_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-ftello.o",
+   "family": "libc",
+   "n": 113
+  },
+  "ftello": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-ftello.o",
+   "family": "libc",
+   "n": 3
   },
   "memchr": {
    "cat": "identical_words",
@@ -5668,6 +6351,166 @@
    "family": "libc",
    "n": 53
   },
+  "clock": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-clock.o",
+   "family": "libc",
+   "n": 17
+  },
+  "difftime": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-difftime.o",
+   "family": "libc",
+   "n": 7
+  },
+  "gmtime": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-gmtime.o",
+   "family": "libc",
+   "n": 3
+  },
+  "gmtime_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-gmtime_r.o",
+   "family": "libc",
+   "n": 188
+  },
+  "localtime": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lcltime.o",
+   "family": "libc",
+   "n": 3
+  },
+  "localtime_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-lcltime_r.o",
+   "family": "libc",
+   "n": 205
+  },
+  "validate_structure": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-mktime.o",
+   "family": "libc",
+   "n": 222
+  },
+  "mktime": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mktime.o",
+   "family": "libc",
+   "n": 301
+  },
+  "iso_year_adjust.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strftime.o",
+   "family": "libc",
+   "n": 75
+  },
+  "__strftime.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strftime.o",
+   "family": "libc",
+   "n": 1077
+  },
+  "strftime": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strftime.o",
+   "family": "libc",
+   "n": 1
+  },
+  "strftime_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strftime.o",
+   "family": "libc",
+   "n": 1
+  },
+  "time": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-time.o",
+   "family": "libc",
+   "n": 22
+  },
+  "__tzcalc_limits": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tzcalc_limits.o",
+   "family": "libc",
+   "n": 169
+  },
+  "__tz_lock": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tzlock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__tz_unlock": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tzlock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "_tzset_unlocked": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tzset.o",
+   "family": "libc",
+   "n": 2
+  },
+  "tzset": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tzset.o",
+   "family": "libc",
+   "n": 8
+  },
+  "_tzset_unlocked_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tzset_r.o",
+   "family": "libc",
+   "n": 426
+  },
+  "_tzset_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-tzset_r.o",
+   "family": "libc",
+   "n": 9
+  },
   "currentlocale": {
    "cat": "identical_mod_reloc",
    "while": "currentlocale",
@@ -5709,12 +6552,20 @@
    "n": 2
   },
   "setlocale": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "setlocale",
    "in_while_proof_scope": false,
    "origin": "libc:libc_a-locale.o",
    "family": "libc",
    "n": 5
+  },
+  "__time_load_locale": {
+   "cat": "identical_body_other_name",
+   "while": "_read",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-timelocal.o",
+   "family": "libc",
+   "n": 2
   },
   "_close_r": {
    "cat": "identical_mod_reloc",
@@ -5737,6 +6588,14 @@
    "while": "_fstat_r",
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-fstatr.o",
+   "family": "libc",
+   "n": 22
+  },
+  "_gettimeofday_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-gettimeofdayr.o",
    "family": "libc",
    "n": 22
   },
@@ -5788,6 +6647,22 @@
    "family": "libc",
    "n": 20
   },
+  "_times_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-timesr.o",
+   "family": "libc",
+   "n": 2
+  },
+  "_unlink_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-unlinkr.o",
+   "family": "libc",
+   "n": 20
+  },
   "_write_r": {
    "cat": "identical_mod_reloc",
    "while": "_write_r",
@@ -5797,7 +6672,7 @@
    "n": 23
   },
   "__errno": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "__errno",
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-errno.o",
@@ -5980,6 +6855,14 @@
    "family": "libc",
    "n": 92
   },
+  "abs": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-abs.o",
+   "family": "libc",
+   "n": 4
+  },
   "atexit": {
    "cat": "identical_mod_reloc",
    "while": "atexit",
@@ -5988,13 +6871,40 @@
    "family": "libc",
    "n": 5
   },
-  "_malloc_trim_r": {
+  "div": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-div.o",
+   "family": "libc",
+   "n": 20
+  },
+  "__env_lock": {
    "cat": "identical_mod_reloc",
+   "while": "__env_lock",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-envlock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "__env_unlock": {
+   "cat": "identical_mod_reloc",
+   "while": "__env_unlock",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-envlock.o",
+   "family": "libc",
+   "n": 2
+  },
+  "_malloc_trim_r": {
+   "cat": "same_name_differs",
    "while": "_malloc_trim_r",
+   "ratio": 0.926,
+   "n_lua": 76,
+   "n_while": 73,
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-freer.o",
    "family": "libc",
-   "n": 73
+   "n": 76
   },
   "_free_r": {
    "cat": "identical_mod_reloc",
@@ -6036,21 +6946,13 @@
    "family": "libc",
    "n": 149
   },
-  "_findenv_r": {
-   "cat": "identical_mod_reloc",
-   "while": "_findenv_r",
+  "labs": {
+   "cat": "new",
+   "while": null,
    "in_while_proof_scope": false,
-   "origin": "libc:libc_a-getenv_r.o",
+   "origin": "libc:libc_a-labs.o",
    "family": "libc",
-   "n": 80
-  },
-  "_getenv_r": {
-   "cat": "identical_words",
-   "while": "_getenv_r",
-   "in_while_proof_scope": false,
-   "origin": "libc:libc_a-getenv_r.o",
-   "family": "libc",
-   "n": 7
+   "n": 4
   },
   "_mbtowc_r": {
    "cat": "identical_mod_reloc",
@@ -6284,6 +7186,38 @@
    "family": "libc",
    "n": 19
   },
+  "_strtoul_l.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strtoul.o",
+   "family": "libc",
+   "n": 156
+  },
+  "_strtoul_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtoul.o",
+   "family": "libc",
+   "n": 1
+  },
+  "strtoul_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtoul.o",
+   "family": "libc",
+   "n": 6
+  },
+  "strtoul": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtoul.o",
+   "family": "libc",
+   "n": 6
+  },
   "_wctomb_r": {
    "cat": "identical_mod_reloc",
    "while": "_wctomb_r",
@@ -6332,6 +7266,78 @@
    "family": "libc",
    "n": 47
   },
+  "siscanf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-siscanf.o",
+   "family": "libc",
+   "n": 34
+  },
+  "_siscanf_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-siscanf.o",
+   "family": "libc",
+   "n": 37
+  },
+  "_sniprintf_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-sniprintf.o",
+   "family": "libc",
+   "n": 52
+  },
+  "sniprintf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-sniprintf.o",
+   "family": "libc",
+   "n": 53
+  },
+  "_svfiprintf_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-svfiprintf.o",
+   "family": "libc",
+   "n": 1443
+  },
+  "_sungetc_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-svfiscanf.o",
+   "family": "libc",
+   "n": 71
+  },
+  "__ssrefill_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-svfiscanf.o",
+   "family": "libc",
+   "n": 42
+  },
+  "_sfread_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-svfiscanf.o",
+   "family": "libc",
+   "n": 87
+  },
+  "__ssvfiscanf_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-svfiscanf.o",
+   "family": "libc",
+   "n": 1912
+  },
   "_svfprintf_r": {
    "cat": "identical_mod_reloc",
    "while": "_svfprintf_r",
@@ -6349,7 +7355,7 @@
    "n": 3395
   },
   "vfprintf": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "vfprintf",
    "in_while_proof_scope": false,
    "origin": "libc:libc_a-vfprintf.o",
@@ -6380,6 +7386,22 @@
    "family": "libc",
    "n": 60
   },
+  "_fdopen_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fdopen.o",
+   "family": "libc",
+   "n": 102
+  },
+  "fdopen": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-fdopen.o",
+   "family": "libc",
+   "n": 5
+  },
   "__sflags": {
    "cat": "new",
    "while": null,
@@ -6403,6 +7425,30 @@
    "origin": "libc:libc_a-makebuf.o",
    "family": "libc",
    "n": 61
+  },
+  "__sccl": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-sccl.o",
+   "family": "libc",
+   "n": 62
+  },
+  "_sprintf_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-sprintf.o",
+   "family": "libc",
+   "n": 28
+  },
+  "sprintf": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-sprintf.o",
+   "family": "libc",
+   "n": 31
   },
   "strcasecmp": {
    "cat": "identical_mod_reloc",
@@ -6451,6 +7497,14 @@
    "origin": "libc:libc_a-strnlen.o",
    "family": "libc",
    "n": 12
+  },
+  "__gettzinfo": {
+   "cat": "identical_body_other_name",
+   "while": "_localeconv_r",
+   "in_while_proof_scope": true,
+   "origin": "libc:libc_a-gettzinfo.o",
+   "family": "libc",
+   "n": 2
   },
   "__localeconv_l": {
    "cat": "identical_words",
@@ -6540,21 +7594,85 @@
    "family": "libc",
    "n": 1407
   },
-  "__env_lock": {
+  "_strtoll_l.isra.0": {
    "cat": "identical_mod_reloc",
-   "while": "__env_lock",
+   "while": "_strtoll_l.isra.0",
    "in_while_proof_scope": false,
-   "origin": "libc:libc_a-envlock.o",
+   "origin": "libc_a-strtoll.o",
    "family": "libc",
-   "n": 2
+   "n": 238
   },
-  "__env_unlock": {
-   "cat": "identical_mod_reloc",
-   "while": "__env_unlock",
+  "_strtoll_r": {
+   "cat": "identical_words",
+   "while": "_strtoll_r",
    "in_while_proof_scope": false,
-   "origin": "libc:libc_a-envlock.o",
+   "origin": "libc:libc_a-strtoll.o",
    "family": "libc",
-   "n": 2
+   "n": 1
+  },
+  "strtoll_l": {
+   "cat": "identical_mod_reloc",
+   "while": "strtoll_l",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtoll.o",
+   "family": "libc",
+   "n": 6
+  },
+  "strtoll": {
+   "cat": "identical_mod_reloc",
+   "while": "strtoll",
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtoll.o",
+   "family": "libc",
+   "n": 6
+  },
+  "_strtoull_l.isra.0": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-strtoull.o",
+   "family": "libc",
+   "n": 156
+  },
+  "_strtoull_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtoull.o",
+   "family": "libc",
+   "n": 1
+  },
+  "strtoull_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtoull.o",
+   "family": "libc",
+   "n": 6
+  },
+  "strtoull": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-strtoull.o",
+   "family": "libc",
+   "n": 6
+  },
+  "_mbrtowc_r": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mbrtowc.o",
+   "family": "libc",
+   "n": 37
+  },
+  "mbrtowc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-mbrtowc.o",
+   "family": "libc",
+   "n": 38
   },
   "_wcrtomb_r": {
    "cat": "identical_mod_reloc",
@@ -6588,6 +7706,54 @@
    "family": "libc",
    "n": 8
   },
+  "iswspace": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-iswspace.o",
+   "family": "libc",
+   "n": 2
+  },
+  "iswspace_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-iswspace_l.o",
+   "family": "libc",
+   "n": 20
+  },
+  "__jp2uc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc_a-jp2uc.o",
+   "family": "libc",
+   "n": 168
+  },
+  "_jp2uc_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-jp2uc.o",
+   "family": "libc",
+   "n": 47
+  },
+  "_jp2uc": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-jp2uc.o",
+   "family": "libc",
+   "n": 39
+  },
+  "_uc2jp_l": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-jp2uc.o",
+   "family": "libc",
+   "n": 35
+  },
   "_fiprintf_r": {
    "cat": "identical_words",
    "while": "_fiprintf_r",
@@ -6597,7 +7763,7 @@
    "n": 14
   },
   "fiprintf": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "fiprintf",
    "in_while_proof_scope": true,
    "origin": "libc:libc_a-fiprintf.o",
@@ -6613,14 +7779,14 @@
    "n": 1531
   },
   "vfiprintf": {
-   "cat": "identical_words",
+   "cat": "identical_mod_reloc",
    "while": "vfiprintf",
    "in_while_proof_scope": false,
    "origin": "libc:libc_a-vfiprintf.o",
    "family": "libc",
    "n": 6
   },
-  "__sbprintf@80041f30": {
+  "__sbprintf@8004e3cc": {
    "cat": "identical_mod_reloc",
    "while": "__sbprintf@8001688c",
    "in_while_proof_scope": true,
@@ -6659,6 +7825,14 @@
    "origin": "libc:libc_a-wcsnrtombs.o",
    "family": "libc",
    "n": 9
+  },
+  "category": {
+   "cat": "new",
+   "while": null,
+   "in_while_proof_scope": false,
+   "origin": "libc:libc_a-categories.o",
+   "family": "libc",
+   "n": 35
   },
   "__fixdfsi": {
    "cat": "identical_words",
@@ -6712,189 +7886,194 @@
  "summary": {
   "whole": {
    "funcs": {
-    "identical_mod_reloc": 131,
-    "identical_words": 77,
-    "new": 624,
-    "same_name_differs": 4,
-    "identical_body_other_name": 1
+    "identical_mod_reloc": 139,
+    "new": 760,
+    "same_name_differs": 14,
+    "identical_words": 64,
+    "identical_body_other_name": 3
    },
    "insts": {
-    "identical_mod_reloc": 18226,
-    "identical_words": 2216,
-    "new": 46116,
-    "same_name_differs": 1512,
-    "identical_body_other_name": 2
+    "identical_mod_reloc": 18009,
+    "new": 57729,
+    "same_name_differs": 2802,
+    "identical_words": 2144,
+    "identical_body_other_name": 6
    },
-   "total_funcs": 837,
-   "total_insts": 68072,
-   "reused_and_in_while_proof_scope": 16441
+   "total_funcs": 980,
+   "total_insts": 80690,
+   "reused_and_in_while_proof_scope": 15789
   },
   "static_reach": {
    "funcs": {
-    "identical_mod_reloc": 84,
-    "identical_words": 47,
-    "new": 557,
-    "same_name_differs": 4,
-    "identical_body_other_name": 1
-   },
-   "insts": {
-    "identical_mod_reloc": 15705,
-    "identical_words": 1431,
-    "new": 43262,
-    "same_name_differs": 1512,
+    "identical_mod_reloc": 102,
+    "new": 677,
+    "same_name_differs": 14,
+    "identical_words": 53,
     "identical_body_other_name": 2
    },
-   "total_funcs": 693,
-   "total_insts": 61912,
-   "reused_and_in_while_proof_scope": 16090
+   "insts": {
+    "identical_mod_reloc": 16940,
+    "new": 54529,
+    "same_name_differs": 2802,
+    "identical_words": 2080,
+    "identical_body_other_name": 4
+   },
+   "total_funcs": 848,
+   "total_insts": 76355,
+   "reused_and_in_while_proof_scope": 15496
   },
   "dyn_while": {
    "funcs": {
-    "identical_mod_reloc": 39,
-    "identical_words": 23,
-    "new": 99,
-    "same_name_differs": 2
+    "identical_mod_reloc": 38,
+    "same_name_differs": 7,
+    "new": 109,
+    "identical_words": 19
    },
    "insts": {
-    "identical_mod_reloc": 5979,
-    "identical_words": 620,
-    "new": 10393,
-    "same_name_differs": 169
+    "identical_mod_reloc": 5400,
+    "same_name_differs": 1047,
+    "new": 10926,
+    "identical_words": 604
    },
-   "total_funcs": 163,
-   "total_insts": 17161,
-   "reused_and_in_while_proof_scope": 6139
+   "total_funcs": 173,
+   "total_insts": 17977,
+   "reused_and_in_while_proof_scope": 5558
   },
   "dyn_while_after_exec": {
    "funcs": {
-    "identical_mod_reloc": 35,
-    "identical_words": 20,
-    "new": 32,
-    "same_name_differs": 2
+    "identical_mod_reloc": 36,
+    "same_name_differs": 7,
+    "new": 30,
+    "identical_words": 16
    },
    "insts": {
-    "identical_mod_reloc": 5855,
-    "identical_words": 549,
-    "new": 6329,
-    "same_name_differs": 169
+    "identical_mod_reloc": 5322,
+    "same_name_differs": 1047,
+    "new": 5978,
+    "identical_words": 533
    },
    "total_funcs": 89,
-   "total_insts": 12902,
-   "reused_and_in_while_proof_scope": 5971
+   "total_insts": 12880,
+   "reused_and_in_while_proof_scope": 5436
   },
   "dyn_union": {
    "funcs": {
-    "identical_mod_reloc": 58,
+    "identical_mod_reloc": 68,
+    "new": 390,
+    "same_name_differs": 10,
     "identical_words": 33,
-    "new": 286,
-    "same_name_differs": 2
+    "identical_body_other_name": 1
    },
    "insts": {
-    "identical_mod_reloc": 13064,
-    "identical_words": 912,
-    "new": 23199,
-    "same_name_differs": 169
+    "identical_mod_reloc": 12756,
+    "new": 32547,
+    "same_name_differs": 1355,
+    "identical_words": 960,
+    "identical_body_other_name": 2
    },
-   "total_funcs": 379,
-   "total_insts": 37344,
-   "reused_and_in_while_proof_scope": 13470
+   "total_funcs": 502,
+   "total_insts": 47620,
+   "reused_and_in_while_proof_scope": 12951
   },
   "dyn_union_after_exec": {
    "funcs": {
-    "identical_mod_reloc": 58,
+    "identical_mod_reloc": 68,
+    "new": 349,
+    "same_name_differs": 10,
     "identical_words": 33,
-    "new": 249,
-    "same_name_differs": 2
+    "identical_body_other_name": 1
    },
    "insts": {
-    "identical_mod_reloc": 13064,
-    "identical_words": 912,
-    "new": 21105,
-    "same_name_differs": 169
+    "identical_mod_reloc": 12756,
+    "new": 30203,
+    "same_name_differs": 1355,
+    "identical_words": 960,
+    "identical_body_other_name": 2
    },
-   "total_funcs": 342,
-   "total_insts": 35250,
-   "reused_and_in_while_proof_scope": 13470
+   "total_funcs": 461,
+   "total_insts": 45276,
+   "reused_and_in_while_proof_scope": 12951
   },
   "pcs_while": {
    "pcs_by_cat": {
-    "identical_words": 375,
-    "identical_mod_reloc": 1523,
-    "new": 3882,
-    "same_name_differs": 137
+    "same_name_differs": 600,
+    "identical_mod_reloc": 1243,
+    "new": 4313,
+    "identical_words": 404
    },
-   "total": 5917
+   "total": 6560
   },
   "pcs_union": {
    "pcs_by_cat": {
-    "identical_words": 769,
-    "identical_mod_reloc": 4604,
-    "new": 13493,
-    "same_name_differs": 152
+    "identical_mod_reloc": 4854,
+    "new": 18499,
+    "same_name_differs": 1017,
+    "identical_body_other_name": 2,
+    "identical_words": 776
    },
-   "total": 19018
+   "total": 25148
   }
  },
  "sites": {
   "static_reach": {
-   "insts": 61912,
-   "site_classified": 54359,
-   "pct": 87.8,
-   "blocks": 15797,
-   "blocks_all_classified": 11621,
-   "blocks_pct": 73.6,
+   "insts": 76355,
+   "site_classified": 67130,
+   "pct": 87.9,
+   "blocks": 19637,
+   "blocks_all_classified": 14441,
+   "blocks_pct": 73.5,
    "unsupported_by_reason": {
-    "OP-IMM funct3 != ADDI": 3731,
-    "opcode 0x17": 1022,
-    "RTYPE op not ADD/SUB": 868,
-    "OP-IMM-32 funct3 != ADDIW": 674,
-    "opcode 0x37": 416,
-    "RTYPEW op not SUBW": 401,
-    "load width/signedness (lb/lh/lhu/lwu?)": 236,
-    "store width (sh?)": 124,
-    "jalr shape != jr rs1 (rd=x0, imm=0)": 67,
+    "OP-IMM funct3 != ADDI": 4442,
+    "opcode 0x17": 1431,
+    "RTYPE op not ADD/SUB": 958,
+    "OP-IMM-32 funct3 != ADDIW": 759,
+    "RTYPEW op not SUBW": 518,
+    "opcode 0x37": 513,
+    "load width/signedness (lb/lh/lhu/lwu?)": 320,
+    "store width (sh?)": 194,
+    "jalr shape != jr rs1 (rd=x0, imm=0)": 76,
     "opcode 0x73": 7,
     "sd with rs1=x0": 4,
     "ld with x0 operand": 2,
     "sw with rs1=x0": 1
    },
    "unsupported_by_mnemonic": {
-    "slli": 1426,
-    "andi": 1114,
-    "auipc": 1022,
-    "srli": 490,
-    "lui": 416,
-    "or": 406,
-    "srliw": 370,
-    "addw": 299,
-    "zext.b": 224,
-    "and": 218,
-    "slliw": 216,
-    "ori": 215,
-    "sh": 124,
-    "lhu": 121,
-    "lh": 91,
-    "sraiw": 88,
-    "not": 73,
-    "snez": 72,
+    "slli": 1662,
+    "auipc": 1431,
+    "andi": 1355,
+    "srli": 540,
+    "lui": 513,
+    "or": 431,
+    "addw": 416,
+    "srliw": 384,
+    "slliw": 282,
+    "ori": 276,
+    "zext.b": 270,
+    "and": 243,
+    "sh": 194,
+    "lhu": 193,
+    "lh": 103,
+    "sraiw": 93,
+    "snez": 88,
+    "srai": 84,
+    "not": 81,
+    "jalr": 75,
+    "seqz": 73,
     "sllw": 70,
-    "srai": 67,
-    "jalr": 66,
-    "xor": 56,
-    "sll": 49,
-    "seqz": 46,
-    "xori": 35,
-    "srl": 34,
-    "slti": 31,
+    "xor": 59,
+    "sll": 52,
+    "srl": 39,
+    "xori": 37,
+    "slti": 33,
+    "sltiu": 31,
+    "slt": 27,
     "srlw": 23,
-    "slt": 19,
     "lwu": 14,
-    "sltiu": 10,
+    "sgtz": 12,
     "lb": 10,
     "sraw": 9,
-    "sgtz": 8,
     "ebreak": 7,
-    "sltu": 4,
+    "sltu": 5,
     "sd": 4,
     "ld": 2,
     "sra": 2,
@@ -6903,51 +8082,51 @@
    }
   },
   "dyn_while": {
-   "insts": 5917,
-   "site_classified": 5173,
-   "pct": 87.4,
-   "blocks": 1286,
-   "blocks_all_classified": 886,
-   "blocks_pct": 68.9,
+   "insts": 6560,
+   "site_classified": 5720,
+   "pct": 87.2,
+   "blocks": 1422,
+   "blocks_all_classified": 962,
+   "blocks_pct": 67.7,
    "unsupported_by_reason": {
-    "OP-IMM funct3 != ADDI": 417,
-    "opcode 0x17": 69,
-    "RTYPE op not ADD/SUB": 57,
-    "opcode 0x37": 54,
-    "OP-IMM-32 funct3 != ADDIW": 54,
-    "load width/signedness (lb/lh/lhu/lwu?)": 33,
+    "OP-IMM funct3 != ADDI": 462,
+    "opcode 0x17": 99,
+    "RTYPE op not ADD/SUB": 64,
+    "opcode 0x37": 61,
+    "OP-IMM-32 funct3 != ADDIW": 57,
+    "load width/signedness (lb/lh/lhu/lwu?)": 34,
     "RTYPEW op not SUBW": 26,
-    "store width (sh?)": 20,
+    "store width (sh?)": 23,
     "jalr shape != jr rs1 (rd=x0, imm=0)": 14
    },
    "unsupported_by_mnemonic": {
-    "slli": 176,
-    "andi": 115,
-    "auipc": 69,
-    "lui": 54,
-    "srliw": 45,
-    "zext.b": 34,
-    "srli": 33,
-    "ori": 23,
-    "and": 22,
+    "slli": 200,
+    "andi": 129,
+    "auipc": 99,
+    "lui": 61,
+    "srliw": 46,
+    "srli": 38,
+    "zext.b": 35,
+    "and": 26,
+    "ori": 24,
+    "sh": 23,
+    "or": 21,
     "lh": 21,
-    "sh": 20,
-    "or": 19,
     "addw": 19,
-    "not": 17,
+    "not": 18,
     "jalr": 13,
+    "lhu": 11,
     "srai": 10,
-    "lhu": 10,
     "sllw": 7,
+    "slliw": 6,
     "xor": 5,
-    "slliw": 5,
+    "sraiw": 5,
     "snez": 4,
-    "sraiw": 4,
-    "slti": 3,
+    "sll": 4,
     "seqz": 3,
     "slt": 3,
-    "sll": 3,
     "xori": 2,
+    "slti": 2,
     "lb": 1,
     "lwu": 1,
     "sltu": 1,
@@ -6956,57 +8135,58 @@
    }
   },
   "dyn_union": {
-   "insts": 19018,
-   "site_classified": 16620,
-   "pct": 87.4,
-   "blocks": 4401,
-   "blocks_all_classified": 3178,
-   "blocks_pct": 72.2,
+   "insts": 25148,
+   "site_classified": 22129,
+   "pct": 88.0,
+   "blocks": 5936,
+   "blocks_all_classified": 4309,
+   "blocks_pct": 72.6,
    "unsupported_by_reason": {
-    "OP-IMM funct3 != ADDI": 1410,
-    "RTYPE op not ADD/SUB": 246,
-    "OP-IMM-32 funct3 != ADDIW": 233,
-    "opcode 0x17": 188,
-    "opcode 0x37": 117,
-    "RTYPEW op not SUBW": 87,
-    "load width/signedness (lb/lh/lhu/lwu?)": 67,
-    "store width (sh?)": 33,
-    "jalr shape != jr rs1 (rd=x0, imm=0)": 17
+    "OP-IMM funct3 != ADDI": 1669,
+    "opcode 0x17": 341,
+    "RTYPE op not ADD/SUB": 272,
+    "OP-IMM-32 funct3 != ADDIW": 250,
+    "opcode 0x37": 174,
+    "load width/signedness (lb/lh/lhu/lwu?)": 119,
+    "RTYPEW op not SUBW": 114,
+    "store width (sh?)": 55,
+    "jalr shape != jr rs1 (rd=x0, imm=0)": 25
    },
    "unsupported_by_mnemonic": {
-    "slli": 571,
-    "andi": 379,
-    "srliw": 196,
-    "auipc": 188,
-    "srli": 178,
-    "zext.b": 122,
-    "lui": 117,
-    "or": 96,
-    "and": 72,
-    "addw": 64,
-    "ori": 51,
-    "srai": 36,
-    "sh": 33,
-    "not": 33,
-    "lh": 29,
-    "snez": 27,
-    "lhu": 27,
-    "seqz": 23,
-    "slliw": 21,
+    "slli": 679,
+    "andi": 490,
+    "auipc": 341,
+    "srliw": 197,
+    "srli": 189,
+    "lui": 174,
+    "zext.b": 126,
+    "or": 106,
+    "addw": 91,
+    "and": 81,
+    "ori": 59,
+    "lh": 56,
+    "sh": 55,
+    "lhu": 52,
+    "srai": 39,
+    "slliw": 36,
+    "not": 36,
+    "seqz": 33,
+    "snez": 31,
+    "jalr": 24,
     "sllw": 20,
     "xor": 19,
-    "jalr": 16,
-    "sraiw": 16,
-    "sll": 14,
+    "sraiw": 17,
+    "sll": 15,
+    "slt": 9,
     "xori": 8,
-    "slt": 8,
     "srl": 8,
     "lwu": 7,
+    "sltiu": 5,
     "slti": 5,
-    "sltiu": 4,
     "lb": 4,
     "sltu": 2,
     "srlw": 2,
+    "sgtz": 1,
     "sraw": 1,
     "jr": 1
    }
@@ -7070,44 +8250,44 @@
  },
  "gen_fn": {
   "static_reach": {
-   "within_budget": 614,
-   "within_budget_no_indirect": 569,
-   "within_budget_no_indirect_and_new": 462,
-   "over_budget": 79
+   "within_budget": 742,
+   "within_budget_no_indirect": 691,
+   "within_budget_no_indirect_and_new": 566,
+   "over_budget": 106
   },
   "dyn_while": {
-   "within_budget": 146,
-   "within_budget_no_indirect": 133,
-   "within_budget_no_indirect_and_new": 84,
-   "over_budget": 17
+   "within_budget": 155,
+   "within_budget_no_indirect": 142,
+   "within_budget_no_indirect_and_new": 97,
+   "over_budget": 18
   },
   "dyn_union": {
-   "within_budget": 338,
-   "within_budget_no_indirect": 319,
-   "within_budget_no_indirect_and_new": 248,
-   "over_budget": 41
+   "within_budget": 443,
+   "within_budget_no_indirect": 418,
+   "within_budget_no_indirect_and_new": 335,
+   "over_budget": 59
   }
  },
  "decode_index": {
   "whole": {
-   "unique_words": 23140,
-   "in_syi_decode_index": 7165,
-   "pct": 31.0
+   "unique_words": 26784,
+   "in_syi_decode_index": 7131,
+   "pct": 26.6
   },
   "static_reach": {
-   "unique_words": 21565,
-   "in_syi_decode_index": 7080,
-   "pct": 32.8
+   "unique_words": 25922,
+   "in_syi_decode_index": 7087,
+   "pct": 27.3
   },
   "dyn_while": {
-   "unique_words": 3315,
-   "in_syi_decode_index": 1693,
-   "pct": 51.1
+   "unique_words": 3597,
+   "in_syi_decode_index": 1713,
+   "pct": 47.6
   },
   "dyn_union": {
-   "unique_words": 8346,
-   "in_syi_decode_index": 3616,
-   "pct": 43.3
+   "unique_words": 10615,
+   "in_syi_decode_index": 3925,
+   "pct": 37.0
   }
  }
 }

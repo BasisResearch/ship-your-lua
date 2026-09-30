@@ -101,3 +101,24 @@ stay inside that restriction except for `Sys.readdir` on `/lib/ocaml`.
 `clock` calls: Linux returns increasing microsecond counts, the in-image
 clock always 0; both accepted (monotone), the second being
 `TCB.Os.Clock.frozen`.
+
+## Branch `f5-htif`: the conforming in-image file system
+
+`c/src/htif.c` replaced by ship-your-lua's conforming file system
+(its commit 0309425) plus the OCaml-only parts (marked `OCAML`: embedded
+files as read-only nodes with their parent directories, copied on first
+write; `opendir`/`readdir`/`closedir`; the runtime's process stubs; the
+host-mirror console). The driver's in-image back end now calls the real
+`mkdir`/`rmdir` and uses no path prefix. Same 6,490 scripts:
+
+| system | accepted | rejected | special | unsupported |
+|---|---|---|---|---|
+| Linux host | 6,398 | 0 | 92 | 0 |
+| in-image file system | 6,410 | 0 | 80 | 0 |
+
+The one rejection of the first run was a spec bug, not a file-system bug:
+at the end of a directory stream SibylFS drops the updated handle
+(spec:5214-5216), so after a still-to-report entry is removed, a second
+`readdir` was forced to return it. Fixed as DEVIATION 10
+(`tcb/TCB/Os/Syscall.lean`); Linux never hit it because ext4 reported the
+entry early. M1-M7 are all fixed on this branch.

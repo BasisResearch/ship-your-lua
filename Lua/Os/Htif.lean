@@ -9,13 +9,17 @@ The instance of `HtifFsImplements` (`Lua/Os/HtifFs.lean`) for
 `TCB.Os.next` to describe it. Nothing here is proved; the two statements are
 recorded in PHASES.md (OS bullet).
 
-The ELF has six functions that implement a `TCB.Os.Call` (addresses from
-`Lua/Vm/Layout.lean`, generated from `nm`): `_open`, `_close`, `_read`,
-`_write`, `_lseek`, `_fstat`. Its other system-call functions (`_isatty`,
-`_sbrk`, `_exit`, `_kill`, `_getpid`) have no counterpart in `TCB.Os.Call`,
-and the spec's other calls (`stat`, `unlink`, `rename`, `mkdir`, `rmdir`,
-`opendir`, `readdir`, `closedir`, `clock`, `getenv`) have no function in the
-ELF: the Lua build links no `io`/`os` library.
+The ELF has twelve functions that implement a `TCB.Os.Call` (addresses
+from `Lua/Vm/Layout.lean`, generated from `nm`, so they follow the ELF):
+`_open`, `_close`, `_read`, `_write`, `_lseek`, `_fstat`, `_stat`,
+`_unlink`, `rename`, `mkdir`, `rmdir` and `_gettimeofday` (the clock). The
+`io` and `os` libraries reach them through newlib (`fopen`, `fread`,
+`fseek`, `remove`, `rename`, `time`, ...). Its other system-call functions
+(`_isatty`, `_times`, `_link`, `_sbrk`, `_exit`, `_kill`, `_getpid`) have no
+counterpart in `TCB.Os.Call`, apart from `_exit` (the spec's `exit`, which
+ends the run and so is not a returning call). The spec's `opendir`,
+`readdir` and `closedir` have no function in the ELF, and `getenv` is
+newlib's (an empty environment, as `OsState.init` has).
 
 * `HtifCallAt c call`: `c` is at the entry of the function for `call`,
   with the arguments in `a0`-`a2` (RISC-V psABI) decoding to `call`
@@ -28,13 +32,23 @@ ELF: the Lua build links no `io`/`os` library.
 * `HtifRepr Boot R`: `R` holds at boot for the initial OS state, implies the
   good machine state, and ties the spec's console stream to the HTIF output.
 
-`HtifFs_Statement` is the full obligation (every call). The trace
-validation (`experiments/os/RESULTS.md`) shows the current console-only
-`htif.c` does not meet it: unknown and closed descriptors act as the
-console instead of `EBADF`, `fstat` reports `st_nlink = 0` for the
-console, and `open` with `O_CREAT` fails with `ENOENT`. `HtifPrint_Statement`
-is the part a `print`-only program uses, which the traces accept: `write` to
-fds 1-2 and `read` from fd 0.
+`HtifFs_Statement` is the full obligation (every call). `htif.c` has an
+in-image file system written against the spec, and the trace validation
+(`experiments/os/RESULTS.md`) rejects none of its traces: 5,275 generated
+scripts accepted, 79 at calls the spec leaves unconstrained, the rest
+skipped at `opendir`, which the ELF does not have; all console scripts
+accepted. So `HtifFs_Statement` is now plausibly true of the ELF, with two
+qualifications:
+* **Resource limits.** `htif.c` has 64 files and directories, 32
+  descriptors and the heap; past them it returns `EMFILE`/`ENOSPC`, which
+  the spec never allows. A proof needs a resource bound in the scope (like
+  the `Fits` budget of the VM refinement).
+* **Vacuity.** As stated, `R` may hold at boot only (`HtifRepr`), which
+  makes the statement hold vacuously; the meaningful form comes with the
+  frame obligation of `OsState` in the semantics (PHASES.md, OS).
+
+`HtifPrint_Statement` is the part a `print`-only program uses: `write` to
+fds 1-2, `read` from fd 0, and newlib's `_fstat` of the console.
 -/
 
 namespace Lua.Os
@@ -97,6 +111,26 @@ inductive HtifCallAt (c : Config) : Call → Prop where
       HtifCallAt c (.lseek fd off whence)
   /-- `int _fstat(int fd, struct stat *st)` -/
   | fstat {fd buf : Nat} : PcAt c symFstat → RegIs c 10 fd → RegIs c 11 buf → HtifCallAt c (.fstat fd)
+  /-- `int _stat(const char *path, struct stat *st)` -/
+  | stat {path : String} {p buf : Nat} :
+      PcAt c symStat → RegIs c 10 p → CStringAt c.σ.mem p path → RegIs c 11 buf →
+      HtifCallAt c (.stat path)
+  /-- `int _unlink(const char *path)` (newlib's `remove`, Lua's `os.remove`) -/
+  | unlink {path : String} {p : Nat} :
+      PcAt c symUnlink → RegIs c 10 p → CStringAt c.σ.mem p path → HtifCallAt c (.unlink path)
+  /-- `int rename(const char *from, const char *to)` (Lua's `os.rename`) -/
+  | rename {src dst : String} {p q : Nat} :
+      PcAt c symRename → RegIs c 10 p → CStringAt c.σ.mem p src → RegIs c 11 q →
+      CStringAt c.σ.mem q dst → HtifCallAt c (.rename src dst)
+  /-- `int mkdir(const char *path, mode_t mode)` (the mode is outside the spec) -/
+  | mkdir {path : String} {p : Nat} :
+      PcAt c symMkdir → RegIs c 10 p → CStringAt c.σ.mem p path → HtifCallAt c (.mkdir path)
+  /-- `int rmdir(const char *path)` -/
+  | rmdir {path : String} {p : Nat} :
+      PcAt c symRmdir → RegIs c 10 p → CStringAt c.σ.mem p path → HtifCallAt c (.rmdir path)
+  /-- `int _gettimeofday(struct timeval *tv, void *tz)` with `tv` non-null:
+  the clock (newlib's `time`, Lua's `os.time`) -/
+  | clock {tv : Nat} : PcAt c symGettimeofday → RegIs c 10 tv → tv ≠ 0 → HtifCallAt c .clock
 
 /-- newlib's number for an errno (`Layout.errno*`, from `<errno.h>`; it
 differs from Linux's `Errno.toNat` for some). -/
@@ -129,22 +163,38 @@ def retsNum : Call → Bool
   | .open .. | .write .. | .lseek .. => true
   | _ => false
 
+/-- The calls whose success value is `0` in `a0` and nothing else. -/
+def retsNone : Call → Bool
+  | .close .. | .unlink .. | .rename .. | .mkdir .. | .rmdir .. => true
+  | _ => false
+
+/-- The calls that fill the `struct stat` whose address is in `a1`. -/
+def retsStats : Call → Bool
+  | .stat .. | .fstat .. => true
+  | _ => false
+
 /-- **The result of the call entered at `c`, read at its return `c'`**. -/
 inductive HtifRetAt : Call → Config → Config → Ret → Prop where
   /-- failure: `-1` and `errno` -/
   | err {call c c' e} : RegInt c' 10 (-1) → ErrnoIs c'.σ.mem e → HtifRetAt call c c' (.err e)
   /-- `open`, `write`, `lseek`: a non-negative number -/
   | num {call c c' n} : retsNum call → RegIs c' 10 n → HtifRetAt call c c' (.num n)
-  /-- `close`: `0` -/
-  | none {fd c c'} : RegIs c' 10 0 → HtifRetAt (.close fd) c c' .none
+  /-- `close`, `unlink`, `rename`, `mkdir`, `rmdir`: `0` -/
+  | none {call c c'} : retsNone call → RegIs c' 10 0 → HtifRetAt call c c' .none
   /-- `read`: the count, and that many bytes in the buffer given at entry -/
   | bytes {fd n buf c c'} {bs : List UInt8} :
       RegIs c 11 buf → RegIs c' 10 bs.length → BytesAt c'.σ.mem buf bs →
       HtifRetAt (.read fd n) c c' (.bytes bs)
-  /-- `fstat`: `0`, and the `struct stat` at the pointer given at entry -/
-  | stats {fd buf c c'} {st : Stats} :
-      RegIs c 11 buf → RegIs c' 10 0 → StatAt c'.σ.mem buf st →
-      HtifRetAt (.fstat fd) c c' (.stats st)
+  /-- `stat`, `fstat`: `0`, and the `struct stat` at the pointer given at entry -/
+  | stats {call buf c c'} {st : Stats} :
+      retsStats call → RegIs c 11 buf → RegIs c' 10 0 → StatAt c'.σ.mem buf st →
+      HtifRetAt call c c' (.stats st)
+  /-- the clock: `0`, and the `struct timeval` at the pointer given at entry,
+  in microseconds -/
+  | clock {tv sec usec : Nat} {c c'} :
+      RegIs c 10 tv → RegIs c' 10 0 → rd64 c'.σ.mem (tv + timevalSecOff) = some sec →
+      rd64 c'.σ.mem (tv + timevalUsecOff) = some usec →
+      HtifRetAt .clock c c' (.num (sec * 1000000 + usec))
 
 /-- `c'` is the return of the function entered at `c`: the return address
 `ra` = `x1` of the entry is the pc, with the entry's stack pointer
@@ -165,8 +215,9 @@ structure LuaCallConv (scope : Call → Prop) (cc : CallConv) : Prop where
     HtifRetAt call c c' (cc.retOf c c')
 
 /-- The machine at `_start` with the ELF's `.text` and `.rodata` loaded.
-The in-image file system's initial state (`.data`/`.bss`) is added here
-when `htif.c` gets one (PHASES.md, OS). -/
+The in-image file system's state is in `.bss` (`files`, `fds`,
+`fs_ready`), which `crt0.S` zeroes; `fs_ready = 0` makes the first call
+set up the root and fds 0-2, so the initial state needs no data here. -/
 structure BootAt (c : Config) : Prop where
   good : LuaGoodState c.σ
   pc : PcAt c symStart
@@ -188,24 +239,26 @@ structure HtifRepr (R : Config → OsState → Prop) : Prop where
   good : ∀ c st, R c st → LuaGoodState c.σ
   console : ∀ c st, R c st → (output c.σ).toList = st.streams.console.map (fun b => Char.ofNat b.toNat)
 
-/-- **`htif.c` implements the OS spec** on every call of its six functions
-(statement). Not true of the current `htif.c`
-(`experiments/os/RESULTS.md`): it needs a conforming in-image file system. -/
+/-- **`htif.c` implements the OS spec** on every call of its twelve
+functions (statement). The traces accept the current `htif.c`
+(`experiments/os/RESULTS.md`); see the module doc for the resource limits
+a proof must scope out, and for why `HtifRepr` alone leaves it vacuous. -/
 def HtifFs_Statement : Prop :=
   ∃ cc R, LuaCallConv (fun _ => True) cc ∧ HtifRepr R ∧ HtifFsImplements cc R
 
 /-- The calls a `print`-only Lua program makes that the spec constrains:
-`write` to stdout/stderr and `read` from stdin. (newlib's first `print`
-also calls `_fstat(1)`, and `_isatty(1)`; the former is outside this scope
-because the current `htif.c` reports `st_nlink = 0` where the spec says 1.) -/
+`write` to stdout/stderr, `read` from stdin, and `fstat` of the console
+(newlib's first `print` calls `_fstat(1)`, and `_isatty(1)`, which the
+spec does not have). -/
 def PrintScope : Call → Prop
   | .write fd _ _ => fd = 1 ∨ fd = 2
   | .read fd _ => fd = 0
+  | .fstat fd => fd ≤ 2
   | _ => False
 
 /-- **`htif.c` implements the OS spec on the console calls of `print`**
 (statement). The traces accept the current `htif.c` on these
-(`experiments/os/RESULTS.md`, scripts c01-c05). -/
+(`experiments/os/RESULTS.md`, scripts c01-c05, c08-c10, c24). -/
 def HtifPrint_Statement : Prop :=
   ∃ cc R, LuaCallConv PrintScope cc ∧ HtifRepr R ∧ HtifFsImplements cc R
 

@@ -7,7 +7,7 @@ import Lua.Vm.Layout
 What `c/lua-riscv-htif.elf` prints for function values: `luaL_tolstring`'s
 `"%s: %p"` with `lua_topointer` of a light C function, i.e. `function: 0x`
 followed by the function's address in lowercase hex (newlib's `%p`).
-Observed on the Sail model: `print(print)` prints `function: 0x800219b0`
+Observed on the Sail model: `print(print)` prints `function: 0x80022f18`
 (VALIDATION.md).
 -/
 
@@ -23,6 +23,6 @@ def binaryHost : Host where
   showBuiltin
     | .print => "function: 0x" ++ hexLower Layout.symLuaBPrint
 
-example : binaryHost.showBuiltin .print = "function: 0x800219b0" := by decide
+example : binaryHost.showBuiltin .print = "function: 0x80022f18" := by decide
 
 end Lua.Vm

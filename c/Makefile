@@ -36,9 +36,9 @@ EMU       ?= ../riscv-lean/lean_emulator/.lake/build/bin/lean_riscv_emulator
 
 CORE := lapi lcode lctype ldebug ldo ldump lfunc lgc llex lmem lobject \
         lopcodes lparser lstate lstring ltable ltm lundump lvm lzio
-LIBS := lauxlib lbaselib lstrlib ltablib lcorolib
+LIBS := lauxlib lbaselib lstrlib ltablib lcorolib liolib loslib
 TARGET_SRC := $(patsubst %,$(LUA_DIR)/%.c,$(CORE) $(LIBS))
-HOST_ALL   := $(CORE) $(LIBS) ldblib liolib lmathlib loadlib loslib \
+HOST_ALL   := $(CORE) $(LIBS) ldblib lmathlib loadlib \
               lutf8lib linit
 HOST_SRC   := $(patsubst %,$(LUA_DIR)/%.c,$(HOST_ALL))
 

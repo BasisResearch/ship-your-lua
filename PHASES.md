@@ -32,8 +32,8 @@ Every row is currently unassigned.
 | the ELF's `lparser`/`lcode` refine `compile` | — | B3 | open |
 | **`compile_refinement_Statement`** | `Lua/Theorems.lean` | B1/B2 (by `compile_refinement_of_tv`) | **proved for `CorpusCompiles`** (`compile_refinement_corpus`); open for B2's `compile` |
 | **`endToEnd_lua_Statement luaLayout Compiles`** | `Lua/Theorems.lean` | E (by `endToEnd_of_layers`) | open |
-| `HtifPrint_Statement`: `htif.c`'s `write` to fds 1-2 and `read` from fd 0 implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open (traces accept it) |
-| `HtifFs_Statement`: all six system-call functions implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open; **false of the current `htif.c`** (`experiments/os/RESULTS.md` H1-H6) |
+| `HtifPrint_Statement`: `htif.c`'s `write` to fds 1-2, `read` from fd 0 and `fstat` of fds 0-2 implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open (traces accept it) |
+| `HtifFs_Statement`: all twelve system-call functions implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open; plausibly true within `htif.c`'s resource limits (no trace rejected, `experiments/os/RESULTS.md`); needs a resource bound and the `OsState` frame obligation (OS bullet) |
 
 ## P0: validation and scaffold (done)
 
@@ -61,7 +61,7 @@ instances, however, are at the WHILE ELF's addresses.
 1. **`tohost`.**
    * The problem: `Vsa.Sim.tohostAddr` (`0x8001ad00`) is baked into
      `GoodState` and the `RamRead*` lemmas.
-   * Fix: make it the Lua image's `0x80048400` (`Layout.symTohost`), or
+   * Fix: make it the Lua image's `0x8005c6c0` (`Layout.symTohost`), or
      generalise it to a parameter.
    * Then retire `LuaGoodState`, which is a field-for-field copy.
 2. **Cut the 40 WHILE import edges.** `experiments/port/CUTS.txt` lists them,
@@ -117,7 +117,7 @@ instances, however, are at the WHILE ELF's addresses.
    * Also every byte the run may touch must be present, checked on the dense
      view (`fillZero`).
    * Retarget `scripts/syi/gen_boot_witness.py` to stop at `luaV_execute`
-     (step 124,808 for `while.lua`). It should emit the kernel witness
+     (step 181,166 for `while.lua`). It should emit the kernel witness
      `VmLoaded luaLayout whileProto (fillZero c)` at the traced entry state.
 7. **`disasm_to_segment.py` (done).**
    * It no longer drops rows. An `#UNSUPPORTED` row in the range, or an
@@ -148,7 +148,7 @@ covers the new stages.
   * output = `s.out`;
   * image, heap and stdio unchanged.
 * **Arms.** One simulation lemma per F1 `Step` rule.
-  * Each goes from the shared fetch site (`0x8001aa7c`, 10 instructions)
+  * Each goes from the shared fetch site (`0x8001bfe4`, 10 instructions)
     through one of the 43 arms (2,239 instructions of per-arm reach; 613 on
     the integer fast paths) back to the fetch site.
   * Arms are generated with `gen_fn.py`/`genseg.py`. Integers-only
@@ -217,42 +217,71 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
   (`tcb/`, Lean library `TCB`): SibylFS for the file system, the CakeML
   basis FFI for console streams, `OsStep`/`next`, and the checker `allowed`.
   * **Landed.**
-    * `tcb/` copied verbatim (ship-your-ocaml `b6ffcf9`, ATTRIBUTION.md); it
-      builds, and `TCB.Os.allowed_sound`/`checkTrace_sound` are in check.sh
-      stage 6. Its Linux trace validation reproduces here (6,398 accepted,
-      0 rejected, 92 special).
+    * `tcb/` is ship-your-ocaml's at `f5-htif` `39e79b2` (ATTRIBUTION.md),
+      including spec DEVIATION 10 (`osReaddir`). It builds, and
+      `TCB.Os.allowed_sound`/`checkTrace_sound` are in check.sh stage 6.
+      Its Linux trace validation reproduces here (6,398 accepted, 0
+      rejected, 92 special).
     * `Lua/Os/HtifFs.lean`: `HtifFsImplements`, adapted from
-      ship-your-ocaml's `OCaml/Os.lean` (`retOf` also sees the entry; calls
-      the spec leaves unconstrained are allowed).
-    * `Lua/Os/Htif.lean`: the instance for the Lua ELF. `HtifCallAt` decodes
-      `_open`/`_close`/`_read`/`_write`/`_lseek`/`_fstat` at their entry
-      (addresses and newlib's flag, errno and `struct stat` layout from
-      `Lua/Vm/Layout.lean`); `HtifRetAt` reads `a0`, `errno` and the
-      out-buffer at the return; `LuaCallConv`, `HtifRepr`. Two statements:
-      `HtifPrint_Statement` and `HtifFs_Statement` (Obligations).
-    * `experiments/os/run.sh`: ship-your-ocaml's trace driver run on our
-      unchanged `htif.c` (check.sh stage 5b). Our `htif.c` conforms on
-      `write` to fds 1-2 and `read` from fd 0, and deviates on `fstat` of the
-      console (`st_nlink` 0, not 1), unknown or closed descriptors (the
-      console, not `EBADF`), `read` of stdout / `write` of stdin, a bad
-      `whence`, and `open` with `O_CREAT` (`experiments/os/RESULTS.md`;
-      the console deviations are also kernel-checked facts about `next`,
-      `Lua/Os/HtifTraces.lean`).
+      ship-your-ocaml's `OCaml/Os.lean`. `retOf` also sees the entry, and
+      calls the spec leaves unconstrained are allowed.
+    * **The ELF opens `io` and `os`** (steps 1-2 of the old plan).
+      * `c/src/htif.c` has an in-image file system written against the
+        spec: files and directories, the spec's path resolution, one
+        descriptor table with `EBADF` outside it, `st_nlink` 1 for the
+        console, `_stat`/`_unlink`/`rename`/`mkdir`/`rmdir`, and a clock
+        frozen at 0. Its memory comes from `malloc`, so the dlmalloc
+        proofs apply.
+      * ship-your-ocaml adopted the same file.
+      * `experiments/os/run.sh` rejects none of its traces: 5,275
+        accepted, 79 special, and 1,136 that stop at `opendir`, which the
+        ELF lacks; all 26 console scripts are accepted. check.sh 5b pins
+        these verdicts.
+      * Difftests `f7_io`/`f7_os`: 18/18 on Sail (VALIDATION.md §6).
+    * `Lua/Os/Htif.lean`: the instance for the Lua ELF.
+      * `HtifCallAt` decodes the twelve functions `_open`, `_close`,
+        `_read`, `_write`, `_lseek`, `_fstat`, `_stat`, `_unlink`,
+        `rename`, `mkdir`, `rmdir` and `_gettimeofday` (the clock) at their
+        entry. Addresses and newlib's flag, errno, `struct stat` and
+        `struct timeval` layout come from `Lua/Vm/Layout.lean`.
+      * `HtifRetAt` reads `a0`, `errno` and the out-buffer at the return.
+      * Also `LuaCallConv` and `HtifRepr`.
+      * Two statements: `HtifPrint_Statement` (now including newlib's
+        `_fstat` of the console) and `HtifFs_Statement` (Obligations).
+    * `Lua/Os/HtifTraces.lean`: the console verdicts as kernel-checked
+      facts about `next`, both the old `htif.c`'s rejected returns and the
+      current one's accepted returns.
+  * **`HtifFs_Statement` is now plausibly true** (every trace is accepted,
+    special or unsupported), with two caveats.
+    * **Resources.** Past 64 files and directories, 32 descriptors or the
+      heap, `htif.c` returns `EMFILE`/`ENOSPC`, which `next` never allows.
+      The proved form needs a resource bound in its scope, like `Fits`.
+    * **Vacuity.** `HtifRepr` lets `R` hold at boot only, which satisfies
+      the statement vacuously. The frame obligation below is what makes it
+      meaningful.
   * **Next.**
-    1. Add `io`/`os` to the Lua build (needs the go-ahead: it changes the
-       ELF, `.text`, the image, the code pins and the validation outputs).
-    2. A conforming in-image file system in `htif.c`: a descriptor table
-       (`EBADF` for descriptors it did not issue, `close` that closes),
-       `st_nlink = 1` for the console, files for `open`, and the functions
-       `io`/`os` need (`_stat`, `_unlink`, `rename`, a clock). Rerun
-       `experiments/os/run.sh` until the flat family and the console
-       scripts are accepted.
-    3. An `OsState` in the semantics (`BcSem`/`LuaSem` over the OS), with
-       the frame obligation that the rest of the ELF preserves the
-       representation relation `R` (`HtifRepr` alone does not make `R`
-       hold at a call entry).
-    4. Prove `HtifPrint_Statement`, then `HtifFs_Statement`, with the
-       whole-function machinery (`gen_fn.py`, `FnSummary`).
+    1. **`OsState` in `BcSem`.** The plan:
+       * The World gets an `OsState` next to its output: the console
+         stream replaces the output string (`st.streams.console`), and the
+         initial world is `OsState.init`.
+       * The C functions of `io`/`os` (a new `Builtin` per function) are
+         specified through `OsStep`: each is a sequence of `TCB.Os.Call`s
+         as newlib issues them (buffering made explicit, or an abstract
+         `FILE` layer over `OsStep` for `io`), and a Lua-level result
+         built from the returns. `os.time`/`os.clock` are `Call.clock`,
+         `os.getenv` is `Call.getenv`, and `os.exit` is `Call.exit`.
+       * `BcSem` then quantifies over the allowed returns, since `next` is
+         nondeterministic. The ELF's are the frozen clock and full writes;
+         `Host` records these choices, as it does for function addresses.
+       * The frame obligation: every step outside `htif.c` preserves the
+         representation relation `R`. This is what makes `HtifFs_Statement`
+         non-vacuous.
+    2. Prove `HtifPrint_Statement`, then `HtifFs_Statement` (with the
+       resource bound), with the whole-function machinery (`gen_fn.py`,
+       `FnSummary`).
+    3. Optionally, directory streams (`opendir`/`readdir`/`closedir`,
+       ship-your-ocaml's `OCAML` part of `htif.c`), so the remaining 1,136
+       traces are checked too. Lua does not need them.
   * The ELF must stay free of `ecall` (check.sh stage 2).
 * **A8: GC.**
   * Stop calling `lua_gc(L, LUA_GCSTOP)`.

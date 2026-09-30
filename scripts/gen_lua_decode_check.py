@@ -3,7 +3,8 @@
 (`Vsa/Sim/DecodeNF.lean`, the `#simp_nf` normal form of `ext_decode`) covers
 every instruction word of `luaV_execute` in `c/lua-riscv-htif.elf`.
 
-For each unique word `w` of luaV_execute [0x8001aa00, 0x8001e8d0) it emits
+For each unique word `w` of luaV_execute (its range from
+experiments/census/luaV_execute_arms.json) it emits
 
     example : (ext_decode 0x<w>#32).run σ = .ok (<ast>) σ :=
       Vsa.Sim.decodeW σ hmisa hpriv hsec
@@ -34,7 +35,9 @@ OUT = ROOT / "Lua/Vm/DecodeCheck"
 DUMP = OUT / "ast_dump.txt"
 OBJDUMP = os.environ.get("OBJDUMP") or str(
     Path.home() / "toolchains/xpack-riscv-none-elf-gcc-15.2.0-1/bin/riscv-none-elf-objdump")
-EXEC_LO, EXEC_HI = 0x8001AA00, 0x8001E8D0   # experiments/census/luaV_execute_arms.json
+import json  # noqa: E402
+_S = json.load(open(ROOT / "experiments/census/luaV_execute_arms.json"))["summary"]["luaV_execute"]
+EXEC_LO, EXEC_HI = int(_S["start"], 16), int(_S["end"], 16)
 PART = 128
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")
 

@@ -1,7 +1,8 @@
 #!/bin/bash
-# OS-spec trace validation of the Lua image's console-only c/src/htif.c
-# (unchanged), with ship-your-ocaml's driver and checker (tcb/validation/,
-# copied verbatim). Also re-runs the Linux host traces as a control.
+# OS-spec trace validation of the Lua image's c/src/htif.c (its in-image
+# file system, compiled natively), with ship-your-ocaml's driver and checker
+# (tcb/validation/, copied verbatim). Also re-runs the Linux host traces as
+# a control.
 #   experiments/os/run.sh [--quick]
 # Outputs in experiments/os/out/ (not committed); results in
 # experiments/os/RESULTS.md.
@@ -16,13 +17,8 @@ python3 tcb/validation/gen.py "$O/all.scripts" ${Q:+--quick}
 "$O/driver-linux" "$O/all.scripts" "$O/linux.trace" "$(realpath "$O/sandbox")" < /dev/null > /dev/null
 # console.scripts only on htif.c: the Linux driver does not reset fds 0-2
 # between scripts, so there they are not independent
-for s in all console; do
-  src=$O/all.scripts p=
-  [ $s = console ] && { src=experiments/os/console.scripts; p=console-; }
-  "$O/driver-htif" "$src" "$O/${p}htif.raw" < /dev/null > /dev/null
-  # the Lua ELF has no clock (_gettimeofday is not linked)
-  sed 's/^clock => .*/clock => unsupported/' "$O/${p}htif.raw" > "$O/${p}htif.trace"
-done
+"$O/driver-htif" "$O/all.scripts" "$O/htif.trace" < /dev/null > /dev/null
+"$O/driver-htif" experiments/os/console.scripts "$O/console-htif.trace" < /dev/null > /dev/null
 lake build tcbcheck 2>&1 | tail -1
 for b in linux htif console-htif; do
   echo "== $b"

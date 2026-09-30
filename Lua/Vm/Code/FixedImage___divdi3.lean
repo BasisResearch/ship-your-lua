@@ -11,14 +11,14 @@ namespace Lua.Vm.Code
 
 theorem textLoaded___divdi3Chunk0 {mem : Std.ExtHashMap Nat (BitVec 8)}
     (h : Vsa.Sim.Code.FixedBytesLoaded Image.textBase Image.textSize Image.textByte mem) : __divdi3Chunk0 mem := by
-  exact ⟨h 178192 (by decide),
-    h 178193 (by decide),
-    h 178194 (by decide),
-    h 178195 (by decide),
-    h 178196 (by decide),
-    h 178197 (by decide),
-    h 178198 (by decide),
-    h 178199 (by decide)⟩
+  exact ⟨h 194348 (by decide),
+    h 194349 (by decide),
+    h 194350 (by decide),
+    h 194351 (by decide),
+    h 194352 (by decide),
+    h 194353 (by decide),
+    h 194354 (by decide),
+    h 194355 (by decide)⟩
 
 theorem textLoaded___divdi3Loaded {mem : Std.ExtHashMap Nat (BitVec 8)}
     (h : Vsa.Sim.Code.FixedBytesLoaded Image.textBase Image.textSize Image.textByte mem) : __divdi3Loaded mem :=
