@@ -60,7 +60,8 @@ JT = json.load(open(dfa.ARMS_JSON))["summary"]["jump_table"]
 # output, the frame `Lua.Vm.Sim.VmRel` needs; the other arms' segments do not
 # pay for it until their simulation lands.
 SIM_OPS = {"OP_MOVE", "OP_LOADI", "OP_JMP", "OP_ADD", "OP_EQI", "OP_FORLOOP", "OP_SUB",
-           "OP_ADDI", "OP_ADDK", "OP_SUBK"}
+           "OP_ADDI", "OP_ADDK", "OP_SUBK",
+           "OP_BAND", "OP_BOR", "OP_BXOR"}
 KEEP = [2, 3, 8, 9, 18, 19, 20, 21, 23, 24, 25, 27]
 # The register invariant a `sim` segment threads (every GPR present, the HTIF
 # mailbox idle: `VmRel`'s `Core.ok`), one step lemma per step class.

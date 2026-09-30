@@ -6,6 +6,9 @@ import Lua.Vm.Sim.Arms.Loadi
 import Lua.Vm.Sim.Arms.Jmp
 import Lua.Vm.Sim.Arms.Add
 import Lua.Vm.Sim.Arms.Addk
+import Lua.Vm.Sim.Arms.Band
+import Lua.Vm.Sim.Arms.Bor
+import Lua.Vm.Sim.Arms.Bxor
 import Lua.Vm.Sim.Arms.Subk
 import Lua.Vm.Sim.Arms.Sub
 import Lua.Vm.Sim.Arms.Addi

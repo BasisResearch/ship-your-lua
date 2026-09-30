@@ -368,9 +368,15 @@ def seg_module(name):
 # out the float test of `R[B]` on the not-integer path (`bne` taken to the
 # exit, or `beq` not taken into the shared default tail).
 ARITH_RR = dict(c="reg", b="beq", c_test="beq", c_float="bne")
+# `op_bitwise`: B and C tested in turn, each non-integer through the float
+# test (`beq`) into the shared default tail
+ARITH_BIT = dict(c="reg", b="beq", b_float="beq", c_test="beq", c_float="beq")
 ARITH_RK = dict(c="k", b="bne", b_float="bne", c_test="beq", c_float="bne")
 ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(ARITH_RR, binop="add", alu="HAdd.hAdd", b_float="bne")),
          "OP_ADDK": ("ADDK", "Addk", "arith", dict(ARITH_RK, binop="add", alu="HAdd.hAdd")),
+         "OP_BAND": ("BAND", "Band", "arith", dict(ARITH_BIT, binop="band", alu="HAnd.hAnd")),
+         "OP_BOR": ("BOR", "Bor", "arith", dict(ARITH_BIT, binop="bor", alu="HOr.hOr")),
+         "OP_BXOR": ("BXOR", "Bxor", "arith", dict(ARITH_BIT, binop="bxor", alu="HXor.hXor")),
          "OP_SUBK": ("SUBK", "Subk", "arith", dict(ARITH_RK, binop="sub", alu="HSub.hSub")),
          "OP_SUB": ("SUB", "Sub", "arith", dict(ARITH_RR, binop="sub", alu="HSub.hSub", b_float="beq")),
          "OP_ADDI": ("ADDI", "Addi", "arith", dict(c="imm", b="bne", b_float="bne", binop="add",
