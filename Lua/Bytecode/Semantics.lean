@@ -137,6 +137,14 @@ def BinOp.int : BinOp → BitVec 64 → BitVec 64 → Option (BitVec 64)
   | .shl, x, y => some (shiftl x y)
   | .shr, x, y => some (shiftr x y)
 
+/-- `l_strcmp(a, b) < 0` in the "C" locale: byte-lexicographic order on
+unsigned bytes, a proper prefix first. -/
+def lexLt : List UInt8 → List UInt8 → Bool
+  | [], [] => false
+  | [], _ :: _ => true
+  | _ :: _, [] => false
+  | a :: as, b :: bs => a < b || (a == b && lexLt as bs)
+
 /-- The primitive operations on values. -/
 inductive Prim where
   /-- `op_arith`/`op_bitwise`'s integer fast path -/
@@ -157,6 +165,8 @@ def δ : Prim → List Value → Option Value
   | .lt, [.int x, .int y] => some (.bool (decide (x.toInt < y.toInt)))
   | .le, [.int x, .int y] => some (.bool (decide (x.toInt ≤ y.toInt)))
   | .len, [.str s] => some (.int (BitVec.ofNat 64 s.length))
+  | .lt, [.str a, .str b] => some (.bool (lexLt a b))
+  | .le, [.str a, .str b] => some (.bool (!lexLt b a))
   | _, _ => none
 
 /-! ## States -/
