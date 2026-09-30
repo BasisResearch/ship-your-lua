@@ -3,6 +3,7 @@ import Lua.Programs.While
 import Lua.Programs.PrintPrint
 import Lua.Programs.F1Ops
 import Lua.Programs.F1bBits
+import Lua.Programs.F4Strlite
 
 /-! Kernel-checked `Supported` for the validation programs, and a negative
 example that reads a register before writing it. -/
@@ -18,6 +19,9 @@ theorem f1Ops_supported : Supported f1OpsProto := by decide +kernel
 theorem f1b_supported : Supported f1bProto := by decide +kernel
 
 theorem printPrint_supported : Supported printPrintProto := by decide +kernel
+
+/-- The held-out strings program (abstractions/pilot/SUITE.md). -/
+theorem f4Strlite_supported : Supported f4StrliteProto := by decide +kernel
 
 /-- `MOVE 0 1` reads register 1, which nothing wrote: rejected by the definite-initialisation check. -/
 def readsStale : Proto :=

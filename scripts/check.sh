@@ -45,6 +45,7 @@ c/tests/print_print.luac printPrintProto Lua/Programs/PrintPrint.lean
 c/tests/f1_ops.luac f1OpsProto Lua/Programs/F1Ops.lean
 c/tests/f1b_bits.luac f1bProto Lua/Programs/F1bBits.lean
 c/tests/f1_src.luac f1SrcProto Lua/Programs/F1Src.lean
+c/tests/f4_strlite.luac f4StrliteProto Lua/Programs/F4Strlite.lean
 LIST
 # source ASTs (Layer B translation validation) <- the .lua files, parsed by
 # gen_ast.py (all of Lua 5.4); the committed .luac chunks <- the host luac on
@@ -60,7 +61,7 @@ c/tests/f1_src.lua f1SrcAst Lua/Programs/F1SrcAst.lean
 c/tests/while.lua whileAst Lua/Programs/WhileAst.lean
 c/tests/f1b_bits.lua f1bAst Lua/Programs/F1bBitsAst.lean
 LIST
-for f in f1_ops f1_src while f1b_bits; do
+for f in f1_ops f1_src while f1b_bits f4_strlite; do
   ./c/luac -s -o - "c/tests/$f.lua" | cmp -s - "c/tests/$f.luac" || fail "c/tests/$f.luac is not luac -s of $f.lua"
 done
 
@@ -159,6 +160,8 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Code.textLoaded_LuaB_printLoaded
 #print axioms Lua.Programs.f1b_bcSem
 #print axioms Lua.Programs.f1b_supported
+#print axioms Lua.Programs.f4Strlite_bcSem
+#print axioms Lua.Programs.f4Strlite_supported
 #print axioms Lua.Bytecode.step?_complete
 #print axioms Lua.Bytecode.Step.deterministic
 #print axioms Lua.Bytecode.BcSem.deterministic
@@ -167,8 +170,10 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Bytecode.bcSemFrom_iff
 #print axioms Lua.Bytecode.cbcSem_iff
 #print axioms Lua.Bytecode.reachable_defInit
-#print axioms Lua.Bytecode.condJump_ne_none
-#print axioms Lua.Bytecode.condJump_lt
+#print axioms Lua.Bytecode.kstep_iff
+#print axioms Lua.Bytecode.footprint
+#print axioms Lua.Bytecode.certain_answers
+#print axioms Lua.Bytecode.DefInit.cert
 #print axioms Lua.Ast.luaRun_sound
 #print axioms Lua.Ast.LuaSem.deterministic
 #print axioms Lua.Bytecode.Final.not_step
@@ -220,7 +225,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 77 ] || fail "expected 77 axiom reports, got $n"
+[ "$n" = 81 ] || fail "expected 81 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"
