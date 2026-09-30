@@ -362,10 +362,18 @@ def seg_module(name):
 # a chain of generated segments picked by branch polarity, under the case
 # split of its kernel combinator; one close per exit.
 
-# op -> (Lean opcode name, file name, kind, BinOp of `arith`)
-ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", "add"),
-         "OP_EQI": ("EQI", "Eqi", "condjump", None),
-         "OP_FORLOOP": ("FORLOOP", "Forloop", "forloop", None)}
+# op -> (Lean opcode name, file name, kind, per-arm layout data). An `arith`
+# arm's data: its `BinOp`, the machine ALU operation (a Lean function on
+# `BitVec 64`, the value the int+int path stores), and how the compiler laid
+# out the float test of `R[B]` on the not-integer path (`bne` taken to the
+# exit, or `beq` not taken into the shared default tail).
+ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(binop="add", alu="HAdd.hAdd", bfloat="bne")),
+         "OP_SUB": ("SUB", "Sub", "arith", dict(binop="sub", alu="HSub.hSub", bfloat="beq")),
+         "OP_EQI": ("EQI", "Eqi", "condjump", {}),
+         "OP_FORLOOP": ("FORLOOP", "Forloop", "forloop", {})}
+
+# The float test's polarity and guard proof per layout (`R[B]`'s slot).
+BFLOAT = {"bne": ("t", "guard_not_float"), "beq": ("n", "guard_not_float_f")}
 
 _VAR = re.compile(r"\bv(\d+)\b")
 
@@ -557,9 +565,9 @@ def gtag(lemma, j, h):
     return f"(by refine {lemma} (n := w.slot {j}) ?_ {h} (by decide); slot_arith)"
 
 
-def paths2(kind):
+def paths2(kind, cfg):
     """kind -> the case split (`{name}` marks a path) and, per path, its
-    branch polarities, guard proofs and close."""
+    branch polarities, guard proofs and close (`cfg`: the arm's layout data)."""
     if kind == "arith":
         split = """  by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hvb.int_of_tag hB
@@ -585,11 +593,11 @@ def paths2(kind):
         def write(post, k):
             return (f"""  have hst := slotStore_sb_sd (A := w.slot ins.a) hW (by slot_arith) (by slot_arith)
 {x27_to(post, k, "(s.pc + 2)")}  have hcore := hc1.write hq{k} (a := ins.a) (pc' := s.pc + 2)
-    (v := .int (slotVal c1.σ.mem (w.slot ins.b) + slotVal c1.σ.mem (w.slot ins.c)))
+    (v := .int ({cfg["alu"]} (slotVal c1.σ.mem (w.slot ins.b)) (slotVal c1.σ.mem (w.slot ins.c))))
     (by simp only [Word.a, Word.field]; omega)
     ⟨{pins2(post, k, {"x27": "hx27"})}⟩
     hst (by
-      rw [stData_int, add_val (n1 := w.slot ins.b) (n2 := w.slot ins.c) ?_ ?_]
+      rw [stData_int, alu_val {cfg["alu"]} (n1 := w.slot ins.b) (n2 := w.slot ins.c) ?_ ?_]
       · exact .int
       all_goals slot_arith)
 """ + done2(k))
@@ -598,8 +606,8 @@ def paths2(kind):
             "cni": ("tnt", [gB, gtag("guard_tag_ne", "ins.c", "hC"),
                             "(by refine guard_not_float (n := w.slot ins.c) ?_ hvc; slot_arith)"],
                     lambda post, k: close_skip(post, k, "(s.pc + 1)")),
-            "bni": ("nt", [gtag("guard_tag_ne", "ins.b", "hB"),
-                           "(by refine guard_not_float (n := w.slot ins.b) ?_ hvb; slot_arith)"],
+            "bni": ("n" + BFLOAT[cfg["bfloat"]][0], [gtag("guard_tag_ne", "ins.b", "hB"),
+                           f"(by refine {BFLOAT[cfg['bfloat']][1]} (n := w.slot ins.b) ?_ hvb; slot_arith)"],
                     lambda post, k: close_skip(post, k, "(s.pc + 1)")),
         }
     if kind == "condjump":
@@ -684,9 +692,9 @@ def indent(text, n):
 
 
 def render_arm2(op, specs, arms):
-    lean_op, fname, kind, binop = ARMS2[op]
+    lean_op, fname, kind, cfg = ARMS2[op]
     idx, tgt = targets()[op]
-    split, paths = paths2(kind)
+    split, paths = paths2(kind, cfg)
     mods, body = set(), {}
     for pname, (pols, guards, close) in paths.items():
         segs = walk(op, specs, arms, pols)
@@ -706,7 +714,7 @@ theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : S
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
-{PRE2[kind].replace("{binop}", binop or "")}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
+{PRE2[kind].replace("{binop}", cfg.get("binop", ""))}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
   obtain ⟨c1, hs1, hlt1, hA⟩ := dispatch hR hf (by rw [hnum]; decide)
   have hc1 := hA.core
   have hr := hc1.ranges

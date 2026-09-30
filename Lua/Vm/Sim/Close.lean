@@ -96,6 +96,12 @@ theorem guard_not_float {mo : Mem} {x : BitVec 64} {v : Value} (ha : a = n + 8)
     (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) != ((0#64) + sign_extend (m := 64) (0x013#12))) = true := by
   rw [const_19]; exact guard_tag_bne_t ha h.ne_float (by decide)
 
+/-- The float test laid out as `li 19; beq` (not taken on an F1 value). -/
+theorem guard_not_float_f {mo : Mem} {x : BitVec 64} {v : Value} (ha : a = n + 8)
+    (h : ValRepr mo (slotTag m n) x v) :
+    (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) == ((0#64) + sign_extend (m := 64) (0x013#12))) = false := by
+  rw [const_19]; exact guard_tag_ne ha h.ne_float (by decide)
+
 end
 
 /-! ## Field terms -/
@@ -358,10 +364,12 @@ theorem guard_zero_f {m : Mem} {a n : Nat} {v : BitVec 64} (ha : a = n) (h : slo
 
 theorem stData_int : stData 1 (BitVec.ofNat 64 vNumInt) = BitVec.ofNat 8 vNumInt := by decide
 
-/-- `ADD`'s payload (`ld`, `ld`, `add`, `sd`). -/
-theorem add_val {m : Mem} {a1 a2 n1 n2 : Nat} (h1 : a1 = n1) (h2 : a2 = n2) :
-    sdData_val ((sign_extend (m := 64) (bytesT8 m a1 : BitVec (8 * 8)))
-      + (sign_extend (m := 64) (bytesT8 m a2 : BitVec (8 * 8)))) = slotVal m n1 + slotVal m n2 := by
+/-- A binary ALU arm's payload (`ld`, `ld`, the operation `f`, `sd`); `f` is
+given explicitly (`HAdd.hAdd`, `HSub.hSub`, …), so the rewrite is first order. -/
+theorem alu_val (f : BitVec 64 → BitVec 64 → BitVec 64) {m : Mem} {a1 a2 n1 n2 : Nat}
+    (h1 : a1 = n1) (h2 : a2 = n2) :
+    sdData_val (f (sign_extend (m := 64) (bytesT8 m a1 : BitVec (8 * 8)))
+      (sign_extend (m := 64) (bytesT8 m a2 : BitVec (8 * 8)))) = f (slotVal m n1) (slotVal m n2) := by
   rw [bytesT8_at h1, bytesT8_at h2, sext64_id, sext64_id, sdData_id]
 
 /-- `FORLOOP`'s count − 1 (`ld`, `addi -1`, `sd`). -/
