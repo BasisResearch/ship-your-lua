@@ -125,6 +125,70 @@ theorem _root_.Lua.Vm.ProtoRepr.code {m : Mem} {pa ca : Nat} {p : Proto} (h : Pr
     subst hc
     exact ⟨hsz, hw⟩
 
+theorem bytesT1_of_rd8 {m : Mem} {a t : Nat} (h : rd8 m a = some t) :
+    bytesT1 m a = BitVec.ofNat 8 t := by
+  simp only [rd8, rdLE, List.range_one, List.foldr_cons, List.foldr_nil, Nat.add_zero,
+    Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def, Option.some.injEq,
+    Option.bind_some] at h
+  obtain ⟨b, hb, rfl⟩ := h
+  simp [bytesT1, hb]
+
+theorem slotTag_of_tagAt {m : Mem} {a t : Nat} (h : tagAt m a = some t) :
+    slotTag m a = BitVec.ofNat 8 t := bytesT1_of_rd8 h
+
+theorem slotVal_of_rd64 {m : Mem} {a x : Nat} (h : rd64 m (a + tvalueValOff) = some x) :
+    slotVal m a = BitVec.ofNat 64 x := bytesT8_of_rd64 h
+
+/-- A represented `TValue`, as the arms read it. -/
+theorem _root_.Lua.Vm.TValueRepr.valRepr {m : Mem} {a : Nat} {v : Value} (h : TValueRepr m a v) :
+    ValRepr m (slotTag m a) (slotVal m a) v := by
+  cases h with
+  | nil ht h0 =>
+    refine .nil ?_
+    rw [slotTag_of_tagAt ht]
+    have := (rdLE_spec 1 m _ _ ht).1
+    simp only [BitVec.toNat_ofNat]; omega
+  | false_ ht => rw [slotTag_of_tagAt ht]; exact .false_
+  | true_ ht => rw [slotTag_of_tagAt ht]; exact .true_
+  | int ht hv => rw [slotTag_of_tagAt ht, slotVal_of_rd64 hv, BitVec.ofNat_toNat, BitVec.setWidth_eq]; exact .int
+  | str ht hs hv hts =>
+    rw [slotTag_of_tagAt ht, slotVal_of_rd64 hv]
+    have hlt := rd64_lt hv
+    have ht8 := (rdLE_spec 1 m _ _ ht).1
+    refine .str ?_ ?_
+    · simp only [BitVec.toNat_ofNat]; rw [Nat.mod_eq_of_lt (by simpa using ht8)]; exact hs
+    · rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt]; exact hts
+  | print ht hv => rw [slotTag_of_tagAt ht, slotVal_of_rd64 hv]; exact .print rfl
+
+/-- A represented constant, as the `K` arms read it. -/
+theorem _root_.Lua.Vm.ConstRepr.valRepr {m : Mem} {a : Nat} {c : Const} {v : Value} (h : ConstRepr m a c)
+    (hv : c.toValue? = some v) : ValRepr m (slotTag m a) (slotVal m a) v := by
+  cases h with
+  | nil ht =>
+    simp only [Const.toValue?, Option.some.injEq] at hv; subst hv
+    refine .nil ?_
+    rw [slotTag_of_tagAt ht]; decide
+  | bool h => simp only [Const.toValue?, Option.some.injEq] at hv; subst hv; exact h.valRepr
+  | int h => simp only [Const.toValue?, Option.some.injEq] at hv; subst hv; exact h.valRepr
+  | float => simp [Const.toValue?] at hv
+  | str h => simp only [Const.toValue?, Option.some.injEq] at hv; subst hv; exact h.valRepr
+
+/-- The constant array of a represented `Proto`. -/
+theorem _root_.Lua.Vm.ProtoRepr.kArr {m : Mem} {pa ka : Nat} {p : Proto} (h : ProtoRepr m pa p)
+    (hk : rd64 m (pa + protoKOff) = some ka) :
+    rd32 m (pa + protoSizekOff) = some p.k.length ∧
+      ∀ i v, kval p i = some v → ValRepr m (slotTag m (ka + stackValueSize * i))
+        (slotVal m (ka + stackValueSize * i)) v := by
+  match h with
+  | .mk _ _ _ _ _ _ _ hsk hka hks _ _ _ _ _ _ _ _ =>
+    rw [hka, Option.some.injEq] at hk
+    subst hk
+    refine ⟨hsk, fun i v hv => ?_⟩
+    simp only [kval, Proto.const, Option.bind_eq_some_iff] at hv
+    obtain ⟨c, hc, hcv⟩ := hv
+    obtain ⟨hi, rfl⟩ := List.getElem?_eq_some_iff.1 hc
+    exact (hks i hi).valRepr hcv
+
 set_option linter.unusedSimpArgs false in
 /-- **The entry lemma (A1).** The prologue runs from the entry to the fetch
 head, in the relation with the initial state. -/
@@ -194,6 +258,15 @@ theorem vmRel_entry : vmRel_entry_Statement := by
   have ecode : e.code = rt.code := by
     have h := hE.proto_code; rw [epa, hrg.code] at h; exact (Option.some.inj h).symm
   obtain ⟨hsz, hwords⟩ := hE.proto.code hE.proto_code
+  obtain ⟨hszk, hkc⟩ := hE.proto.kArr (ka := rt.k) (by rw [epa]; exact hrg.kArr)
+  have esizek : rt.sizek = p.k.length := by
+    have h := hrg.sizek; rw [← epa, hszk] at h; exact (Option.some.inj h).symm
+  have hklo := hrg.k_lo
+  have hkhi := hrg.k_hi
+  have hkal := hrg.k_al
+  have hksep := hrg.k_sep
+  simp only [symEnd, symHeapEnd, tvalueSize, esizek] at hklo hkhi hksep
+  rw [← esl] at hksep
   have esz : rt.sizecode = p.code.length := by
     have h := hrg.sizecode; rw [← epa, hsz] at h; exact (Option.some.inj h).symm
   rw [← efunc] at hsle hfal
@@ -217,6 +290,10 @@ theorem vmRel_entry : vmRel_entry_Statement := by
       (e.cl + 24) = BitVec.ofNat 64 e.pa := fun d => by
     rw [(hA1.writeMap8 d (by omega) (by omega)).bytesT8 (by omega),
       ← bytesT8_of_rd64 hE.cl_proto, lclosureProtoOff]
+  have hRk : ∀ d, bytesT8 (Vsa.Sim.writeMap8 c1.σ.mem (RuntimeData.spEntry - execFrame + 8) d)
+      (e.pa + 56) = BitVec.ofNat 64 rt.k := fun d => by
+    rw [(hA1.writeMap8 d (by omega) (by omega)).bytesT8 (by omega), epa,
+      ← bytesT8_of_rd64 hrg.kArr, protoKOff]
   -- `startfunc`: the loads, s1 = 81, s2 = 3, the `trap` check, `base`
   have hp1 := hq1.pins
   have hx24 : c1.σ.regs.get? Register.x24 = some (BitVec.ofNat 64 Arms.jtBase) := by
@@ -278,22 +355,28 @@ theorem vmRel_entry : vmRel_entry_Statement := by
   have hA2 : AgreeOut c2.σ.mem c.σ.mem (RuntimeData.spEntry - execFrame) RuntimeData.spEntry := by
     rw [hq2.armMem]
     exact (hA1.writeMap8 _ (by decide) (by decide)).writeMap8 _ (by decide) (by decide)
+  -- `0(sp)` holds `k`
+  have hkp : bytesT8 c2.σ.mem (RuntimeData.spEntry - execFrame) = BitVec.ofNat 64 rt.k := by
+    rw [hq2.armMem]
+    simp (disch := omega) only [add_imm, BitVec.toNat_ofNat, Nat.add_zero, sext64,
+      Nat.mod_eq_of_lt, hRci, hRfunc, hRcl, hRk, bytesT8_writeMap8, sdData_id]
   simp only [stackValueSize] at hfits
-  refine ⟨c2, hs1.trans hs2, ⟨L, ci, e.func, e.pa, e.code, RuntimeData.spEntry - execFrame,
+  refine ⟨c2, hs1.trans hs2, ⟨L, ci, e.func, e.pa, e.code, rt.k, RuntimeData.spEntry - execFrame,
     c.σ.mem⟩, ⟨hq2.good, hq2.minstret, hq2.tick,
     ⟨pinsHold_get hp2 10 (by simp), pinsHold_get hp2 11 (by simp), pinsHold_get hp2 9 (by simp),
       hx9, hx18, hx21, pinsHold_get hp2 8 (by simp), pinsHold_get hp2 12 (by simp), hx25, hx27⟩,
     (output_congr (hq2.armOut.trans hq1.armOut)).trans hRt.harness.console, hq2.armOk, hq2.armText,
-    fun a ha => congrArg (Option.getD · 0) (hA2 a ?_), fun j v _ h => ?_, ⟨hM.text, hM.rodata, hE.proto, hE.proto_code,
-      fun i ins hf => ?_, bytesT8_of_rd64 hE.ci_func, ?_, rt, efunc.symm, hlua, hRt.heap,
-      hRt.error_jmp⟩, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun a h1 h2 hw => ?_,
-      fun a h1 h2 hw => ?_⟩⟩, hq2.pcAt⟩
-  · simp only [Win, RelPtrs.base, stackValueSize] at ha; omega
+    fun a ha => congrArg (Option.getD · 0) (hA2 a ?_), hkp, fun j v _ h => ?_,
+    ⟨hM.text, hM.rodata, hE.proto, hE.proto_code, fun i ins hf => ?_, bytesT8_of_rd64 hE.ci_func,
+      ?_, ⟨rt, efunc.symm, hlua, hRt.heap, hRt.error_jmp⟩, hkc⟩,
+    ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun a h1 h2 hw => ?_, fun a h1 h2 hw => ?_, ?_, ?_, ?_,
+      fun a h1 h2 hw => ?_, ?_⟩⟩, hq2.pcAt⟩
+  · simp only [Win, Slots, RelPtrs.base, stackValueSize] at ha; omega
   · simp [State.init] at h
   · obtain ⟨hlt, hi⟩ := List.getElem?_eq_some_iff.1 hf
     rw [bytesT4_of_rd32 (hwords i hlt), hi, BitVec.ofNat_toNat, BitVec.setWidth_eq]
   · rw [bytesT4_of_rd32 hlua.trap]; rfl
-  all_goals simp only [Win, RelPtrs.base, stackValueSize, ciSize, hTH] at *
+  all_goals simp only [Win, Slots, RelPtrs.base, stackValueSize, ciSize, hTH] at *
   all_goals omega
 
 end Lua.Vm.Sim

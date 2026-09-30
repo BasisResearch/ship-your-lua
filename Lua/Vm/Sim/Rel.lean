@@ -84,9 +84,10 @@ structure RelPtrs where
   ci : Nat
   /-- `ci->func` as the complement holds it; `base = func + 16` -/
   func : Nat
-  /-- the `Proto` and its `code` array -/
+  /-- the `Proto`, its `code` array and its constant array `k` -/
   pa : Nat
   code : Nat
+  k : Nat
   /-- `sp` inside `luaV_execute` -/
   sp : Nat
   /-- the memory outside the window -/
@@ -102,10 +103,14 @@ def slot (w : RelPtrs) (j : Nat) : Nat := w.base + stackValueSize * j
 
 end RelPtrs
 
-/-- **The window**: the register slots `[base, base + 16·maxstacksize)` and
-`luaV_execute`'s C frame `[sp, sp + 176)`. -/
+/-- The register slots `[base, base + 16·maxstacksize)`. -/
+def Slots (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
+  w.base ≤ a ∧ a < w.base + stackValueSize * p.maxstacksize
+
+/-- **The window**: the register slots and `luaV_execute`'s C frame
+`[sp, sp + 176)`. -/
 def Win (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
-  (w.base ≤ a ∧ a < w.base + stackValueSize * p.maxstacksize) ∨ (w.sp ≤ a ∧ a < w.sp + execFrame)
+  Slots p w a ∨ (w.sp ≤ a ∧ a < w.sp + execFrame)
 
 /-- The parts of `luaRuntimeReady` that live in memory and that the F1 arms
 keep: the Lua state (with `ci->func = func`), the heap and the error
@@ -131,6 +136,9 @@ structure Complement (p : Proto) (w : RelPtrs) : Prop where
   /-- `ci->u.l.trap = 0` (no hooks), as `updatetrap` reads it -/
   trap_word : bytesT4 w.mo (w.ci + ciTrapOff) = 0
   runtime : ∃ rt, RuntimeMem w.mo w.L w.ci w.func rt
+  /-- the constants (`kval`), as the `K` arms read `k[i]` -/
+  kconst : ∀ i v, kval p i = some v →
+    ValRepr w.mo (slotTag w.mo (w.k + stackValueSize * i)) (slotVal w.mo (w.k + stackValueSize * i)) v
 
 /-- **Where things are**: the address ranges the arms' side conditions need,
 and the window's separation from the code array and the `CallInfo`. -/
@@ -145,6 +153,12 @@ structure Ranges (p : Proto) (w : RelPtrs) : Prop where
   ci_hi : w.ci + ciSize ≤ 0x100000000
   code_out : ∀ a, w.code ≤ a → a < w.code + 4 * p.code.length → ¬ Win p w a
   ci_out : ∀ a, w.ci ≤ a → a < w.ci + ciSize → ¬ Win p w a
+  k_lo : tohostAddr + 16 ≤ w.k
+  k_hi : w.k + stackValueSize * p.k.length ≤ 0x100000000
+  k_al : w.k % 8 = 0
+  k_out : ∀ a, w.k ≤ a → a < w.k + stackValueSize * p.k.length → ¬ Win p w a
+  /-- the register slots lie below the C frame -/
+  frame_sep : w.base + stackValueSize * p.maxstacksize ≤ w.sp
 
 /-- **The fetch-head registers** for pointers `w` and bytecode pc `pc`. -/
 structure Pins (σ : MState) (w : RelPtrs) (pc : Nat) : Prop where
@@ -174,6 +188,8 @@ structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
   /-- outside the window, every TOTAL read (`bytesT1`, the model's `getD 0`) is the
   complement's: presence is not demanded, the densification gives it -/
   frame : ∀ a, ¬ Win p w a → bytesT1 c.σ.mem a = bytesT1 w.mo a
+  /-- `0(sp)` holds `k` (the prologue's `sd`; the `K` arms' `ld a4,0(sp)`) -/
+  kptr : bytesT8 c.σ.mem w.sp = BitVec.ofNat 64 w.k
   stack : ∀ j v, j < p.maxstacksize → s.regs j = some v →
     ValRepr w.mo (slotTag c.σ.mem (w.slot j)) (slotVal c.σ.mem (w.slot j)) v
   comp : Complement p w
@@ -226,8 +242,10 @@ variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
 theorem Win.above (hr : Ranges p w) {a : Nat} (h : Win p w a) : tohostAddr + 16 ≤ a := by
   have := hr.sp_eq
   have := hr.base_lo
-  simp only [Win, execFrame, RuntimeData.spEntry, tohostAddr] at *
+  simp only [Win, Slots, execFrame, RuntimeData.spEntry, tohostAddr] at *
   omega
+
+theorem Win.of_slots {a : Nat} (h : ¬ Win p w a) : ¬ Slots p w a := fun hs => h (.inl hs)
 
 /-- The machine's `.rodata`, read totally, is the image's. -/
 theorem Core.rodata (hc : Core p c s w) : RodataRead c.σ.mem := fun o ho => by
@@ -250,16 +268,22 @@ theorem Core.trap (hc : Core p c s w) : bytesT4 c.σ.mem (w.ci + ciTrapOff) = 0 
 
 /-! ## Re-establishing the relation after an arm -/
 
-/-- `.text` survives any memory change that is exact outside the window. -/
-theorem Core.text_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Win p w x → m[x]? = c.σ.mem[x]?) :
+/-- `.text` survives any memory change that is exact outside the register slots. -/
+theorem Core.text_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Slots p w x → m[x]? = c.σ.mem[x]?) :
     Arms.TextLoaded m :=
   Vsa.Sim.Code.FixedBytesLoaded.transport hc.text fun a _ h2 => h a fun hw => by
-    have := Win.above hc.ranges hw; have := Arms.text_below_tohost; omega
+    have := Win.above hc.ranges (.inl hw); have := Arms.text_below_tohost; omega
 
-/-- The frame survives any memory change that is exact outside the window. -/
-theorem Core.frame_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Win p w x → m[x]? = c.σ.mem[x]?) :
+/-- The frame survives any memory change that is exact outside the register slots. -/
+theorem Core.frame_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Slots p w x → m[x]? = c.σ.mem[x]?) :
     ∀ x, ¬ Win p w x → bytesT1 m x = bytesT1 w.mo x := fun x hx => by
-  simp only [bytesT1, h x hx]; exact hc.frame x hx
+  simp only [bytesT1, h x (Win.of_slots hx)]; exact hc.frame x hx
+
+/-- `0(sp)` survives any memory change that is exact outside the register slots. -/
+theorem Core.kptr_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Slots p w x → m[x]? = c.σ.mem[x]?) :
+    bytesT8 m w.sp = BitVec.ofNat 64 w.k :=
+  (bytesT8_congr fun i _ => h _ fun hs => by
+    have := hc.ranges.frame_sep; simp only [Slots] at hs; omega).trans hc.kptr
 
 theorem output_congr {σ σ' : MState} (h : σ'.sailOutput = σ.sailOutput) :
     Vsa.Machine.output σ' = Vsa.Machine.output σ := by
@@ -273,13 +297,14 @@ theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List
     (hst : SlotStore c.σ.mem c'.σ.mem (w.slot a) tag val)
     (hv : ValRepr w.mo tag val v) :
     Core p c' ⟨pc', fun j => if j = a then some v else s.regs j, s.out⟩ w := by
-  have hwin : ∀ x, ¬ (x < w.slot a ∨ w.slot a + 9 ≤ x) → Win p w x := fun x hx => by
-    simp only [RelPtrs.slot, Win, stackValueSize] at hx ⊢
-    left; constructor <;> omega
-  have hfr : ∀ x, ¬ Win p w x → c'.σ.mem[x]? = c.σ.mem[x]? := fun x hx =>
+  have hwin : ∀ x, ¬ (x < w.slot a ∨ w.slot a + 9 ≤ x) → Slots p w x := fun x hx => by
+    simp only [RelPtrs.slot, Slots, stackValueSize] at hx ⊢
+    constructor <;> omega
+  have hfr : ∀ x, ¬ Slots p w x → c'.σ.mem[x]? = c.σ.mem[x]? := fun x hx =>
     hst.frame x (Classical.byContradiction fun h => hx (hwin x h))
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hc.text_of hfr, hc.frame_of hfr, fun j v' hj hv' => ?_, hc.comp, hc.ranges⟩
+    hseg.armOk, hc.text_of hfr, hc.frame_of hfr, hc.kptr_of hfr, fun j v' hj hv' => ?_, hc.comp,
+    hc.ranges⟩
   · simp only at hv'
     by_cases hja : j = a
     · subst hja
@@ -303,7 +328,8 @@ theorem Core.jump (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List 
     (hpins : Pins c'.σ w pc') (hmem : c'.σ.mem = c.σ.mem) :
     Core p c' ⟨pc', s.regs, s.out⟩ w := by
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hmem ▸ hc.text, hmem ▸ hc.frame, fun j v hj hv => ?_, hc.comp, hc.ranges⟩
+    hseg.armOk, hmem ▸ hc.text, hmem ▸ hc.frame, hmem ▸ hc.kptr, fun j v hj hv => ?_, hc.comp,
+    hc.ranges⟩
   rw [hmem]
   exact hc.stack j v hj hv
 

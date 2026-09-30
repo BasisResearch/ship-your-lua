@@ -206,12 +206,13 @@ is unchanged and every defined register of the new file is represented. -/
 theorem Core.update (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List Pin}
     {m : Mem} (hseg : SegSt pcv L (ArmPay m c.σ.sailOutput) c') {pc' : Nat}
     {regs' : Nat → Option Value} (hpins : Pins c'.σ w pc')
-    (hframe : ∀ x, ¬ Win p w x → c'.σ.mem[x]? = c.σ.mem[x]?)
+    (hframe : ∀ x, ¬ Slots p w x → c'.σ.mem[x]? = c.σ.mem[x]?)
     (hstack : ∀ j v, j < p.maxstacksize → regs' j = some v →
       ValRepr w.mo (slotTag c'.σ.mem (w.slot j)) (slotVal c'.σ.mem (w.slot j)) v) :
     Core p c' ⟨pc', regs', s.out⟩ w :=
   ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hc.text_of hframe, hc.frame_of hframe, hstack, hc.comp, hc.ranges⟩
+    hseg.armOk, hc.text_of hframe, hc.frame_of hframe, hc.kptr_of hframe, hstack, hc.comp,
+    hc.ranges⟩
 
 end
 
@@ -421,13 +422,13 @@ variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
 
 theorem ForStore.frame_mo (hc : Core p c s w) {m' : Mem} {a : Nat} {d1 d2 : BitVec 64}
     {b : BitVec 8} (ha : a + 3 < p.maxstacksize)
-    (hfs : ForStore c.σ.mem m' (w.slot a) d1 d2 b) : ∀ x, ¬ Win p w x → m'[x]? = c.σ.mem[x]? := by
+    (hfs : ForStore c.σ.mem m' (w.slot a) d1 d2 b) : ∀ x, ¬ Slots p w x → m'[x]? = c.σ.mem[x]? := by
   intro x hx
   refine hfs.frame x ?_ ?_ ?_
   all_goals
     refine Classical.byContradiction fun h => hx ?_
-    simp only [Win, RelPtrs.slot, stackValueSize] at h ⊢
-    left; omega
+    simp only [Slots, RelPtrs.slot, stackValueSize] at h ⊢
+    omega
 
 /-- **`OP_FORLOOP`'s jump back**: count−1 to `R[A+1]`, the index to `R[A]`
 and `R[A+3]` (payload stores keep the integer tags of `R[A]`, `R[A+1]`). -/

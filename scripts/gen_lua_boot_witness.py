@@ -340,6 +340,12 @@ def evaluate(lay, M, regs, proto):
     code_end = w["code"] + 4 * w["sizecode"]
     need(lo <= w["code"] and code_end <= hi, "the code array in the heap")
     need(code_end <= w["stack"] or w["stackLast"] <= w["code"], "the code array apart from the Lua stack")
+    w["k"] = rd(w["proto"] + lay["protoKOff"], 8)
+    w["sizek"] = rd(w["proto"] + lay["protoSizekOff"], 4)
+    k_end = w["k"] + lay["tvalueSize"] * w["sizek"]
+    need(lo <= w["k"] and k_end <= hi, "the constant array in the heap")
+    need(w["k"] % 8 == 0, "k_al")
+    need(k_end <= w["stack"] or w["stackLast"] <= w["k"], "the constant array apart from the Lua stack")
     return e, w, slot, inv
 
 
@@ -695,6 +701,8 @@ def render_program(lay, name, lean, proto_const, module, chunk, log, entry, e, w
             f"  bins := {'[' + ', '.join(lean_list(qs) for qs in w['bins']) + ']'}",
             ] + [f"  {k} := {w[k]:#x}" for k in ("cl", "proto", "code")] + [
             f"  sizecode := {w['sizecode']}",
+            f"  k := {w['k']:#x}",
+            f"  sizek := {w['sizek']}",
             "",
             f"/-- The program at the entry: `{proto_const}` (`scripts/gen_proto.py` on the same chunk). -/",
             f"abbrev proto : Lua.Bytecode.Proto := {proto_const}",

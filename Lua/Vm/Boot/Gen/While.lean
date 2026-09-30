@@ -1790,6 +1790,8 @@ def w : RtPtrs where
   proto := 0x80072d00
   code := 0x80072d90
   sizecode := 51
+  k := 0x80072e70
+  sizek := 2
 
 /-- The program at the entry: `Lua.Programs.whileProto` (`scripts/gen_proto.py` on the same chunk). -/
 abbrev proto : Lua.Bytecode.Proto := Lua.Programs.whileProto

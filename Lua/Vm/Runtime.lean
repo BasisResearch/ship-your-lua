@@ -159,11 +159,14 @@ structure RtPtrs where
   chunks : List DlHeap.Chunk
   bins : List (List Nat)
   /-- The main closure (`ci->func`'s value), its `Proto`, and the proto's
-  `code` array and `sizecode` (`VmRegionsAt`). -/
+  `code` array and `sizecode`, its constant array `k` and `sizek`
+  (`VmRegionsAt`). -/
   cl : Nat
   proto : Nat
   code : Nat
   sizecode : Nat
+  k : Nat
+  sizek : Nat
 
 /-- `g->strt` (lstring.c), read by `luaS_newlstr` → `internshrstr` for every
 new short string: `print`'s `luaL_tolstring` → `lua_pushfstring` →
@@ -272,6 +275,13 @@ structure VmRegionsAt (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
   code_lo : symEnd ≤ w.code
   code_hi : w.code + 4 * w.sizecode ≤ symHeapEnd
   code_sep : w.code + 4 * w.sizecode ≤ w.stack ∨ w.stackLast ≤ w.code
+  /-- the constant array (`k`, read by the `K` arms through `0(sp)`) -/
+  kArr : rd64 m (w.proto + protoKOff) = some w.k
+  sizek : rd32 m (w.proto + protoSizekOff) = some w.sizek
+  k_lo : symEnd ≤ w.k
+  k_hi : w.k + tvalueSize * w.sizek ≤ symHeapEnd
+  k_al : w.k % 8 = 0
+  k_sep : w.k + tvalueSize * w.sizek ≤ w.stack ∨ w.stackLast ≤ w.k
 
 /-- **The platform loop and the console.** Every segment state carries the
 tick bound (`Vsa.Sim.SegSt.tick`): the loop's counter runs below
