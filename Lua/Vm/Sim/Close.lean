@@ -222,6 +222,12 @@ theorem slotStore_sb_sd {m m' : Mem} {A a1 a2 : Nat} {d : BitVec (8 * 8)} {b : B
     SlotStore m m' A b d := by
   subst h; rw [h1, h2]; exact store_sb_sd m A d b
 
+/-- `sd` then `sb` at raw addresses equal to the slot's payload and tag. -/
+theorem slotStore_sd_sb {m m' : Mem} {A a1 a2 : Nat} {d : BitVec (8 * 8)} {b : BitVec 8}
+    (h : m' = (writeMap8 m a2 d).insert a1 b) (h1 : a1 = A + 8) (h2 : a2 = A) :
+    SlotStore m m' A b d := by
+  subst h; rw [h1, h2]; exact store_sd_sb m A d b
+
 /-- `sb` of a tag alone (`setbtvalue`/`setbfvalue`): the payload stays. -/
 theorem slotStore_sb {m m' : Mem} {A a1 : Nat} {b : BitVec 8} (h : m' = m.insert a1 b)
     (h1 : a1 = A + 8) : SlotStore m m' A b (bytesT8 m A) := by
@@ -478,6 +484,13 @@ theorem alu_val (f : BitVec 64 → BitVec 64 → BitVec 64) {m : Mem} {a1 n1 : N
     (h1 : a1 = n1) (hy : y = y') :
     sdData_val (f (sign_extend (m := 64) (bytesT8 m a1 : BitVec (8 * 8))) y) = f (slotVal m n1) y' := by
   rw [bytesT8_at h1, sext64_id, sdData_id, hy]
+
+/-- `OP_BNOT`'s payload (`ld`, `not` = `xori -1`, `sd`). -/
+theorem not_val {m : Mem} {a n : Nat} (h : a = n) :
+    sdData_val ((sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8))) ^^^ sign_extend (m := 64) (0xfff#12))
+      = ~~~ (slotVal m n) := by
+  rw [bytesT8_at h, sext64_id, sdData_id,
+    show sign_extend (m := 64) (0xfff#12) = BitVec.allOnes 64 from by decide, BitVec.xor_allOnes]
 
 /-- `FORLOOP`'s count − 1 (`ld`, `addi -1`, `sd`). -/
 theorem dec_val {m : Mem} {a n : Nat} {v : BitVec 64} (ha : a = n) (h : slotVal m n = v) :

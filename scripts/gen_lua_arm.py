@@ -386,6 +386,7 @@ ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(ARITH_RR, binop="add", alu="HAdd
          "OP_LOADFALSE": ("LOADFALSE", "Loadfalse", "settag", (False, 1)),
          "OP_LFALSESKIP": ("LFALSESKIP", "Lfalseskip", "settag", (False, 2)),
          "OP_LOADK": ("LOADK", "Loadk", "loadk", None),
+         "OP_BNOT": ("BNOT", "Bnot", "bnot", None),
          "OP_LTI": ("LTI", "Lti", "cmpI", "lt_ai"),
          "OP_GTI": ("GTI", "Gti", "cmpI", "lt_ia"),
          "OP_LEI": ("LEI", "Lei", "cmpI", "le_ai"),
@@ -820,6 +821,52 @@ def loadk_paths(_cfg):
 
 
 
+# `OP_BNOT`: an integer `R[B]` gives `~R[B]` (`not`); anything else has no
+# step (`δ .bnot` is only defined on integers).
+BNOT_PRE = """  have hK : kernelAt p s.pc = some (setR ins.a (s.pc + 1) [.reg ins.b] (δ .bnot)) := by
+    simp [kernelAt, hf, kernel, hop, opKernel]
+  obtain ⟨vs, v, hvs, hv, rfl⟩ := step_setR hstep hK
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, setR, Kernel.regTop, Opnd.ports] at htop
+  simp only [Opnd.ports] at hvs
+  obtain ⟨vb, hb, rfl⟩ := mapM1 hvs
+  simp only [Opnd.fill] at hv
+"""
+
+UNARY_FACTS = """  have hcode := hr.code_hi
+  have hcdl := hr.code_lo
+  have hlt := fetch_lt hf
+  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a ins.b; omega
+  have hBt : ins.b < p.maxstacksize := by have := Nat.le_max_right ins.a ins.b; omega
+  have hvb := hc1.stack ins.b vb hBt hb
+  simp only [Word.a, Word.b, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt
+"""
+
+
+def bnot_paths(_cfg):
+    split = """  by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
+  · obtain rfl := hvb.int_of_tag hB
+    simp only [δ, Option.some.injEq] at hv
+    subst hv
+    {int}
+  · exfalso
+    cases vb <;> simp [δ] at hv
+    exact hvb.not_int hB _ rfl"""
+
+    def close(post, k):
+        return (f"""  have hst := slotStore_sd_sb (A := w.slot ins.a) hW (by slot_arith) (by slot_arith)
+{x27_to(post, k, "(s.pc + 1)")}  have hcore := hc1.write hq{k} (a := ins.a) (pc' := s.pc + 1)
+    (v := .int (~~~ (slotVal c1.σ.mem (w.slot ins.b)))) (by simp only [Word.a, Word.field]; omega)
+    ⟨{pins2(post, k, {"x27": "hx27"})}⟩
+    hst (by
+      rw [stData_int, not_val (n := w.slot ins.b) ?_]
+      · exact .int
+      slot_arith)
+""" + done2(k))
+    return split, {"int": ("t", [gtag("guard_tag_eq", "ins.b", "hB")], close)}
+
+
+
 def cond_jump(post, k):
     """`donextjump`: the pc to the next jump's target, `trap` reloaded."""
     return (x21_trap(post, k, "hc1.trap") + fix_pin(
@@ -895,6 +942,8 @@ def paths2(kind, cfg):
         return settag_paths(cfg)
     if kind == "loadk":
         return loadk_paths(cfg)
+    if kind == "bnot":
+        return bnot_paths(cfg)
     if kind == "condjump":
         split = """  by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hva'.int_of_tag hTa
@@ -963,7 +1012,8 @@ def indent(text, n):
 
 def pre2(kind, cfg):
     return {"arith": lambda: arith_pre(cfg), "cmpI": lambda: cmpI_pre(CMPI[cfg]),
-            "settag": lambda: settag_pre(cfg), "loadk": lambda: LOADK_PRE}.get(kind, lambda: PRE2[kind])()
+            "settag": lambda: settag_pre(cfg), "loadk": lambda: LOADK_PRE,
+            "bnot": lambda: BNOT_PRE}.get(kind, lambda: PRE2[kind])()
 
 
 def facts2(kind, cfg):
@@ -971,7 +1021,7 @@ def facts2(kind, cfg):
             "settag": lambda: """  have hcode := hr.code_hi
   have hlt := fetch_lt hf
   simp only [Word.a, Word.field] at htop
-""", "loadk": lambda: LOADK_FACTS}.get(kind, lambda: FACTS2[kind])()
+""", "loadk": lambda: LOADK_FACTS, "bnot": lambda: UNARY_FACTS}.get(kind, lambda: FACTS2[kind])()
 
 
 def render_arm2(op, specs, arms):
