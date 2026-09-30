@@ -7,7 +7,7 @@
 #     (opcodes <- lopcodes.h, layout <- the cross compiler + ELF symbols,
 #     image <- the ELF, programs <- the committed .luac chunks, code pins
 #     <- the ELF + Lua/Vm/Image.lean, decodeW coverage check <- the ELF +
-#     its committed AST dump);
+#     its committed AST dump, boot traces <- the ELF + the emulator);
 # (2) the committed ELF's sha256 matches c/lua-riscv-htif.elf.sha256, and it
 #     contains no `ecall`;
 # (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/, tcb/: sorry,
@@ -32,6 +32,10 @@ python3 scripts/gen_lua_layout.py --check || fail "layout drift"
 python3 scripts/gen_lua_image.py --check || fail "image drift"
 python3 scripts/gen_lua_code.py --check || fail "code pins drift"
 python3 scripts/gen_lua_decode_check.py --check || fail "decode check drift"
+# boot traces to luaV_execute (re-traced on the emulator, ~25 s): the runtime
+# constants, the loaded data bytes and the per-program entry data; also
+# evaluates every VmEntryData/luaRuntimeReady field at the traced entries
+python3 scripts/gen_lua_boot_witness.py --check || fail "boot witness drift"
 while read -r chunk name out; do
   python3 scripts/gen_proto.py "$chunk" --name "$name" -o "$out" --check || fail "$out drift"
 done <<'LIST'
@@ -180,6 +184,13 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Os.HtifTraces.accepts_write_unknown_fd_ebadf
 #print axioms Lua.Os.HtifTraces.accepts_clock_frozen
 #print axioms Lua.Vm.tohostAddr_eq_symTohost
+#print axioms Lua.Vm.retCcall_after_call
+#print axioms Lua.Vm.setjmpRet_after_call
+#print axioms Lua.Vm.cstack_room
+#print axioms Lua.Vm.PartialView.rdLE
+#print axioms Lua.Vm.Boot.writeLog_view
+#print axioms Lua.Vm.Boot.bootMem_get
+#print axioms Lua.Vm.Boot.heapAt_of_check
 #print axioms Vsa.Sim.segToTripleFramed
 #print axioms Vsa.Sim.segRowFramed
 #print axioms Vsa.Sim.bridgeOfSeg
@@ -203,7 +214,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 70 ] || fail "expected 70 axiom reports, got $n"
+[ "$n" = 77 ] || fail "expected 77 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"
