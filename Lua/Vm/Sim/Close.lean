@@ -111,6 +111,14 @@ theorem sext_shr (x : BitVec 32) (k : Nat) (hk : 1 ≤ k) (hk2 : k < 32) :
   rw [sext_toNat_small _ (hs ▸ hlt), hs, BitVec.toNat_ofNat]
   omega
 
+/-- `zext.b` of a value already read as `BitVec.ofNat` (after `sext_shr`). -/
+theorem and255 (n : Nat) :
+    BitVec.ofNat 64 n &&& sign_extend (m := 64) (0x0ff#12) = BitVec.ofNat 64 (n % 2 ^ 8) := by
+  apply BitVec.eq_of_toNat_eq
+  have h255 : (sign_extend (m := 64) (0x0ff#12)).toNat = 2 ^ 8 - 1 := by decide
+  rw [BitVec.toNat_and, h255, Nat.and_two_pow_sub_one_eq_mod, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
+  omega
+
 /-- `srliw k` then `andi 1`: one bit (`GETARG_k`). -/
 theorem field1 (x : BitVec 32) (k : Nat) (hk : 1 ≤ k) (hk2 : k < 32) :
     sign_extend (m := 64) (shift_bits_right x (BitVec.ofNat 5 k)) &&& sign_extend (m := 64) (0x001#12)
@@ -140,7 +148,7 @@ theorem ult_one_sub (x y : BitVec 64) :
     have := y.isLt
     simp [h]; omega
 
-theorem sext64 (x : BitVec (8 * 8)) : sign_extend (m := 64) x = x := by
+theorem sext64_id (x : BitVec (8 * 8)) : sign_extend (m := 64) x = x := by
   simp only [sign_extend, Sail.BitVec.signExtend, BitVec.signExtend_eq]
 
 /-- A read at a raw address that is the slot's. -/
@@ -170,10 +178,17 @@ theorem trap_zero :
 unfolded (the raw address terms of the generated segments against
 `RelPtrs.slot`). -/
 macro "slot_arith" : tactic => `(tactic| (
-  simp (config := { decide := true }) only [extract_sext, field8, sext_shr, add_imm, shl_ofNat,
-    BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat, Nat.add_zero, RelPtrs.slot, RelPtrs.base,
-    stackValueSize, Word.a, Word.b, Word.c, Word.field, ciTrapOff] at *
-  omega))
+  try simp (config := { decide := true }) only [extract_sext, field8, sext_shr, add_imm, shl_ofNat,
+    BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat, Nat.add_zero, RelPtrs.slot,
+    stackValueSize, Word.a, Word.b, Word.c, Word.bx, Word.field, ciTrapOff, and255,
+    Nat.shiftRight_eq_div_pow, BitVec.toNat_sub]
+  all_goals try simp (disch := omega) only [Nat.mod_eq_of_lt]
+  all_goals omega))
+
+/-- A pin's position is inside its bundle (the list's spine only). -/
+macro "len_arith" : tactic => `(tactic| (
+  simp only [List.length_cons, List.length_nil]
+  all_goals omega))
 
 /-! ## Closes -/
 
@@ -282,7 +297,7 @@ theorem guard_eqk {m : Mem} {a n : Nat} (x : Word) (ha : a = n) :
           (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x10#5))) &&& sign_extend (m := 64) (0x0ff#12))
           + sign_extend (m := 64) (0xf81#12)) 31 0)) (sign_extend (m := 64) (0x001#12)))))
       = (x.k == decide (slotVal m n = BitVec.ofInt 64 x.sb)) := by
-  rw [kraw_eq, sbraw_eq, bytesT8_at ha, sext64, ult_one_sub, bitb]
+  rw [kraw_eq, sbraw_eq, bytesT8_at ha, sext64_id, ult_one_sub, bitb]
   cases x.k <;> by_cases h : slotVal m n = BitVec.ofInt 64 x.sb <;> simp [h]
 
 theorem guard_eqk_t {m : Mem} {a n : Nat} {x : Word} (ha : a = n)
@@ -335,11 +350,11 @@ theorem nextjump_pc {m : Mem} {code pc t a : Nat} {ni : Word} (ha : a = code + 4
 
 theorem guard_zero_t {m : Mem} {a n : Nat} (ha : a = n) (h : slotVal m n = 0) :
     ((sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8))) == (0#64)) = true := by
-  rw [bytesT8_at ha, sext64, h]; rfl
+  rw [bytesT8_at ha, sext64_id, h]; rfl
 
 theorem guard_zero_f {m : Mem} {a n : Nat} {v : BitVec 64} (ha : a = n) (h : slotVal m n = v)
     (hv : ¬ v = 0) : ((sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8))) == (0#64)) = false := by
-  rw [bytesT8_at ha, sext64, h]; simpa using hv
+  rw [bytesT8_at ha, sext64_id, h]; simpa using hv
 
 theorem stData_int : stData 1 (BitVec.ofNat 64 vNumInt) = BitVec.ofNat 8 vNumInt := by decide
 
@@ -347,13 +362,13 @@ theorem stData_int : stData 1 (BitVec.ofNat 64 vNumInt) = BitVec.ofNat 8 vNumInt
 theorem add_val {m : Mem} {a1 a2 n1 n2 : Nat} (h1 : a1 = n1) (h2 : a2 = n2) :
     sdData_val ((sign_extend (m := 64) (bytesT8 m a1 : BitVec (8 * 8)))
       + (sign_extend (m := 64) (bytesT8 m a2 : BitVec (8 * 8)))) = slotVal m n1 + slotVal m n2 := by
-  rw [bytesT8_at h1, bytesT8_at h2, sext64, sext64, sdData_id]
+  rw [bytesT8_at h1, bytesT8_at h2, sext64_id, sext64_id, sdData_id]
 
 /-- `FORLOOP`'s count − 1 (`ld`, `addi -1`, `sd`). -/
 theorem dec_val {m : Mem} {a n : Nat} {v : BitVec 64} (ha : a = n) (h : slotVal m n = v) :
     sdData_val ((sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8))) + sign_extend (m := 64) (0xfff#12))
       = v - 1 := by
-  rw [bytesT8_at ha, sext64, h, sdData_id]
+  rw [bytesT8_at ha, sext64_id, h, sdData_id]
   have : sign_extend (m := 64) (0xfff#12) = (-1 : BitVec 64) := by decide
   rw [this, BitVec.sub_eq_add_neg]
 
@@ -364,7 +379,7 @@ theorem step_val {m : Mem} {a16 a0 a32 n : Nat} {d : BitVec (8 * 8)} {x st : Bit
     sdData_val ((sign_extend (m := 64) (bytesT8 (writeMap8 m a16 d) a0 : BitVec (8 * 8)))
       + (sign_extend (m := 64) (bytesT8 (writeMap8 m a16 d) a32 : BitVec (8 * 8)))) = x + st := by
   subst h16 h0 h32
-  rw [sext64, sext64, sdData_id, ← hx, ← hs]
+  rw [sext64_id, sext64_id, sdData_id, ← hx, ← hs]
   simp only [slotVal, tvalueValOff, Nat.add_zero]
   congr 1
   · exact bytesT8_congr fun i hi => getElem?_writeMap8_out _ _ _ _ (by omega)

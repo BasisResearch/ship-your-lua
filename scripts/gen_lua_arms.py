@@ -30,6 +30,7 @@ Output (GENERATED, check.sh stage 1 checks drift):
 import argparse
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -121,11 +122,51 @@ def collect(only):
     for name, (lo, hi, path) in cuts.items():
         spec, rows = seg_spec(lo, hi, path, name, name in sim)
         specs[name] = (lo, spec, rows)
+    for name, regs in live_keep(arms, specs, sim).items():
+        if regs:
+            lo, hi, path = cuts[name]
+            spec, rows = seg_spec(lo, hi, path, name, True,
+                                  keep=KEEP + sorted(int(r[1:]) for r in regs))
+            specs[name] = (lo, spec, rows)
+    for name, (lo, spec, rows) in specs.items():
         for row in rows:
             parts = row.split("\t")
             key = (int(parts[0], 16), parts[2])
             sites.setdefault(key, row)
     return arms, specs, sites
+
+
+def live_keep(arms, specs, sim):
+    """Per SIM segment, the registers a later segment of its arm reads that
+    the segment neither reads nor writes (a temporary such as `ADD`'s slot
+    of `R[A]`, computed before a branch and stored after it): they are
+    carried through (`keep`), by a liveness fixpoint over the arm's
+    segments."""
+    info = {}
+    for n in sim:
+        em = gen_segment.SegmentEmitter(specs[n][1])
+        em.emit()
+        end = int(re.match(r"\(?(0x[0-9a-f]+)#64", em.end_pc).group(1), 16)
+        info[n] = ({p["reg"] for p in specs[n][1]["pins"]}, {r for r, _ in em.pins}, end)
+    extra = {n: set() for n in sim}
+    for op, names in arms:
+        if op not in SIM_OPS:
+            continue
+        live = {n: set(info[n][0]) for n in names}
+
+        def live_out(n):
+            return set().union(*[live[m] for m in names if specs[m][0] == info[n][2]])
+        changed = True
+        while changed:
+            changed = False
+            for n in names:
+                new = info[n][0] | (live_out(n) - info[n][1])
+                if not new <= live[n]:
+                    live[n] |= new
+                    changed = True
+        for n in names:
+            extra[n] |= live_out(n) - info[n][1]
+    return extra
 
 
 def head_spec():

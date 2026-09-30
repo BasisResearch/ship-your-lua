@@ -357,15 +357,404 @@ def seg_module(name):
     return _SEG_MOD[name]
 
 
+# ---------------------------------------------------------------------------
+# Two-exit arms (kinds `arith`, `condjump`, `forloop`): the arm's paths, each
+# a chain of generated segments picked by branch polarity, under the case
+# split of its kernel combinator; one close per exit.
+
+# op -> (Lean opcode name, file name, kind, BinOp of `arith`)
+ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", "add"),
+         "OP_EQI": ("EQI", "Eqi", "condjump", None),
+         "OP_FORLOOP": ("FORLOOP", "Forloop", "forloop", None)}
+
+_VAR = re.compile(r"\bv(\d+)\b")
+
+
+def subst(text, env, mem):
+    """A post value of a segment, in terms of the chain's values."""
+    t = _VAR.sub(lambda m: env[f"x{m.group(1)}"], text)
+    t = re.sub(r"\bm0\b", mem, t)
+    return re.sub(r"\bo0\b", "c1.σ.sailOutput", t)
+
+
+def walk(op, specs, arms, pols):
+    """The segments from the arm target to the head, taking polarity
+    `pols[i]` (`t`/`n`) at the i-th branch."""
+    names = dict(arms)[op]
+    pc, pols, out = targets()[op][1], list(pols), []
+    while f"0x{pc:08x}" != HEAD:
+        cands = [n for n in names if specs[n][0] == pc]
+        if len(cands) > 1:
+            suf = "_" + pols.pop(0)
+            cands = [n for n in cands if n.endswith(suf)]
+        n = cands[0]
+        em = gen_segment.SegmentEmitter(specs[n][1])
+        em.emit()
+        out.append((n, specs[n][1], em))
+        pc = int(re.match(r"\(?(0x[0-9a-f]+)#64", em.end_pc).group(1), 16)
+    assert not pols, (op, pols)
+    return out
+
+
+def chain2(segs, guards):
+    """The segment chain from `c1`: values substituted through the posts,
+    guards `guards[i]` for the i-th `hg_*`, every other side condition by
+    `slot_arith`. Returns the lines and the last post's facts."""
+    env = {r: v for r, (v, _) in CANON.items()}
+    prf = {r: p for r, (_, p) in CANON.items()}
+    base, L, gi, writer = "c1.σ.mem", [], 0, None
+    for k, (name, spec, em) in enumerate(segs, 1):
+        hyps = []
+        for prm in spec["params"]:
+            if prm.startswith("(hg_"):
+                hyps.append(guards[gi])
+                gi += 1
+            elif prm.startswith("(h"):
+                hyps.append("(by slot_arith)")
+        regs = pin_regs(spec)
+        if k == 1:
+            pre = (f"c1 ⟨hc1.good, hpc1,\n      ⟨{', '.join(prf[r] for r in regs)}, trivial⟩,"
+                   "\n      hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩")
+        else:
+            memp = "rfl" if base == f"c{k}.σ.mem" else f"hq{k - 1}.extra.2.1"
+            pre = (f"c{k} ⟨hq{k - 1}.good, hq{k - 1}.pcAt,\n      ⟨{', '.join(prf[r] for r in regs)}, "
+                   f"trivial⟩,\n      hq{k - 1}.minstret, hq{k - 1}.tick, ⟨hq{k - 1}.extra.1, {memp}, "
+                   f"hq{k - 1}.extra.2.2⟩⟩")
+        L.append(f"  obtain ⟨c{k + 1}, hs{k + 1}, hq{k}⟩ := Arms.{name}\n    "
+                 + "\n    ".join(wrap([env[r] for r in regs])) + f"\n    {base} c1.σ.sailOutput"
+                 + ("\n    " + "\n    ".join(wrap(hyps)) if hyps else "") + f"\n    {pre}")
+        env = {r: subst(v, env, base) for r, v in em.pins}
+        prf = {r: f"pinsHold_get hq{k}.pins {i} (by len_arith)" for i, (r, _) in enumerate(em.pins)}
+        if em.mem_expr.strip("() ") != "m0":
+            writer, base = k, f"c{k + 1}.σ.mem"
+            L.append(f"  have hW := hq{k}.extra.2.1")
+    assert gi == len(guards), (gi, guards)
+    k = len(segs)
+    if writer != k:
+        L.append(f"  have hmE : c{k + 1}.σ.mem = {base} := hq{k}.extra.2.1")
+    L.append(f"  have hsteps : Steps c1 c{k + 1} := "
+             + (f"hs{k + 1}" if k == 1 else
+                " ".join(f"(hs{i}.trans" for i in range(2, k + 1)) + f" hs{k + 1}" + ")" * (k - 1)))
+    return L, k, post_regs(segs[-1][2])
+
+
+def get2(post, reg, k):
+    return f"pinsHold_get hq{k}.pins {post.index(reg)} (by len_arith)"
+
+
+def fix_pin(reg, post, k, val, body):
+    """A head pin of the last post brought to its relation value."""
+    return (f"  have h{reg} : c{k + 1}.σ.regs.get? Register.{reg} = some {val} := by\n"
+            f"    have h := {get2(post, reg, k)}\n"
+            f"    simp only [{'' if post.index(reg) == 0 else 'List.getElem_cons_succ, '}"
+            f"List.getElem_cons_zero] at h\n{body}")
+
+
+def x27_to(post, k, tgt):
+    return fix_pin("x27", post, k, f"(BitVec.ofNat 64 (w.code + 4 * {tgt}))",
+                   "    refine pin_eq h ?_\n    apply BitVec.eq_of_toNat_eq\n    all_goals slot_arith\n")
+
+
+def x21_trap(post, k, trap):
+    return fix_pin("x21", post, k, "(0#64)",
+                   f"    rw [bytesT4_at (n := w.ci + ciTrapOff) ?_, {trap}] at h\n"
+                   "    · exact h.trans (congrArg some trap_zero)\n    · slot_arith\n")
+
+
+def pins2(post, k, over):
+    return ", ".join(over.get(r, get2(post, r, k)) for _, r in PINS)
+
+
+def done2(k):
+    return (f"  exact ⟨c{k + 1}, hs1.trans hsteps, by have := hsteps.steps_le; omega, "
+            f"⟨hcore, hq{k}.pcAt⟩⟩\n")
+
+
+def close_skip(post, k, tgt, x21=None):
+    """No register written; the pc moves to `tgt` (`Core.jump`)."""
+    over, pre = {"x27": "hx27"}, x27_to(post, k, tgt)
+    if x21:
+        over["x21"] = "hx21"
+        pre += x21_trap(post, k, x21)
+    return pre + (f"  have hcore := hc1.jump hq{k} (pc' := {tgt})\n    ⟨{pins2(post, k, over)}⟩\n"
+                  f"    hq{k}.extra.2.2 hmE\n") + done2(k)
+
+
+# kind -> bytecode inversion (after `refine sim_of_run`)
+PRE2 = {
+    "arith": """  have hK : kernelAt p s.pc = some (opArith s.pc ins.a .{binop} [.reg ins.b, .reg ins.c]) := by
+    simp [kernelAt, hf, kernel, hop, opKernel, arithRR]
+  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, arithRR, opArith, Kernel.regTop, Opnd.ports] at htop
+  obtain ⟨vb, vc, hb, hc, rfl⟩ := mapM2 hvs
+  simp only [Opnd.fill] at hcase
+""",
+    "condjump": """  have hK0 : kernelAt p s.pc = docondjump p s.pc ins.k [.reg ins.a, immB ins] (δ .eq) := by
+    simp [kernelAt, hf, kernel, hop, opKernel]
+  cases ht : nextJump p s.pc with
+  | none =>
+    obtain ⟨hK', -, -, -⟩ := hstep
+    simp [hK0, docondjump, ht] at hK'
+  | some t =>
+  obtain ⟨vs, cv, hvs, hcv, rfl⟩ := step_condjump hstep hK0 ht
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, docondjump, ht, Kernel.regTop, Opnd.ports] at htop
+  obtain ⟨va, hva, rfl⟩ := mapM1 hvs
+  simp only [Opnd.fill, immB, δ, Option.some.injEq] at hcv
+  subst hcv
+  simp only [nextJump, Option.bind_eq_some_iff] at ht
+  obtain ⟨ni, hni, hjt⟩ := ht
+""",
+    "forloop": """  cases ht : jumpTo (s.pc + 1) (-(ins.bx : Int)) with
+  | none =>
+    obtain ⟨hK', -, -, -⟩ := hstep
+    simp [kernelAt, hf, kernel, hop, opKernel, ht] at hK'
+  | some t =>
+  have hK : kernelAt p s.pc = some (forloopK s.pc ins t) := by
+    simp [kernelAt, hf, kernel, hop, opKernel, ht]
+  obtain ⟨i, n, st, hi, hn, hst, hcase⟩ := step_forloop hstep hK
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, ht, forloopK, Kernel.regTop] at htop
+  obtain ⟨hbx, rfl⟩ := jumpTo_neg ht
+""",
+}
+
+# kind -> facts after the dispatch (operand representations, field bounds)
+FACTS2 = {
+    "arith": """  have hcode := hr.code_hi
+  have hcdl := hr.code_lo
+  have hlt := fetch_lt hf
+  have hC8 : ins.toNat >>> 24 < 2 ^ 8 := by rw [Nat.shiftRight_eq_div_pow]; omega
+  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a (max ins.b ins.c); omega
+  have hBt : ins.b < p.maxstacksize := by
+    have := Nat.le_max_right ins.a (max ins.b ins.c); have := Nat.le_max_left ins.b ins.c; omega
+  have hCt : ins.c < p.maxstacksize := by
+    have := Nat.le_max_right ins.a (max ins.b ins.c); have := Nat.le_max_right ins.b ins.c; omega
+  have hvb := hc1.stack ins.b vb hBt hb
+  have hvc := hc1.stack ins.c vc hCt hc
+  simp only [Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt hCt
+""",
+    "condjump": """  have hcode := hr.code_hi
+  have hcdl := hr.code_lo
+  have hlt := fetch_lt hni
+  simp only [Word.a, Word.field] at htop
+  have hva' := hc1.stack ins.a va (by simp only [Word.a, Word.field]; omega) hva
+""",
+    "forloop": """  have hcode := hr.code_hi
+  have hcdl := hr.code_lo
+  have hlt := fetch_lt hf
+  have hB17 : ins.toNat >>> 15 < 2 ^ 17 := by rw [Nat.shiftRight_eq_div_pow]; omega
+  simp only [Word.a, Word.bx, Word.field] at htop hbx
+  have hA3 : ins.a + 3 < p.maxstacksize := by simp only [Word.a, Word.field]; omega
+  have hvn := (hc1.stack (ins.a + 1) _ (by simp only [Word.a, Word.field]; omega) hn).tag_of_int
+  have hvs := (hc1.stack (ins.a + 2) _ (by simp only [Word.a, Word.field]; omega) hst).tag_of_int
+""",
+}
+
+
+def gtag(lemma, j, h):
+    return f"(by refine {lemma} (n := w.slot {j}) ?_ {h} (by decide); slot_arith)"
+
+
+def paths2(kind):
+    """kind -> the case split (`{name}` marks a path) and, per path, its
+    branch polarities, guard proofs and close."""
+    if kind == "arith":
+        split = """  by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
+  · obtain rfl := hvb.int_of_tag hB
+    by_cases hC : slotTag c1.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt
+    · obtain rfl := hvc.int_of_tag hC
+      obtain ⟨x, y, v, hxy, hv, rfl⟩ | ⟨hno, -⟩ := hcase
+      · simp only [List.cons.injEq, Value.int.injEq, and_true] at hxy
+        obtain ⟨rfl, rfl⟩ := hxy
+        simp only [BinOp.int, Option.some.injEq] at hv
+        subst hv
+        {int}
+      · exact absurd rfl (hno _ _)
+    · obtain ⟨x, y, v, hxy, -, -⟩ | ⟨-, rfl⟩ := hcase
+      · simp only [List.cons.injEq] at hxy
+        exact absurd hxy.2.1 (hvc.not_int hC _)
+      {cni}
+  · obtain ⟨x, y, v, hxy, -, -⟩ | ⟨-, rfl⟩ := hcase
+    · simp only [List.cons.injEq] at hxy
+      exact absurd hxy.1 (hvb.not_int hB _)
+    {bni}"""
+        gB, gC = gtag("guard_tag_eq", "ins.b", "hB"), gtag("guard_tag_eq", "ins.c", "hC")
+
+        def write(post, k):
+            return (f"""  have hst := slotStore_sb_sd (A := w.slot ins.a) hW (by slot_arith) (by slot_arith)
+{x27_to(post, k, "(s.pc + 2)")}  have hcore := hc1.write hq{k} (a := ins.a) (pc' := s.pc + 2)
+    (v := .int (slotVal c1.σ.mem (w.slot ins.b) + slotVal c1.σ.mem (w.slot ins.c)))
+    (by simp only [Word.a, Word.field]; omega)
+    ⟨{pins2(post, k, {"x27": "hx27"})}⟩
+    hq{k}.extra.2.2 hst (by
+      rw [stData_int, add_val (n1 := w.slot ins.b) (n2 := w.slot ins.c) ?_ ?_]
+      · exact .int
+      all_goals slot_arith)
+""" + done2(k))
+        return split, {
+            "int": ("tt", [gB, gC], write),
+            "cni": ("tnt", [gB, gtag("guard_tag_ne", "ins.c", "hC"),
+                            "(by refine guard_not_float (n := w.slot ins.c) ?_ hvc; slot_arith)"],
+                    lambda post, k: close_skip(post, k, "(s.pc + 1)")),
+            "bni": ("nt", [gtag("guard_tag_ne", "ins.b", "hB"),
+                           "(by refine guard_not_float (n := w.slot ins.b) ?_ hvb; slot_arith)"],
+                    lambda post, k: close_skip(post, k, "(s.pc + 1)")),
+        }
+    if kind == "condjump":
+        split = """  by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
+  · obtain rfl := hva'.int_of_tag hTa
+    rw [cond_int]
+    by_cases hJ : ins.k = decide (slotVal c1.σ.mem (w.slot ins.a) = BitVec.ofInt 64 ins.sb)
+    · rw [if_pos hJ.symm]
+      {jint}
+    · rw [if_neg (fun h => hJ h.symm)]
+      {sint}
+  · rw [cond_nonint (hva'.not_int hTa)]
+    cases hk : ins.k
+    · rw [if_pos rfl]
+      {jni}
+    · rw [if_neg Bool.false_ne_true]
+      {sni}"""
+        gi = gtag("guard_tag_bne_f", "ins.a", "hTa")
+        gn = [gtag("guard_tag_bne_t", "ins.a", "hTa"),
+              "(by refine guard_not_float (n := w.slot ins.a) ?_ hva'; slot_arith)",
+              "(by rw [guard_k]; exact hk)"]
+
+        def jump(post, k):
+            return (x21_trap(post, k, "hc1.trap") + fix_pin(
+                "x27", post, k, "(BitVec.ofNat 64 (w.code + 4 * t))",
+                """    have hj := jumpTo_eq hjt
+    have hax : ni.ax < 2 ^ 25 := Nat.mod_lt _ (by decide)
+    simp only [Word.sj, Word.offsetSJ] at hj
+    refine pin_eq h (nextjump_pc ?_ (hc1.fetch hni) hjt (by omega) (by omega))
+    slot_arith
+""") + f"""  have hcore := hc1.jump hq{k} (pc' := t)
+    ⟨{pins2(post, k, {"x21": "hx21", "x27": "hx27"})}⟩
+    hq{k}.extra.2.2 hmE
+""" + done2(k))
+
+        def skip(post, k):
+            return close_skip(post, k, "(s.pc + 2)")
+        return split, {
+            "jint": ("nt", [gi, "(by refine guard_eqk_t (n := w.slot ins.a) ?_ hJ; slot_arith)"], jump),
+            "sint": ("nn", [gi, "(by refine guard_eqk_f (n := w.slot ins.a) ?_ hJ; slot_arith)"], skip),
+            "jni": ("ttn", gn, jump),
+            "sni": ("ttt", gn, skip),
+        }
+    assert kind == "forloop"
+    split = """  rcases hcase with ⟨rfl, rfl⟩ | ⟨hn0, x, rfl, rfl⟩
+  · -- count 0: the loop is done
+    {exit}
+  · -- jump back
+    have hvi := (hc1.stack ins.a _ (by omega) hi).tag_of_int
+    {loop}"""
+    g2 = gtag("guard_tag_eq", "(ins.a + 2)", "hvs.1")
+
+    def loop(post, k):
+        return (f"""  have hfs : ForStore c1.σ.mem c{k}.σ.mem (w.slot ins.a) (n - 1) (x + st)
+      (BitVec.ofNat 8 vNumInt) := by
+    refine (forloop_store hW ?_ ?_ ?_ ?_ rfl).congr ?_ ?_ stData_int
+    · slot_arith
+    · slot_arith
+    · slot_arith
+    · slot_arith
+    · exact dec_val (n := w.slot (ins.a + 1)) (by slot_arith) hvn.2
+    · refine step_val (n := w.slot ins.a) (by slot_arith) (by slot_arith) (by slot_arith) hvi.2 ?_
+      rw [show w.slot ins.a + 32 = w.slot (ins.a + 2) by simp only [RelPtrs.slot, stackValueSize]; omega]
+      exact hvs.2
+"""
+                + x21_trap(post, k, "trap_of_frame hr hc1.comp (hfs.frame_mo hc1 hA3)")
+                + x27_to(post, k, "(s.pc + 1 - ins.bx)")
+                + f"""  have hcore := hc1.forloop hq{k} (pc' := s.pc + 1 - ins.bx) (a := ins.a)
+    ⟨{pins2(post, k, {"x21": "hx21", "x27": "hx27"})}⟩
+    hq{k}.extra.2.2 hA3 (by rw [hmE]; exact hfs) hn hi
+""" + done2(k))
+    return split, {
+        "exit": ("tt", [g2, "(by refine guard_zero_t (n := w.slot (ins.a + 1)) ?_ hvn.2; slot_arith)"],
+                 lambda post, k: close_skip(post, k, "(s.pc + 1)", x21="hc1.trap")),
+        "loop": ("tn", [g2, "(by refine guard_zero_f (n := w.slot (ins.a + 1)) ?_ hvn.2 hn0; slot_arith)"],
+                 loop),
+    }
+
+
+def indent(text, n):
+    return "\n".join((" " * n + ln) if ln.strip() else ln for ln in text.rstrip("\n").split("\n"))
+
+
+def render_arm2(op, specs, arms):
+    lean_op, fname, kind, binop = ARMS2[op]
+    idx, tgt = targets()[op]
+    split, paths = paths2(kind)
+    mods, body = set(), {}
+    for pname, (pols, guards, close) in paths.items():
+        segs = walk(op, specs, arms, pols)
+        mods |= {f"Lua.Vm.Arms.Segs.{seg_module(n)}" for n, _, _ in segs}
+        L, k, post = chain2(segs, guards)
+        body[pname] = "\n".join(L) + "\n" + close(post, k)
+    # the path's indentation is the split line's
+    for pname in paths:
+        m = re.search(r"^( *)\{" + pname + r"\}$", split, re.M)
+        split = split.replace(m.group(0), indent(body[pname], len(m.group(1)) - 2))
+    text = f"""/-- **{lean_op}** (kind `{kind}`): from the fetch head, the dispatch and, per
+exit of the kernel, the arm's segments return to the head in a state related
+to the `Step`'s successor. -/
+theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : State}}
+    (hR : VmRel p c s) {{ins : Word}} (hf : p.fetch s.pc = some ins)
+    (hop : ins.op? = some .{lean_op}) (hstep : Step binaryHost p s s') :
+    ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
+  obtain ⟨w, hR⟩ := hR
+  refine sim_of_run (w := w) ?_
+{PRE2[kind].replace("{binop}", binop or "")}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
+  obtain ⟨c1, hs1, hlt1, hA⟩ := dispatch hR hf (by rw [hnum]; decide)
+  have hc1 := hA.core
+  have hr := hc1.ranges
+  have hpc1 : c1.σ.regs.get? Register.PC = some (0x{tgt:08x}#64) := by
+    rw [hA.pcAt, hnum]; exact congrArg some (by decide +kernel)
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  have hbl := hr.base_lo
+  have hbh := hr.base_hi
+  have hba := hr.base_al
+  have hcl := hr.ci_lo
+  have hch := hr.ci_hi
+  have hins := ins.isLt
+  simp only [stackValueSize, ciSize] at hbh hch
+{FACTS2[kind]}{split}"""
+    imports = ["Lua.Vm.Sim.Dispatch", "Lua.Vm.Sim.Close"] + sorted(mods)
+    return fname, "\n".join(f"import {m}" for m in imports) + f"""
+
+/-! {HEADER}
+
+The A1 simulation lemma of `OP_{lean_op}` (kind `{kind}`). -/
+
+open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
+open Vsa.Sim Vsa.Logic
+
+namespace Lua.Vm.Sim
+
+open Lua.Bytecode Lua.Vm.Layout
+open Vsa.Machine (MState Config Steps StepsN)
+
+{text}
+
+end Lua.Vm.Sim
+"""
+
+
 def render():
-    arms, specs, _ = gla.collect(set(ARMS))
+    arms, specs, _ = gla.collect(set(ARMS) | set(ARMS2))
     files = {}
     for op in ARMS:
         fname, text = render_arm(op, specs, arms)
         files[OUT / f"{fname}.lean"] = text
+    for op in ARMS2:
+        fname, text = render_arm2(op, specs, arms)
+        files[OUT / f"{fname}.lean"] = text
     files[ROOT / "Lua/Vm/Sim.lean"] = (
         "import Lua.Vm.Sim.Rel\nimport Lua.Vm.Sim.Dispatch\nimport Lua.Vm.Sim.Entry\n"
         + "".join(f"import Lua.Vm.Sim.Arms.{ARMS[op][1]}\n" for op in ARMS)
+        + "".join(f"import Lua.Vm.Sim.Arms.{ARMS2[op][1]}\n" for op in ARMS2)
         + f"\n/-! {HEADER}\n\nA1: the relation `VmRel`, the entry lemma, the dispatch lemma, "
         "and the simulation lemmas of the arms with a proof (`Lua/Vm/Sim/Arms`). -/\n")
     return files
