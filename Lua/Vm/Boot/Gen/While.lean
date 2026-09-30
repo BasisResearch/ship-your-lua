@@ -1786,6 +1786,10 @@ def w : RtPtrs where
      ⟨0x80072e60, 0x30, true⟩,
      ⟨0x80072e90, 0x30, true⟩]
   bins := [[], [], [], [], [0x80070480]]
+  cl := 0x80072cd0
+  proto := 0x80072d00
+  code := 0x80072d90
+  sizecode := 51
 
 /-- The program at the entry: `Lua.Programs.whileProto` (`scripts/gen_proto.py` on the same chunk). -/
 abbrev proto : Lua.Bytecode.Proto := Lua.Programs.whileProto
