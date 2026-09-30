@@ -291,6 +291,19 @@ theorem sbraw_eq (x : Word) :
   simp only [Word.sb, Word.b, Word.field, Word.offsetSC]
   rfl
 
+/-- `srliw 24`, `addiw -127`: `sC` (`GETARG_sC`). -/
+theorem scraw_eq (x : Word) :
+    sign_extend (m := 64) (Sail.BitVec.extractLsb ((sign_extend (m := 64) (shift_bits_right
+      (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x18#5)))
+      + sign_extend (m := 64) (0xf81#12)) 31 0) = BitVec.ofInt 64 x.sc := by
+  rw [extract_sext, sext_shr x 24 (by decide) (by decide)]
+  have hc : x.toNat >>> 24 < 256 := by rw [Nat.shiftRight_eq_div_pow]; have := x.isLt; omega
+  have := addiw_bias ⟨_, hc⟩
+  simp only at this
+  rw [this]
+  simp only [Word.sc, Word.c, Word.field, Word.offsetSC, Nat.mod_eq_of_lt hc]
+  rfl
+
 theorem bitb (b : Bool) : zero_extend (m := 64) (bool_to_bit b) = if b then 1#64 else 0#64 := by
   cases b <;> decide
 
@@ -364,13 +377,18 @@ theorem guard_zero_f {m : Mem} {a n : Nat} {v : BitVec 64} (ha : a = n) (h : slo
 
 theorem stData_int : stData 1 (BitVec.ofNat 64 vNumInt) = BitVec.ofNat 8 vNumInt := by decide
 
-/-- A binary ALU arm's payload (`ld`, `ld`, the operation `f`, `sd`); `f` is
-given explicitly (`HAdd.hAdd`, `HSub.hSub`, …), so the rewrite is first order. -/
-theorem alu_val (f : BitVec 64 → BitVec 64 → BitVec 64) {m : Mem} {a1 a2 n1 n2 : Nat}
-    (h1 : a1 = n1) (h2 : a2 = n2) :
-    sdData_val (f (sign_extend (m := 64) (bytesT8 m a1 : BitVec (8 * 8)))
-      (sign_extend (m := 64) (bytesT8 m a2 : BitVec (8 * 8)))) = f (slotVal m n1) (slotVal m n2) := by
-  rw [bytesT8_at h1, bytesT8_at h2, sext64_id, sext64_id, sdData_id]
+/-- `ld` of a register's payload. -/
+theorem ld_slot {m : Mem} {a n : Nat} (h : a = n) :
+    sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8)) = slotVal m n := by
+  rw [bytesT8_at h, sext64_id]
+
+/-- A binary ALU arm's payload (`ld` of `R[B]`, the operation `f` with the
+second operand `y`, `sd`); `f` is given explicitly (`HAdd.hAdd`, …), so the
+rewrite is first order. -/
+theorem alu_val (f : BitVec 64 → BitVec 64 → BitVec 64) {m : Mem} {a1 n1 : Nat} {y y' : BitVec 64}
+    (h1 : a1 = n1) (hy : y = y') :
+    sdData_val (f (sign_extend (m := 64) (bytesT8 m a1 : BitVec (8 * 8))) y) = f (slotVal m n1) y' := by
+  rw [bytesT8_at h1, sext64_id, sdData_id, hy]
 
 /-- `FORLOOP`'s count − 1 (`ld`, `addi -1`, `sd`). -/
 theorem dec_val {m : Mem} {a n : Nat} {v : BitVec 64} (ha : a = n) (h : slotVal m n = v) :

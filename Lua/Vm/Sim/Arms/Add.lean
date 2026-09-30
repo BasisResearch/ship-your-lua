@@ -33,7 +33,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
   have htop := supported_regTop hS hf
   simp [regTop, kernel, hop, opKernel, arithRR, opArith, Kernel.regTop, Opnd.ports] at htop
   obtain ⟨vb, vc, hb, hc, rfl⟩ := mapM2 hvs
-  simp only [Opnd.fill] at hcase
+  simp only [Opnd.fill, immC] at hcase
   have hnum : ins.opNum = 34 := opNum_of_op? hop
   obtain ⟨c1, hs1, hlt1, hA⟩ := dispatch hR hf (by rw [hnum]; decide)
   have hc1 := hA.core
@@ -57,8 +57,8 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     have := Nat.le_max_right ins.a (max ins.b ins.c); have := Nat.le_max_left ins.b ins.c; omega
   have hCt : ins.c < p.maxstacksize := by
     have := Nat.le_max_right ins.a (max ins.b ins.c); have := Nat.le_max_right ins.b ins.c; omega
-  have hvb := hc1.stack ins.b vb hBt hb
   have hvc := hc1.stack ins.c vc hCt hc
+  have hvb := hc1.stack ins.b vb hBt hb
   simp only [Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt hCt
   by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hvb.int_of_tag hB
@@ -125,7 +125,7 @@ theorem sim_ADD {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
           (by simp only [Word.a, Word.field]; omega)
           ⟨pinsHold_get hq3.pins 6 (by len_arith), pinsHold_get hq3.pins 7 (by len_arith), pinsHold_get hq3.pins 8 (by len_arith), pinsHold_get hq3.pins 9 (by len_arith), pinsHold_get hq3.pins 5 (by len_arith), pinsHold_get hq3.pins 12 (by len_arith), pinsHold_get hq3.pins 13 (by len_arith), pinsHold_get hq3.pins 14 (by len_arith), pinsHold_get hq3.pins 15 (by len_arith), hx27⟩
           hst (by
-            rw [stData_int, alu_val HAdd.hAdd (n1 := w.slot ins.b) (n2 := w.slot ins.c) ?_ ?_]
+            rw [stData_int, alu_val HAdd.hAdd (n1 := w.slot ins.b) ?_ (ld_slot (n := w.slot ins.c) ?_)]
             · exact .int
             all_goals slot_arith)
         exact ⟨c4, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq3.pcAt⟩⟩

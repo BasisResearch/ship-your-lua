@@ -367,13 +367,29 @@ def seg_module(name):
 # `BitVec 64`, the value the int+int path stores), and how the compiler laid
 # out the float test of `R[B]` on the not-integer path (`bne` taken to the
 # exit, or `beq` not taken into the shared default tail).
-ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(binop="add", alu="HAdd.hAdd", bfloat="bne")),
-         "OP_SUB": ("SUB", "Sub", "arith", dict(binop="sub", alu="HSub.hSub", bfloat="beq")),
+ARITH_RR = dict(c="reg", b="beq", c_test="beq", c_float="bne")
+ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(ARITH_RR, binop="add", alu="HAdd.hAdd", b_float="bne")),
+         "OP_SUB": ("SUB", "Sub", "arith", dict(ARITH_RR, binop="sub", alu="HSub.hSub", b_float="beq")),
+         "OP_ADDI": ("ADDI", "Addi", "arith", dict(c="imm", b="bne", b_float="bne", binop="add",
+                                                  alu="HAdd.hAdd")),
          "OP_EQI": ("EQI", "Eqi", "condjump", {}),
          "OP_FORLOOP": ("FORLOOP", "Forloop", "forloop", {})}
 
-# The float test's polarity and guard proof per layout (`R[B]`'s slot).
-BFLOAT = {"bne": ("t", "guard_not_float"), "beq": ("n", "guard_not_float_f")}
+# A tag test's layout -> (polarity, guard lemma) when the tag IS the integer tag,
+# and when it is not; the float test's layout -> (polarity, guard lemma).
+TAG_TEST = {"beq": (("t", "guard_tag_eq"), ("n", "guard_tag_ne")),
+            "bne": (("n", "guard_tag_bne_f"), ("t", "guard_tag_bne_t"))}
+FLOAT_TEST = {"bne": ("t", "guard_not_float"), "beq": ("n", "guard_not_float_f")}
+
+
+def tag_guard(layout, holds, j, h):
+    pol, lemma = TAG_TEST[layout][0 if holds else 1]
+    return pol, gtag(lemma, j, h)
+
+
+def float_guard(layout, j, hv):
+    pol, lemma = FLOAT_TEST[layout]
+    return pol, f"(by refine {lemma} (n := w.slot {j}) ?_ {hv}; slot_arith)"
 
 _VAR = re.compile(r"\bv(\d+)\b")
 
@@ -490,14 +506,6 @@ def close_skip(post, k, tgt, x21=None):
 
 # kind -> bytecode inversion (after `refine sim_of_run`)
 PRE2 = {
-    "arith": """  have hK : kernelAt p s.pc = some (opArith s.pc ins.a .{binop} [.reg ins.b, .reg ins.c]) := by
-    simp [kernelAt, hf, kernel, hop, opKernel, arithRR]
-  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK
-  have htop := supported_regTop hS hf
-  simp [regTop, kernel, hop, opKernel, arithRR, opArith, Kernel.regTop, Opnd.ports] at htop
-  obtain ⟨vb, vc, hb, hc, rfl⟩ := mapM2 hvs
-  simp only [Opnd.fill] at hcase
-""",
     "condjump": """  have hK0 : kernelAt p s.pc = docondjump p s.pc ins.k [.reg ins.a, immB ins] (δ .eq) := by
     simp [kernelAt, hf, kernel, hop, opKernel]
   cases ht : nextJump p s.pc with
@@ -528,21 +536,51 @@ PRE2 = {
 """,
 }
 
-# kind -> facts after the dispatch (operand representations, field bounds)
-FACTS2 = {
-    "arith": """  have hcode := hr.code_hi
-  have hcdl := hr.code_lo
-  have hlt := fetch_lt hf
-  have hC8 : ins.toNat >>> 24 < 2 ^ 8 := by rw [Nat.shiftRight_eq_div_pow]; omega
-  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a (max ins.b ins.c); omega
+# `arith`: the inversion and the operand facts per C operand form
+ARITH_PRE = {
+    "reg": ("[.reg ins.b, .reg ins.c]", "arithRR", """  obtain ⟨vb, vc, hb, hc, rfl⟩ := mapM2 hvs
+"""),
+    "imm": ("[.reg ins.b, immC ins]", "immC", """  simp only [Opnd.ports, immC] at hvs
+  obtain ⟨vb, hb, rfl⟩ := mapM1 hvs
+"""),
+}
+ARITH_FACTS = {
+    "reg": """  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a (max ins.b ins.c); omega
   have hBt : ins.b < p.maxstacksize := by
     have := Nat.le_max_right ins.a (max ins.b ins.c); have := Nat.le_max_left ins.b ins.c; omega
   have hCt : ins.c < p.maxstacksize := by
     have := Nat.le_max_right ins.a (max ins.b ins.c); have := Nat.le_max_right ins.b ins.c; omega
-  have hvb := hc1.stack ins.b vb hBt hb
   have hvc := hc1.stack ins.c vc hCt hc
-  simp only [Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt hCt
 """,
+    "imm": """  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a ins.b; omega
+  have hBt : ins.b < p.maxstacksize := by have := Nat.le_max_right ins.a ins.b; omega
+""",
+}
+
+
+def arith_pre(cfg):
+    ops, unf, get = ARITH_PRE[cfg["c"]]
+    return f"""  have hK : kernelAt p s.pc = some (opArith s.pc ins.a .{cfg["binop"]} {ops}) := by
+    simp [kernelAt, hf, kernel, hop, opKernel, {unf}]
+  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, {unf}, opArith, Kernel.regTop, Opnd.ports] at htop
+{get}  simp only [Opnd.fill, immC] at hcase
+"""
+
+
+def arith_facts(cfg):
+    return """  have hcode := hr.code_hi
+  have hcdl := hr.code_lo
+  have hlt := fetch_lt hf
+  have hC8 : ins.toNat >>> 24 < 2 ^ 8 := by rw [Nat.shiftRight_eq_div_pow]; omega
+""" + ARITH_FACTS[cfg["c"]] + f"""  have hvb := hc1.stack ins.b vb hBt hb
+  simp only [Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt{" hCt" if cfg["c"] == "reg" else ""}
+"""
+
+
+# kind -> facts after the dispatch (operand representations, field bounds)
+FACTS2 = {
     "condjump": """  have hcode := hr.code_hi
   have hcdl := hr.code_lo
   have hlt := fetch_lt hni
@@ -565,51 +603,65 @@ def gtag(lemma, j, h):
     return f"(by refine {lemma} (n := w.slot {j}) ?_ {h} (by decide); slot_arith)"
 
 
-def paths2(kind, cfg):
-    """kind -> the case split (`{name}` marks a path) and, per path, its
-    branch polarities, guard proofs and close (`cfg`: the arm's layout data)."""
-    if kind == "arith":
-        split = """  by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
+def arith_paths(cfg):
+    """`op_arith`: R[B] (and a register C) tested for the integer tag; the
+    int+int path writes `R[A] := B op C` (`pc + 2`), the others skip (`pc + 1`)."""
+    reg = cfg["c"] == "reg"
+    inner = """obtain ⟨x, y, v, hxy, hv, rfl⟩ | ⟨hno, -⟩ := hcase
+· simp only [List.cons.injEq, Value.int.injEq, and_true] at hxy
+  obtain ⟨rfl, rfl⟩ := hxy
+  simp only [BinOp.int, Option.some.injEq] at hv
+  subst hv
+  {int}
+· exact absurd rfl (hno _ _)"""
+    if reg:
+        inner = """by_cases hC : slotTag c1.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt
+· obtain rfl := hvc.int_of_tag hC
+  """ + inner.replace("\n", "\n  ") + """
+· obtain ⟨x, y, v, hxy, -, -⟩ | ⟨-, rfl⟩ := hcase
+  · simp only [List.cons.injEq] at hxy
+    exact absurd hxy.2.1 (hvc.not_int hC _)
+  {cni}"""
+    split = """  by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hvb.int_of_tag hB
-    by_cases hC : slotTag c1.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt
-    · obtain rfl := hvc.int_of_tag hC
-      obtain ⟨x, y, v, hxy, hv, rfl⟩ | ⟨hno, -⟩ := hcase
-      · simp only [List.cons.injEq, Value.int.injEq, and_true] at hxy
-        obtain ⟨rfl, rfl⟩ := hxy
-        simp only [BinOp.int, Option.some.injEq] at hv
-        subst hv
-        {int}
-      · exact absurd rfl (hno _ _)
-    · obtain ⟨x, y, v, hxy, -, -⟩ | ⟨-, rfl⟩ := hcase
-      · simp only [List.cons.injEq] at hxy
-        exact absurd hxy.2.1 (hvc.not_int hC _)
-      {cni}
+    """ + inner.replace("\n", "\n    ") + """
   · obtain ⟨x, y, v, hxy, -, -⟩ | ⟨-, rfl⟩ := hcase
     · simp only [List.cons.injEq] at hxy
       exact absurd hxy.1 (hvb.not_int hB _)
     {bni}"""
-        gB, gC = gtag("guard_tag_eq", "ins.b", "hB"), gtag("guard_tag_eq", "ins.c", "hC")
+    yv, hy = (("(slotVal c1.σ.mem (w.slot ins.c))", "(ld_slot (n := w.slot ins.c) ?_)") if reg else
+              ("(BitVec.ofInt 64 ins.sc)", "(scraw_eq ins)"))
 
-        def write(post, k):
-            return (f"""  have hst := slotStore_sb_sd (A := w.slot ins.a) hW (by slot_arith) (by slot_arith)
+    def write(post, k):
+        return (f"""  have hst := slotStore_sb_sd (A := w.slot ins.a) hW (by slot_arith) (by slot_arith)
 {x27_to(post, k, "(s.pc + 2)")}  have hcore := hc1.write hq{k} (a := ins.a) (pc' := s.pc + 2)
-    (v := .int ({cfg["alu"]} (slotVal c1.σ.mem (w.slot ins.b)) (slotVal c1.σ.mem (w.slot ins.c))))
+    (v := .int ({cfg["alu"]} (slotVal c1.σ.mem (w.slot ins.b)) {yv}))
     (by simp only [Word.a, Word.field]; omega)
     ⟨{pins2(post, k, {"x27": "hx27"})}⟩
     hst (by
-      rw [stData_int, alu_val {cfg["alu"]} (n1 := w.slot ins.b) (n2 := w.slot ins.c) ?_ ?_]
+      rw [stData_int, alu_val {cfg["alu"]} (n1 := w.slot ins.b) ?_ {hy}]
       · exact .int
       all_goals slot_arith)
 """ + done2(k))
-        return split, {
-            "int": ("tt", [gB, gC], write),
-            "cni": ("tnt", [gB, gtag("guard_tag_ne", "ins.c", "hC"),
-                            "(by refine guard_not_float (n := w.slot ins.c) ?_ hvc; slot_arith)"],
-                    lambda post, k: close_skip(post, k, "(s.pc + 1)")),
-            "bni": ("n" + BFLOAT[cfg["bfloat"]][0], [gtag("guard_tag_ne", "ins.b", "hB"),
-                           f"(by refine {BFLOAT[cfg['bfloat']][1]} (n := w.slot ins.b) ?_ hvb; slot_arith)"],
-                    lambda post, k: close_skip(post, k, "(s.pc + 1)")),
-        }
+    skip = lambda post, k: close_skip(post, k, "(s.pc + 1)")  # noqa: E731
+    bi, bn = tag_guard(cfg["b"], True, "ins.b", "hB"), tag_guard(cfg["b"], False, "ins.b", "hB")
+    bf = float_guard(cfg["b_float"], "ins.b", "hvb")
+    paths = {"bni": (bn[0] + bf[0], [bn[1], bf[1]], skip)}
+    if reg:
+        ci, cn = tag_guard(cfg["c_test"], True, "ins.c", "hC"), tag_guard(cfg["c_test"], False, "ins.c", "hC")
+        cf = float_guard(cfg["c_float"], "ins.c", "hvc")
+        paths["int"] = (bi[0] + ci[0], [bi[1], ci[1]], write)
+        paths["cni"] = (bi[0] + cn[0] + cf[0], [bi[1], cn[1], cf[1]], skip)
+    else:
+        paths["int"] = (bi[0], [bi[1]], write)
+    return split, paths
+
+
+def paths2(kind, cfg):
+    """kind -> the case split (`{name}` marks a path) and, per path, its
+    branch polarities, guard proofs and close (`cfg`: the arm's layout data)."""
+    if kind == "arith":
+        return arith_paths(cfg)
     if kind == "condjump":
         split = """  by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hva'.int_of_tag hTa
@@ -714,7 +766,7 @@ theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : S
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
-{PRE2[kind].replace("{binop}", cfg.get("binop", ""))}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
+{arith_pre(cfg) if kind == "arith" else PRE2[kind]}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
   obtain ⟨c1, hs1, hlt1, hA⟩ := dispatch hR hf (by rw [hnum]; decide)
   have hc1 := hA.core
   have hr := hc1.ranges
@@ -728,7 +780,7 @@ theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : S
   have hch := hr.ci_hi
   have hins := ins.isLt
   simp only [stackValueSize, ciSize] at hbh hch
-{FACTS2[kind]}{split}"""
+{arith_facts(cfg) if kind == "arith" else FACTS2[kind]}{split}"""
     imports = ["Lua.Vm.Sim.Dispatch", "Lua.Vm.Sim.Close"] + sorted(mods)
     return fname, "\n".join(f"import {m}" for m in imports) + f"""
 

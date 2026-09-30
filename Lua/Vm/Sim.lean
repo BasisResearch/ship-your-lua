@@ -6,6 +6,7 @@ import Lua.Vm.Sim.Arms.Loadi
 import Lua.Vm.Sim.Arms.Jmp
 import Lua.Vm.Sim.Arms.Add
 import Lua.Vm.Sim.Arms.Sub
+import Lua.Vm.Sim.Arms.Addi
 import Lua.Vm.Sim.Arms.Eqi
 import Lua.Vm.Sim.Arms.Forloop
 
