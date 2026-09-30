@@ -25,7 +25,7 @@ Every row is currently unassigned.
 |---|---|---|---|
 | `VmLayout.runtimeReady` concrete instance `luaLayout` | `Lua/Vm/Runtime.lean` | A0 | **defined** (`luaRuntimeReady`); every field holds at both traced entries (checked natively by `gen_lua_boot_witness.py`) |
 | `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | `Lua/Vm/Boot/` | A0 | open: the generator, the entry data and the reconstruction lemmas are landed; the kernel witness is not written (A0.6) |
-| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **pilot proved**: the relation `VmRel`, `dispatch`, and `sim_MOVE`/`sim_LOADI`/`sim_JMP` (A1 status) |
+| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **pilot proved**: the relation `VmRel`, `dispatch`, and `sim_MOVE`/`sim_LOADI`/`sim_JMP`; bake-off 2 (incumbent route): `sim_ADD`/`sim_EQI`/`sim_FORLOOP` (`abstractions/bakeoff2/incumbent.md`) (A1 status) |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
