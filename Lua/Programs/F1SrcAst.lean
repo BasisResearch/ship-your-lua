@@ -67,60 +67,58 @@ namespace Lua.Programs
 
 open Lua.Ast
 
-/-- The F1 AST of `c/tests/f1_src.lua`. -/
-def f1SrcAst : Chunk := [
-  .locals ["a", "b", "c"] [(.int 1), (.int 2)],
-  .locals ["d"] [],
-  .print [(.var "a"), (.var "b"), (.var "c"), (.var "d")],
-  .locals ["e"] [(.int 3), (.int 4)],
-  .print [(.var "e")],
-  .local_ "t" (.int 0),
-  .numFor "i" (.int 1) (.int 20) (.int 1) [
-    .if_ (.binop .eq (.binop .mod (.var "i") (.int 3)) (.int 0)) [
-      .assign "t" (.binop .add (.var "t") (.var "i"))] [
-      .if_ (.binop .eq (.binop .mod (.var "i") (.int 5)) (.int 0)) [
-        .assign "t" (.binop .sub (.var "t") (.var "i"))] [
-        .assign "t" (.binop .add (.var "t") (.int 1))]],
-    .if_ (.binop .ge (.var "i") (.int 15)) [
-      .break_] []],
-  .print [(.var "t")],
-  .local_ "x" (.int 10),
-  .local_ "y" (.int 0),
-  .while_ (.bool true) [
-    .local_ "x" (.binop .sub (.var "x") (.var "y")),
-    .assign "y" (.binop .add (.var "y") (.int 2)),
-    .if_ (.binop .lt (.var "x") (.int 5)) [
-      .print [(.var "x")],
-      .break_] []],
-  .print [(.var "x"), (.var "y")],
-  .local_ "n" (.int 0),
-  .repeat_ [
-    .local_ "m" (.binop .mul (.var "n") (.int 2)),
-    .assign "n" (.binop .add (.var "n") (.int 1))] (.or (.binop .ge (.var "m") (.int 6)) (.binop .gt (.var "n") (.int 100))),
-  .print [(.var "n")],
-  .local_ "k" (.int 0),
-  .repeat_ [
-    .assign "k" (.binop .add (.var "k") (.int 1)),
-    .if_ (.binop .eq (.var "k") (.int 4)) [
-      .break_] []] (.bool false),
-  .print [(.var "k")],
-  .local_ "s" (.int 0),
-  .numFor "i" (.int 5) (.int 1) (.neg (.int 1)) [
-    .numFor "j" (.var "i") (.int 5) (.int 1) [
-      .if_ (.binop .eq (.var "j") (.int 4)) [
-        .break_] [],
-      .assign "s" (.binop .add (.var "s") (.var "j"))]],
-  .print [(.var "s")],
-  .if_ (.and (.not (.binop .gt (.var "s") (.int 100))) (.binop .ne (.var "s") (.int 0))) [
-    .print [(.bool true)]] [
-    .print [(.bool false)]],
-  .local_ "v" .nil,
-  .if_ (.var "v") [
-    .print [(.int 1)]] [
-    .if_ (.binop .eq (.var "v") (.bool false)) [
-      .print [(.int 2)]] [
-      .print [(.int 3)]]],
-  .local_ "w" (.int 7),
-  .print [(.binop .idiv (.var "w") (.int 2)), (.binop .mod (.neg (.var "w")) (.int 3)), (.or (.and (.binop .gt (.var "w") (.int 5)) (.var "w")) (.int 0)), (.or (.binop .lt (.var "w") (.int 5)) .nil)]]
+/-- The AST of `c/tests/f1_src.lua`. -/
+def f1SrcAst : Chunk := (.mk [
+  .local_ [⟨"a", .reg⟩, ⟨"b", .reg⟩, ⟨"c", .reg⟩] [(.numeral (.int 1)), (.numeral (.int 2))],
+  .local_ [⟨"d", .reg⟩] [],
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "a"))), (.prefixexp (.var (.name "b"))), (.prefixexp (.var (.name "c"))), (.prefixexp (.var (.name "d")))])),
+  .local_ [⟨"e", .reg⟩] [(.numeral (.int 3)), (.numeral (.int 4))],
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "e")))])),
+  .local_ [⟨"t", .reg⟩] [(.numeral (.int 0))],
+  .fornum "i" (.numeral (.int 1)) (.numeral (.int 20)) none (.mk [
+    .if_ (.binop .eq (.binop .mod (.prefixexp (.var (.name "i"))) (.numeral (.int 3))) (.numeral (.int 0))) (.mk [
+      .assign [(.name "t")] [(.binop .add (.prefixexp (.var (.name "t"))) (.prefixexp (.var (.name "i"))))]] none) [((.binop .eq (.binop .mod (.prefixexp (.var (.name "i"))) (.numeral (.int 5))) (.numeral (.int 0))), (.mk [
+      .assign [(.name "t")] [(.binop .sub (.prefixexp (.var (.name "t"))) (.prefixexp (.var (.name "i"))))]] none))] (some (.mk [
+      .assign [(.name "t")] [(.binop .add (.prefixexp (.var (.name "t"))) (.numeral (.int 1)))]] none)),
+    .if_ (.binop .ge (.prefixexp (.var (.name "i"))) (.numeral (.int 15))) (.mk [
+      .break_] none) [] none] none),
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "t")))])),
+  .local_ [⟨"x", .reg⟩] [(.numeral (.int 10))],
+  .local_ [⟨"y", .reg⟩] [(.numeral (.int 0))],
+  .while_ .true (.mk [
+    .local_ [⟨"x", .reg⟩] [(.binop .sub (.prefixexp (.var (.name "x"))) (.prefixexp (.var (.name "y"))))],
+    .assign [(.name "y")] [(.binop .add (.prefixexp (.var (.name "y"))) (.numeral (.int 2)))],
+    .if_ (.binop .lt (.prefixexp (.var (.name "x"))) (.numeral (.int 5))) (.mk [
+      .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "x")))])),
+      .break_] none) [] none] none),
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "x"))), (.prefixexp (.var (.name "y")))])),
+  .local_ [⟨"n", .reg⟩] [(.numeral (.int 0))],
+  .repeat_ (.mk [
+    .local_ [⟨"m", .reg⟩] [(.binop .mul (.prefixexp (.var (.name "n"))) (.numeral (.int 2)))],
+    .assign [(.name "n")] [(.binop .add (.prefixexp (.var (.name "n"))) (.numeral (.int 1)))]] none) (.binop .or (.binop .ge (.prefixexp (.var (.name "m"))) (.numeral (.int 6))) (.binop .gt (.prefixexp (.var (.name "n"))) (.numeral (.int 100)))),
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "n")))])),
+  .local_ [⟨"k", .reg⟩] [(.numeral (.int 0))],
+  .repeat_ (.mk [
+    .assign [(.name "k")] [(.binop .add (.prefixexp (.var (.name "k"))) (.numeral (.int 1)))],
+    .if_ (.binop .eq (.prefixexp (.var (.name "k"))) (.numeral (.int 4))) (.mk [
+      .break_] none) [] none] none) .false,
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "k")))])),
+  .local_ [⟨"s", .reg⟩] [(.numeral (.int 0))],
+  .fornum "i" (.numeral (.int 5)) (.numeral (.int 1)) (some (.unop .neg (.numeral (.int 1)))) (.mk [
+    .fornum "j" (.prefixexp (.var (.name "i"))) (.numeral (.int 5)) none (.mk [
+      .if_ (.binop .eq (.prefixexp (.var (.name "j"))) (.numeral (.int 4))) (.mk [
+        .break_] none) [] none,
+      .assign [(.name "s")] [(.binop .add (.prefixexp (.var (.name "s"))) (.prefixexp (.var (.name "j"))))]] none)] none),
+  .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "s")))])),
+  .if_ (.binop .and (.unop .not (.prefixexp (.paren (.binop .gt (.prefixexp (.var (.name "s"))) (.numeral (.int 100)))))) (.binop .ne (.prefixexp (.var (.name "s"))) (.numeral (.int 0)))) (.mk [
+    .functioncall (.call (.var (.name "print")) (.explist [.true]))] none) [] (some (.mk [
+    .functioncall (.call (.var (.name "print")) (.explist [.false]))] none)),
+  .local_ [⟨"v", .reg⟩] [.nil],
+  .if_ (.prefixexp (.var (.name "v"))) (.mk [
+    .functioncall (.call (.var (.name "print")) (.explist [(.numeral (.int 1))]))] none) [((.binop .eq (.prefixexp (.var (.name "v"))) .false), (.mk [
+    .functioncall (.call (.var (.name "print")) (.explist [(.numeral (.int 2))]))] none))] (some (.mk [
+    .functioncall (.call (.var (.name "print")) (.explist [(.numeral (.int 3))]))] none)),
+  .local_ [⟨"w", .reg⟩] [(.numeral (.int 7))],
+  .functioncall (.call (.var (.name "print")) (.explist [(.binop .idiv (.prefixexp (.var (.name "w"))) (.numeral (.int 2))), (.binop .mod (.unop .neg (.prefixexp (.var (.name "w")))) (.numeral (.int 3))), (.binop .or (.binop .and (.binop .gt (.prefixexp (.var (.name "w"))) (.numeral (.int 5))) (.prefixexp (.var (.name "w")))) (.numeral (.int 0))), (.binop .or (.prefixexp (.paren (.binop .lt (.prefixexp (.var (.name "w"))) (.numeral (.int 5))))) .nil)]))] none)
 
 end Lua.Programs

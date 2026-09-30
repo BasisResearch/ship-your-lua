@@ -34,9 +34,18 @@ LuaSem s out  ↔  BcSem (compile s) out  ↔  Halts c out 0
   well-formedness, and definite initialisation. Every excluded opcode is in
   `ledger` with its fragment. There is never a `sorry`.
 
-**Layer B (later): the bytecode against Lua source.**
-* `LuaSem` (`Lua/Ast/Semantics.lean`) is a big-step semantics of the source
-  AST.
+**Layer B: the bytecode against Lua source.**
+* The source is real Lua: `Lua/Ast/Syntax.lean` is the complete Lua 5.4
+  syntax (the manual's §9), and `scripts/gen_ast.py` parses all of Lua 5.4
+  into it, following `llex.c`/`lparser.c` with lparser's static errors. It
+  parses every `.lua` file in the repo and the Lua 5.4.7 test suite, and
+  round-trips them through the host `luac` with identical `luac -l -l`
+  listings.
+* `LuaSem` (`Lua/Ast/Semantics.lean`) is a big-step semantics over the full
+  syntax with rules for F1. `print(…)` is a call of the global `print`
+  looked up in `_ENV`, and `goto` resumes after its label in the enclosing
+  block. `AstSupported` is the decidable F1 predicate on source, including
+  the manual's label visibility rules.
 * The order: per-program translation validation of `luac`'s output first,
   then a Lean compiler with a correctness proof, then the ELF's own
   `lparser`/`lcode`.
@@ -45,7 +54,7 @@ LuaSem s out  ↔  BcSem (compile s) out  ↔  Halts c out 0
 
 | fragment | contents |
 |---|---|
-| **F1** | integers, moves, constants, integer arithmetic and bitwise operators (F1b, merged), compare+jump, `FORPREP`/`FORLOOP`, `RETURN`, calls to `print` |
+| **F1** | bytecode: integers, moves, constants, integer arithmetic and bitwise operators (F1b, merged), compare+jump, `FORPREP`/`FORLOOP`, `RETURN`, calls to `print`. Source (`AstSupported`): integer literals, locals (also `<const>`), assignment to locals (also multiple), arithmetic, bitwise, comparison and logical operators, `print(…)` calls of the global `print`, `do`, `while`, `repeat`, `if`, numeric `for`, `break`, `goto` and labels |
 | F2 | tables (the real `next` order) |
 | F3 | closures, upvalues, calls, varargs, multret |
 | F4 | strings, metatables |
@@ -77,6 +86,13 @@ def endToEnd_lua_Statement (Lay : VmLayout) (Compiles : Chunk → Proto → Prop
   * `vm_refinement_of_sim`: Layer A from the forward simulation `VmSim`, by
     the CompCert-style refinement pattern plus densification.
   * `compile_refinement_of_tv`: Layer B from `CompileTV`.
+* **Layer B on a corpus** (`Lua/Compile/Corpus.lean`).
+  * `compile_refinement_corpus`: `compile_refinement_Statement` for the host
+    `luac -s` on `while.lua` (with `goto continue`), `f1_ops.lua`,
+    `f1_src.lua` and `f1b_bits.lua`. Each has `AstSupported`, `Supported`,
+    and `LuaSem` and `BcSem` of the ELF's output by kernel evaluation.
+  * `luaRun_sound`/`execSound`: the source interpreter is sound for
+    `LuaSem`; `LuaSem.deterministic`.
 * **Semantics validated against the binary.**
   * `while_bcSem`, `f1Ops_bcSem`, `printPrint_bcSem`, `f1b_bcSem`: `BcSem`
     gives exactly the output the ELF prints on Sail.
@@ -138,11 +154,12 @@ console-only `htif.c` meets it only on `print`'s writes (PHASES.md, OS).
 | `Lua/Bytecode/` | opcodes (generated from `lopcodes.h`), instruction decoding, `Proto`, **`BcSem`** (F1), and the sound stepper |
 | `Lua/Fragment.lean`, `Lua/FragmentSound.lean` | `Supported`, the fragments, the ledger of unsupported opcodes, and the soundness of the definite-initialisation check |
 | `Lua/Vm/` | struct layout (generated from the cross compiler), the image (generated from the ELF), representation predicates, `VmLoaded`, and the binary's `Host` |
-| `Lua/Ast/` | F1 source AST and **`LuaSem`** |
+| `Lua/Ast/` | the complete Lua 5.4 syntax, **`LuaSem`** (rules for F1), `AstSupported`, the sound source interpreter, determinism |
+| `Lua/Compile/` | translation validation (`ProgramTV`) and the corpus (`CorpusCompiles`, `compile_refinement_corpus`) |
 | `Lua/Refinement.lean`, `Lua/Theorems.lean` | the refinement pattern and the three statements with their proved compositions |
 | `Lua/Programs/` | generated `Proto`s of the test chunks, the validation theorems, and the `Supported` checks |
 | `Vsa/`, `VsaIris/`, `riscv-lean/` | the machine layer copied from ship-your-interpreter: Sail model and ISA relation, densification, instruction-level simulation, decode table, libgcc/newlib sites, Iris machine WP, dlmalloc |
-| `scripts/` | this repository's generators (`gen_opcodes.py`, `gen_lua_layout.py`, `gen_lua_image.py`, `gen_proto.py`), `check.sh`, the discipline check; `scripts/syi/` holds the copied generator layer |
+| `scripts/` | this repository's generators (`gen_opcodes.py`, `gen_lua_layout.py`, `gen_lua_image.py`, `gen_proto.py`, and `gen_ast.py`, the Lua 5.4 parser), `check.sh`, the discipline check; `scripts/syi/` holds the copied generator layer |
 | `experiments/census/` | the disassembly census and its tools |
 | `experiments/port/` | what was copied and the import edges still to cut |
 
