@@ -112,3 +112,63 @@ The regenerated segment modules G12/G20 build in 4–8 s.
    - `CALL print` can reallocate the stack at ≥ 15 locals.
 
    Both re-establish `VmRel` with a new `func`, not a new relation.
+
+## The entry lemma (`vmRel_entry`)
+
+`vmRel_entry : vmRel_entry_Statement` (`Lua/Vm/Sim/Entry.lean`): from
+`VmLoaded luaLayout p c`, `luaV_execute`'s prologue runs from the entry to the
+fetch head in `VmRel p c' State.init`. It was built with the incumbent route
+only: generated segments, then one hand composition.
+
+**What was built.**
+
+| piece | file | kind |
+|---|---|---|
+| the prologue, two segments cut at `startfunc` (`seg_8001bf68_8001bfb0`: C frame, `L`/`ci`, jump table; `seg_8001bfb0_8001bfe4`: `startfunc`'s loads, s1/s2, the `trap` check, `base`), 28 new site lemmas (3 `startfunc` sites shared with the `OP_CALL`/`OP_TAILCALL` batteries) | `Lua/Vm/Arms/Prologue{,Sites}.lean` | generated (`gen_lua_arms.py` `prologue_specs`, `keep = [gp, s8]` + output) |
+| `VmRegionsAt` (heap placement and separations), `HarnessAt` (`tick < 2`, empty console), `RtPtrs.{cl, proto, code, sizecode}` | `Lua/Vm/Runtime.lean` | hand, checked natively on while and f1_ops by `gen_lua_boot_witness.py` |
+| `rdLE_spec` (`rd32`/`rd64` → `bytesT4`/`bytesT8`), `AgreeOut` (C-frame memory frame), `ProtoRepr.code`, `vmRel_entry` | `Lua/Vm/Sim/Entry.lean` | hand |
+
+**Measurements.**
+
+| item | cost |
+|---|---|
+| `Entry.lean` | 228 code lines, 13 theorems (census counter) |
+| of which `vmRel_entry` | about 160 lines |
+| generator changes | `gen_lua_arms.py` +97 lines, `gen_lua_boot_witness.py` +35, `gen_lua_arm.py` ±3 (index import) |
+| `Runtime.lean` | +64 lines (two structures, four `RtPtrs` fields) |
+| build `Entry` | 11.6 s, 2.0 GB |
+| build `Prologue` / `PrologueSites` | 4.1 s / 1.5 s, 2.0 / 1.8 GB |
+| failed elaborations | 8, each a single-file check of 10–15 s; none a timeout or heartbeat problem |
+
+**How the side conditions close.**
+- Segment 1's 52 side conditions (13 `sd` × lo/hi/window/alignment) are ground,
+  since `sp` is `RuntimeData.spEntry`. They close with
+  `repeat (specialize H1 (by decide))`.
+- Segment 2's 27 side conditions close with one `first` combinator:
+  - a normalising `simp` over five read facts `hR*`, each read through
+    `AgreeOut` and `rdLE_spec`, then `omega` over `VmRegionsAt`;
+  - or `decide` when the side condition is ground.
+- The relation's fields come from:
+  - `VmEntryData` for the pointers (`w.mo` is the entry memory);
+  - `LuaStateAt` for `trap_word` and `RuntimeMem`;
+  - `VmRegionsAt` for `Ranges` (one `omega` each).
+
+**Findings.**
+1. **`luaLayout` lacked placement facts.** The `Ranges` of `VmRel`, and the
+   prologue loads of `L->hookmask`, the closure and the `Proto`, need
+   addresses in RAM, off `tohost`, and apart from the register window. Nothing
+   in `luaRuntimeReady` stated them. `VmRegionsAt` states them as heap
+   placement, `[_end, __heap_end)` below the C stack (`cstack_room`), plus two
+   separations from the Lua stack. Both traced entries satisfy it.
+2. **The harness facts belong to the layout.** `SegSt` needs `tick < 2`, and
+   `Core.out` at `State.init` needs an empty console. ship-your-interpreter
+   takes both as hypotheses of its `Loaded` instance. Here they are
+   `HarnessAt`, and `RuntimeReadyAt` now takes the `Config`.
+3. **Cut the prologue where its memory changes role.** In one segment, every
+   `startfunc` load was stated over the 13-store chain: 561 KB of statement.
+   Cut at `startfunc` (the first prologue address the arms reach), it is
+   111 KB, and segment 2's loads read its entry memory. The C frame is
+   discharged once (`AgreeOut`).
+4. **`VARARGPREP` is not part of the prologue.** The relation holds at the
+   head before the first instruction, with `func = ci->func` at entry. The
+   `func` shift is `VARARGPREP`'s arm.

@@ -164,6 +164,9 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Code.textLoaded_LuaD_precallLoaded
 #print axioms Lua.Vm.Code.textLoaded_LuaB_printLoaded
 #print axioms Lua.Vm.Sim.dispatch
+#print axioms Lua.Vm.Sim.vmRel_entry
+#print axioms Lua.Vm.Arms.seg_8001bf68_8001bfb0
+#print axioms Lua.Vm.Arms.seg_8001bfb0_8001bfe4
 #print axioms Lua.Vm.Sim.sim_MOVE
 #print axioms Lua.Vm.Sim.sim_LOADI
 #print axioms Lua.Vm.Sim.sim_JMP
@@ -246,7 +249,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 97 ] || fail "expected 97 axiom reports, got $n"
+[ "$n" = 100 ] || fail "expected 100 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

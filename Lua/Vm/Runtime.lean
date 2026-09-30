@@ -20,7 +20,10 @@ what `luaV_execute` and its F1 callees read outside those:
 * `LuaStateAt`: the `lua_State`/`CallInfo`/`global_State` invariants F1 reads
   beyond `VmEntryData` (hooks, error function, the stack bounds, the call's
   `callstatus`/`nresults`, the upvalue and to-be-closed lists, the string
-  table and string cache, the basic types' metatables).
+  table and string cache, the basic types' metatables);
+* `VmRegionsAt`: where the objects `luaV_execute` addresses lie (the heap, and
+  apart from the Lua stack), for A1's `VmRel`;
+* `HarnessAt`: the platform loop's tick counter and the empty console.
 
 Every field says which callee reads it. Boot-invariant values (the entry `sp`,
 the return addresses, the `jmp_buf`, the caller frames' bytes) are
@@ -155,6 +158,12 @@ structure RtPtrs where
   brkv : Nat
   chunks : List DlHeap.Chunk
   bins : List (List Nat)
+  /-- The main closure (`ci->func`'s value), its `Proto`, and the proto's
+  `code` array and `sizecode` (`VmRegionsAt`). -/
+  cl : Nat
+  proto : Nat
+  code : Nat
+  sizecode : Nat
 
 /-- `g->strt` (lstring.c), read by `luaS_newlstr` → `internshrstr` for every
 new short string: `print`'s `luaL_tolstring` → `lua_pushfstring` →
@@ -230,19 +239,65 @@ structure LuaStateAt (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
   strt : StrtAt m w
   strcache : StrCacheAt m w
 
+/-- **Where the VM's objects lie.** The `lua_State`, the `CallInfo`, the Lua
+stack `[L->stack, L->stack_last)`, the main closure, its `Proto` and the
+proto's `code` array are `l_alloc` blocks of the dlmalloc heap
+`[_end, __heap_end)`, below the C stack (`cstack_room`); the `CallInfo` and
+the code array are apart from the Lua stack. Read by A1's entry lemma
+`Lua.Vm.Sim.vmRel_entry` (`Lua/Vm/Sim/Entry.lean`): the prologue's loads
+(`lw t6,192(s0)`, `ld t1,0(s7)`, `ld s11,32(s7)`, `ld a5,0(t1)`,
+`ld a5,24(a5)`, `ld a5,56(a5)`) need their addresses in RAM and off
+`tohost`, and `VmRel`'s `Ranges` bound the register window, the code array
+and the `CallInfo` and separate them (`code_out`, `ci_out`). -/
+structure VmRegionsAt (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
+  L_lo : symEnd ≤ L
+  L_hi : L + stateSize ≤ symHeapEnd
+  ci_lo : symEnd ≤ ci
+  ci_hi : ci + ciSize ≤ symHeapEnd
+  stack_lo : symEnd ≤ w.stack
+  stack_hi : w.stackLast ≤ symHeapEnd
+  /-- `TValue`s are 8-aligned: the arms' `ld`/`sd` of a slot's payload. -/
+  func_al : w.func % 8 = 0
+  ci_sep : ci + ciSize ≤ w.stack ∨ w.stackLast ≤ ci
+  cl : rd64 m (w.func + tvalueValOff) = some w.cl
+  cl_lo : symEnd ≤ w.cl
+  /-- the closure's header, up to its upvalue array -/
+  cl_hi : w.cl + lclosureUpvalsOff ≤ symHeapEnd
+  proto : rd64 m (w.cl + lclosureProtoOff) = some w.proto
+  proto_lo : symEnd ≤ w.proto
+  /-- the `Proto` up to its `code` field -/
+  proto_hi : w.proto + protoCodeOff + 8 ≤ symHeapEnd
+  code : rd64 m (w.proto + protoCodeOff) = some w.code
+  sizecode : rd32 m (w.proto + protoSizecodeOff) = some w.sizecode
+  code_lo : symEnd ≤ w.code
+  code_hi : w.code + 4 * w.sizecode ≤ symHeapEnd
+  code_sep : w.code + 4 * w.sizecode ≤ w.stack ∨ w.stackLast ≤ w.code
+
+/-- **The platform loop and the console.** Every segment state carries the
+tick bound (`Vsa.Sim.SegSt.tick`): the loop's counter runs below
+`plat_insns_per_tick = 2` in every configuration reached from 0 (checked by
+the generator). Nothing is printed before the chunk runs: `VmRel`'s
+`Core.out` at `State.init` (`Lua.Vm.Sim.vmRel_entry`); the generator checks
+that no boot store touches `tohost`. -/
+structure HarnessAt (c : Config) : Prop where
+  tick : c.tick < 2
+  console : Vsa.Machine.output c.σ = ""
+
 /-- **The runtime at `luaV_execute`'s entry**, for the witness `w`. -/
-structure RuntimeReadyAt (σ : MState) (L ci : Nat) (w : RtPtrs) : Prop where
-  cstack : CStackAt σ
-  error_jmp : ErrorJmpAt σ.mem L
-  stdio : StdioBoot σ.mem
-  memfs : MemfsBoot σ.mem
+structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
+  harness : HarnessAt c
+  cstack : CStackAt c.σ
+  error_jmp : ErrorJmpAt c.σ.mem L
+  stdio : StdioBoot c.σ.mem
+  memfs : MemfsBoot c.σ.mem
   /-- Read by every allocation (`l_alloc` → `realloc`, see `Lua/Vm/DlHeap.lean`). -/
-  heap : DlHeap.HeapAt σ.mem w.top w.brkv w.chunks (fun i => w.bins.getD i [])
-  lua : LuaStateAt σ.mem L ci w
+  heap : DlHeap.HeapAt c.σ.mem w.top w.brkv w.chunks (fun i => w.bins.getD i [])
+  lua : LuaStateAt c.σ.mem L ci w
+  regions : VmRegionsAt c.σ.mem L ci w
 
 /-- **`luaRuntimeReady`**: some choice of the program-dependent pointers and
 heap shape makes the runtime ready. -/
-def luaRuntimeReady (c : Config) (L ci : Nat) : Prop := ∃ w, RuntimeReadyAt c.σ L ci w
+def luaRuntimeReady (c : Config) (L ci : Nat) : Prop := ∃ w, RuntimeReadyAt c L ci w
 
 /-- **The Lua ELF's layout** (PHASES A0.6). -/
 def luaLayout : VmLayout := ⟨luaRuntimeReady⟩

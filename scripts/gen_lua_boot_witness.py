@@ -323,7 +323,39 @@ def evaluate(lay, M, regs, proto):
         cache.append(ts)
     w["strcache"] = cache
     w.update(heap)
+    # ---- VmRegionsAt
+    lo, hi = lay["symEnd"], lay["symHeapEnd"]
+    need(lo <= L and L + lay["stateSize"] <= hi, "L in the heap")
+    need(lo <= ci and ci + lay["ciSize"] <= hi, "ci in the heap")
+    need(lo <= w["stack"] and w["stackLast"] <= hi, "the Lua stack in the heap")
+    need(w["func"] % 8 == 0, "func_al")
+    need(ci + lay["ciSize"] <= w["stack"] or w["stackLast"] <= ci, "ci apart from the Lua stack")
+    w["cl"] = rd(w["func"] + lay["tvalueValOff"], 8)
+    need(lo <= w["cl"] and w["cl"] + lay["lclosureUpvalsOff"] <= hi, "the closure in the heap")
+    w["proto"] = rd(w["cl"] + lay["lclosureProtoOff"], 8)
+    need(lo <= w["proto"] and w["proto"] + lay["protoCodeOff"] + 8 <= hi, "the Proto in the heap")
+    w["code"] = rd(w["proto"] + lay["protoCodeOff"], 8)
+    w["sizecode"] = rd(w["proto"] + lay["protoSizecodeOff"], 4)
+    code_end = w["code"] + 4 * w["sizecode"]
+    need(lo <= w["code"] and code_end <= hi, "the code array in the heap")
+    need(code_end <= w["stack"] or w["stackLast"] <= w["code"], "the code array apart from the Lua stack")
     return e, w, slot, inv
+
+
+def plat_insns_per_tick():
+    """The Sail model's `plat_insns_per_tick` (`Vsa.stepOnce`'s tick period)."""
+    src = (ROOT / "riscv-lean" / "Lean_RV64D_executable" / "LeanRV64DExecutable"
+           / "PlatformConfig.lean").read_text()
+    return int(re.search(r"def plat_insns_per_tick : nat1 := (\d+)", src).group(1))
+
+
+def check_harness(lay, log):
+    """`HarnessAt`: the tick counter (`Config.tick`, reset to 0 every
+    `plat_insns_per_tick` steps from 0) stays below 2, and no boot store
+    touched `tohost` (the HTIF console is empty)."""
+    need(plat_insns_per_tick() <= 2, "tick < 2")
+    t = lay["symTohost"]
+    need(all(a + wd <= t or t + 8 <= a for a, wd, _ in log), "no console output before the entry")
 
 
 def check_tstring(lay, M, ts, s):
@@ -644,6 +676,8 @@ def render_program(lay, name, lean, proto_const, module, chunk, log, entry, e, w
             "  chunks :=",
             "    [" + ",\n     ".join(f"⟨{a:#x}, {sz:#x}, {'true' if u else 'false'}⟩" for a, sz, u in w["chunks"]) + "]",
             f"  bins := {'[' + ', '.join(lean_list(qs) for qs in w['bins']) + ']'}",
+            ] + [f"  {k} := {w[k]:#x}" for k in ("cl", "proto", "code")] + [
+            f"  sizecode := {w['sizecode']}",
             "",
             f"/-- The program at the entry: `{proto_const}` (`scripts/gen_proto.py` on the same chunk). -/",
             f"abbrev proto : Lua.Bytecode.Proto := {proto_const}",
@@ -695,6 +729,7 @@ def main():
         proto = undump(chunk)
         try:
             e, w, slot, inv = evaluate(lay, M, regs, proto)
+            check_harness(lay, log)
         except Fail as ex:
             raise SystemExit(f"{name}: the entry state fails {ex}")
         need(calls[-1][0] == regs[1] and calls[-1][2] is None, "the innermost call is ccall's, in ra")
