@@ -13,6 +13,10 @@ import Lua.Vm.Sim.Arms.Subk
 import Lua.Vm.Sim.Arms.Sub
 import Lua.Vm.Sim.Arms.Addi
 import Lua.Vm.Sim.Arms.Eqi
+import Lua.Vm.Sim.Arms.Loadtrue
+import Lua.Vm.Sim.Arms.Loadfalse
+import Lua.Vm.Sim.Arms.Lfalseskip
+import Lua.Vm.Sim.Arms.Loadk
 import Lua.Vm.Sim.Arms.Lti
 import Lua.Vm.Sim.Arms.Gti
 import Lua.Vm.Sim.Arms.Lei

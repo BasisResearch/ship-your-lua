@@ -159,6 +159,8 @@ structure Ranges (p : Proto) (w : RelPtrs) : Prop where
   k_out : ∀ a, w.k ≤ a → a < w.k + stackValueSize * p.k.length → ¬ Win p w a
   /-- the register slots lie below the C frame -/
   frame_sep : w.base + stackValueSize * p.maxstacksize ≤ w.sp
+  /-- the constant array lies apart from the register slots -/
+  k_sep : w.k + stackValueSize * p.k.length ≤ w.base ∨ w.base + stackValueSize * p.maxstacksize ≤ w.k
 
 /-- **The fetch-head registers** for pointers `w` and bytecode pc `pc`. -/
 structure Pins (σ : MState) (w : RelPtrs) (pc : Nat) : Prop where

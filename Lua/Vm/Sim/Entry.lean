@@ -370,7 +370,7 @@ theorem vmRel_entry : vmRel_entry_Statement := by
     ⟨hM.text, hM.rodata, hE.proto, hE.proto_code, fun i ins hf => ?_, bytesT8_of_rd64 hE.ci_func,
       ?_, ⟨rt, efunc.symm, hlua, hRt.heap, hRt.error_jmp⟩, hkc⟩,
     ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun a h1 h2 hw => ?_, fun a h1 h2 hw => ?_, ?_, ?_, ?_,
-      fun a h1 h2 hw => ?_, ?_⟩⟩, hq2.pcAt⟩
+      fun a h1 h2 hw => ?_, ?_, ?_⟩⟩, hq2.pcAt⟩
   · simp only [Win, Slots, RelPtrs.base, stackValueSize] at ha; omega
   · simp [State.init] at h
   · obtain ⟨hlt, hi⟩ := List.getElem?_eq_some_iff.1 hf

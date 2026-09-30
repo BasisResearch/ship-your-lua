@@ -222,6 +222,32 @@ theorem slotStore_sb_sd {m m' : Mem} {A a1 a2 : Nat} {d : BitVec (8 * 8)} {b : B
     SlotStore m m' A b d := by
   subst h; rw [h1, h2]; exact store_sb_sd m A d b
 
+/-- `sb` of a tag alone (`setbtvalue`/`setbfvalue`): the payload stays. -/
+theorem slotStore_sb {m m' : Mem} {A a1 : Nat} {b : BitVec 8} (h : m' = m.insert a1 b)
+    (h1 : a1 = A + 8) : SlotStore m m' A b (bytesT8 m A) := by
+  subst h h1
+  refine ⟨bytesT8_congr fun i hi => ?_, by simp [bytesT1], fun x hx => ?_⟩
+  · rw [Std.ExtHashMap.getElem?_insert, if_neg (by simp only [beq_iff_eq]; omega)]
+  · rw [Std.ExtHashMap.getElem?_insert, if_neg (by simp only [beq_iff_eq]; omega)]
+
+/-- `setobj` from another slot `S` (`ld`, `sd`, `lbu`, `sb`): the copy of `S`'s
+payload and tag, `S` apart from the destination. -/
+theorem slotStore_copy {m m' : Mem} {A S a1 a2 s1 s2 : Nat}
+    (h : m' = (writeMap8 m a2 (sdData_val (sign_extend (m := 64) (bytesT8 m s1 : BitVec (8 * 8))))).insert a1
+      (stData 1 (zero_extend (m := 64) (bytesT1 (writeMap8 m a2
+        (sdData_val (sign_extend (m := 64) (bytesT8 m s1 : BitVec (8 * 8))))) s2 : BitVec (8 * 1)))))
+    (h1 : a1 = A + 8) (h2 : a2 = A) (hs1 : s1 = S) (hs2 : s2 = S + 8) (hsep : S + 16 ≤ A ∨ A + 16 ≤ S) :
+    SlotStore m m' A (slotTag m S) (slotVal m S) := by
+  subst h
+  rw [h1, h2, hs1, hs2, sdData_sext, bytesT1_writeMap8_out _ _ _ (by omega), stData_zext]
+  simpa only [slotTag, slotVal, tvalueTagOff, tvalueValOff, Nat.add_zero] using
+    store_sd_sb m A (bytesT8 m S) (bytesT1 m (S + 8))
+
+/-- A boolean's tag, from a ground stored byte. -/
+theorem ValRepr.bool_of {mo : Mem} {t : BitVec 8} {x : BitVec 64} (b : Bool)
+    (h : t = BitVec.ofNat 8 (if b then vTrue else vFalse)) : ValRepr mo t x (.bool b) := by
+  cases b <;> (subst h; first | exact .true_ | exact .false_)
+
 theorem getElem?_insert_out {m : Mem} {a x : Nat} {b : BitVec 8} (h : x ≠ a) :
     (m.insert a b)[x]? = m[x]? := by
   rw [Std.ExtHashMap.getElem?_insert, ite_eq_right_iff.2 (fun h => by simp only [beq_iff_eq] at h; omega)]

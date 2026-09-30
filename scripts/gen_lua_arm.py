@@ -382,6 +382,10 @@ ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(ARITH_RR, binop="add", alu="HAdd
          "OP_ADDI": ("ADDI", "Addi", "arith", dict(c="imm", b="bne", b_float="bne", binop="add",
                                                   alu="HAdd.hAdd")),
          "OP_EQI": ("EQI", "Eqi", "condjump", {}),
+         "OP_LOADTRUE": ("LOADTRUE", "Loadtrue", "settag", (True, 1)),
+         "OP_LOADFALSE": ("LOADFALSE", "Loadfalse", "settag", (False, 1)),
+         "OP_LFALSESKIP": ("LFALSESKIP", "Lfalseskip", "settag", (False, 2)),
+         "OP_LOADK": ("LOADK", "Loadk", "loadk", None),
          "OP_LTI": ("LTI", "Lti", "cmpI", "lt_ai"),
          "OP_GTI": ("GTI", "Gti", "cmpI", "lt_ia"),
          "OP_LEI": ("LEI", "Lei", "cmpI", "le_ai"),
@@ -430,6 +434,7 @@ _VAR = re.compile(r"\bv(\d+)\b")
 
 # `ld a4,0(sp)` (the `K` arms' constant array): its value, as the chain
 # substitutes it, is `k` (`hkld`, from `Core.kptr`); later segments get `k`.
+KPARAM = "bytesT8 (m0) (v2 + sign_extend (m := 64) (0x000#12)).toNat"
 KLOAD = ("(sign_extend (m := 64) (bytesT8 (c1.σ.mem) ((BitVec.ofNat 64 w.sp) + sign_extend (m := 64) "
          "(0x000#12)).toNat : BitVec (8 * 8)))")
 
@@ -474,7 +479,7 @@ def chain2(segs, guards):
                 hyps.append(guards[gi])
                 gi += 1
             elif prm.startswith("(h"):
-                hyps.append("(by slot_arith)")
+                hyps.append("(by rw [hkld]; slot_arith)" if KPARAM in prm else "(by slot_arith)")
         regs = pin_regs(spec)
         if k == 1:
             pre = (f"c1 ⟨hc1.good, hpc1,\n      ⟨{', '.join(prf[r] for r in regs)}, trivial⟩,"
@@ -728,6 +733,93 @@ def arith_paths(cfg):
     return split, paths
 
 
+# `setbtvalue`/`setbfvalue` (`LOADTRUE`, `LOADFALSE`, `LFALSESKIP`): the tag
+# alone; `d`: the pc step.
+SETTAG = {"OP_LOADTRUE": (True, 1), "OP_LOADFALSE": (False, 1), "OP_LFALSESKIP": (False, 2)}
+
+
+def settag_pre(cfg):
+    b, d = cfg
+    return f"""  have hK : kernelAt p s.pc = some (move ins.a (s.pc + {d}) (.imm (.bool {str(b).lower()}))) := by
+    simp [kernelAt, hf, kernel, hop, opKernel]
+  obtain ⟨vs, v, hvs, hv, rfl⟩ := step_setR hstep hK
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, move, setR, Kernel.regTop, Opnd.ports] at htop
+  simp [Opnd.ports] at hvs
+  subst hvs
+  simp [Opnd.fill] at hv
+  subst hv
+"""
+
+
+def settag_paths(cfg):
+    b, d = cfg
+
+    def close(post, k):
+        return (f"""  have hst := slotStore_sb (A := w.slot ins.a) hW (by slot_arith)
+{x27_to(post, k, f"(s.pc + {d})")}  have hcore := hc1.write hq{k} (a := ins.a) (pc' := s.pc + {d})
+    (v := .bool {str(b).lower()}) (by simp only [Word.a, Word.field]; omega)
+    ⟨{pins2(post, k, {"x27": "hx27"})}⟩
+    hst (ValRepr.bool_of _ (by decide))
+""" + done2(k))
+    return "  {one}", {"one": ("", [], close)}
+
+
+LOADK_PRE = """  cases hkv : kval p ins.bx with
+  | none =>
+    obtain ⟨hK', -, -, -⟩ := hstep
+    simp [kernelAt, hf, kernel, hop, opKernel, hkv] at hK'
+  | some y =>
+  have hK : kernelAt p s.pc = some (move ins.a (s.pc + 1) (.imm y)) := by
+    simp [kernelAt, hf, kernel, hop, opKernel, hkv]
+  obtain ⟨vs, v, hvs, hv, rfl⟩ := step_setR hstep hK
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, hkv, move, setR, Kernel.regTop, Opnd.ports] at htop
+  simp [Opnd.ports] at hvs
+  subst hvs
+  simp [Opnd.fill] at hv
+  subst hv
+"""
+
+# the constant array: its bounds and `hkld` (the `K` operand facts of `arith`)
+KFACTS = """  have hklo := hr.k_lo
+  have hkhi := hr.k_hi
+  have hkal := hr.k_al
+  have hksep := hr.k_sep
+  have hsp := hr.sp_eq
+  simp only [execFrame, RuntimeData.spEntry] at hsp
+  have hkld : sign_extend (m := 64) (bytesT8 (c1.σ.mem) ((BitVec.ofNat 64 w.sp)
+      + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)) = BitVec.ofNat 64 w.k := by
+    rw [add_imm _ 0 (by decide), Nat.add_zero, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
+      sext64_id]
+    exact hc1.kptr
+"""
+
+LOADK_FACTS = """  have hcode := hr.code_hi
+  have hcdl := hr.code_lo
+  have hlt := fetch_lt hf
+  have hB17 : ins.toNat >>> 15 < 2 ^ 17 := by rw [Nat.shiftRight_eq_div_pow]; omega
+  simp only [Word.a, Word.field] at htop
+  have hvk := hc1.kconst hkv
+  have hKb := kval_lt hkv
+""" + KFACTS + """  simp only [Word.bx, Word.field, Nat.shiftRight_eq_div_pow, stackValueSize] at hKb hkhi hksep
+"""
+
+
+def loadk_paths(_cfg):
+    def close(post, k):
+        return (f"""  rw [hkld] at hW
+  have hst := slotStore_copy (A := w.slot ins.a) (S := w.k + stackValueSize * ins.bx) hW
+    (by slot_arith) (by slot_arith) (by slot_arith) (by slot_arith) (by slot_arith)
+{x27_to(post, k, "(s.pc + 1)")}  have hcore := hc1.write hq{k} (a := ins.a) (pc' := s.pc + 1)
+    (by simp only [Word.a, Word.field]; omega)
+    ⟨{pins2(post, k, {"x27": "hx27"})}⟩
+    hst hvk
+""" + done2(k))
+    return "  {one}", {"one": ("", [], close)}
+
+
+
 def cond_jump(post, k):
     """`donextjump`: the pc to the next jump's target, `trap` reloaded."""
     return (x21_trap(post, k, "hc1.trap") + fix_pin(
@@ -799,6 +891,10 @@ def paths2(kind, cfg):
         return arith_paths(cfg)
     if kind == "cmpI":
         return cmpI_paths(CMPI[cfg])
+    if kind == "settag":
+        return settag_paths(cfg)
+    if kind == "loadk":
+        return loadk_paths(cfg)
     if kind == "condjump":
         split = """  by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hva'.int_of_tag hTa
@@ -865,6 +961,19 @@ def indent(text, n):
     return "\n".join((" " * n + ln) if ln.strip() else ln for ln in text.rstrip("\n").split("\n"))
 
 
+def pre2(kind, cfg):
+    return {"arith": lambda: arith_pre(cfg), "cmpI": lambda: cmpI_pre(CMPI[cfg]),
+            "settag": lambda: settag_pre(cfg), "loadk": lambda: LOADK_PRE}.get(kind, lambda: PRE2[kind])()
+
+
+def facts2(kind, cfg):
+    return {"arith": lambda: arith_facts(cfg), "cmpI": lambda: FACTS2["condjump"],
+            "settag": lambda: """  have hcode := hr.code_hi
+  have hlt := fetch_lt hf
+  simp only [Word.a, Word.field] at htop
+""", "loadk": lambda: LOADK_FACTS}.get(kind, lambda: FACTS2[kind])()
+
+
 def render_arm2(op, specs, arms):
     lean_op, fname, kind, cfg = ARMS2[op]
     idx, tgt = targets()[op]
@@ -888,7 +997,7 @@ theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : S
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
-{arith_pre(cfg) if kind == "arith" else cmpI_pre(CMPI[cfg]) if kind == "cmpI" else PRE2[kind]}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
+{pre2(kind, cfg)}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
   obtain ⟨c1, hs1, hlt1, hA⟩ := dispatch hR hf (by rw [hnum]; decide)
   have hc1 := hA.core
   have hr := hc1.ranges
@@ -902,7 +1011,7 @@ theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : S
   have hch := hr.ci_hi
   have hins := ins.isLt
   simp only [stackValueSize, ciSize] at hbh hch
-{arith_facts(cfg) if kind == "arith" else FACTS2["condjump" if kind == "cmpI" else kind]}{split}"""
+{facts2(kind, cfg)}{split}"""
     imports = ["Lua.Vm.Sim.Dispatch", "Lua.Vm.Sim.Close"] + sorted(mods)
     return fname, "\n".join(f"import {m}" for m in imports) + f"""
 
