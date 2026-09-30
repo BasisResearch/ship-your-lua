@@ -25,6 +25,7 @@ import Lua.Programs.While
 import Lua.Programs.PrintPrint
 import Lua.Programs.F1Ops
 import Lua.Programs.F1bBits
+import Lua.Programs.F4Strlite
 import Lua.Programs.Validation
 import Lua.Programs.Supported
 import Lua.Programs.F1OpsAst
