@@ -474,3 +474,32 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
   region.
 * **Exit.** The composed theorem has no hypotheses beyond `Supported` /
   `AstSupported`, and only standard axioms.
+
+## Abstraction discovery (process; `abstractions/`)
+
+`abstractions/gate.py` (check.sh stage 3c) fails when a proof cluster reaches
+8 hand proofs without its per-case cost falling by a third. The only allowed
+next task is then a round of `/abstraction-discovery`.
+
+Round 1 (`abstractions/ROUND-1.md`) adopted two abstractions by bake-off:
+
+- **bytecode:** per-opcode kernel terms with read/def/kill ports and a shared
+  δ;
+- **source:** `LuaSem` as the graph of a generic rulebook.
+
+The round changed the plan in three ways:
+
+- **Strings land with floats, not before them.** Lua coerces numeric strings
+  in arithmetic (`"1.5"+1` gives `2.5`), so an F4 strings fragment without
+  floats is not closed. Merge F4 and Float into one phase.
+- **F2 constraints.**
+  - `next` order and printed addresses are `Host` fields (functions of the
+    history), not a nondeterministic choice.
+  - Kernels keep static register ports and add adaptive heap queries for
+    data-dependent table reads.
+- **A1 prerequisites.** Before any A1 abstraction is built, run the recorded
+  falsifiers (ROUND-1 §3 C7–C9):
+  - a dependence-graph orbit canonicaliser over the ELF;
+  - the exit count of the `ADD` arm (fast path plus fall-through to `MMBIN`);
+  - `L->stack` logged at every dispatch head, which tests whether registers
+    must be decoded relative to the stack base.

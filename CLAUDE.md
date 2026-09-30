@@ -38,6 +38,9 @@ The Availability column says:
 | Struct offsets, tags, symbol addresses | `Lua/Vm/Layout.lean` (`scripts/gen_lua_layout.py`, read from the cross compiler) — never a hand-written offset | here |
 | A concrete program as a `Proto` | `scripts/gen_proto.py` on the `luac -s` chunk | here |
 | `BcSem` derivation for a concrete program | `bcSem_of_run` + `decide +kernel` (`Lua/Bytecode/Exec.lean`) | here |
+| A new bytecode opcode / rule | ONE entry in `opKernel` (`Lua/Bytecode/Semantics.lean`) built from the lvm.c-macro combinators; values through `δ`. `Step`, `step?`, `reads`/`edges`/`regTop` and the footprint / definite-initialisation facts are DERIVED (`kstep_iff`, `footprint`, `certain_answers`, `Lua/Bytecode/Kernel.lean`). Never a new `Step` constructor or a per-rule proof arm (rules R16, R17) | here (adopted, abstraction-discovery round 1) |
+| A new source construct / rule | ONE arm of the rulebook `rules` (`Lua/Ast/Semantics.lean`); soundness, completeness and determinism come from `sem_iff_solve`/`Sem.det` (`Lua/Ast/Rulebook.lean`). Never a new inductive relation or per-construct proof arm (R16, R17) | here (adopted, round 1) |
+| Per-case cost of a cluster stops falling | `abstractions/gate.py` (check.sh stage 3c) fails: run `/abstraction-discovery`; nothing else until the round adopts by bake-off | here |
 | New post/entry predicate | named-field `structure ... : Prop where` (model: `VmEntryData`); never an anonymous ∃/∧ tower | — |
 | Consuming a landed ∃/∧ tower | write ONE named destructuring lemma beside its definition | — |
 

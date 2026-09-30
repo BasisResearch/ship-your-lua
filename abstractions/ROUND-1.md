@@ -378,3 +378,98 @@ The empty cells are predictions:
   bake-off measures setup at full scope.
 
 Added to the pool: V1, V2 and V3. V4 is recorded for the A0.6 cluster.
+
+## 6. Pilot bake-off
+
+The protocol is in the scratchpad (`bakeoff.md`), reproduced in each
+report. Each contender, in its own worktree off `79b6082`, did three things:
+
+1. **Setup:** built its abstraction.
+2. **Refactor:** re-seated R1 or R2 on it, keeping every public theorem name
+   and every kernel check against the ELF.
+3. **Held-out:** implemented H1–H5 (the F4-lite strings of
+   `abstractions/pilot/SUITE.md`), proving `c/tests/f4_strlite.lua`'s
+   output against the Sail run.
+
+Cost is counted in non-blank, non-comment Lean lines. Per-contender tables
+are in `abstractions/bakeoff/*.md`.
+
+### bc-rule-fanout (bytecode)
+
+| contender | setup | R1 after refactor (orig. 857) | held-out spec | held-out proof | tables | failed builds | wall |
+|---|---|---|---|---|---|---|---|
+| incumbent (hand per-rule) | 0 | 857 | 87 (+49 shared) | **135** | hand | 1 | ~17 min |
+| A′: section-typed transfer (R1-2 #2 + kills) | 47 | 417 (464 with setup) | 88 | 0 | hand-written, type-checked | 3 | 35 min |
+| **A: kernel terms + kill ports + δ (C1+C2+C3)** | 197 | **324 (440 with setup)** | **79** | **0** | **derived** | **0** | 42 min |
+
+### ast-construct-fanout (source)
+
+| contender | setup | R2 after refactor (orig. 510) | held-out spec | held-out proof | failed builds | wall |
+|---|---|---|---|---|---|---|
+| incumbent (hand per-construct) | 0 | 510 | 44 (+49 shared) | **94** | 0 | ~6 min |
+| C5: pretty-big-step + one abort rule (control) | ~43 | 200 (243 with setup) | 66 | 0 | 3 | 34 min |
+| **B: graph of a generic rulebook (C4)** | 113 | **20 (94 with setup)** | 63 | **0** | 4 | 22 min |
+
+### Findings from the bake-off
+
+The contenders found these independently:
+
+- **`CONCAT` clobbers every register above `A`, not only `A+1..A+B-1`.**
+  `checkGC` runs with `top = ra+1`, and an atomic GC step clears the stack
+  above `top`. This mattered only if the collector runs; ours is stopped.
+  - Found by the incumbent, A′ and R2-2.
+  - With kill ports it is a one-token choice. The incumbent had to copy
+    CALL's 14-line clobbering case (its duplication signal).
+- **`UNM` calls `luaT_trybinTM` in its own arm; no `MMBIN` follows it.**
+  - Found by the incumbent and A′. SUITE.md's H5 wording was wrong here.
+- **`"10.0"+1` is a float.** String arithmetic gives an integer only when
+  `luaO_str2num` does.
+- **Every arithmetic opcode gains a real edge to its `MMBIN*`**, so the old
+  "`MMBIN` is never executed" model had to go.
+- **What removes the held-out proof on the source side.** C5 attributes it to
+  operators written as one partial function (δ/`binVal`), which both source
+  contenders used. The abort rule and the rulebook account for the *refactor*
+  gains.
+- **A's derived tables close a faithfulness hole A′ keeps.** A too-small
+  hand-written def mask silently under-writes. A's per-kernel read ports are
+  slightly coarser than `lvm.c`: `FORLOOP`'s exit edge reads `R[A]`. This is
+  invisible on `Supported` programs.
+
+## 7. Decision
+
+A candidate wins a cluster if its held-out cost falls AND its refactor shrinks,
+both measured against the incumbent.
+
+- **bc-rule-fanout → A (kernel terms with read/def/kill ports and a shared δ).**
+  - Held-out proof: 135 → 0.
+  - R1: 857 → 440 including setup.
+  - It beats A′ on refactor (440 vs 464), held-out spec (79 vs 88) and failed
+    builds (0 vs 3). It also derives the tables instead of hand-keeping them.
+  - Merged as `00507d5`.
+- **ast-construct-fanout → B (the graph of a generic rulebook).**
+  - Held-out proof: 94 → 0.
+  - R2: 510 → 94 including setup.
+  - It beats C5 (243 including setup).
+  - Merged as `84c45e2`.
+
+**Enforcement.**
+- CLAUDE.md: the new mandatory routes for a new opcode (one `opKernel` entry)
+  and for a new construct (one rulebook arm).
+- `scripts/discipline_rules.tsv`:
+  - **R16** rejects files with more than 4 hand rule arms (`| @…`) in `Lua/`;
+  - **R17** rejects re-introducing an inductive `Step`/`Exec`/`Eval`/`ForIter`.
+- The gate is re-baselined at the adoption commit:
+
+baseline bc-rule-fanout 84c45e2
+baseline ast-construct-fanout 84c45e2
+
+**Not decided this round.**
+- **A1 (machine arms).** Candidates C7–C9 are recorded with their cheap
+  falsifiers: a Python canonicaliser for dependence-graph orbits, a count of
+  `ADD`'s exits, and a log of `L->stack` at each dispatch head. A1 has no
+  proofs yet to measure, so it waits for a round 2 once the first arms are
+  proved and the gate has data.
+- **Boot witness (V4, generic undump).** Same: it waits for data.
+- **F2 survival.** Oracle `Host` and two-speed footprints (C10) go into PHASES
+  as design constraints for F2.
+- **Plan change.** Strings must land with floats (SUITE.md finding).
