@@ -83,6 +83,10 @@ theorem cond_int (x y : BitVec 64) :
     (!(Value.bool (decide (Value.int x = Value.int y))).isFalse) = decide (x = y) := by
   by_cases h : x = y <;> simp [h, Value.isFalse]
 
+/-- The test of an ordering (`δ .lt`/`.le` gives a boolean). -/
+theorem cond_bool (b : Bool) : (!(Value.bool b).isFalse) = b := by
+  cases b <;> rfl
+
 /-- ... and on anything else. -/
 theorem cond_nonint {v : Value} (h : ∀ i, v ≠ .int i) (y : BitVec 64) :
     (!(Value.bool (decide (v = Value.int y))).isFalse) = false := by
@@ -124,6 +128,33 @@ theorem mapM3 {f : Nat → Option Value} {a b c : Nat} {vs : List Value}
     Option.pure_def, Option.some.injEq] at h
   obtain ⟨x, hx, _, ⟨y, hy, _, ⟨z, hz, _, rfl, rfl⟩, rfl⟩, rfl⟩ := h
   exact ⟨x, y, z, hx, hy, hz, rfl⟩
+
+/-- A step at `OP_TESTSET` (`testsetK`): `R[B]` is `v`; if its falsity is
+`k`, skip (`pc + 2`), else `R[A] := v` and jump to `t`. -/
+theorem step_testset {s s' : State} {w : Word} {t : Nat}
+    (h : Step H p s s') (hK : kernelAt p s.pc = some (testsetK s.pc w t)) :
+    -- discipline: allow(R7-conj-tower-def) a kernel inversion's conclusion (one per combinator, each consumed at once by `obtain` in the generated arms), not a post/entry predicate
+    ∃ v, s.regs w.b = some v ∧
+      ((v.isFalse = w.k ∧ s' = ⟨s.pc + 2, s.regs, s.out⟩) ∨
+       (¬ v.isFalse = w.k ∧ s' = ⟨t, upd s.regs w.a v, s.out⟩)) := by
+  obtain ⟨hK', hvs, ho, he⟩ := h
+  rename_i K vs o e
+  cases hK.symm.trans hK'
+  obtain ⟨v, hv, rfl⟩ := mapM1 hvs
+  refine ⟨v, hv, ?_⟩
+  simp only [testsetK, Option.some.injEq] at ho
+  subst ho
+  by_cases hk : v.isFalse = w.k
+  · left
+    simp only [testsetK, hk, ite_true, List.getElem?_cons_zero, Option.some.injEq] at he
+    subst he
+    exact ⟨hk, by simp [VState.apply, writeDefs, KEdge.kills, hk]⟩
+  · right
+    simp only [testsetK, hk, ite_false, List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.some.injEq] at he
+    subst he
+    refine ⟨hk, ?_⟩
+    simp [VState.apply, writeDefs, KEdge.kills, hk]
 
 /-- A step whose kernel is `forloopK pc w t`: the count `n`, the step and the
 index are read; count 0 exits to `pc + 1`, otherwise the index is an integer

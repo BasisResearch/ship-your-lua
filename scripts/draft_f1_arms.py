@@ -29,7 +29,12 @@ ARMS_JSON = ROOT / "experiments/census/luaV_execute_arms.json"
 _S = json.load(open(ARMS_JSON))["summary"]
 LO, HI = int(_S["luaV_execute"]["start"], 16), int(_S["luaV_execute"]["end"], 16)
 FETCH = int(_S["jump_table"]["fetch_head"], 16)
-F1_EXTRA_OPS = {"OP_VARARGPREP"}     # F1 in Lua/Fragment.lean
+# F1 in Lua/Fragment.lean, not in the census summary's F1 list (which predates
+# them): VARARGPREP, the boolean/nil loads, TESTSET, the unary operators and
+# the integer bitwise family (the former F1b, phase A2)
+F1_EXTRA_OPS = {"OP_VARARGPREP", "OP_LOADFALSE", "OP_LFALSESKIP", "OP_LOADTRUE", "OP_LOADNIL",
+                "OP_TESTSET", "OP_UNM", "OP_NOT", "OP_BNOT", "OP_BAND", "OP_BOR", "OP_BXOR",
+                "OP_SHL", "OP_SHR", "OP_BANDK", "OP_BORK", "OP_BXORK", "OP_SHRI", "OP_SHLI"}
 NORET = {"luaD_throw", "luaG_callerror", "luaG_concaterror", "luaG_errormsg",
          "luaG_forerror", "luaG_opinterror", "luaG_ordererror",
          "luaG_runerror", "luaG_tointerror", "luaG_typeerror", "luaM_toobig"}

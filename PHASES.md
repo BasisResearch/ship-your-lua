@@ -25,7 +25,8 @@ Every row is currently unassigned.
 |---|---|---|---|
 | `VmLayout.runtimeReady` concrete instance `luaLayout` | `Lua/Vm/Runtime.lean` | A0 | **defined** (`luaRuntimeReady`); every field holds at both traced entries (checked natively by `gen_lua_boot_witness.py`) |
 | `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | `Lua/Vm/Boot/` | A0 | open: the generator, the entry data and the reconstruction lemmas are landed; the kernel witness is not written (A0.6) |
-| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **pilot proved**: the relation `VmRel`, `dispatch`, and `sim_MOVE`/`sim_LOADI`/`sim_JMP`; bake-off 2 (incumbent route): `sim_ADD`/`sim_EQI`/`sim_FORLOOP` (`abstractions/bakeoff2/incumbent.md`) (A1 status) |
+| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **proved**: the relation `VmRel`, `dispatch`, and 25 arms `sim_<OP>` (MOVE, LOADI, JMP, ADD, SUB, ADDI, ADDK, SUBK, BAND, BOR, BXOR, EQI, LTI, GTI, LEI, GEI, TEST, TESTSET, NOT, BNOT, LOADK, LOADTRUE, LOADFALSE, LFALSESKIP, FORLOOP) (A1 status) |
+| `vmRel_final_Statement` (the `RETURN*` arms: from `VmRel` at a `Final` state the machine halts with `s.out`) | `Lua/Vm/Sim/Rel.lean` | A1 | open: the `Final` clause of the fold, not a `sim_<OP>` (the return chain's callee contracts) |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
@@ -355,16 +356,17 @@ covers the new stages.
     segment `seg_8001bfe4_8001c00c` (`Lua/Vm/Arms/Head.lean`).
   * **Arms** (`scripts/gen_lua_arm.py`, `Lua/Vm/Sim/Arms/`). Each
     `sim_<OP> : Supported p → VmRel p c s → fetch → op → Step binaryHost p s s' →
-    ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s'` is proved for MOVE, LOADI
-    and JMP. The proof composes:
+    ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s'` is proved for the 25 arms
+    listed below. The proof composes:
     * `dispatch`;
-    * the arm's generated segments, whose side conditions are closed by
-      `arm_arith`;
-    * the kernel combinator's inversion (`step_setR`, `step_jump`);
-    * `Core.write` or `Core.jump`.
+    * the arm's generated segments (one chain per exit, picked by branch
+      polarity), whose side conditions are closed by `arm_arith`/`slot_arith`;
+    * the kernel combinator's inversion (`step_setR`, `step_jump`,
+      `step_opArith`, `step_condjump`, `step_testset`, `step_forloop`);
+    * a close: `Core.write`, `Core.jump`, `Core.update` or `Core.forloop`.
 
-    The segments of `SIM_OPS` arms carry the fetch-head registers and
-    `sailOutput` (`gen_lua_arms.py` `KEEP`).
+    The segments of `SIM_OPS` arms carry the fetch-head registers,
+    `sailOutput` and `RegsOk` (`gen_lua_arms.py` `KEEP`, `OK`).
   * **Entry lemma (proved,** `Lua/Vm/Sim/Entry.lean`, `vmRel_entry :
     vmRel_entry_Statement`**).** From `VmLoaded luaLayout p c`, the prologue
     runs to the fetch head in `VmRel p c' State.init`. It composes the two
@@ -380,12 +382,45 @@ covers the new stages.
     memory; `rdLE_spec` turns `rd32`/`rd64` into the total reads. It needed
     two new `luaRuntimeReady` structures, `VmRegionsAt` and `HarnessAt`
     (A0.6). Costs: `abstractions/pilot/A1-incumbent.md`.
-  * **Open:**
-    * the other 31 F1 arms: ADD, EQI and FORLOOP are held out for the round-2
-      bake-off;
-    * `CALL` (heap, stdio and relocation evolve the complement);
-    * the error paths;
-    * the `term_sim`/`stuck_sim` fold.
+  * **Arms proved (25):** MOVE, LOADI, JMP, ADD, SUB, ADDI, ADDK, SUBK, BAND, BOR, BXOR, EQI, LTI, GTI, LEI, GEI, TEST, TESTSET, NOT, BNOT, LOADK, LOADTRUE, LOADFALSE, LFALSESKIP, FORLOOP (`scripts/gen_lua_arm.py` kinds `copy`,
+    `imm`, `jump`, `arith` (register, `sC` and `K` operands, the `op_arith`
+    and `op_bitwise` layouts), `condjump`, `cmpI`, `truth`, `bnot`, `settag`,
+    `loadk`, `forloop`; costs in `abstractions/pilot/A1-incumbent.md`, "More
+    arms"). The relation now also carries:
+    * `Core.frame` on total reads (`bytesT1`), `.text` presence separately
+      (`Core.text`, the segments' fetches);
+    * `Core.ok : RegsOk` (every GPR present, HTIF mailbox idle;
+      `MachineAt.regs`, checked on the boot traces; threaded by every
+      segment through `gen_segment.py`'s `"ok"` option);
+    * the constant array: `Core.kptr` (`0(sp) = k`), `Complement.kconst`,
+      `Ranges.k_*`/`frame_sep` (`VmRegionsAt.k*`, checked natively).
+  * **Open, with what each needs:**
+    * callee contracts at Lua addresses (the libgcc soft-int batteries, A0):
+      `MUL`/`MULK` (`__muldi3`), `MOD`/`MODK`/`IDIV`/`IDIVK` (`__moddi3`,
+      `__divdi3`, plus `Protect`'s stores to `ci->savedpc` and `L->top`,
+      which the complement must let vary), `FORPREP` (`__udivdi3` whenever
+      the step is not 1);
+    * callee contracts in `luaV_execute`'s callees: `EQ`/`EQK`
+      (`luaV_equalobj`), `LT`/`LE` (`lessthanothers` → `l_strcmp` on two
+      strings), `UNM` (a numeric string: `luaT_trybinTM` → the string
+      library's `__unm`), `VARARGPREP` (`luaT_adjustvarargs`, which moves
+      `ci->func`: `VmRel` is re-established with a new `func`);
+    * `BANDK`/`BORK`/`BXORK`: not provable as stated. The arm reads `K[C]`'s
+      payload without a tag test (`lcode.c` only emits integer constants),
+      while the kernel skips on a non-integer `K[C]`; `Supported` (or the
+      kernel) needs "the `K` operand of a bitwise-`K` opcode is an integer";
+    * the shifts (`SHL`/`SHR`/`SHLI`/`SHRI`): inline, but a new kind (the
+      shift-amount branches against `shiftl`); `LOADNIL`: a loop
+      (`loopFromBody`);
+    * `RETURN*`: `vmRel_final_Statement` (above);
+    * `CALL` (print): callee contracts `luaD_precall` → `luaB_print` →
+      `luaL_tolstring` → `lua_writestring` = `fwrite` → newlib stdout → HTIF
+      (the A0.2 stdio tables at Lua addresses), `checkstackGCp` (possible
+      stack reallocation at ≥ 15 locals: `VmRel` with a new `func`), the
+      heap, string interning (`luaS_newlstr`) and `StdioBoot`/`MemfsBoot`
+      evolving in the complement, the `trap` reload; `GETTABUP` (the
+      `_ENV.print` lookup) is its companion;
+    * the error paths (`stuck_sim`) and the `term_sim`/`stuck_sim` fold.
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
 

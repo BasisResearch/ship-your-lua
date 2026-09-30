@@ -267,6 +267,11 @@ class SegmentEmitter:
         self.segst = spec.get("boundary") == "segst"
         self.frame = spec.get("frame")
         self.output = spec.get("output")       # segst: σ.sailOutput = <this>
+        # segst: a register invariant threaded per step, {"pred": P, "ns": N}:
+        # the payload carries `P σ`, and after each step `N.<obs family>
+        # hobs [(by decide)] prev` re-establishes it (alu/jal: `rd` is not
+        # the HTIF mailbox)
+        self.ok = spec.get("ok")
         self.lines: list[str] = []
         self.chain: str | None = None          # Steps chain expression so far
         self.state = "c.σ"                     # current state expression
@@ -287,12 +292,14 @@ class SegmentEmitter:
                     "hmi": pb["minstret"], "hi": pb["tick"],
                     "hmem": pb["loaded"], "hp": "hp0",
                     "memeq": pb.get("memeq"), "hframe":
-                        (self.frame or {}).get("init"), "hout": "hout"}[key]
+                        (self.frame or {}).get("init"), "hout": "hout",
+                    "hok": "hok"}[key]
         return {"hG": f"hG{self.k}", "hpc": f"hpc{self.k}", "vmi": f"vmi{self.k}",
                 "hmi": f"hmi{self.k}", "hi": f"hi{self.k}",
                 "hmem": f"hload{self.k}", "hp": f"hp{self.k}",
                 "memeq": f"hmemE{self.k}" if self.mem_expr is not None else None,
-                "hframe": f"hframe{self.k}", "hout": f"hout{self.k}"}[key]
+                "hframe": f"hframe{self.k}", "hout": f"hout{self.k}",
+                "hok": f"hok{self.k}"}[key]
 
     def u_expr(self) -> str:
         return self.u_base + " + 1" * self.u_plus
@@ -522,6 +529,12 @@ class SegmentEmitter:
             self.lines.append(
                 f"  have hout{k} : σ{k}.sailOutput = {self.output} :=\n"
                 f"    (ReadsLikePost.out hobs{k}).trans {self.pv('hout')}")
+        # the register invariant
+        if self.ok:
+            dec = " (by decide)" if obs in ("alu", "jal") else ""
+            self.lines.append(
+                f"  have hok{k} : {self.ok['pred']} σ{k} :=\n"
+                f"    {self.ok['ns']}.{obs} hobs{k}{dec} {self.pv('hok')}")
         # advance
         step = f"Steps.single hs{k}"
         self.chain = step if self.chain is None else \
@@ -621,6 +634,8 @@ class SegmentEmitter:
                          f"σ.regs.get? R = {self.frame['rhs']})")
         if self.output:
             parts.append(f"σ.sailOutput = {self.output}")
+        if self.ok:
+            parts.append(f"{self.ok['pred']} σ")
         return "fun σ => " + " ∧ ".join(parts)
 
     def _setup_segst(self):
@@ -636,7 +651,8 @@ class SegmentEmitter:
         mem_param = spec.get("mem_param", "m0")
         payload_pat = "⟨hloaded, hmemeq" + \
             (", hframe" if self.frame else "") + \
-            (", hout" if self.output else "") + "⟩"
+            (", hout" if self.output else "") + \
+            (", hok" if self.ok else "") + "⟩"
         spec["pre_bind"] = {
             "obtain": f"⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, {payload_pat}⟩",
             "good": "hgood", "pc": "hpc", "minstret_var": "vmi",
@@ -704,7 +720,8 @@ class SegmentEmitter:
                     f"({self._segst_payload(self.mem_expr)})")
             payload = f"⟨hload{N}, hmemE{N}" + \
                 (f", hframe{N}" if self.frame else "") + \
-                (f", hout{N}" if self.output else "") + "⟩"
+                (f", hout{N}" if self.output else "") + \
+                (f", hok{N}" if self.ok else "") + "⟩"
             self.lines.append(
                 f"  exact ⟨{cfg}, hsteps{N},\n"
                 f"    ⟨hG{N}, hpc{N}, hp{N}, ⟨vmi{N}, hmi{N}⟩, hi{N}, "
