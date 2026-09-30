@@ -167,7 +167,7 @@ only: generated segments, then one hand composition.
 3. **Cut the prologue where its memory changes role.** In one segment, every
    `startfunc` load was stated over the 13-store chain: 561 KB of statement.
    Cut at `startfunc` (the first prologue address the arms reach), it is
-   110 KB, and segment 2's loads read its entry memory. The C frame is
+   111 KB, and segment 2's loads read its entry memory. The C frame is
    discharged once (`AgreeOut`).
 4. **`VARARGPREP` is not part of the prologue.** The relation holds at the
    head before the first instruction, with `func = ci->func` at entry. The
