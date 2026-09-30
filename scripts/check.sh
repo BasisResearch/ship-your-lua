@@ -41,15 +41,21 @@ c/tests/f1_ops.luac f1OpsProto Lua/Programs/F1Ops.lean
 c/tests/f1b_bits.luac f1bProto Lua/Programs/F1bBits.lean
 c/tests/f1_src.luac f1SrcProto Lua/Programs/F1Src.lean
 LIST
-# source ASTs (Layer B translation validation) <- the .lua files; the
-# committed .luac chunks <- the host luac on the same files
+# source ASTs (Layer B translation validation) <- the .lua files, parsed by
+# gen_ast.py (all of Lua 5.4); the committed .luac chunks <- the host luac on
+# the same files; the parser round-trips every .lua file in the repo through
+# the host luac (identical `luac -l -l` listings)
+python3 scripts/gen_ast.py --roundtrip $(find c -name '*.lua' | sort) > /dev/null \
+  || fail "gen_ast.py round-trip against luac"
 while read -r src name out; do
   python3 scripts/gen_ast.py "$src" --name "$name" -o "$out" --check || fail "$out drift"
 done <<'LIST'
 c/tests/f1_ops.lua f1OpsAst Lua/Programs/F1OpsAst.lean
 c/tests/f1_src.lua f1SrcAst Lua/Programs/F1SrcAst.lean
+c/tests/while.lua whileAst Lua/Programs/WhileAst.lean
+c/tests/f1b_bits.lua f1bAst Lua/Programs/F1bBitsAst.lean
 LIST
-for f in f1_ops f1_src; do
+for f in f1_ops f1_src while f1b_bits; do
   ./c/luac -s -o - "c/tests/$f.lua" | cmp -s - "c/tests/$f.luac" || fail "c/tests/$f.luac is not luac -s of $f.lua"
 done
 
@@ -152,6 +158,9 @@ import Lua
 #print axioms Lua.Compile.agree_of_outputs
 #print axioms Lua.Compile.f1Ops_tv
 #print axioms Lua.Compile.f1Src_tv
+#print axioms Lua.Compile.while_tv
+#print axioms Lua.Compile.f1b_tv
+#print axioms Lua.Ast.execSound
 #print axioms Lua.Compile.corpus_compileTV
 #print axioms Lua.Compile.compile_refinement_corpus
 #print axioms TCB.Os.allowed_sound

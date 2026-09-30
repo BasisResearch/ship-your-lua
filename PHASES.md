@@ -47,7 +47,7 @@ Every row is currently unassigned.
   * The F1 semantics.
   * The fragment predicate and ledger.
   * The VM representation skeleton and `VmLoaded`.
-  * The AST and `LuaSem` for F1.
+  * The Lua 5.4 source syntax and `LuaSem` for F1.
   * The statements.
 * **Exit.** `scripts/check.sh` passes. That covers generator drift, the ELF
   hash, forbidden tokens, the copied layer being WHILE-free, `lake build`,
@@ -292,12 +292,39 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
 
 * **B1: translation validation (done for the corpus).** For concrete F1
   chunks and the host `luac -s`'s output, both directions of `CompileTV`.
-  * Source side: `scripts/gen_ast.py` parses an F1 `.lua` file into a Lean
-    `Chunk` (check.sh stage 1 checks drift, and that the committed `.luac`
-    is `luac -s` of the `.lua`). The F1 AST has multi-name `local`
-    (`Stat.locals`, `adjust_assign`: missing values `nil`, extras dropped).
+  * Source syntax: `Lua/Ast/Syntax.lean` is the complete Lua 5.4 syntax
+    (manual §9: every `stat`, `retstat`, vars, prefix expressions, method
+    calls, the three `args` forms, every `exp` including functions, tables
+    and all operators; numerals as integers or float bits, strings as
+    bytes).
+  * Parser: `scripts/gen_ast.py` parses all of Lua 5.4 following
+    `llex.c`/`lparser.c`, including lparser's static errors (`goto`/label
+    visibility, `<const>`/`<close>`, `...` outside a vararg function, `break`
+    outside a loop, 200 locals). Not enforced: code-generation limits
+    (registers, upvalues, C levels, jump length); the parser accepts a
+    superset there. It never enforces F1.
+    * `--roundtrip`: parse, pretty-print, re-parse to the same AST, and
+      `luac -l -l` of the original and the printed text agree. check.sh
+      runs it on every `.lua` file in the repo. It also passes on all 33
+      files of the Lua 5.4.7 test suite (`lua-5.4.7-tests.tar.gz` from
+      lua.org, not committed).
+    * `--differential N`: token-level mutants are accepted exactly when
+      `luac -p` accepts them (8,100 mutants of the test suite and
+      `c/tests`, 0 mismatches).
+  * F1 on source: `AstSupported` (`Lua/Ast/Semantics.lean`) is decidable.
+    `print(…)` is a call of the free name `print`; other globals, calls,
+    floats, strings, tables, functions, `return` and `<close>` are outside.
+    `goto`/labels follow the manual's visibility rules (a visible label in
+    an enclosing block, not jumping into a local's scope unless the label
+    ends its block, no label visible twice).
+  * `LuaSem` over the full syntax, with rules for F1: names resolve to
+    locals or `_ENV.x`; the call rule evaluates the function and arguments
+    and calls the builtin `print`; blocks catch `goto`s to their own labels
+    (`ExecBF`, `findLabel`, `jumpEnv`); loops catch `break`; multiple
+    assignment stores in `restassign`'s order.
   * `LuaSem` side: the fuel-bounded interpreter `luaRun`
-    (`Lua/Ast/Exec.lean`) with `luaRun_sound`, by `decide +kernel`.
+    (`Lua/Ast/Exec.lean`) with `luaRun_sound` (`execSound`), by
+    `decide +kernel`.
   * `BcSem` side: `bcSem_of_run`, by `decide +kernel`.
   * Determinism: `LuaSem.deterministic` (`Lua/Ast/Determinism.lean`),
     `Step.deterministic`, `Final.not_step`, `BcSem.deterministic`
@@ -305,19 +332,20 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
     output into `∀ out, LuaSem s out ↔ BcSem p out`.
   * Per program: `ProgramTV s p` (`AstSupported s`, `Supported p`, the `↔`)
     and `CompileTV.of_programTV` (`Lua/Compile/TV.lean`).
-  * Corpus (`Lua/Compile/Corpus.lean`): `f1_ops.lua` and `f1_src.lua`
-    (`if`/`elseif`, `repeat` over body locals, `break` from
-    `while`/`for`/`repeat`, shadowing, padded/extra `local` values); expected
-    outputs are the ELF's on the Sail model (`c/tests/*.expected`).
-    `while.lua` needs `goto` and `print_print.lua` reads `print` as a value:
-    both outside the F1 AST.
+  * Corpus (`Lua/Compile/Corpus.lean`): `while.lua` (`goto continue`),
+    `f1_ops.lua`, `f1_src.lua` (`if`/`elseif`, `repeat` over body locals,
+    `break` from `while`/`for`/`repeat`, shadowing, padded/extra `local`
+    values) and `f1b_bits.lua` (bitwise operators); expected outputs are the
+    ELF's on the Sail model (`c/tests/*.expected`). `print_print.lua` passes
+    `print` as a value, outside `AstSupported`.
   * Exit (met): `compile_refinement_corpus :
     compile_refinement_Statement CorpusCompiles`, standard axioms only.
   * Adding a program: write `c/tests/x.lua`, commit `luac -s` output and
     the ELF's output, run `gen_ast.py`/`gen_proto.py`, add both to check.sh's
     drift lists, and add a `ProgramTV` plus a `CorpusCompiles` constructor.
 * **B2: a Lean compiler.** Write `compile : Chunk → Option Proto`, a model of
-  `lparser.c`/`lcode.c` for F1 (register allocation, jump patching, the
+  `lparser.c`/`lcode.c` on the F1 part of the full syntax (register
+  allocation, jump patching including `goto`/label resolution, the
   `RK`/immediate/constant selection that `luac` does).
   * Check it against `luac` on the corpus (`compile s = luac s`).
   * Prove `CompileTV` for it.
