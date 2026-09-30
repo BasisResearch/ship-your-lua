@@ -1,0 +1,152 @@
+54 F1 opcodes (Lua/Fragment.lean)
+classes: {'L0': 54, 'L1': 46, 'L2': 46, 'L3': 43, 'L4': 43, 'L3p': 45, 'L4p': 40, 'L5': 33, 'L6': 27, 'P1': 45, 'P3p': 37, 'P4p': 37, 'P5': 28, 'layout': 33}
+combinators: 12  combinator+form: 31
+
+per combinator: arms | classes L0..L6 | raw layouts | one class at
+  callK                         1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  CALL
+  docondjump                   10 | 10 10 10 9 9 8 7 6 5 10 6 6 4 | 7 | none  EQ LT LE EQK EQI LTI LEI GTI GEI TEST
+  final                         3 | 3 3 3 3 3 3 3 3 3 3 3 3 3 | 3 | none  RETURN RETURN0 RETURN1
+  forloopK                      1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  FORLOOP
+  forprepK                      1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  FORPREP
+  jump                          2 | 2 2 2 2 2 2 2 2 2 2 2 2 2 | 2 | none  JMP VARARGPREP
+  mmbin                         3 | 3 3 3 3 3 3 3 3 1 3 3 3 3 | 1 | L6  MMBIN MMBINI MMBINK
+  opArith                      21 | 21 13 13 13 13 16 12 8 8 12 11 11 6 | 15 | none  ADDI ADDK SUBK MULK MODK IDIVK ADD SUB MUL MOD IDIV BANDK BORK BXORK SHRI SHLI BAND BOR BXOR SHL SHR
+  setNils                       1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  LOADNIL
+  setR:move                     7 | 7 7 7 5 5 5 5 3 3 7 5 5 3 | 2 | none  MOVE LOADI LOADK LOADFALSE LFALSESKIP LOADTRUE GETTABUP
+  setR:δ                        3 | 3 3 3 3 3 3 3 3 3 3 2 2 2 | 3 | none  UNM NOT BNOT
+  testsetK                      1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  TESTSET
+
+per combinator+form: arms | classes L0..L6 | raw layouts | one class at
+  callK/                        1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  CALL
+  docondjump/RI/eq              1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  EQI
+  docondjump/RI/order           4 | 4 4 4 3 3 2 1 1 1 4 1 1 1 | 2 | L4p  LTI LEI GTI GEI
+  docondjump/RK/eq              1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  EQK
+  docondjump/RR/eq              1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  EQ
+  docondjump/RR/order           2 | 2 2 2 2 2 2 2 2 2 2 1 1 1 | 2 | P3p  LT LE
+  docondjump/truth              1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  TEST
+  final/                        3 | 3 3 3 3 3 3 3 3 3 3 3 3 3 | 3 | none  RETURN RETURN0 RETURN1
+  forloopK/                     1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  FORLOOP
+  forprepK/                     1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  FORPREP
+  jump/adjustvarargs            1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  VARARGPREP
+  jump/sJ                       1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  JMP
+  mmbin/RI                      1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  MMBINI
+  mmbin/RK                      1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  MMBINK
+  mmbin/RR                      1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  MMBIN
+  opArith/RI                    1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  ADDI
+  opArith/RI/shift              2 | 2 2 2 2 2 2 2 1 1 2 2 2 1 | 2 | L5  SHRI SHLI
+  opArith/RK                    6 | 6 2 2 2 2 4 2 2 2 2 2 2 2 | 5 | none  ADDK SUBK MULK BANDK BORK BXORK
+  opArith/RK/div                2 | 2 2 2 2 2 2 2 2 2 2 2 2 2 | 2 | none  MODK IDIVK
+  opArith/RR                    6 | 6 2 2 2 2 4 2 2 2 1 1 1 1 | 3 | P1  ADD SUB MUL BAND BOR BXOR
+  opArith/RR/div                2 | 2 2 2 2 2 2 2 2 2 2 2 2 2 | 2 | none  MOD IDIV
+  opArith/RR/shift              2 | 2 2 2 2 2 1 1 1 1 2 1 1 1 | 1 | L3p  SHL SHR
+  setNils/range                 1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  LOADNIL
+  setR:move/imm                 3 | 3 3 3 2 2 2 2 2 2 3 2 2 2 | 1 | none  LOADI LOADFALSE LOADTRUE
+  setR:move/imm+skip            1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  LFALSESKIP
+  setR:move/k                   1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  LOADK
+  setR:move/reg                 1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  MOVE
+  setR:move/upval-lookup        1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  GETTABUP
+  setR:δ/unary-num              2 | 2 2 2 2 2 2 2 2 2 2 1 1 1 | 2 | P3p  UNM BNOT
+  setR:δ/unary-truth            1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  NOT
+  testsetK/truth                1 | 1 1 1 1 1 1 1 1 1 1 1 1 1 | 1 | L0  TESTSET
+
+classes spanning several combinators:
+  L0: []
+  L1: []
+  L2: []
+  L3: []
+  L4: []
+  L3p: []
+  L4p: []
+  L5: []
+  L6: [['ADDI', 'UNM'], ['BANDK', 'BNOT', 'BORK', 'BXORK'], ['JMP', 'MMBIN', 'MMBINI', 'MMBINK']]
+  P1: []
+  P3p: []
+  P4p: []
+  P5: []
+
+hand lines per arm commit (row / layout / kind / lean):
+  c9ba3ef MOVE,LOADI,JMP                     {'infra': 211, 'row': 3, 'operand': 4, 'kind': 119, 'lean': 20}
+  8a41a25 ADD,EQI,FORLOOP                    {'lean': 453}
+  684a56e ADD,EQI,FORLOOP                    {'row': 3, 'infra': 149, 'kind': 184, 'lean': 22}
+  791175d SUB                                {'row': 5, 'kind': 7, 'infra': 3, 'lean': 8}
+  c089fc8 ADDI                               {'layout': 4, 'row': 6, 'infra': 8, 'operand': 30, 'kind': 45, 'lean': 18}
+  57422fb ADDK,SUBK                          {'layout': 1, 'row': 3, 'infra': 10, 'operand': 29, 'kind': 7, 'lean': 17}
+  a7380f0 BAND,BOR,BXOR                      {'layout': 1, 'row': 5}
+  3079c33 LTI,GTI,LEI,GEI                    {'row': 5, 'operand': 4, 'layout': 10, 'kind': 61, 'infra': 2, 'lean': 49}
+  c031ca4 LOADTRUE,LOADFALSE,LFALSESKIP,LOADK {'row': 6, 'operand': 13, 'infra': 12, 'layout': 1, 'kind': 61, 'lean': 21}
+  a8957c6 BNOT                               {'row': 2, 'kind': 39, 'infra': 3, 'lean': 9}
+  8358d37 NOT,TEST,TESTSET                   {'row': 5, 'kind': 154, 'layout': 1, 'infra': 3, 'lean': 109}
+  total {'infra': 401, 'row': 43, 'operand': 80, 'kind': 677, 'lean': 726, 'layout': 18}
+
+proved arms in ledger order (tree = P3p class of the F1-pruned tree):
+  MOVE        copy      new-kind  new-tree   30.0
+  LOADI       imm       new-kind  new-tree   35.0
+  JMP         jump      new-kind  new-tree   42.0
+  ADD         arith     new-kind  new-tree   61.0
+  EQI         condjump  new-kind  new-tree   61.0
+  FORLOOP     forloop   new-kind  new-tree   54.0
+  SUB         arith     same-kind new-layout 24.0
+  ADDI        arith     same-kind new-tree   113.0
+  ADDK        arith     same-kind new-tree   33.5
+  SUBK        arith     same-kind new-layout 33.5
+  BAND        arith     same-kind new-layout 2.0
+  BOR         arith     same-kind row        2.0
+  BXOR        arith     same-kind row        2.0
+  LTI         cmpI      new-kind  new-tree   33.0
+  GTI         cmpI      same-kind row        33.0
+  LEI         cmpI      same-kind new-layout 33.0
+  GEI         cmpI      same-kind row        33.0
+  LOADTRUE    settag    new-kind  new-tree   28.75
+  LOADFALSE   settag    same-kind row        28.75
+  LFALSESKIP  settag    same-kind row        28.75
+  LOADK       loadk     new-kind  new-tree   28.75
+  BNOT        bnot      new-kind  new-tree   53.0
+  NOT         truth     new-kind  new-tree   91.0
+  TEST        truth     same-kind new-tree   91.0
+  TESTSET     truth     same-kind new-tree   91.0
+  new-tree   n=15 total= 846.0 mean= 56.4
+  new-layout n= 4 total=  92.5 mean= 23.1
+  row        n= 6 total= 127.5 mean= 21.2
+
+unproved arms: predicted category against the proved set (P3p):
+  LOADNIL     setNils/range            new-tree     F1-branches=  1 callees=[]
+  GETTABUP    setR:move/upval-lookup   new-tree     F1-branches=  2 callees=['luaH_getshortstr', 'luaV_finishget']
+  MULK        opArith/RK               new-layout   F1-branches=  2 callees=['__muldi3']
+  MODK        opArith/RK/div           new-tree     F1-branches=  6 callees=['__moddi3', 'luaG_runerror']
+  IDIVK       opArith/RK/div           new-tree     F1-branches=  5 callees=['__divdi3', '__moddi3', 'luaG_runerror']
+  MUL         opArith/RR               row          F1-branches=  2 callees=['__muldi3']
+  MOD         opArith/RR/div           new-tree     F1-branches=  6 callees=['__moddi3', 'luaG_runerror']
+  IDIV        opArith/RR/div           new-tree     F1-branches=  5 callees=['__divdi3', '__moddi3', 'luaG_runerror']
+  MMBIN       mmbin/RR                 new-tree     F1-branches=  0 callees=['luaT_trybinTM']
+  MMBINI      mmbin/RI                 new-tree     F1-branches=  0 callees=['luaT_trybiniTM']
+  MMBINK      mmbin/RK                 new-tree     F1-branches=  0 callees=['luaT_trybinassocTM']
+  UNM         setR:δ/unary-num         new-layout   F1-branches=  1 callees=['luaT_trybinTM']
+  EQ          docondjump/RR/eq         new-tree     F1-branches=  1 callees=['luaV_equalobj']
+  LT          docondjump/RR/order      new-tree     F1-branches=  7 callees=['l_strcmp', 'luaT_callorderTM']
+  LE          docondjump/RR/order      new-tree     F1-branches=  7 callees=['l_strcmp', 'luaT_callorderTM']
+  EQK         docondjump/RK/eq         new-tree     F1-branches=  1 callees=['luaV_equalobj']
+  CALL        callK/                   new-tree     F1-branches=  5 callees=['luaD_precall', 'luaG_tracecall']
+  RETURN      final/                   not sim-shaped (Final clause) F1-branches= 59 callees=['luaD_poscall', 'luaF_close', 'luaG_tracecall']
+  RETURN0     final/                   not sim-shaped (Final clause) F1-branches=  8 callees=['luaD_poscall', 'luaG_tracecall']
+  RETURN1     final/                   not sim-shaped (Final clause) F1-branches= 11 callees=['luaD_poscall', 'luaG_tracecall']
+  FORPREP     forprepK/                new-tree     F1-branches= 23 callees=['__eqdf2', '__gedf2', '__hidden___udivdi3', '__ledf2', 'luaG_forerror', 'luaG_runerror', 'luaV_tointeger', 'luaV_tonumber_']
+  VARARGPREP  jump/adjustvarargs       new-tree     F1-branches=  1 callees=['luaD_hookcall', 'luaT_adjustvarargs']
+  BANDK       opArith/RK               new-tree     F1-branches=  1 callees=[]
+  BORK        opArith/RK               new-tree     F1-branches=  1 callees=[]
+  BXORK       opArith/RK               new-tree     F1-branches=  1 callees=[]
+  SHRI        opArith/RI/shift         new-tree     F1-branches=  4 callees=[]
+  SHLI        opArith/RI/shift         new-tree     F1-branches=  4 callees=[]
+  SHL         opArith/RR/shift         new-tree     F1-branches=  5 callees=[]
+  SHR         opArith/RR/shift         new-tree     F1-branches=  5 callees=[]
+
+multi-arm P3p trees: arms | combinators | raw layouts
+  ADD SUB MUL BAND BOR BXOR          | ['opArith'] | 3
+  ADDK SUBK MULK                     | ['opArith'] | 3
+  BANDK BORK BXORK                   | ['opArith'] | 2
+  LOADFALSE LFALSESKIP LOADTRUE      | ['setR:move'] | 1
+  LT LE                              | ['docondjump'] | 2
+  LTI LEI GTI GEI                    | ['docondjump'] | 2
+  SHL SHR                            | ['opArith'] | 1
+  UNM BNOT                           | ['setR:δ'] | 2
+
+distinct P3p trees over the 51 sim-shaped arms: 34; over the 25 proved: 15

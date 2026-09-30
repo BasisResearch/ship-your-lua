@@ -1,0 +1,140 @@
+/-! L-C4 / L-C6 checker (abstractions/checks/round3). `lc4_run.sh` prepends the
+imports and the program's `Proto` (`lc4Proto`, from `scripts/gen_proto.py`)
+and appends `#eval LC4.main "<heads file>"`. It runs the REAL
+`Lua.Bytecode.step?` (with `binaryHost`) over the machine states decoded at
+every dispatch head by `lc4_trace.py`. Checking only: no theorem here. -/
+
+namespace LC4
+open Lua.Bytecode Lua.Vm
+
+def hexVal (c : Char) : Nat :=
+  if c.isDigit then c.toNat - 48 else if 'a' ≤ c ∧ c ≤ 'f' then c.toNat - 87 else 0
+
+def hexBytes (s : String) : List UInt8 :=
+  let rec go : List Char → List UInt8
+    | a :: b :: r => (hexVal a * 16 + hexVal b).toUInt8 :: go r
+    | _ => []
+  go s.toList
+
+def parseVal (t : String) : Option Value :=
+  match t.toList with
+  | ['n'] => some .nil
+  | ['b', '0'] => some (.bool false)
+  | ['b', '1'] => some (.bool true)
+  | ['p'] => some (.builtin .print)
+  | 'i' :: r => (String.ofList r).toInt?.map fun i => .int (BitVec.ofInt 64 i)
+  | 's' :: r => some (.str (hexBytes (String.ofList r)))
+  | _ => none
+
+structure Head where
+  step : Nat
+  pc : Int
+  word : Nat
+  olen : Nat
+  slots : List Nat
+  regs : Array (Option Value)
+  deriving Inhabited
+
+def parseHead (l : String) : Option Head := do
+  let f := (l.splitOn " ").filter (· ≠ "")
+  let st ← f[0]?.bind String.toNat?
+  let pc ← f[1]?.bind String.toInt?
+  let w ← f[2]?.bind String.toNat?
+  let ol ← f[5]?.bind String.toNat?
+  let sl ← f[6]?
+  let slots := if sl == "-" then [] else (sl.splitOn ",").filterMap String.toNat?
+  pure ⟨st, pc, w, ol, slots, (f.drop 7).toArray.map parseVal⟩
+
+def mstate (out : List UInt8) (h : Head) : State :=
+  ⟨h.pc.toNat, fun j => (h.regs[j]?).join, bytesToString (out.take h.olen)⟩
+
+def showV : Option Value → String
+  | none => "⊥/?"
+  | some v => reprStr v
+
+/-- (i) the model state `S` is represented by the machine state `M`. -/
+def repr1 (p : Proto) (S M : State) : List String :=
+  (if S.pc ≠ M.pc then [s!"pc model {S.pc} machine {M.pc}"] else []) ++
+  (if S.out ≠ M.out then [s!"out model {S.out.quote} machine {M.out.quote}"] else []) ++
+  ((List.range p.maxstacksize).filterMap fun j =>
+    match S.regs j with
+    | some v => if M.regs j = some v then none else some s!"R[{j}] model {reprStr v} machine {showV (M.regs j)}"
+    | none => none)
+
+def opOf (p : Proto) (pc : Nat) : String :=
+  match (p.fetch pc).bind Word.op? with
+  | some o => (reprStr o).replace "Lua.Bytecode.OpCode." ""
+  | none => "none"
+
+def main (p : Proto) (path : String) (f1only : Bool := true) : IO Unit := do
+  let txt ← IO.FS.readFile path
+  let ls := (txt.splitOn "\n").filter (· ≠ "")
+  let out := hexBytes ls.head!
+  let hs := (ls.drop 1).filterMap parseHead |>.toArray
+  let H := binaryHost
+  let mut S := State.init
+  let mut n1 := 0; let mut bad1 := 0; let mut n2 := 0; let mut bad2 := 0
+  let mut n6 := 0; let mut bad6 := 0; let mut nw := 0; let mut badw := 0
+  let mut cex : Array String := #[]
+  let mut stop := s!"end of trace after {hs.size} heads"
+  let mut ops : List (String × Nat) := []
+  for i in [0:hs.size] do
+    let h := hs[i]!
+    let M := mstate out h
+    -- the word the machine's `lw` fetched is the Proto's
+    nw := nw + 1
+    if (p.fetch M.pc).map (·.toNat) ≠ some h.word then
+      badw := badw + 1
+      if cex.size < 8 then cex := cex.push s!"head {i} (step {h.step}): word {h.word} ≠ fetch {M.pc}"
+    -- (i)
+    n1 := n1 + 1
+    let e1 := repr1 p S M
+    if !e1.isEmpty then
+      bad1 := bad1 + 1
+      if cex.size < 8 then cex := cex.push s!"(i) head {i} (step {h.step}, {opOf p S.pc} at {S.pc}): {e1}"
+    let op := opOf p S.pc
+    ops := match ops.lookup op with
+      | some k => (op, k + 1) :: ops.filter (·.1 ≠ op)
+      | none => (op, 1) :: ops
+    let frag := ((p.fetch S.pc).bind Word.op?).map OpCode.fragment
+    if frag ≠ some .F1 && f1only then
+      stop := s!"first non-F1 instruction {op} at pc {S.pc}, head {i} (step {h.step})"
+      break
+    if final? p S then
+      stop := s!"Final ({op}) at head {i} (step {h.step}); the run from here is `vmRel_final`"
+      break
+    -- (L-C6) the stored slots are ports of the edge the model takes
+    match decide? (kernelAt p) S with
+    | some (e, _) =>
+      n6 := n6 + 1
+      let outside := h.slots.filter fun j => !(e.defs.contains j || decide (e.kills j))
+      if !outside.isEmpty then
+        bad6 := bad6 + 1
+        if cex.size < 8 then
+          cex := cex.push s!"(L-C6) head {i} ({op} at {S.pc}): slots {outside} stored, edge {reprStr e}"
+    | none => pure ()
+    -- (ii) the per-step form, from the machine state masked to S's defined registers
+    if h' : i + 1 < hs.size then
+      let M' := mstate out hs[i+1]
+      let masked : State := ⟨M.pc, fun j => if (S.regs j).isSome then M.regs j else none, M.out⟩
+      n2 := n2 + 1
+      match step? H p masked with
+      | some r =>
+        let e2 := repr1 p r M'
+        if !e2.isEmpty then
+          bad2 := bad2 + 1
+          if cex.size < 8 then cex := cex.push s!"(ii) head {i}→{i+1} ({op} at {M.pc}): {e2}"
+      | none =>
+        bad2 := bad2 + 1
+        if cex.size < 8 then cex := cex.push s!"(ii) head {i} ({op}): step? none on the masked machine state"
+    match step? H p S with
+    | some S' => S := S'
+    | none =>
+      stop := s!"model stuck (no kernel step: outside the F1 kernel) at head {i} ({op} at {S.pc})"
+      break
+  IO.println s!"L-C4 (i) repr at head: {n1} checked, {bad1} bad; (ii) per-step: {n2} checked, {bad2} bad; fetch words: {nw} checked, {badw} bad; L-C6 slot ports: {n6} checked, {bad6} bad"
+  IO.println s!"stop: {stop}"
+  IO.println s!"model opcodes: {ops}"
+  for c in cex do IO.println s!"  CEX {c}"
+
+end LC4

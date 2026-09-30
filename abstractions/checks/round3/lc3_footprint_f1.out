@@ -1,0 +1,134 @@
+load/shadow mismatches: 0
+== activations from luaV_execute arms: callee, count, ops, non-returns ==
+__moddi3                     acts=  238 noret=  0 only-own-frame=238 writes-outside=0  ops=IDIV,IDIVK,MOD,MODK
+luaH_getshortstr             acts=   48 noret=  0 only-own-frame=48 writes-outside=0  ops=GETTABUP
+luaD_precall                 acts=   45 noret=  0 only-own-frame=0 writes-outside=45  ops=CALL
+      heap                                     2033
+      data:__sf                                1468
+      htif:tohost/fromhost                     657
+      L->top                                   291
+      luastack:regs>=A                         150
+      data:__malloc_av_                        118
+      L->ci                                    90
+      G->GCdebt                                89
+      luastack:above-regs                      80
+      data:errno                               75
+      G->allgc                                 72
+      G->strt.nuse                             72
+      luastack:regs<A                          36
+      ci->next->top                            34
+      ci->next->func                           34
+      ci->next->nresults                       34
+      ci->next->callstatus                     34
+      data:fds                                 33
+      luastack:below-base                      19
+      ci->next                                 11
+      L->nci                                   11
+      data:_impure_data                        11
+      data:__stdio_exit_handler                11
+      data:files                               11
+      data:fs_ready                            11
+      data:__bss_start                         8
+      data:__malloc_current_mallinfo           8
+      data:__malloc_max_sbrked_mem             8
+      data:__malloc_max_total_mem              8
+      G->totalbytes                            4
+      G->strcache                              4
+      L->tbclist                               4
+      ci->top                                  4
+      ci->func                                 4
+      L->base_ci.top                           4
+      L->base_ci.func                          4
+      G->seed/gcstopem                         4
+      L->stack                                 2
+      ci->trap                                 2
+      L->stack_last                            2
+__muldi3                     acts=   43 noret=  0 only-own-frame=43 writes-outside=0  ops=MUL,MULK
+luaV_tointeger               acts=   16 noret=  0 only-own-frame=0 writes-outside=16  ops=FORPREP
+      caller-frame:luaV_execute                16
+__hidden___udivdi3           acts=   15 noret=  0 only-own-frame=15 writes-outside=0  ops=FORPREP
+luaT_adjustvarargs           acts=   12 noret=  0 only-own-frame=0 writes-outside=12  ops=VARARGPREP
+      luastack:regs>=A                         24
+      ci->nextraargs                           12
+      L->top                                   12
+      ci->func                                 12
+      ci->top                                  12
+luaD_poscall                 acts=    9 noret=  0 only-own-frame=0 writes-outside=9  ops=RETURN
+      L->top                                   9
+      L->ci                                    9
+__divdi3                     acts=    7 noret=  0 only-own-frame=7 writes-outside=0  ops=IDIV,IDIVK
+luaV_equalobj                acts=    7 noret=  0 only-own-frame=7 writes-outside=0  ops=EQ,EQK
+l_strcmp                     acts=    6 noret=  0 only-own-frame=6 writes-outside=0  ops=LE,LT
+luaG_traceexec               acts=    2 noret=  0 only-own-frame=0 writes-outside=2  ops=CALL
+      ci->trap                                 2
+luaG_runerror                acts=    2 noret=  2 only-own-frame=0 writes-outside=0  ops=FORPREP,IDIV
+      heap                                     65
+      luastack:above-regs                      12
+      L->top                                   6
+      data:__malloc_av_                        4
+      G->GCdebt                                4
+      G->allgc                                 4
+      G->strt.nuse                             4
+      caller-frame:above                       2
+luaT_trybiniTM               acts=    1 noret=  1 only-own-frame=0 writes-outside=0  ops=MMBINI
+      heap                                     35
+      luastack:above-regs                      6
+      L->top                                   3
+      data:__malloc_av_                        2
+      G->GCdebt                                2
+      G->allgc                                 2
+      caller-frame:above                       1
+== stores made by luaV_execute's own arm code, per opcode (region: count) ==
+  ADD         luastack:R[A]:374
+  ADDI        luastack:R[A]:576
+  BAND        luastack:R[A]:2
+  BANDK       luastack:R[A]:44
+  BNOT        luastack:R[A]:6
+  BOR         luastack:R[A]:20
+  BORK        luastack:R[A]:2
+  BXOR        luastack:R[A]:84
+  BXORK       luastack:R[A]:2
+  CALL        L->top:45, ci->savedpc:45
+  EQ          ci->savedpc:3, L->top:3
+  FORLOOP     luastack:R[A+3]:198, luastack:R[A+1]:99, luastack:R[A]:99
+  FORPREP     luastack:R[A+3]:32, exec-frame:31, luastack:R[A+1]:30, ci->savedpc:17, L->top:17
+  GETTABUP    exec-frame:96, luastack:R[A]:96
+  IDIV        luastack:R[A]:4, ci->savedpc:3, L->top:3
+  IDIVK       luastack:R[A]:12, ci->savedpc:6, L->top:6
+  LE          ci->savedpc:2, L->top:2
+  LFALSESKIP  luastack:R[A]:6
+  LOADFALSE   luastack:R[A]:4
+  LOADI       luastack:R[A]:262
+  LOADK       luastack:R[A]:30
+  LOADNIL     luastack:R[A]:6, luastack:R[A+1]:1
+  LOADTRUE    luastack:R[A]:16
+  LT          ci->savedpc:4, L->top:4
+  MMBINI      ci->savedpc:1, L->top:1
+  MOD         luastack:R[A]:4, ci->savedpc:2, L->top:2
+  MODK        luastack:R[A]:460, ci->savedpc:230, L->top:230
+  MOVE        luastack:R[A]:80
+  MUL         luastack:R[A]:60
+  MULK        luastack:R[A]:26
+  NOT         luastack:R[A]:2
+  RETURN      ci->savedpc:9, ci->func:9, L->top:9
+  SHL         luastack:R[A]:6
+  SHLI        luastack:R[A]:32
+  SHR         luastack:R[A]:8
+  SHRI        luastack:R[A]:92
+  SUB         luastack:R[A]:14
+  TESTSET     luastack:R[A]:2
+  UNM         luastack:R[A]:10
+  VARARGPREP  ci->savedpc:12
+== caller-frame store examples ==
+  luaV_tointeger:caller-frame:luaV_execute: pc=0x8001ae38(luaV_tointeger) a=0x87fffd98 sp0=0x87fffd70 w=8; pc=0x8001ae38(luaV_tointeger) a=0x87fffd98 sp0=0x87fffd70 w=8; pc=0x8001ae38(luaV_tointeger) a=0x87fffd98 sp0=0x87fffd70 w=8; pc=0x8001ae38(luaV_tointeger) a=0x87fffd98 sp0=0x87fffd70 w=8
+  luaD_precall:luastack:below-base: pc=0x8003bfb8(_free_r) a=0x8006f348 sp0=0x87fffd70 w=8; pc=0x8003bfbc(_free_r) a=0x8006f340 sp0=0x87fffd70 w=8; pc=0x8002ffd4(_malloc_r) a=0x8006f368 sp0=0x87fffd70 w=8; pc=0x8000e914(luaC_newobj) a=0x8006f348 sp0=0x87fffd70 w=1
+  luaD_precall:luastack:regs<A: pc=0x8002ffcc(_malloc_r) a=0x8006f378 sp0=0x87fffd70 w=8; pc=0x8002ffd0(_malloc_r) a=0x8006f370 sp0=0x87fffd70 w=8; pc=0x8002ffcc(_malloc_r) a=0x8006f398 sp0=0x87fffd70 w=8; pc=0x8002ffd0(_malloc_r) a=0x8006f390 sp0=0x87fffd70 w=8
+  luaG_runerror:caller-frame:above: pc=0x80009a50(luaD_throw) a=0x87ffff38 sp0=0x87fffd70 w=4; pc=0x80009a50(luaD_throw) a=0x87ffff38 sp0=0x87fffd70 w=4
+  luaT_trybiniTM:caller-frame:above: pc=0x80009a50(luaD_throw) a=0x87ffff38 sp0=0x87fffd70 w=4
+== purity vs oracle ==
+__moddi3               ok=238 bad=0 []
+__muldi3               ok=43 bad=0 []
+__hidden___udivdi3     ok=15 bad=0 []
+__divdi3               ok=7 bad=0 []
+luaV_equalobj          ok=7 bad=0 []
+l_strcmp               ok=6 bad=0 []

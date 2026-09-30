@@ -1,0 +1,57 @@
+== while
+L-C4 (i) repr at head: 671 checked, 0 bad; (ii) per-step: 670 checked, 0 bad; fetch words: 671 checked, 0 bad; L-C6 slot ports: 670 checked, 1 bad
+stop: Final (RETURN) at head 670 (step 215023); the run from here is `vmRel_final`
+model opcodes: [(RETURN, 1), (CALL, 3), (MOVE, 3), (GETTABUP, 3), (LEI, 16), (JMP, 122), (ADDI, 123), (ADD, 69), (MUL, 9), (LOADI, 9), (GTI, 101), (EQI, 100), (MODK, 100), (LTI, 11), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+== f1_ops
+L-C4 (i) repr at head: 186 checked, 0 bad; (ii) per-step: 185 checked, 0 bad; fetch words: 186 checked, 0 bad; L-C6 slot ports: 185 checked, 1 bad
+stop: Final (RETURN) at head 185 (step 271160); the run from here is `vmRel_final`
+model opcodes: [(RETURN, 1), (CALL, 11), (LOADFALSE, 1), (LOADTRUE, 5), (MOVE, 10), (GETTABUP, 11), (LT, 8), (LOADI, 32), (JMP, 7), (ADDI, 17), (MULK, 8), (LFALSESKIP, 3), (LEI, 2), (LTI, 2), (FORLOOP, 22), (FORPREP, 4), (LOADK, 4), (EQI, 2), (EQK, 1), (NOT, 2), (TESTSET, 2), (LOADNIL, 1), (UNM, 3), (SUB, 1), (IDIVK, 2), (MODK, 1), (MOD, 1), (IDIV, 1), (ADD, 10), (MUL, 10), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+== f1b_bits
+L-C4 (i) repr at head: 220 checked, 0 bad; (ii) per-step: 219 checked, 0 bad; fetch words: 220 checked, 0 bad; L-C6 slot ports: 219 checked, 1 bad
+stop: Final (RETURN) at head 219 (step 320064); the run from here is `vmRel_final`
+model opcodes: [(RETURN, 1), (CALL, 7), (LOADTRUE, 2), (EQ, 1), (BNOT, 3), (EQI, 1), (BXOR, 42), (MOVE, 2), (GETTABUP, 7), (FORLOOP, 29), (BANDK, 22), (SHRI, 46), (FORPREP, 2), (LOADI, 16), (BOR, 10), (SHLI, 16), (SHL, 3), (SHR, 4), (LOADK, 2), (BXORK, 1), (BORK, 1), (BAND, 1), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+== print_print
+L-C4 (i) repr at head: 8 checked, 0 bad; (ii) per-step: 7 checked, 0 bad; fetch words: 8 checked, 0 bad; L-C6 slot ports: 7 checked, 1 bad
+stop: Final (RETURN) at head 7 (step 187429); the run from here is `vmRel_final`
+model opcodes: [(RETURN, 1), (CALL, 1), (LOADTRUE, 1), (LOADNIL, 1), (LOADI, 1), (GETTABUP, 2), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+== f1_src
+L-C4 (i) repr at head: 265 checked, 0 bad; (ii) per-step: 264 checked, 0 bad; fetch words: 265 checked, 0 bad; L-C6 slot ports: 264 checked, 2 bad
+stop: Final (RETURN) at head 264 (step 220816); the run from here is `vmRel_final`
+model opcodes: [(RETURN, 1), (CALL, 11), (JMP, 10), (LOADNIL, 3), (LTI, 5), (TESTSET, 1), (GTI, 5), (MODK, 26), (UNM, 1), (IDIVK, 1), (GETTABUP, 11), (LOADI, 28), (EQK, 1), (TEST, 4), (LOADTRUE, 1), (EQI, 41), (MOVE, 17), (FORLOOP, 26), (ADD, 12), (FORPREP, 7), (ADDI, 20), (LOADFALSE, 3), (GEI, 19), (MULK, 4), (SUB, 6), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+  CEX (L-C6) head 263 (CALL at 145): slots [0] stored, edge { tgt := 146, defs := [], killLo := 13, killN := 6 }
+== f4_strlite
+L-C4 (i) repr at head: 13 checked, 0 bad; (ii) per-step: 12 checked, 0 bad; fetch words: 13 checked, 0 bad; L-C6 slot ports: 12 checked, 1 bad
+stop: first non-F1 instruction CONCAT at pc 12, head 12 (step 190590)
+model opcodes: [(CONCAT, 1), (MOVE, 4), (LOADK, 3), (GETTABUP, 2), (CALL, 1), (LOADI, 1), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+== f1_arith
+L-C4 (i) repr at head: 16 checked, 0 bad; (ii) per-step: 16 checked, 1 bad; fetch words: 16 checked, 0 bad; L-C6 slot ports: 15 checked, 1 bad
+stop: model stuck (no kernel step: outside the F1 kernel) at head 15 (GETTABUP at 22)
+model opcodes: [(GETTABUP, 3), (CALL, 1), (MODK, 1), (UNM, 2), (IDIVK, 1), (MOD, 1), (IDIV, 1), (MUL, 1), (SUB, 1), (ADD, 1), (LOADI, 2), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+  CEX (ii) head 15 (GETTABUP): step? none on the masked machine state
+== f1_cond
+L-C4 (i) repr at head: 2 checked, 0 bad; (ii) per-step: 1 checked, 0 bad; fetch words: 2 checked, 0 bad; L-C6 slot ports: 1 checked, 1 bad
+stop: first non-F1 instruction CLOSURE at pc 1, head 1 (step 182783)
+model opcodes: [(CLOSURE, 1), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+== f1_for
+L-C4 (i) repr at head: 52 checked, 0 bad; (ii) per-step: 51 checked, 0 bad; fetch words: 52 checked, 0 bad; L-C6 slot ports: 51 checked, 1 bad
+stop: first non-F1 instruction SETTABUP at pc 29, head 51 (step 190579)
+model opcodes: [(SETTABUP, 1), (FORPREP, 3), (LOADI, 11), (CALL, 2), (MOVE, 2), (GETTABUP, 2), (FORLOOP, 10), (ADD, 10), (MULK, 10), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+== f1_while
+L-C4 (i) repr at head: 671 checked, 0 bad; (ii) per-step: 670 checked, 0 bad; fetch words: 671 checked, 0 bad; L-C6 slot ports: 670 checked, 1 bad
+stop: Final (RETURN) at head 670 (step 215023); the run from here is `vmRel_final`
+model opcodes: [(RETURN, 1), (CALL, 3), (MOVE, 3), (GETTABUP, 3), (LEI, 16), (JMP, 122), (ADDI, 123), (ADD, 69), (MUL, 9), (LOADI, 9), (GTI, 101), (EQI, 100), (MODK, 100), (LTI, 11), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
+== f4_strlite (not stopping at non-F1)
+L-C4 (i) repr at head: 110 checked, 0 bad; (ii) per-step: 109 checked, 0 bad; fetch words: 110 checked, 0 bad; L-C6 slot ports: 109 checked, 1 bad
+stop: Final (RETURN) at head 109 (step 235527); the run from here is `vmRel_final`
+model opcodes: [(RETURN, 1), (CALL, 7), (LOADTRUE, 7), (EQ, 1), (EQK, 1), (GETTABUP, 7), (MMBINI, 2), (ADDI, 2), (LEN, 4), (MOVE, 26), (FORLOOP, 5), (CONCAT, 9), (FORPREP, 1), (LOADI, 4), (LOADK, 18), (MMBINK, 2), (MODK, 1), (IDIVK, 1), (MMBIN, 1), (MUL, 1), (UNM, 1), (LT, 5), (LE, 1), (LFALSESKIP, 1), (VARARGPREP, 1)]
+  CEX (L-C6) head 0 (VARARGPREP at 0): slots [0] stored, edge { tgt := 1, defs := [], killLo := 0, killN := 0 }
