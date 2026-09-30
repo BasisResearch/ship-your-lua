@@ -165,8 +165,8 @@ theorem pin_eq {α : Type} {x : Option α} {a b : α} (h : x = some a) (e : a = 
 /-- `sw`-free window reads: `ci->u.l.trap` from any memory that agrees with
 the complement outside the window. -/
 theorem trap_of_frame {p : Proto} {w : RelPtrs} {m : Mem} (hr : Ranges p w) (hc : Complement p w)
-    (hf : ∀ a, ¬ Win p w a → m[a]? = w.mo[a]?) : bytesT4 m (w.ci + ciTrapOff) = 0 := by
-  refine (bytesT4_congr fun i hi => ?_).trans hc.trap_word
+    (hf : ∀ a, ¬ Win p w a → bytesT1 m a = bytesT1 w.mo a) : bytesT4 m (w.ci + ciTrapOff) = 0 := by
+  refine (bytesT4_congrT fun i hi => ?_).trans hc.trap_word
   exact hf _ (hr.ci_out _ (by omega) (by simp only [ciTrapOff, ciSize]; omega))
 
 /-- `sext.w` of the loaded `trap` (`lw t6,40(s7)`; `sext.w s5,t6`). -/
@@ -205,7 +205,7 @@ theorem Core.update (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Lis
       ValRepr w.mo (slotTag c'.σ.mem (w.slot j)) (slotVal c'.σ.mem (w.slot j)) v) :
     Core p c' ⟨pc', regs', s.out⟩ w :=
   ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hout).trans hc.out,
-    fun x hx => (hframe x hx).trans (hc.frame x hx), hstack, hc.comp, hc.ranges⟩
+    hc.text_of hframe, hc.frame_of hframe, hstack, hc.comp, hc.ranges⟩
 
 end
 
@@ -395,9 +395,9 @@ variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
 
 theorem ForStore.frame_mo (hc : Core p c s w) {m' : Mem} {a : Nat} {d1 d2 : BitVec 64}
     {b : BitVec 8} (ha : a + 3 < p.maxstacksize)
-    (hfs : ForStore c.σ.mem m' (w.slot a) d1 d2 b) : ∀ x, ¬ Win p w x → m'[x]? = w.mo[x]? := by
+    (hfs : ForStore c.σ.mem m' (w.slot a) d1 d2 b) : ∀ x, ¬ Win p w x → m'[x]? = c.σ.mem[x]? := by
   intro x hx
-  refine (hfs.frame x ?_ ?_ ?_).trans (hc.frame x hx)
+  refine hfs.frame x ?_ ?_ ?_
   all_goals
     refine Classical.byContradiction fun h => hx ?_
     simp only [Win, RelPtrs.slot, stackValueSize] at h ⊢
@@ -418,7 +418,7 @@ theorem Core.forloop (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Li
   have ht1 := (hc.stack (a + 1) _ (by omega) hn).tag_of_int.1
   have ht0 := (hc.stack a _ (by omega) hi).tag_of_int.1
   refine hc.update hseg hpins hout (fun y hy => ?_) (fun j v hj hv => ?_)
-  · exact (hfs.frame_mo hc ha y hy).trans (hc.frame y hy).symm
+  · exact hfs.frame_mo hc ha y hy
   · simp only [upd] at hv
     by_cases h1 : j = a + 1
     · subst h1

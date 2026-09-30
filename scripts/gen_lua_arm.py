@@ -296,7 +296,7 @@ theorem sim_{lean_op} {{p : Proto}} ({"_hS" if kind == "jump" else "hS"} : Suppo
                 proofs.append(f"h{r}_{k}")
         pre_ok = "hpc1" if prev is None else f"hq{k - 1}.pcAt"
         good = "hc1.good" if prev is None else f"hq{k - 1}.good"
-        rest = ("hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩" if prev is None else
+        rest = ("hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩" if prev is None else
                 f"hq{k - 1}.minstret, hq{k - 1}.tick, ⟨hq{k - 1}.extra.1, hq{k - 1}.extra.2.1, "
                 f"hq{k - 1}.extra.2.2⟩")
         hyps = " ".join(["(by arm_arith)"] * n_hyps(spec))
@@ -414,7 +414,7 @@ def chain2(segs, guards):
         regs = pin_regs(spec)
         if k == 1:
             pre = (f"c1 ⟨hc1.good, hpc1,\n      ⟨{', '.join(prf[r] for r in regs)}, trivial⟩,"
-                   "\n      hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩")
+                   "\n      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩")
         else:
             memp = "rfl" if base == f"c{k}.σ.mem" else f"hq{k - 1}.extra.2.1"
             pre = (f"c{k} ⟨hq{k - 1}.good, hq{k - 1}.pcAt,\n      ⟨{', '.join(prf[r] for r in regs)}, "
@@ -665,7 +665,7 @@ def paths2(kind):
       rw [show w.slot ins.a + 32 = w.slot (ins.a + 2) by simp only [RelPtrs.slot, stackValueSize]; omega]
       exact hvs.2
 """
-                + x21_trap(post, k, "trap_of_frame hr hc1.comp (hfs.frame_mo hc1 hA3)")
+                + x21_trap(post, k, "trap_of_frame hr hc1.comp (hc1.frame_of (hfs.frame_mo hc1 hA3))")
                 + x27_to(post, k, "(s.pc + 1 - ins.bx)")
                 + f"""  have hcore := hc1.forloop hq{k} (pc' := s.pc + 1 - ins.bx) (a := ins.a)
     ⟨{pins2(post, k, {"x21": "hx21", "x27": "hx27"})}⟩

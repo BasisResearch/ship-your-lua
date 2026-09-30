@@ -54,7 +54,7 @@ theorem dispatch {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelA
   have eJ := add_imm (Arms.jtBase + ins.opNum * 2 ^ 2) 0 (by decide)
   simp only [Nat.add_zero] at eJ
   have hjt : bytesT4 c.σ.mem (Arms.jtBase + 4 * ins.opNum) = jtWord ins.opNum :=
-    jtWord_eq hc.image.2 hop
+    jtWord_eq hc.rodata hop
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have hJB : Arms.jtBase = 0x8005336c := rfl
   have hJE : Arms.jtEntries = 82 := rfl
@@ -94,7 +94,7 @@ theorem dispatch {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelA
     c ⟨hc.good, hR.pcAt,
       ⟨hc.pins.trap, hc.pins.pc, hc.pins.opMax, hc.pins.jt, hc.pins.sp, hc.pins.gp, hc.pins.L,
         hc.pins.intTag, hc.pins.ci, hc.pins.base, trivial⟩,
-      hc.minstret, hc.tick, ⟨hc.image.1, rfl, rfl⟩⟩
+      hc.minstret, hc.tick, ⟨hc.text, rfl, rfl⟩⟩
   have hP := hpost.pins
   have hpc' : c'.σ.regs.get? Register.PC = some (armTarget ins.opNum) := by
     have h := hpost.pcAt

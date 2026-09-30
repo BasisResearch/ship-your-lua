@@ -75,7 +75,7 @@ theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (by refine guard_tag_bne_f (n := w.slot ins.a) ?_ hTa (by decide); slot_arith)
         c1 ⟨hc1.good, hpc1,
           ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-          hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+          hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
       obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001c814_8001c818
         (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer) (BitVec.ofNat 64 w.L)
         (BitVec.ofNat 64 (Arms.jtEntries - 1)) (BitVec.ofNat 64 vNumInt)
@@ -145,7 +145,7 @@ theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (by refine guard_tag_bne_f (n := w.slot ins.a) ?_ hTa (by decide); slot_arith)
         c1 ⟨hc1.good, hpc1,
           ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-          hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+          hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
       obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001c814_8001c818
         (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer) (BitVec.ofNat 64 w.L)
         (BitVec.ofNat 64 (Arms.jtEntries - 1)) (BitVec.ofNat 64 vNumInt)
@@ -217,7 +217,7 @@ theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (by refine guard_tag_bne_t (n := w.slot ins.a) ?_ hTa (by decide); slot_arith)
         c1 ⟨hc1.good, hpc1,
           ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-          hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+          hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
       obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001c818_8001c824_t
         (zero_extend (m := 64) (bytesT1 (c1.σ.mem) (((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x07#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0))) + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))
         (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer) (BitVec.ofNat 64 w.L)
@@ -295,7 +295,7 @@ theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (by refine guard_tag_bne_t (n := w.slot ins.a) ?_ hTa (by decide); slot_arith)
         c1 ⟨hc1.good, hpc1,
           ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-          hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+          hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
       obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001c818_8001c824_t
         (zero_extend (m := 64) (bytesT1 (c1.σ.mem) (((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x07#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0))) + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))
         (BitVec.ofNat 64 w.sp) (BitVec.ofNat 64 symGlobalPointer) (BitVec.ofNat 64 w.L)

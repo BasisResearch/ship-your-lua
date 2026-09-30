@@ -42,6 +42,21 @@ theorem bytesT8_congr {m m' : Mem} {a : Nat} (h : ∀ i, i < 8 → m[a + i]? = m
   simp only [bytesT8, h0, h 1 (by omega), h 2 (by omega), h 3 (by omega), h 4 (by omega),
     h 5 (by omega), h 6 (by omega), h 7 (by omega)]
 
+/-- A 4-byte read depends only on the total reads of its bytes. -/
+theorem bytesT4_congrT {m m' : Mem} {a : Nat} (h : ∀ i, i < 4 → bytesT1 m (a + i) = bytesT1 m' (a + i)) :
+    bytesT4 m a = bytesT4 m' a := by
+  have h0 := h 0 (by omega)
+  simp only [bytesT1, Nat.add_zero] at h0 h
+  simp only [bytesT4, h0, h 1 (by omega), h 2 (by omega), h 3 (by omega)]
+
+/-- An 8-byte read depends only on the total reads of its bytes. -/
+theorem bytesT8_congrT {m m' : Mem} {a : Nat} (h : ∀ i, i < 8 → bytesT1 m (a + i) = bytesT1 m' (a + i)) :
+    bytesT8 m a = bytesT8 m' a := by
+  have h0 := h 0 (by omega)
+  simp only [bytesT1, Nat.add_zero] at h0 h
+  simp only [bytesT8, h0, h 1 (by omega), h 2 (by omega), h 3 (by omega), h 4 (by omega),
+    h 5 (by omega), h 6 (by omega), h 7 (by omega)]
+
 /-- A slot's tag and payload depend only on its first nine bytes. -/
 theorem slot_congr {m m' : Mem} {a : Nat} (h : ∀ i, i < 9 → m[a + i]? = m'[a + i]?) :
     slotTag m a = slotTag m' a ∧ slotVal m a = slotVal m' a := by
@@ -109,6 +124,10 @@ theorem store_sb_sd (m : Mem) (A : Nat) (d : BitVec (8 * 8)) (b : BitVec 8) :
 abbrev RodataLoaded (m : Mem) : Prop :=
   Vsa.Sim.Code.FixedBytesLoaded Image.rodataBase Image.rodataSize Image.rodataByte m
 
+/-- The image's `.rodata`, as total reads see it (no presence demanded). -/
+def RodataRead (m : Mem) : Prop :=
+  ∀ o, o < Image.rodataSize → bytesT1 m (Image.rodataBase + o) = Image.rodataByte o
+
 /-- Byte `i` of table entry `o`. -/
 def jtByte (o i : Nat) : BitVec 8 := Image.rodataByte (Arms.jtBase - Image.rodataBase + 4 * o + i)
 
@@ -122,9 +141,9 @@ def armTarget (o : Nat) : BitVec 64 :=
   BitVec.update ((BitVec.ofNat 64 Arms.jtBase + sign_extend (m := 64) (jtWord o))
     + sign_extend (m := 64) (0x000#12)) 0 0#1
 
-theorem jtWord_eq {m : Mem} (h : RodataLoaded m) {o : Nat} (ho : o < Arms.jtEntries) :
+theorem jtWord_eq {m : Mem} (h : RodataRead m) {o : Nat} (ho : o < Arms.jtEntries) :
     bytesT4 m (Arms.jtBase + 4 * o) = jtWord o := by
-  have hb : ∀ i, i < 4 → m[Arms.jtBase + 4 * o + i]? = some (jtByte o i) := by
+  have hb : ∀ i, i < 4 → bytesT1 m (Arms.jtBase + 4 * o + i) = jtByte o i := by
     intro i hi
     have := h (Arms.jtBase - Image.rodataBase + 4 * o + i)
       (by simp only [Arms.jtBase, Arms.jtEntries, Image.rodataBase, Image.rodataSize] at ho ⊢; omega)
@@ -132,9 +151,8 @@ theorem jtWord_eq {m : Mem} (h : RodataLoaded m) {o : Nat} (ho : o < Arms.jtEntr
       = Arms.jtBase + 4 * o + i by simp only [Arms.jtBase, Image.rodataBase]; omega] at this
     exact this
   have h0 := hb 0 (by omega)
-  simp only [Nat.add_zero] at h0
-  simp only [bytesT4, jtWord, h0, hb 1 (by omega), hb 2 (by omega), hb 3 (by omega),
-    Option.getD_some]
+  simp only [bytesT1, Nat.add_zero] at h0 hb
+  simp only [bytesT4, jtWord, h0, hb 1 (by omega), hb 2 (by omega), hb 3 (by omega)]
 
 /-- Every arm starts on an instruction boundary (the dispatch `jr`'s
 alignment side condition). -/

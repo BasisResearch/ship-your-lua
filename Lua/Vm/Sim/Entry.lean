@@ -283,8 +283,8 @@ theorem vmRel_entry : vmRel_entry_Statement := by
     c.σ.mem⟩, ⟨hq2.good, hq2.minstret, hq2.tick,
     ⟨pinsHold_get hp2 10 (by simp), pinsHold_get hp2 11 (by simp), pinsHold_get hp2 9 (by simp),
       hx9, hx18, hx21, pinsHold_get hp2 8 (by simp), pinsHold_get hp2 12 (by simp), hx25, hx27⟩,
-    (output_congr (hq2.extra.2.2.trans hq1.extra.2.2)).trans hRt.harness.console,
-    fun a ha => hA2 a ?_, fun j v _ h => ?_, ⟨hM.text, hM.rodata, hE.proto, hE.proto_code,
+    (output_congr (hq2.extra.2.2.trans hq1.extra.2.2)).trans hRt.harness.console, hq2.extra.1,
+    fun a ha => congrArg (Option.getD · 0) (hA2 a ?_), fun j v _ h => ?_, ⟨hM.text, hM.rodata, hE.proto, hE.proto_code,
       fun i ins hf => ?_, bytesT8_of_rd64 hE.ci_func, ?_, rt, efunc.symm, hlua, hRt.heap,
       hRt.error_jmp⟩, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun a h1 h2 hw => ?_,
       fun a h1 h2 hw => ?_⟩⟩, hq2.pcAt⟩

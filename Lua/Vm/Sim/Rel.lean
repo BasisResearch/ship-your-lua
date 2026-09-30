@@ -29,9 +29,12 @@ instruction `s.pc`. It is `∃ w, VmRelAt p c s w` over the pointers `w`
   state (all ⊥) for any stack contents.
 * **Output** (`Core.out`): the HTIF console so far is `s.out`.
 * **Frame** (`Core.frame`, `Complement`). Outside the window `Win` (the
-  register slots and `luaV_execute`'s own C frame) the memory is a fixed
-  complement `w.mo`, of which `Complement` states the image (`.text`,
-  `.rodata`), the prototype (`ProtoRepr`, and its code words as `lw` reads
+  register slots and `luaV_execute`'s own C frame) the memory reads TOTALLY
+  (`bytesT1`, the model's `getD 0`) as a fixed complement `w.mo`: presence is
+  never demanded, since the densification (`Vsa.Densify`) already gives it.
+  The one presence the relation carries is `.text` (`Core.text`), which the
+  segments' instruction fetches demand (`SegSt`'s `TextLoaded`). Of `w.mo`,
+  `Complement` states the image (`.text`, `.rodata`), the prototype (`ProtoRepr`, and its code words as `lw` reads
   them), `ci->func` and `ci->u.l.trap`, and the Lua state and heap of
   `luaLayout` (`LuaStateAt`, `DlHeap.HeapAt`, `ErrorJmpAt`).
 
@@ -159,7 +162,11 @@ structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
   tick : c.tick < 2
   pins : Pins c.σ w s.pc
   out : Vsa.Machine.output c.σ = s.out
-  frame : ∀ a, ¬ Win p w a → c.σ.mem[a]? = w.mo[a]?
+  /-- `.text` is present: the segments' fetches (`SegSt`'s `TextLoaded`) demand it -/
+  text : Arms.TextLoaded c.σ.mem
+  /-- outside the window, every TOTAL read (`bytesT1`, the model's `getD 0`) is the
+  complement's: presence is not demanded, the densification gives it -/
+  frame : ∀ a, ¬ Win p w a → bytesT1 c.σ.mem a = bytesT1 w.mo a
   stack : ∀ j v, j < p.maxstacksize → s.regs j = some v →
     ValRepr w.mo (slotTag c.σ.mem (w.slot j)) (slotVal c.σ.mem (w.slot j)) v
   comp : Complement p w
@@ -199,28 +206,37 @@ theorem Win.above (hr : Ranges p w) {a : Nat} (h : Win p w a) : tohostAddr + 16 
   simp only [Win, execFrame, RuntimeData.spEntry, tohostAddr] at *
   omega
 
-/-- The machine's `.text` and `.rodata` are the image's. -/
-theorem Core.image (hc : Core p c s w) : Arms.TextLoaded c.σ.mem ∧ RodataLoaded c.σ.mem := by
-  have hout : ∀ a, a < tohostAddr → c.σ.mem[a]? = w.mo[a]? := fun a ha =>
-    hc.frame a fun hw => by have := Win.above hc.ranges hw; omega
-  refine ⟨Vsa.Sim.Code.FixedBytesLoaded.transport hc.comp.text fun a _ h2 => hout a ?_,
-    Vsa.Sim.Code.FixedBytesLoaded.transport hc.comp.rodata fun a _ h2 => hout a ?_⟩
-  · have := Arms.text_below_tohost; omega
-  · have := rodata_below_tohost; omega
+/-- The machine's `.rodata`, read totally, is the image's. -/
+theorem Core.rodata (hc : Core p c s w) : RodataRead c.σ.mem := fun o ho => by
+  have := rodata_below_tohost
+  refine (hc.frame _ fun hw => ?_).trans ?_
+  · have := Win.above hc.ranges hw; omega
+  · simp only [bytesT1, hc.comp.rodata o ho, Option.getD_some]
 
 /-- The instruction at `pc`, as `lw s4,0(s11)` reads it. -/
 theorem Core.fetch (hc : Core p c s w) {pc : Nat} {ins : Word} (hf : p.fetch pc = some ins) :
     bytesT4 c.σ.mem (w.code + 4 * pc) = ins := by
   have hlt := fetch_lt hf
-  refine (bytesT4_congr fun i hi => ?_).trans (hc.comp.code_word pc ins hf)
+  refine (bytesT4_congrT fun i hi => ?_).trans (hc.comp.code_word pc ins hf)
   exact hc.frame _ (hc.ranges.code_out _ (by omega) (by omega))
 
 /-- `ci->u.l.trap`, as `updatetrap` reads it. -/
 theorem Core.trap (hc : Core p c s w) : bytesT4 c.σ.mem (w.ci + ciTrapOff) = 0 := by
-  refine (bytesT4_congr fun i hi => ?_).trans hc.comp.trap_word
+  refine (bytesT4_congrT fun i hi => ?_).trans hc.comp.trap_word
   exact hc.frame _ (hc.ranges.ci_out _ (by omega) (by simp only [ciTrapOff, ciSize]; omega))
 
 /-! ## Re-establishing the relation after an arm -/
+
+/-- `.text` survives any memory change that is exact outside the window. -/
+theorem Core.text_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Win p w x → m[x]? = c.σ.mem[x]?) :
+    Arms.TextLoaded m :=
+  Vsa.Sim.Code.FixedBytesLoaded.transport hc.text fun a _ h2 => h a fun hw => by
+    have := Win.above hc.ranges hw; have := Arms.text_below_tohost; omega
+
+/-- The frame survives any memory change that is exact outside the window. -/
+theorem Core.frame_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Win p w x → m[x]? = c.σ.mem[x]?) :
+    ∀ x, ¬ Win p w x → bytesT1 m x = bytesT1 w.mo x := fun x hx => by
+  simp only [bytesT1, h x hx]; exact hc.frame x hx
 
 theorem output_congr {σ σ' : MState} (h : σ'.sailOutput = σ.sailOutput) :
     Vsa.Machine.output σ' = Vsa.Machine.output σ := by
@@ -237,9 +253,10 @@ theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List
   have hwin : ∀ x, ¬ (x < w.slot a ∨ w.slot a + 9 ≤ x) → Win p w x := fun x hx => by
     simp only [RelPtrs.slot, Win, stackValueSize] at hx ⊢
     left; constructor <;> omega
+  have hfr : ∀ x, ¬ Win p w x → c'.σ.mem[x]? = c.σ.mem[x]? := fun x hx =>
+    hst.frame x (Classical.byContradiction fun h => hx (hwin x h))
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hout).trans hc.out,
-    fun x hx => ?_, fun j v' hj hv' => ?_, hc.comp, hc.ranges⟩
-  · exact (hst.frame x (Classical.byContradiction fun h => hx (hwin x h))).trans (hc.frame x hx)
+    hc.text_of hfr, hc.frame_of hfr, fun j v' hj hv' => ?_, hc.comp, hc.ranges⟩
   · simp only at hv'
     by_cases hja : j = a
     · subst hja
@@ -263,7 +280,7 @@ theorem Core.jump (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List 
     (hout : c'.σ.sailOutput = c.σ.sailOutput) (hmem : c'.σ.mem = c.σ.mem) :
     Core p c' ⟨pc', s.regs, s.out⟩ w := by
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hout).trans hc.out,
-    fun x hx => hmem ▸ hc.frame x hx, fun j v hj hv => ?_, hc.comp, hc.ranges⟩
+    hmem ▸ hc.text, hmem ▸ hc.frame, fun j v hj hv => ?_, hc.comp, hc.ranges⟩
   rw [hmem]
   exact hc.stack j v hj hv
 

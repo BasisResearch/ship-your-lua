@@ -56,7 +56,7 @@ theorem sim_MOVE {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     c1.σ.mem c1.σ.sailOutput
     c1 ⟨hc1.good, hpc1,
       ⟨hA.s4, hc1.pins.base, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hc1.pins.intTag, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-      hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
   have hx14_2 : c2.σ.regs.get? Register.x14 = some (BitVec.ofNat 64 (w.base + 16 * ((ins.toNat >>> 16) % 2 ^ 8))) := by
     have h := pinsHold_get hq1.pins 0 (by simp)
     simp only [List.getElem_cons_succ, List.getElem_cons_zero] at h

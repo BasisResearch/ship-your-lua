@@ -58,7 +58,7 @@ theorem sim_LOADI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith) (by arm_arith)
     c1 ⟨hc1.good, hpc1,
       ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hA.s3, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-      hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
   have hsteps : Steps c1 c2 := hs2
   have hm := hq1.extra.2.1
   have hK32 : Sail.BitVec.extractLsb ((sign_extend (m := 64) ((0xffff0#20) +++ 0x000#12))

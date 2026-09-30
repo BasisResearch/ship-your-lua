@@ -69,7 +69,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by refine guard_tag_eq (n := w.slot (ins.a + 2)) ?_ hvs.1 (by decide); slot_arith)
       c1 ⟨hc1.good, hpc1,
         ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-        hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+        hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
     obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001c208_8001c214_t
       ((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x07#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0)))
       (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) (BitVec.ofNat 64 w.sp)
@@ -126,7 +126,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (by refine guard_tag_eq (n := w.slot (ins.a + 2)) ?_ hvs.1 (by decide); slot_arith)
       c1 ⟨hc1.good, hpc1,
         ⟨hA.s4, hc1.pins.base, hc1.pins.intTag, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hA.s3, hc1.pins.trap, hc1.pins.ci, hc1.pins.jt, hc1.pins.pc, trivial⟩,
-        hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+        hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
     obtain ⟨c3, hs3, hq2⟩ := Arms.seg_8001c208_8001c214_n
       ((BitVec.ofNat 64 w.base) + (shift_bits_left ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) ins) 31 0) (0x07#5))) &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x04#6) 5 0)))
       (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1))) (BitVec.ofNat 64 w.sp)
@@ -188,7 +188,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     have hx21 : c5.σ.regs.get? Register.x21 = some (0#64) := by
       have h := pinsHold_get hq4.pins 0 (by len_arith)
       simp only [List.getElem_cons_zero] at h
-      rw [bytesT4_at (n := w.ci + ciTrapOff) ?_, trap_of_frame hr hc1.comp (hfs.frame_mo hc1 hA3)] at h
+      rw [bytesT4_at (n := w.ci + ciTrapOff) ?_, trap_of_frame hr hc1.comp (hc1.frame_of (hfs.frame_mo hc1 hA3))] at h
       · exact h.trans (congrArg some trap_zero)
       · slot_arith
     have hx27 : c5.σ.regs.get? Register.x27 = some (BitVec.ofNat 64 (w.code + 4 * (s.pc + 1 - ins.bx))) := by

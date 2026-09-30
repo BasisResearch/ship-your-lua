@@ -56,7 +56,7 @@ theorem sim_JMP {p : Proto} (_hS : Supported p) {c : Config} {s s' : State}
     (by arm_arith) (by arm_arith) (by arm_arith)
     c1 ⟨hc1.good, hpc1,
       ⟨hc1.pins.ci, hA.s4, hA.s3, hc1.pins.sp, hc1.pins.gp, hc1.pins.L, hc1.pins.opMax, hc1.pins.intTag, hc1.pins.trap, hc1.pins.jt, hc1.pins.base, hc1.pins.pc, trivial⟩,
-      hc1.minstret, hc1.tick, ⟨hc1.image.1, rfl, rfl⟩⟩
+      hc1.minstret, hc1.tick, ⟨hc1.text, rfl, rfl⟩⟩
   have hsteps : Steps c1 c2 := hs2
   have hKj : Sail.BitVec.extractLsb ((sign_extend (m := 64) ((0xff000#20) +++ 0x000#12))
       + sign_extend (m := 64) (0x001#12)) 31 0 = 0xff000001#32 := by decide
