@@ -10,8 +10,10 @@ decidable check on a `Proto` with three parts:
    of `Lua/Bytecode/Semantics.lean`), whose existence carries the operand
    side conditions (e.g. `GETTABUP` only of `_ENV.print`, `LOADK` only of
    non-float constants, `CALL` with fixed argument and result counts), or
-   is a `RETURN*` or a skipped `MMBIN*`. Every opcode without a kernel is in
-   `ledger`, with the fragment that brings it in.
+   is a `RETURN*`. Every opcode without a kernel is in `ledger`, with the
+   fragment that brings it in. The kernels also cover a strings slice of F4
+   (literals, `CONCAT`, `LEN` and order on strings, string arithmetic
+   through `MMBIN*`: abstractions/pilot/SUITE.md H1–H5).
 2. **Well-formedness.** Lua 5.4 does not verify loaded bytecode
    (`lundump.c` checks only the header), so `luaV_execute` on a malformed
    `Proto` is undefined behaviour. `Supported` requires in-range edge
@@ -141,11 +143,10 @@ def reads (pc : Nat) (w : Word) : Nat := ((kernel p pc w).map fun K => listMask 
 /-- Highest register index an instruction touches, plus one (0 if none). -/
 def regTop (pc : Nat) (w : Word) : Nat := ((kernel p pc w).map Kernel.regTop).getD 0
 
-/-- Instructions with no successor: `RETURN*`, and `MMBIN*`, which an
-integer arithmetic instruction always skips. -/
+/-- Instructions with no successor: `RETURN*`. -/
 def noSucc (w : Word) : Bool :=
   match w.op? with
-  | some .RETURN | some .RETURN0 | some .RETURN1 | some .MMBIN | some .MMBINI | some .MMBINK => true
+  | some .RETURN | some .RETURN0 | some .RETURN1 => true
   | _ => false
 
 /-- Outgoing edges of the instruction at `pc` (its kernel's edges), `none`

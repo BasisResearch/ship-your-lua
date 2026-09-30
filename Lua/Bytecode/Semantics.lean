@@ -137,6 +137,64 @@ def BinOp.int : BinOp → BitVec 64 → BitVec 64 → Option (BitVec 64)
   | .shl, x, y => some (shiftl x y)
   | .shr, x, y => some (shiftr x y)
 
+/-- The operator of a `TMS` event (`ltm.h`: `TM_ADD = 6` … `TM_SHR = 17`;
+`TM_POW`/`TM_DIV` are float-only). -/
+def BinOp.ofTM : Nat → Option BinOp
+  | 6 => some .add | 7 => some .sub | 8 => some .mul | 9 => some .mod | 12 => some .idiv
+  | 13 => some .band | 14 => some .bor | 15 => some .bxor | 16 => some .shl | 17 => some .shr
+  | _ => none
+
+/-- The string library's metamethods (`lstrlib.c`, `stringmetamethods`)
+cover the arithmetic operators only, not the bitwise ones. -/
+def BinOp.strMeta : BinOp → Bool
+  | .add | .sub | .mul | .mod | .idiv => true
+  | _ => false
+
+/-- `lisspace` in the "C" locale. -/
+def isSpace (c : UInt8) : Bool := c == 32 || (9 ≤ c && c ≤ 13)
+
+/-- A digit's value (`lisdigit`, and `lisxdigit`/`luaO_hexavalue` if `hex`). -/
+def digitVal (hex : Bool) (c : UInt8) : Option Nat :=
+  if 48 ≤ c ∧ c ≤ 57 then some (c.toNat - 48)
+  else if hex ∧ 97 ≤ c ∧ c ≤ 102 then some (c.toNat - 87)
+  else if hex ∧ 65 ≤ c ∧ c ≤ 70 then some (c.toNat - 55)
+  else none
+
+/-- The leading digits of `s`: their value (accumulated from `a`), their
+count (from `n`), and the rest. -/
+def digits (hex : Bool) : List UInt8 → Nat → Nat → Nat × Nat × List UInt8
+  | [], a, n => (a, n, [])
+  | c :: cs, a, n =>
+    match digitVal hex c with
+    | some d => digits hex cs (a * (if hex then 16 else 10) + d) (n + 1)
+    | none => (a, n, c :: cs)
+
+/-- `luaO_str2num` of a whole Lua string, when it gives an integer
+(`l_str2int`, `lobject.c`): spaces, a sign, `0x` hex digits (wrapping) or
+decimal digits (rejected on overflow: `l_str2d` then makes it a float),
+spaces, and nothing else (an embedded `\0` ends the C string early, so
+`lua_stringtonumber` rejects it). -/
+def str2int (s : List UInt8) : Option (BitVec 64) :=
+  let s := s.dropWhile isSpace
+  let (neg, s) := match s with
+    | 45 :: t => (true, t)
+    | 43 :: t => (false, t)
+    | t => (false, t)
+  let (hex, s) := match s with
+    | 48 :: x :: t => if x == 120 || x == 88 then (true, t) else (false, s)
+    | _ => (false, s)
+  let (a, n, rest) := digits hex s 0 0
+  if n = 0 ∨ (rest.dropWhile isSpace) ≠ [] ∨ (!hex ∧ 2 ^ 63 - 1 + (if neg then 1 else 0) < a) then
+    none
+  else some (if neg then 0 - BitVec.ofNat 64 a else BitVec.ofNat 64 a)
+
+/-- An arithmetic metamethod's operand (`lstrlib.c` `tonum`), when it is an
+integer: an integer, or a string converting to one. -/
+def Value.toInt? : Value → Option (BitVec 64)
+  | .int i => some i
+  | .str s => str2int s
+  | _ => none
+
 /-- A concatenation operand as bytes (`tostring`: integers with `%lld`);
 anything else is an error (`luaG_concaterror`). -/
 def Value.toStr? : Value → Option (List UInt8)
@@ -156,6 +214,8 @@ def lexLt : List UInt8 → List UInt8 → Bool
 inductive Prim where
   /-- `op_arith`/`op_bitwise`'s integer fast path -/
   | arith (o : BinOp)
+  /-- `luaT_trybinTM` with a string operand: the string metamethods -/
+  | tm (o : BinOp)
   | unm | bnot | not | eq | lt | le
   /-- `luaV_objlen` -/
   | len
@@ -167,7 +227,14 @@ error (no rule). Order tests give booleans (`luaV_lessthan`,
 `luaV_lessequal`, `luaV_rawequalobj`). -/
 def δ : Prim → List Value → Option Value
   | .arith o, [.int x, .int y] => (o.int x y).map .int
+  | .tm o, [x, y] =>
+    if o.strMeta ∧ (x matches .str _ ∨ y matches .str _) then
+      match x.toInt?, y.toInt? with
+      | some a, some b => (o.int a b).map .int
+      | _, _ => none
+    else none
   | .unm, [.int x] => some (.int (0 - x))
+  | .unm, [.str s] => (str2int s).map fun x => .int (0 - x)
   | .bnot, [.int x] => some (.int (~~~x))
   | .not, [v] => some (.bool v.isFalse)
   | .eq, [x, y] => some (.bool (decide (x = y)))
@@ -254,9 +321,25 @@ def jump (t : Nat) : Kernel Value where
   body _ := some { edge := 0 }
 
 /-- `op_arith`/`op_arithK`/`op_arithI`/`op_bitwise`/`op_bitwiseK`: on two
-integers, `R[a] := x op y` and skip the following `MMBIN*` (`pc++`). -/
-def opArith (pc a : Nat) (o : BinOp) (os : List Opnd) : Kernel Value :=
-  setR a (pc + 2) os (δ (.arith o))
+integers, `R[a] := x op y` and skip the following `MMBIN*` (`pc++`);
+otherwise fall through to it. -/
+def opArith (pc a : Nat) (o : BinOp) (os : List Opnd) : Kernel Value where
+  reads := Opnd.ports os
+  edges := [{ tgt := pc + 2, defs := [a] }, { tgt := pc + 1 }]
+  body vs := match Opnd.fill os vs with
+    | [.int x, .int y] => (δ (.arith o) [.int x, .int y]).map fun v => { edge := 0, vals := [v] }
+    | _ => some { edge := 1 }
+
+/-- `OP_MMBIN*` (`luaT_trybinTM`) after the arithmetic instruction at
+`pc - 1` fell through: the metamethod's result goes to that instruction's
+`R[A]`. -/
+def mmbin (p : Proto) (pc tm : Nat) (os : List Opnd) : Option (Kernel Value) := do
+  let prev ← if pc = 0 then none else p.fetch (pc - 1)
+  let o ← BinOp.ofTM tm
+  some (setR prev.a (pc + 1) os (δ (.tm o)))
+
+/-- The operands of `MMBINI`/`MMBINK`, swapped if `k` (`flip`). -/
+def flip (k : Bool) (x y : Opnd) : List Opnd := if k then [y, x] else [x, y]
 
 /-- `docondjump`: if the test's truth differs from `k`, skip the jump at
 `pc + 1`; otherwise take it (`donextjump`). -/
@@ -379,6 +462,9 @@ def opKernel : OpCode → Option (Kernel Value)
   -- `luaV_shiftl(ib, -ic)` and `luaV_shiftl(ic, ib)`: the immediate is shifted
   | .SHRI => some (opArith pc w.a .shr [.reg w.b, immC w])
   | .SHLI => some (opArith pc w.a .shl [immC w, .reg w.b])
+  | .MMBIN => mmbin p pc w.c [.reg w.a, .reg w.b]
+  | .MMBINI => mmbin p pc w.c (flip w.k (.reg w.a) (immB w))
+  | .MMBINK => (kval p w.b).bind fun v => mmbin p pc w.c (flip w.k (.reg w.a) (.imm v))
   | .UNM => some (setR w.a (pc + 1) [.reg w.b] (δ .unm))
   | .BNOT => some (setR w.a (pc + 1) [.reg w.b] (δ .bnot))
   | .NOT => some (setR w.a (pc + 1) [.reg w.b] (δ .not))
