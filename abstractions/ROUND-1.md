@@ -516,3 +516,17 @@ batteries (A0.7/A0.8) are the per-site incumbent it competes with.
 - *For our round 2.* Include `SymExec` and `TextImage` as A1 contenders once
   merged. Their region-keyed memory result says to record per-theorem CPU,
   not only lines.
+
+**Update from syi-7e (later, 2026-09-30).** `exponentiate` has no per-pc
+step tables at all:
+
+- Step lemmas are elaborated on demand from the image, as instances of one
+  rule set (`VsaIris/Vsa/StepRules.lean`, `StepGen.driverLemma?`).
+- Every interpreter run goes through `sym_run`.
+- A clean build of the cleanup cone is 3,774 module-seconds, against 32,740
+  before.
+
+This is the strongest A1 contender for round 2, once it is merged on syi
+main. Our incumbent is the generated segment batteries (`Lua/Vm/Arms`, about
+132k generated lines) plus `gen_lua_arm.py`
+(`abstractions/pilot/A1-incumbent.md`).
