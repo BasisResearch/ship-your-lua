@@ -56,7 +56,11 @@ Meanings, each Lua 5.4's (manual §3, `lparser.c`):
 * **Operators** (§3.4): integer `+ - * // %` (wrapping; `//`, `%` floor,
   by zero an error), bitwise `& | ~ << >> ~` (`luaV_shiftl`), order
   comparisons on integers, `==`/`~=` raw equality, short-circuit
-  `and`/`or`, `not`. Floats, strings, tables and metamethods have no rule.
+  `and`/`or`, `not`. Strings (F4-lite, `abstractions/pilot/SUITE.md`
+  H1–H5): literals, `..` of strings and integers (`tostring`), `#`, order
+  by bytes (`l_strcmp` in the C locale), and `+ - * // %` and unary `-` on
+  strings that convert to integers (the string metatable's `tonum`).
+  Floats, tables and other metamethods have no rule.
 -/
 
 namespace Lua.Ast
@@ -127,22 +131,101 @@ def evalName (ρ : Env) (x : Name) : Option Value :=
   | some v => some v
   | none => if ρ.lookup "_ENV" = none then initGlobal x else none
 
-/-- F1's strict binary operators on values (`none`: no rule). -/
+/-! ### Strings (F4-lite: `abstractions/pilot/SUITE.md` H1–H5) -/
+
+/-- `lisspace` in the C locale. -/
+def isSpace (c : UInt8) : Bool := c = 32 || (9 ≤ c && c ≤ 13)
+
+/-- A digit's value in base 10 or 16. -/
+def digitVal (base : Nat) (c : UInt8) : Option Nat :=
+  if 48 ≤ c ∧ c ≤ 57 then some (c.toNat - 48)
+  else if base = 16 ∧ 97 ≤ c ∧ c ≤ 102 then some (c.toNat - 87)
+  else if base = 16 ∧ 65 ≤ c ∧ c ≤ 70 then some (c.toNat - 55)
+  else none
+
+/-- `l_str2int` (`lobject.c`) on the whole string, as `lstrlib.c`'s
+`tonum` requires: spaces, a sign, decimal digits (rejected on overflow:
+then the string is a float) or `0x` hex digits (wrapping), spaces. -/
+def str2int (s : List UInt8) : Option (BitVec 64) :=
+  let s := s.dropWhile isSpace
+  let (neg, s) : Bool × List UInt8 := match s with
+    | 45 :: r => (true, r)
+    | 43 :: r => (false, r)
+    | r => (false, r)
+  let (base, s) : Nat × List UInt8 := match s with
+    | 48 :: x :: r => if x = 120 ∨ x = 88 then (16, r) else (10, s)
+    | r => (10, r)
+  let ds := s.takeWhile fun c => (digitVal base c).isSome
+  let n := ds.foldl (fun a c => a * base + (digitVal base c).getD 0) 0
+  if ds = [] ∨ !(s.drop ds.length).all isSpace ∨
+      (base = 10 ∧ n > 2 ^ 63 - 1 + (if neg then 1 else 0)) then none
+  else some (if neg then 0 - BitVec.ofNat 64 n else BitVec.ofNat 64 n)
+
+/-- `luaV_concat`'s operands: a string, or an integer by `tostring`
+(`%d`). -/
+def concatBytes : Value → Option (List UInt8)
+  | .str s => some s
+  | .int i => some ((toString i.toInt).toList.map fun c => c.toNat.toUInt8)
+  | _ => none
+
+/-- An arithmetic operand: an integer, or a string the string metatable's
+`__add`/… converts to one (`tonum`; a float-valued string is out of
+scope: no rule). -/
+def arithInt : Value → Option (BitVec 64)
+  | .int i => some i
+  | .str s => str2int s
+  | _ => none
+
+/-- `l_strcmp` in the C locale: byte-lexicographic order. -/
+def bytesLt : List UInt8 → List UInt8 → Bool
+  | [], [] => false
+  | [], _ :: _ => true
+  | _ :: _, [] => false
+  | a :: as, b :: bs => a < b || (a = b && bytesLt as bs)
+
+/-- String order comparisons. -/
+def BinOp.strCmp : BinOp → Option (List UInt8 → List UInt8 → Bool)
+  | .lt => some bytesLt
+  | .le => some fun a b => !bytesLt b a
+  | .gt => some fun a b => bytesLt b a
+  | .ge => some fun a b => !bytesLt a b
+  | _ => none
+
+/-- The arithmetic operators the string metatable implements. -/
+def BinOp.coerces : BinOp → Bool
+  | .add | .sub | .mul | .idiv | .mod => true
+  | _ => false
+
+/-- The strict binary operators on values (`none`: no rule). -/
 def binOp : BinOp → Value → Value → Option Value
   | .eq, va, vb => some (.bool (decide (va = vb)))
   | .ne, va, vb => some (.bool (decide (va ≠ vb)))
+  | .concat, va, vb => do
+    let a ← concatBytes va
+    let b ← concatBytes vb
+    pure (.str (a ++ b))
   | op, .int x, .int y =>
     match op.arith, op.cmp with
     | some f, _ => (f x y).map .int
     | none, some g => some (.bool (g x y))
     | none, none => none
-  | _, _, _ => none
+  | op, va, vb =>
+    match va, vb, op.strCmp with
+    | .str a, .str b, some f => some (.bool (f a b))
+    | _, _, _ =>
+      if op.coerces then do
+        let f ← op.arith
+        let x ← arithInt va
+        let y ← arithInt vb
+        (f x y).map .int
+      else none
 
-/-- F1's unary operators on values (`none`: no rule). -/
+/-- The unary operators on values (`none`: no rule). -/
 def unOp : UnOp → Value → Option Value
-  | .neg, .int x => some (.int (0 - x))
+  | .neg, v => (arithInt v).map fun x => .int (0 - x)
   | .bnot, .int x => some (.int (~~~x))
   | .not, v => some (.bool v.isFalse)
+  | .len, .str s => some (.int (BitVec.ofNat 64 s.length))
   | _, _ => none
 
 /-- How a statement completes. -/
@@ -210,7 +293,7 @@ inductive Call where
 abbrev Outcome := Env × String × Sig
 
 /-- What a judgment answers. -/
-def Call.Res : Call → Type
+@[reducible] def Call.Res : Call → Type
   | .eval .. => Value
   | _ => Outcome
 
@@ -248,6 +331,7 @@ def rules (H : Host) : Rulebook Call Call.Res
   | .eval _ .false => pure (.bool false)
   | .eval _ .true => pure (.bool true)
   | .eval _ (.numeral (.int i)) => pure (.int i)
+  | .eval _ (.string s) => pure (.str s)
   | .eval ρ (.prefixexp (.var (.name x))) => lift (evalName ρ x)
   | .eval ρ (.prefixexp (.paren e)) => eval ρ e
   | .eval ρ (.binop .and a b) => do
@@ -399,19 +483,19 @@ def isBound (bound : List (Name × Attrib)) (x : Name) : Bool := bound.any (·.1
 def isAssignable (bound : List (Name × Attrib)) (x : Name) : Bool :=
   (bound.find? (·.1 = x)).any (·.2 = .reg)
 
-/-- F1's operators on integers. -/
+/-- F1's operators, with F4-lite's `..` and `#`. -/
 def BinOp.inF1 (op : BinOp) : Bool :=
-  op.arith.isSome || op.cmp.isSome || op = .eq || op = .ne || op = .and || op = .or
+  op.arith.isSome || op.cmp.isSome || op = .eq || op = .ne || op = .and || op = .or ||
+    op = .concat
 
 def UnOp.inF1 : UnOp → Bool
-  | .neg | .not | .bnot => true
-  | _ => false
+  | .neg | .not | .bnot | .len => true
 
 mutual
-/-- An F1 expression: `nil`, booleans, integer numerals, locals in scope,
-parentheses, and F1's operators. -/
+/-- An F1 expression: `nil`, booleans, integer numerals, string literals,
+locals in scope, parentheses, and F1's operators. -/
 def supE (bound : List (Name × Attrib)) : Exp → Bool
-  | .nil | .false | .true | .numeral (.int _) => true
+  | .nil | .false | .true | .numeral (.int _) | .string _ => true
   | .prefixexp (.var (.name x)) => isBound bound x
   | .prefixexp (.paren e) => supE bound e
   | .binop op a b => op.inF1 && supE bound a && supE bound b
