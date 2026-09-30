@@ -60,6 +60,7 @@ c/tests/f1_ops.lua f1OpsAst Lua/Programs/F1OpsAst.lean
 c/tests/f1_src.lua f1SrcAst Lua/Programs/F1SrcAst.lean
 c/tests/while.lua whileAst Lua/Programs/WhileAst.lean
 c/tests/f1b_bits.lua f1bAst Lua/Programs/F1bBitsAst.lean
+c/tests/f4_strlite.lua f4StrliteAst Lua/Programs/F4StrliteAst.lean
 LIST
 for f in f1_ops f1_src while f1b_bits f4_strlite; do
   ./c/luac -s -o - "c/tests/$f.lua" | cmp -s - "c/tests/$f.luac" || fail "c/tests/$f.luac is not luac -s of $f.lua"
@@ -182,7 +183,11 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Compile.f1Src_tv
 #print axioms Lua.Compile.while_tv
 #print axioms Lua.Compile.f1b_tv
-#print axioms Lua.Ast.execSound
+#print axioms Lua.Rulebook.sem_iff_solve
+#print axioms Lua.Rulebook.Sem.det
+#print axioms Lua.Ast.luaSem_iff_run
+#print axioms Lua.Programs.f4Strlite_astSupported
+#print axioms Lua.Programs.f4Strlite_luaSem
 #print axioms Lua.Compile.corpus_compileTV
 #print axioms Lua.Compile.compile_refinement_corpus
 #print axioms TCB.Os.allowed_sound

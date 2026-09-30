@@ -17,6 +17,7 @@ import Lua.Vm.DecodeCheck
 import Lua.Vm.Code
 import Lua.Refinement
 import Lua.Ast.Syntax
+import Lua.Ast.Rulebook
 import Lua.Ast.Semantics
 import Lua.Ast.Exec
 import Lua.Ast.Determinism
@@ -32,6 +33,8 @@ import Lua.Programs.F1OpsAst
 import Lua.Programs.F1SrcAst
 import Lua.Programs.WhileAst
 import Lua.Programs.F1bBitsAst
+import Lua.Programs.F4StrliteAst
+import Lua.Programs.F4StrliteSrc
 import Lua.Programs.F1Src
 import Lua.Compile.TV
 import Lua.Compile.Corpus
