@@ -141,6 +141,41 @@ def head_spec():
     return name, spec, rows
 
 
+def prologue_specs(sites):
+    """`luaV_execute`'s prologue `[entry, fetch_head)` (the C code before the
+    loop), with the `trap` check `bnez s5` not taken (no hooks), as two
+    segments cut where the arms' code joins it (`startfunc`, the first
+    prologue address with an arm site: `OP_CALL`/`OP_TAILCALL` `goto
+    startfunc`):
+
+    * `[entry, startfunc)`: the frame (`addi sp,sp,-176`, the saves of `ra`,
+      `s0 … s11`), `L`/`ci` into s0/s7, the jump table into s8;
+    * `[startfunc, fetch_head)`: the loads of `ci->func`, `L->hookmask`,
+      `ci->u.l.savedpc`, the closure and its `k`; s1 = 81, s2 = 3; `base`.
+
+    The cut keeps the second segment's loads over its own entry memory, not
+    over the first segment's store chain. Both thread the console
+    output, and carry `gp` and the jump table (s8) through, the frame
+    `Lua.Vm.Sim.vmRel_entry` needs."""
+    lo, hi = Layout_symLuaVExecute(), dfa.FETCH
+    joined = {a for a, _ in sites}
+    cut = next(a for a in range(lo + 4, hi, 4) if a in joined)
+    out = []
+    for a, b in ((lo, cut), (cut, hi)):
+        path = {x: "nottaken" for x in range(a, b, 4)}
+        name = f"seg_{a:08x}_{b:08x}"
+        spec, rows = seg_spec(a, b, path, name, True, keep=[3, 24])
+        out.append((name, spec, rows))
+    return out
+
+
+def Layout_symLuaVExecute():
+    """`luaV_execute`'s entry, as `Lua/Vm/Layout.lean` has it."""
+    import re
+    txt = (ROOT / "Lua/Vm/Layout.lean").read_text()
+    return int(re.search(r"def symLuaVExecute : Nat := (0x[0-9a-f]+)", txt).group(1), 16)
+
+
 def site_name_of(key):
     addr, cls = key
     arm = {"branch_taken": "_taken", "branch_nottaken": "_nottaken"}.get(cls, "")
@@ -254,15 +289,74 @@ def jtEntries : Nat := {JT['entries']}
 
 end {NS}
 """
+    # the prologue: its own battery and segments
+    # `startfunc` is shared with the arms that `goto startfunc` (OP_CALL,
+    # OP_TAILCALL): those sites come from the arm batteries
+    psegs = prologue_specs(sites)
+    pnames = [n for n, _, _ in psegs]
+    objs, shared, seen = [], set(), set()
+    for _, _, prows in psegs:
+        for row in prows:
+            p = row.split("\t")
+            key = (int(p[0], 16), p[2])
+            if key in sites:
+                if sites[key] != row:
+                    raise SystemExit(f"prologue site {p[0]} differs from the arm site")
+                shared.add(site_mod[site_name_of(key)])
+                continue
+            if key in seen:
+                continue
+            seen.add(key)
+            objs.append(gen_sites.Site(key[0], int(p[1], 16), p[2], p[3:], len(objs) + 1))
+    files[OUT / "PrologueSites.lean"] = gen_sites.emit_battery(
+        objs, PRED, "", CODE_IMPORTS, "", NS, TEMPLATE, parts,
+        "the prologue of luaV_execute (driver: scripts/gen_lua_arms.py)",
+        ast_dump=dump)
+    pbodies = []
+    for _, pspec, _ in psegs:
+        em = gen_segment.SegmentEmitter(pspec)
+        em.emit()
+        pbodies.append(em.body_text)
+    pname = " ".join(pnames)
+    pbody = "\n\n".join(pbodies)
+    pimports = "".join(f"import {m}\n" for m in sorted(shared))
+    files[OUT / "Prologue.lean"] = f"""import {NS}.PrologueSites
+{pimports}import {NS}.Text
+import Vsa.Sim.SegState
+
+/-! {HEADER}
+
+The prologue of `luaV_execute` (`lvm.c`, up to `startfunc`'s `vmfetch`):
+`addi sp,sp,-176` and the saves of `ra`, `s0 … s11`; `L` (a0) and `ci` (a1)
+into s0 and s7; the jump table into s8; `startfunc`'s loads of `ci->func`
+(t1), `trap = L->hookmask` (s5), `pc = ci->u.l.savedpc` (s11), the closure
+(stored at `8(sp)`) and its `k` (stored at `0(sp)`); s1 = 81, s2 = 3; the
+`trap` check `bnez s5` not taken; `base = ci->func + 1` (s9). The segments
+`{pnames[0]}` (to `startfunc`) and `{pnames[1]}` (to the fetch head `headPc`). -/
+
+open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
+open Register
+open Sail.ConcurrencyInterfaceV1.PreSail
+open Vsa.Machine (MState Config Step Steps)
+open Vsa.Logic
+open Vsa.Sim
+
+namespace {NS}
+
+{pbody}
+
+end {NS}
+"""
     files[ROOT / "Lua/Vm/Arms.lean"] = (
         "\n".join(f"import {NS}.Segs.{m}" for m in seg_mods)
-        + f"\nimport {NS}.Head"
+        + f"\nimport {NS}.Head\nimport {NS}.Prologue"
         + f"\n\n/-! {HEADER}\n\nThe segment theorems of the F1 arms of `luaV_execute`: "
         f"{len(specs)} segments ({len(sites)} site lemmas) over {len(arms)} arms, "
-        f"and the fetch head `{hname}` (`Lua/Vm/Arms/Head.lean`); "
+        f"the fetch head `{hname}` (`Lua/Vm/Arms/Head.lean`) and the prologue `{pname}` "
+        "(`Lua/Vm/Arms/Prologue.lean`); "
         "`Lua/Vm/Arms/arms.tsv` lists each arm's segments. -/\n")
     files[OUT / "arms.tsv"] = ("# " + HEADER + "\nop\tsegments\n" + "".join(
-        f"{op}\t{' '.join(ns)}\n" for op, ns in arms) + f"HEAD\t{hname}\n")
+        f"{op}\t{' '.join(ns)}\n" for op, ns in arms) + f"HEAD\t{hname}\nPROLOGUE\t{pname}\n")
     return files
 
 
