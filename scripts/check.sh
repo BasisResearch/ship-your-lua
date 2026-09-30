@@ -160,11 +160,14 @@ import Lua
 #print axioms Lua.Os.HtifTraces.accepts_write_stdout
 #print axioms Lua.Os.HtifTraces.rejects_write_unknown_fd
 #print axioms Lua.Os.HtifTraces.rejects_fstat_stdout_nlink0
+#print axioms Lua.Os.HtifTraces.accepts_fstat_stdout
+#print axioms Lua.Os.HtifTraces.accepts_write_unknown_fd_ebadf
+#print axioms Lua.Os.HtifTraces.accepts_clock_frozen
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -c "depends on axioms" "$tmp/out.txt")
-[ "$n" = 44 ] || fail "expected 44 axiom reports, got $n"
+[ "$n" = 47 ] || fail "expected 47 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

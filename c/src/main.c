@@ -1,8 +1,8 @@
 /* Bare-metal entry for Lua 5.4 under HTIF.
  *
  * Creates a state, stops the collector before anything is allocated
- * through the Lua API, opens the base/string/table/coroutine libraries (no io,
- * os, package, debug, math, utf8), loads the embedded binary chunk
+ * through the Lua API, opens the base/string/table/coroutine/io/os libraries
+ * (no package, debug, math, utf8), loads the embedded binary chunk
  * and calls it. The verification cut point (Layer A) is luaV_execute's
  * entry for the main closure of that chunk.
  *
@@ -27,6 +27,8 @@ static const luaL_Reg libs[] = {
     {LUA_STRLIBNAME, luaopen_string},
     {LUA_TABLIBNAME, luaopen_table},
     {LUA_COLIBNAME, luaopen_coroutine},
+    {LUA_IOLIBNAME, luaopen_io},    /* files: htif.c's in-image file system */
+    {LUA_OSLIBNAME, luaopen_os},    /* clock frozen at 0 (htif.c) */
     {NULL, NULL}
 };
 

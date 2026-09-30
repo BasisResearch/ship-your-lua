@@ -25,9 +25,9 @@ theorem while_bcSem : BcSem binaryHost whileProto "55\n2500\n36\n" :=
   bcSem_of_run (n := 4000) (by decide +kernel)
 
 /-- `c/tests/print_print.lua` (`print(print, 1, nil, true)`): on the Sail
-model the ELF prints `function: 0x800219b0\t1\tnil\ttrue\n`. -/
+model the ELF prints `function: 0x80022f18\t1\tnil\ttrue\n`. -/
 theorem printPrint_bcSem :
-    BcSem binaryHost printPrintProto "function: 0x800219b0\t1\tnil\ttrue\n" :=
+    BcSem binaryHost printPrintProto "function: 0x80022f18\t1\tnil\ttrue\n" :=
   bcSem_of_run (n := 100) (by decide +kernel)
 
 /-- `c/tests/f1_ops.lua`: every F1 rule family (numeric `for`, floor

@@ -3,7 +3,7 @@
 
 Each arm is the set of luaV_execute instructions reachable from its jump
 table target (experiments/census/luaV_execute_arms.tsv) without passing the
-fetch head 0x8001aa7c, as in experiments/census/tools/arms.py. It is cut
+fetch head (`fetch_head` in luaV_execute_arms.json), as in experiments/census/tools/arms.py. It is cut
 into straight-line segments at branch targets and after every control
 transfer; each segment is classified by disasm_to_sites.py and drafted by
 disasm_to_segment.py, which fails on any instruction it cannot draft. The
@@ -24,9 +24,11 @@ sys.path.insert(0, str(ROOT / "scripts/syi"))
 import disasm_to_sites as d2s        # noqa: E402
 import disasm_to_segment as d2seg    # noqa: E402
 
-LO, HI, FETCH = 0x8001AA00, 0x8001E8D0, 0x8001AA7C
 ARMS_TSV = ROOT / "experiments/census/luaV_execute_arms.tsv"
 ARMS_JSON = ROOT / "experiments/census/luaV_execute_arms.json"
+_S = json.load(open(ARMS_JSON))["summary"]
+LO, HI = int(_S["luaV_execute"]["start"], 16), int(_S["luaV_execute"]["end"], 16)
+FETCH = int(_S["jump_table"]["fetch_head"], 16)
 F1_EXTRA_OPS = {"OP_VARARGPREP"}     # F1 in Lua/Fragment.lean
 NORET = {"luaD_throw", "luaG_callerror", "luaG_concaterror", "luaG_errormsg",
          "luaG_forerror", "luaG_opinterror", "luaG_ordererror",

@@ -34,7 +34,7 @@ open Vsa.Machine (MState Config)
 open Vsa.Sim (initMisa initMstatus initPmpcfg initPmpaddr initPmaRegions gprGet)
 
 /-- `Vsa.Sim.GoodState` (copied field for field) with the HTIF mailbox at the
-Lua image's `tohost` (`0x80048400`) instead of the WHILE image's
+Lua image's `tohost` (`0x8005c6c0`) instead of the WHILE image's
 `Vsa.Sim.tohostAddr` (`0x8001ad00`). Retargeting the copied RAM-read
 lemmas, which are stated against `tohostAddr`, is Phase A0 work. -/
 -- discipline: allow(R7-conj-tower-def) the `∃ v` presence fields are Vsa.Sim.GoodState's, copied verbatim; retired in PHASES A0.1

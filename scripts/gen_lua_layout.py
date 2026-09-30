@@ -118,7 +118,7 @@ TAGS = [
 # boundary, Lua/Os/Htif.lean): `struct _reent`'s errno, `struct stat`,
 # open flags, file-type bits, and errno numbers (newlib's, which differ from
 # Linux's for some; TCB.Os.Errno.toNat is Linux's).
-NEWLIB_HDRS = ["<sys/reent.h>", "<sys/stat.h>", "<fcntl.h>", "<errno.h>"]
+NEWLIB_HDRS = ["<sys/reent.h>", "<sys/stat.h>", "<fcntl.h>", "<errno.h>", "<sys/time.h>"]
 ERRNOS = ["EPERM", "ENOENT", "EBADF", "EACCES", "EBUSY", "EEXIST", "EXDEV", "ENOTDIR",
           "EISDIR", "EINVAL", "EMFILE", "ESPIPE", "ENOSPC", "EROFS", "EMLINK",
           "ENAMETOOLONG", "ENOSYS", "ENOTEMPTY", "ELOOP", "EOVERFLOW"]
@@ -130,6 +130,8 @@ NEWLIB = [
     ("statSizeOff", "offsetof(struct stat, st_size)", "64-bit `off_t`"),
     ("sIfmt", "S_IFMT", ""), ("sIfchr", "S_IFCHR", ""), ("sIfreg", "S_IFREG", ""),
     ("sIfdir", "S_IFDIR", ""),
+    ("timevalSecOff", "offsetof(struct timeval, tv_sec)", "64-bit `time_t` (`_gettimeofday`, the clock)"),
+    ("timevalUsecOff", "offsetof(struct timeval, tv_usec)", "64-bit `suseconds_t`"),
     ("oAccmode", "O_ACCMODE", ""), ("oRdonly", "O_RDONLY", ""), ("oWronly", "O_WRONLY", ""),
     ("oRdwr", "O_RDWR", ""), ("oAppend", "O_APPEND", ""), ("oCreat", "O_CREAT", ""),
     ("oTrunc", "O_TRUNC", ""), ("oExcl", "O_EXCL", ""), ("oDirectory", "_FDIRECTORY", "`O_DIRECTORY` (hidden under -std=gnu11)"),
@@ -151,7 +153,10 @@ SYMS = [("symStart", "_start"), ("symMain", "main"), ("symExit", "_exit"),
         ("symOpen", "_open"), ("symClose", "_close"), ("symRead", "_read"),
         ("symWrite", "_write"), ("symLseek", "_lseek"), ("symFstat", "_fstat"),
         ("symIsatty", "_isatty"), ("symSbrk", "_sbrk"), ("symKill", "_kill"),
-        ("symGetpid", "_getpid"), ("symImpurePtr", "_impure_ptr")]
+        ("symGetpid", "_getpid"), ("symImpurePtr", "_impure_ptr"),
+        ("symStat", "_stat"), ("symUnlink", "_unlink"), ("symRename", "rename"),
+        ("symMkdir", "mkdir"), ("symRmdir", "rmdir"), ("symLink", "_link"),
+        ("symGettimeofday", "_gettimeofday"), ("symTimes", "_times")]
 
 def elf_syms():
     nm = CC[:-3] + "nm"
