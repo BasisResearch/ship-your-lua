@@ -230,6 +230,8 @@ structure Ranges (p : Proto) (w : RelPtrs) : Prop where
   frame_sep : w.base + stackValueSize * p.maxstacksize ≤ w.sp
   /-- the constant array lies apart from the register slots -/
   k_sep : w.k + stackValueSize * p.k.length ≤ w.base ∨ w.base + stackValueSize * p.maxstacksize ≤ w.k
+  /-- the scratch words miss the register slots and lie below the C frame -/
+  scratch_out : ∀ a, Scratch w a → ¬ Slots p w a ∧ a < w.sp
 
 /-- **The fetch-head registers** for pointers `w` and bytecode pc `pc`. -/
 structure Pins (σ : MState) (w : RelPtrs) (pc : Nat) : Prop where

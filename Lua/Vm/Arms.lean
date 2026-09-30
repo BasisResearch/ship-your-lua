@@ -99,6 +99,9 @@ import Lua.Vm.Arms.Segs.G97
 import Lua.Vm.Arms.Segs.G98
 import Lua.Vm.Arms.Segs.G99
 import Lua.Vm.Arms.Segs.G100
+import Lua.Vm.Arms.Segs.Hmuldi3
+import Lua.Vm.Arms.Segs.Hhidden___udivdi3
+import Lua.Vm.Arms.Segs.Hmoddi3
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 
