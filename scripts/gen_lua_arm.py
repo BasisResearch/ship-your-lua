@@ -382,7 +382,33 @@ ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(ARITH_RR, binop="add", alu="HAdd
          "OP_ADDI": ("ADDI", "Addi", "arith", dict(c="imm", b="bne", b_float="bne", binop="add",
                                                   alu="HAdd.hAdd")),
          "OP_EQI": ("EQI", "Eqi", "condjump", {}),
+         "OP_LTI": ("LTI", "Lti", "cmpI", "lt_ai"),
+         "OP_GTI": ("GTI", "Gti", "cmpI", "lt_ia"),
+         "OP_LEI": ("LEI", "Lei", "cmpI", "le_ai"),
+         "OP_GEI": ("GEI", "Gei", "cmpI", "le_ia"),
          "OP_FORLOOP": ("FORLOOP", "Forloop", "forloop", {})}
+
+# `op_orderI` (`LTI`/`LEI`/`GTI`/`GEI`): `R[A]` against `sB`; the integer path
+# computes the test with `slt` (and `seqz` for the non-strict ones), then
+# branches on `k` (`beq`: taken = jump; `bne`: taken = skip). A non-integer
+# `R[A]` has no step (`δ` of an ordering is only defined on two integers or two
+# strings). `f`: the machine's boolean as a function of `R[A]`'s payload
+# (after `sbraw_eq` normalises the `sB` term); `mb`: its value lemma; `cond`:
+# the kernel's test.
+S_A = "(slotVal c1.σ.mem (w.slot ins.a)).toInt"
+S_I = "(BitVec.ofInt 64 ins.sb).toInt"
+SB = "(BitVec.ofInt 64 ins.sb)"
+NLT = "zopz0zI_u (zero_extend (m := 64) (bool_to_bit ({}))) (sign_extend (m := 64) (0x001#12))"
+CMPI = {
+    "lt_ai": dict(prim="lt", ops="[.reg ins.a, immB ins]", f=f"zopz0zI_s X {SB}", mb="mb_lt",
+                  cond=f"decide ({S_A} < {S_I})", final="beq"),
+    "lt_ia": dict(prim="lt", ops="[immB ins, .reg ins.a]", f=f"zopz0zI_s {SB} X", mb="mb_lt",
+                  cond=f"decide ({S_I} < {S_A})", final="beq"),
+    "le_ai": dict(prim="le", ops="[.reg ins.a, immB ins]", f=NLT.format(f"zopz0zI_s {SB} X"), mb="mb_nlt",
+                  cond=f"decide ({S_A} ≤ {S_I})", final="bne"),
+    "le_ia": dict(prim="le", ops="[immB ins, .reg ins.a]", f=NLT.format(f"zopz0zI_s X {SB}"), mb="mb_nlt",
+                  cond=f"decide ({S_I} ≤ {S_A})", final="bne"),
+}
 
 # A tag test's layout -> (polarity, guard lemma) when the tag IS the integer tag,
 # and when it is not; the float test's layout -> (polarity, guard lemma).
@@ -702,11 +728,77 @@ def arith_paths(cfg):
     return split, paths
 
 
+def cond_jump(post, k):
+    """`donextjump`: the pc to the next jump's target, `trap` reloaded."""
+    return (x21_trap(post, k, "hc1.trap") + fix_pin(
+        "x27", post, k, "(BitVec.ofNat 64 (w.code + 4 * t))",
+        """    have hj := jumpTo_eq hjt
+    have hax : ni.ax < 2 ^ 25 := Nat.mod_lt _ (by decide)
+    simp only [Word.sj, Word.offsetSJ] at hj
+    refine pin_eq h (nextjump_pc ?_ (hc1.fetch hni) hjt (by omega) (by omega))
+    slot_arith
+""") + f"""  have hcore := hc1.jump hq{k} (pc' := t)
+    ⟨{pins2(post, k, {"x21": "hx21", "x27": "hx27"})}⟩
+    hmE
+""" + done2(k))
+
+
+def cond_skip(post, k):
+    return close_skip(post, k, "(s.pc + 2)")
+
+
+def cmpI_pre(cfg):
+    return f"""  have hK0 : kernelAt p s.pc = docondjump p s.pc ins.k {cfg["ops"]} (δ .{cfg["prim"]}) := by
+    simp [kernelAt, hf, kernel, hop, opKernel]
+  cases ht : nextJump p s.pc with
+  | none =>
+    obtain ⟨hK', -, -, -⟩ := hstep
+    simp [hK0, docondjump, ht] at hK'
+  | some t =>
+  obtain ⟨vs, cv, hvs, hcv, rfl⟩ := step_condjump hstep hK0 ht
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, docondjump, ht, Kernel.regTop, Opnd.ports, immB] at htop
+  simp only [Opnd.ports, immB] at hvs
+  obtain ⟨va, hva, rfl⟩ := mapM1 hvs
+  simp only [Opnd.fill, immB] at hcv
+  simp only [nextJump, Option.bind_eq_some_iff] at ht
+  obtain ⟨ni, hni, hjt⟩ := ht
+"""
+
+
+def cmpI_paths(cfg):
+    split = f"""  by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
+  · obtain rfl := hva'.int_of_tag hTa
+    simp only [δ, Option.some.injEq] at hcv
+    subst hcv
+    rw [cond_bool]
+    by_cases hJ : ins.k = {cfg["cond"]}
+    · rw [if_pos hJ.symm]
+      {{jint}}
+    · rw [if_neg (fun h => hJ h.symm)]
+      {{sint}}
+  · exfalso
+    cases va <;> simp [δ] at hcv
+    exact hva'.not_int hTa _ rfl"""
+    gi = gtag("guard_tag_bne_f", "ins.a", "hTa")
+    beq = cfg["final"] == "beq"
+
+    def g(lemma):
+        return (f"(by rw [sbraw_eq]; refine {lemma} (x := ins) (f := fun X => {cfg['f']}) "
+                f"(n := w.slot ins.a) ?_ (by simp only [{cfg['mb']}]) hJ; slot_arith)")
+    jump = ("t", g("guard_kf_t")) if beq else ("n", g("guard_kf_ne_f"))
+    skip = ("n", g("guard_kf_f")) if beq else ("t", g("guard_kf_ne_t"))
+    return split, {"jint": ("n" + jump[0], [gi, jump[1]], cond_jump),
+                   "sint": ("n" + skip[0], [gi, skip[1]], cond_skip)}
+
+
 def paths2(kind, cfg):
     """kind -> the case split (`{name}` marks a path) and, per path, its
     branch polarities, guard proofs and close (`cfg`: the arm's layout data)."""
     if kind == "arith":
         return arith_paths(cfg)
+    if kind == "cmpI":
+        return cmpI_paths(CMPI[cfg])
     if kind == "condjump":
         split = """  by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hva'.int_of_tag hTa
@@ -727,26 +819,11 @@ def paths2(kind, cfg):
               "(by refine guard_not_float (n := w.slot ins.a) ?_ hva'; slot_arith)",
               "(by rw [guard_k]; exact hk)"]
 
-        def jump(post, k):
-            return (x21_trap(post, k, "hc1.trap") + fix_pin(
-                "x27", post, k, "(BitVec.ofNat 64 (w.code + 4 * t))",
-                """    have hj := jumpTo_eq hjt
-    have hax : ni.ax < 2 ^ 25 := Nat.mod_lt _ (by decide)
-    simp only [Word.sj, Word.offsetSJ] at hj
-    refine pin_eq h (nextjump_pc ?_ (hc1.fetch hni) hjt (by omega) (by omega))
-    slot_arith
-""") + f"""  have hcore := hc1.jump hq{k} (pc' := t)
-    ⟨{pins2(post, k, {"x21": "hx21", "x27": "hx27"})}⟩
-    hmE
-""" + done2(k))
-
-        def skip(post, k):
-            return close_skip(post, k, "(s.pc + 2)")
         return split, {
-            "jint": ("nt", [gi, "(by refine guard_eqk_t (n := w.slot ins.a) ?_ hJ; slot_arith)"], jump),
-            "sint": ("nn", [gi, "(by refine guard_eqk_f (n := w.slot ins.a) ?_ hJ; slot_arith)"], skip),
-            "jni": ("ttn", gn, jump),
-            "sni": ("ttt", gn, skip),
+            "jint": ("nt", [gi, "(by refine guard_eqk_t (n := w.slot ins.a) ?_ hJ; slot_arith)"], cond_jump),
+            "sint": ("nn", [gi, "(by refine guard_eqk_f (n := w.slot ins.a) ?_ hJ; slot_arith)"], cond_skip),
+            "jni": ("ttn", gn, cond_jump),
+            "sni": ("ttt", gn, cond_skip),
         }
     assert kind == "forloop"
     split = """  rcases hcase with ⟨rfl, rfl⟩ | ⟨hn0, x, rfl, rfl⟩
@@ -811,7 +888,7 @@ theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : S
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
-{arith_pre(cfg) if kind == "arith" else PRE2[kind]}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
+{arith_pre(cfg) if kind == "arith" else cmpI_pre(CMPI[cfg]) if kind == "cmpI" else PRE2[kind]}  have hnum : ins.opNum = {idx} := opNum_of_op? hop
   obtain ⟨c1, hs1, hlt1, hA⟩ := dispatch hR hf (by rw [hnum]; decide)
   have hc1 := hA.core
   have hr := hc1.ranges
@@ -825,7 +902,7 @@ theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : S
   have hch := hr.ci_hi
   have hins := ins.isLt
   simp only [stackValueSize, ciSize] at hbh hch
-{arith_facts(cfg) if kind == "arith" else FACTS2[kind]}{split}"""
+{arith_facts(cfg) if kind == "arith" else FACTS2["condjump" if kind == "cmpI" else kind]}{split}"""
     imports = ["Lua.Vm.Sim.Dispatch", "Lua.Vm.Sim.Close"] + sorted(mods)
     return fname, "\n".join(f"import {m}" for m in imports) + f"""
 

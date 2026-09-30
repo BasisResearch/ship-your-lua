@@ -83,6 +83,10 @@ theorem cond_int (x y : BitVec 64) :
     (!(Value.bool (decide (Value.int x = Value.int y))).isFalse) = decide (x = y) := by
   by_cases h : x = y <;> simp [h, Value.isFalse]
 
+/-- The test of an ordering (`δ .lt`/`.le` gives a boolean). -/
+theorem cond_bool (b : Bool) : (!(Value.bool b).isFalse) = b := by
+  cases b <;> rfl
+
 /-- ... and on anything else. -/
 theorem cond_nonint {v : Value} (h : ∀ i, v ≠ .int i) (y : BitVec 64) :
     (!(Value.bool (decide (v = Value.int y))).isFalse) = false := by

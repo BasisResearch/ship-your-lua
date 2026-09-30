@@ -340,6 +340,68 @@ theorem guard_eqk_f {m : Mem} {a n : Nat} {x : Word} (ha : a = n)
           + sign_extend (m := 64) (0xf81#12)) 31 0)) (sign_extend (m := 64) (0x001#12))))) = false := by
   rw [guard_eqk x ha]; simpa using hJ
 
+/-- A conditional jump's `beq k, b` for a machine boolean `f (R[A])`: the
+jump is taken iff `k` is the kernel's test `c`. -/
+theorem guard_kf {m : Mem} {a n : Nat} (x : Word) (f : BitVec 64 → Bool) {c : Bool} (ha : a = n)
+    (hc : f (slotVal m n) = c) :
+    ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5))
+      &&& sign_extend (m := 64) (0x001#12)) ==
+      zero_extend (m := 64) (bool_to_bit (f (sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8))))))
+      = (x.k == c) := by
+  rw [bytesT8_at ha, sext64_id, hc, kraw_eq, bitb]
+  cases x.k <;> cases c <;> decide
+
+/-- ... laid out as `bne k, b`. -/
+theorem guard_kf_ne {m : Mem} {a n : Nat} (x : Word) (f : BitVec 64 → Bool) {c : Bool} (ha : a = n)
+    (hc : f (slotVal m n) = c) :
+    ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5))
+      &&& sign_extend (m := 64) (0x001#12)) !=
+      zero_extend (m := 64) (bool_to_bit (f (sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8))))))
+      = !(x.k == c) := by
+  simp only [bne, guard_kf x f ha hc]
+
+section
+variable {m : Mem} {a n : Nat} {x : Word} {f : BitVec 64 → Bool} {c : Bool}
+
+theorem guard_kf_t (ha : a = n) (hc : f (slotVal m n) = c) (hJ : x.k = c) :
+    ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5))
+      &&& sign_extend (m := 64) (0x001#12)) ==
+      zero_extend (m := 64) (bool_to_bit (f (sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8)))))) = true := by
+  rw [guard_kf x f ha hc, hJ, beq_self_eq_true]
+
+theorem guard_kf_f (ha : a = n) (hc : f (slotVal m n) = c) (hJ : ¬ x.k = c) :
+    ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5))
+      &&& sign_extend (m := 64) (0x001#12)) ==
+      zero_extend (m := 64) (bool_to_bit (f (sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8)))))) = false := by
+  rw [guard_kf x f ha hc]; simpa using hJ
+
+theorem guard_kf_ne_t (ha : a = n) (hc : f (slotVal m n) = c) (hJ : ¬ x.k = c) :
+    ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5))
+      &&& sign_extend (m := 64) (0x001#12)) !=
+      zero_extend (m := 64) (bool_to_bit (f (sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8)))))) = true := by
+  rw [guard_kf_ne x f ha hc]; simpa using hJ
+
+theorem guard_kf_ne_f (ha : a = n) (hc : f (slotVal m n) = c) (hJ : x.k = c) :
+    ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5))
+      &&& sign_extend (m := 64) (0x001#12)) !=
+      zero_extend (m := 64) (bool_to_bit (f (sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8)))))) = false := by
+  rw [guard_kf_ne x f ha hc, hJ, beq_self_eq_true, Bool.not_true]
+
+end
+
+/-- `slt`. -/
+theorem mb_lt (X Y : BitVec 64) : zopz0zI_s X Y = decide (X.toInt < Y.toInt) := by
+  simp [zopz0zI_s]
+
+/-- `slt` then `seqz`: the negated strict order. -/
+theorem mb_nlt (X Y : BitVec 64) :
+    zopz0zI_u (zero_extend (m := 64) (bool_to_bit (zopz0zI_s X Y))) (sign_extend (m := 64) (0x001#12))
+      = decide (Y.toInt ≤ X.toInt) := by
+  rw [mb_lt]
+  by_cases h : X.toInt < Y.toInt
+  · simp only [h, decide_true, Int.not_le.2 h, decide_false]; decide
+  · simp only [h, decide_false, Int.not_lt.1 h, decide_true]; decide
+
 /-- The non-integer path's `bne k, 0`. -/
 theorem guard_k (x : Word) :
     ((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5))
