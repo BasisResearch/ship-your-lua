@@ -82,8 +82,8 @@ instances, however, are at the WHILE ELF's addresses.
        (`#derive_case`), `DeriveCaseRow`, `BridgeSeg`, `BridgeSegFull`,
        `BridgeSegFramed`, `FrameMeta`, `SegEffect`, `ExecRetEpilogue`,
        `InterpSpillReads`;
-     * the dlmalloc Iris route: `VsaIris.Vsa.{SymRun,Instance,Tools,RunBase,AllocRun,AllocCode}`
-       and `AllocSteps/Part{01,03,04,05,06,07,09,11}`;
+     * the dlmalloc Iris route: `VsaIris.Vsa.{SymRun,Instance,Tools,RunBase,AllocRun}`
+       (its code bytes and step table are regenerated at Lua addresses, A0.5);
      * the output/exit machinery of the stdio route: `SymRunO` (`SWPO`),
        `SymObs`, `SymJalr`, `SymLeaf`, `SymBridge`, `SymData`, `SymHavoc`,
        `SymCompact`, `SegRun`, `AllocSltu`, `Console` (`TohostSite`,
@@ -91,11 +91,6 @@ instances, however, are at the WHILE ELF's addresses.
        and `Vsa.Sim.Generic.ExitStep`;
      * `SeparationLogic`, `MemPresence`.
    * **Not ported, with the obstruction:**
-     * `AllocSteps/Part{00,02,08,10}`: seven store lemmas to the WHILE ELF's
-       `gp`-relative dlmalloc globals, which lie below the Lua `tohost`, so their
-       `StOK` side conditions are false
-       (`VsaIris.Sym.allocSteps_whileGlobals_not_stOK`). They are WHILE-address
-       instances; A0.5 regenerates the tables.
      * ship-your-interpreter's `_write`/`_exit` `TohostSite` instances: their
        stores miss the Lua mailbox (`VsaIris.Inst.whileSites_not_tohost`). The
        Lua ELF's sites are instantiated in A0.5.
@@ -143,9 +138,22 @@ instances, however, are at the WHILE ELF's addresses.
      `luaV_execute_part<k>`.
    * Build: 83 modules, 21 s wall, 5m47 CPU.
 5. **Library proofs at Lua addresses.**
-   * Regenerate the 74 reused functions' step tables and specs with the
-     generators (`gen_alloc_steps.py`, `gen_str_steps.py`,
-     `gen_memcpy_steps.py`, `gen_fn.py`).
+   * **Allocator step table (done).** `scripts/syi/gen_alloc_steps.py` reads
+     the Lua ELF (`objdump`/`nm`; `gp` = `__global_pointer$`, which is
+     `VsaIris.MallocFast.gpV` (`alloc_gp` ties the two), the
+     `_impure_ptr` word). `FUNCS` is the call closure of `malloc`, `free`,
+     `realloc`, `_malloc_r`, `_free_r`, `_realloc_r`: 15 functions, 1,366
+     instructions, one `st_<pc>` each, in `VsaIris/Vsa/AllocSteps/Part{00..11}`
+     (aggregator `VsaIris.Vsa.AllocSteps`) over `allocText`
+     (`VsaIris/Vsa/AllocCode.lean`). The WHILE-address tables are gone. The
+     dlmalloc globals lie at or above `tohost + 16` in the Lua ELF
+     (`__malloc_av_` = `0x8005c6d0`), so every `StOK` closes by `decide`.
+     Decode is `decodeW` (`jalx_<pc>`, and `chain_facts`' decode leaves). The
+     one instruction outside `MKind`, `_realloc_r`'s `sltu a4,a5,a4`
+     (`0x80030360`), goes through `AllocSltu.sltuAluStepAt` (any address).
+     `check.sh` stage 1 checks drift (`--check`).
+   * Regenerate the other reused functions' step tables and specs with the
+     generators (`gen_str_steps.py`, `gen_memcpy_steps.py`, `gen_fn.py`).
    * They are identical code at new addresses: `__udivdi3` (`FORPREP`),
      `__moddi3`/`__divdi3` (`MOD`/`IDIV`), the stdio chain behind `print`,
      `setjmp`/`longjmp`.
@@ -169,9 +177,31 @@ instances, however, are at the WHILE ELF's addresses.
      `lb`/`lh`/`lhu`/`lwu`, `sh` and general `jalr`.
    * `scripts/draft_f1_arms.py` drafts all 34 F1 arms: 2,050 instructions in
      496 segments (`experiments/census/demo/f1_arm_drafts.tsv`).
-   * 376 of those steps need a site class that `gen_sites.py` or
-     `gen_segment.py` lacks (`slli`, `andi`, `srliw`, `sh`, `jalr`, …). Each
-     carries a blocking `TODO` marker. Those batteries are open.
+   * Every step has a site class (`draft_f1_arms.py`: 0 steps without one;
+     check.sh stage 1). `scripts/syi/gen_sites.py` gained the classes
+     `andi`/`ori`/`xori`/`slti`/`sltiu`, `slli`/`srli`/`srai`,
+     `slliw`/`srliw`/`sraiw`, `and`/`or`/`xor`/`slt`/`sltu`/`sll`/`srl`/`sra`,
+     `addw`/`sllw`/`srlw`/`sraw`, `lui`/`auipc` and the total loads
+     `lh`/`lhu`/`lwu`. Each goes through an existing execute characterisation
+     (`ExecuteAlu`, `ExecLoadTotal`); decode is `decodeW`.
+8. **F1 arm segments (done).** `scripts/gen_lua_arms.py` emits, for every F1
+   arm, the site batteries and one theorem per straight-line segment
+   (`Lua/Vm/Arms/{Sites,Segs}/*`, index `Lua.Vm.Arms`, per-arm list
+   `Lua/Vm/Arms/arms.tsv`).
+   * Segments are `draft_f1_arms.py`'s, also cut after every `jal`; a
+     segment ending in a conditional branch has a theorem per polarity
+     (`_t`/`_n`). 788 segment theorems over 2,111 site lemmas, all built.
+   * Each is `Triple (SegSt entry L (TextLoaded ∧ mem = m0)) (SegSt exit L' …)`
+     (`Vsa.Sim.SegSt`, `gen_segment.py` `"boundary": "segst"`). `L` pins the
+     registers read before written; `L'` gives every written register as the
+     exact machine term and the memory as the store expression over `m0`.
+     Loads are total (`bytesT*`). The address side conditions, branch guards
+     and `jr` alignments are named hypotheses `h*_<step>` over the entry
+     values: the arm proof discharges them from the A1 invariant.
+   * `.text` (`Lua.Vm.Arms.TextLoaded`, the image's exact bytes) survives each
+     store above `tohost + 16` (`TextLoaded.{writeMap8,writeMap4,insert}`).
+   * Build: 119 modules; about 1.9 GB and 5–60 s each; built in batches of
+     8 modules on this machine.
 
 **Exit:** `VmLoaded luaLayout p (fillZero c)` is kernel-checked for
 `while.lua` and `f1_ops.lua` at their real entry states, and check.sh

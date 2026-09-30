@@ -32,6 +32,9 @@ python3 scripts/gen_lua_layout.py --check || fail "layout drift"
 python3 scripts/gen_lua_image.py --check || fail "image drift"
 python3 scripts/gen_lua_code.py --check || fail "code pins drift"
 python3 scripts/gen_lua_decode_check.py --check || fail "decode check drift"
+python3 scripts/gen_lua_arms.py --check || fail "F1 arm segments drift"
+python3 scripts/syi/gen_alloc_steps.py --check || fail "allocator step table drift"
+python3 scripts/draft_f1_arms.py | tail -1 | grep -q "; 0 steps need" || fail "F1 arm steps without a site class"
 while read -r chunk name out; do
   python3 scripts/gen_proto.py "$chunk" --name "$name" -o "$out" --check || fail "$out drift"
 done <<'LIST'
@@ -125,8 +128,8 @@ import Lua
 import Vsa.Sim.SegToTripleFramed
 import Vsa.Sim.BridgeSegFull
 import Vsa.Sim.DeriveCase
-import VsaIris.Vsa.AllocStepsTohost
-import VsaIris.Vsa.AllocSteps.Part01
+import VsaIris.Vsa.AllocSteps
+import VsaIris.Vsa.AllocSltu
 import VsaIris.Vsa.SymRunO
 import VsaIris.Vsa.SymJalr
 #print axioms Lua.vm_refinement_of_sim
@@ -190,8 +193,14 @@ import VsaIris.Vsa.SymJalr
 #print axioms VsaIris.Sym.swp_seg
 #print axioms VsaIris.Sym.swp_jal
 #print axioms VsaIris.Sym.swp_step
-#print axioms VsaIris.Sym.st_80004908
-#print axioms VsaIris.Sym.allocSteps_whileGlobals_not_stOK
+#print axioms VsaIris.Sym.st_8002fa34
+#print axioms VsaIris.Sym.st_80030360
+#print axioms VsaIris.Sym.sltuAluStepAt
+#print axioms Lua.Vm.Arms.TextLoaded.writeMap8
+#print axioms Lua.Vm.Arms.seg_8001d3ec_8001d400
+#print axioms Lua.Vm.Arms.seg_8001d00c_8001d034
+#print axioms Lua.Vm.Arms.seg_8001d3bc_8001d3ec
+#print axioms Lua.Vm.Arms.seg_8001c6e4_8001c708
 #print axioms VsaIris.Sym.swpo_run
 #print axioms VsaIris.Inst.putc_runFact
 #print axioms VsaIris.Inst.exit_haltFact
@@ -203,7 +212,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 70 ] || fail "expected 70 axiom reports, got $n"
+[ "$n" = 76 ] || fail "expected 76 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"
