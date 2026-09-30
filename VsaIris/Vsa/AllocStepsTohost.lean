@@ -9,12 +9,12 @@ import VsaIris.Vsa.SymRun
 `st_800072f4`, `st_80007348`) whose side condition `StOK ea w` discharges by
 `decide`. Each `ea` is a `gp`-relative dlmalloc global of the WHILE ELF
 (`gp = 0x8001b510`). `StOK` asks the store to lie above the HTIF mailbox
-(`tohostAddr + 16 ≤ ea`). With `tohostAddr` the Lua ELF's `0x80048400`
+(`tohostAddr + 16 ≤ ea`). With `tohostAddr` the Lua ELF's mailbox
 (PHASES A0.1), those addresses lie below it, so the side conditions are false
 and the lemmas are unprovable as stated. The other eight parts port unchanged.
 
 The step tables are instances at WHILE addresses. PHASES A0.5 regenerates
-them at the Lua ELF's addresses, where they are not needed.
+them at the Lua ELF's addresses.
 -/
 
 namespace VsaIris.Sym

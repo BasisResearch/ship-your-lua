@@ -35,8 +35,10 @@ open Vsa.Sim (gprGet)
 
 /-- The copied layer's `tohost` is the Lua image's: `Vsa.Sim.GoodState` pins
 `htif_tohost_base` to `Vsa.Sim.tohostAddr`, which is the generated
-`Layout.symTohost` (`0x80048400`), so every copied RAM-read lemma stated
-against `tohostAddr` applies to the Lua ELF as is. -/
+`Layout.symTohost`, so every copied RAM-read lemma stated
+against `tohostAddr` applies to the Lua ELF as is. When the ELF is
+regenerated and `tohost` moves, this `rfl` fails until `Vsa.Sim.tohostAddr`
+(`Vsa/Sim/InitValues.lean`, the only place the number is written) follows. -/
 theorem tohostAddr_eq_symTohost : Vsa.Sim.tohostAddr = Layout.symTohost := rfl
 
 /-- The runtime facts outside the VM's own data that `luaV_execute`'s

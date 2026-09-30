@@ -1,6 +1,6 @@
 {
   "theorem": "tr_op_move",
-  "doc": "DRAFT (disasm_to_segment.py) — segment 0x8001be90 → 0x8001be98, 2 steps, 2 read-before-written pins. Fill every TODO.",
+  "doc": "DRAFT (disasm_to_segment.py) — segment 0x8001be84 → 0x8001be98, 5 instructions, 5 site steps + 0 call steps, 2 read-before-written pins. Fill every TODO.",
   "namespace": "Vsa.Sim",
   "imports": [
     "TODO(site battery module)",
@@ -8,14 +8,14 @@
   ],
   "params": [
     "TODO: extra ghost binders (region facts, callee params, ...)",
-    "(v25 v14 : BitVec 64)",
+    "(v20 v25 : BitVec 64)",
     "(m0 : Std.ExtHashMap Nat (BitVec 8))"
   ],
   "pre": "TODO",
   "post": "TODO",
   "loaded_pred": "TODO",
   "pre_bind": {
-    "obtain": "⟨hgood, hloaded, hpc, hv25, hv14, ⟨vmi, hmi⟩, htick, hmemeq, TODO(rest)⟩",
+    "obtain": "⟨hgood, hloaded, hpc, hv20, hv25, ⟨vmi, hmi⟩, htick, hmemeq, TODO(rest)⟩",
     "good": "hgood",
     "pc": "hpc",
     "minstret_var": "vmi",
@@ -27,18 +27,54 @@
   },
   "pins": [
     {
+      "reg": "x20",
+      "val": "v20",
+      "hyp": "hv20"
+    },
+    {
       "reg": "x25",
       "val": "v25",
       "hyp": "hv25"
-    },
-    {
-      "reg": "x14",
-      "val": "v14",
-      "hyp": "hv14"
     }
   ],
   "prelude": [],
   "steps": [
+    {
+      "addr": "0x8001be84",
+      "site": "site_8001be84",
+      "class": "alu",
+      "asm": "srliw a4,s4,0x10",
+      "site_battery": "TODO(gen_sites.py has no `srliw` class: write or generate the site lemma)",
+      "rd": "x14",
+      "rd_val": "TODO",
+      "rw": "TODO",
+      "raw_val": "(sign_extend (m := 64) ((Sail.BitVec.extractLsb v20 31 0) >>> 16))",
+      "call": "$vmi $v:x20 $hG $hpc $hmi $pin:x20 $hmem rfl $hi"
+    },
+    {
+      "addr": "0x8001be88",
+      "site": "site_8001be88",
+      "class": "alu",
+      "asm": "zext.b a4,a4",
+      "site_battery": "TODO(gen_sites.py has no `andi` class: write or generate the site lemma)",
+      "rd": "x14",
+      "rd_val": "TODO",
+      "rw": "TODO",
+      "raw_val": "(v14 &&& sign_extend (m := 64) (0x0ff#12))",
+      "call": "$vmi $v:x14 $hG $hpc $hmi $pin:x14 $hmem rfl $hi"
+    },
+    {
+      "addr": "0x8001be8c",
+      "site": "site_8001be8c",
+      "class": "alu",
+      "asm": "slli a4,a4,0x4",
+      "site_battery": "TODO(gen_sites.py has no `slli` class: write or generate the site lemma)",
+      "rd": "x14",
+      "rd_val": "TODO",
+      "rw": "TODO",
+      "raw_val": "(v14 <<< 4)",
+      "call": "$vmi $v:x14 $hG $hpc $hmi $pin:x14 $hmem rfl $hi"
+    },
     {
       "addr": "0x8001be90",
       "site": "site_8001be90",

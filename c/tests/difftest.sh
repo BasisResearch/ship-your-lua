@@ -1,7 +1,10 @@
 #!/bin/bash
 # Differential test: host `lua` (same vendored source, same baremetal.h) vs
 # the bare-metal ELF on the Sail Lean emulator. Both run the SAME stripped
-# luac chunk; the host runs with the collector stopped, like the ELF.
+# luac chunk; the host runs with the collector stopped, like the ELF, in an
+# empty environment with TZ=UTC0 (the ELF's newlib has no environment, so
+# its local time is UTC) and in a scratch directory (io/os difftests create
+# and remove files there; the ELF's are in htif.c's in-image file system).
 # Compares stdout and the exit status (0 vs nonzero). Reports Sail steps.
 #   EMU=path/to/lean_riscv_emulator  JOBS=8  tests/difftest.sh [files...]
 set -u
@@ -15,7 +18,8 @@ files=("$@"); [ ${#files[@]} -eq 0 ] && files=(tests/difftest/*.lua)
 for f in "${files[@]}"; do
   n=$(basename $f .lua)
   make -s riscv-htif CHUNK_SRC=$f CHUNK=$OUT/$n.luac ELF=$OUT/$n.elf >/dev/null 2>&1 || { echo "$n BUILD-FAIL"; continue; }
-  ./lua -e "collectgarbage('stop')" $OUT/$n.luac > $OUT/$n.host 2>/dev/null; echo $? > $OUT/$n.host.rc
+  mkdir -p $OUT/cwd
+  (cd $OUT/cwd && env -i TZ=UTC0 ../../../lua -e "collectgarbage('stop')" ../$n.luac > ../$n.host 2>/dev/null; echo $? > ../$n.host.rc)
 done
 run1() {
   n=$1

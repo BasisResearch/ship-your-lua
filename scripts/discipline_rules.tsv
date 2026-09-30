@@ -11,3 +11,4 @@ R6-anon-projection-tower	**/*.lean	\.2\.2\.2\.2	deep anonymous projection into a
 R7-conj-tower-def	**/*.lean	COUNT>8:∃	>8 existentials in one file suggests anonymous ∃/∧-tower definitions: new posts/entries must be named-field structures
 R8-conseq-not-dimap	**/*.lean	Triple\.conseq\s+\S+\s+\(fun\s+_\s+h\s*=>\s*h\)|Triple\.conseq\s+\S+\s+\S+\s+\(fun\s+_\s+h\s*=>\s*h\)	conseq with an identity side: use Triple.dimap/lmap/rmap (TripleCat)
 R9-handrolled-fn-assembly	**/*.lean	COUNT>3:#derive_case	multi-block whole-function assemblies must be GENERATED (scripts/syi/gen_fn.py); never hand-roll block batteries
+R15-per-word-decode	**/*.lean	^\s*theorem\s+decode_[0-9a-fA-F]{8}\b	per-word decode lemma: use Vsa.Sim.decodeW (w := 0x<hex>#32) sigma h1 h2 h3 (Vsa/Sim/DecodeNF.lean) for any word

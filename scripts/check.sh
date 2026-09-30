@@ -5,10 +5,12 @@
 #
 # (1) generator drift: every generated Lean file matches its inputs
 #     (opcodes <- lopcodes.h, layout <- the cross compiler + ELF symbols,
-#     image <- the ELF, programs <- the committed .luac chunks);
+#     image <- the ELF, programs <- the committed .luac chunks, code pins
+#     <- the ELF + Lua/Vm/Image.lean, decodeW coverage check <- the ELF +
+#     its committed AST dump);
 # (2) the committed ELF's sha256 matches c/lua-riscv-htif.elf.sha256, and it
 #     contains no `ecall`;
-# (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/: sorry,
+# (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/, tcb/: sorry,
 #     axiom declarations, native_decide, bv_decide, ofReduceBool,
 #     trustCompiler, and raised maxHeartbeats/maxRecDepth in Lua/;
 # (3b) proof discipline (scripts/check_discipline.py, scripts/discipline_rules.tsv);
@@ -16,6 +18,7 @@
 #     (experiments/port/port_census.py --copyset; needs a syi checkout,
 #     skipped if absent);
 # (5) lake build Lua Vsa VsaIris   (skipped with --static-only);
+# (5b) the OS-spec trace validation, quick subset (skipped with --static-only);
 # (6) #print axioms of the key theorems ⊆ {propext, Classical.choice, Quot.sound}.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
@@ -27,13 +30,34 @@ echo "== (1) generator drift"
 python3 scripts/gen_opcodes.py --check || fail "opcodes drift"
 python3 scripts/gen_lua_layout.py --check || fail "layout drift"
 python3 scripts/gen_lua_image.py --check || fail "image drift"
+python3 scripts/gen_lua_code.py --check || fail "code pins drift"
+python3 scripts/gen_lua_decode_check.py --check || fail "decode check drift"
 while read -r chunk name out; do
   python3 scripts/gen_proto.py "$chunk" --name "$name" -o "$out" --check || fail "$out drift"
 done <<'LIST'
 c/tests/while.luac whileProto Lua/Programs/While.lean
 c/tests/print_print.luac printPrintProto Lua/Programs/PrintPrint.lean
 c/tests/f1_ops.luac f1OpsProto Lua/Programs/F1Ops.lean
+c/tests/f1b_bits.luac f1bProto Lua/Programs/F1bBits.lean
+c/tests/f1_src.luac f1SrcProto Lua/Programs/F1Src.lean
 LIST
+# source ASTs (Layer B translation validation) <- the .lua files, parsed by
+# gen_ast.py (all of Lua 5.4); the committed .luac chunks <- the host luac on
+# the same files; the parser round-trips every .lua file in the repo through
+# the host luac (identical `luac -l -l` listings)
+python3 scripts/gen_ast.py --roundtrip $(find c -name '*.lua' | sort) > /dev/null \
+  || fail "gen_ast.py round-trip against luac"
+while read -r src name out; do
+  python3 scripts/gen_ast.py "$src" --name "$name" -o "$out" --check || fail "$out drift"
+done <<'LIST'
+c/tests/f1_ops.lua f1OpsAst Lua/Programs/F1OpsAst.lean
+c/tests/f1_src.lua f1SrcAst Lua/Programs/F1SrcAst.lean
+c/tests/while.lua whileAst Lua/Programs/WhileAst.lean
+c/tests/f1b_bits.lua f1bAst Lua/Programs/F1bBitsAst.lean
+LIST
+for f in f1_ops f1_src while f1b_bits; do
+  ./c/luac -s -o - "c/tests/$f.lua" | cmp -s - "c/tests/$f.luac" || fail "c/tests/$f.luac is not luac -s of $f.lua"
+done
 
 echo "== (2) ELF hash"
 (cd c && sha256sum -c lua-riscv-htif.elf.sha256) || fail "ELF hash"
@@ -54,7 +78,7 @@ def strip(src):
     src = re.sub(r"/-.*?-/", "", src, flags=re.S)
     src = re.sub(r"--[^\n]*", "", src)
     return re.sub(r'"(?:\\.|[^"\\])*"', '""', src)
-for d in ["Lua", "Vsa", "VsaIris"]:
+for d in ["Lua", "Vsa", "VsaIris", "tcb"]:
     for dp, _, fs in os.walk(d):
         for f in fs:
             if not f.endswith(".lean"): continue
@@ -81,6 +105,19 @@ echo "== (5) build"
 lake build Lua Vsa VsaIris 2>&1 | tail -1 | grep -q "Build completed successfully" || fail "lake build"
 echo "ok"
 
+echo "== (5b) OS-spec traces (tcb/, experiments/os/run.sh --quick)"
+experiments/os/run.sh --quick > /dev/null 2>&1 || fail "OS trace run"
+grep -q " rejected 0 " experiments/os/out-quick/linux.summary || fail "Linux traces rejected by TCB.Os.next"
+cat experiments/os/out-quick/linux.summary
+# htif.c's in-image file system: no trace rejected, and its verdicts are
+# pinned (a change means experiments/os/RESULTS.md is stale)
+grep -q "accepted 264 rejected 0 special 4 unsupported 61" experiments/os/out-quick/htif.summary \
+  || fail "htif.c generated-script verdicts changed (update experiments/os/RESULTS.md)"
+cat experiments/os/out-quick/htif.summary
+grep -q "accepted 25 rejected 0 special 1 " experiments/os/out-quick/console-htif.summary \
+  || fail "htif.c console verdicts changed (update experiments/os/RESULTS.md)"
+cat experiments/os/out-quick/console-htif.summary
+
 echo "== (6) axioms"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 cat > "$tmp/Axioms.lean" <<'LEAN'
@@ -104,6 +141,42 @@ import VsaIris.Vsa.AllocSteps.Part01
 #print axioms Lua.Programs.while_supported
 #print axioms Lua.Programs.f1Ops_supported
 #print axioms Lua.Programs.readsStale_unsupported
+#print axioms Vsa.Sim.decodeW
+#print axioms Lua.Vm.Code.textLoaded_LuaV_executeLoaded
+#print axioms Lua.Vm.Code.textLoaded_LuaD_precallLoaded
+#print axioms Lua.Vm.Code.textLoaded_LuaB_printLoaded
+#print axioms Lua.Programs.f1b_bcSem
+#print axioms Lua.Programs.f1b_supported
+#print axioms Lua.Bytecode.step?_complete
+#print axioms Lua.Bytecode.Step.deterministic
+#print axioms Lua.Bytecode.BcSem.deterministic
+#print axioms Lua.Bytecode.Supported.defInit
+#print axioms Lua.Bytecode.DefInit.step
+#print axioms Lua.Bytecode.bcSemFrom_iff
+#print axioms Lua.Bytecode.cbcSem_iff
+#print axioms Lua.Bytecode.reachable_defInit
+#print axioms Lua.Bytecode.condJump_ne_none
+#print axioms Lua.Bytecode.condJump_lt
+#print axioms Lua.Ast.luaRun_sound
+#print axioms Lua.Ast.LuaSem.deterministic
+#print axioms Lua.Bytecode.Final.not_step
+#print axioms Lua.Compile.agree_of_outputs
+#print axioms Lua.Compile.f1Ops_tv
+#print axioms Lua.Compile.f1Src_tv
+#print axioms Lua.Compile.while_tv
+#print axioms Lua.Compile.f1b_tv
+#print axioms Lua.Ast.execSound
+#print axioms Lua.Compile.corpus_compileTV
+#print axioms Lua.Compile.compile_refinement_corpus
+#print axioms TCB.Os.allowed_sound
+#print axioms TCB.Os.allowed_complete
+#print axioms TCB.Os.checkTrace_sound
+#print axioms Lua.Os.HtifTraces.accepts_write_stdout
+#print axioms Lua.Os.HtifTraces.rejects_write_unknown_fd
+#print axioms Lua.Os.HtifTraces.rejects_fstat_stdout_nlink0
+#print axioms Lua.Os.HtifTraces.accepts_fstat_stdout
+#print axioms Lua.Os.HtifTraces.accepts_write_unknown_fd_ebadf
+#print axioms Lua.Os.HtifTraces.accepts_clock_frozen
 #print axioms Lua.Vm.tohostAddr_eq_symTohost
 #print axioms Vsa.Sim.segToTripleFramed
 #print axioms Vsa.Sim.segRowFramed
@@ -121,7 +194,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 27 ] || fail "expected 27 axiom reports, got $n"
+[ "$n" = 63 ] || fail "expected 63 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

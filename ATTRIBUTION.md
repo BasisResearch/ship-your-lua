@@ -13,8 +13,8 @@ their own licences, listed below.
 |---|---|---|
 | `riscv-lean/` | `riscv-lean/` | none (added `README.md`, `LICENCE-sail-riscv`) |
 | `Vsa/` (663 modules at first copy) | `Vsa/` | none, except the rows below; `Vsa.lean` imports only the copied modules |
-| `Vsa/Sim/InitValues.lean` | same | `tohostAddr` is the Lua ELF's `0x80048400` (was the WHILE ELF's `0x8001ad00`); `Lua.Vm.tohostAddr_eq_symTohost` ties it to the generated layout |
-| `Vsa/Sim/{Hooks,MemLoad,RamReadData,MemcpySpec}.lean` | same | the literal `tohost` bounds in their proofs follow `tohostAddr`; the `maxHeartbeats`/`maxRecDepth` raises are dropped (the proofs build without them) |
+| `Vsa/Sim/InitValues.lean` | same | `tohostAddr` is the Lua ELF's `tohost` (was the WHILE ELF's `0x8001ad00`); `Lua.Vm.tohostAddr_eq_symTohost` (`rfl`) ties it to the generated `Layout.symTohost`, so an ELF change that moves `tohost` fails the build until this one number follows |
+| `Vsa/Sim/{Hooks,MemLoad,RamReadData,MemcpySpec}.lean` | same | the literal `tohost` bounds in their proofs are stated through `tohostAddr` (no number written); the `maxHeartbeats`/`maxRecDepth` raises are dropped (the proofs build without them) |
 | `Vsa/Sim/{SegToTripleFramed,BridgeSegFull,FrameMeta,SegEval,SegEvalSound,BlockMem,BlockTerm,BlockDecode,BlockTactics,ChainFactsTac,ExecLoadTotal,NegBlockProto,NegTailSites}.lean`, `Vsa/Sim/Code/{Eval_expr,Memmove}.lean` | same | none (the segment layer, PHASES A0.2a) |
 | `Vsa/Sim/{DeriveCase,DeriveCaseRow,BridgeSeg,WriteLogNF,FrameOn,Mfr,CodeRangeInsert,ObsAvoid,BlockTactics2,BlockTermDemo}.lean` | same | import lines only: the WHILE-reaching imports are replaced by `Vsa/Sim/Generic/*` (below); heartbeat raises dropped; `ObsAvoid`/`BlockTermDemo` destructure their conjunction hypotheses with `obtain` instead of `.2.2.2.2…` projections |
 | `Vsa/Sim/Generic/{Abi,MapReads,ObsOther,BvArith,Pins}.lean` (new) | declarations of `Vsa/Alloc.lean`, `Vsa/Sim/{InterpEntry,ValueSpec,ValueTruthySpec,EnvNewSpec,StrlenSpec,SnprintfSpec5,SnprintfSpec18,SnprintfSpec19,SnprintfSpec25}.lean` | the WHILE-free declarations the segment layer uses, copied verbatim (same names) out of modules that import the WHILE representation; `Pin8_frame` destructures instead of projecting |
@@ -23,15 +23,20 @@ their own licences, listed below.
 | `Vsa/Sim/Generic/{MemRead,GRegs}.lean`, `VsaIris/Vsa/Generic/FastWords.lean` (new) | declarations of `Vsa/MemRepr.lean` (`Mem`, `readLE`, `read64`), `Vsa/Sim/{ValueSpec,ValueTruthySpec,ReprSurvival,EnvGetSpec3,SegFrameFactsAuto,SegReadback}.lean`, `VsaIris/Vsa/MallocFastSegs.lean` | copied verbatim, same names; the `Vsa.MemRepr` module itself is not copied |
 | `VsaIris/Vsa/AllocStepsTohost.lean` (new) | — | why `AllocSteps/Part{00,02,08,10}.lean` are not copied (machine-checked) |
 | `VsaIris/` (19 modules) | `VsaIris/` | none; `VsaIris.lean` likewise |
-| `scripts/syi/` | `scripts/` | none (generators, checks, boot-witness generator, difftest library) |
+| `Vsa/Meta/SimpNF.lean`, `Vsa/Sim/DecodeNF.lean` | same (branch `exponentiate`, uncommitted there at `182e80d1`) | none: the generic decoder `#simp_nf` / `Vsa.Sim.decodeW` |
+| `scripts/syi/` | `scripts/` | none (generators, checks, boot-witness generator, difftest library), except the two below |
+| `scripts/syi/disasm_to_sites.py` | `scripts/disasm_to_sites.py` | classifies the classes the `luaV_execute` arms need (`andi`/`ori`/`xori`/`slti`/`sltiu`, the immediate and register shifts, `and`/`or`/`xor`/`slt`/`sltu`, `addw`/`sllw`/`srlw`/`sraw`, `lui`/`auipc`, `lb`/`lh`/`lhu`/`lwu`, `sh`, general `jalr`); defaults to the Lua ELF and the xPack objdump; `ROOT` is the repository root |
+| `scripts/syi/disasm_to_segment.py` | `scripts/disasm_to_segment.py` | fails on `#UNSUPPORTED` rows and on addresses without a row instead of dropping them (`--allow-unsupported` drafts explicit `UNSUPPORTED` steps); drafts the new classes, marking steps gen_sites.py/gen_segment.py cannot emit with a blocking `TODO`; `--from-elf` |
 | `experiments/syi/` | `experiments/` | none (`gen_decode_table.py`, `gen_code_lemmas.py`, `disasm_census.py`, `disasm_reachable.py`) |
+| `scripts/gen_lua_code.py` | `experiments/gen_code_lemmas.py`, `scripts/gen_fixed_image.py --projection` | retargeted to the Lua ELF and `Lua/Vm/Image.lean`; a function over 16 chunks is split into parts of the original shape |
+| `scripts/lua_decode_ast_dump.lean` | `experiments/M2_decode_ast_dump.lean` | ELF and word list as arguments |
 | `c/src/crt0.S`, `c/src/htif.c`, `c/src/link.ld` | `c/src/` | `WHILE_HTIF` → `LUA_HTIF`; link.ld adds the `.lua_chunk` region |
 | `lakefile.toml`, `lean-toolchain`, `lake-manifest.json` | same | new package name, new `Lua` library |
 | `CLAUDE.md` (the discipline) | `CLAUDE.md` | rows for WHILE-specific abstractions dropped; availability column added |
 | `Lua/Refinement.lean` | `Vsa/Refinement.lean` | generalised over the specification |
 
 **What "copied" covers.** The 682 copied Lean modules are the import closure
-of these roots:
+of these roots (plus the two later copies `Vsa.Meta.SimpNF`, `Vsa.Sim.DecodeNF`):
 
 * the machine relation (`Vsa.Machine`, `Vsa.Elf`, `Vsa.Triple`);
 * densification (`Vsa.Densify.*`);
@@ -52,6 +57,33 @@ ELF, not WHILE semantics.
 **Proof instances are about the WHILE ELF.** The copied proofs (decode
 lemmas aside, which are per instruction word) are about the WHILE ELF's
 addresses. PHASES.md A0 retargets them to the Lua ELF.
+
+## Copied from ship-your-ocaml
+
+[ship-your-ocaml](https://github.com/BasisResearch/ship-your-ocaml)
+(BasisResearch), at commit `b6ffcf9`.
+
+| here | there | changes |
+|---|---|---|
+| `tcb/` (Lean library `TCB`, `tcbcheck`, `Audit.lean`, `validation/`, `upstream/`, `LICENSE-*`) | `tcb/` | `b6ffcf9` plus ship-your-ocaml's diff of `tcb/` from `main` to branch `f5-htif` at `39e79b2` (spec DEVIATION 10 in `osReaddir`; `driver.c`'s MEMFS back end calls `mkdir`/`rmdir` and passes paths unchanged; RESULTS.md), so `tcb/` equals ship-your-ocaml's at `39e79b2`. Its `README.md` and `validation/RESULTS.md` describe ship-your-ocaml (its theorems, its `htif.c`); this repository's results are in `experiments/os/RESULTS.md` |
+| `lakefile.toml`: the `TCB` library and `tcbcheck` executable | same | none |
+| `Lua/Os/HtifFs.lean` | `OCaml/Os.lean` (the part over `Vsa.Machine` + `TCB`) | namespace `Lua.Os`; `retOf` takes the entry configuration too; `OsSpecial` calls allowed (the file's header says why) |
+
+`experiments/os/htif_shim.h` and `experiments/os/run.sh` are new: they run
+the copied `tcb/validation/driver.c` against this repository's `htif.c`.
+
+`c/src/htif.c`'s in-image file system was written here and adopted by
+ship-your-ocaml (`f5-htif` `39e79b2`, its OCaml-only parts marked `OCAML`);
+the shared parts are kept identical in both.
+
+`tcb/` contains third-party material, under its own licences:
+
+* **SibylFS** (`tcb/upstream/sibylfs/`, ported in `tcb/TCB/Os/Fs.lean`,
+  `Syscall.lean`): `sibylfs/sibylfs_src` at `30675bc3`, ISC licence
+  (`tcb/LICENSE-sibylfs`).
+* **CakeML** basis FFI model (`tcb/upstream/cakeml/fsFFIScript.sml`, ported in
+  `tcb/TCB/Os/Streams.lean`): `CakeML/cakeml` at `530c7dee`, BSD-3-Clause
+  (`tcb/LICENSE-cakeml`).
 
 ## Third party
 

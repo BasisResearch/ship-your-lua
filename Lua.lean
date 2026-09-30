@@ -3,20 +3,36 @@ import Lua.Bytecode.Syntax
 import Lua.Bytecode.Semantics
 import Lua.Bytecode.Exec
 import Lua.Fragment
+import Lua.FragmentSound
 import Lua.Vm.Layout
 import Lua.Vm.Image
 import Lua.Vm.Repr
 import Lua.Vm.Loaded
 import Lua.Vm.Host
+import Lua.Vm.DecodeCheck
+import Lua.Vm.Code
 import Lua.Refinement
 import Lua.Ast.Syntax
 import Lua.Ast.Semantics
+import Lua.Ast.Exec
+import Lua.Ast.Determinism
 import Lua.Theorems
 import Lua.Programs.While
 import Lua.Programs.PrintPrint
 import Lua.Programs.F1Ops
+import Lua.Programs.F1bBits
 import Lua.Programs.Validation
 import Lua.Programs.Supported
+import Lua.Programs.F1OpsAst
+import Lua.Programs.F1SrcAst
+import Lua.Programs.WhileAst
+import Lua.Programs.F1bBitsAst
+import Lua.Programs.F1Src
+import Lua.Compile.TV
+import Lua.Compile.Corpus
+import Lua.Os.HtifFs
+import Lua.Os.Htif
+import Lua.Os.HtifTraces
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/

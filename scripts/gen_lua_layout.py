@@ -114,6 +114,29 @@ TAGS = [
     ("numOpcodes", "NUM_OPCODES"),
 ]
 
+# newlib's system-call ABI as htif.c and the C library see it (the OS
+# boundary, Lua/Os/Htif.lean): `struct _reent`'s errno, `struct stat`,
+# open flags, file-type bits, and errno numbers (newlib's, which differ from
+# Linux's for some; TCB.Os.Errno.toNat is Linux's).
+NEWLIB_HDRS = ["<sys/reent.h>", "<sys/stat.h>", "<fcntl.h>", "<errno.h>", "<sys/time.h>"]
+ERRNOS = ["EPERM", "ENOENT", "EBADF", "EACCES", "EBUSY", "EEXIST", "EXDEV", "ENOTDIR",
+          "EISDIR", "EINVAL", "EMFILE", "ESPIPE", "ENOSPC", "EROFS", "EMLINK",
+          "ENAMETOOLONG", "ENOSYS", "ENOTEMPTY", "ELOOP", "EOVERFLOW"]
+NEWLIB = [
+    ("reentErrnoOff", "offsetof(struct _reent, _errno)", "`errno` is `_impure_ptr->_errno`"),
+    ("statSize", "sizeof(struct stat)", ""),
+    ("statModeOff", "offsetof(struct stat, st_mode)", "32-bit `mode_t`"),
+    ("statNlinkOff", "offsetof(struct stat, st_nlink)", "16-bit `nlink_t`"),
+    ("statSizeOff", "offsetof(struct stat, st_size)", "64-bit `off_t`"),
+    ("sIfmt", "S_IFMT", ""), ("sIfchr", "S_IFCHR", ""), ("sIfreg", "S_IFREG", ""),
+    ("sIfdir", "S_IFDIR", ""),
+    ("timevalSecOff", "offsetof(struct timeval, tv_sec)", "64-bit `time_t` (`_gettimeofday`, the clock)"),
+    ("timevalUsecOff", "offsetof(struct timeval, tv_usec)", "64-bit `suseconds_t`"),
+    ("oAccmode", "O_ACCMODE", ""), ("oRdonly", "O_RDONLY", ""), ("oWronly", "O_WRONLY", ""),
+    ("oRdwr", "O_RDWR", ""), ("oAppend", "O_APPEND", ""), ("oCreat", "O_CREAT", ""),
+    ("oTrunc", "O_TRUNC", ""), ("oExcl", "O_EXCL", ""), ("oDirectory", "_FDIRECTORY", "`O_DIRECTORY` (hidden under -std=gnu11)"),
+] + [("errno" + e, e, "") for e in ERRNOS]
+
 # ELF symbols (from c/lua-riscv-htif.elf; the chunk lives in .rodata after
 # .text, so these do not depend on which chunk is embedded)
 ELF = os.path.join(ROOT, "c/lua-riscv-htif.elf")
@@ -125,7 +148,15 @@ SYMS = [("symStart", "_start"), ("symMain", "main"), ("symExit", "_exit"),
         ("symLuaBPrint", "luaB_print"), ("symSetjmp", "setjmp"), ("symLongjmp", "longjmp"),
         ("symMalloc", "malloc"), ("symRealloc", "realloc"), ("symFree", "free"),
         ("symTohost", "tohost"), ("symChunkStart", "_chunk_start"), ("symEnd", "_end"),
-        ("symHeapEnd", "__heap_end"), ("symStackTop", "__stack_top")]
+        ("symHeapEnd", "__heap_end"), ("symStackTop", "__stack_top"),
+        # c/src/htif.c's system-call functions and newlib's errno cell
+        ("symOpen", "_open"), ("symClose", "_close"), ("symRead", "_read"),
+        ("symWrite", "_write"), ("symLseek", "_lseek"), ("symFstat", "_fstat"),
+        ("symIsatty", "_isatty"), ("symSbrk", "_sbrk"), ("symKill", "_kill"),
+        ("symGetpid", "_getpid"), ("symImpurePtr", "_impure_ptr"),
+        ("symStat", "_stat"), ("symUnlink", "_unlink"), ("symRename", "rename"),
+        ("symMkdir", "mkdir"), ("symRmdir", "rmdir"), ("symLink", "_link"),
+        ("symGettimeofday", "_gettimeofday"), ("symTimes", "_times")]
 
 def elf_syms():
     nm = CC[:-3] + "nm"
@@ -139,9 +170,12 @@ def probe():
     src = ['#include "lprefix.h"', '#include <stddef.h>', '#include "lua.h"',
            '#include "lobject.h"', '#include "lstate.h"', '#include "lgc.h"',
            '#include "lopcodes.h"', '#include "lstring.h"']
+    src += [f"#include {h}" for h in NEWLIB_HDRS]
     for name, expr, _ in FIELDS:
         src.append(f"const unsigned long lay_{name} = {expr};")
     for name, expr in TAGS:
+        src.append(f"const unsigned long lay_{name} = {expr};")
+    for name, expr, _ in NEWLIB:
         src.append(f"const unsigned long lay_{name} = {expr};")
     with tempfile.TemporaryDirectory() as d:
         c = os.path.join(d, "probe.c"); s = os.path.join(d, "probe.s")
@@ -173,6 +207,11 @@ def render(vals):
     out.append("/-! Type tags as stored in `tt_` (collectable variants carry bit 6, `ctb`). -/")
     for name, expr in TAGS:
         out.append(f"/-- `{expr}` -/")
+        out.append(f"def {name} : Nat := {vals[name]}")
+    out.append("")
+    out.append("/-! newlib's system-call ABI (`struct _reent`, `struct stat`, `<fcntl.h>`, `<errno.h>`). -/")
+    for name, expr, doc in NEWLIB:
+        out.append(f"/-- `{expr}`{(' — ' + doc) if doc else ''} -/")
         out.append(f"def {name} : Nat := {vals[name]}")
     out.append("")
     out.append("/-! Symbol addresses in `c/lua-riscv-htif.elf` (`nm`). -/")

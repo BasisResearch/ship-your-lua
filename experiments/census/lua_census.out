@@ -1,50 +1,50 @@
-functions: 835
-total instructions: 68072
-unique words: 23140
+functions: 978
+total instructions: 80690
+unique words: 26784
 unique mnemonics: 69
 
 top 20 mnemonics:
-  ld           9603
-  mv           8000
-  sd           6687
-  li           5666
-  addi         5360
-  jal          4017
-  j            3362
-  beqz         1826
-  lbu          1723
-  add          1685
-  slli         1527
-  lw           1331
-  ret          1273
-  bnez         1208
-  andi         1208
-  auipc        1148
-  addiw        1103
-  beq          1043
-  sw           951
-  sb           930
+  ld           11052
+  mv           9343
+  sd           7865
+  li           6893
+  addi         6492
+  jal          4763
+  j            4047
+  beqz         2215
+  add          1989
+  lbu          1932
+  slli         1732
+  lw           1677
+  bnez         1504
+  auipc        1496
+  ret          1420
+  andi         1416
+  addiw        1397
+  sw           1323
+  beq          1222
+  sb           1050
 
 top 20 most-repeated words:
-  0x00008067 ret          ×1273
-  0x00040513 mv           ×1247
-  0x00048513 mv           ×539
-  0x00050413 mv           ×297
-  0x01813083 ld           ×273
-  0x02010113 addi         ×269
-  0x00050593 mv           ×256
-  0x02813083 ld           ×233
-  0x03010113 addi         ×231
-  0x00100593 li           ×219
-  0x00090513 mv           ×207
-  0x00000613 li           ×203
-  0x00000513 li           ×198
-  0x00000593 li           ×191
-  0x00113c23 sd           ×182
-  0x02013403 ld           ×180
-  0x00098513 mv           ×180
-  0xfe010113 addi         ×178
-  0x00048593 mv           ×174
-  0x00813783 ld           ×174
+  0x00040513 mv           ×1470
+  0x00008067 ret          ×1420
+  0x00048513 mv           ×633
+  0x00050413 mv           ×355
+  0x01813083 ld           ×316
+  0x02010113 addi         ×312
+  0x00100593 li           ×277
+  0x00050593 mv           ×273
+  0x02813083 ld           ×256
+  0x03010113 addi         ×254
+  0x00000613 li           ×252
+  0x00090513 mv           ×228
+  0x00000593 li           ×226
+  0x00000513 li           ×222
+  0x00113c23 sd           ×211
+  0x00813783 ld           ×210
+  0x00050493 mv           ×209
+  0xfe010113 addi         ×207
+  0x01013403 ld           ×202
+  0x00098513 mv           ×202
 
 wrote experiments/disasm_census.json

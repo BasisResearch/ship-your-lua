@@ -57,7 +57,7 @@ def initPmpaddr : Vector (BitVec 64) 64 := Vector.replicate 64 (0#64)
 (symbol table; also `htif_tohost` post-init). Equal to `Lua.Vm.Layout.symTohost`,
 which is generated from the cross compiler (`Lua.Vm.tohostAddr_eq_symTohost`
 checks the equality by `rfl`). ship-your-interpreter's value was the WHILE ELF's `0x8001ad00`. -/
-def tohostAddr : Nat := 0x80048400
+def tohostAddr : Nat := 0x8005c6c0
 
 open MemoryRegionType AtomicSupport Reservability misaligned_exception in
 /-- `pma_regions` after init (`sail_model_init`,

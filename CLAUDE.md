@@ -33,8 +33,8 @@ The Availability column says:
 | Iris-route block (segment, helper call, fuel loop) for total and partial WP | state it `∀ (Wp : MachWP M)` and use `Wp.run`/`wp_segW`/`wp_callW`/`wp_retW`/`wp_localRunW` (`VsaIris/MachWP.lean`) | here |
 | Newlib stdout call (`print` → `fwrite` → `__sfvwrite_r` → `_write`) | the stdio step tables (`VsaIris/Vsa/Stdout/*`) | A0 |
 | libgcc soft-int (`__muldi3`, `__udivdi3`, `__moddi3`, …) | the site/spec batteries (`Muldi3Spec`, `DivSpec`), regenerated at Lua addresses | here (WHILE addresses) |
-| Decode of an instruction word | the generated decode table (`experiments/syi/gen_decode_table.py`), one lemma per word | here (43% of Lua's reached words) |
-| Fixed image bytes | `Lua/Vm/Image.lean` (`scripts/gen_lua_image.py`) + `Vsa.Sim.Code.FixedBytesLoaded` | here |
+| Decode of an instruction word | `Vsa.Sim.decodeW (w := 0x<hex>#32) σ h1 h2 h3` (`Vsa/Sim/DecodeNF.lean`, `#simp_nf`), for any word; never a new per-word lemma. The copied `DecodeTable.decode_<hex>` lemmas are equivalent | here (all of `luaV_execute`'s words kernel-checked, `Lua/Vm/DecodeCheck`) |
+| Fixed image bytes | `Lua/Vm/Image.lean` (`scripts/gen_lua_image.py`) + `Vsa.Sim.Code.FixedBytesLoaded`; per-function pins `Lua.Vm.Code.<F>Loaded`, `<f>_at_<addr>`, `textLoaded_<F>Loaded` (`scripts/gen_lua_code.py`) | here |
 | Struct offsets, tags, symbol addresses | `Lua/Vm/Layout.lean` (`scripts/gen_lua_layout.py`, read from the cross compiler) — never a hand-written offset | here |
 | A concrete program as a `Proto` | `scripts/gen_proto.py` on the `luac -s` chunk | here |
 | `BcSem` derivation for a concrete program | `bcSem_of_run` + `decide +kernel` (`Lua/Bytecode/Exec.lean`) | here |

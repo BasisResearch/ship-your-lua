@@ -27,11 +27,13 @@ Every row is currently unassigned.
 | `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | new `Lua/Vm/Boot/` | A0 | open |
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | new `Lua/Vm/Sim/` | A1 | open |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
-| `CompileTV (LuacOutput)` per program (translation validation) | new `Lua/Compile/TV.lean` | B1 | open |
+| `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
 | `CompileTV (fun s p => compile s = some p)` for a Lean `compile` | new `Lua/Compile/` | B2 | open |
 | the ELF's `lparser`/`lcode` refine `compile` | — | B3 | open |
-| **`compile_refinement_Statement`** | `Lua/Theorems.lean` | B1/B2 (by `compile_refinement_of_tv`) | open |
+| **`compile_refinement_Statement`** | `Lua/Theorems.lean` | B1/B2 (by `compile_refinement_of_tv`) | **proved for `CorpusCompiles`** (`compile_refinement_corpus`); open for B2's `compile` |
 | **`endToEnd_lua_Statement luaLayout Compiles`** | `Lua/Theorems.lean` | E (by `endToEnd_of_layers`) | open |
+| `HtifPrint_Statement`: `htif.c`'s `write` to fds 1-2, `read` from fd 0 and `fstat` of fds 0-2 implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open (traces accept it) |
+| `HtifFs_Statement`: all twelve system-call functions implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open; plausibly true within `htif.c`'s resource limits (no trace rejected, `experiments/os/RESULTS.md`); needs a resource bound and the `OsState` frame obligation (OS bullet) |
 
 ## P0: validation and scaffold (done)
 
@@ -45,7 +47,7 @@ Every row is currently unassigned.
   * The F1 semantics.
   * The fragment predicate and ledger.
   * The VM representation skeleton and `VmLoaded`.
-  * The AST and `LuaSem` for F1.
+  * The Lua 5.4 source syntax and `LuaSem` for F1.
   * The statements.
 * **Exit.** `scripts/check.sh` passes. That covers generator drift, the ELF
   hash, forbidden tokens, the copied layer being WHILE-free, `lake build`,
@@ -59,7 +61,7 @@ instances, however, are at the WHILE ELF's addresses.
 1. **`tohost`.**
    * The problem: `Vsa.Sim.tohostAddr` (`0x8001ad00`) is baked into
      `GoodState` and the `RamRead*` lemmas.
-   * Fix: make it the Lua image's `0x80048400` (`Layout.symTohost`), or
+   * Fix: make it the Lua image's `0x8005c6c0` (`Layout.symTohost`), or
      generalise it to a parameter.
    * Then retire `LuaGoodState`, which is a field-for-field copy.
 2. **Cut the 40 WHILE import edges.** `experiments/port/CUTS.txt` lists them,
@@ -71,16 +73,35 @@ instances, however, are at the WHILE ELF's addresses.
    * Most of those edges supply shared geometry lemmas. Move those lemmas
      below the WHILE modules, then copy the targets.
    * Exit: `port_census.py --copyset` is clean with the targets included.
-3. **Decode table.**
-   * Run `experiments/syi/gen_decode_table.py` on the Lua ELF's reached
-     words.
-   * 43% of the difftest union's 8,346 words are already covered by the
-     copied lemmas.
-4. **Code pins.**
-   * `Lua/Vm/Image.lean` pins `.text`/`.rodata` already.
-   * Generate per-function projections (`scripts/syi/gen_fixed_image.py`
-     retargeted, `experiments/syi/gen_code_lemmas.py`) for `luaV_execute`
-     and its F1 callees.
+3. **Decode (done).** The generic decoder replaces per-word tables.
+   * `Vsa.Sim.decodeW σ hmisa hpriv hsec : (ext_decode w).run σ = .ok i σ`
+     (`Vsa/Sim/DecodeNF.lean`, from ship-your-interpreter's `#simp_nf`,
+     `Vsa/Meta/SimpNF.lean`). The instruction `i` is found by an autoParam
+     `rfl` for any concrete word, so no per-word lemma is generated.
+   * Drop-in rule: `DecodeTable.decode_<hex> σ h1 h2 h3` becomes
+     `Vsa.Sim.decodeW (w := 0x<hex>#32) σ h1 h2 h3`. A `DecodeFactM`/`DecodeFactT`
+     leaf is `fun s h1 h2 h3 => Vsa.Sim.decodeW s h1 h2 h3`.
+   * Coverage: `Lua/Vm/DecodeCheck/*` (`scripts/gen_lua_decode_check.py`)
+     kernel-checks one `example` per unique word of `luaV_execute` (1,641
+     words, 4,020 instructions), each stating the instruction the Lean
+     evaluator decodes the word to. It builds in 13 modules of 128 words:
+     6 s wall, 54 s CPU, about 1.7 GB per module. check.sh stage 1 checks drift.
+4. **Code pins (done).** `scripts/gen_lua_code.py` emits `Lua/Vm/Code/*`
+   (index module `Lua.Vm.Code`). It retargets `gen_code_lemmas.py` and
+   `gen_fixed_image.py --projection`.
+   * Functions: `luaV_execute`, the non-float callees of the F1 arms read from
+     `experiments/census/luaV_execute_arms.tsv`, and `luaB_print`,
+     `luaL_tolstring`, `fwrite` (`lua_writestring`) and `luaG_opinterror`.
+     That is 25 functions. `__udivdi3` is pinned as `__hidden___udivdi3`,
+     the same code.
+   * Per function `F`: `<F>Loaded` and fetch lemmas `<f>_at_<addr>`, plus
+     `textLoaded_<F>Loaded : FixedBytesLoaded textBase textSize textByte m →
+     <F>Loaded m`. Each pinned byte is `h off (by decide)` against
+     `Lua/Vm/Image.lean`.
+   * `luaV_execute` (252 chunks) is split into 16 parts `LuaV_execute_p<k>Loaded`,
+     each of the syi shape. Its fetch lemmas take the part, via
+     `luaV_execute_part<k>`.
+   * Build: 83 modules, 21 s wall, 5m47 CPU.
 5. **Library proofs at Lua addresses.**
    * Regenerate the 74 reused functions' step tables and specs with the
      generators (`gen_alloc_steps.py`, `gen_str_steps.py`,
@@ -96,10 +117,21 @@ instances, however, are at the WHILE ELF's addresses.
    * Also every byte the run may touch must be present, checked on the dense
      view (`fillZero`).
    * Retarget `scripts/syi/gen_boot_witness.py` to stop at `luaV_execute`
-     (step 124,808 for `while.lua`). It should emit the kernel witness
+     (step 181,166 for `while.lua`). It should emit the kernel witness
      `VmLoaded luaLayout whileProto (fillZero c)` at the traced entry state.
-7. Fix `scripts/syi/disasm_to_segment.py`, which silently drops unsupported
-   rows (VALIDATION.md §4).
+7. **`disasm_to_segment.py` (done).**
+   * It no longer drops rows. An `#UNSUPPORTED` row in the range, or an
+     address with no row, is an error; `--allow-unsupported` drafts an
+     explicit `UNSUPPORTED` step instead.
+   * `disasm_to_sites.py` classifies every instruction of `luaV_execute`
+     (4,396 rows, 0 unsupported). The added classes are the immediate and
+     register shifts and logic ops, `addw`, `lui`/`auipc`,
+     `lb`/`lh`/`lhu`/`lwu`, `sh` and general `jalr`.
+   * `scripts/draft_f1_arms.py` drafts all 34 F1 arms: 2,050 instructions in
+     496 segments (`experiments/census/demo/f1_arm_drafts.tsv`).
+   * 376 of those steps need a site class that `gen_sites.py` or
+     `gen_segment.py` lacks (`slli`, `andi`, `srliw`, `sh`, `jalr`, …). Each
+     carries a blocking `TODO` marker. Those batteries are open.
 
 **Exit:** `VmLoaded luaLayout p (fillZero c)` is kernel-checked for
 `while.lua` and `f1_ops.lua` at their real entry states, and check.sh
@@ -116,7 +148,7 @@ covers the new stages.
   * output = `s.out`;
   * image, heap and stdio unchanged.
 * **Arms.** One simulation lemma per F1 `Step` rule.
-  * Each goes from the shared fetch site (`0x8001aa7c`, 10 instructions)
+  * Each goes from the shared fetch site (`0x8001bfe4`, 10 instructions)
     through one of the 43 arms (2,239 instructions of per-arm reach; 613 on
     the integer fast paths) back to the fetch site.
   * Arms are generated with `gen_fn.py`/`genseg.py`. Integers-only
@@ -127,9 +159,22 @@ covers the new stages.
 * **Errors.** The error paths (`luaG_opinterror`, `luaG_forerror`,
   `luaG_runerror` → `luaD_throw` → `longjmp` → `lua_pcallk` returns →
   `main` exits 2) give `stuck_sim`.
-* **Definite initialisation.** Soundness of `Supported`'s check: a register
-  read on an executed path was written by the semantics, so its
-  `FrameRepr` holds.
+* **Definite initialisation (proved, `Lua/FragmentSound.lean`).** The
+  fixpoint `supportedB` computes is a certificate (`Supported.defInit :
+  DefInit p (defMask p)`).
+  * `DefInit.step` is the invariant to use: two states agreeing on
+    `defMask p pc` step to states agreeing on the successor's mask, and a
+    `CALL` clobbers nothing in it. So `FrameRepr` is needed only for the
+    registers in `defMask p s.pc`; the rest of the frame may hold anything.
+  * `bcSemFrom_iff`: `BcSem` from any entry register file equals `BcSem`
+    from all-`nil`. `cbcSem_iff`: the same with every register at or above a
+    `CALL`'s results clobbered after each call (`CStep`).
+  * `reachable_defInit`: at every reached state the pc is in range, the
+    reads are in the mask, and the masked registers do not depend on the
+    entry registers. `condJump_ne_none`/`condJump_lt`: test targets exist
+    and are in range.
+  * `Step.deterministic`, `BcSem.deterministic` (`Lua/Bytecode/Exec.lean`,
+    via `step?_complete`).
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
 
@@ -139,7 +184,12 @@ Each fragment extends `Value`, `Step`, `Supported` and the representation,
 and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
 `ledger_exact` keeps the ledger honest).
 
-* **A2 (F1b): integer bitwise.** Mechanical. Exit: `.F1b` leaves the ledger.
+* **A2 (F1b): integer bitwise (done).** `BAND`/`BOR`/`BXOR`/`SHL`/`SHR`,
+  the `K` forms and `SHRI`/`SHLI` are integer binary operations
+  (`intArith`, with `luaV_shiftl` as `shiftl`); `BNOT` is its own rule. The
+  opcodes are F1 and left the ledger (29 entries). `c/tests/f1b_bits.lua`
+  passes the difftest; `f1b_bcSem` and `f1b_supported` are kernel-checked.
+  Layer A's F1 arms now include these 11.
 * **A3 (F2): tables.**
   * Semantics: a heap of tables in `State`, and `next` order as the binary's
     order. The array part, and the hash part in node order with
@@ -163,14 +213,75 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
   same code; retarget it.
 * **A7 (Coroutine): coroutines.** `lua_resume`/`lua_yield`, a separate
   `lua_State`, and `longjmp` across resumes.
-* **OS (io/os libraries).** Use the shared syscall spec that ship-your-ocaml
-  is building (`tcb/`, Lean library `TCB`):
-  * SibylFS for the file system, and the CakeML basis FFI for console streams;
-  * a relation `OsStep : OsState → Call → Ret → OsState → Prop`, and the
-    executable checker `allowed`.
-  * Copy it wholesale when it lands and add an `OsState` to the semantics.
-  * The in-image file system in `htif.c` is proved against `OsStep`, not
-    trusted.
+* **OS (io/os libraries).** The shared syscall spec of ship-your-ocaml
+  (`tcb/`, Lean library `TCB`): SibylFS for the file system, the CakeML
+  basis FFI for console streams, `OsStep`/`next`, and the checker `allowed`.
+  * **Landed.**
+    * `tcb/` is ship-your-ocaml's at `f5-htif` `39e79b2` (ATTRIBUTION.md),
+      including spec DEVIATION 10 (`osReaddir`). It builds, and
+      `TCB.Os.allowed_sound`/`checkTrace_sound` are in check.sh stage 6.
+      Its Linux trace validation reproduces here (6,398 accepted, 0
+      rejected, 92 special).
+    * `Lua/Os/HtifFs.lean`: `HtifFsImplements`, adapted from
+      ship-your-ocaml's `OCaml/Os.lean`. `retOf` also sees the entry, and
+      calls the spec leaves unconstrained are allowed.
+    * **The ELF opens `io` and `os`** (steps 1-2 of the old plan).
+      * `c/src/htif.c` has an in-image file system written against the
+        spec: files and directories, the spec's path resolution, one
+        descriptor table with `EBADF` outside it, `st_nlink` 1 for the
+        console, `_stat`/`_unlink`/`rename`/`mkdir`/`rmdir`, and a clock
+        frozen at 0. Its memory comes from `malloc`, so the dlmalloc
+        proofs apply.
+      * ship-your-ocaml adopted the same file.
+      * `experiments/os/run.sh` rejects none of its traces: 5,275
+        accepted, 79 special, and 1,136 that stop at `opendir`, which the
+        ELF lacks; all 26 console scripts are accepted. check.sh 5b pins
+        these verdicts.
+      * Difftests `f7_io`/`f7_os`: 18/18 on Sail (VALIDATION.md §6).
+    * `Lua/Os/Htif.lean`: the instance for the Lua ELF.
+      * `HtifCallAt` decodes the twelve functions `_open`, `_close`,
+        `_read`, `_write`, `_lseek`, `_fstat`, `_stat`, `_unlink`,
+        `rename`, `mkdir`, `rmdir` and `_gettimeofday` (the clock) at their
+        entry. Addresses and newlib's flag, errno, `struct stat` and
+        `struct timeval` layout come from `Lua/Vm/Layout.lean`.
+      * `HtifRetAt` reads `a0`, `errno` and the out-buffer at the return.
+      * Also `LuaCallConv` and `HtifRepr`.
+      * Two statements: `HtifPrint_Statement` (now including newlib's
+        `_fstat` of the console) and `HtifFs_Statement` (Obligations).
+    * `Lua/Os/HtifTraces.lean`: the console verdicts as kernel-checked
+      facts about `next`, both the old `htif.c`'s rejected returns and the
+      current one's accepted returns.
+  * **`HtifFs_Statement` is now plausibly true** (every trace is accepted,
+    special or unsupported), with two caveats.
+    * **Resources.** Past 64 files and directories, 32 descriptors or the
+      heap, `htif.c` returns `EMFILE`/`ENOSPC`, which `next` never allows.
+      The proved form needs a resource bound in its scope, like `Fits`.
+    * **Vacuity.** `HtifRepr` lets `R` hold at boot only, which satisfies
+      the statement vacuously. The frame obligation below is what makes it
+      meaningful.
+  * **Next.**
+    1. **`OsState` in `BcSem`.** The plan:
+       * The World gets an `OsState` next to its output: the console
+         stream replaces the output string (`st.streams.console`), and the
+         initial world is `OsState.init`.
+       * The C functions of `io`/`os` (a new `Builtin` per function) are
+         specified through `OsStep`: each is a sequence of `TCB.Os.Call`s
+         as newlib issues them (buffering made explicit, or an abstract
+         `FILE` layer over `OsStep` for `io`), and a Lua-level result
+         built from the returns. `os.time`/`os.clock` are `Call.clock`,
+         `os.getenv` is `Call.getenv`, and `os.exit` is `Call.exit`.
+       * `BcSem` then quantifies over the allowed returns, since `next` is
+         nondeterministic. The ELF's are the frozen clock and full writes;
+         `Host` records these choices, as it does for function addresses.
+       * The frame obligation: every step outside `htif.c` preserves the
+         representation relation `R`. This is what makes `HtifFs_Statement`
+         non-vacuous.
+    2. Prove `HtifPrint_Statement`, then `HtifFs_Statement` (with the
+       resource bound), with the whole-function machinery (`gen_fn.py`,
+       `FnSummary`).
+    3. Optionally, directory streams (`opendir`/`readdir`/`closedir`,
+       ship-your-ocaml's `OCAML` part of `htif.c`), so the remaining 1,136
+       traces are checked too. Lua does not need them.
   * The ELF must stay free of `ecall` (check.sh stage 2).
 * **A8: GC.**
   * Stop calling `lua_gc(L, LUA_GCSTOP)`.
@@ -179,16 +290,62 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
 
 ## B: Layer B, source to bytecode
 
-* **B1: translation validation.** For concrete F1 chunks and the host
-  `luac`'s output, prove both directions of `CompileTV`.
-  * `BcSem` side: from `run_sound`, as `Lua/Programs/Validation.lean` does.
-  * `LuaSem` side: from a derivation tactic like ship-your-interpreter's
-    `bigstep_derive`, plus determinism of `LuaSem` and `BcSem`.
-  * Exit: `compile_refinement_Statement` for the relation "is the host
-    `luac -s` output" restricted to a corpus. `f1_ops.lua` is the first
-    target; `while.lua` needs `goto`, which is outside the F1 AST.
+* **B1: translation validation (done for the corpus).** For concrete F1
+  chunks and the host `luac -s`'s output, both directions of `CompileTV`.
+  * Source syntax: `Lua/Ast/Syntax.lean` is the complete Lua 5.4 syntax
+    (manual §9: every `stat`, `retstat`, vars, prefix expressions, method
+    calls, the three `args` forms, every `exp` including functions, tables
+    and all operators; numerals as integers or float bits, strings as
+    bytes).
+  * Parser: `scripts/gen_ast.py` parses all of Lua 5.4 following
+    `llex.c`/`lparser.c`, including lparser's static errors (`goto`/label
+    visibility, `<const>`/`<close>`, `...` outside a vararg function, `break`
+    outside a loop, 200 locals). Not enforced: code-generation limits
+    (registers, upvalues, C levels, jump length); the parser accepts a
+    superset there. It never enforces F1.
+    * `--roundtrip`: parse, pretty-print, re-parse to the same AST, and
+      `luac -l -l` of the original and the printed text agree. check.sh
+      runs it on every `.lua` file in the repo. It also passes on all 33
+      files of the Lua 5.4.7 test suite (`lua-5.4.7-tests.tar.gz` from
+      lua.org, not committed).
+    * `--differential N`: token-level mutants are accepted exactly when
+      `luac -p` accepts them (8,100 mutants of the test suite and
+      `c/tests`, 0 mismatches).
+  * F1 on source: `AstSupported` (`Lua/Ast/Semantics.lean`) is decidable.
+    `print(…)` is a call of the free name `print`; other globals, calls,
+    floats, strings, tables, functions, `return` and `<close>` are outside.
+    `goto`/labels follow the manual's visibility rules (a visible label in
+    an enclosing block, not jumping into a local's scope unless the label
+    ends its block, no label visible twice).
+  * `LuaSem` over the full syntax, with rules for F1: names resolve to
+    locals or `_ENV.x`; the call rule evaluates the function and arguments
+    and calls the builtin `print`; blocks catch `goto`s to their own labels
+    (`ExecBF`, `findLabel`, `jumpEnv`); loops catch `break`; multiple
+    assignment stores in `restassign`'s order.
+  * `LuaSem` side: the fuel-bounded interpreter `luaRun`
+    (`Lua/Ast/Exec.lean`) with `luaRun_sound` (`execSound`), by
+    `decide +kernel`.
+  * `BcSem` side: `bcSem_of_run`, by `decide +kernel`.
+  * Determinism: `LuaSem.deterministic` (`Lua/Ast/Determinism.lean`),
+    `Step.deterministic`, `Final.not_step`, `BcSem.deterministic`
+    (`Lua/Bytecode/Exec.lean`); `agree_of_outputs` turns one common
+    output into `∀ out, LuaSem s out ↔ BcSem p out`.
+  * Per program: `ProgramTV s p` (`AstSupported s`, `Supported p`, the `↔`)
+    and `CompileTV.of_programTV` (`Lua/Compile/TV.lean`).
+  * Corpus (`Lua/Compile/Corpus.lean`): `while.lua` (`goto continue`),
+    `f1_ops.lua`, `f1_src.lua` (`if`/`elseif`, `repeat` over body locals,
+    `break` from `while`/`for`/`repeat`, shadowing, padded/extra `local`
+    values) and `f1b_bits.lua` (bitwise operators); expected outputs are the
+    ELF's on the Sail model (`c/tests/*.expected`). `print_print.lua` passes
+    `print` as a value, outside `AstSupported`.
+  * Exit (met): `compile_refinement_corpus :
+    compile_refinement_Statement CorpusCompiles`, standard axioms only.
+  * Adding a program: write `c/tests/x.lua`, commit `luac -s` output and
+    the ELF's output, run `gen_ast.py`/`gen_proto.py`, add both to check.sh's
+    drift lists, and add a `ProgramTV` plus a `CorpusCompiles` constructor.
 * **B2: a Lean compiler.** Write `compile : Chunk → Option Proto`, a model of
-  `lparser.c`/`lcode.c` for F1 (register allocation, jump patching, the
+  `lparser.c`/`lcode.c` on the F1 part of the full syntax (register
+  allocation, jump patching including `goto`/label resolution, the
   `RK`/immediate/constant selection that `luac` does).
   * Check it against `luac` on the corpus (`compile s = luac s`).
   * Prove `CompileTV` for it.

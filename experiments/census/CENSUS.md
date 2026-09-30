@@ -23,49 +23,68 @@ The trace file for the main ELF must be named after the ELF's basename
 (`lua-riscv-htif`), because `dyn.py`, `match.py` and `arms.py` look for
 `traces/lua-riscv-htif.pcs.tsv`.
 
-## Changes after the relink (`.lua_chunk` section)
+## Current build: `io` and `os` libraries (ELF `c3224616…`)
 
-These numbers compare the previous link (in `old/numbers.json`) with the
-current one (`numbers.json`).
+The ELF now opens `io` and `os`, and `htif.c` has an in-image file system
+(VALIDATION.md §2). `tools/run_all.sh` was rerun on it with the 18 difftest
+ELFs (the 16 below plus `f7_io`, `f7_os`). The JSON and TSV files in this
+directory are current. The detailed tables in sections 0-5 below are the
+previous build's (ELF `c019b0b7`, 16 difftests), unless a number is given
+here. Old → new:
 
-* **Code.**
-  * `main` shrank from 83 to 82 instructions because `_chunk_size` is now
-    read as data, so the image went from 68,073 to 68,072 instructions and
-    unique words from 23,145 to 23,140.
-  * Everything from `lua_newstate` onward moved down by 4 bytes. luaV_execute
-    is now at 0x8001aa00..0x8001e8d0 (was 0x8001aa04), the fetch head at
-    0x8001aa7c, the dispatch `jr` at 0x8001aaa0 and the default at 0x8001ac7c.
-  * The **jump table moved from 0x800467f4 to 0x800466dc**. `.rodata` no longer
-    holds the chunk and shrank from 0x5d50 to 0x5c40.
-  * Every arm target is 4 lower. **All 82 per-arm sizes (reach, exclusive,
-    linear, branches) and callees are unchanged.**
-* **Static reach:** 693 functions, unchanged. It is now 61,912 instructions
-  (−1) and 21,565 unique words (−7).
-  * All 52 jump tables are unchanged, still 1,890 entries.
-  * The indirect-call sites are unchanged: 72 `jalr` and 15 tail jumps.
-* **Traces:** while.lua runs **159,140 steps (was 159,311)** and first enters
-  luaV_execute at **step 124,808 (was 124,979)**.
-  * The difftest totals shift by −171 to +576 steps. The biggest change is
-    f4_metatables, 221,472 → 222,048. The luaV_execute entry step moves by
-    between 10 and 448 steps, in either direction.
-  * These differences are consistent with the new heap and address layout,
-    since pointer hashes and allocation positions change.
-* **Dynamic sets:**
-  * while.lua: 5,917 PCs (−1, the `main` change) and 163 functions
-    (unchanged); after-entry PCs are unchanged at 2,655.
-  * Union: 19,018 PCs (+5), 8,346 unique words (+7), 379 functions
-    (unchanged); after entry, 17,256 PCs.
-  * The executed opcode sets and the target hit counts per arm are
-    unchanged.
-* **Template match:** the function categories are unchanged (77 identical,
-  131 identical modulo relocations, 4 same name but different, 624 new).
-  Only `main`'s instruction count changed (−1).
-  * Site classification percentages are unchanged.
-  * The decode-index coverage of the union is now 3,616 / 8,346 (43.3%).
-* **Constructs:** all counts are unchanged except the TValue tag-load
-  heuristic, which dropped by 1 (473 → 472). That was a false positive in
-  `luaO_chunkid`: an `lbu` at an offset ≡ 8 (mod 16) that was not a TValue
-  access, and its offset moved.
+* **Whole image.**
+  * 837 → 980 function symbols (835 → 978 unique names) and 68,072 → 80,690
+    instructions.
+  * 23,140 → 26,784 unique words; still 69 mnemonics.
+  * By origin: `liolib.c` (1,919 instructions) and `loslib.c` (679) are new, and
+    `htif.c` has 1,468 instructions in 23 functions (the whole boot origin,
+    crt0 + htif + main, was 206).
+    libc grew to 303 functions and 31,923 instructions: stdio `fopen`/
+    `fseek`/`tmpnam`, `strftime`/`mktime`/`gmtime`, `setlocale`.
+* **Sections.**
+  * `.text`: 0x4ecc8 bytes at 0x80000000.
+  * `.rodata`: 0xd9e0 bytes at 0x8004ecc8.
+  * `.data`: 0xce0 bytes at 0x8005c6d0.
+  * `.init_array`: 8 bytes, newlib's `register_fini`, a no-op that crt0
+    never calls.
+  * `.bss`: 0x1918 bytes at 0x8005d3b8.
+  * `.lua_chunk`: 0x8005ecd0.
+  * The 18 difftest ELFs still agree with the main ELF outside
+    `.lua_chunk`.
+* **`luaV_execute`.**
+  * 4,020 instructions, as before, at 0x8001bf68..0x8001fe38.
+  * The fetch head is at 0x8001bfe4, the dispatch `jr` at 0x8001c008, the
+    default arm at 0x8001c1e4 and the jump table at 0x8005336c.
+  * The per-arm sizes and callees are unchanged; only the addresses moved.
+* **Static reach.**
+  * 693 → 848 functions and 61,912 → 76,355 instructions (25,922 unique
+    words).
+  * Jump tables: 52 → 57, with 1,890 → 2,239 entries. Indirect sites: 83
+    `jalr`, 17 tail jumps.
+  * `dynamic_not_static` is still empty.
+* **Traces.**
+  * `while.lua` runs 159,140 → **215,723** steps, and `luaV_execute` is
+    first entered at step 124,808 → **181,166**.
+  * The whole difference is before VM entry, in opening `io`/`os` and in
+    crt0 clearing a larger `.bss`. The VM part is 34,332 → 34,557 steps:
+    newlib's `_write` now looks up the descriptor table.
+  * Every difftest's total grew by 53k-57k steps. `f7_io` takes 607,172
+    steps and `f7_os` 345,557.
+* **Dynamic sets.**
+  * `while.lua`: 6,560 PCs, 173 functions; after entry, 2,793 PCs and 89
+    functions.
+  * Union of 18: 25,148 PCs, 10,615 unique words, 502 functions.
+* **Template match (whole image).**
+  * 64 functions identical and 139 identical modulo relocations (20,153
+    instructions). 14 have the same name but differ, and 760 are new.
+  * Difftest union: 33 identical + 68 modulo relocations; 390 new
+    functions (32,547 instructions).
+* **Site classes.** 87.9% of instructions and 73.5% of blocks (static
+  reach); the union is 88.0% / 72.6%.
+* **Decode index.** syi's decode lemmas cover 37.0% of the union's unique
+  words and 47.6% of `while.lua`'s.
+* **`gen_fn.py` budget.** 742 of the 848 statically reachable functions fit
+  it.
 
 ## 0. Inputs and how the disassembly was produced
 

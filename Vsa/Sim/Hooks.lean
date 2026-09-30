@@ -144,7 +144,7 @@ theorem split_misaligned_aligned
 /-- `within_mmio_readable a 4 = false` for a code-region address: above the
 CLINT `[0x2000000,0x20c0000)` and SIG `[0xc000000,0xc000020)` windows, and
 below the HTIF `tohost` mailbox (pinned `htif_tohost_base = some tohostAddr`).
-A code pc `0x80000000 ≤ pc < 0x80048400` (code lives below `tohost`)
+A code pc `0x80000000 ≤ pc < `tohostAddr`` (code lives below `tohost`)
 satisfies these by `omega`. `get_config_rvfi () = false`. -/
 theorem within_mmio_readable_ram_false
     (σ : SequentialState RegisterType trivialChoiceSource)
@@ -170,9 +170,10 @@ theorem within_mmio_readable_ram_false
     have h4 : (4#64).toNat = 4 := by decide
     rw [BitVec.toNat_add, h4, Nat.mod_eq_of_lt (by omega)]
   refine ⟨fun _ => by omega, fun _ => by omega, fun _ => ?_⟩
-  have hle : (a + 4#64).toNat ≤ 2147779584 := by rw [hadd]; omega
-  have hrhs : ((2147779584 : Nat) : Int) % 18446744073709551616 = ((2147779584 : Nat) : Int) := by
+  have hle : (a + 4#64).toNat ≤ tohostAddr := by simp only [tohostAddr]; rw [hadd]; omega
+  have hrhs : ((tohostAddr : Nat) : Int) % 18446744073709551616 = ((tohostAddr : Nat) : Int) := by
     decide
+  simp only [tohostAddr] at hle hrhs
   rw [hrhs]
   omega
 

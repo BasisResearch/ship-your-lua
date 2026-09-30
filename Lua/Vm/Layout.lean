@@ -189,48 +189,168 @@ def maxShortLen : Nat := 40
 /-- `NUM_OPCODES` -/
 def numOpcodes : Nat := 83
 
+/-! newlib's system-call ABI (`struct _reent`, `struct stat`, `<fcntl.h>`, `<errno.h>`). -/
+/-- `offsetof(struct _reent, _errno)` — `errno` is `_impure_ptr->_errno` -/
+def reentErrnoOff : Nat := 0
+/-- `sizeof(struct stat)` -/
+def statSize : Nat := 104
+/-- `offsetof(struct stat, st_mode)` — 32-bit `mode_t` -/
+def statModeOff : Nat := 4
+/-- `offsetof(struct stat, st_nlink)` — 16-bit `nlink_t` -/
+def statNlinkOff : Nat := 8
+/-- `offsetof(struct stat, st_size)` — 64-bit `off_t` -/
+def statSizeOff : Nat := 16
+/-- `S_IFMT` -/
+def sIfmt : Nat := 61440
+/-- `S_IFCHR` -/
+def sIfchr : Nat := 8192
+/-- `S_IFREG` -/
+def sIfreg : Nat := 32768
+/-- `S_IFDIR` -/
+def sIfdir : Nat := 16384
+/-- `offsetof(struct timeval, tv_sec)` — 64-bit `time_t` (`_gettimeofday`, the clock) -/
+def timevalSecOff : Nat := 0
+/-- `offsetof(struct timeval, tv_usec)` — 64-bit `suseconds_t` -/
+def timevalUsecOff : Nat := 8
+/-- `O_ACCMODE` -/
+def oAccmode : Nat := 3
+/-- `O_RDONLY` -/
+def oRdonly : Nat := 0
+/-- `O_WRONLY` -/
+def oWronly : Nat := 1
+/-- `O_RDWR` -/
+def oRdwr : Nat := 2
+/-- `O_APPEND` -/
+def oAppend : Nat := 8
+/-- `O_CREAT` -/
+def oCreat : Nat := 512
+/-- `O_TRUNC` -/
+def oTrunc : Nat := 1024
+/-- `O_EXCL` -/
+def oExcl : Nat := 2048
+/-- `_FDIRECTORY` — `O_DIRECTORY` (hidden under -std=gnu11) -/
+def oDirectory : Nat := 2097152
+/-- `EPERM` -/
+def errnoEPERM : Nat := 1
+/-- `ENOENT` -/
+def errnoENOENT : Nat := 2
+/-- `EBADF` -/
+def errnoEBADF : Nat := 9
+/-- `EACCES` -/
+def errnoEACCES : Nat := 13
+/-- `EBUSY` -/
+def errnoEBUSY : Nat := 16
+/-- `EEXIST` -/
+def errnoEEXIST : Nat := 17
+/-- `EXDEV` -/
+def errnoEXDEV : Nat := 18
+/-- `ENOTDIR` -/
+def errnoENOTDIR : Nat := 20
+/-- `EISDIR` -/
+def errnoEISDIR : Nat := 21
+/-- `EINVAL` -/
+def errnoEINVAL : Nat := 22
+/-- `EMFILE` -/
+def errnoEMFILE : Nat := 24
+/-- `ESPIPE` -/
+def errnoESPIPE : Nat := 29
+/-- `ENOSPC` -/
+def errnoENOSPC : Nat := 28
+/-- `EROFS` -/
+def errnoEROFS : Nat := 30
+/-- `EMLINK` -/
+def errnoEMLINK : Nat := 31
+/-- `ENAMETOOLONG` -/
+def errnoENAMETOOLONG : Nat := 91
+/-- `ENOSYS` -/
+def errnoENOSYS : Nat := 88
+/-- `ENOTEMPTY` -/
+def errnoENOTEMPTY : Nat := 90
+/-- `ELOOP` -/
+def errnoELOOP : Nat := 92
+/-- `EOVERFLOW` -/
+def errnoEOVERFLOW : Nat := 139
+
 /-! Symbol addresses in `c/lua-riscv-htif.elf` (`nm`). -/
 /-- `_start` -/
 def symStart : Nat := 0x80000000
 /-- `main` -/
-def symMain : Nat := 0x800001f0
+def symMain : Nat := 0x80001758
 /-- `_exit` -/
-def symExit : Nat := 0x80000180
+def symExit : Nat := 0x8000063c
 /-- `luaV_execute` -/
-def symLuaVExecute : Nat := 0x8001aa00
+def symLuaVExecute : Nat := 0x8001bf68
 /-- `luaD_call` -/
-def symLuaDCall : Nat := 0x80009a1c
+def symLuaDCall : Nat := 0x8000af84
 /-- `luaD_precall` -/
-def symLuaDPrecall : Nat := 0x8000954c
+def symLuaDPrecall : Nat := 0x8000aab4
 /-- `luaD_throw` -/
-def symLuaDThrow : Nat := 0x800084d8
+def symLuaDThrow : Nat := 0x80009a40
 /-- `luaD_rawrunprotected` -/
-def symLuaDRawrunprotected : Nat := 0x80008680
+def symLuaDRawrunprotected : Nat := 0x80009be8
 /-- `lua_pcallk` -/
-def symLuaPcallk : Nat := 0x80002b50
+def symLuaPcallk : Nat := 0x800040b8
 /-- `luaL_loadbufferx` -/
-def symLuaLLoadbufferx : Nat := 0x800203e8
+def symLuaLLoadbufferx : Nat := 0x80021950
 /-- `luaB_print` -/
-def symLuaBPrint : Nat := 0x800219b0
+def symLuaBPrint : Nat := 0x80022f18
 /-- `setjmp` -/
-def symSetjmp : Nat := 0x800341f0
+def symSetjmp : Nat := 0x8003ba4c
 /-- `longjmp` -/
-def symLongjmp : Nat := 0x80034230
+def symLongjmp : Nat := 0x8003ba8c
 /-- `malloc` -/
-def symMalloc : Nat := 0x8002b96c
+def symMalloc : Nat := 0x8002fa1c
 /-- `realloc` -/
-def symRealloc : Nat := 0x8002c254
+def symRealloc : Nat := 0x8003030c
 /-- `free` -/
-def symFree : Nat := 0x8002b978
+def symFree : Nat := 0x8002fa28
 /-- `tohost` -/
-def symTohost : Nat := 0x80048400
+def symTohost : Nat := 0x8005c6c0
 /-- `_chunk_start` -/
-def symChunkStart : Nat := 0x80049870
+def symChunkStart : Nat := 0x8005ecd8
 /-- `_end` -/
-def symEnd : Nat := 0x80059870
+def symEnd : Nat := 0x8006ecd0
 /-- `__heap_end` -/
 def symHeapEnd : Nat := 0x87800000
 /-- `__stack_top` -/
 def symStackTop : Nat := 0x88000000
+/-- `_open` -/
+def symOpen : Nat := 0x80000654
+/-- `_close` -/
+def symClose : Nat := 0x800008a4
+/-- `_read` -/
+def symRead : Nat := 0x80000984
+/-- `_write` -/
+def symWrite : Nat := 0x80000ae8
+/-- `_lseek` -/
+def symLseek : Nat := 0x80000d80
+/-- `_fstat` -/
+def symFstat : Nat := 0x80000e9c
+/-- `_isatty` -/
+def symIsatty : Nat := 0x80001598
+/-- `_sbrk` -/
+def symSbrk : Nat := 0x80001654
+/-- `_kill` -/
+def symKill : Nat := 0x80001700
+/-- `_getpid` -/
+def symGetpid : Nat := 0x80001724
+/-- `_impure_ptr` -/
+def symImpurePtr : Nat := 0x8005d398
+/-- `_stat` -/
+def symStat : Nat := 0x80000f58
+/-- `_unlink` -/
+def symUnlink : Nat := 0x80000fdc
+/-- `rename` -/
+def symRename : Nat := 0x80001234
+/-- `mkdir` -/
+def symMkdir : Nat := 0x80001084
+/-- `rmdir` -/
+def symRmdir : Nat := 0x80001114
+/-- `_link` -/
+def symLink : Nat := 0x80001630
+/-- `_gettimeofday` -/
+def symGettimeofday : Nat := 0x800016bc
+/-- `_times` -/
+def symTimes : Nat := 0x800016d0
 
 end Lua.Vm.Layout

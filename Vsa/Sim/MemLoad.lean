@@ -28,7 +28,7 @@ The `mem_read` chain is *identical* to fetch except the access type is
 
 ### Honest address-range side conditions for data loads
 
-Data lives *above* `tohost` (heap/stack are above `0x80048400`), so the fetch
+Data lives *above* `tohost` (heap/stack are above ``tohostAddr``), so the fetch
 constraint `a + w ≤ tohostAddr` is WRONG here. The real constraint is that the
 `[a, a+w)` window must:
 
@@ -43,8 +43,8 @@ constraint `a + w ≤ tohostAddr` is WRONG here. The real constraint is that the
   sits below `tohost` (like code/rodata) or strictly above the mailbox pair
   (heap/stack). Both discharge `within_mmio_readable = false`.
 
-So data in `[0x80048410, 0x100000000)` (above the mailbox) passes, as does data
-in `[0x80000000, 0x80048400)` (below it).
+So data in `[`tohostAddr + 16`, 0x100000000)` (above the mailbox) passes, as does data
+in `[0x80000000, `tohostAddr`)` (below it).
 
 Every link is read-only: `σ' = σ` syntactically throughout.
 -/
@@ -152,12 +152,13 @@ theorem within_mmio_readable_ram_false_eight
   -- forces the load window below `tohost`. The mailbox-end value is a closed
   -- `BitVec` term at the symbolic `physaddrbits` width, so bridge it by defeq
   -- (`Nat.lt_of_lt_of_eq`) rather than `rw`, which the width mismatch defeats.
-  have hxlt : a.toNat < 2147779592 := by
-    have hxv : (2147779584#64 + 8#64).toNat = 2147779592 := by decide
-    omega
-  have hle : (a + 8#64).toNat ≤ 2147779584 := by rw [hadd]; omega
-  have hrhs : ((2147779584 : Nat) : Int) % 18446744073709551616
-      = ((2147779584 : Nat) : Int) := by decide
+  have hxlt : a.toNat < tohostAddr + 8 := by
+    have hxv : (BitVec.ofNat 64 tohostAddr + 8#64).toNat = tohostAddr + 8 := by decide
+    simp only [tohostAddr] at hxv ⊢; omega
+  have hle : (a + 8#64).toNat ≤ tohostAddr := by simp only [tohostAddr]; rw [hadd]; omega
+  have hrhs : ((tohostAddr : Nat) : Int) % 18446744073709551616
+      = ((tohostAddr : Nat) : Int) := by decide
+  simp only [tohostAddr] at hxlt hle hrhs
   rw [hrhs]
   omega
 
@@ -190,12 +191,13 @@ theorem within_mmio_readable_ram_false_four'
   -- forces the load window below `tohost`. The mailbox-end value is a closed
   -- `BitVec` term at the symbolic `physaddrbits` width, so bridge it by defeq
   -- (`Nat.lt_of_lt_of_eq`) rather than `rw`, which the width mismatch defeats.
-  have hxlt : a.toNat < 2147779592 := by
-    have hxv : (2147779584#64 + 8#64).toNat = 2147779592 := by decide
-    omega
-  have hle : (a + 4#64).toNat ≤ 2147779584 := by rw [hadd]; omega
-  have hrhs : ((2147779584 : Nat) : Int) % 18446744073709551616
-      = ((2147779584 : Nat) : Int) := by decide
+  have hxlt : a.toNat < tohostAddr + 8 := by
+    have hxv : (BitVec.ofNat 64 tohostAddr + 8#64).toNat = tohostAddr + 8 := by decide
+    simp only [tohostAddr] at hxv ⊢; omega
+  have hle : (a + 4#64).toNat ≤ tohostAddr := by simp only [tohostAddr]; rw [hadd]; omega
+  have hrhs : ((tohostAddr : Nat) : Int) % 18446744073709551616
+      = ((tohostAddr : Nat) : Int) := by decide
+  simp only [tohostAddr] at hxlt hle hrhs
   rw [hrhs]
   omega
 
@@ -228,12 +230,13 @@ theorem within_mmio_readable_ram_false_two
   -- forces the load window below `tohost`. The mailbox-end value is a closed
   -- `BitVec` term at the symbolic `physaddrbits` width, so bridge it by defeq
   -- (`Nat.lt_of_lt_of_eq`) rather than `rw`, which the width mismatch defeats.
-  have hxlt : a.toNat < 2147779592 := by
-    have hxv : (2147779584#64 + 8#64).toNat = 2147779592 := by decide
-    omega
-  have hle : (a + 2#64).toNat ≤ 2147779584 := by rw [hadd]; omega
-  have hrhs : ((2147779584 : Nat) : Int) % 18446744073709551616
-      = ((2147779584 : Nat) : Int) := by decide
+  have hxlt : a.toNat < tohostAddr + 8 := by
+    have hxv : (BitVec.ofNat 64 tohostAddr + 8#64).toNat = tohostAddr + 8 := by decide
+    simp only [tohostAddr] at hxv ⊢; omega
+  have hle : (a + 2#64).toNat ≤ tohostAddr := by simp only [tohostAddr]; rw [hadd]; omega
+  have hrhs : ((tohostAddr : Nat) : Int) % 18446744073709551616
+      = ((tohostAddr : Nat) : Int) := by decide
+  simp only [tohostAddr] at hxlt hle hrhs
   rw [hrhs]
   omega
 
@@ -266,12 +269,13 @@ theorem within_mmio_readable_ram_false_one
   -- forces the load window below `tohost`. The mailbox-end value is a closed
   -- `BitVec` term at the symbolic `physaddrbits` width, so bridge it by defeq
   -- (`Nat.lt_of_lt_of_eq`) rather than `rw`, which the width mismatch defeats.
-  have hxlt : a.toNat < 2147779592 := by
-    have hxv : (2147779584#64 + 8#64).toNat = 2147779592 := by decide
-    omega
-  have hle : (a + 1#64).toNat ≤ 2147779584 := by rw [hadd]; omega
-  have hrhs : ((2147779584 : Nat) : Int) % 18446744073709551616
-      = ((2147779584 : Nat) : Int) := by decide
+  have hxlt : a.toNat < tohostAddr + 8 := by
+    have hxv : (BitVec.ofNat 64 tohostAddr + 8#64).toNat = tohostAddr + 8 := by decide
+    simp only [tohostAddr] at hxv ⊢; omega
+  have hle : (a + 1#64).toNat ≤ tohostAddr := by simp only [tohostAddr]; rw [hadd]; omega
+  have hrhs : ((tohostAddr : Nat) : Int) % 18446744073709551616
+      = ((tohostAddr : Nat) : Int) := by decide
+  simp only [tohostAddr] at hxlt hle hrhs
   rw [hrhs]
   omega
 

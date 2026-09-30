@@ -13,7 +13,7 @@
     31,
     13,
     123,
-    13318
+    13322
    ],
    "OP_ADDK": [
     55,
@@ -76,14 +76,14 @@
     23,
     17,
     3,
-    2738
+    2924
    ],
    "OP_CLOSE": [
     15,
     15,
     15,
     0,
-    12
+    15
    ],
    "OP_CLOSURE": [
     79,
@@ -118,7 +118,7 @@
     31,
     19,
     0,
-    5
+    6
    ],
    "OP_EQI": [
     41,
@@ -132,7 +132,7 @@
     27,
     15,
     0,
-    502
+    503
    ],
    "OP_EXTRAARG": [
     2,
@@ -167,7 +167,7 @@
     40,
     17,
     0,
-    70
+    150
    ],
    "OP_GETI": [
     50,
@@ -188,7 +188,7 @@
     43,
     20,
     3,
-    240
+    381
    ],
    "OP_GETUPVAL": [
     17,
@@ -272,14 +272,14 @@
     12,
     12,
     9,
-    411
+    429
    ],
    "OP_LOADK": [
     14,
     4,
     14,
     0,
-    111
+    205
    ],
    "OP_LOADKX": [
     15,
@@ -300,7 +300,7 @@
     8,
     8,
     0,
-    222
+    224
    ],
    "OP_LT": [
     160,
@@ -356,7 +356,7 @@
     5,
     5,
     3,
-    145
+    202
    ],
    "OP_MUL": [
     53,
@@ -377,7 +377,7 @@
     48,
     33,
     0,
-    36
+    39
    ],
    "OP_NOT": [
     20,
@@ -405,7 +405,7 @@
     47,
     31,
     1,
-    27
+    28
    ],
    "OP_RETURN0": [
     72,
@@ -426,14 +426,14 @@
     52,
     26,
     0,
-    11
+    63
    ],
    "OP_SETFIELD": [
     65,
     45,
     22,
     0,
-    32
+    42
    ],
    "OP_SETI": [
     74,
@@ -545,7 +545,7 @@
     0,
     19,
     0,
-    95
+    110
    ],
    "OP_TFORLOOP": [
     34,
@@ -559,7 +559,7 @@
     15,
     34,
     0,
-    9
+    12
    ],
    "OP_UNM": [
     39,
@@ -580,7 +580,7 @@
     22,
     12,
     1,
-    21
+    23
    ]
   },
   "summary": {
@@ -591,24 +591,24 @@
    "arms_union_insts": 4001,
    "insts_not_in_any_arm": 19,
    "jump_table": {
-    "addr": "0x800466dc",
+    "addr": "0x8005336c",
     "bound_check": "bltu 81 < (i & 0x7f) -> default",
-    "default_target": "0x8001ac7c",
-    "dispatch_jr": "0x8001aaa0",
+    "default_target": "0x8001c1e4",
+    "dispatch_jr": "0x8001c008",
     "distinct_targets": 82,
     "encoding": "int32 offset relative to table base (target = base + sext(entry))",
     "entries": 82,
     "entry_bytes": 4,
     "fetch_dispatch_insts": 10,
-    "fetch_head": "0x8001aa7c",
+    "fetch_head": "0x8001bfe4",
     "jr_sites_in_luaV_execute": 1,
     "note": "OP_EXTRAARG (82) is out of table range -> default target"
    },
    "luaV_execute": {
     "bytes": 16080,
-    "end": "0x8001e8d0",
+    "end": "0x8001fe38",
     "insts": 4020,
-    "start": "0x8001aa00"
+    "start": "0x8001bf68"
    },
    "ops_dispatched_union": [
     "OP_MOVE",
@@ -696,15 +696,16 @@
  },
  "constructs": {
   "dyn_union": {
-   "  ...tag load feeding andi/addi/branch within 4": 117,
+   "  ...tag load feeding andi/addi/branch within 4": 122,
    "  sf:__adddf3": 26,
-   "  sf:__divdf3": 11,
+   "  sf:__divdf3": 12,
    "  sf:__eqdf2": 59,
    "  sf:__fixdfdi": 28,
    "  sf:__fixdfsi": 8,
    "  sf:__fixunsdfsi": 2,
-   "  sf:__floatdidf": 38,
+   "  sf:__floatdidf": 39,
    "  sf:__floatsidf": 19,
+   "  sf:__floatundidf": 1,
    "  sf:__floatunsidf": 5,
    "  sf:__gedf2": 57,
    "  sf:__ledf2": 61,
@@ -713,29 +714,29 @@
    "  sf:__trunctfdf2": 2,
    "  sf:__unorddf2": 4,
    "128-bit long double (tf) call sites": 3,
-   "16-bit lh/lhu/sh": 176,
-   "branches": 3846,
-   "direct jal call sites": 2067,
-   "jalr (indirect call)": 26,
-   "jr non-ret (table or indirect tail)": 23,
-   "jump table entries": 582,
-   "jump tables (distinct)": 17,
+   "16-bit lh/lhu/sh": 290,
+   "branches": 4897,
+   "direct jal call sites": 2745,
+   "jalr (indirect call)": 35,
+   "jr non-ret (table or indirect tail)": 29,
+   "jump table entries": 946,
+   "jump tables (distinct)": 21,
    "lb (signed byte)": 8,
-   "lbu_off_8mod16(tt_ tag load)": 334,
-   "lbu_total": 845,
+   "lbu_off_8mod16(tt_ tag load)": 345,
+   "lbu_total": 988,
    "longjmp call sites": 1,
-   "lui": 214,
+   "lui": 278,
    "lwu": 12,
-   "memcpy call sites": 26,
+   "memcpy call sites": 35,
    "memmove call sites": 9,
-   "memset call sites": 21,
+   "memset call sites": 32,
    "setjmp call sites": 1,
-   "softfloat call sites": 376,
-   "softint mul/div call sites": 82,
+   "softfloat call sites": 379,
+   "softint mul/div call sites": 161,
    "softint mul/div tail sites": 1,
-   "tail-call j to another function": 111,
-   "varargs functions (a5,a6,a7 spilled in prologue)": 6,
-   "variable shifts": 98
+   "tail-call j to another function": 160,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 8,
+   "variable shifts": 103
   },
   "luaV_execute": {
    "  ...tag load feeding andi/addi/branch within 4": 23,
@@ -768,14 +769,15 @@
   "static_reach": {
    "  ...tag load feeding andi/addi/branch within 4": 175,
    "  sf:__adddf3": 63,
-   "  sf:__divdf3": 24,
+   "  sf:__divdf3": 25,
    "  sf:__eqdf2": 70,
    "  sf:__extendsfdf2": 1,
    "  sf:__fixdfdi": 31,
    "  sf:__fixdfsi": 8,
    "  sf:__fixunsdfsi": 2,
-   "  sf:__floatdidf": 43,
+   "  sf:__floatdidf": 44,
    "  sf:__floatsidf": 23,
+   "  sf:__floatundidf": 1,
    "  sf:__floatunsidf": 5,
    "  sf:__gedf2": 66,
    "  sf:__ledf2": 76,
@@ -785,42 +787,43 @@
    "  sf:__trunctfdf2": 2,
    "  sf:__unorddf2": 7,
    "128-bit long double (tf) call sites": 4,
-   "16-bit lh/lhu/sh": 336,
-   "branches": 6206,
-   "direct jal call sites": 3691,
+   "16-bit lh/lhu/sh": 490,
+   "branches": 7839,
+   "direct jal call sites": 4516,
    "ebreak (isolated null-deref trap)": 7,
-   "jalr (indirect call)": 66,
-   "jr non-ret (table or indirect tail)": 59,
-   "jump table entries": 1783,
-   "jump tables (distinct)": 49,
+   "jalr (indirect call)": 75,
+   "jr non-ret (table or indirect tail)": 69,
+   "jump table entries": 2239,
+   "jump tables (distinct)": 57,
    "lb (signed byte)": 10,
-   "lbu_off_8mod16(tt_ tag load)": 438,
-   "lbu_total": 1506,
+   "lbu_off_8mod16(tt_ tag load)": 439,
+   "lbu_total": 1815,
    "longjmp call sites": 1,
-   "lui": 416,
+   "lui": 513,
    "lwu": 14,
-   "memcpy call sites": 31,
+   "memcpy call sites": 40,
    "memmove call sites": 10,
-   "memset call sites": 31,
+   "memset call sites": 45,
    "setjmp call sites": 1,
-   "softfloat call sites": 575,
-   "softint mul/div call sites": 106,
+   "softfloat call sites": 578,
+   "softint mul/div call sites": 216,
    "softint mul/div tail sites": 1,
-   "tail-call j to another function": 210,
-   "varargs functions (a5,a6,a7 spilled in prologue)": 8,
-   "variable shifts": 187
+   "tail-call j to another function": 266,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 11,
+   "variable shifts": 195
   },
   "whole": {
    "  ...tag load feeding andi/addi/branch within 4": 191,
    "  sf:__adddf3": 63,
-   "  sf:__divdf3": 26,
+   "  sf:__divdf3": 27,
    "  sf:__eqdf2": 71,
    "  sf:__extendsfdf2": 1,
    "  sf:__fixdfdi": 31,
    "  sf:__fixdfsi": 8,
    "  sf:__fixunsdfsi": 2,
-   "  sf:__floatdidf": 43,
+   "  sf:__floatdidf": 44,
    "  sf:__floatsidf": 23,
+   "  sf:__floatundidf": 1,
    "  sf:__floatunsidf": 5,
    "  sf:__gedf2": 66,
    "  sf:__ledf2": 79,
@@ -832,30 +835,30 @@
    "  sf:__unorddf2": 13,
    "  sf:__unordsf2": 2,
    "128-bit long double (tf) call sites": 4,
-   "16-bit lh/lhu/sh": 364,
-   "branches": 6942,
-   "direct jal call sites": 4017,
+   "16-bit lh/lhu/sh": 521,
+   "branches": 8295,
+   "direct jal call sites": 4763,
    "ebreak (isolated null-deref trap)": 7,
-   "jalr (indirect call)": 72,
-   "jr non-ret (table or indirect tail)": 67,
-   "jump table entries": 1890,
-   "jump tables (distinct)": 52,
+   "jalr (indirect call)": 83,
+   "jr non-ret (table or indirect tail)": 74,
+   "jump table entries": 2239,
+   "jump tables (distinct)": 57,
    "lb (signed byte)": 10,
    "lbu_off_8mod16(tt_ tag load)": 472,
-   "lbu_total": 1723,
+   "lbu_total": 1932,
    "longjmp call sites": 1,
-   "lui": 466,
+   "lui": 549,
    "lwu": 14,
-   "memcpy call sites": 37,
+   "memcpy call sites": 46,
    "memmove call sites": 10,
-   "memset call sites": 32,
+   "memset call sites": 46,
    "setjmp call sites": 1,
-   "softfloat call sites": 595,
-   "softint mul/div call sites": 116,
+   "softfloat call sites": 598,
+   "softint mul/div call sites": 218,
    "softint mul/div tail sites": 1,
-   "tail-call j to another function": 255,
-   "varargs functions (a5,a6,a7 spilled in prologue)": 10,
-   "variable shifts": 192
+   "tail-call j to another function": 316,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 15,
+   "variable shifts": 198
   },
   "whole_lib_origin": {
    "  sf:__adddf3": 46,
@@ -864,7 +867,7 @@
    "  sf:__fixdfdi": 1,
    "  sf:__fixdfsi": 8,
    "  sf:__fixunsdfsi": 2,
-   "  sf:__floatdidf": 1,
+   "  sf:__floatdidf": 2,
    "  sf:__floatsidf": 13,
    "  sf:__floatunsidf": 5,
    "  sf:__gedf2": 12,
@@ -877,62 +880,63 @@
    "  sf:__unorddf2": 13,
    "  sf:__unordsf2": 2,
    "128-bit long double (tf) call sites": 4,
-   "16-bit lh/lhu/sh": 217,
-   "branches": 3353,
-   "direct jal call sites": 1108,
-   "jalr (indirect call)": 33,
-   "jr non-ret (table or indirect tail)": 21,
-   "jump table entries": 606,
-   "jump tables (distinct)": 11,
+   "16-bit lh/lhu/sh": 358,
+   "branches": 4381,
+   "direct jal call sites": 1481,
+   "jalr (indirect call)": 42,
+   "jr non-ret (table or indirect tail)": 26,
+   "jump table entries": 955,
+   "jump tables (distinct)": 16,
    "lbu_off_8mod16(tt_ tag load)": 2,
-   "lbu_total": 408,
-   "lui": 231,
+   "lbu_total": 568,
+   "lui": 295,
    "lwu": 5,
-   "memcpy call sites": 9,
+   "memcpy call sites": 12,
    "memmove call sites": 9,
-   "memset call sites": 24,
-   "softfloat call sites": 328,
-   "softint mul/div call sites": 63,
+   "memset call sites": 35,
+   "softfloat call sites": 329,
+   "softint mul/div call sites": 165,
    "softint mul/div tail sites": 1,
-   "tail-call j to another function": 72,
-   "varargs functions (a5,a6,a7 spilled in prologue)": 5,
-   "variable shifts": 135
+   "tail-call j to another function": 104,
+   "varargs functions (a5,a6,a7 spilled in prologue)": 10,
+   "variable shifts": 141
   },
   "whole_lua_origin": {
    "  ...tag load feeding andi/addi/branch within 4": 191,
    "  sf:__adddf3": 17,
-   "  sf:__divdf3": 6,
+   "  sf:__divdf3": 7,
    "  sf:__eqdf2": 42,
    "  sf:__extendsfdf2": 1,
    "  sf:__fixdfdi": 30,
    "  sf:__floatdidf": 42,
    "  sf:__floatsidf": 10,
+   "  sf:__floatundidf": 1,
    "  sf:__gedf2": 54,
    "  sf:__ledf2": 52,
    "  sf:__muldf3": 9,
    "  sf:__subdf3": 3,
    "  sf:__truncdfsf2": 1,
-   "16-bit lh/lhu/sh": 147,
-   "branches": 3577,
-   "direct jal call sites": 2892,
+   "16-bit lh/lhu/sh": 153,
+   "branches": 3714,
+   "direct jal call sites": 3200,
    "ebreak (isolated null-deref trap)": 7,
-   "jalr (indirect call)": 39,
-   "jr non-ret (table or indirect tail)": 46,
+   "jalr (indirect call)": 41,
+   "jr non-ret (table or indirect tail)": 48,
    "jump table entries": 1284,
    "jump tables (distinct)": 41,
    "lb (signed byte)": 10,
    "lbu_off_8mod16(tt_ tag load)": 470,
-   "lbu_total": 1314,
+   "lbu_total": 1334,
    "longjmp call sites": 1,
-   "lui": 233,
+   "lui": 249,
    "lwu": 9,
-   "memcpy call sites": 28,
+   "memcpy call sites": 29,
    "memmove call sites": 1,
    "memset call sites": 7,
    "setjmp call sites": 1,
-   "softfloat call sites": 267,
+   "softfloat call sites": 269,
    "softint mul/div call sites": 53,
-   "tail-call j to another function": 181,
+   "tail-call j to another function": 210,
    "varargs functions (a5,a6,a7 spilled in prologue)": 5,
    "variable shifts": 57
   }
@@ -1015,120 +1019,120 @@
  },
  "decode_index": {
   "dyn_union": {
-   "in_syi_decode_index": 3616,
-   "pct": 43.3,
-   "unique_words": 8346
+   "in_syi_decode_index": 3925,
+   "pct": 37.0,
+   "unique_words": 10615
   },
   "dyn_while": {
-   "in_syi_decode_index": 1693,
-   "pct": 51.1,
-   "unique_words": 3315
+   "in_syi_decode_index": 1713,
+   "pct": 47.6,
+   "unique_words": 3597
   },
   "static_reach": {
-   "in_syi_decode_index": 7080,
-   "pct": 32.8,
-   "unique_words": 21565
+   "in_syi_decode_index": 7087,
+   "pct": 27.3,
+   "unique_words": 25922
   },
   "whole": {
-   "in_syi_decode_index": 7165,
-   "pct": 31.0,
-   "unique_words": 23140
+   "in_syi_decode_index": 7131,
+   "pct": 26.6,
+   "unique_words": 26784
   }
  },
  "dynamic": {
   "difftest_union_after_exec": {
-   "funcs": 342,
-   "pcs": 17256,
-   "unique_words": 7722
+   "funcs": 461,
+   "pcs": 23192,
+   "unique_words": 9946
   },
   "difftest_union_all": {
-   "funcs": 379,
-   "pcs": 19018,
-   "unique_words": 8346
+   "funcs": 502,
+   "pcs": 25148,
+   "unique_words": 10615
   },
   "difftest_union_before_exec": {
-   "funcs": 110,
-   "pcs": 4115,
-   "unique_words": 2409
+   "funcs": 119,
+   "pcs": 4518,
+   "unique_words": 2566
   },
   "everything_union": {
-   "funcs": 379,
-   "pcs": 19018,
-   "unique_words": 8346
+   "funcs": 502,
+   "pcs": 25148,
+   "unique_words": 10615
   },
   "everything_union_after_exec": {
-   "funcs": 342,
-   "pcs": 17256,
-   "unique_words": 7722
+   "funcs": 461,
+   "pcs": 23192,
+   "unique_words": 9946
   },
   "while_after_exec": {
    "funcs": 89,
-   "pcs": 2655,
-   "unique_words": 1758
+   "pcs": 2793,
+   "unique_words": 1838
   },
   "while_after_only": {
-   "funcs": 65,
-   "pcs": 2124,
-   "unique_words": 1443
+   "funcs": 63,
+   "pcs": 2147,
+   "unique_words": 1441
   },
   "while_all": {
-   "funcs": 163,
-   "pcs": 5917,
-   "unique_words": 3315
+   "funcs": 173,
+   "pcs": 6560,
+   "unique_words": 3597
   },
   "while_before_exec": {
-   "funcs": 106,
-   "pcs": 3793,
-   "unique_words": 2230
+   "funcs": 118,
+   "pcs": 4413,
+   "unique_words": 2509
   },
   "while_before_only": {
-   "funcs": 90,
-   "pcs": 3262,
-   "unique_words": 1944
+   "funcs": 102,
+   "pcs": 3767,
+   "unique_words": 2165
   }
  },
  "dynamic_not_static": [],
  "gen_fn": {
   "dyn_union": {
-   "over_budget": 41,
-   "within_budget": 338,
-   "within_budget_no_indirect": 319,
-   "within_budget_no_indirect_and_new": 248
+   "over_budget": 59,
+   "within_budget": 443,
+   "within_budget_no_indirect": 418,
+   "within_budget_no_indirect_and_new": 335
   },
   "dyn_while": {
-   "over_budget": 17,
-   "within_budget": 146,
-   "within_budget_no_indirect": 133,
-   "within_budget_no_indirect_and_new": 84
+   "over_budget": 18,
+   "within_budget": 155,
+   "within_budget_no_indirect": 142,
+   "within_budget_no_indirect_and_new": 97
   },
   "static_reach": {
-   "over_budget": 79,
-   "within_budget": 614,
-   "within_budget_no_indirect": 569,
-   "within_budget_no_indirect_and_new": 462
+   "over_budget": 106,
+   "within_budget": 742,
+   "within_budget_no_indirect": 691,
+   "within_budget_no_indirect_and_new": 566
   }
  },
  "jumptables": {
-  "count": 52,
-  "entries": 1890,
+  "count": 57,
+  "entries": 2239,
   "indirect_sites": {
-   "call": 72,
-   "tailjump": 15
+   "call": 83,
+   "tailjump": 17
   }
  },
- "luaV_execute_start": "0x8001aa00",
+ "luaV_execute_start": "0x8001bf68",
  "sites": {
   "dyn_union": {
-   "blocks_pct": 72.2,
-   "pct": 87.4
+   "blocks_pct": 72.6,
+   "pct": 88.0
   },
   "dyn_while": {
-   "blocks_pct": 68.9,
-   "pct": 87.4
+   "blocks_pct": 67.7,
+   "pct": 87.2
   },
   "static_reach": {
-   "blocks_pct": 73.6,
-   "pct": 87.8
+   "blocks_pct": 73.5,
+   "pct": 87.9
   },
   "while_elf_whole": {
    "blocks_pct": 73.1,
@@ -1137,223 +1141,236 @@
  },
  "static": {
   "address_flow": {
-   "data_objects_reached": 829,
-   "funcs": 693,
-   "insts": 61912,
-   "unique_words": 21565
+   "data_objects_reached": 1109,
+   "funcs": 848,
+   "insts": 76355,
+   "unique_words": 25922
   },
   "all_address_taken_upper": {
-   "funcs": 718,
-   "insts": 63254,
-   "n_address_taken": 114,
-   "unique_words": 21942
+   "funcs": 865,
+   "insts": 76969,
+   "n_address_taken": 154,
+   "unique_words": 26035
   },
   "direct_only": {
-   "funcs": 305,
-   "insts": 36632,
-   "unique_words": 14635
+   "funcs": 306,
+   "insts": 36763,
+   "unique_words": 14704
   }
  },
  "template": {
   "dyn_union": {
    "funcs": {
-    "identical_mod_reloc": 58,
+    "identical_body_other_name": 1,
+    "identical_mod_reloc": 68,
     "identical_words": 33,
-    "new": 286,
-    "same_name_differs": 2
+    "new": 390,
+    "same_name_differs": 10
    },
    "insts": {
-    "identical_mod_reloc": 13064,
-    "identical_words": 912,
-    "new": 23199,
-    "same_name_differs": 169
+    "identical_body_other_name": 2,
+    "identical_mod_reloc": 12756,
+    "identical_words": 960,
+    "new": 32547,
+    "same_name_differs": 1355
    },
-   "reused_and_in_while_proof_scope": 13470,
-   "total_funcs": 379,
-   "total_insts": 37344
+   "reused_and_in_while_proof_scope": 12951,
+   "total_funcs": 502,
+   "total_insts": 47620
   },
   "dyn_union_after_exec": {
    "funcs": {
-    "identical_mod_reloc": 58,
+    "identical_body_other_name": 1,
+    "identical_mod_reloc": 68,
     "identical_words": 33,
-    "new": 249,
-    "same_name_differs": 2
+    "new": 349,
+    "same_name_differs": 10
    },
    "insts": {
-    "identical_mod_reloc": 13064,
-    "identical_words": 912,
-    "new": 21105,
-    "same_name_differs": 169
+    "identical_body_other_name": 2,
+    "identical_mod_reloc": 12756,
+    "identical_words": 960,
+    "new": 30203,
+    "same_name_differs": 1355
    },
-   "reused_and_in_while_proof_scope": 13470,
-   "total_funcs": 342,
-   "total_insts": 35250
+   "reused_and_in_while_proof_scope": 12951,
+   "total_funcs": 461,
+   "total_insts": 45276
   },
   "dyn_while": {
    "funcs": {
-    "identical_mod_reloc": 39,
-    "identical_words": 23,
-    "new": 99,
-    "same_name_differs": 2
+    "identical_mod_reloc": 38,
+    "identical_words": 19,
+    "new": 109,
+    "same_name_differs": 7
    },
    "insts": {
-    "identical_mod_reloc": 5979,
-    "identical_words": 620,
-    "new": 10393,
-    "same_name_differs": 169
+    "identical_mod_reloc": 5400,
+    "identical_words": 604,
+    "new": 10926,
+    "same_name_differs": 1047
    },
-   "reused_and_in_while_proof_scope": 6139,
-   "total_funcs": 163,
-   "total_insts": 17161
+   "reused_and_in_while_proof_scope": 5558,
+   "total_funcs": 173,
+   "total_insts": 17977
   },
   "dyn_while_after_exec": {
    "funcs": {
-    "identical_mod_reloc": 35,
-    "identical_words": 20,
-    "new": 32,
-    "same_name_differs": 2
+    "identical_mod_reloc": 36,
+    "identical_words": 16,
+    "new": 30,
+    "same_name_differs": 7
    },
    "insts": {
-    "identical_mod_reloc": 5855,
-    "identical_words": 549,
-    "new": 6329,
-    "same_name_differs": 169
+    "identical_mod_reloc": 5322,
+    "identical_words": 533,
+    "new": 5978,
+    "same_name_differs": 1047
    },
-   "reused_and_in_while_proof_scope": 5971,
+   "reused_and_in_while_proof_scope": 5436,
    "total_funcs": 89,
-   "total_insts": 12902
+   "total_insts": 12880
   },
   "pcs_union": {
    "pcs_by_cat": {
-    "identical_mod_reloc": 4604,
-    "identical_words": 769,
-    "new": 13493,
-    "same_name_differs": 152
+    "identical_body_other_name": 2,
+    "identical_mod_reloc": 4854,
+    "identical_words": 776,
+    "new": 18499,
+    "same_name_differs": 1017
    },
-   "total": 19018
+   "total": 25148
   },
   "pcs_while": {
    "pcs_by_cat": {
-    "identical_mod_reloc": 1523,
-    "identical_words": 375,
-    "new": 3882,
-    "same_name_differs": 137
+    "identical_mod_reloc": 1243,
+    "identical_words": 404,
+    "new": 4313,
+    "same_name_differs": 600
    },
-   "total": 5917
+   "total": 6560
   },
   "static_reach": {
    "funcs": {
-    "identical_body_other_name": 1,
-    "identical_mod_reloc": 84,
-    "identical_words": 47,
-    "new": 557,
-    "same_name_differs": 4
+    "identical_body_other_name": 2,
+    "identical_mod_reloc": 102,
+    "identical_words": 53,
+    "new": 677,
+    "same_name_differs": 14
    },
    "insts": {
-    "identical_body_other_name": 2,
-    "identical_mod_reloc": 15705,
-    "identical_words": 1431,
-    "new": 43262,
-    "same_name_differs": 1512
+    "identical_body_other_name": 4,
+    "identical_mod_reloc": 16940,
+    "identical_words": 2080,
+    "new": 54529,
+    "same_name_differs": 2802
    },
-   "reused_and_in_while_proof_scope": 16090,
-   "total_funcs": 693,
-   "total_insts": 61912
+   "reused_and_in_while_proof_scope": 15496,
+   "total_funcs": 848,
+   "total_insts": 76355
   },
   "whole": {
    "funcs": {
-    "identical_body_other_name": 1,
-    "identical_mod_reloc": 131,
-    "identical_words": 77,
-    "new": 624,
-    "same_name_differs": 4
+    "identical_body_other_name": 3,
+    "identical_mod_reloc": 139,
+    "identical_words": 64,
+    "new": 760,
+    "same_name_differs": 14
    },
    "insts": {
-    "identical_body_other_name": 2,
-    "identical_mod_reloc": 18226,
-    "identical_words": 2216,
-    "new": 46116,
-    "same_name_differs": 1512
+    "identical_body_other_name": 6,
+    "identical_mod_reloc": 18009,
+    "identical_words": 2144,
+    "new": 57729,
+    "same_name_differs": 2802
    },
-   "reused_and_in_while_proof_scope": 16441,
-   "total_funcs": 837,
-   "total_insts": 68072
+   "reused_and_in_while_proof_scope": 15789,
+   "total_funcs": 980,
+   "total_insts": 80690
   }
  },
  "traces": {
   "f1_arith": {
-   "luaV_execute_entry_step": 126438,
-   "steps": 261038
+   "luaV_execute_entry_step": 182796,
+   "steps": 317386
   },
   "f1_cond": {
-   "luaV_execute_entry_step": 126350,
-   "steps": 344831
+   "luaV_execute_entry_step": 182691,
+   "steps": 401320
   },
   "f1_for": {
-   "luaV_execute_entry_step": 127339,
-   "steps": 154507
+   "luaV_execute_entry_step": 183618,
+   "steps": 210874
   },
   "f1_while": {
-   "luaV_execute_entry_step": 124808,
-   "steps": 159140
+   "luaV_execute_entry_step": 181166,
+   "steps": 215723
   },
   "f2_array": {
-   "luaV_execute_entry_step": 125061,
-   "steps": 210290
+   "luaV_execute_entry_step": 181357,
+   "steps": 267005
   },
   "f2_next": {
-   "luaV_execute_entry_step": 133960,
-   "steps": 266758
+   "luaV_execute_entry_step": 190412,
+   "steps": 319539
   },
   "f2_tablelib": {
-   "luaV_execute_entry_step": 130880,
-   "steps": 200640
+   "luaV_execute_entry_step": 187323,
+   "steps": 256973
   },
   "f3_closures": {
-   "luaV_execute_entry_step": 136107,
-   "steps": 619147
+   "luaV_execute_entry_step": 192451,
+   "steps": 675646
   },
   "f3_pcall": {
-   "luaV_execute_entry_step": 139905,
-   "steps": 459225
+   "luaV_execute_entry_step": 196348,
+   "steps": 515643
   },
   "f3_uncaught": {
-   "luaV_execute_entry_step": 125411,
-   "steps": 133641
+   "luaV_execute_entry_step": 181744,
+   "steps": 189822
   },
   "f3_varargs": {
-   "luaV_execute_entry_step": 133112,
-   "steps": 2591307
+   "luaV_execute_entry_step": 189511,
+   "steps": 2647749
   },
   "f4_metatables": {
-   "luaV_execute_entry_step": 157461,
-   "steps": 222048
+   "luaV_execute_entry_step": 213665,
+   "steps": 275221
   },
   "f4_objects": {
-   "luaV_execute_entry_step": 141168,
-   "steps": 235669
+   "luaV_execute_entry_step": 197321,
+   "steps": 288472
   },
   "f4_strings": {
-   "luaV_execute_entry_step": 145060,
-   "steps": 229942
+   "luaV_execute_entry_step": 198346,
+   "steps": 282828
   },
   "f5_floats": {
-   "luaV_execute_entry_step": 132274,
-   "steps": 438430
+   "luaV_execute_entry_step": 188604,
+   "steps": 491495
   },
   "f6_coroutines": {
-   "luaV_execute_entry_step": 134990,
-   "steps": 180349
+   "luaV_execute_entry_step": 191444,
+   "steps": 236676
+  },
+  "f7_io": {
+   "luaV_execute_entry_step": 201530,
+   "steps": 607172
+  },
+  "f7_os": {
+   "luaV_execute_entry_step": 196585,
+   "steps": 345557
   },
   "lua-riscv-htif": {
-   "luaV_execute_entry_step": 124808,
-   "steps": 159140
+   "luaV_execute_entry_step": 181166,
+   "steps": 215723
   }
  },
  "whole": {
-  "funcs": 837,
-  "insts": 68072,
+  "funcs": 980,
+  "insts": 80690,
   "unique_mnemonics": 69,
-  "unique_words": 23140
+  "unique_words": 26784
  }
 }
