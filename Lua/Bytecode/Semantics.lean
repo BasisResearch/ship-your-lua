@@ -142,6 +142,8 @@ inductive Prim where
   /-- `op_arith`/`op_bitwise`'s integer fast path -/
   | arith (o : BinOp)
   | unm | bnot | not | eq | lt | le
+  /-- `luaV_objlen` -/
+  | len
 
 /-- **δ**: the value of a primitive on its operands; `none` is a runtime
 error (no rule). Order tests give booleans (`luaV_lessthan`,
@@ -154,6 +156,7 @@ def δ : Prim → List Value → Option Value
   | .eq, [x, y] => some (.bool (decide (x = y)))
   | .lt, [.int x, .int y] => some (.bool (decide (x.toInt < y.toInt)))
   | .le, [.int x, .int y] => some (.bool (decide (x.toInt ≤ y.toInt)))
+  | .len, [.str s] => some (.int (BitVec.ofNat 64 s.length))
   | _, _ => none
 
 /-! ## States -/
@@ -351,6 +354,7 @@ def opKernel : OpCode → Option (Kernel Value)
   | .UNM => some (setR w.a (pc + 1) [.reg w.b] (δ .unm))
   | .BNOT => some (setR w.a (pc + 1) [.reg w.b] (δ .bnot))
   | .NOT => some (setR w.a (pc + 1) [.reg w.b] (δ .not))
+  | .LEN => some (setR w.a (pc + 1) [.reg w.b] (δ .len))
   | .JMP => (jumpTo (pc + 1) w.sj).map jump
   | .EQ => docondjump p pc w.k [.reg w.a, .reg w.b] (δ .eq)
   | .EQK => (kval p w.b).bind fun v => docondjump p pc w.k [.reg w.a, .imm v] (δ .eq)
