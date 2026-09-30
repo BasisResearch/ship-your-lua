@@ -1,0 +1,315 @@
+while: steps=215723 load_checks=32181 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=100 wall_s=10.5 heads=671 out_bytes=11
+  func values=['0x8006f350', '0x8006f360'] ci values=['0x800704e0']
+  head opcodes: {'ADDI': 123, 'JMP': 122, 'GTI': 101, 'MODK': 100, 'EQI': 100, 'ADD': 69, 'LEI': 16, 'LTI': 11, 'LOADI': 9, 'MUL': 9, 'GETTABUP': 3, 'MOVE': 3, 'CALL': 3, 'VARARGPREP': 1, 'RETURN': 1}
+  LC6 ADD: {'steps': 69, 'slot': 138} shapes={'r0+8/1 r0+0/8': 69}
+  LC6 ADDI: {'steps': 123, 'slot': 246} shapes={'r0+8/1 r0+0/8': 123}
+  LC6 CALL: {'steps': 3, 'L': 19, 'ci': 4, 'cstack-callee': 818, 'heap': 82, 'static': 118, 'slot': 4, 'tohost': 11, 'luastack-other': 2} shapes={'r0+0/8 r0+8/1': 2}
+  LC6 EQI: {'steps': 100} shapes={}
+  LC6 GETTABUP: {'steps': 3, 'cframe': 6, 'slot': 6} shapes={'r0+8/1 r0+0/8': 3}
+  LC6 GTI: {'steps': 101} shapes={}
+  LC6 JMP: {'steps': 122} shapes={}
+  LC6 LEI: {'steps': 16} shapes={}
+  LC6 LOADI: {'steps': 9, 'slot': 18} shapes={'r0+8/1 r0+0/8': 9}
+  LC6 LTI: {'steps': 11} shapes={}
+  LC6 MODK: {'steps': 100, 'ci': 100, 'L': 100, 'slot': 200} shapes={'r0+0/8 r0+8/1': 100}
+  LC6 MOVE: {'steps': 3, 'slot': 6} shapes={'r0+0/8 r0+8/1': 3}
+  LC6 MUL: {'steps': 9, 'slot': 18} shapes={'r0+0/8 r0+8/1': 9}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (185380, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (185588, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (185757, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (185975, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186152, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186378, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186565, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186793, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186978, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (187212, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+f1_ops: steps=271860 load_checks=38008 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=10 wall_s=13.2 heads=186 out_bytes=171
+  func values=['0x8006f350', '0x8006f360'] ci values=['0x800704e0']
+  head opcodes: {'LOADI': 32, 'FORLOOP': 22, 'ADDI': 17, 'GETTABUP': 11, 'CALL': 11, 'MUL': 10, 'ADD': 10, 'MOVE': 10, 'MULK': 8, 'LT': 8, 'JMP': 7, 'LOADTRUE': 5, 'FORPREP': 4, 'LOADK': 4, 'UNM': 3, 'LFALSESKIP': 3, 'IDIVK': 2, 'TESTSET': 2, 'NOT': 2, 'EQI': 2, 'LTI': 2, 'LEI': 2, 'VARARGPREP': 1, 'IDIV': 1, 'MOD': 1, 'MODK': 1, 'SUB': 1, 'LOADNIL': 1, 'EQK': 1, 'LOADFALSE': 1, 'RETURN': 1}
+  LC6 ADD: {'steps': 10, 'slot': 20} shapes={'r0+8/1 r0+0/8': 10}
+  LC6 ADDI: {'steps': 17, 'slot': 34} shapes={'r0+8/1 r0+0/8': 17}
+  LC6 CALL: {'steps': 11, 'L': 109, 'ci': 12, 'cstack-callee': 5652, 'heap': 465, 'static': 289, 'slot': 42, 'tohost': 171, 'luastack-other': 22} shapes={'r0+0/8 r0+8/1': 5, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1}
+  LC6 EQI: {'steps': 2} shapes={}
+  LC6 EQK: {'steps': 1, 'cstack-callee': 1} shapes={}
+  LC6 FORLOOP: {'steps': 22, 'slot': 76} shapes={'r1+0/8 r3+8/1 r0+0/8 r3+0/8': 19}
+  LC6 FORPREP: {'steps': 4, 'ci': 4, 'L': 4, 'slot': 14, 'cframe': 11, 'cstack-callee': 8} shapes={'r2+8/1 r2+0/8 r0+0/8 r0+8/1': 3, 'r0+8/1 r0+0/8': 1}
+  LC6 GETTABUP: {'steps': 11, 'cframe': 22, 'slot': 22} shapes={'r0+8/1 r0+0/8': 11}
+  LC6 IDIV: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 IDIVK: {'steps': 2, 'ci': 2, 'L': 2, 'slot': 4} shapes={'r0+0/8 r0+8/1': 2}
+  LC6 JMP: {'steps': 7} shapes={}
+  LC6 LEI: {'steps': 2} shapes={}
+  LC6 LFALSESKIP: {'steps': 3, 'slot': 3} shapes={'r0+8/1': 3}
+  LC6 LOADFALSE: {'steps': 1, 'slot': 1} shapes={'r0+8/1': 1}
+  LC6 LOADI: {'steps': 32, 'slot': 64} shapes={'r0+8/1 r0+0/8': 32}
+  LC6 LOADK: {'steps': 4, 'slot': 8} shapes={'r0+0/8 r0+8/1': 4}
+  LC6 LOADNIL: {'steps': 1, 'slot': 1} shapes={'r0+8/1': 1}
+  LC6 LOADTRUE: {'steps': 5, 'slot': 5} shapes={'r0+8/1': 5}
+  LC6 LT: {'steps': 8} shapes={}
+  LC6 LTI: {'steps': 2} shapes={}
+  LC6 MOD: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 MODK: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 MOVE: {'steps': 10, 'slot': 20} shapes={'r0+0/8 r0+8/1': 10}
+  LC6 MUL: {'steps': 10, 'slot': 20} shapes={'r0+0/8 r0+8/1': 10}
+  LC6 MULK: {'steps': 8, 'slot': 16} shapes={'r0+0/8 r0+8/1': 8}
+  LC6 NOT: {'steps': 2, 'slot': 2} shapes={'r0+8/1': 2}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 SUB: {'steps': 1, 'slot': 2} shapes={'r0+8/1 r0+0/8': 1}
+  LC6 TESTSET: {'steps': 2} shapes={}
+  LC6 UNM: {'steps': 3, 'slot': 6} shapes={'r0+8/1 r0+0/8': 3}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (181259, 5, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (185550, 17, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (193841, 25, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (194034, 33, 'IDIV', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (194159, 35, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (194270, 38, 'IDIVK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (194427, 41, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (194514, 43, 'IDIVK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (248635, 75, 'EQK', [('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (257232, 92, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+f1b_bits: steps=320764 load_checks=40631 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=3 wall_s=15.8 heads=220 out_bytes=231
+  func values=['0x8006f350', '0x8006f360'] ci values=['0x800704e0']
+  head opcodes: {'SHRI': 46, 'BXOR': 42, 'FORLOOP': 29, 'BANDK': 22, 'LOADI': 16, 'SHLI': 16, 'BOR': 10, 'GETTABUP': 7, 'CALL': 7, 'SHR': 4, 'BNOT': 3, 'SHL': 3, 'LOADK': 2, 'FORPREP': 2, 'MOVE': 2, 'LOADTRUE': 2, 'VARARGPREP': 1, 'BAND': 1, 'BORK': 1, 'BXORK': 1, 'EQI': 1, 'EQ': 1, 'RETURN': 1}
+  LC6 BAND: {'steps': 1, 'slot': 2} shapes={'r0+8/1 r0+0/8': 1}
+  LC6 BANDK: {'steps': 22, 'slot': 44} shapes={'r0+0/8 r0+8/1': 22}
+  LC6 BNOT: {'steps': 3, 'slot': 6} shapes={'r0+0/8 r0+8/1': 3}
+  LC6 BOR: {'steps': 10, 'slot': 20} shapes={'r0+8/1 r0+0/8': 10}
+  LC6 BORK: {'steps': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 BXOR: {'steps': 42, 'slot': 84} shapes={'r0+8/1 r0+0/8': 42}
+  LC6 BXORK: {'steps': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 CALL: {'steps': 7, 'L': 97, 'ci': 8, 'cstack-callee': 7381, 'heap': 698, 'static': 282, 'slot': 54, 'tohost': 231, 'luastack-other': 14} shapes={'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 2, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 2}
+  LC6 EQ: {'steps': 1, 'ci': 1, 'L': 1, 'cstack-callee': 1} shapes={}
+  LC6 EQI: {'steps': 1} shapes={}
+  LC6 FORLOOP: {'steps': 29, 'slot': 108} shapes={'r1+0/8 r3+8/1 r0+0/8 r3+0/8': 27}
+  LC6 FORPREP: {'steps': 2, 'ci': 2, 'L': 2, 'slot': 8, 'cframe': 6, 'cstack-callee': 4} shapes={'r2+8/1 r2+0/8 r0+0/8 r0+8/1': 2}
+  LC6 GETTABUP: {'steps': 7, 'cframe': 14, 'slot': 14} shapes={'r0+8/1 r0+0/8': 7}
+  LC6 LOADI: {'steps': 16, 'slot': 32} shapes={'r0+8/1 r0+0/8': 16}
+  LC6 LOADK: {'steps': 2, 'slot': 4} shapes={'r0+0/8 r0+8/1': 2}
+  LC6 LOADTRUE: {'steps': 2, 'slot': 2} shapes={'r0+8/1': 2}
+  LC6 MOVE: {'steps': 2, 'slot': 4} shapes={'r0+0/8 r0+8/1': 2}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 SHL: {'steps': 3, 'slot': 6} shapes={'r0+0/8 r0+8/1': 3}
+  LC6 SHLI: {'steps': 16, 'slot': 32} shapes={'r0+0/8 r0+8/1': 16}
+  LC6 SHR: {'steps': 4, 'slot': 8} shapes={'r0+0/8 r0+8/1': 4}
+  LC6 SHRI: {'steps': 46, 'slot': 92} shapes={'r0+0/8 r0+8/1': 46}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (285273, 76, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (310453, 93, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (314779, 115, 'EQ', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd68', 8)])
+print_print: steps=188129 load_checks=28725 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=0 wall_s=7.1 heads=8 out_bytes=32
+  func values=['0x8006f350', '0x8006f360'] ci values=['0x800704e0']
+  head opcodes: {'GETTABUP': 2, 'VARARGPREP': 1, 'LOADI': 1, 'LOADNIL': 1, 'LOADTRUE': 1, 'CALL': 1, 'RETURN': 1}
+  LC6 CALL: {'steps': 1, 'L': 13, 'ci': 2, 'cstack-callee': 688, 'heap': 82, 'static': 109, 'luastack-other': 8, 'tohost': 32} shapes={}
+  LC6 GETTABUP: {'steps': 2, 'cframe': 4, 'slot': 4} shapes={'r0+8/1 r0+0/8': 2}
+  LC6 LOADI: {'steps': 1, 'slot': 2} shapes={'r0+8/1 r0+0/8': 1}
+  LC6 LOADNIL: {'steps': 1, 'slot': 1} shapes={'r0+8/1': 1}
+  LC6 LOADTRUE: {'steps': 1, 'slot': 1} shapes={'r0+8/1': 1}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+f1_src: steps=221516 load_checks=34998 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=35 wall_s=9.7 heads=265 out_bytes=48
+  func values=['0x8006f350', '0x8006f360', '0x80073680'] ci values=['0x800704e0']
+  head opcodes: {'EQI': 41, 'LOADI': 28, 'MODK': 26, 'FORLOOP': 26, 'ADDI': 20, 'GEI': 19, 'MOVE': 17, 'ADD': 12, 'GETTABUP': 11, 'CALL': 11, 'JMP': 10, 'FORPREP': 7, 'SUB': 6, 'LTI': 5, 'GTI': 5, 'MULK': 4, 'TEST': 4, 'LOADNIL': 3, 'LOADFALSE': 3, 'VARARGPREP': 1, 'LOADTRUE': 1, 'EQK': 1, 'IDIVK': 1, 'UNM': 1, 'TESTSET': 1, 'RETURN': 1}
+  LC6 ADD: {'steps': 12, 'slot': 24} shapes={'r0+8/1 r0+0/8': 12}
+  LC6 ADDI: {'steps': 20, 'slot': 40} shapes={'r0+8/1 r0+0/8': 20}
+  LC6 CALL: {'steps': 11, 'L': 91, 'ci': 18, 'cstack-callee': 3569, 'heap': 377, 'static': 234, 'slot': 30, 'tohost': 48, 'luastack-other': 15} shapes={'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1': 8, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+8/8 r0+0/8': 1}
+  LC6 EQI: {'steps': 41} shapes={}
+  LC6 EQK: {'steps': 1, 'cstack-callee': 1} shapes={}
+  LC6 FORLOOP: {'steps': 26, 'slot': 96} shapes={'r1+0/8 r3+8/1 r0+0/8 r3+0/8': 24}
+  LC6 FORPREP: {'steps': 7, 'ci': 7, 'L': 7, 'slot': 28, 'cframe': 21, 'cstack-callee': 14} shapes={'r2+8/1 r2+0/8 r0+0/8 r0+8/1': 7}
+  LC6 GEI: {'steps': 19} shapes={}
+  LC6 GETTABUP: {'steps': 11, 'cframe': 22, 'slot': 22} shapes={'r0+8/1 r0+0/8': 11}
+  LC6 GTI: {'steps': 5} shapes={}
+  LC6 IDIVK: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 JMP: {'steps': 10} shapes={}
+  LC6 LOADFALSE: {'steps': 3, 'slot': 3} shapes={'r0+8/1': 3}
+  LC6 LOADI: {'steps': 28, 'slot': 56} shapes={'r0+8/1 r0+0/8': 28}
+  LC6 LOADNIL: {'steps': 3, 'slot': 4} shapes={'r0+8/1 r1+8/1': 1, 'r0+8/1': 2}
+  LC6 LOADTRUE: {'steps': 1, 'slot': 1} shapes={'r0+8/1': 1}
+  LC6 LTI: {'steps': 5} shapes={}
+  LC6 MODK: {'steps': 26, 'ci': 26, 'L': 26, 'slot': 52} shapes={'r0+0/8 r0+8/1': 26}
+  LC6 MOVE: {'steps': 17, 'slot': 34} shapes={'r0+0/8 r0+8/1': 17}
+  LC6 MULK: {'steps': 4, 'slot': 8} shapes={'r0+0/8 r0+8/1': 4}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 SUB: {'steps': 6, 'slot': 12} shapes={'r0+8/1 r0+0/8': 6}
+  LC6 TEST: {'steps': 4} shapes={}
+  LC6 TESTSET: {'steps': 1, 'slot': 2} shapes={'r0+8/1 r0+0/8': 1}
+  LC6 UNM: {'steps': 1, 'slot': 2} shapes={'r0+8/1 r0+0/8': 1}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (189191, 19, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (189320, 20, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (189420, 27, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (189611, 20, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (189711, 27, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (189902, 20, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (190108, 20, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (190218, 27, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (190409, 20, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (190519, 27, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+f4_strlite: steps=236227 load_checks=37869 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=30 wall_s=10.9 heads=110 out_bytes=98
+  func values=['0x8006f350', '0x8006f360'] ci values=['0x800704e0']
+  head opcodes: {'MOVE': 26, 'LOADK': 18, 'CONCAT': 9, 'GETTABUP': 7, 'CALL': 7, 'LOADTRUE': 7, 'LT': 5, 'FORLOOP': 5, 'LOADI': 4, 'LEN': 4, 'ADDI': 2, 'MMBINI': 2, 'MMBINK': 2, 'VARARGPREP': 1, 'LFALSESKIP': 1, 'LE': 1, 'UNM': 1, 'MUL': 1, 'MMBIN': 1, 'IDIVK': 1, 'MODK': 1, 'FORPREP': 1, 'EQK': 1, 'EQ': 1, 'RETURN': 1}
+  LC6 ADDI: {'steps': 2} shapes={}
+  LC6 CALL: {'steps': 7, 'L': 107, 'ci': 8, 'cstack-callee': 3279, 'heap': 229, 'static': 224, 'slot': 78, 'tohost': 98} shapes={'r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1}
+  LC6 CONCAT: {'steps': 9, 'L': 18, 'ci': 9, 'cstack-callee': 1142, 'heap': 175, 'static': 10, 'slot': 34} shapes={'r0+0/8 r0+8/1': 2, 'r1+0/8 r1+8/1 r0+0/8 r0+8/1': 5, 'r1+0/8 r1+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r1+0/8 r1+8/1 r0+8/1 r0+0/8': 1}
+  LC6 EQ: {'steps': 1, 'ci': 1, 'L': 1, 'cstack-callee': 1} shapes={}
+  LC6 EQK: {'steps': 1, 'cstack-callee': 1} shapes={}
+  LC6 FORLOOP: {'steps': 5, 'slot': 16} shapes={'r1+0/8 r3+8/1 r0+0/8 r3+0/8': 4}
+  LC6 FORPREP: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 4, 'cframe': 3, 'cstack-callee': 2} shapes={'r2+8/1 r2+0/8 r0+0/8 r0+8/1': 1}
+  LC6 GETTABUP: {'steps': 7, 'cframe': 14, 'slot': 14} shapes={'r0+8/1 r0+0/8': 7}
+  LC6 IDIVK: {'steps': 1, 'ci': 1, 'L': 1} shapes={}
+  LC6 LE: {'steps': 1, 'ci': 1, 'L': 1, 'cstack-callee': 6} shapes={}
+  LC6 LEN: {'steps': 4, 'ci': 4, 'L': 4, 'cstack-callee': 4, 'slot': 8} shapes={'r0+8/1 r0+0/8': 4}
+  LC6 LFALSESKIP: {'steps': 1, 'slot': 1} shapes={'r0+8/1': 1}
+  LC6 LOADI: {'steps': 4, 'slot': 8} shapes={'r0+8/1 r0+0/8': 4}
+  LC6 LOADK: {'steps': 18, 'slot': 36} shapes={'r0+0/8 r0+8/1': 18}
+  LC6 LOADTRUE: {'steps': 7, 'slot': 7} shapes={'r0+8/1': 7}
+  LC6 LT: {'steps': 5, 'ci': 5, 'L': 5, 'cstack-callee': 30} shapes={}
+  LC6 MMBIN: {'steps': 1, 'ci': 1, 'L': 11, 'cstack-callee': 44, 'luastack-other': 14, 'heap': 4, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 MMBINI: {'steps': 2, 'ci': 2, 'L': 22, 'cstack-callee': 86, 'luastack-other': 28, 'heap': 8, 'slot': 4} shapes={'r0+0/8 r0+8/1': 2}
+  LC6 MMBINK: {'steps': 2, 'ci': 2, 'L': 22, 'cstack-callee': 85, 'luastack-other': 28, 'heap': 8, 'slot': 4} shapes={'r0+0/8 r0+8/1': 2}
+  LC6 MODK: {'steps': 1, 'ci': 1, 'L': 1} shapes={}
+  LC6 MOVE: {'steps': 26, 'slot': 52} shapes={'r0+0/8 r0+8/1': 26}
+  LC6 MUL: {'steps': 1} shapes={}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 UNM: {'steps': 1, 'ci': 1, 'L': 12, 'cstack-callee': 43, 'luastack-other': 16, 'heap': 4, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (190590, 12, 'CONCAT', [('L', '0x8006ecf8', 8), ('ci', '0x80070500', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd30', 8), ('cstack-callee', '0x87fffd10', 8)])
+  LC6-CEX (191188, 15, 'CONCAT', [('L', '0x8006ecf8', 8), ('ci', '0x80070500', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd30', 8), ('cstack-callee', '0x87fffd10', 8)])
+  LC6-CEX (192220, 18, 'CONCAT', [('L', '0x8006ecf8', 8), ('ci', '0x80070500', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd30', 8), ('cstack-callee', '0x87fffd10', 8)])
+  LC6-CEX (197327, 21, 'LEN', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (197425, 24, 'CONCAT', [('L', '0x8006ecf8', 8), ('ci', '0x80070500', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd30', 8), ('cstack-callee', '0x87fffd10', 8)])
+  LC6-CEX (197923, 25, 'LEN', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (197995, 27, 'LEN', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (202858, 30, 'LT', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd68', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd50', 8)])
+  LC6-CEX (202971, 34, 'LT', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd68', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd50', 8)])
+  LC6-CEX (203117, 39, 'LE', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd68', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd50', 8)])
+f1_arith: steps=317386 load_checks=39434 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=6 wall_s=11.8 heads=374 out_bytes=219
+  func values=['0x8006f350', '0x8006f360'] ci values=['0x800704e0']
+  head opcodes: {'ADD': 101, 'MUL': 101, 'FORLOOP': 100, 'LOADI': 17, 'GETTABUP': 12, 'CALL': 11, 'LOADK': 5, 'UNM': 3, 'LOADTRUE': 3, 'ADDI': 2, 'LTI': 2, 'LFALSESKIP': 2, 'EQI': 2, 'VARARGPREP': 1, 'SUB': 1, 'IDIV': 1, 'MOD': 1, 'IDIVK': 1, 'MODK': 1, 'LOADNIL': 1, 'LOADF': 1, 'MULK': 1, 'LEI': 1, 'FORPREP': 1, 'MOVE': 1, 'RETURN': 1}
+  LC6 ADD: {'steps': 101, 'slot': 202} shapes={'r0+8/1 r0+0/8': 101}
+  LC6 ADDI: {'steps': 2, 'slot': 4} shapes={'r0+8/1 r0+0/8': 2}
+  LC6 CALL: {'steps': 11, 'L': 126, 'ci': 12, 'cstack-callee': 5449, 'static': 259, 'heap': 548, 'slot': 78, 'tohost': 219, 'luastack-other': 16} shapes={'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r2+0/8 r2+8/1 r0+0/8 r0+8/1': 4, 'r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r1+0/8 r1+8/1 r1+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1': 2, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1}
+  LC6 EQI: {'steps': 2} shapes={}
+  LC6 FORLOOP: {'steps': 100, 'slot': 396} shapes={'r1+0/8 r3+8/1 r0+0/8 r3+0/8': 99}
+  LC6 FORPREP: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 4, 'cframe': 3, 'cstack-callee': 2} shapes={'r2+8/1 r2+0/8 r0+0/8 r0+8/1': 1}
+  LC6 GETTABUP: {'steps': 12, 'cframe': 24, 'slot': 24} shapes={'r0+8/1 r0+0/8': 12}
+  LC6 IDIV: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 IDIVK: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 LEI: {'steps': 1} shapes={}
+  LC6 LFALSESKIP: {'steps': 2, 'slot': 2} shapes={'r0+8/1': 2}
+  LC6 LOADF: {'steps': 1, 'cstack-callee': 3, 'slot': 2} shapes={'r0+8/1 r0+0/8': 1}
+  LC6 LOADI: {'steps': 17, 'slot': 34} shapes={'r0+8/1 r0+0/8': 17}
+  LC6 LOADK: {'steps': 5, 'slot': 10} shapes={'r0+0/8 r0+8/1': 5}
+  LC6 LOADNIL: {'steps': 1, 'slot': 1} shapes={'r0+8/1': 1}
+  LC6 LOADTRUE: {'steps': 3, 'slot': 3} shapes={'r0+8/1': 3}
+  LC6 LTI: {'steps': 2} shapes={}
+  LC6 MOD: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 MODK: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 MOVE: {'steps': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 MUL: {'steps': 101, 'slot': 202} shapes={'r0+0/8 r0+8/1': 101}
+  LC6 MULK: {'steps': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 SUB: {'steps': 1, 'slot': 2} shapes={'r0+8/1 r0+0/8': 1}
+  LC6 UNM: {'steps': 3, 'slot': 6} shapes={'r0+8/1 r0+0/8': 3}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (183499, 10, 'IDIV', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (183624, 12, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (183735, 15, 'IDIVK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (183892, 18, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (198761, 32, 'LOADF', [('cstack-callee', '0x87fffd68', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd50', 8)])
+  LC6-CEX (300110, 89, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+f1_cond: steps=401320 load_checks=55187 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=630 wall_s=14.2 heads=4779 out_bytes=37
+  func values=['0x8006f350', '0x8006f360', '0x8006f390', '0x8006f3a0', '0x8006f3b0'] ci values=['0x800704e0', '0x80072ff0']
+  head opcodes: {'MUL': 674, 'LE': 674, 'EQI': 630, 'MOD': 628, 'JMP': 628, 'ADDI': 531, 'LOADI': 213, 'TEST': 200, 'LOADTRUE': 200, 'FORLOOP': 199, 'LOADFALSE': 155, 'ADD': 10, 'GEI': 10, 'CALL': 7, 'MOVE': 6, 'GETTABUP': 4, 'LTI': 3, 'RETURN1': 3, 'VARARGPREP': 1, 'CLOSURE': 1, 'FORPREP': 1, 'RETURN': 1}
+  LC6 ADD: {'steps': 10, 'slot': 20} shapes={'r0+8/1 r0+0/8': 10}
+  LC6 ADDI: {'steps': 531, 'slot': 1062} shapes={'r0+8/1 r0+0/8': 531}
+  LC6 CALL: {'steps': 7, 'L': 44, 'ci': 8, 'cstack-callee': 2086, 'static': 161, 'heap': 201, 'cframe': 6, 'slot': 22, 'tohost': 37} shapes={'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1, 'r0+0/8 r0+8/1': 1}
+  LC6 CLOSURE: {'steps': 1, 'ci': 1, 'L': 1, 'cframe': 1, 'cstack-callee': 15, 'heap': 10, 'static': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 EQI: {'steps': 630} shapes={}
+  LC6 FORLOOP: {'steps': 199, 'slot': 792} shapes={'r1+0/8 r3+8/1 r0+0/8 r3+0/8': 198}
+  LC6 FORPREP: {'steps': 1, 'ci': 1, 'L': 1, 'slot': 4, 'cframe': 3, 'cstack-callee': 2} shapes={'r2+8/1 r2+0/8 r0+0/8 r0+8/1': 1}
+  LC6 GEI: {'steps': 10} shapes={}
+  LC6 GETTABUP: {'steps': 4, 'cframe': 8, 'slot': 8} shapes={'r0+8/1 r0+0/8': 4}
+  LC6 JMP: {'steps': 628} shapes={}
+  LC6 LE: {'steps': 674} shapes={}
+  LC6 LOADFALSE: {'steps': 155, 'slot': 155} shapes={'r0+8/1': 155}
+  LC6 LOADI: {'steps': 213, 'slot': 426} shapes={'r0+8/1 r0+0/8': 213}
+  LC6 LOADTRUE: {'steps': 200, 'slot': 200} shapes={'r0+8/1': 200}
+  LC6 LTI: {'steps': 3} shapes={}
+  LC6 MOD: {'steps': 628, 'ci': 628, 'L': 628, 'slot': 1256} shapes={'r0+0/8 r0+8/1': 628}
+  LC6 MOVE: {'steps': 6, 'slot': 12} shapes={'r0+0/8 r0+8/1': 6}
+  LC6 MUL: {'steps': 674, 'slot': 1348} shapes={'r0+0/8 r0+8/1': 674}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 RETURN1: {'steps': 3, 'L': 6, 'luastack-other': 6, 'cframe': 6} shapes={}
+  LC6 TEST: {'steps': 200} shapes={}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (182783, 1, 'CLOSURE', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd68', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd40', 8)])
+  LC6-CEX (201007, 39, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (201711, 46, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (202032, 46, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (202492, 46, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (202823, 46, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (203285, 46, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (203614, 46, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (203867, 46, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (204198, 46, 'MOD', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+f1_for: steps=210874 load_checks=33197 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=12 wall_s=10.3 heads=119 out_bytes=33
+  func values=['0x8006f350', '0x8006f360', '0x8006f3c0'] ci values=['0x800704e0', '0x80073610']
+  head opcodes: {'FORLOOP': 26, 'LOADI': 19, 'GETTABUP': 11, 'MULK': 10, 'ADD': 10, 'CALL': 10, 'MOVE': 8, 'ADDI': 8, 'FORPREP': 6, 'SETTABUP': 4, 'LOADK': 2, 'VARARGPREP': 1, 'CLOSURE': 1, 'EQK': 1, 'LOADTRUE': 1, 'RETURN': 1}
+  LC6 ADD: {'steps': 10, 'slot': 20} shapes={'r0+8/1 r0+0/8': 10}
+  LC6 ADDI: {'steps': 8, 'slot': 16} shapes={'r0+8/1 r0+0/8': 8}
+  LC6 CALL: {'steps': 10, 'L': 65, 'ci': 11, 'cstack-callee': 2260, 'heap': 220, 'static': 183, 'slot': 17, 'tohost': 33, 'luastack-other': 8} shapes={'r0+0/8 r0+8/1': 4, 'r1+8/1 r0+0/8 r0+8/1 r1+0/8 r1+8/1': 1, 'r0+0/8 r0+8/1 r0+0/8 r0+8/1': 1}
+  LC6 CLOSURE: {'steps': 1, 'ci': 1, 'L': 1, 'cframe': 1, 'cstack-callee': 15, 'heap': 10, 'static': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6 EQK: {'steps': 1, 'cstack-callee': 1} shapes={}
+  LC6 FORLOOP: {'steps': 26, 'slot': 88} shapes={'r1+0/8 r3+8/1 r0+0/8 r3+0/8': 22}
+  LC6 FORPREP: {'steps': 6, 'ci': 6, 'L': 22, 'slot': 21, 'cframe': 18, 'cstack-callee': 273, 'heap': 37, 'static': 2, 'luastack-other': 12, 'cstack-caller': 32} shapes={'r2+8/1 r2+0/8 r0+0/8 r0+8/1': 4, 'r0+8/1 r0+0/8': 1, 'r0+8/1 r1+0/8 r1+8/1': 1}
+  LC6 GETTABUP: {'steps': 11, 'cframe': 22, 'slot': 22} shapes={'r0+8/1 r0+0/8': 11}
+  LC6 LOADI: {'steps': 19, 'slot': 38} shapes={'r0+8/1 r0+0/8': 19}
+  LC6 LOADK: {'steps': 2, 'slot': 4} shapes={'r0+0/8 r0+8/1': 2}
+  LC6 LOADTRUE: {'steps': 1, 'slot': 1} shapes={'r0+8/1': 1}
+  LC6 MOVE: {'steps': 8, 'slot': 16} shapes={'r0+0/8 r0+8/1': 8}
+  LC6 MULK: {'steps': 10, 'slot': 20} shapes={'r0+0/8 r0+8/1': 10}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 SETTABUP: {'steps': 4, 'cframe': 8, 'heap': 8} shapes={}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (183798, 5, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (188380, 18, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (190476, 28, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (190579, 29, 'SETTABUP', [('heap', '0x80070ae8', 8), ('heap', '0x80070af0', 1)])
+  LC6-CEX (190683, 29, 'SETTABUP', [('heap', '0x80070ae8', 8), ('heap', '0x80070af0', 1)])
+  LC6-CEX (190787, 29, 'SETTABUP', [('heap', '0x80070ae8', 8), ('heap', '0x80070af0', 1)])
+  LC6-CEX (190891, 29, 'SETTABUP', [('heap', '0x80070ae8', 8), ('heap', '0x80070af0', 1)])
+  LC6-CEX (193224, 38, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (195854, 48, 'FORPREP', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd68', 8)])
+  LC6-CEX (204238, 54, 'CLOSURE', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8), ('cstack-callee', '0x87fffd60', 8), ('cstack-callee', '0x87fffd68', 8), ('cstack-callee', '0x87fffd58', 8), ('cstack-callee', '0x87fffd40', 8)])
+f1_while: steps=215723 load_checks=32181 load_mismatch=0 nonbyte_out=0 first_load_mismatch=None base_ne_func=0 lc6_cex_n=100 wall_s=10.1 heads=671 out_bytes=11
+  func values=['0x8006f350', '0x8006f360'] ci values=['0x800704e0']
+  head opcodes: {'ADDI': 123, 'JMP': 122, 'GTI': 101, 'MODK': 100, 'EQI': 100, 'ADD': 69, 'LEI': 16, 'LTI': 11, 'LOADI': 9, 'MUL': 9, 'GETTABUP': 3, 'MOVE': 3, 'CALL': 3, 'VARARGPREP': 1, 'RETURN': 1}
+  LC6 ADD: {'steps': 69, 'slot': 138} shapes={'r0+8/1 r0+0/8': 69}
+  LC6 ADDI: {'steps': 123, 'slot': 246} shapes={'r0+8/1 r0+0/8': 123}
+  LC6 CALL: {'steps': 3, 'L': 19, 'ci': 4, 'cstack-callee': 818, 'heap': 82, 'static': 118, 'slot': 4, 'tohost': 11, 'luastack-other': 2} shapes={'r0+0/8 r0+8/1': 2}
+  LC6 EQI: {'steps': 100} shapes={}
+  LC6 GETTABUP: {'steps': 3, 'cframe': 6, 'slot': 6} shapes={'r0+8/1 r0+0/8': 3}
+  LC6 GTI: {'steps': 101} shapes={}
+  LC6 JMP: {'steps': 122} shapes={}
+  LC6 LEI: {'steps': 16} shapes={}
+  LC6 LOADI: {'steps': 9, 'slot': 18} shapes={'r0+8/1 r0+0/8': 9}
+  LC6 LTI: {'steps': 11} shapes={}
+  LC6 MODK: {'steps': 100, 'ci': 100, 'L': 100, 'slot': 200} shapes={'r0+0/8 r0+8/1': 100}
+  LC6 MOVE: {'steps': 3, 'slot': 6} shapes={'r0+0/8 r0+8/1': 3}
+  LC6 MUL: {'steps': 9, 'slot': 18} shapes={'r0+0/8 r0+8/1': 9}
+  LC6 RETURN: {'steps': 1, 'ci': 2, 'L': 7, 'cstack-callee': 1, 'cstack-caller': 52, 'static': 16, 'heap': 5, 'tohost': 1} shapes={}
+  LC6 VARARGPREP: {'steps': 1, 'ci': 4, 'cstack-callee': 1, 'L': 1, 'slot': 2} shapes={'r0+0/8 r0+8/1': 1}
+  LC6-CEX (185380, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (185588, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (185757, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (185975, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186152, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186378, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186565, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186793, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (186978, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])
+  LC6-CEX (187212, 19, 'MODK', [('ci', '0x80070500', 8), ('L', '0x8006ecf8', 8)])

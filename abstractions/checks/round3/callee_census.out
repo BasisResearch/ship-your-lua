@@ -1,0 +1,177 @@
+== static ==
+a_arms: roots=27 closure=315 closure(cut GC/reentry)=196
+   roots: __adddf3 __divdf3 __divdi3 __eqdf2 __fixdfdi __floatdidf __floatsidf __gedf2 __hidden___udivdi3 __ledf2 __moddi3 __muldf3 __muldi3 __subdf3 floor fmod l_strcmp luaH_getshortstr luaT_callorderTM luaT_callorderiTM luaT_trybinTM luaT_trybinassocTM luaT_trybiniTM luaV_equalobj luaV_finishget luaV_tointeger luaV_tonumber_
+b_errors: roots=6 closure=320 closure(cut GC/reentry)=155
+   roots: exit fprintf longjmp luaD_throw luaG_forerror luaG_runerror
+c_call_return: roots=12 closure=343 closure(cut GC/reentry)=304
+   roots: ccall exit f_call luaD_callnoyield luaD_pcall luaD_poscall luaD_precall luaD_rawrunprotected luaF_close luaG_tracecall lua_pcallk main
+d_stack_growth: roots=5 closure=315 closure(cut GC/reentry)=154
+   roots: luaD_growstack luaD_hookcall luaD_reallocstack luaE_extendCI luaT_adjustvarargs
+total distinct: {'closure': 343, 'closure_cut': 320, 'insts_cut': 32087}
+unresolved indirect sites in the cut closure: 21 __call_exitprocs@0x8003bba0 __call_exitprocs@0x8003bc34 __call_exitprocs@0x8003bc68 _fwalk_sglue@0x800340b0 _svfprintf_r@0x80042f5c _vfiprintf_r@0x8004ccf0 _vfprintf_r@0x800461f0 _wcrtomb_r@0x8004c53c _wcrtomb_r@0x8004c578 _wcsnrtombs_l@0x8004e6d8 exit@0x8002f87c luaD_hook@0x8000a194 luaD_rawrunprotected@0x80009c34 luaD_throw@0x80009abc luaE_warnerror@0x80017024 luaE_warnerror@0x80017040 luaE_warnerror@0x80017060 luaE_warnerror@0x8001707c lua_newstate@0x80016e30 memset@0x8003b62c raise@0x80037560
+per-op direct callees:
+  MOVE        insts=  15 
+  LOADI       insts=  12 
+  LOADK       insts=  14 
+  LOADFALSE   insts=   8 
+  LFALSESKIP  insts=   8 
+  LOADTRUE    insts=   8 
+  LOADNIL     insts=  14 
+  GETTABUP    insts=  48 luaH_getshortstr luaV_finishget
+  ADDI        insts=  33 __adddf3 __floatsidf
+  ADDK        insts=  55 __adddf3 __floatdidf
+  SUBK        insts=  55 __floatdidf __subdf3
+  MULK        insts=  54 __floatdidf __muldf3 __muldi3
+  MODK        insts=  98 __adddf3 __floatdidf __gedf2 __ledf2 __moddi3 fmod luaG_runerror
+  IDIVK       insts=  80 __divdf3 __divdi3 __floatdidf __moddi3 floor luaG_runerror
+  ADD         insts=  52 __adddf3 __floatdidf
+  SUB         insts=  51 __floatdidf __subdf3
+  MUL         insts=  51 __floatdidf __muldf3 __muldi3
+  MOD         insts=  97 __adddf3 __floatdidf __gedf2 __ledf2 __moddi3 fmod luaG_runerror
+  IDIV        insts=  77 __divdf3 __divdi3 __floatdidf __moddi3 floor luaG_runerror
+  MMBIN       insts=  23 luaT_trybinTM
+  MMBINI      insts=  24 luaT_trybiniTM
+  MMBINK      insts=  26 luaT_trybinassocTM
+  UNM         insts=  39 luaT_trybinTM
+  NOT         insts=  20 
+  JMP         insts=   9 
+  EQ          insts=  31 luaV_equalobj
+  LT          insts= 160 __adddf3 __eqdf2 __fixdfdi __floatdidf __gedf2 __ledf2 floor l_strcmp luaT_callorderTM
+  LE          insts= 166 __adddf3 __eqdf2 __fixdfdi __floatdidf __gedf2 __ledf2 floor l_strcmp luaT_callorderTM
+  EQK         insts=  27 luaV_equalobj
+  EQI         insts=  41 __eqdf2 __floatsidf
+  LTI         insts=  53 __floatsidf __ledf2 luaT_callorderiTM
+  LEI         insts=  51 __floatsidf __ledf2 luaT_callorderiTM
+  GTI         insts=  53 __floatsidf __gedf2 luaT_callorderiTM
+  GEI         insts=  52 __floatsidf __gedf2 luaT_callorderiTM
+  TEST        insts=  26 
+  TESTSET     insts=  33 
+  CALL        insts=  42 luaD_precall luaG_tracecall
+  RETURN      insts=  87 luaD_poscall luaF_close luaG_tracecall
+  RETURN0     insts=  72 luaD_poscall luaG_tracecall
+  RETURN1     insts=  84 luaD_poscall luaG_tracecall
+  FORLOOP     insts=  55 __adddf3 __gedf2 __ledf2
+  FORPREP     insts= 203 __eqdf2 __gedf2 __hidden___udivdi3 __ledf2 luaG_forerror luaG_runerror luaV_tointeger luaV_tonumber_
+  VARARGPREP  insts=  22 luaD_hookcall luaT_adjustvarargs
+  BANDK       insts=  54 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  BORK        insts=  54 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  BXORK       insts=  54 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  SHRI        insts=  63 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  SHLI        insts=  60 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  BAND        insts=  81 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  BOR         insts=  81 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  BXOR        insts=  81 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  SHL         insts=  91 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  SHR         insts=  91 __eqdf2 __fixdfdi __gedf2 __ledf2 floor
+  BNOT        insts=  54 __eqdf2 __fixdfdi __gedf2 __ledf2 floor luaT_trybinTM
+== dynamic (functions entered after luaV_execute's entry) ==
+while: 83 functions
+   CALL        66 __ascii_mbtowc __hidden___udivdi3 __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r __umoddi3 _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _sbrk _sbrk_r _svfprintf_r _write _write_r addnum2buff addstr2buff fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaD_poscall luaD_precall luaE_extendCI luaL_callmeta luaL_tolstring luaM_malloc_ luaO_pushvfstring luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_settop lua_tointegerx lua_tolstring lua_type memchr memcpy memmove memset realloc snprintf strchr strlen
+   GETTABUP     1 luaH_getshortstr
+   MODK         2 __hidden___udivdi3 __moddi3
+   MUL          1 __muldi3
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+f1_ops: 91 functions
+   CALL        71 __ascii_mbtowc __hidden___udivdi3 __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r __umoddi3 _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _svfprintf_r _write _write_r addnum2buff addstr2buff fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaC_step luaD_poscall luaD_precall luaE_extendCI luaE_setdebt luaL_callmeta luaL_tolstring luaM_malloc_ luaO_pushvfstring luaS_new luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_pushstring lua_settop lua_toboolean lua_tointegerx lua_tolstring lua_type memchr memcmp memcpy memmove memset realloc snprintf strchr strcmp strlen
+   EQK          1 luaV_equalobj
+   FORPREP      2 __hidden___udivdi3 luaV_tointeger
+   GETTABUP     1 luaH_getshortstr
+   IDIV         3 __divdi3 __hidden___udivdi3 __moddi3
+   IDIVK        3 __divdi3 __hidden___udivdi3 __moddi3
+   MOD          2 __hidden___udivdi3 __moddi3
+   MODK         2 __hidden___udivdi3 __moddi3
+   MUL          1 __muldi3
+   MULK         1 __muldi3
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+f1b_bits: 89 functions
+   CALL        71 __ascii_mbtowc __hidden___udivdi3 __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r __umoddi3 _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _svfprintf_r _write _write_r addnum2buff addstr2buff fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaC_step luaD_poscall luaD_precall luaE_extendCI luaE_setdebt luaL_callmeta luaL_tolstring luaM_malloc_ luaO_pushvfstring luaS_new luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_pushstring lua_settop lua_toboolean lua_tointegerx lua_tolstring lua_type memchr memcmp memcpy memmove memset realloc snprintf strchr strcmp strlen
+   EQ           1 luaV_equalobj
+   FORPREP      2 __hidden___udivdi3 luaV_tointeger
+   GETTABUP     1 luaH_getshortstr
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+print_print: 89 functions
+   CALL        73 __ascii_mbtowc __hidden___udivdi3 __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r __umoddi3 _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _sbrk _sbrk_r _svfprintf_r _write _write_r addnum2buff addstr2buff fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaD_poscall luaD_precall luaE_extendCI luaL_callmeta luaL_tolstring luaM_malloc_ luaO_pushvfstring luaS_new luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_pushstring lua_settop lua_toboolean lua_tointegerx lua_tolstring lua_topointer lua_type lua_typename memchr memcmp memcpy memmove memset realloc snprintf strchr strcmp strlen
+   GETTABUP     1 luaH_getshortstr
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+f1_src: 96 functions
+   CALL        77 __ascii_mbtowc __hidden___udivdi3 __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r __umoddi3 _fflush_r _free_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _svfprintf_r _write _write_r addnum2buff addstr2buff correctstack fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaC_step luaD_growstack luaD_poscall luaD_precall luaD_reallocstack luaE_extendCI luaE_setdebt luaG_traceexec luaL_callmeta luaL_tolstring luaM_malloc_ luaM_realloc_ luaO_pushvfstring luaS_new luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_pushstring lua_settop lua_toboolean lua_tointegerx lua_tolstring lua_type memchr memcmp memcpy memmove memset realloc snprintf strchr strcmp strlen
+   EQK          1 luaV_equalobj
+   FORPREP      2 __hidden___udivdi3 luaV_tointeger
+   GETTABUP     1 luaH_getshortstr
+   IDIVK        2 __divdi3 __hidden___udivdi3
+   MODK         2 __hidden___udivdi3 __moddi3
+   MULK         1 __muldi3
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+f1_while: 83 functions
+   CALL        66 __ascii_mbtowc __hidden___udivdi3 __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r __umoddi3 _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _sbrk _sbrk_r _svfprintf_r _write _write_r addnum2buff addstr2buff fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaD_poscall luaD_precall luaE_extendCI luaL_callmeta luaL_tolstring luaM_malloc_ luaO_pushvfstring luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_settop lua_tointegerx lua_tolstring lua_type memchr memcpy memmove memset realloc snprintf strchr strlen
+   GETTABUP     1 luaH_getshortstr
+   MODK         2 __hidden___udivdi3 __moddi3
+   MUL          1 __muldi3
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+lc3_arith: 86 functions
+   CALL        67 __ascii_mbtowc __hidden___udivdi3 __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r __umoddi3 _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _sbrk _sbrk_r _svfprintf_r _write _write_r addnum2buff addstr2buff fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaD_poscall luaD_precall luaE_extendCI luaL_callmeta luaL_tolstring luaM_malloc_ luaO_pushvfstring luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_settop lua_tointegerx lua_tolstring lua_type memchr memcmp memcpy memmove memset realloc snprintf strchr strlen
+   FORPREP      2 __hidden___udivdi3 luaV_tointeger
+   GETTABUP     1 luaH_getshortstr
+   IDIV         3 __divdi3 __hidden___udivdi3 __moddi3
+   IDIVK        3 __divdi3 __hidden___udivdi3 __moddi3
+   MOD          2 __hidden___udivdi3 __moddi3
+   MODK         2 __hidden___udivdi3 __moddi3
+   MUL          1 __muldi3
+   MULK         1 __muldi3
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+lc3_grow: 89 functions
+   CALL        74 __ascii_mbtowc __hidden___udivdi3 __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r __umoddi3 _fflush_r _free_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _sbrk _sbrk_r _svfprintf_r _write _write_r addnum2buff addstr2buff correctstack fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaC_step luaD_growstack luaD_poscall luaD_precall luaD_reallocstack luaE_extendCI luaE_setdebt luaG_traceexec luaL_callmeta luaL_tolstring luaM_malloc_ luaM_realloc_ luaO_pushvfstring luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_settop lua_tointegerx lua_tolstring lua_type memchr memcpy memmove memset realloc snprintf strchr strlen
+   GETTABUP     1 luaH_getshortstr
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+lc3_strcmp: 71 functions
+   CALL        51 __hidden___udivdi3 __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __swrite __swsetup_r __umoddi3 _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _malloc_r _realloc_r _sbrk _sbrk_r _write _write_r fflush fwrite global_stdio_init.part.0 l_alloc luaB_print luaD_poscall luaD_precall luaE_extendCI luaL_callmeta luaL_tolstring luaM_malloc_ luaS_new lua_absindex lua_getmetatable lua_gettop lua_pushstring lua_settop lua_toboolean lua_tolstring lua_type memchr memmove memset realloc strcmp
+   EQ           1 luaV_equalobj
+   EQK          1 luaV_equalobj
+   GETTABUP     1 luaH_getshortstr
+   LE           4 l_strcmp strcmp strcoll strlen
+   LT           3 l_strcmp strcmp strcoll
+   RETURN       1 luaD_poscall
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+   post        18 __call_exitprocs __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release _close _close_r _exit _fclose_r _free_r _fwalk_sglue exit stdio_exit_handler
+lc3_div0: 100 functions
+   CALL        64 __ascii_mbtowc __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _sbrk _sbrk_r _svfprintf_r _write _write_r addnum2buff addstr2buff fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaD_poscall luaD_precall luaE_extendCI luaL_callmeta luaL_tolstring luaM_malloc_ luaO_pushvfstring luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_settop lua_tointegerx lua_tolstring lua_type memchr memcpy memmove memset realloc snprintf strchr strlen
+   GETTABUP     1 luaH_getshortstr
+   IDIV        68 __ascii_mbtowc __call_exitprocs __locale_mb_cur_max __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release __sfvwrite_r __smakebuf_r __sprint_r __ssprint_r __ssputs_r __swrite __swsetup_r _close _close_r _exit _fclose_r _free_r _fwalk_sglue _localeconv_r _malloc_r _realloc_r _svfprintf_r _vfprintf_r _write _write_r addnum2buff addstr2buff closepaux exit fprintf free internshrstr l_alloc longjmp luaC_newobj luaD_rawrunprotected luaD_seterrorobj luaD_shrinkstack luaD_throw luaE_shrinkCI luaF_close luaF_closeupval luaG_addinfo luaG_errormsg luaG_getfuncline luaG_runerror luaM_free_ luaM_malloc_ luaO_pushfstring luaO_pushvfstring luaS_newlstr lua_tolstring memcpy memmove memset realloc setjmp snprintf stdio_exit_handler strchr strlen
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+lc3_forerr: 70 functions
+   FORPREP     68 __ascii_mbtowc __call_exitprocs __locale_mb_cur_max __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release __sfvwrite_r __sinit __smakebuf_r __sprint_r __ssprint_r __ssputs_r __swrite __swsetup_r _close _close_r _exit _fclose_r _fwalk_sglue _localeconv_r _malloc_r _realloc_r _svfprintf_r _vfprintf_r _write _write_r addnum2buff addstr2buff closepaux exit fprintf global_stdio_init.part.0 internshrstr l_alloc longjmp luaC_newobj luaD_rawrunprotected luaD_seterrorobj luaD_shrinkstack luaD_throw luaE_shrinkCI luaF_close luaF_closeupval luaG_addinfo luaG_errormsg luaG_getfuncline luaG_runerror luaM_malloc_ luaO_pushfstring luaO_pushvfstring luaS_newlstr lua_tolstring memcpy memmove memset realloc setjmp snprintf stdio_exit_handler strchr strlen
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+lc3_opint: 110 functions
+   CALL        64 __ascii_mbtowc __locale_mb_cur_max __malloc_lock __malloc_unlock __muldi3 __retarget_lock_acquire_recursive __retarget_lock_init_recursive __retarget_lock_release_recursive __sflush_r __sfvwrite_r __sinit __smakebuf_r __ssprint_r __ssputs_r __swrite __swsetup_r _fflush_r _fstat _fstat_r _fwrite_r _isatty _isatty_r _localeconv_r _malloc_r _realloc_r _sbrk _sbrk_r _svfprintf_r _write _write_r addnum2buff addstr2buff fflush fwrite global_stdio_init.part.0 internshrstr l_alloc luaB_print luaC_newobj luaD_poscall luaD_precall luaE_extendCI luaL_callmeta luaL_tolstring luaM_malloc_ luaO_pushvfstring luaS_newlstr lua_absindex lua_getmetatable lua_gettop lua_isinteger lua_pushfstring lua_settop lua_tointegerx lua_tolstring lua_type memchr memcpy memmove memset realloc snprintf strchr strlen
+   GETTABUP     1 luaH_getshortstr
+   MMBINI      77 __ascii_mbtowc __call_exitprocs __locale_mb_cur_max __malloc_lock __malloc_unlock __retarget_lock_acquire_recursive __retarget_lock_close_recursive __retarget_lock_release_recursive __sclose __sflush_r __sfp_lock_acquire __sfp_lock_release __sfvwrite_r __smakebuf_r __sprint_r __ssprint_r __ssputs_r __swrite __swsetup_r _close _close_r _exit _fclose_r _free_r _fwalk_sglue _localeconv_r _malloc_r _realloc_r _svfprintf_r _vfprintf_r _write _write_r addnum2buff addstr2buff basicgetobjname closepaux exit fprintf free getobjname l_alloc longjmp luaC_newobj luaD_rawrunprotected luaD_seterrorobj luaD_shrinkstack luaD_throw luaE_shrinkCI luaF_close luaF_closeupval luaF_getlocalname luaG_addinfo luaG_errormsg luaG_getfuncline luaG_opinterror luaG_runerror luaG_typeerror luaM_free_ luaM_malloc_ luaO_pushfstring luaO_pushvfstring luaS_newlstr luaT_gettmbyobj luaT_objtypename luaT_trybinTM luaT_trybiniTM lua_tolstring memcpy memmove memset realloc setjmp snprintf stdio_exit_handler strchr strlen varinfo
+   VARARGPREP   1 luaT_adjustvarargs
+   entry        1 luaV_execute
+union: 132
