@@ -216,9 +216,6 @@ structure LuaStateAt (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
   stack_last : rd64 m (L + stateStackLastOff) = some w.stackLast
   func : rd64 m (ci + ciFuncOff) = some w.func
   stack_le : w.stack ≤ w.func
-  /-- `L->top = func + 1`: no arguments (`luaT_adjustvarargs` counts
-  `L->top - func - 1` actual arguments). -/
-  top : rd64 m (L + stateTopOff) = some (w.func + stackValueSize)
   /-- `ci->top`: `OP_RETURN` raises `L->top` to it; `luaD_precall`'s C call
   sets the new frame's top from `L->top`. -/
   ci_top : rd64 m (ci + ciTopOff) = some w.ciTop
@@ -282,6 +279,15 @@ structure VmRegionsAt (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
   k_hi : w.k + tvalueSize * w.sizek ≤ symHeapEnd
   k_al : w.k % 8 = 0
   k_sep : w.k + tvalueSize * w.sizek ≤ w.stack ∨ w.stackLast ≤ w.k
+  /-- The `lua_State`, the `CallInfo`, the code array and the constant array
+  are distinct `l_alloc` blocks: the words the F1 arms write outside the
+  register slots (`ci->u.l.savedpc`, `L->top`; `Lua.Vm.Sim.Scratch`) miss the
+  code, the constants and the `CallInfo`'s other fields. -/
+  L_sep_ci : L + stateSize ≤ ci ∨ ci + ciSize ≤ L
+  code_sep_L : w.code + 4 * w.sizecode ≤ L ∨ L + stateSize ≤ w.code
+  code_sep_ci : w.code + 4 * w.sizecode ≤ ci ∨ ci + ciSize ≤ w.code
+  k_sep_L : w.k + tvalueSize * w.sizek ≤ L ∨ L + stateSize ≤ w.k
+  k_sep_ci : w.k + tvalueSize * w.sizek ≤ ci ∨ ci + ciSize ≤ w.k
 
 /-- **The platform loop and the console.** Every segment state carries the
 tick bound (`Vsa.Sim.SegSt.tick`): the loop's counter runs below
@@ -293,6 +299,20 @@ structure HarnessAt (c : Config) : Prop where
   tick : c.tick < 2
   console : Vsa.Machine.output c.σ = ""
 
+/-- **The short-string constants are interned.** `lundump`'s `loadStringN`
+creates every short constant with `luaS_newlstr` → `internshrstr`, which
+returns the one `TString` of the string table with those bytes: two short
+constants with equal contents are the same pointer. `luaV_equalobj` compares
+short strings by pointer (`eqshrstr`), so A1's `ValRepr` needs content
+equality to be pointer equality (its intern map `RelPtrs.ι`), established at
+the entry from this. -/
+def KInterned (m : Mem) (k sizek : Nat) : Prop :=
+  ∀ i j x y (s : List UInt8), i < sizek → j < sizek →
+    tagAt m (k + tvalueSize * i) = some vShrStr → tagAt m (k + tvalueSize * j) = some vShrStr →
+    rd64 m (k + tvalueSize * i + tvalueValOff) = some x →
+    rd64 m (k + tvalueSize * j + tvalueValOff) = some y →
+    s.length ≤ maxShortLen → TStringRepr m x s → TStringRepr m y s → x = y
+
 /-- **The runtime at `luaV_execute`'s entry**, for the witness `w`. -/
 structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
   harness : HarnessAt c
@@ -303,7 +323,16 @@ structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
   /-- Read by every allocation (`l_alloc` → `realloc`, see `Lua/Vm/DlHeap.lean`). -/
   heap : DlHeap.HeapAt c.σ.mem w.top w.brkv w.chunks (fun i => w.bins.getD i [])
   lua : LuaStateAt c.σ.mem L ci w
+  /-- `L->top = func + 1`: no arguments. Read at the entry only: `OP_VARARGPREP`
+  (pc 0) → `luaT_adjustvarargs` counts `L->top - func - 1` actual arguments.
+  Not an invariant of the fetch head: `Protect`/`savestate` (`OP_MOD`,
+  `OP_IDIV`, `OP_EQ`, …) set `L->top = ci->top`, `CALL print` with `C = 1`
+  leaves `L->top = ra` (`moveresults`), and no non-IT instruction reads it at
+  its head (`lvm.c` `vmfetch`'s assert); A1's `VmRel` leaves the word free
+  (`Lua.Vm.Sim.Scratch`). -/
+  top : rd64 c.σ.mem (L + stateTopOff) = some (w.func + stackValueSize)
   regions : VmRegionsAt c.σ.mem L ci w
+  interned : KInterned c.σ.mem w.k w.sizek
 
 /-- **`luaRuntimeReady`**: some choice of the program-dependent pointers and
 heap shape makes the runtime ready. -/

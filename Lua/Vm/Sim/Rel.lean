@@ -27,14 +27,18 @@ instruction `s.pc`. It is `∃ w, VmRelAt p c s w` over the pointers `w`
   analysis cannot see as ⊥ (`none`: stale, kill ports), so this is the
   `FrameRepr` of the defined registers: at a reachable state it covers
   `defMask p s.pc` (`Lua/FragmentSound.lean`), and it holds of the entry
-  state (all ⊥) for any stack contents.
+  state (all ⊥) for any stack contents. `ValRepr` is tight enough for
+  `luaV_equalobj`: nil is exactly `LUA_VNIL`, a string's tag follows its
+  length, and a short string's pointer is the intern map's `w.ι s`.
 * **Output** (`Core.out`): the HTIF console so far is `s.out`.
 * **Registers present, mailbox idle** (`Core.ok`, `RegsOk`): every GPR holds a
   value and no `tohost` word is half-written (ship-your-interpreter's `VsaOk`
   register half), established by `MachineAt.regs` and threaded by every
   segment (`gen_segment.py`'s `"ok"` option).
 * **Frame** (`Core.frame`, `Complement`). Outside the window `Win` (the
-  register slots and `luaV_execute`'s own C frame) the memory reads TOTALLY
+  register slots, `luaV_execute`'s own C frame, and the `Scratch` words that
+  arms write with no head invariant: `ci->u.l.savedpc`, `L->top`, the callee
+  frames below `sp`) the memory reads TOTALLY
   (`bytesT1`, the model's `getD 0`) as a fixed complement `w.mo`: presence is
   never demanded, since the densification (`Vsa.Densify`) already gives it.
   The one presence the relation carries is `.text` (`Core.text`), which the
@@ -63,15 +67,51 @@ open Vsa.Machine (MState Config)
 /-- **A register's value from its slot's tag byte `t` and payload `x`.**
 The `TValueRepr` of `Lua/Vm/Repr.lean` in the form the arms read it (`lbu`
 of the tag, `ld` of the payload); a string's bytes live in the complement
-memory `mo`. -/
-inductive ValRepr (mo : Mem) : BitVec 8 → BitVec 64 → Value → Prop where
-  | nil {t x} : t.toNat % 16 = 0 → ValRepr mo t x .nil
-  | false_ {x} : ValRepr mo (BitVec.ofNat 8 vFalse) x (.bool false)
-  | true_ {x} : ValRepr mo (BitVec.ofNat 8 vTrue) x (.bool true)
-  | int {i} : ValRepr mo (BitVec.ofNat 8 vNumInt) i (.int i)
-  | str {t x s} : (t.toNat = vShrStr ∨ t.toNat = vLngStr) → TStringRepr mo x.toNat s →
-      ValRepr mo t x (.str s)
-  | print {x} : x = BitVec.ofNat 64 symLuaBPrint → ValRepr mo (BitVec.ofNat 8 vLcf) x (.builtin .print)
+memory `mo`. Tight enough that `luaV_equalobj` (which compares `ttypetag`,
+`tt & 63`, then the payload) decides `δ .eq`:
+
+* nil is exactly `LUA_VNIL` (0): every instruction that makes a register nil
+  writes `setnilvalue` (`sb zero`; `luaV_finishget` for an absent key), so
+  the empty and absent-key variants never reach a register;
+* a string's tag is `strTag s` (the variant follows the length, as
+  `luaS_newlstr` chooses it), so equal contents have equal tags;
+* a short string's pointer is the intern map's `ι s` (`internshrstr`: one
+  `TString` per short content), so pointer equality (`eqshrstr`) is content
+  equality; distinct contents have distinct pointers because `TStringRepr` is
+  functional (`TStringRepr.inj`). -/
+inductive ValRepr (mo : Mem) (ι : List UInt8 → Nat) : BitVec 8 → BitVec 64 → Value → Prop where
+  | nil {x} : ValRepr mo ι (BitVec.ofNat 8 vNil) x .nil
+  | false_ {x} : ValRepr mo ι (BitVec.ofNat 8 vFalse) x (.bool false)
+  | true_ {x} : ValRepr mo ι (BitVec.ofNat 8 vTrue) x (.bool true)
+  | int {i} : ValRepr mo ι (BitVec.ofNat 8 vNumInt) i (.int i)
+  | str {x s} : TStringRepr mo x.toNat s → (s.length ≤ maxShortLen → x.toNat = ι s) →
+      ValRepr mo ι (BitVec.ofNat 8 (strTag s)) x (.str s)
+  | print {x} : x = BitVec.ofNat 64 symLuaBPrint →
+      ValRepr mo ι (BitVec.ofNat 8 vLcf) x (.builtin .print)
+
+/-- **A `TString` holds one content**: the length (`shrlen`/`lnglen`) and the
+bytes are read off the object, so pointer equality of represented strings is
+content equality. -/
+theorem _root_.Lua.Vm.TStringRepr.inj {m : Mem} {ts : Nat} {s s' : List UInt8}
+    (h : TStringRepr m ts s) (h' : TStringRepr m ts s') : s = s' := by
+  have hb : BytesAt m (ts + tstringContentsOff) s → BytesAt m (ts + tstringContentsOff) s' →
+      s.length = s'.length → s = s' := fun hb hb' hl =>
+    List.ext_getElem hl fun i h1 h2 => by
+      have e := (hb i h1).symm.trans (hb' i h2)
+      simp only [Option.some.injEq] at e
+      have e2 := congrArg BitVec.toNat e
+      simp only [BitVec.toNat_ofNat] at e2
+      rw [Nat.mod_eq_of_lt (UInt8.toNat_lt _), Nat.mod_eq_of_lt (UInt8.toNat_lt _)] at e2
+      exact UInt8.toNat_inj.mp e2
+  cases h with
+  | short ht _ hl hs _ =>
+    cases h' with
+    | short _ _ hl' hs' _ => exact hb hs hs' (by have := hl.symm.trans hl'; simpa using this)
+    | long ht' => have := ht.symm.trans ht'; simp [gcShrStr, gcLngStr] at this
+  | long ht _ hl hs _ =>
+    cases h' with
+    | short ht' => have := ht.symm.trans ht'; simp [gcShrStr, gcLngStr] at this
+    | long _ _ hl' hs' _ => exact hb hs hs' (by have := hl.symm.trans hl'; simpa using this)
 
 /-- `luaV_execute`'s own C frame (`addi sp,sp,-176` in its prologue). -/
 def execFrame : Nat := 176
@@ -92,6 +132,9 @@ structure RelPtrs where
   sp : Nat
   /-- the memory outside the window -/
   mo : Mem
+  /-- the intern map: the one `TString` of each short content
+  (`internshrstr`), which a short-string register points to (`ValRepr.str`) -/
+  ι : List UInt8 → Nat
 
 namespace RelPtrs
 
@@ -107,10 +150,33 @@ end RelPtrs
 def Slots (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
   w.base ≤ a ∧ a < w.base + stackValueSize * p.maxstacksize
 
-/-- **The window**: the register slots and `luaV_execute`'s C frame
-`[sp, sp + 176)`. -/
+/-- **Scratch**: the memory an arm may write outside the register slots and
+the C frame, with no invariant at the fetch head:
+
+* `ci->u.l.savedpc`, which `savepc`/`savestate` (`Protect`, `OP_MOD`,
+  `OP_IDIV`, `OP_EQ`, …: `sd s3,32(s7)`) write back; the head keeps the pc in
+  s11 (`Pins.pc`);
+* `L->top`, which `savestate` sets to `ci->top` (`ld a4,8(s7); sd a4,16(s0)`)
+  and `CALL print` leaves at `ra` (`moveresults`); no non-IT instruction reads
+  it at its head (`lvm.c` `vmfetch`'s assert), and the one IT head of F1,
+  `OP_VARARGPREP` at pc 0, reads the entry value (`RuntimeReadyAt.top`);
+* the callee frames below `sp` (`luaV_equalobj`'s `sd ra,40(sp)`, `luaV_mod` →
+  `__moddi3`, …): `[spEntry - cStackBudget, sp)`, which `cstack_room` puts
+  above the heap `[_end, __heap_end)`, so apart from every object the relation
+  reads.
+
+The complement `mo` stays the entry memory; the machine's bytes here are
+free. -/
+def Scratch (w : RelPtrs) (a : Nat) : Prop :=
+  (w.ci + ciSavedpcOff ≤ a ∧ a < w.ci + ciSavedpcOff + 8) ∨
+  (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨
+  (RuntimeData.spEntry - cStackBudget ≤ a ∧ a < w.sp)
+
+/-- **The window**: the register slots, `luaV_execute`'s C frame
+`[sp, sp + 176)` and the scratch words (`Scratch`). Outside it the memory is
+the complement's (`Core.frame`). -/
 def Win (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
-  Slots p w a ∨ (w.sp ≤ a ∧ a < w.sp + execFrame)
+  Slots p w a ∨ (w.sp ≤ a ∧ a < w.sp + execFrame) ∨ Scratch w a
 
 /-- The parts of `luaRuntimeReady` that live in memory and that the F1 arms
 keep: the Lua state (with `ci->func = func`), the heap and the error
@@ -138,7 +204,7 @@ structure Complement (p : Proto) (w : RelPtrs) : Prop where
   runtime : ∃ rt, RuntimeMem w.mo w.L w.ci w.func rt
   /-- the constants (`kval`), as the `K` arms read `k[i]` -/
   kconst : ∀ i v, kval p i = some v →
-    ValRepr w.mo (slotTag w.mo (w.k + stackValueSize * i)) (slotVal w.mo (w.k + stackValueSize * i)) v
+    ValRepr w.mo w.ι (slotTag w.mo (w.k + stackValueSize * i)) (slotVal w.mo (w.k + stackValueSize * i)) v
 
 /-- **Where things are**: the address ranges the arms' side conditions need,
 and the window's separation from the code array and the `CallInfo`. -/
@@ -151,8 +217,11 @@ structure Ranges (p : Proto) (w : RelPtrs) : Prop where
   code_hi : w.code + 4 * p.code.length ≤ 0x100000000
   ci_lo : tohostAddr + 16 ≤ w.ci
   ci_hi : w.ci + ciSize ≤ 0x100000000
+  L_lo : tohostAddr + 16 ≤ w.L
   code_out : ∀ a, w.code ≤ a → a < w.code + 4 * p.code.length → ¬ Win p w a
-  ci_out : ∀ a, w.ci ≤ a → a < w.ci + ciSize → ¬ Win p w a
+  /-- the `CallInfo` but its `savedpc` word (which is `Scratch`) -/
+  ci_out : ∀ a, w.ci ≤ a → a < w.ci + ciSize →
+    (a < w.ci + ciSavedpcOff ∨ w.ci + ciSavedpcOff + 8 ≤ a) → ¬ Win p w a
   k_lo : tohostAddr + 16 ≤ w.k
   k_hi : w.k + stackValueSize * p.k.length ≤ 0x100000000
   k_al : w.k % 8 = 0
@@ -193,7 +262,7 @@ structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
   /-- `0(sp)` holds `k` (the prologue's `sd`; the `K` arms' `ld a4,0(sp)`) -/
   kptr : bytesT8 c.σ.mem w.sp = BitVec.ofNat 64 w.k
   stack : ∀ j v, j < p.maxstacksize → s.regs j = some v →
-    ValRepr w.mo (slotTag c.σ.mem (w.slot j)) (slotVal c.σ.mem (w.slot j)) v
+    ValRepr w.mo w.ι (slotTag c.σ.mem (w.slot j)) (slotVal c.σ.mem (w.slot j)) v
   comp : Complement p w
   ranges : Ranges p w
 
@@ -238,6 +307,85 @@ never comes back to the fetch head, so it is not a `sim_<OP>`; it is the
 def vmRel_final_Statement : Prop :=
   ∀ p c s, Supported p → VmRel p c s → Final p s → Vsa.Machine.Halts c s.out 0
 
+/-- **The statement of an arm's simulation lemma** (`sim_ADD`'s shape): from
+the fetch head in the relation, at an instruction of opcode `o`, every
+bytecode step is matched by a non-empty machine run back to the fetch head,
+in the relation with the successor. -/
+def SimArm (o : OpCode) : Prop :=
+  ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State}, VmRel p c s →
+    ∀ {ins : Word}, p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
+      ∃ c' n, 0 < n ∧ Vsa.Machine.StepsN n c c' ∧ VmRel p c' s'
+
+/-- **Open (A1, round-3 bake-off target): `OP_MOD`.** The arm at `0x8001dc58`
+is `savestate` then `op_arith(luaV_mod)`:
+
+* `ld a4,8(s7); sd s3,32(s7); sd a4,16(s0)` write `ci->u.l.savedpc` and
+  `L->top := ci->top`: both words are `Scratch`, so `Core.frame` does not
+  constrain them;
+* the tag tests `lbu a3,8(a5)` / `beq a3,s2` (and `lbu a4,8(s10)` at
+  `0x8001e428`) take the integer path exactly when both operands are integers
+  (`ValRepr.int_of_tag`), which is `δ`'s only defined case in F1 (no floats:
+  `ValRepr.ne_float` discharges the `li 19` tests, and a non-number jumps to
+  `0x8001c1e4`, the metamethod path, where `δ` is `none` for F1's values, so
+  there is no `Step`);
+* the integer path at `0x8001f7e0` is `luaV_mod` inlined: `n + 1 ≤ 1`
+  (`bgeu`) splits off `n = 0` (`0x8001fde0` → `luaG_opinterror`, the error
+  that `imod`'s `none` leaves without a `Step`) and `n = -1` (result 0,
+  `0x8001fd34`); otherwise `jal __moddi3` (0x8002f7b0) and the floor
+  correction (`xor`, `bltz` → `0x8001fb74`). `__moddi3` (which
+  returns through `t0` with `__udivdi3`'s remainder) leaves the callee-saved
+  registers the `Pins` hold (s0, s1, s2, s5, s7 … s11) unchanged and writes
+  memory at most below `sp`, which is `Scratch` (`[spEntry - cStackBudget,
+  sp)`, above the heap by `cstack_room`);
+* `sd a5,0(s6); sb 3,8(s6)` store `R[A]` in the window (`Core.write`), and
+  `addi s11,s11,8` skips the following `OP_MMBIN`, which is `kernel`'s `next`.
+
+So the post-state differs from the pre-state only in `R[A]` and in `Scratch`,
+and `VmRel` (whose `Core.frame` exempts `Scratch`) holds of it. -/
+def sim_MOD_Statement : Prop := SimArm .MOD
+
+/-- **Open (A1): `OP_MODK`**, `OP_MOD` with `K[C]` (`Core.kconst`). -/
+def sim_MODK_Statement : Prop := SimArm .MODK
+
+/-- **Open (A1): `OP_IDIV`**, as `OP_MOD` with `luaV_idiv` (`__divdi3`). -/
+def sim_IDIV_Statement : Prop := SimArm .IDIV
+
+/-- **Open (A1): `OP_IDIVK`**, `OP_IDIV` with `K[C]`. -/
+def sim_IDIVK_Statement : Prop := SimArm .IDIVK
+
+/-- **Open (A1, round-3 bake-off target): `OP_EQ`.** The arm at `0x8001c690`
+is `Protect(cond = luaV_equalobj(L, s2v(ra), rb))` then `docondjump`:
+
+* `ld a5,8(s7); sd s3,32(s7); sd a5,16(s0)` (`savestate`) write the two
+  `Scratch` words;
+* `jal luaV_equalobj` (`0x8001b780`) writes only its own frame below `sp`
+  (`sd ra,40(sp)`, …), which is `Scratch`, and restores the callee-saved
+  registers of `Pins`;
+* `luaV_equalobj` returns `δ .eq` on represented values: it compares
+  `ttypetag` (`tt & 63`), and `ValRepr` makes the tag a function of the value
+  (nil exactly `LUA_VNIL`, a string's tag `strTag s`), so different kinds or
+  different string variants are unequal on both sides; then per variant:
+  integers by payload, booleans by tag, `print` by its one pointer, long
+  strings by length and `memcmp` (`luaS_eqlngstr`, over the `TStringRepr`
+  bytes), and short strings by pointer (`eqshrstr`), which is content
+  equality because short-string registers hold `ι s` (`ValRepr.str`) and a
+  pointer holds one content (`TStringRepr.inj`). It never reaches
+  `luaT_callTMres` on F1 values (`__eq` is only tried for tables and full
+  userdata);
+* `lw t6,40(s7)` (`updatetrap`) reads `ci->u.l.trap`, outside `Scratch`
+  (`Ranges.ci_out`); the `bne a5,a0` against the `k` bit either skips the
+  following `OP_JMP` (`addi s11,s11,8`) or takes it (`0x8001e9cc`,
+  `donextjump` from `s3`), `docondjump`'s two exits.
+
+The only memory changes are `Scratch`, so the post-state is in `VmRel` with
+the same pointers and register file. -/
+def sim_EQ_Statement : Prop := SimArm .EQ
+
+/-- **Open (A1): `OP_EQK`**, `luaV_rawequalobj(R[A], K[B])` (no `savestate`:
+only `luaV_equalobj`'s frame below `sp` is written); `K[B]`'s short strings
+share `ι` with the registers (`Complement.kconst`, from `KInterned`). -/
+def sim_EQK_Statement : Prop := SimArm .EQK
+
 /-- **After dispatch**: at the arm of `ins`'s opcode, with s3 = `pc + 1` and
 s4 = the instruction (sign-extended by `lw`). -/
 structure ArmAt (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop where
@@ -254,7 +402,9 @@ variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
 theorem Win.above (hr : Ranges p w) {a : Nat} (h : Win p w a) : tohostAddr + 16 ≤ a := by
   have := hr.sp_eq
   have := hr.base_lo
-  simp only [Win, Slots, execFrame, RuntimeData.spEntry, tohostAddr] at *
+  have := hr.ci_lo
+  have := hr.L_lo
+  simp only [Win, Slots, Scratch, execFrame, RuntimeData.spEntry, cStackBudget, tohostAddr] at *
   omega
 
 theorem Win.of_slots {a : Nat} (h : ¬ Win p w a) : ¬ Slots p w a := fun hs => h (.inl hs)
@@ -288,7 +438,8 @@ theorem insert_frame {m : Mem} {x : Nat} {b : BitVec 8} (hx : Slots p w x) :
 /-- `ci->u.l.trap`, as `updatetrap` reads it. -/
 theorem Core.trap (hc : Core p c s w) : bytesT4 c.σ.mem (w.ci + ciTrapOff) = 0 := by
   refine (bytesT4_congrT fun i hi => ?_).trans hc.comp.trap_word
-  exact hc.frame _ (hc.ranges.ci_out _ (by omega) (by simp only [ciTrapOff, ciSize]; omega))
+  exact hc.frame _ (hc.ranges.ci_out _ (by omega) (by simp only [ciTrapOff, ciSize]; omega)
+    (by simp only [ciTrapOff, ciSavedpcOff]; omega))
 
 theorem kval_lt {p : Proto} {i : Nat} {v : Value} (h : kval p i = some v) : i < p.k.length := by
   simp only [kval, Proto.const, Option.bind_eq_some_iff] at h
@@ -297,7 +448,7 @@ theorem kval_lt {p : Proto} {i : Nat} {v : Value} (h : kval p i = some v) : i < 
 
 /-- The constant `k[i]`, as a `K` arm reads it (`ld a4,0(sp)`, then the slot). -/
 theorem Core.kconst (hc : Core p c s w) {i : Nat} {v : Value} (hk : kval p i = some v) :
-    ValRepr w.mo (slotTag c.σ.mem (w.k + stackValueSize * i))
+    ValRepr w.mo w.ι (slotTag c.σ.mem (w.k + stackValueSize * i))
       (slotVal c.σ.mem (w.k + stackValueSize * i)) v := by
   have hi := kval_lt hk
   obtain ⟨ht, hv⟩ := slot_congrT (m := c.σ.mem) (m' := w.mo) (a := w.k + stackValueSize * i)
@@ -334,7 +485,7 @@ theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List
     {m : Mem} (hseg : SegSt pcv L (ArmPay m c.σ.sailOutput) c') {pc' a : Nat} {v : Value}
     {tag : BitVec 8} {val : BitVec 64} (ha : a < p.maxstacksize) (hpins : Pins c'.σ w pc')
     (hst : SlotStore c.σ.mem c'.σ.mem (w.slot a) tag val)
-    (hv : ValRepr w.mo tag val v) :
+    (hv : ValRepr w.mo w.ι tag val v) :
     Core p c' ⟨pc', fun j => if j = a then some v else s.regs j, s.out⟩ w := by
   have hwin : ∀ x, ¬ (x < w.slot a ∨ w.slot a + 9 ≤ x) → Slots p w x := fun x hx => by
     simp only [RelPtrs.slot, Slots, stackValueSize] at hx ⊢

@@ -346,6 +346,22 @@ def evaluate(lay, M, regs, proto):
     need(lo <= w["k"] and k_end <= hi, "the constant array in the heap")
     need(w["k"] % 8 == 0, "k_al")
     need(k_end <= w["stack"] or w["stackLast"] <= w["k"], "the constant array apart from the Lua stack")
+    L_end, ci_end = L + lay["stateSize"], ci + lay["ciSize"]
+    need(L_end <= ci or ci_end <= L, "L_sep_ci")
+    need(code_end <= L or L_end <= w["code"], "code_sep_L")
+    need(code_end <= ci or ci_end <= w["code"], "code_sep_ci")
+    need(k_end <= L or L_end <= w["k"], "k_sep_L")
+    need(k_end <= ci or ci_end <= w["k"], "k_sep_ci")
+    # ---- KInterned: short constants with equal bytes are one TString
+    interned = {}
+    for i in range(w["sizek"]):
+        a = w["k"] + lay["tvalueSize"] * i
+        if rd(a + lay["tvalueTagOff"], 1) != lay["vShrStr"]:
+            continue
+        ts = rd(a + lay["tvalueValOff"], 8)
+        n = rd(ts + lay["tstringShrlenOff"], 1)
+        s = bytes(rd(ts + lay["tstringContentsOff"] + j, 1) for j in range(n))
+        need(interned.setdefault(s, ts) == ts, "KInterned")
     return e, w, slot, inv
 
 
@@ -419,7 +435,8 @@ def check_proto(lay, M, pa, proto):
         elif kind == "float":
             need(tag == lay["vNumFlt"] and rd(a + lay["tvalueValOff"], 8) == val, "k float")
         else:
-            need(tag in (lay["vShrStr"], lay["vLngStr"]), "k str tag")
+            need(tag == (lay["vShrStr"] if len(val) <= lay["maxShortLen"] else lay["vLngStr"]),
+                 "k str tag (strTag: the variant follows the length)")
             check_tstring(lay, M, rd(a + lay["tvalueValOff"], 8), val)
     need(rd(pa + lay["protoSizeupvaluesOff"], 4) == len(ups), "sizeupvalues")
     ua = rd(pa + lay["protoUpvaluesOff"], 8)

@@ -59,9 +59,15 @@ inductive TStringRepr (m : Mem) : Nat → List UInt8 → Prop where
       BytesAt m (ts + tstringContentsOff) s → m[ts + tstringContentsOff + s.length]? = some 0 →
       TStringRepr m ts s
 
+/-- The `TValue` tag of a string with bytes `s`: the variant is determined by
+the length (`luaS_newlstr`: short iff `l ≤ LUAI_MAXSHORTLEN`), so equal
+contents never sit under different variants. -/
+def strTag (s : List UInt8) : Nat := if s.length ≤ maxShortLen then vShrStr else vLngStr
+
 /-- The `TValue` at `a` represents the F1 value `v`. Nil is any variant of
 type 0 (`ttisnil` tests `novariant(tt) == 0`: `LUA_VNIL`, `LUA_VEMPTY`,
-`LUA_VABSTKEY`). `print` is a light C function (`LUA_VLCF`) whose pointer is
+`LUA_VABSTKEY`); a register's nil is exactly `LUA_VNIL` (`Lua.Vm.Sim.ValRepr`).
+A string's tag is `strTag` of its bytes. `print` is a light C function (`LUA_VLCF`) whose pointer is
 `luaB_print`. -/
 inductive TValueRepr (m : Mem) : Nat → Value → Prop where
   | nil {a t} : tagAt m a = some t → t % 16 = 0 → TValueRepr m a .nil
@@ -69,7 +75,7 @@ inductive TValueRepr (m : Mem) : Nat → Value → Prop where
   | true_ {a} : tagAt m a = some vTrue → TValueRepr m a (.bool true)
   | int {a} {i : BitVec 64} : tagAt m a = some vNumInt → rd64 m (a + tvalueValOff) = some i.toNat →
       TValueRepr m a (.int i)
-  | str {a ts s t} : tagAt m a = some t → (t = vShrStr ∨ t = vLngStr) →
+  | str {a ts s} : tagAt m a = some (strTag s) →
       rd64 m (a + tvalueValOff) = some ts → TStringRepr m ts s → TValueRepr m a (.str s)
   | print {a} : tagAt m a = some vLcf → rd64 m (a + tvalueValOff) = some symLuaBPrint →
       TValueRepr m a (.builtin .print)

@@ -31,27 +31,29 @@ open Vsa.Machine (MState Config)
 /-! ## Tags -/
 
 section
-variable {mo : Mem} {t : BitVec 8} {x : BitVec 64} {v : Value}
+variable {mo : Mem} {ι : List UInt8 → Nat} {t : BitVec 8} {x : BitVec 64} {v : Value}
 
-theorem ValRepr.ne_float (h : ValRepr mo t x v) : t ≠ BitVec.ofNat 8 19 := by
+/-- A string's tag is one of the two string variants (whatever its length). -/
+theorem strTag_cases (s : List UInt8) : strTag s = vShrStr ∨ strTag s = vLngStr := by
+  unfold strTag; split <;> simp
+
+theorem ValRepr.ne_float (h : ValRepr mo ι t x v) : t ≠ BitVec.ofNat 8 19 := by
   cases h with
-  | nil h => intro he; subst he; simp at h
-  | str h _ => intro he; subst he; simp [vShrStr, vLngStr] at h
+  | str => rcases strTag_cases _ with e | e <;> rw [e] <;> decide
   | _ => decide
 
-theorem ValRepr.int_of_tag (h : ValRepr mo t x v) (ht : t = BitVec.ofNat 8 vNumInt) :
+theorem ValRepr.int_of_tag (h : ValRepr mo ι t x v) (ht : t = BitVec.ofNat 8 vNumInt) :
     v = .int x := by
   cases h with
-  | nil h => subst ht; simp [vNumInt] at h
-  | str h _ => subst ht; simp [vShrStr, vLngStr, vNumInt] at h
+  | str => rcases strTag_cases _ with e | e <;> rw [e] at ht <;> exact absurd ht (by decide)
   | int => rfl
   | _ => exact absurd ht (by decide)
 
-theorem ValRepr.tag_of_int {i : BitVec 64} (h : ValRepr mo t x (.int i)) :
+theorem ValRepr.tag_of_int {i : BitVec 64} (h : ValRepr mo ι t x (.int i)) :
     t = BitVec.ofNat 8 vNumInt ∧ x = i := by
   cases h; exact ⟨rfl, rfl⟩
 
-theorem ValRepr.not_int (h : ValRepr mo t x v) (ht : t ≠ BitVec.ofNat 8 vNumInt) :
+theorem ValRepr.not_int (h : ValRepr mo ι t x v) (ht : t ≠ BitVec.ofNat 8 vNumInt) :
     ∀ i, v ≠ .int i := by
   rintro i rfl; exact ht h.tag_of_int.1
 
@@ -91,14 +93,14 @@ theorem guard_tag_bne_f (ha : a = n + 8) (h : slotTag m n = BitVec.ofNat 8 t) (h
   simp only [bne, guard_tag_eq ha h ht, Bool.not_true]
 
 /-- The float test (`li 19; bne`), never taken on an F1 value. -/
-theorem guard_not_float {mo : Mem} {x : BitVec 64} {v : Value} (ha : a = n + 8)
-    (h : ValRepr mo (slotTag m n) x v) :
+theorem guard_not_float {mo : Mem} {ι : List UInt8 → Nat} {x : BitVec 64} {v : Value} (ha : a = n + 8)
+    (h : ValRepr mo ι (slotTag m n) x v) :
     (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) != ((0#64) + sign_extend (m := 64) (0x013#12))) = true := by
   rw [const_19]; exact guard_tag_bne_t ha h.ne_float (by decide)
 
 /-- The float test laid out as `li 19; beq` (not taken on an F1 value). -/
-theorem guard_not_float_f {mo : Mem} {x : BitVec 64} {v : Value} (ha : a = n + 8)
-    (h : ValRepr mo (slotTag m n) x v) :
+theorem guard_not_float_f {mo : Mem} {ι : List UInt8 → Nat} {x : BitVec 64} {v : Value} (ha : a = n + 8)
+    (h : ValRepr mo ι (slotTag m n) x v) :
     (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) == ((0#64) + sign_extend (m := 64) (0x013#12))) = false := by
   rw [const_19]; exact guard_tag_ne ha h.ne_float (by decide)
 
@@ -173,7 +175,8 @@ the complement outside the window. -/
 theorem trap_of_frame {p : Proto} {w : RelPtrs} {m : Mem} (hr : Ranges p w) (hc : Complement p w)
     (hf : ∀ a, ¬ Win p w a → bytesT1 m a = bytesT1 w.mo a) : bytesT4 m (w.ci + ciTrapOff) = 0 := by
   refine (bytesT4_congrT fun i hi => ?_).trans hc.trap_word
-  exact hf _ (hr.ci_out _ (by omega) (by simp only [ciTrapOff, ciSize]; omega))
+  exact hf _ (hr.ci_out _ (by omega) (by simp only [ciTrapOff, ciSize]; omega)
+    (by simp only [ciTrapOff, ciSavedpcOff]; omega))
 
 /-- `sext.w` of the loaded `trap` (`lw t6,40(s7)`; `sext.w s5,t6`). -/
 theorem trap_zero :
@@ -208,7 +211,7 @@ theorem Core.update (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Lis
     {regs' : Nat → Option Value} (hpins : Pins c'.σ w pc')
     (hframe : ∀ x, ¬ Slots p w x → c'.σ.mem[x]? = c.σ.mem[x]?)
     (hstack : ∀ j v, j < p.maxstacksize → regs' j = some v →
-      ValRepr w.mo (slotTag c'.σ.mem (w.slot j)) (slotVal c'.σ.mem (w.slot j)) v) :
+      ValRepr w.mo w.ι (slotTag c'.σ.mem (w.slot j)) (slotVal c'.σ.mem (w.slot j)) v) :
     Core p c' ⟨pc', regs', s.out⟩ w :=
   ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
     hseg.armOk, hc.text_of hframe, hc.frame_of hframe, hc.kptr_of hframe, hstack, hc.comp,
@@ -250,8 +253,8 @@ theorem slotStore_copy {m m' : Mem} {A S a1 a2 s1 s2 : Nat}
     store_sd_sb m A (bytesT8 m S) (bytesT1 m (S + 8))
 
 /-- A boolean's tag, from a ground stored byte. -/
-theorem ValRepr.bool_of {mo : Mem} {t : BitVec 8} {x : BitVec 64} (b : Bool)
-    (h : t = BitVec.ofNat 8 (if b then vTrue else vFalse)) : ValRepr mo t x (.bool b) := by
+theorem ValRepr.bool_of {mo : Mem} {ι : List UInt8 → Nat} {t : BitVec 8} {x : BitVec 64} (b : Bool)
+    (h : t = BitVec.ofNat 8 (if b then vTrue else vFalse)) : ValRepr mo ι t x (.bool b) := by
   cases b <;> (subst h; first | exact .true_ | exact .false_)
 
 theorem getElem?_insert_out {m : Mem} {a x : Nat} {b : BitVec 8} (h : x ≠ a) :
@@ -474,22 +477,21 @@ theorem slotStore_copy_tv {m m' : Mem} {A S a1 a2 s1 s2 : Nat}
 /-! ## Truthiness (`l_isfalse`: the tag is `LUA_VFALSE`, or its low nibble is 0) -/
 
 section
-variable {mo : Mem} {t : BitVec 8} {x : BitVec 64} {v : Value}
+variable {mo : Mem} {ι : List UInt8 → Nat} {t : BitVec 8} {x : BitVec 64} {v : Value}
 
-theorem ValRepr.false_of_tag (h : ValRepr mo t x v) (ht : t = BitVec.ofNat 8 vFalse) :
+theorem ValRepr.false_of_tag (h : ValRepr mo ι t x v) (ht : t = BitVec.ofNat 8 vFalse) :
     v = .bool false := by
   cases h with
-  | nil h => subst ht; simp [vFalse] at h
-  | str h _ => subst ht; simp [vShrStr, vLngStr, vFalse] at h
+  | str => rcases strTag_cases _ with e | e <;> rw [e] at ht <;> exact absurd ht (by decide)
   | false_ => rfl
   | _ => exact absurd ht (by decide)
 
-theorem ValRepr.isFalse_of_ne (h : ValRepr mo t x v) (ht : t ≠ BitVec.ofNat 8 vFalse) :
+theorem ValRepr.isFalse_of_ne (h : ValRepr mo ι t x v) (ht : t ≠ BitVec.ofNat 8 vFalse) :
     v.isFalse = decide (t.toNat % 16 = 0) := by
   cases h with
-  | nil h => simp [Value.isFalse, h]
+  | nil => decide
   | false_ => exact absurd rfl ht
-  | str h _ => rcases h with h | h <;> simp [Value.isFalse, h, vShrStr, vLngStr]
+  | str => rcases strTag_cases _ with e | e <;> rw [e] <;> rfl
   | true_ => decide
   | int => simp [Value.isFalse, vNumInt]
   | print => decide

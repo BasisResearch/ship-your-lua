@@ -28,6 +28,7 @@ Every row is currently unassigned.
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **proved**: the relation `VmRel`, `dispatch`, and 25 arms `sim_<OP>` (MOVE, LOADI, JMP, ADD, SUB, ADDI, ADDK, SUBK, BAND, BOR, BXOR, EQI, LTI, GTI, LEI, GEI, TEST, TESTSET, NOT, BNOT, LOADK, LOADTRUE, LOADFALSE, LFALSESKIP, FORLOOP) (A1 status) |
 | `vmRel_final_Statement` (the `RETURN*` arms: from `VmRel` at a `Final` state the machine halts with `s.out`) | `Lua/Vm/Sim/Rel.lean` | A1 | open: the `Final` clause of the fold, not a `sim_<OP>` (the return chain's callee contracts) |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
+| `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | open; plausibly true since `VmRel` exempts `Scratch` and `ValRepr` is tight for `luaV_equalobj` (`abstractions/bakeoff3/BASE.md`) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
 | `CompileTV (fun s p => compile s = some p)` for a Lean `compile` | new `Lua/Compile/` | B2 | open |
@@ -177,7 +178,7 @@ instances, however, are at the WHILE ELF's addresses.
      * `DlHeap.HeapAt` (`Lua/Vm/DlHeap.lean`): ship-your-interpreter's heap
        shape without the WHILE ledger fields;
      * `LuaStateAt`: `hookmask`, `trap`, `errfunc`, `nCcalls`, `openupval`,
-       `tbclist`, the stack bounds, `L->top = func + 1`, `ci->top`,
+       `tbclist`, the stack bounds, `ci->top`,
        `CIST_FRESH`, `nresults = 0`, `ci->previous`/`ci->next`, the `mt` of
        nil/booleans/numbers, the string table (`StrtAt`, chains by
        `StrChain`) and the string cache;
@@ -185,7 +186,14 @@ instances, however, are at the WHILE ELF's addresses.
        and code array lie in the heap `[_end, __heap_end)`, and `ci` and the
        code array lie apart from the Lua stack (read by `vmRel_entry`: the
        prologue's loads and `VmRel`'s `Ranges`). `RtPtrs` names the closure,
-       the `Proto`, `code` and `sizecode`.
+       the `Proto`, `code` and `sizecode`. `L`, `ci`, the code array and the
+       constant array are pairwise apart (`L_sep_ci`, `code_sep_*`,
+       `k_sep_*`: the scratch words miss them);
+     * `RuntimeReadyAt.top`: `L->top = func + 1`, an entry-only fact
+       (`OP_VARARGPREP` → `luaT_adjustvarargs`), not a fetch-head invariant;
+     * `RuntimeReadyAt.interned` (`KInterned`): the short-string constants
+       are interned (`loadStringN` → `luaS_newlstr`), so `vmRel_entry` builds
+       `VmRel`'s intern map `ι`.
    * `luaLayout : VmLayout := ⟨luaRuntimeReady⟩`. The boot-invariant values it
      pins (entry `sp`/`ra`, the `jmp_buf`, the caller frames, the return
      chain, `nCcalls`) are `Lua/Vm/RuntimeData.lean`. The offsets are
@@ -332,10 +340,13 @@ covers the new stages.
       memory `savedpc` is only written by `savepc`), `sp` and `gp`;
     * `Core.stack`: every defined register `j < maxstacksize` is represented
       (`ValRepr`) by its slot's tag and payload. The kernel's ⊥ already
-      encodes the definite-initialisation mask;
+      encodes the definite-initialisation mask. Nil is exactly `LUA_VNIL`, a
+      string's tag is `strTag s`, and a short string's pointer is the intern
+      map's `w.ι s` (`luaV_equalobj` decides `δ .eq`);
     * `Core.out`: the HTIF console is `s.out`;
-    * `Core.frame`: outside the window (register slots and `luaV_execute`'s C
-      frame) memory is a complement `w.mo`. `Complement` holds the image,
+    * `Core.frame`: outside the window (register slots, `luaV_execute`'s C
+      frame, and `Scratch`: `ci->u.l.savedpc`, `L->top`, the callee frames
+      `[spEntry - cStackBudget, sp)`) memory is a complement `w.mo`. `Complement` holds the image,
       `ProtoRepr`, the code words, `ci->func`, `ci->u.l.trap = 0`,
       `LuaStateAt`, `HeapAt` and `ErrorJmpAt`. `Ranges` holds the address
       bounds and separations.
