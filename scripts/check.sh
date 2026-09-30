@@ -7,13 +7,14 @@
 #     (opcodes <- lopcodes.h, layout <- the cross compiler + ELF symbols,
 #     image <- the ELF, programs <- the committed .luac chunks, code pins
 #     <- the ELF + Lua/Vm/Image.lean, decodeW coverage check <- the ELF +
-#     its committed AST dump);
+#     its committed AST dump, boot traces <- the ELF + the emulator);
 # (2) the committed ELF's sha256 matches c/lua-riscv-htif.elf.sha256, and it
 #     contains no `ecall`;
 # (3) forbidden tokens outside comments in Lua/, Vsa/, VsaIris/, tcb/: sorry,
 #     axiom declarations, native_decide, bv_decide, ofReduceBool,
 #     trustCompiler, and raised maxHeartbeats/maxRecDepth in Lua/;
 # (3b) proof discipline (scripts/check_discipline.py, scripts/discipline_rules.tsv);
+# (3c) the abstraction gate (abstractions/gate.py, abstractions/clusters.tsv);
 # (4) the copied machine layer imports nothing WHILE-specific
 #     (experiments/port/port_census.py --copyset; needs a syi checkout,
 #     skipped if absent);
@@ -35,6 +36,10 @@ python3 scripts/gen_lua_decode_check.py --check || fail "decode check drift"
 python3 scripts/gen_lua_arms.py --check || fail "F1 arm segments drift"
 python3 scripts/syi/gen_alloc_steps.py --check || fail "allocator step table drift"
 python3 scripts/draft_f1_arms.py | tail -1 | grep -q "; 0 steps need" || fail "F1 arm steps without a site class"
+# boot traces to luaV_execute (re-traced on the emulator, ~25 s): the runtime
+# constants, the loaded data bytes and the per-program entry data; also
+# evaluates every VmEntryData/luaRuntimeReady field at the traced entries
+python3 scripts/gen_lua_boot_witness.py --check || fail "boot witness drift"
 while read -r chunk name out; do
   python3 scripts/gen_proto.py "$chunk" --name "$name" -o "$out" --check || fail "$out drift"
 done <<'LIST'
@@ -43,6 +48,7 @@ c/tests/print_print.luac printPrintProto Lua/Programs/PrintPrint.lean
 c/tests/f1_ops.luac f1OpsProto Lua/Programs/F1Ops.lean
 c/tests/f1b_bits.luac f1bProto Lua/Programs/F1bBits.lean
 c/tests/f1_src.luac f1SrcProto Lua/Programs/F1Src.lean
+c/tests/f4_strlite.luac f4StrliteProto Lua/Programs/F4Strlite.lean
 LIST
 # source ASTs (Layer B translation validation) <- the .lua files, parsed by
 # gen_ast.py (all of Lua 5.4); the committed .luac chunks <- the host luac on
@@ -57,8 +63,9 @@ c/tests/f1_ops.lua f1OpsAst Lua/Programs/F1OpsAst.lean
 c/tests/f1_src.lua f1SrcAst Lua/Programs/F1SrcAst.lean
 c/tests/while.lua whileAst Lua/Programs/WhileAst.lean
 c/tests/f1b_bits.lua f1bAst Lua/Programs/F1bBitsAst.lean
+c/tests/f4_strlite.lua f4StrliteAst Lua/Programs/F4StrliteAst.lean
 LIST
-for f in f1_ops f1_src while f1b_bits; do
+for f in f1_ops f1_src while f1b_bits f4_strlite; do
   ./c/luac -s -o - "c/tests/$f.lua" | cmp -s - "c/tests/$f.luac" || fail "c/tests/$f.luac is not luac -s of $f.lua"
 done
 
@@ -96,6 +103,11 @@ echo "ok"
 
 echo "== (3b) proof discipline"
 python3 scripts/check_discipline.py || fail "discipline"
+
+echo "== (3c) abstraction gate"
+# a cluster of 8+ hand proofs whose per-case cost is not falling by a
+# third fails here with "run /abstraction-discovery" (abstractions/gate.py)
+python3 abstractions/gate.py || fail "abstraction gate (run /abstraction-discovery; see abstractions/)"
 
 echo "== (4) copied layer is WHILE-free"
 if [ -d "${SYI:-$HOME/Documents/code/syi}" ]; then
@@ -152,6 +164,8 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Code.textLoaded_LuaB_printLoaded
 #print axioms Lua.Programs.f1b_bcSem
 #print axioms Lua.Programs.f1b_supported
+#print axioms Lua.Programs.f4Strlite_bcSem
+#print axioms Lua.Programs.f4Strlite_supported
 #print axioms Lua.Bytecode.step?_complete
 #print axioms Lua.Bytecode.Step.deterministic
 #print axioms Lua.Bytecode.BcSem.deterministic
@@ -160,8 +174,10 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Bytecode.bcSemFrom_iff
 #print axioms Lua.Bytecode.cbcSem_iff
 #print axioms Lua.Bytecode.reachable_defInit
-#print axioms Lua.Bytecode.condJump_ne_none
-#print axioms Lua.Bytecode.condJump_lt
+#print axioms Lua.Bytecode.kstep_iff
+#print axioms Lua.Bytecode.footprint
+#print axioms Lua.Bytecode.certain_answers
+#print axioms Lua.Bytecode.DefInit.cert
 #print axioms Lua.Ast.luaRun_sound
 #print axioms Lua.Ast.LuaSem.deterministic
 #print axioms Lua.Bytecode.Final.not_step
@@ -170,7 +186,11 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Compile.f1Src_tv
 #print axioms Lua.Compile.while_tv
 #print axioms Lua.Compile.f1b_tv
-#print axioms Lua.Ast.execSound
+#print axioms Lua.Rulebook.sem_iff_solve
+#print axioms Lua.Rulebook.Sem.det
+#print axioms Lua.Ast.luaSem_iff_run
+#print axioms Lua.Programs.f4Strlite_astSupported
+#print axioms Lua.Programs.f4Strlite_luaSem
 #print axioms Lua.Compile.corpus_compileTV
 #print axioms Lua.Compile.compile_refinement_corpus
 #print axioms TCB.Os.allowed_sound
@@ -183,6 +203,13 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Os.HtifTraces.accepts_write_unknown_fd_ebadf
 #print axioms Lua.Os.HtifTraces.accepts_clock_frozen
 #print axioms Lua.Vm.tohostAddr_eq_symTohost
+#print axioms Lua.Vm.retCcall_after_call
+#print axioms Lua.Vm.setjmpRet_after_call
+#print axioms Lua.Vm.cstack_room
+#print axioms Lua.Vm.PartialView.rdLE
+#print axioms Lua.Vm.Boot.writeLog_view
+#print axioms Lua.Vm.Boot.bootMem_get
+#print axioms Lua.Vm.Boot.heapAt_of_check
 #print axioms Vsa.Sim.segToTripleFramed
 #print axioms Vsa.Sim.segRowFramed
 #print axioms Vsa.Sim.bridgeOfSeg
@@ -212,7 +239,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 76 ] || fail "expected 76 axiom reports, got $n"
+[ "$n" = 91 ] || fail "expected 91 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

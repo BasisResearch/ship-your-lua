@@ -4,6 +4,7 @@ import Lua.Programs.While
 import Lua.Programs.PrintPrint
 import Lua.Programs.F1Ops
 import Lua.Programs.F1bBits
+import Lua.Programs.F4Strlite
 
 /-!
 # Validating `BcSem` against the binary's I/O
@@ -44,6 +45,14 @@ theorem f1Ops_bcSem : BcSem binaryHost f1OpsProto
 output on the Sail model (`c/tests/f1b_bits.expected`). -/
 theorem f1b_bcSem : BcSem binaryHost f1bProto
     "2640\t24570\t21930\t-23131\t-1\n90\t23386\t42405\t9223372036854775807\n9223372036854775807\t1\t-9223372036854775808\t1445\t370080\n0\t0\t0\t2891\t185040\t0\t0\n96\t0\t0\t224\t0\t2\t9223372036854775804\n72624976668147841\t129\t72624976668147712\n833130\ttrue\ttrue\n" :=
+  bcSem_of_run (n := 4000) (by decide +kernel)
+
+/-- `c/tests/f4_strlite.lua` (abstractions/pilot/SUITE.md, held-out H1–H5):
+string literals, `..` with integer coercion, `#`, string order, and
+arithmetic on integer-valued strings. The expected string is the ELF's
+output on the Sail model (`c/tests/f4_strlite.expected`). -/
+theorem f4Strlite_bcSem : BcSem binaryHost f4StrliteProto
+    "lua\t5.4\nlua 5.4\tlua7\t77\n3\t6\t0\nfalse\ttrue\ttrue\ttrue\ttrue\ttrue\n11\t-2\t42\t3\t1\n12345\t5\t12345\ntrue\ttrue\n" :=
   bcSem_of_run (n := 4000) (by decide +kernel)
 
 end Lua.Programs

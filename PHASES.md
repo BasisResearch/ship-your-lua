@@ -23,8 +23,8 @@ Every row is currently unassigned.
 
 | statement / obligation | file | discharged in | status |
 |---|---|---|---|
-| `VmLayout.runtimeReady` concrete instance `luaLayout` | `Lua/Vm/Loaded.lean` | A0 | to define |
-| `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | new `Lua/Vm/Boot/` | A0 | open |
+| `VmLayout.runtimeReady` concrete instance `luaLayout` | `Lua/Vm/Runtime.lean` | A0 | **defined** (`luaRuntimeReady`); every field holds at both traced entries (checked natively by `gen_lua_boot_witness.py`) |
+| `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | `Lua/Vm/Boot/` | A0 | open: the generator, the entry data and the reconstruction lemmas are landed; the kernel witness is not written (A0.6) |
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | new `Lua/Vm/Sim/` | A1 | open |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
@@ -157,16 +157,82 @@ instances, however, are at the WHILE ELF's addresses.
    * They are identical code at new addresses: `__udivdi3` (`FORPREP`),
      `__moddi3`/`__divdi3` (`MOD`/`IDIV`), the stdio chain behind `print`,
      `setjmp`/`longjmp`.
-6. **`luaLayout`.**
-   * Define `VmLayout.runtimeReady` concretely, the analogue of
-     `InterpRunReadyFacts`: the C stack below `sp`, the return address into
-     `ccall`, `L->errorJmp` (the `lua_longjmp` chain), newlib's stdout
-     `FILE`, and the dlmalloc heap `[_end, __heap_end)` in canonical shape.
-   * Also every byte the run may touch must be present, checked on the dense
-     view (`fillZero`).
-   * Retarget `scripts/syi/gen_boot_witness.py` to stop at `luaV_execute`
-     (step 181,166 for `while.lua`). It should emit the kernel witness
-     `VmLoaded luaLayout whileProto (fillZero c)` at the traced entry state.
+6. **`luaLayout` (defined; kernel witness open).**
+   * **`luaRuntimeReady`** (`Lua/Vm/Runtime.lean`) is `∃ w : RtPtrs,
+     RuntimeReadyAt c.σ L ci w`, six named structures. Each field's doc
+     comment names the callee that reads it:
+     * `CStackAt`: `sp`, `ra` (into `ccall`, `retCcall_after_call`), `gp`, the
+       saved registers `s0 … s11`, the caller frames' bytes above `sp`, and
+       every RAM byte present (true of the zero fill);
+     * `ErrorJmpAt`: `L->errorJmp`, `previous = NULL`, and the `jmp_buf`'s
+       `ra`/`sp`/`s*` slots (`setjmpRet_after_call`);
+     * `StdioBoot`: newlib before its lazy `__sinit` (`__stdio_exit_handler =
+       NULL`, the `_reent` stream pointers, `__sglue`, the three `FILE`s zero);
+     * `MemfsBoot`: htif.c before its lazy `fs_init` (`fs_ready = 0`, both
+       tables zero);
+     * `DlHeap.HeapAt` (`Lua/Vm/DlHeap.lean`): ship-your-interpreter's heap
+       shape without the WHILE ledger fields;
+     * `LuaStateAt`: `hookmask`, `trap`, `errfunc`, `nCcalls`, `openupval`,
+       `tbclist`, the stack bounds, `L->top = func + 1`, `ci->top`,
+       `CIST_FRESH`, `nresults = 0`, `ci->previous`/`ci->next`, the `mt` of
+       nil/booleans/numbers, the string table (`StrtAt`, chains by
+       `StrChain`) and the string cache.
+   * `luaLayout : VmLayout := ⟨luaRuntimeReady⟩`. The boot-invariant values it
+     pins (entry `sp`/`ra`, the `jmp_buf`, the caller frames, the return
+     chain, `nCcalls`) are `Lua/Vm/RuntimeData.lean`. The offsets are
+     `Lua/Vm/LayoutRt.lean`, a second output of `gen_lua_layout.py`, which
+     probes `struct lua_longjmp` by including ldo.c.
+   * **Generator** `scripts/gen_lua_boot_witness.py` (from
+     `scripts/syi/gen_boot_witness.py`):
+     * It writes each program's chunk into the committed ELF's `.lua_chunk`
+       region; the committed ELF is reproduced from `c/tests/while.luac`.
+     * It traces to the first `luaV_execute` step, tracking the open call
+       chain.
+     * It rebuilds the entry memory: the PT_LOAD `p_filesz` bytes plus the
+       store log.
+     * It evaluates every field of `VmEntryData` and `luaRuntimeReady`, and
+       requires the boot-invariant values to agree across programs.
+     * It emits `RuntimeData.lean`, `Boot/ImageData.lean` and
+       `Boot/Gen/{While,F1Ops}.lean`: the chunk region, the `PackedLog`, the
+       `RunTree`, the registers and the witnesses `e`, `w`, `printSlot`, as
+       data.
+     * check.sh stage 1 runs `--check`, which re-traces (about 25 s).
+     * Measured: `while.lua` enters at step 181,166 (18,137 stores);
+       `f1_ops.lua` enters at step 181,079 (18,125 stores). Both have 178 heap
+       chunks (one free), 141 interned strings in 256 buckets, and `nCcalls =
+       0x20001`. Nothing touched stdio or the file system before the entry.
+   * **Kernel side (landed):**
+     * `Lua/Vm/Boot/Log.lean`: syi's `PackedLog`/`RunTree`/`LogOk`, with the
+       cell check chunked (`runsIn`).
+     * `Lua/Vm/Boot/Image.lean`: `bootMem chunk log` (loader plus log) and
+       `bootMem_get : LogOk log runs → ViewOf (bootMem chunk log) (bootView
+       chunk runs)`.
+     * `Lua/Vm/Boot/View.lean`: `PartialView`, reads transported from a view
+       (`PartialView.rdLE`), `zeroOk`/`bytesOk`/`segsOk`.
+     * `Lua/Vm/Boot/Heap.lean`: `heapCheck`, `heapAt_of_check`.
+   * **Open: the kernel witness.** Still missing:
+     * `LogOk log runs` per program: 18 store chunks and about 10 run chunks,
+       one `decide +kernel` each.
+     * `EntryRegs` (P8) and one Bool check per structure over `bootView`.
+     * `ProtoRepr` checked against `gen_proto.py`'s `Proto`.
+     * The assembly into `VmLoaded luaLayout proto (fillZero ⟨σ, t, s⟩)` for
+       any `σ` with the traced registers and a partial view.
+     * It is paused while the abstraction-discovery round runs; the witness
+       is a held-out case. The data modules cost 46 s and 1.8 GB each (no
+       proofs).
+   * **Found by the witness: a `VmEntryData` bug.** `TStringRepr` required
+     the string's header tag `GCObject.tt = vShrStr` (68, the `TValue` tag
+     with `BIT_ISCOLLECTABLE`). `luaC_newobj` stores `LUA_VSHRSTR` (4), so
+     `VmEntryData` (its `_ENV.print` key and every string constant) held at
+     no real entry state, and `VmLoaded` was vacuous. It now uses `gcShrStr`
+     and `gcLngStr` (`LayoutRt.lean`), and the traced entries satisfy it.
+   * **Known gap in `VmEntryData`.** `TableHasShortKey` compares string
+     contents, but `luaH_getshortstr` compares pointers. `GETTABUP _ENV
+     "print"` needs the constant and the table key to be the same interned
+     string. At both entries they are: the generator finds the key by
+     contents, and the strings are interned. The statement does not say so.
+     A1 needs either a pointer-equality field or a uniqueness invariant on
+     `g->strt`.
 7. **`disasm_to_segment.py` (done).**
    * It no longer drops rows. An `#UNSUPPORTED` row in the range, or an
      address with no row, is an error; `--allow-unsupported` drafts an
@@ -438,3 +504,32 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
   region.
 * **Exit.** The composed theorem has no hypotheses beyond `Supported` /
   `AstSupported`, and only standard axioms.
+
+## Abstraction discovery (process; `abstractions/`)
+
+`abstractions/gate.py` (check.sh stage 3c) fails when a proof cluster reaches
+8 hand proofs without its per-case cost falling by a third. The only allowed
+next task is then a round of `/abstraction-discovery`.
+
+Round 1 (`abstractions/ROUND-1.md`) adopted two abstractions by bake-off:
+
+- **bytecode:** per-opcode kernel terms with read/def/kill ports and a shared
+  δ;
+- **source:** `LuaSem` as the graph of a generic rulebook.
+
+The round changed the plan in three ways:
+
+- **Strings land with floats, not before them.** Lua coerces numeric strings
+  in arithmetic (`"1.5"+1` gives `2.5`), so an F4 strings fragment without
+  floats is not closed. Merge F4 and Float into one phase.
+- **F2 constraints.**
+  - `next` order and printed addresses are `Host` fields (functions of the
+    history), not a nondeterministic choice.
+  - Kernels keep static register ports and add adaptive heap queries for
+    data-dependent table reads.
+- **A1 prerequisites.** Before any A1 abstraction is built, run the recorded
+  falsifiers (ROUND-1 §3 C7–C9):
+  - a dependence-graph orbit canonicaliser over the ELF;
+  - the exit count of the `ADD` arm (fast path plus fall-through to `MMBIN`);
+  - `L->stack` logged at every dispatch head, which tests whether registers
+    must be decoded relative to the stack base.

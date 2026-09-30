@@ -43,7 +43,7 @@ theorem tohostAddr_eq_symTohost : Vsa.Sim.tohostAddr = Layout.symTohost := rfl
 
 /-- The runtime facts outside the VM's own data that `luaV_execute`'s
 callees rely on (C stack, heap, stdio, error-recovery chain). Abstract here;
-instantiated in Phase A0. -/
+instantiated by `luaLayout` (`Lua/Vm/Runtime.lean`). -/
 structure VmLayout where
   runtimeReady : Config → (L ci : Nat) → Prop
 

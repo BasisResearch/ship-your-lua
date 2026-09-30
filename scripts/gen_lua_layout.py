@@ -222,12 +222,127 @@ def render(vals):
     out += ["", "end Lua.Vm.Layout", ""]
     return "\n".join(out)
 
+# ---------------------------------------------------------------- runtime
+# `Lua/Vm/LayoutRt.lean`: the layout the runtime boundary `luaRuntimeReady`
+# (Lua/Vm/Runtime.lean) reads beyond the VM's own structures: more
+# `lua_State`/`global_State`/`CallInfo` fields, `struct lua_longjmp` (local to
+# ldo.c, so the probe includes ldo.c), newlib's `jmp_buf`/`FILE`/`_reent`,
+# and the addresses and sizes (`nm -S`) of the C runtime's globals.
+OUT_RT = os.path.join(ROOT, "Lua/Vm/LayoutRt.lean")
+RT_FIELDS = [
+    ("stateAllowhookOff", "offsetof(lua_State, allowhook)", "`L->allowhook`"),
+    ("stateNciOff", "offsetof(lua_State, nci)", "`L->nci` (16-bit)"),
+    ("stateErrfuncOff", "offsetof(lua_State, errfunc)", "`L->errfunc` (`ptrdiff_t`)"),
+    ("stateOldpcOff", "offsetof(lua_State, oldpc)", "`L->oldpc`"),
+    ("gGCdebtOff", "offsetof(global_State, GCdebt)", "`g->GCdebt` (`l_mem`)"),
+    ("gStrtHashOff", "offsetof(global_State, strt.hash)", "`g->strt.hash`"),
+    ("gStrtNuseOff", "offsetof(global_State, strt.nuse)", "`g->strt.nuse` (int)"),
+    ("gStrtSizeOff", "offsetof(global_State, strt.size)", "`g->strt.size` (int)"),
+    ("gMainthreadOff", "offsetof(global_State, mainthread)", ""),
+    ("gStrcacheOff", "offsetof(global_State, strcache)", "`g->strcache[STRCACHE_N][STRCACHE_M]`"),
+    ("ljPreviousOff", "offsetof(struct lua_longjmp, previous)", "ldo.c's `struct lua_longjmp`"),
+    ("ljBOff", "offsetof(struct lua_longjmp, b)", "the `jmp_buf`"),
+    ("ljStatusOff", "offsetof(struct lua_longjmp, status)", ""),
+    ("jmpBufSize", "sizeof(jmp_buf)", "newlib's riscv `jmp_buf` (setjmp stores 14 dwords: ra, s0-s11, sp)"),
+    ("fileSize", "sizeof(FILE)", "newlib's `struct __sFILE`"),
+    ("reentStdinOff", "offsetof(struct _reent, _stdin)", ""),
+    ("reentStdoutOff", "offsetof(struct _reent, _stdout)", ""),
+    ("reentStderrOff", "offsetof(struct _reent, _stderr)", ""),
+    ("glueNextOff", "offsetof(struct _glue, _next)", "`struct _glue` (`__sglue`)"),
+    ("glueNiobsOff", "offsetof(struct _glue, _niobs)", ""),
+    ("glueIobsOff", "offsetof(struct _glue, _iobs)", ""),
+    ("cistC", "CIST_C", "`callstatus` bit: a C function"),
+    ("cistFresh", "CIST_FRESH", "`callstatus` bit: a fresh `luaV_execute` frame"),
+    ("luaMinstack", "LUA_MINSTACK", "stack slots a C function may use"),
+    ("extraStack", "EXTRA_STACK", "slots above `stack_last`"),
+    ("luaNumtypes", "LUA_NUMTYPES", "length of `g->mt`"),
+    ("luaTnil", "LUA_TNIL", ""), ("luaTboolean", "LUA_TBOOLEAN", ""),
+    ("luaTnumber", "LUA_TNUMBER", ""), ("luaTstring", "LUA_TSTRING", ""),
+    ("strcacheN", "STRCACHE_N", ""), ("strcacheM", "STRCACHE_M", ""),
+    ("gcShrStr", "LUA_VSHRSTR", "a short `TString`'s own header tag (`GCObject.tt`: `luaC_newobj` stores the variant without `BIT_ISCOLLECTABLE`; only a `TValue`'s `tt_` has it)"),
+    ("gcLngStr", "LUA_VLNGSTR", "a long `TString`'s own header tag"),
+]
+# (lean name, symbol, doc): address `<name>` and, where the size matters, `<name>Size`
+RT_SYMS = [
+    ("symGlobalPointer", "__global_pointer$", "`gp` after crt0"),
+    ("symLuaDCallnoyield", "luaD_callnoyield", "`ccall` (inlined), the caller of `luaV_execute`"),
+    ("symFCall", "f_call", ""),
+    ("symLuaDPcall", "luaD_pcall", ""),
+    ("symMallocAv", "__malloc_av_", "dlmalloc's bins; bin 0's `fd` is the top chunk"),
+    ("symMallocSbrkBase", "__malloc_sbrk_base", ""),
+    ("symMallocTopPad", "__malloc_top_pad", ""),
+    ("symMallocMaxSbrked", "__malloc_max_sbrked_mem", ""),
+    ("symMallocMallinfo", "__malloc_current_mallinfo", ""),
+    ("symBrk", "brk.0", "htif.c `_sbrk`'s static break"),
+    ("symStdioExitHandler", "__stdio_exit_handler", "non-NULL once `__sinit` ran"),
+    ("symSglue", "__sglue", ""),
+    ("symSf", "__sf", "the three standard `FILE`s"),
+    ("symImpureData", "_impure_data", ""),
+    ("symFsReady", "fs_ready", "htif.c"),
+    ("symFds", "fds", "htif.c descriptor table"),
+    ("symFiles", "files", "htif.c file table"),
+]
+RT_SIZED = {"symSf", "symFds", "symFiles", "symImpureData", "symSglue"}
+
+def elf_syms_sized():
+    nm = CC[:-3] + "nm"
+    tab = {}
+    for line in subprocess.run([nm, "-S", ELF], capture_output=True, text=True, check=True).stdout.splitlines():
+        f = line.split()
+        if len(f) == 4: tab[f[3]] = (int(f[0], 16), int(f[1], 16))
+        elif len(f) == 3: tab.setdefault(f[2], (int(f[0], 16), None))
+    return {n: tab[c] for n, c, _ in RT_SYMS}
+
+def probe_rt():
+    src = ['#include "ldo.c"', '#include <stdio.h>', '#include <setjmp.h>', '#include <sys/reent.h>']
+    for name, expr, _ in RT_FIELDS:
+        src.append(f"const unsigned long lay_{name} = {expr};")
+    with tempfile.TemporaryDirectory() as d:
+        c = os.path.join(d, "probe_rt.c"); s = os.path.join(d, "probe_rt.s")
+        open(c, "w").write("\n".join(src) + "\n")
+        subprocess.run([CC] + [f for f in FLAGS if f != "-Wall"] + ["-w", "-S", "-o", s, c], check=True)
+        asm = open(s).read()
+    vals, cur = {}, None
+    for line in asm.splitlines():
+        m = re.match(r"^lay_(\w+):", line)
+        if m: cur = m.group(1); continue
+        m = re.match(r"^\s+\.dword\s+(-?\d+)", line)
+        if m and cur: vals[cur] = int(m.group(1)); cur = None; continue
+        m = re.match(r"^\s+\.zero\s+8\b", line)
+        if m and cur: vals[cur] = 0; cur = None
+    return vals
+
+def render_rt(vals):
+    out = ["/-! GENERATED by scripts/gen_lua_layout.py -- do not edit.",
+           "",
+           "The runtime layout `luaRuntimeReady` (Lua/Vm/Runtime.lean) reads beyond",
+           "`Lua/Vm/Layout.lean`: more `lua_State`/`global_State` fields, ldo.c's",
+           "`struct lua_longjmp`, newlib's `jmp_buf`/`FILE`/`_reent`/`_glue`, and the",
+           "addresses (and `nm -S` sizes) of the C runtime's globals in",
+           "`c/lua-riscv-htif.elf`. -/",
+           "", "namespace Lua.Vm.Layout", ""]
+    for name, expr, doc in RT_FIELDS:
+        out.append(f"/-- `{expr}`{(' — ' + doc) if doc else ''} -/")
+        out.append(f"def {name} : Nat := {vals[name]}")
+    out.append("")
+    sy = elf_syms_sized()
+    for name, c, doc in RT_SYMS:
+        a, sz = sy[name]
+        out.append(f"/-- `{c}`{(' — ' + doc) if doc else ''} -/")
+        out.append(f"def {name} : Nat := 0x{a:08x}")
+        if name in RT_SIZED:
+            out.append(f"/-- `sizeof` of `{c}` (`nm -S`) -/")
+            out.append(f"def {name}Size : Nat := {sz}")
+    out += ["", "end Lua.Vm.Layout", ""]
+    return "\n".join(out)
+
 if __name__ == "__main__":
-    text = render(probe())
+    outs = [(OUT, render(probe())), (OUT_RT, render_rt(probe_rt()))]
     if "--check" in sys.argv:
-        ok = os.path.exists(OUT) and open(OUT).read() == text
+        ok = all(os.path.exists(p) and open(p).read() == t for p, t in outs)
         print("layout: ok" if ok else "layout: DRIFT (rerun scripts/gen_lua_layout.py)")
         sys.exit(0 if ok else 1)
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    open(OUT, "w").write(text)
-    print(f"wrote {OUT}")
+    for p, t in outs:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        open(p, "w").write(t)
+        print(f"wrote {p}")

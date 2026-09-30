@@ -39,6 +39,9 @@ their own licences, listed below.
 | `scripts/syi/disasm_to_segment.py` | `scripts/disasm_to_segment.py` | fails on `#UNSUPPORTED` rows and on addresses without a row instead of dropping them (`--allow-unsupported` drafts explicit `UNSUPPORTED` steps); drafts the new classes, marking steps gen_sites.py/gen_segment.py cannot emit with a blocking `TODO`; `--from-elf`; `complete`: a hole-free `"boundary": "segst"` spec (symbolic register values, total loads, side conditions as named hypotheses) |
 | `experiments/syi/` | `experiments/` | none (`gen_decode_table.py`, `gen_code_lemmas.py`, `disasm_census.py`, `disasm_reachable.py`) |
 | `scripts/gen_lua_code.py` | `experiments/gen_code_lemmas.py`, `scripts/gen_fixed_image.py --projection` | retargeted to the Lua ELF and `Lua/Vm/Image.lean`; a function over 16 chunks is split into parts of the original shape |
+| `Vsa/Sim/WriteLogRead.lean` | same | none (byte reads of a write log) |
+| `Lua/Vm/Boot/{Log,Image,Heap}.lean`, `Lua/Vm/DlHeap.lean` | `Vsa/Sim/Boot/{Log,Image,Heap}.lean`, `Vsa/Sim/DlHeap.lean` | Lua namespace and reads; `Log` adds the chunked cell check; `Image` is the Lua ELF's single PT_LOAD segment with a per-program chunk region; `HeapAt`/`heapCheck` drop the WHILE ledger fields (`live`, `exact`) and use list-valued bins |
+| `scripts/gen_lua_boot_witness.py` | `scripts/gen_boot_witness.py` | stops at `luaV_execute`; patches the `.lua_chunk` region instead of the script blob; tracks the open call chain; evaluates `VmEntryData`/`luaRuntimeReady` natively; emits data modules only |
 | `scripts/lua_decode_ast_dump.lean` | `experiments/M2_decode_ast_dump.lean` | ELF and word list as arguments |
 | `c/src/crt0.S`, `c/src/htif.c`, `c/src/link.ld` | `c/src/` | `WHILE_HTIF` → `LUA_HTIF`; link.ld adds the `.lua_chunk` region |
 | `lakefile.toml`, `lean-toolchain`, `lake-manifest.json` | same | new package name, new `Lua` library |

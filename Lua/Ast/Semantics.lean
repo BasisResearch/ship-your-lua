@@ -1,11 +1,18 @@
 import Lua.Ast.Syntax
+import Lua.Ast.Rulebook
 
 /-!
 # Big-step semantics `LuaSem` of Lua source (Layer B)
 
-An inductive big-step relation over the full Lua 5.4 syntax
-(`Lua/Ast/Syntax.lean`), in the style of ship-your-interpreter's
-`Vsa/While/Semantics.lean`. Rules exist for fragment F1; every other form
+A big-step relation over the full Lua 5.4 syntax (`Lua/Ast/Syntax.lean`),
+given as a **rulebook** (`Lua/Ast/Rulebook.lean`): one non-recursive program
+per construct (`rules`), whose calls are the premises and whose Lean
+`if`/`match` branches are the side conditions, so the rules of a construct
+are exclusive by construction. `LuaSem` is the least relation resolving the
+calls (`Lua.Rulebook.Sem`); the generic graph law makes the interpreter
+(`Lua/Ast/Exec.lean`) sound and complete and the relation deterministic
+(`Lua/Ast/Determinism.lean`), with no per-construct proof. Rules exist for
+fragment F1; every other form
 (and every runtime error) has no rule, so a program using it has no
 behaviour. `AstSupported` (below) is the decidable F1 predicate. Values,
 integer operations, `print`'s output and `Host` are shared with the bytecode
@@ -49,12 +56,17 @@ Meanings, each Lua 5.4's (manual §3, `lparser.c`):
 * **Operators** (§3.4): integer `+ - * // %` (wrapping; `//`, `%` floor,
   by zero an error), bitwise `& | ~ << >> ~` (`luaV_shiftl`), order
   comparisons on integers, `==`/`~=` raw equality, short-circuit
-  `and`/`or`, `not`. Floats, strings, tables and metamethods have no rule.
+  `and`/`or`, `not`. Strings (F4-lite, `abstractions/pilot/SUITE.md`
+  H1–H5): literals, `..` of strings and integers (`tostring`), `#`, order
+  by bytes (`l_strcmp` in the C locale), and `+ - * // %` and unary `-` on
+  strings that convert to integers (the string metatable's `tonum`).
+  Floats, tables and other metamethods have no rule.
 -/
 
 namespace Lua.Ast
 
 open Lua.Bytecode (Value Host Builtin printLine idiv imod shiftl shiftr forCount)
+open Lua.Rulebook (Rulebook Prog Sem)
 
 abbrev Env := List (Name × Value)
 
@@ -112,37 +124,109 @@ def BinOp.cmp : BinOp → Option (BitVec 64 → BitVec 64 → Bool)
   | .ge => some fun x y => decide (x.toInt ≥ y.toInt)
   | _ => none
 
-/-- Expression evaluation (F1 expressions are pure). -/
-inductive Eval : Env → Exp → Value → Prop where
-  | nil {ρ} : Eval ρ .nil .nil
-  | false {ρ} : Eval ρ .false (.bool false)
-  | true {ρ} : Eval ρ .true (.bool true)
-  | int {ρ i} : Eval ρ (.numeral (.int i)) (.int i)
-  | local_ {ρ x v} : ρ.lookup x = some v → Eval ρ (.prefixexp (.var (.name x))) v
-  /-- `_ENV.x`, with `_ENV` the main chunk's upvalue. -/
-  | global {ρ x v} : ρ.lookup x = none → ρ.lookup "_ENV" = none → initGlobal x = some v →
-      Eval ρ (.prefixexp (.var (.name x))) v
-  | paren {ρ e v} : Eval ρ e v → Eval ρ (.prefixexp (.paren e)) v
-  | arith {ρ op a b x y f r} : Eval ρ a (.int x) → Eval ρ b (.int y) →
-      op.arith = some f → f x y = some r → Eval ρ (.binop op a b) (.int r)
-  | eq {ρ a b va vb} : Eval ρ a va → Eval ρ b vb →
-      Eval ρ (.binop .eq a b) (.bool (decide (va = vb)))
-  | ne {ρ a b va vb} : Eval ρ a va → Eval ρ b vb →
-      Eval ρ (.binop .ne a b) (.bool (decide (va ≠ vb)))
-  | cmp {ρ op a b x y f} : Eval ρ a (.int x) → Eval ρ b (.int y) → op.cmp = some f →
-      Eval ρ (.binop op a b) (.bool (f x y))
-  | andF {ρ a b v} : Eval ρ a v → v.isFalse = true → Eval ρ (.binop .and a b) v
-  | andT {ρ a b v w} : Eval ρ a v → v.isFalse = false → Eval ρ b w → Eval ρ (.binop .and a b) w
-  | orT {ρ a b v} : Eval ρ a v → v.isFalse = false → Eval ρ (.binop .or a b) v
-  | orF {ρ a b v w} : Eval ρ a v → v.isFalse = true → Eval ρ b w → Eval ρ (.binop .or a b) w
-  | neg {ρ a x} : Eval ρ a (.int x) → Eval ρ (.unop .neg a) (.int (0 - x))
-  | bnot {ρ a x} : Eval ρ a (.int x) → Eval ρ (.unop .bnot a) (.int (~~~x))
-  | not {ρ a v} : Eval ρ a v → Eval ρ (.unop .not a) (.bool v.isFalse)
+/-- A name: the innermost local, else the global `_ENV.x` (with `_ENV` the
+main chunk's upvalue, i.e. no local `_ENV` in scope). -/
+def evalName (ρ : Env) (x : Name) : Option Value :=
+  match ρ.lookup x with
+  | some v => some v
+  | none => if ρ.lookup "_ENV" = none then initGlobal x else none
 
-/-- Pointwise evaluation of an `explist`, left to right. -/
-inductive EvalList : Env → List Exp → List Value → Prop where
-  | nil {ρ} : EvalList ρ [] []
-  | cons {ρ e es v vs} : Eval ρ e v → EvalList ρ es vs → EvalList ρ (e :: es) (v :: vs)
+/-! ### Strings (F4-lite: `abstractions/pilot/SUITE.md` H1–H5) -/
+
+/-- `lisspace` in the C locale. -/
+def isSpace (c : UInt8) : Bool := c = 32 || (9 ≤ c && c ≤ 13)
+
+/-- A digit's value in base 10 or 16. -/
+def digitVal (base : Nat) (c : UInt8) : Option Nat :=
+  if 48 ≤ c ∧ c ≤ 57 then some (c.toNat - 48)
+  else if base = 16 ∧ 97 ≤ c ∧ c ≤ 102 then some (c.toNat - 87)
+  else if base = 16 ∧ 65 ≤ c ∧ c ≤ 70 then some (c.toNat - 55)
+  else none
+
+/-- `l_str2int` (`lobject.c`) on the whole string, as `lstrlib.c`'s
+`tonum` requires: spaces, a sign, decimal digits (rejected on overflow:
+then the string is a float) or `0x` hex digits (wrapping), spaces. -/
+def str2int (s : List UInt8) : Option (BitVec 64) :=
+  let s := s.dropWhile isSpace
+  let (neg, s) : Bool × List UInt8 := match s with
+    | 45 :: r => (true, r)
+    | 43 :: r => (false, r)
+    | r => (false, r)
+  let (base, s) : Nat × List UInt8 := match s with
+    | 48 :: x :: r => if x = 120 ∨ x = 88 then (16, r) else (10, s)
+    | r => (10, r)
+  let ds := s.takeWhile fun c => (digitVal base c).isSome
+  let n := ds.foldl (fun a c => a * base + (digitVal base c).getD 0) 0
+  if ds = [] ∨ !(s.drop ds.length).all isSpace ∨
+      (base = 10 ∧ n > 2 ^ 63 - 1 + (if neg then 1 else 0)) then none
+  else some (if neg then 0 - BitVec.ofNat 64 n else BitVec.ofNat 64 n)
+
+/-- `luaV_concat`'s operands: a string, or an integer by `tostring`
+(`%d`). -/
+def concatBytes : Value → Option (List UInt8)
+  | .str s => some s
+  | .int i => some ((toString i.toInt).toList.map fun c => c.toNat.toUInt8)
+  | _ => none
+
+/-- An arithmetic operand: an integer, or a string the string metatable's
+`__add`/… converts to one (`tonum`; a float-valued string is out of
+scope: no rule). -/
+def arithInt : Value → Option (BitVec 64)
+  | .int i => some i
+  | .str s => str2int s
+  | _ => none
+
+/-- `l_strcmp` in the C locale: byte-lexicographic order. -/
+def bytesLt : List UInt8 → List UInt8 → Bool
+  | [], [] => false
+  | [], _ :: _ => true
+  | _ :: _, [] => false
+  | a :: as, b :: bs => a < b || (a = b && bytesLt as bs)
+
+/-- String order comparisons. -/
+def BinOp.strCmp : BinOp → Option (List UInt8 → List UInt8 → Bool)
+  | .lt => some bytesLt
+  | .le => some fun a b => !bytesLt b a
+  | .gt => some fun a b => bytesLt b a
+  | .ge => some fun a b => !bytesLt a b
+  | _ => none
+
+/-- The arithmetic operators the string metatable implements. -/
+def BinOp.coerces : BinOp → Bool
+  | .add | .sub | .mul | .idiv | .mod => true
+  | _ => false
+
+/-- The strict binary operators on values (`none`: no rule). -/
+def binOp : BinOp → Value → Value → Option Value
+  | .eq, va, vb => some (.bool (decide (va = vb)))
+  | .ne, va, vb => some (.bool (decide (va ≠ vb)))
+  | .concat, va, vb => do
+    let a ← concatBytes va
+    let b ← concatBytes vb
+    pure (.str (a ++ b))
+  | op, .int x, .int y =>
+    match op.arith, op.cmp with
+    | some f, _ => (f x y).map .int
+    | none, some g => some (.bool (g x y))
+    | none, none => none
+  | op, va, vb =>
+    match va, vb, op.strCmp with
+    | .str a, .str b, some f => some (.bool (f a b))
+    | _, _, _ =>
+      if op.coerces then do
+        let f ← op.arith
+        let x ← arithInt va
+        let y ← arithInt vb
+        (f x y).map .int
+      else none
+
+/-- The unary operators on values (`none`: no rule). -/
+def unOp : UnOp → Value → Option Value
+  | .neg, v => (arithInt v).map fun x => .int (0 - x)
+  | .bnot, .int x => some (.int (~~~x))
+  | .not, v => some (.bool v.isFalse)
+  | .len, .str s => some (.int (BitVec.ofNat 64 s.length))
+  | _, _ => none
 
 /-- How a statement completes. -/
 inductive Sig where
@@ -181,98 +265,156 @@ def Stat.forStep : Option Exp → Exp
   | some e => e
   | none => .numeral (.int 1)
 
+/-! ## The rulebook -/
+
+/-- The judgments of `LuaSem`, as calls:
+
+* `eval ρ e`: expression `e` in `ρ` gives a value (F1 expressions are pure);
+* `stat ρ o st`: statement `st` run in `ρ` with output so far `o` ends in
+  `ρ'` (its new locals pushed) and output `o'`, completing with `sg`;
+* `list ρ o ss`: a statement list, stopping at the first abrupt completion;
+* `blockFrom base all ρ o ss`: the block with statements `all`, entered in
+  `base`, running from its suffix `ss`; a `goto` to one of its labels
+  resumes after the label;
+* `block ρ o b`: a block without `return`; the final environment still has
+  the block's locals (the enclosing statement drops them, `scope`);
+* `forIter ρ o x i st n b`: the iterations of a numeric `for` from control
+  value `i` with `n` further iterations after this one (the bytecode's
+  count); the control variable is a fresh local of each iteration. -/
+inductive Call where
+  | eval (ρ : Env) (e : Exp)
+  | stat (ρ : Env) (o : String) (st : Stat)
+  | list (ρ : Env) (o : String) (ss : List Stat)
+  | blockFrom (base : Env) (all : List Stat) (ρ : Env) (o : String) (ss : List Stat)
+  | block (ρ : Env) (o : String) (b : Block)
+  | forIter (ρ : Env) (o : String) (x : Name) (i st n : BitVec 64) (b : Block)
+
+/-- A statement-level outcome: environment, output, completion. -/
+abbrev Outcome := Env × String × Sig
+
+/-- What a judgment answers. -/
+@[reducible] def Call.Res : Call → Type
+  | .eval .. => Value
+  | _ => Outcome
+
+/-- Rule bodies: programs that call the judgments. -/
+abbrev Rule := Prog Call Call.Res
+
 section
-variable (H : Host)
+def eval (ρ : Env) (e : Exp) : Rule Value := .call (.eval ρ e) .ret
+def stat (ρ : Env) (o : String) (st : Stat) : Rule Outcome := .call (.stat ρ o st) .ret
+def execList (ρ : Env) (o : String) (ss : List Stat) : Rule Outcome := .call (.list ρ o ss) .ret
+def blockFrom (base : Env) (all : List Stat) (ρ : Env) (o : String) (ss : List Stat) :
+    Rule Outcome := .call (.blockFrom base all ρ o ss) .ret
+def block (ρ : Env) (o : String) (b : Block) : Rule Outcome := .call (.block ρ o b) .ret
+def forIter (ρ : Env) (o : String) (x : Name) (i st n : BitVec 64) (b : Block) : Rule Outcome :=
+  .call (.forIter ρ o x i st n b) .ret
 
-mutual
-/-- `ExecS H ρ o st ρ' o' sg`: the statement `st` run in `ρ` with output
-so far `o` ends in `ρ'` (with its new locals pushed) and output `o'`,
-completing with `sg`. -/
-inductive ExecS : Env → String → Stat → Env → String → Sig → Prop where
-  | semi {ρ o} : ExecS ρ o .semi ρ o .normal
-  | label {ρ o l} : ExecS ρ o (.label l) ρ o .normal
-  | local_ {ρ o vars es vs} : vars.all (·.attrib != .close) = true → EvalList ρ es vs →
-      ExecS ρ o (.local_ vars es) (bindLocals (vars.map (·.name)) vs ρ) o .normal
-  | assign {ρ o vars es vs ρ₁} : EvalList ρ es vs → assignLocals ρ vars vs = some ρ₁ →
-      ExecS ρ o (.assign vars es) ρ₁ o .normal
-  /-- A call statement `f(args)` of the builtin `print`. -/
-  | callPrint {ρ o f args vs} : Eval ρ (.prefixexp f) (.builtin .print) → EvalList ρ args vs →
-      ExecS ρ o (.functioncall (.call f (.explist args))) ρ (o ++ printLine H vs) .normal
-  | brk {ρ o} : ExecS ρ o .break_ ρ o .brk
-  | goto_ {ρ o l} : ExecS ρ o (.goto_ l) ρ o (.goto_ l)
-  | do_ {ρ o b ρ₁ o₁ sg} : ExecB ρ o b ρ₁ o₁ sg → ExecS ρ o (.do_ b) (scope ρ ρ₁) o₁ sg
-  | whileF {ρ o c b v} : Eval ρ c v → v.isFalse = true → ExecS ρ o (.while_ c b) ρ o .normal
-  | whileT {ρ o c b v ρ₁ o₁ ρ' o' sg} : Eval ρ c v → v.isFalse = false →
-      ExecB ρ o b ρ₁ o₁ .normal → ExecS (scope ρ ρ₁) o₁ (.while_ c b) ρ' o' sg →
-      ExecS ρ o (.while_ c b) ρ' o' sg
-  | whileX {ρ o c b v ρ₁ o₁ sg} : Eval ρ c v → v.isFalse = false →
-      ExecB ρ o b ρ₁ o₁ sg → sg ≠ .normal →
-      ExecS ρ o (.while_ c b) (scope ρ ρ₁) o₁ sg.exitLoop
-  | repeatDone {ρ o b c ρ₁ o₁ v} : ExecB ρ o b ρ₁ o₁ .normal → Eval ρ₁ c v →
-      v.isFalse = false → ExecS ρ o (.repeat_ b c) (scope ρ ρ₁) o₁ .normal
-  | repeatAgain {ρ o b c ρ₁ o₁ v ρ' o' sg} : ExecB ρ o b ρ₁ o₁ .normal → Eval ρ₁ c v →
-      v.isFalse = true → ExecS (scope ρ ρ₁) o₁ (.repeat_ b c) ρ' o' sg →
-      ExecS ρ o (.repeat_ b c) ρ' o' sg
-  | repeatX {ρ o b c ρ₁ o₁ sg} : ExecB ρ o b ρ₁ o₁ sg → sg ≠ .normal →
-      ExecS ρ o (.repeat_ b c) (scope ρ ρ₁) o₁ sg.exitLoop
-  | ifT {ρ o c t eifs els v ρ₁ o₁ sg} : Eval ρ c v → v.isFalse = false →
-      ExecB ρ o t ρ₁ o₁ sg → ExecS ρ o (.if_ c t eifs els) (scope ρ ρ₁) o₁ sg
-  | ifElseif {ρ o c t c' t' eifs els v ρ' o' sg} : Eval ρ c v → v.isFalse = true →
-      ExecS ρ o (.if_ c' t' eifs els) ρ' o' sg →
-      ExecS ρ o (.if_ c t ((c', t') :: eifs) els) ρ' o' sg
-  | ifElse {ρ o c t b v ρ₁ o₁ sg} : Eval ρ c v → v.isFalse = true →
-      ExecB ρ o b ρ₁ o₁ sg → ExecS ρ o (.if_ c t [] (some b)) (scope ρ ρ₁) o₁ sg
-  | ifNone {ρ o c t v} : Eval ρ c v → v.isFalse = true →
-      ExecS ρ o (.if_ c t [] none) ρ o .normal
-  | forSkip {ρ o x e₁ e₂ e₃ b i l st} :
-      Eval ρ e₁ (.int i) → Eval ρ e₂ (.int l) → Eval ρ (Stat.forStep e₃) (.int st) → st ≠ 0 →
-      forCount i l st = none → ExecS ρ o (.fornum x e₁ e₂ e₃ b) ρ o .normal
-  | forRun {ρ o x e₁ e₂ e₃ b i l st n ρ' o' sg} :
-      Eval ρ e₁ (.int i) → Eval ρ e₂ (.int l) → Eval ρ (Stat.forStep e₃) (.int st) → st ≠ 0 →
-      forCount i l st = some n → ForIter ρ o x i st n b ρ' o' sg →
-      ExecS ρ o (.fornum x e₁ e₂ e₃ b) ρ' o' sg
+/-- An `explist`, left to right. -/
+def evalList (ρ : Env) : List Exp → Rule (List Value)
+  | [] => pure []
+  | e :: es => do let v ← eval ρ e; let vs ← evalList ρ es; pure (v :: vs)
 
-/-- A statement list, stopping at the first abrupt completion. -/
-inductive ExecL : Env → String → List Stat → Env → String → Sig → Prop where
-  | nil {ρ o} : ExecL ρ o [] ρ o .normal
-  | cons {ρ o st ss ρ₁ o₁ ρ' o' sg} : ExecS ρ o st ρ₁ o₁ .normal → ExecL ρ₁ o₁ ss ρ' o' sg →
-      ExecL ρ o (st :: ss) ρ' o' sg
-  | stop {ρ o st ss ρ₁ o₁ sg} : ExecS ρ o st ρ₁ o₁ sg → sg ≠ .normal →
-      ExecL ρ o (st :: ss) ρ₁ o₁ sg
-
-/-- `ExecBF H base all ρ o ss ρ' o' sg`: the block with statements `all`,
-entered in `base`, running from its suffix `ss` in `ρ`; a `goto` to one of
-its labels resumes after the label. -/
-inductive ExecBF : Env → List Stat → Env → String → List Stat → Env → String → Sig → Prop where
-  | done {base all ρ o ss ρ₁ o₁ sg} : ExecL ρ o ss ρ₁ o₁ sg → sg.target all = none →
-      ExecBF base all ρ o ss ρ₁ o₁ sg
-  | jump {base all ρ o ss ρ₁ o₁ sg rest k ρ' o' sg'} : ExecL ρ o ss ρ₁ o₁ sg →
-      sg.target all = some (rest, k) → ExecBF base all (jumpEnv base k ρ₁) o₁ rest ρ' o' sg' →
-      ExecBF base all ρ o ss ρ' o' sg'
-
-/-- A block without `return` (a `retstat` is outside F1). The final
-environment still has the block's locals; the enclosing statement drops
-them (`scope`). -/
-inductive ExecB : Env → String → Block → Env → String → Sig → Prop where
-  | mk {ρ o ss ρ' o' sg} : ExecBF ρ ss ρ o ss ρ' o' sg → ExecB ρ o (.mk ss none) ρ' o' sg
-
-/-- The iterations of a numeric `for` with `n` further iterations after
-this one (the bytecode's count): the control variable is a fresh local of
-each iteration. -/
-inductive ForIter : Env → String → Name → BitVec 64 → BitVec 64 → BitVec 64 → Block →
-    Env → String → Sig → Prop where
-  | last {ρ o x i st n b ρ₁ o₁ sg} : ExecB ((x, .int i) :: ρ) o b ρ₁ o₁ sg →
-      (sg ≠ .normal ∨ n = 0) → ForIter ρ o x i st n b (scope ρ ρ₁) o₁ sg.exitLoop
-  | next {ρ o x i st n b ρ₁ o₁ ρ' o' sg} : ExecB ((x, .int i) :: ρ) o b ρ₁ o₁ .normal →
-      n ≠ 0 → ForIter (scope ρ ρ₁) o₁ x (i + st) st (n - 1) b ρ' o' sg →
-      ForIter ρ o x i st n b ρ' o' sg
+/-- A nested block, with its locals dropped. -/
+def inScope (ρ : Env) (r : Rule Outcome) : Rule Outcome := do
+  let (ρ₁, o₁, sg) ← r
+  pure (scope ρ ρ₁, o₁, sg)
 end
 
-end
+open Lua.Rulebook.Prog (lift) in
+/-- **The rulebook of `LuaSem`**: one program per construct. A form with no
+program (`.fail`) has no rule: it is outside the fragment, or a runtime
+error. -/
+def rules (H : Host) : Rulebook Call Call.Res
+  -- expressions
+  | .eval _ .nil => pure .nil
+  | .eval _ .false => pure (.bool false)
+  | .eval _ .true => pure (.bool true)
+  | .eval _ (.numeral (.int i)) => pure (.int i)
+  | .eval _ (.string s) => pure (.str s)
+  | .eval ρ (.prefixexp (.var (.name x))) => lift (evalName ρ x)
+  | .eval ρ (.prefixexp (.paren e)) => eval ρ e
+  | .eval ρ (.binop .and a b) => do
+    let v ← eval ρ a
+    if v.isFalse then pure v else eval ρ b
+  | .eval ρ (.binop .or a b) => do
+    let v ← eval ρ a
+    if v.isFalse then eval ρ b else pure v
+  | .eval ρ (.binop op a b) => do
+    let va ← eval ρ a
+    let vb ← eval ρ b
+    lift (binOp op va vb)
+  | .eval ρ (.unop op a) => do lift (unOp op (← eval ρ a))
+  | .eval _ _ => .fail
+  -- statements
+  | .stat ρ o .semi => pure (ρ, o, .normal)
+  | .stat ρ o (.label _) => pure (ρ, o, .normal)
+  | .stat ρ o (.local_ vars es) =>
+    if vars.all (·.attrib != .close) then do
+      let vs ← evalList ρ es
+      pure (bindLocals (vars.map (·.name)) vs ρ, o, .normal)
+    else .fail
+  | .stat ρ o (.assign vars es) => do
+    let vs ← evalList ρ es
+    let ρ₁ ← lift (assignLocals ρ vars vs)
+    pure (ρ₁, o, .normal)
+  | .stat ρ o (.functioncall (.call f (.explist args))) => do
+    let fv ← eval ρ (.prefixexp f)
+    let vs ← evalList ρ args
+    if fv = .builtin .print then pure (ρ, o ++ printLine H vs, .normal) else .fail
+  | .stat ρ o .break_ => pure (ρ, o, .brk)
+  | .stat ρ o (.goto_ l) => pure (ρ, o, .goto_ l)
+  | .stat ρ o (.do_ b) => inScope ρ (block ρ o b)
+  | .stat ρ o (.while_ c b) => do
+    let v ← eval ρ c
+    if v.isFalse then pure (ρ, o, .normal) else
+    let (ρ₁, o₁, sg) ← block ρ o b
+    if sg = .normal then stat (scope ρ ρ₁) o₁ (.while_ c b)
+    else pure (scope ρ ρ₁, o₁, sg.exitLoop)
+  | .stat ρ o (.repeat_ b c) => do
+    let (ρ₁, o₁, sg) ← block ρ o b
+    if sg ≠ .normal then pure (scope ρ ρ₁, o₁, sg.exitLoop) else
+    let v ← eval ρ₁ c
+    if v.isFalse then stat (scope ρ ρ₁) o₁ (.repeat_ b c) else pure (scope ρ ρ₁, o₁, .normal)
+  | .stat ρ o (.if_ c t eifs els) => do
+    let v ← eval ρ c
+    if !v.isFalse then inScope ρ (block ρ o t) else
+    match eifs, els with
+    | (c', t') :: eifs', _ => stat ρ o (.if_ c' t' eifs' els)
+    | [], some b => inScope ρ (block ρ o b)
+    | [], none => pure (ρ, o, .normal)
+  | .stat ρ o (.fornum x e₁ e₂ e₃ b) => do
+    let v₁ ← eval ρ e₁
+    let v₂ ← eval ρ e₂
+    let v₃ ← eval ρ (Stat.forStep e₃)
+    match v₁, v₂, v₃ with
+    | .int i, .int l, .int st =>
+      if st = 0 then .fail else
+      match forCount i l st with
+      | none => pure (ρ, o, .normal)
+      | some n => forIter ρ o x i st n b
+    | _, _, _ => .fail
+  | .stat _ _ _ => .fail
+  -- statement lists, blocks, `goto`, `for` iterations
+  | .list ρ o [] => pure (ρ, o, .normal)
+  | .list ρ o (st :: ss) => do
+    let (ρ₁, o₁, sg) ← stat ρ o st
+    if sg = .normal then execList ρ₁ o₁ ss else pure (ρ₁, o₁, sg)
+  | .blockFrom base all ρ o ss => do
+    let (ρ₁, o₁, sg) ← execList ρ o ss
+    match sg.target all with
+    | none => pure (ρ₁, o₁, sg)
+    | some (rest, k) => blockFrom base all (jumpEnv base k ρ₁) o₁ rest
+  | .block ρ o (.mk ss none) => blockFrom ρ ss ρ o ss
+  | .block _ _ (.mk _ (some _)) => .fail
+  | .forIter ρ o x i st n b => do
+    let (ρ₁, o₁, sg) ← block ((x, .int i) :: ρ) o b
+    if sg ≠ .normal ∨ n = 0 then pure (scope ρ ρ₁, o₁, sg.exitLoop)
+    else forIter (scope ρ ρ₁) o₁ x (i + st) st (n - 1) b
 
 /-- **`LuaSem H c out`**: the chunk `c` runs to completion printing `out`. -/
 def LuaSem (H : Host) (c : Chunk) (out : String) : Prop :=
-  ∃ ρ', ExecB H [] "" c ρ' out .normal
+  ∃ ρ', Sem (rules H) (.block [] "" c) (ρ', out, .normal)
 
 /-! ## The source fragment F1 -/
 
@@ -341,19 +483,19 @@ def isBound (bound : List (Name × Attrib)) (x : Name) : Bool := bound.any (·.1
 def isAssignable (bound : List (Name × Attrib)) (x : Name) : Bool :=
   (bound.find? (·.1 = x)).any (·.2 = .reg)
 
-/-- F1's operators on integers. -/
+/-- F1's operators, with F4-lite's `..` and `#`. -/
 def BinOp.inF1 (op : BinOp) : Bool :=
-  op.arith.isSome || op.cmp.isSome || op = .eq || op = .ne || op = .and || op = .or
+  op.arith.isSome || op.cmp.isSome || op = .eq || op = .ne || op = .and || op = .or ||
+    op = .concat
 
 def UnOp.inF1 : UnOp → Bool
-  | .neg | .not | .bnot => true
-  | _ => false
+  | .neg | .not | .bnot | .len => true
 
 mutual
-/-- An F1 expression: `nil`, booleans, integer numerals, locals in scope,
-parentheses, and F1's operators. -/
+/-- An F1 expression: `nil`, booleans, integer numerals, string literals,
+locals in scope, parentheses, and F1's operators. -/
 def supE (bound : List (Name × Attrib)) : Exp → Bool
-  | .nil | .false | .true | .numeral (.int _) => true
+  | .nil | .false | .true | .numeral (.int _) | .string _ => true
   | .prefixexp (.var (.name x)) => isBound bound x
   | .prefixexp (.paren e) => supE bound e
   | .binop op a b => op.inF1 && supE bound a && supE bound b

@@ -707,6 +707,7 @@ Vsa/Sim/Tick.lean
 Vsa/Sim/TripleCat.lean
 Vsa/Sim/UntilSequence.lean
 Vsa/Sim/ValueSites.lean
+Vsa/Sim/WriteLogRead.lean
 Vsa/Triple.lean
 Vsa/Meta/SimpNF.lean
 Vsa/Sim/DecodeNF.lean
