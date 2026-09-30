@@ -127,6 +127,8 @@ import Vsa.Sim.BridgeSegFull
 import Vsa.Sim.DeriveCase
 import VsaIris.Vsa.AllocStepsTohost
 import VsaIris.Vsa.AllocSteps.Part01
+import VsaIris.Vsa.SymRunO
+import VsaIris.Vsa.SymJalr
 #print axioms Lua.vm_refinement_of_sim
 #print axioms Lua.compile_refinement_of_tv
 #print axioms Lua.endToEnd_of_layers
@@ -190,11 +192,18 @@ import VsaIris.Vsa.AllocSteps.Part01
 #print axioms VsaIris.Sym.swp_step
 #print axioms VsaIris.Sym.st_80004908
 #print axioms VsaIris.Sym.allocSteps_whileGlobals_not_stOK
+#print axioms VsaIris.Sym.swpo_run
+#print axioms VsaIris.Inst.putc_runFact
+#print axioms VsaIris.Inst.exit_haltFact
+#print axioms VsaIris.Inst.vsa_adequacy_exit
+#print axioms VsaIris.Inst.whileSites_not_tohost
+#print axioms Vsa.Sim.stepObs_tohost_putchar
+#print axioms Vsa.Sim.stepOnce_tohost_G
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 63 ] || fail "expected 63 axiom reports, got $n"
+[ "$n" = 70 ] || fail "expected 70 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

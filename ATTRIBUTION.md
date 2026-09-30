@@ -22,6 +22,10 @@ their own licences, listed below.
 | `VsaIris/Vsa/RunBase.lean`, `Vsa/Sim/{ExecRetEpilogue,InterpSpillReads,SegEffect}.lean` | same | import lines only, as above |
 | `Vsa/Sim/Generic/{MemRead,GRegs}.lean`, `VsaIris/Vsa/Generic/FastWords.lean` (new) | declarations of `Vsa/MemRepr.lean` (`Mem`, `readLE`, `read64`), `Vsa/Sim/{ValueSpec,ValueTruthySpec,ReprSurvival,EnvGetSpec3,SegFrameFactsAuto,SegReadback}.lean`, `VsaIris/Vsa/MallocFastSegs.lean` | copied verbatim, same names; the `Vsa.MemRepr` module itself is not copied |
 | `VsaIris/Vsa/AllocStepsTohost.lean` (new) | — | why `AllocSteps/Part{00,02,08,10}.lean` are not copied (machine-checked) |
+| `VsaIris/Vsa/{SymRunO,SymObs,SymJalr,SymLeaf,SymBridge,SymData,SymHavoc,SymCompact,SegRun}.lean` | same | none (output/exit machinery of the stdio route, PHASES A0.2) |
+| `VsaIris/Vsa/{AllocSltu,Console}.lean`, `Vsa/Sim/{HtifStepObs,SeparationLogic,MemPresence}.lean` | same | import lines only; `Console` drops the WHILE ELF's `putcSite`/`exitSite` instances (false at the Lua `tohost`, `whileSites_not_tohost`); `HtifStepObs` drops its heartbeat raise |
+| `Vsa/Sim/Generic/{ExitStep,MemExtends}.lean` (new) | declarations of `Vsa/Sim/{TermEntry,EvalSimCommon,JmpSpec,ValueSpec}.lean` | copied verbatim, same names |
+| `experiments/port/term/` (new) | — | the term-level census that decided the cuts |
 | `VsaIris/` (19 modules) | `VsaIris/` | none; `VsaIris.lean` likewise |
 | `Vsa/Meta/SimpNF.lean`, `Vsa/Sim/DecodeNF.lean` | same (branch `exponentiate`, uncommitted there at `182e80d1`) | none: the generic decoder `#simp_nf` / `Vsa.Sim.decodeW` |
 | `scripts/syi/` | `scripts/` | none (generators, checks, boot-witness generator, difftest library), except the two below |

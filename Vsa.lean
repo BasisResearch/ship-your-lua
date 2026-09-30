@@ -616,8 +616,10 @@ import Vsa.Sim.FrameMeta
 import Vsa.Sim.FrameOn
 import Vsa.Sim.Generic.Abi
 import Vsa.Sim.Generic.BvArith
+import Vsa.Sim.Generic.ExitStep
 import Vsa.Sim.Generic.GRegs
 import Vsa.Sim.Generic.MapReads
+import Vsa.Sim.Generic.MemExtends
 import Vsa.Sim.Generic.MemRead
 import Vsa.Sim.Generic.ObsOther
 import Vsa.Sim.Generic.Pins
@@ -626,11 +628,13 @@ import Vsa.Sim.Hooks
 import Vsa.Sim.Htif
 import Vsa.Sim.HtifLift
 import Vsa.Sim.HtifMmio
+import Vsa.Sim.HtifStepObs
 import Vsa.Sim.InitValues
 import Vsa.Sim.InterpSpillReads
 import Vsa.Sim.KeepRegs
 import Vsa.Sim.MemLoad
 import Vsa.Sim.MemLoadTotal
+import Vsa.Sim.MemPresence
 import Vsa.Sim.MemRead
 import Vsa.Sim.MemStore
 import Vsa.Sim.MemcpySites
@@ -664,6 +668,7 @@ import Vsa.Sim.SegEffect
 import Vsa.Sim.SegEval
 import Vsa.Sim.SegEvalSound
 import Vsa.Sim.SegToTripleFramed
+import Vsa.Sim.SeparationLogic
 import Vsa.Sim.Skeleton
 import Vsa.Sim.SnprintfSites
 import Vsa.Sim.SnprintfSites2

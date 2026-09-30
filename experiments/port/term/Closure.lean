@@ -44,6 +44,9 @@ def main (args : List String) : IO Unit := do
     -- the enclosing declaration of an auxiliary constant (`foo._auto_1`, `S.mk`)
     -- is kept whole, so its own dependencies are needed too
     let mut used := used0
+    -- a kept inductive/structure keeps its constructors (their field types)
+    if let .inductInfo iv := ci then
+      for k in iv.ctors do used := used.push k
     let mut p := c.getPrefix
     while !p.isAnonymous do
       if env.contains p && modOf p == mc then used := used.push p

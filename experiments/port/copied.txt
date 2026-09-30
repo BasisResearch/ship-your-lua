@@ -38,7 +38,16 @@ VsaIris/Vsa/AllocSteps/Part11.lean
 VsaIris/Vsa/BinDom.lean
 VsaIris/Vsa/BvLits.lean
 VsaIris/Vsa/Instance.lean
+VsaIris/Vsa/SegRun.lean
+VsaIris/Vsa/SymBridge.lean
+VsaIris/Vsa/SymCompact.lean
+VsaIris/Vsa/SymData.lean
+VsaIris/Vsa/SymHavoc.lean
+VsaIris/Vsa/SymJalr.lean
+VsaIris/Vsa/SymLeaf.lean
+VsaIris/Vsa/SymObs.lean
 VsaIris/Vsa/SymRun.lean
+VsaIris/Vsa/SymRunO.lean
 VsaIris/Vsa/Tools.lean
 Vsa/Machine.lean
 Vsa/Sim/Attr.lean
