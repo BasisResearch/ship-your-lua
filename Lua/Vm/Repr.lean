@@ -1,6 +1,7 @@
 import Std.Data.ExtHashMap
 import Lua.Bytecode.Semantics
 import Lua.Vm.Layout
+import Lua.Vm.LayoutRt
 
 /-!
 # Representation predicates for Lua VM state in RV64 memory (skeleton)
@@ -43,15 +44,17 @@ def tagAt (m : Mem) (a : Nat) : Option Nat := rd8 m (a + tvalueTagOff)
 def BytesAt (m : Mem) (a : Nat) (bs : List UInt8) : Prop :=
   ∀ i (h : i < bs.length), m[a + i]? = some (BitVec.ofNat 8 (bs[i]'h).toNat)
 
-/-- A `TString` at `ts` holding the bytes `s`: short strings (tag
+/-- A `TString` at `ts` holding the bytes `s`: short strings (header tag
 `LUA_VSHRSTR`, `shrlen`) up to `LUAI_MAXSHORTLEN`, long strings otherwise
-(tag `LUA_VLNGSTR`, `u.lnglen`); contents are NUL-terminated. -/
+(header tag `LUA_VLNGSTR`, `u.lnglen`); contents are NUL-terminated. The
+header tag is `GCObject.tt`, which `luaC_newobj` stores without
+`BIT_ISCOLLECTABLE` (`gcShrStr = 4`, not the `TValue` tag `vShrStr = 68`). -/
 inductive TStringRepr (m : Mem) : Nat → List UInt8 → Prop where
-  | short {ts s} : rd8 m (ts + gcTtOff) = some vShrStr → s.length ≤ maxShortLen →
+  | short {ts s} : rd8 m (ts + gcTtOff) = some gcShrStr → s.length ≤ maxShortLen →
       rd8 m (ts + tstringShrlenOff) = some s.length →
       BytesAt m (ts + tstringContentsOff) s → m[ts + tstringContentsOff + s.length]? = some 0 →
       TStringRepr m ts s
-  | long {ts s} : rd8 m (ts + gcTtOff) = some vLngStr → maxShortLen < s.length →
+  | long {ts s} : rd8 m (ts + gcTtOff) = some gcLngStr → maxShortLen < s.length →
       rd64 m (ts + tstringLnglenOff) = some s.length →
       BytesAt m (ts + tstringContentsOff) s → m[ts + tstringContentsOff + s.length]? = some 0 →
       TStringRepr m ts s

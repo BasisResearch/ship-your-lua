@@ -8,6 +8,10 @@ import Lua.Vm.Layout
 import Lua.Vm.Image
 import Lua.Vm.Repr
 import Lua.Vm.Loaded
+import Lua.Vm.Runtime
+import Lua.Vm.Boot.Heap
+import Lua.Vm.Boot.Gen.While
+import Lua.Vm.Boot.Gen.F1Ops
 import Lua.Vm.Host
 import Lua.Vm.DecodeCheck
 import Lua.Vm.Code
