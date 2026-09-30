@@ -64,6 +64,13 @@ theorem slot_congr {m m' : Mem} {a : Nat} (h : ∀ i, i < 9 → m[a + i]? = m'[a
   · simp only [slotTag, bytesT1, tvalueTagOff, h 8 (by omega)]
   · simp only [tvalueValOff, Nat.add_zero]; exact h i (by omega)
 
+/-- A slot's tag and payload depend only on the total reads of its first nine bytes. -/
+theorem slot_congrT {m m' : Mem} {a : Nat} (h : ∀ i, i < 9 → bytesT1 m (a + i) = bytesT1 m' (a + i)) :
+    slotTag m a = slotTag m' a ∧ slotVal m a = slotVal m' a := by
+  refine ⟨?_, bytesT8_congrT fun i hi => ?_⟩
+  · simp only [slotTag, tvalueTagOff]; exact h 8 (by omega)
+  · simp only [tvalueValOff, Nat.add_zero]; exact h i (by omega)
+
 theorem getElem_writeMap8 (m : Mem) (a : Nat) (d : BitVec (8 * 8)) (j : Nat) (hj : j < 8) :
     (writeMap8 m a d)[a + j]? = some (d.extractLsb' (8 * j) 8) := by
   match j, hj with

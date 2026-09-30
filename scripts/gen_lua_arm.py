@@ -368,7 +368,10 @@ def seg_module(name):
 # out the float test of `R[B]` on the not-integer path (`bne` taken to the
 # exit, or `beq` not taken into the shared default tail).
 ARITH_RR = dict(c="reg", b="beq", c_test="beq", c_float="bne")
+ARITH_RK = dict(c="k", b="bne", b_float="bne", c_test="beq", c_float="bne")
 ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(ARITH_RR, binop="add", alu="HAdd.hAdd", b_float="bne")),
+         "OP_ADDK": ("ADDK", "Addk", "arith", dict(ARITH_RK, binop="add", alu="HAdd.hAdd")),
+         "OP_SUBK": ("SUBK", "Subk", "arith", dict(ARITH_RK, binop="sub", alu="HSub.hSub")),
          "OP_SUB": ("SUB", "Sub", "arith", dict(ARITH_RR, binop="sub", alu="HSub.hSub", b_float="beq")),
          "OP_ADDI": ("ADDI", "Addi", "arith", dict(c="imm", b="bne", b_float="bne", binop="add",
                                                   alu="HAdd.hAdd")),
@@ -382,16 +385,21 @@ TAG_TEST = {"beq": (("t", "guard_tag_eq"), ("n", "guard_tag_ne")),
 FLOAT_TEST = {"bne": ("t", "guard_not_float"), "beq": ("n", "guard_not_float_f")}
 
 
-def tag_guard(layout, holds, j, h):
+def tag_guard(layout, holds, j, h, slot=None):
     pol, lemma = TAG_TEST[layout][0 if holds else 1]
-    return pol, gtag(lemma, j, h)
+    return pol, gtag(lemma, j, h, slot)
 
 
-def float_guard(layout, j, hv):
+def float_guard(layout, j, hv, slot=None):
     pol, lemma = FLOAT_TEST[layout]
-    return pol, f"(by refine {lemma} (n := w.slot {j}) ?_ {hv}; slot_arith)"
+    return pol, f"(by refine {lemma} (n := {slot or f'w.slot {j}'}) ?_ {hv}; slot_arith)"
 
 _VAR = re.compile(r"\bv(\d+)\b")
+
+# `ld a4,0(sp)` (the `K` arms' constant array): its value, as the chain
+# substitutes it, is `k` (`hkld`, from `Core.kptr`); later segments get `k`.
+KLOAD = ("(sign_extend (m := 64) (bytesT8 (c1.σ.mem) ((BitVec.ofNat 64 w.sp) + sign_extend (m := 64) "
+         "(0x000#12)).toNat : BitVec (8 * 8)))")
 
 
 def subst(text, env, mem):
@@ -449,6 +457,10 @@ def chain2(segs, guards):
                  + ("\n    " + "\n    ".join(wrap(hyps)) if hyps else "") + f"\n    {pre}")
         env = {r: subst(v, env, base) for r, v in em.pins}
         prf = {r: f"pinsHold_get hq{k}.pins {i} (by len_arith)" for i, (r, _) in enumerate(em.pins)}
+        for r, v in env.items():
+            if KLOAD in v:
+                env[r] = v.replace(KLOAD, "(BitVec.ofNat 64 w.k)")
+                prf[r] = f"pin_eq ({prf[r]}) (by rw [hkld]; try rfl)"
         if em.mem_expr.strip("() ") != "m0":
             writer, base = k, f"c{k + 1}.σ.mem"
             L.append(f"  have hW := hq{k}.armMem")
@@ -543,6 +555,9 @@ ARITH_PRE = {
     "imm": ("[.reg ins.b, immC ins]", "immC", """  simp only [Opnd.ports, immC] at hvs
   obtain ⟨vb, hb, rfl⟩ := mapM1 hvs
 """),
+    "k": ("[.reg ins.b, .imm y]", "arithRK, hkv", """  simp only [Opnd.ports] at hvs
+  obtain ⟨vb, hb, rfl⟩ := mapM1 hvs
+"""),
 }
 ARITH_FACTS = {
     "reg": """  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a (max ins.b ins.c); omega
@@ -555,17 +570,39 @@ ARITH_FACTS = {
     "imm": """  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a ins.b; omega
   have hBt : ins.b < p.maxstacksize := by have := Nat.le_max_right ins.a ins.b; omega
 """,
+    "k": """  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a ins.b; omega
+  have hBt : ins.b < p.maxstacksize := by have := Nat.le_max_right ins.a ins.b; omega
+  have hvc := hc1.kconst hkv
+  have hKc := kval_lt hkv
+  have hklo := hr.k_lo
+  have hkhi := hr.k_hi
+  have hkal := hr.k_al
+  simp only [Word.c, Word.field, Nat.shiftRight_eq_div_pow, stackValueSize] at hKc hkhi
+  have hsp := hr.sp_eq
+  simp only [execFrame, RuntimeData.spEntry] at hsp
+  have hkld : sign_extend (m := 64) (bytesT8 (c1.σ.mem) ((BitVec.ofNat 64 w.sp)
+      + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)) = BitVec.ofNat 64 w.k := by
+    rw [add_imm _ 0 (by decide), Nat.add_zero, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega),
+      sext64_id]
+    exact hc1.kptr
+""",
 }
 
 
 def arith_pre(cfg):
     ops, unf, get = ARITH_PRE[cfg["c"]]
-    return f"""  have hK : kernelAt p s.pc = some (opArith s.pc ins.a .{cfg["binop"]} {ops}) := by
+    kcase = """  cases hkv : kval p ins.c with
+  | none =>
+    obtain ⟨hK', -, -, -⟩ := hstep
+    simp [kernelAt, hf, kernel, hop, opKernel, arithRK, hkv] at hK'
+  | some y =>
+""" if cfg["c"] == "k" else ""
+    return kcase + f"""  have hK : kernelAt p s.pc = some (opArith s.pc ins.a .{cfg["binop"]} {ops}) := by
     simp [kernelAt, hf, kernel, hop, opKernel, {unf}]
   obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK
   have htop := supported_regTop hS hf
   simp [regTop, kernel, hop, opKernel, {unf}, opArith, Kernel.regTop, Opnd.ports] at htop
-{get}  simp only [Opnd.fill, immC] at hcase
+{get}  simp only [Opnd.fill{", immC" if cfg["c"] == "imm" else ""}] at hcase
 """
 
 
@@ -599,14 +636,15 @@ FACTS2 = {
 }
 
 
-def gtag(lemma, j, h):
-    return f"(by refine {lemma} (n := w.slot {j}) ?_ {h} (by decide); slot_arith)"
+def gtag(lemma, j, h, slot=None):
+    return f"(by refine {lemma} (n := {slot or f'w.slot {j}'}) ?_ {h} (by decide); slot_arith)"
 
 
 def arith_paths(cfg):
     """`op_arith`: R[B] (and a register C) tested for the integer tag; the
     int+int path writes `R[A] := B op C` (`pc + 2`), the others skip (`pc + 1`)."""
-    reg = cfg["c"] == "reg"
+    reg = cfg["c"] in ("reg", "k")
+    cslot = "(w.slot ins.c)" if cfg["c"] == "reg" else "(w.k + stackValueSize * ins.c)"
     inner = """obtain ⟨x, y, v, hxy, hv, rfl⟩ | ⟨hno, -⟩ := hcase
 · simp only [List.cons.injEq, Value.int.injEq, and_true] at hxy
   obtain ⟨rfl, rfl⟩ := hxy
@@ -615,7 +653,7 @@ def arith_paths(cfg):
   {int}
 · exact absurd rfl (hno _ _)"""
     if reg:
-        inner = """by_cases hC : slotTag c1.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt
+        inner = f"""by_cases hC : slotTag c1.σ.mem {cslot} = BitVec.ofNat 8 vNumInt
 · obtain rfl := hvc.int_of_tag hC
   """ + inner.replace("\n", "\n  ") + """
 · obtain ⟨x, y, v, hxy, -, -⟩ | ⟨-, rfl⟩ := hcase
@@ -629,7 +667,7 @@ def arith_paths(cfg):
     · simp only [List.cons.injEq] at hxy
       exact absurd hxy.1 (hvb.not_int hB _)
     {bni}"""
-    yv, hy = (("(slotVal c1.σ.mem (w.slot ins.c))", "(ld_slot (n := w.slot ins.c) ?_)") if reg else
+    yv, hy = ((f"(slotVal c1.σ.mem {cslot})", f"(ld_slot (n := {cslot}) ?_)") if reg else
               ("(BitVec.ofInt 64 ins.sc)", "(scraw_eq ins)"))
 
     def write(post, k):
@@ -648,8 +686,9 @@ def arith_paths(cfg):
     bf = float_guard(cfg["b_float"], "ins.b", "hvb")
     paths = {"bni": (bn[0] + bf[0], [bn[1], bf[1]], skip)}
     if reg:
-        ci, cn = tag_guard(cfg["c_test"], True, "ins.c", "hC"), tag_guard(cfg["c_test"], False, "ins.c", "hC")
-        cf = float_guard(cfg["c_float"], "ins.c", "hvc")
+        ci = tag_guard(cfg["c_test"], True, "ins.c", "hC", cslot)
+        cn = tag_guard(cfg["c_test"], False, "ins.c", "hC", cslot)
+        cf = float_guard(cfg["c_float"], "ins.c", "hvc", cslot)
         paths["int"] = (bi[0] + ci[0], [bi[1], ci[1]], write)
         paths["cni"] = (bi[0] + cn[0] + cf[0], [bi[1], cn[1], cf[1]], skip)
     else:

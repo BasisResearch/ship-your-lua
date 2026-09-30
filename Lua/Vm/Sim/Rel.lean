@@ -266,6 +266,21 @@ theorem Core.trap (hc : Core p c s w) : bytesT4 c.σ.mem (w.ci + ciTrapOff) = 0 
   refine (bytesT4_congrT fun i hi => ?_).trans hc.comp.trap_word
   exact hc.frame _ (hc.ranges.ci_out _ (by omega) (by simp only [ciTrapOff, ciSize]; omega))
 
+theorem kval_lt {p : Proto} {i : Nat} {v : Value} (h : kval p i = some v) : i < p.k.length := by
+  simp only [kval, Proto.const, Option.bind_eq_some_iff] at h
+  obtain ⟨c, hc, -⟩ := h
+  exact (List.getElem?_eq_some_iff.1 hc).1
+
+/-- The constant `k[i]`, as a `K` arm reads it (`ld a4,0(sp)`, then the slot). -/
+theorem Core.kconst (hc : Core p c s w) {i : Nat} {v : Value} (hk : kval p i = some v) :
+    ValRepr w.mo (slotTag c.σ.mem (w.k + stackValueSize * i))
+      (slotVal c.σ.mem (w.k + stackValueSize * i)) v := by
+  have hi := kval_lt hk
+  obtain ⟨ht, hv⟩ := slot_congrT (m := c.σ.mem) (m' := w.mo) (a := w.k + stackValueSize * i)
+    fun j hj => hc.frame _ (hc.ranges.k_out _ (by omega) (by simp only [stackValueSize] at *; omega))
+  rw [ht, hv]
+  exact hc.comp.kconst i v hk
+
 /-! ## Re-establishing the relation after an arm -/
 
 /-- `.text` survives any memory change that is exact outside the register slots. -/

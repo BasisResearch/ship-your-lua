@@ -5,6 +5,8 @@ import Lua.Vm.Sim.Arms.Move
 import Lua.Vm.Sim.Arms.Loadi
 import Lua.Vm.Sim.Arms.Jmp
 import Lua.Vm.Sim.Arms.Add
+import Lua.Vm.Sim.Arms.Addk
+import Lua.Vm.Sim.Arms.Subk
 import Lua.Vm.Sim.Arms.Sub
 import Lua.Vm.Sim.Arms.Addi
 import Lua.Vm.Sim.Arms.Eqi
