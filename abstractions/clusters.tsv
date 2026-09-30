@@ -2,13 +2,16 @@
 # Columns (TAB-separated): id	kind	selector	description
 #   kind = theorems : every theorem/lemma whose file matches the glob and name matches the regex
 #          selector = <file glob>::<name regex>
+#   kind = ledger   : hand cost of GENERATED cases, from a ledger TSV (case, hand_lines, source)
+#          in proof order; selector = <ledger.tsv>::<glob of the generated files>. Every generated
+#          case must have a row, so the gate can never be blind to generated work.
 #   kind = arms     : the case arms of the named theorems (one case = one obligation)
 #          selector = <file glob>::<theorem name regex>
 # A cluster is "re-baselined" by a line `baseline <id> <commit>` in an adopted ROUND-<n>.md
 # decision: only cases introduced after that commit count.
 bc-rule-fanout	arms	Lua/**/*.lean::^(step\?_sound|step\?_complete|Step\.sim|arithStep\?_sound)$	per bytecode-rule case of the semantics' metatheory (stepper soundness/completeness, definite-init simulation)
 ast-construct-fanout	arms	Lua/Ast/*.lean::^(Eval\.det|ExecS\.det|ExecL\.det|ExecBF\.det|ExecB\.det|ForIter\.det|execSound|evalE_sound|evalBin_sound|exec_forIter_sound)$	per source-construct case of LuaSem's metatheory (interpreter soundness, determinism)
-a1-arm-sim	theorems	Lua/Vm/Sim/**/*.lean::^sim_[A-Z0-9]+$	A1: per-opcode simulation of a luaV_execute arm against Step (the lemmas sim_<OP>; the shared setup — VmRel, dispatch, bit/slot lemmas — is not per-case)
+a1-arm-sim	ledger	abstractions/ledger/a1-arm-sim.tsv::Lua/Vm/Sim/Arms/*.lean	A1: hand cost per luaV_execute arm simulation (the sim_* proofs are generated; their hand cost is ledgered)
 boot-witness	theorems	Lua/Vm/Boot/Witness/**/*.lean::.*	A0.6: per-program facts of the VmLoaded witness at a traced entry state (hand-written; the generic Boot/*.lean infrastructure is not per-case)
 tv-program	theorems	Lua/Compile/Corpus.lean::.*	B1: per-program translation-validation facts
 os-trace	theorems	Lua/Os/HtifTraces.lean::.*	per-trace facts about the syscall spec

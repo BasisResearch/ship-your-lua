@@ -56,27 +56,43 @@ failed = False
 for row in open("abstractions/clusters.tsv"):
     if not row.strip() or row.startswith("#"): continue
     cid, kind, sel, desc = row.rstrip("\n").split("\t")[:4]
-    fg, rx = sel.split("::", 1); rx = re.compile(rx)
     cases = []
-    for p in files(fg):
-        src = open(p, errors="ignore").read()
-        if "GENERATED" in src[:400]: continue
-        lines = src.splitlines()
-        for d in decls(p):
-            if not rx.search(d["name"]): continue
-            if kind == "theorems":
-                t, c = blame_time(p, d["line"]); cases.append((t, d["lines"], f"{p}:{d['line']} {d['name']}"))
-            else:
-                # locate each arm's first line inside the declaration
-                k = d["line"]
-                for name, n in d["cases"]:
-                    while k < len(lines) and not re.match(r"^\s+(case\s+%s\b|\|\s*@?\.?%s\b)" % (re.escape(name), re.escape(name)), lines[k]):
+    if kind == "ledger":
+        # hand cost of GENERATED cases, recorded per case in proof order
+        # (selector = ledger TSV :: glob of the generated theorems it must cover)
+        lp, gg = sel.split("::", 1)
+        led = [l.split("\t") for l in open(lp) if l.strip() and not l.startswith("#")]
+        for i, r in enumerate(led):
+            cases.append((i, float(r[1]), f"{lp}:{r[0]}"))
+        covered = {r[0] for r in led}
+        gen = set()
+        for p in files(gg):
+            gen |= set(re.findall(r"theorem\s+(?:\S+\.)?sim_([A-Z0-9]+)\b", open(p, errors="ignore").read()))
+        missing = sorted(gen - covered)
+        if missing:
+            print(f"{cid}: generated cases with no ledger row: {missing} (add them to {lp})")
+            failed = True
+    else:
+        fg, rx = sel.split("::", 1); rx = re.compile(rx)
+        for p in files(fg):
+            src = open(p, errors="ignore").read()
+            if "GENERATED" in src[:400]: continue
+            lines = src.splitlines()
+            for d in decls(p):
+                if not rx.search(d["name"]): continue
+                if kind == "theorems":
+                    t, c = blame_time(p, d["line"]); cases.append((t, d["lines"], f"{p}:{d['line']} {d['name']}"))
+                else:
+                    # locate each arm's first line inside the declaration
+                    k = d["line"]
+                    for name, n in d["cases"]:
+                        while k < len(lines) and not re.match(r"^\s+(case\s+%s\b|\|\s*@?\.?%s\b)" % (re.escape(name), re.escape(name)), lines[k]):
+                            k += 1
+                        if k >= len(lines): break
+                        t, c = blame_time(p, k + 1); cases.append((t, n, f"{p}:{k+1} {d['name']}/{name}"))
                         k += 1
-                    if k >= len(lines): break
-                    t, c = blame_time(p, k + 1); cases.append((t, n, f"{p}:{k+1} {d['name']}/{name}"))
-                    k += 1
     if cid in baselines:
-        cases = [x for x in cases if x[0] > baselines[cid]]
+        cases = [x for x in cases if kind == "ledger" or x[0] > baselines[cid]]
     cases.sort()
     n = len(cases)
     status = "ok"
@@ -92,7 +108,7 @@ for row in open("abstractions/clusters.tsv"):
     print(f"{cid}: {n} cases — {status}")
     if a.report:
         for t, c, where in cases:
-            print(f"    {time.strftime('%Y-%m-%d %H:%M', time.localtime(t))}  {c:4d}  {where}")
+            print(f"    {t if kind == 'ledger' else time.strftime('%Y-%m-%d %H:%M', time.localtime(t))}  {c:6.1f}  {where}")
 if failed:
     print("abstraction gate: FAIL — run /abstraction-discovery")
     sys.exit(1)

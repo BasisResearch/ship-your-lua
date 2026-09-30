@@ -1,0 +1,30 @@
+# Hand cost per A1 arm, in proof order. The arms' sim_* proofs are GENERATED,
+# so the gate cannot count them from Lean. Hand cost = the template, kind and
+# table lines plus the hand Lean added for that arm (the commit's hand lines
+# split evenly over the arms it proves). Sources: abstractions/pilot/A1-incumbent.md,
+# abstractions/bakeoff2/incumbent.md. Columns: case	hand_lines	source
+MOVE	30	pilot (template copy)
+LOADI	35	pilot (template imm)
+JMP	42	pilot (template jump)
+ADD	61	bakeoff2 (arith template)
+EQI	61	bakeoff2 (condjump template)
+FORLOOP	54	bakeoff2 (forloop template)
+SUB	24	a0e8f98 arms
+ADDI	113	a0e8f98 (arith unified over operand forms)
+ADDK	33.5	a0e8f98
+SUBK	33.5	a0e8f98
+BAND	2	a0e8f98 (arith table row)
+BOR	2	a0e8f98
+BXOR	2	a0e8f98
+LTI	33	a0e8f98 (cmpI)
+GTI	33	a0e8f98
+LEI	33	a0e8f98
+GEI	33	a0e8f98
+LOADTRUE	28.75	a0e8f98 (settag/loadk)
+LOADFALSE	28.75	a0e8f98
+LFALSESKIP	28.75	a0e8f98
+LOADK	28.75	a0e8f98
+BNOT	53	a0e8f98
+NOT	91	a0e8f98 (truth)
+TEST	91	a0e8f98
+TESTSET	91	a0e8f98
