@@ -9,6 +9,6 @@
 bc-rule-fanout	arms	Lua/**/*.lean::^(step\?_sound|step\?_complete|Step\.sim|arithStep\?_sound)$	per bytecode-rule case of the semantics' metatheory (stepper soundness/completeness, definite-init simulation)
 ast-construct-fanout	arms	Lua/Ast/*.lean::^(Eval\.det|ExecS\.det|ExecL\.det|ExecBF\.det|ExecB\.det|ForIter\.det|execSound|evalE_sound|evalBin_sound|exec_forIter_sound)$	per source-construct case of LuaSem's metatheory (interpreter soundness, determinism)
 a1-arm-sim	theorems	Lua/Vm/Sim/**/*.lean::.*	A1: per-opcode simulation of a luaV_execute arm against Step
-boot-witness	theorems	Lua/Vm/Boot/**/*.lean::.*	A0.6: facts of the VmLoaded witness at a traced entry state
+boot-witness	theorems	Lua/Vm/Boot/Witness/**/*.lean::.*	A0.6: per-program facts of the VmLoaded witness at a traced entry state (hand-written; the generic Boot/*.lean infrastructure is not per-case)
 tv-program	theorems	Lua/Compile/Corpus.lean::.*	B1: per-program translation-validation facts
 os-trace	theorems	Lua/Os/HtifTraces.lean::.*	per-trace facts about the syscall spec
