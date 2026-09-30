@@ -1,5 +1,6 @@
-# Console-stream scripts for the Lua image's htif.c (no fixture: the
-# generated families start with mkdir, which the Lua ELF does not have).
+# Console-stream scripts for the Lua image's htif.c: one behaviour of fds
+# 0-2, of unknown descriptors, or of the clock per script (the generated
+# families barely reach them).
 # Syntax: tcb/TCB/Os/Trace.lean. One behaviour per script.
 ## c01 write stdout
 write 1 "hello" 5
@@ -54,3 +55,11 @@ open "/a" O_WRONLY|O_CREAT
 fstat 1
 write 1 "hello world\n" 12
 write 1 "1\n" 2
+## c25 a closed console fd is reused by open (smallest free)
+close 1
+open "/a" O_WRONLY|O_CREAT
+write 1 "x" 1
+fstat 1
+## c26 clock (frozen at 0)
+clock
+clock
