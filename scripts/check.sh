@@ -34,6 +34,7 @@ python3 scripts/gen_lua_image.py --check || fail "image drift"
 python3 scripts/gen_lua_code.py --check || fail "code pins drift"
 python3 scripts/gen_lua_decode_check.py --check || fail "decode check drift"
 python3 scripts/gen_lua_arms.py --check || fail "F1 arm segments drift"
+python3 scripts/gen_lua_arm.py --check || fail "A1 arm simulation lemmas drift"
 python3 scripts/syi/gen_alloc_steps.py --check || fail "allocator step table drift"
 python3 scripts/draft_f1_arms.py | tail -1 | grep -q "; 0 steps need" || fail "F1 arm steps without a site class"
 # boot traces to luaV_execute (re-traced on the emulator, ~25 s): the runtime
@@ -162,6 +163,12 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Code.textLoaded_LuaV_executeLoaded
 #print axioms Lua.Vm.Code.textLoaded_LuaD_precallLoaded
 #print axioms Lua.Vm.Code.textLoaded_LuaB_printLoaded
+#print axioms Lua.Vm.Sim.dispatch
+#print axioms Lua.Vm.Sim.sim_MOVE
+#print axioms Lua.Vm.Sim.sim_LOADI
+#print axioms Lua.Vm.Sim.sim_JMP
+#print axioms Lua.Vm.Sim.Core.write
+#print axioms Lua.Vm.Sim.Core.jump
 #print axioms Lua.Programs.f1b_bcSem
 #print axioms Lua.Programs.f1b_supported
 #print axioms Lua.Programs.f4Strlite_bcSem
@@ -239,7 +246,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 91 ] || fail "expected 91 axiom reports, got $n"
+[ "$n" = 97 ] || fail "expected 97 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

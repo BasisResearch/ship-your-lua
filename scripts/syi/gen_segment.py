@@ -44,7 +44,9 @@ from the spec's `pins` and payload
 destructured mechanically, the Post pins list / PC / memory expression are
 computed by the step threading, and the closing assembly is emitted complete
 — zero holes, no `hclose`.  Extra spec fields: `entry` (the pre PC),
-`mem_param` (the Pre memory name, default "m0"; must be a theorem param).
+`mem_param` (the Pre memory name, default "m0"; must be a theorem param),
+`output` (a theorem param name `o0`: the payload also carries
+`σ.sailOutput = o0`, threaded per step through `ReadsLikePost.out`).
 Pure ghosts that lived in a bespoke Pre record (MvRegions/MvBytes-style)
 become theorem parameters.  Straight-line only (no call steps), and every
 store's accumulated memory expression must be parameter-level.
@@ -264,6 +266,7 @@ class SegmentEmitter:
         self.pin_hyps = [p.get("hyp") for p in spec.get("pins", [])]
         self.segst = spec.get("boundary") == "segst"
         self.frame = spec.get("frame")
+        self.output = spec.get("output")       # segst: σ.sailOutput = <this>
         self.lines: list[str] = []
         self.chain: str | None = None          # Steps chain expression so far
         self.state = "c.σ"                     # current state expression
@@ -284,12 +287,12 @@ class SegmentEmitter:
                     "hmi": pb["minstret"], "hi": pb["tick"],
                     "hmem": pb["loaded"], "hp": "hp0",
                     "memeq": pb.get("memeq"), "hframe":
-                        (self.frame or {}).get("init")}[key]
+                        (self.frame or {}).get("init"), "hout": "hout"}[key]
         return {"hG": f"hG{self.k}", "hpc": f"hpc{self.k}", "vmi": f"vmi{self.k}",
                 "hmi": f"hmi{self.k}", "hi": f"hi{self.k}",
                 "hmem": f"hload{self.k}", "hp": f"hp{self.k}",
                 "memeq": f"hmemE{self.k}" if self.mem_expr is not None else None,
-                "hframe": f"hframe{self.k}"}[key]
+                "hframe": f"hframe{self.k}", "hout": f"hout{self.k}"}[key]
 
     def u_expr(self) -> str:
         return self.u_base + " + 1" * self.u_plus
@@ -514,6 +517,11 @@ class SegmentEmitter:
                 f"  have hframe{k} : ∀ R : Register, {self.frame['pred']} R → "
                 f"σ{k}.regs.get? R = {self.frame['rhs']} :=\n"
                 f"    fun R hR => ({tmpl}).trans ({self.pv('hframe')} R hR)")
+        # console output (every site post-state keeps `sailOutput`, `rfl`)
+        if self.output:
+            self.lines.append(
+                f"  have hout{k} : σ{k}.sailOutput = {self.output} :=\n"
+                f"    (ReadsLikePost.out hobs{k}).trans {self.pv('hout')}")
         # advance
         step = f"Steps.single hs{k}"
         self.chain = step if self.chain is None else \
@@ -611,6 +619,8 @@ class SegmentEmitter:
         if self.frame:
             parts.append(f"(∀ R : Register, {self.frame['pred']} R → "
                          f"σ.regs.get? R = {self.frame['rhs']})")
+        if self.output:
+            parts.append(f"σ.sailOutput = {self.output}")
         return "fun σ => " + " ∧ ".join(parts)
 
     def _setup_segst(self):
@@ -625,7 +635,8 @@ class SegmentEmitter:
             raise SpecError("boundary=segst: 'entry' (the pre PC) is required")
         mem_param = spec.get("mem_param", "m0")
         payload_pat = "⟨hloaded, hmemeq" + \
-            (", hframe" if self.frame else "") + "⟩"
+            (", hframe" if self.frame else "") + \
+            (", hout" if self.output else "") + "⟩"
         spec["pre_bind"] = {
             "obtain": f"⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, {payload_pat}⟩",
             "good": "hgood", "pc": "hpc", "minstret_var": "vmi",
@@ -692,7 +703,8 @@ class SegmentEmitter:
             post = (f"SegSt ({self.end_pc}) {pin_list(self.pins)}\n      "
                     f"({self._segst_payload(self.mem_expr)})")
             payload = f"⟨hload{N}, hmemE{N}" + \
-                (f", hframe{N}" if self.frame else "") + "⟩"
+                (f", hframe{N}" if self.frame else "") + \
+                (f", hout{N}" if self.output else "") + "⟩"
             self.lines.append(
                 f"  exact ⟨{cfg}, hsteps{N},\n"
                 f"    ⟨hG{N}, hpc{N}, hp{N}, ⟨vmi{N}, hmi{N}⟩, hi{N}, "

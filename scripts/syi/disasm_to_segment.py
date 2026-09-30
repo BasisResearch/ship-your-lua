@@ -512,10 +512,12 @@ class SegStBuilder:
     """A complete `boundary: segst` spec for one straight-line segment."""
 
     def __init__(self, instrs, theorem: str, loaded_pred: str, namespace: str,
-                 imports: list[str], survival: dict[str, str], suffix: str = ""):
+                 imports: list[str], survival: dict[str, str], suffix: str = "",
+                 keep: list[int] | None = None, output: bool = False):
         self.instrs, self.theorem = instrs, theorem
         self.loaded_pred, self.namespace = loaded_pred, namespace
         self.imports, self.survival, self.suffix = imports, survival, suffix
+        self.keep, self.output = keep or [], output
 
     def build(self) -> dict:
         import gen_sites as gs                       # same directory
@@ -530,6 +532,9 @@ class SegStBuilder:
                     pinned.append(r)
             if ins.writes():
                 written.add(ins.writes())
+        # keep: registers carried through unchanged unless written (the
+        # caller's invariant registers), pinned after the read ones
+        pinned += [r for r in self.keep if r not in pinned]
         val = {r: f"v{r}" for r in pinned}
         V = lambda r: "(0#64)" if r == 0 else val[r]
         mem = "m0"
@@ -625,9 +630,12 @@ class SegStBuilder:
         if pinned:
             params.append("(" + " ".join(f"v{r}" for r in pinned) + " : BitVec 64)")
         params.append("(m0 : Std.ExtHashMap Nat (BitVec 8))")
+        if self.output:
+            params.append("(o0 : Array String)")
         params += hyps
         n = len(instrs)
-        return {
+        extra = {"output": "o0"} if self.output else {}
+        return {**extra,
             "theorem": self.theorem,
             "doc": (f"`0x{instrs[0].addr:08x}`–`0x{instrs[-1].addr + 4:08x}` "
                     f"({n} instruction{'s' if n > 1 else ''}), from "
@@ -696,13 +704,18 @@ def site_rows(instrs) -> list[str]:
 
 def complete(lo: int, hi: int, lines: list[str], origin: str, theorem: str,
              loaded_pred: str, namespace: str, imports: list[str],
-             survival: dict[str, str], suffix: str = "") -> tuple[dict, list[str]]:
-    """The complete segst spec of [lo, hi) and the site rows it needs."""
+             survival: dict[str, str], suffix: str = "",
+             keep: list[int] | None = None,
+             output: bool = False) -> tuple[dict, list[str]]:
+    """The complete segst spec of [lo, hi) and the site rows it needs.
+    `keep`: registers pinned at entry and carried through (the post value is
+    the entry value unless a step writes the register); `output`: the payload
+    also carries `σ.sailOutput = o0`."""
     instrs = parse_rows(lines, origin, lo, hi)
     if not instrs:
         raise ValueError("no site rows in range")
     spec = SegStBuilder(instrs, theorem, loaded_pred, namespace, imports,
-                        survival, suffix).build()
+                        survival, suffix, keep, output).build()
     return spec, site_rows(instrs)
 
 
