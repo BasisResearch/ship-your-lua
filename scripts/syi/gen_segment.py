@@ -44,7 +44,9 @@ from the spec's `pins` and payload
 destructured mechanically, the Post pins list / PC / memory expression are
 computed by the step threading, and the closing assembly is emitted complete
 — zero holes, no `hclose`.  Extra spec fields: `entry` (the pre PC),
-`mem_param` (the Pre memory name, default "m0"; must be a theorem param).
+`mem_param` (the Pre memory name, default "m0"; must be a theorem param),
+`output` (a theorem param name `o0`: the payload also carries
+`σ.sailOutput = o0`, threaded per step through `ReadsLikePost.out`).
 Pure ghosts that lived in a bespoke Pre record (MvRegions/MvBytes-style)
 become theorem parameters.  Straight-line only (no call steps), and every
 store's accumulated memory expression must be parameter-level.

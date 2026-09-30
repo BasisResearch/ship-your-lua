@@ -25,7 +25,8 @@ Every row is currently unassigned.
 |---|---|---|---|
 | `VmLayout.runtimeReady` concrete instance `luaLayout` | `Lua/Vm/Runtime.lean` | A0 | **defined** (`luaRuntimeReady`); every field holds at both traced entries (checked natively by `gen_lua_boot_witness.py`) |
 | `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | `Lua/Vm/Boot/` | A0 | open: the generator, the entry data and the reconstruction lemmas are landed; the kernel witness is not written (A0.6) |
-| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | new `Lua/Vm/Sim/` | A1 | open |
+| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **pilot proved**: the relation `VmRel`, `dispatch`, and `sim_MOVE`/`sim_LOADI`/`sim_JMP` (A1 status) |
+| `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | open |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
 | `CompileTV (fun s p => compile s = some p)` for a Lean `compile` | new `Lua/Compile/` | B2 | open |
@@ -311,6 +312,57 @@ covers the new stages.
     and are in range.
   * `Step.deterministic`, `BcSem.deterministic` (`Lua/Bytecode/Exec.lean`,
     via `step?_complete`).
+* **Status (pilot, incumbent tooling; `abstractions/pilot/A1-incumbent.md`).**
+  * **The relation** (`Lua/Vm/Sim/Rel.lean`). `VmRel p c s := ∃ w, VmRelAt p c s w`,
+    all named fields:
+    * the machine is at the fetch head `Lua.Vm.Arms.headPc` (`0x8001bfe4`, from
+      the census JSON);
+    * `Pins` fixes s0 = `L`, s7 = `ci`, s8 = the jump table, s1 = 81, s2 = 3,
+      s5 = `trap` = 0, s9 = `base`, s11 = `code + 4·pc` (the cached pc; the
+      memory `savedpc` is only written by `savepc`), `sp` and `gp`;
+    * `Core.stack`: every defined register `j < maxstacksize` is represented
+      (`ValRepr`) by its slot's tag and payload. The kernel's ⊥ already
+      encodes the definite-initialisation mask;
+    * `Core.out`: the HTIF console is `s.out`;
+    * `Core.frame`: outside the window (register slots and `luaV_execute`'s C
+      frame) memory is a complement `w.mo`. `Complement` holds the image,
+      `ProtoRepr`, the code words, `ci->func`, `ci->u.l.trap = 0`,
+      `LuaStateAt`, `HeapAt` and `ErrorJmpAt`. `Ranges` holds the address
+      bounds and separations.
+  * **Relocation.** Registers are decoded from `ci->func` as the complement
+    holds it (`base = func + 16`), not from a fixed address. Two operations
+    move it; both re-establish `VmRel` with a new `func`, so no rewrite is
+    needed:
+    * `VARARGPREP` moves `ci->func` in every main chunk;
+    * `CALL print` can reallocate the stack at ≥ 15 locals
+      (`experiments/a1-falsifiers/REPORT.md`).
+
+    The alternative, recorded but not taken, is a frame bound in `Supported`
+    that rules out the reallocation.
+  * **Dispatch, proved once** (`Lua/Vm/Sim/Dispatch.lean`, `dispatch`). It
+    runs from `VmRelAt` with the instruction `ins` (opcode < 82) to
+    `armTarget ins.opNum`, the table entry in `.rodata`
+    (`jtWord_eq`, `armTarget_aligned`). It goes through the generated head
+    segment `seg_8001bfe4_8001c00c` (`Lua/Vm/Arms/Head.lean`).
+  * **Arms** (`scripts/gen_lua_arm.py`, `Lua/Vm/Sim/Arms/`). Each
+    `sim_<OP> : Supported p → VmRel p c s → fetch → op → Step binaryHost p s s' →
+    ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s'` is proved for MOVE, LOADI
+    and JMP. The proof composes:
+    * `dispatch`;
+    * the arm's generated segments, whose side conditions are closed by
+      `arm_arith`;
+    * the kernel combinator's inversion (`step_setR`, `step_jump`);
+    * `Core.write` or `Core.jump`.
+
+    The segments of `SIM_OPS` arms carry the fetch-head registers and
+    `sailOutput` (`gen_lua_arms.py` `KEEP`).
+  * **Open:**
+    * the other 31 F1 arms: ADD, EQI and FORLOOP are held out for the round-2
+      bake-off;
+    * the entry lemma (the prologue run from `VmLoaded` to `VmRel … State.init`);
+    * `CALL` (heap, stdio and relocation evolve the complement);
+    * the error paths;
+    * the `term_sim`/`stuck_sim` fold.
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
 

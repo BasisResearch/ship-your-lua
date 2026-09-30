@@ -174,6 +174,12 @@ structure VmRelAt (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop wher
 instruction `s.pc` of `p`, representing `s`. -/
 def VmRel (p : Proto) (c : Config) (s : State) : Prop := ∃ w, VmRelAt p c s w
 
+/-- **Open (A1): the entry lemma.** From `luaV_execute`'s entry, the prologue
+runs to the fetch head in the relation with the initial state. -/
+def vmRel_entry_Statement : Prop :=
+  ∀ p c, Supported p → VmLoaded luaLayout p c →
+    ∃ c', Vsa.Machine.Steps c c' ∧ VmRel p c' State.init
+
 /-- **After dispatch**: at the arm of `ins`'s opcode, with s3 = `pc + 1` and
 s4 = the instruction (sign-extended by `lw`). -/
 structure ArmAt (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop where
