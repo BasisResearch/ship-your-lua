@@ -30,7 +30,7 @@ def lean_files():
 
 DECL = re.compile(r"^(?:@\[[^\]]*\]\s*)?(?:private\s+|protected\s+)?(theorem|lemma)\s+([^\s:({]+)")
 TOP = re.compile(r"^(?:@\[|/--|/-!|theorem|lemma|def|abbrev|structure|inductive|instance|example|namespace|end|section|open|variable|set_option|mutual|noncomputable|private|protected|macro|syntax|#)")
-CASE = re.compile(r"^\s+(?:case\s+(\w+)\s*=>|\|\s*\.?(\w+)\b.*=>)")
+CASE = re.compile(r"^\s+(?:case\s+(\w+)\s*=>|\|\s*@?\.?(\w+)\b.*=>)")
 
 def decls(path):
     lines = open(path, errors="ignore").read().splitlines()
@@ -41,14 +41,21 @@ def decls(path):
             j = i + 1
             while j < len(lines) and not TOP.match(lines[j]): j += 1
             body = [l for l in lines[i:j] if l.strip() and not l.strip().startswith("--")]
-            cases = []
+            spans = []
             for k in range(i, j):
                 cm = CASE.match(lines[k])
                 if cm:
                     ind = len(lines[k]) - len(lines[k].lstrip())
                     e = k + 1
                     while e < j and (not lines[e].strip() or len(lines[e]) - len(lines[e].lstrip()) > ind): e += 1
-                    cases.append((cm.group(1) or cm.group(2), sum(1 for l in lines[k:e] if l.strip())))
+                    spans.append((k, e, cm.group(1) or cm.group(2)))
+            cases = []
+            for k, e, name in spans:
+                # an arm's own cost excludes the arms nested inside it
+                inner = set()
+                for k2, e2, _ in spans:
+                    if k < k2 and e2 <= e: inner.update(range(k2, e2))
+                cases.append((name, sum(1 for x in range(k, e) if x not in inner and lines[x].strip())))
             out.append({"file": path, "name": m.group(2), "line": i + 1, "lines": len(body), "cases": cases})
             i = j
         else:

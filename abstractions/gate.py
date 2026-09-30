@@ -70,7 +70,7 @@ for row in open("abstractions/clusters.tsv"):
                 # locate each arm's first line inside the declaration
                 k = d["line"]
                 for name, n in d["cases"]:
-                    while k < len(lines) and not re.match(r"^\s+(case\s+%s\b|\|\s*\.?%s\b)" % (re.escape(name), re.escape(name)), lines[k]):
+                    while k < len(lines) and not re.match(r"^\s+(case\s+%s\b|\|\s*@?\.?%s\b)" % (re.escape(name), re.escape(name)), lines[k]):
                         k += 1
                     if k >= len(lines): break
                     t, c = blame_time(p, k + 1); cases.append((t, n, f"{p}:{k+1} {d['name']}/{name}"))
