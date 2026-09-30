@@ -95,31 +95,34 @@ def endToEnd_lua_Statement (Lay : VmLayout) (Compiles : Chunk → Proto → Prop
 
 **OS boundary.** ship-your-ocaml's OS spec (`tcb/`, SibylFS + CakeML) is
 copied in; `Lua/Os/Htif.lean` states what `c/src/htif.c` must do to
-implement it, and its traces (`experiments/os/RESULTS.md`) show the current
-console-only `htif.c` meets it only on `print`'s writes (PHASES.md, OS).
+implement it. Its in-image file system, which backs Lua's `io`/`os`, is
+rejected on none of 6,490 generated traces and 26 console scripts
+(`experiments/os/RESULTS.md`; PHASES.md, OS).
 
 ## Validation numbers (VALIDATION.md)
 
 * **Toolchain.** xPack GCC 15.2.0 with newlib 4.5.0, the release that built
-  the WHILE ELF. Flags are `rv64i`, `lp64`, `medany`, `-O2`. No os/io
-  libraries; GC stopped before any allocation through the API; a constant
-  hash seed; output over HTIF.
-* **`while.lua` on Sail.** It prints `55 2500 36` and exits 0 in **159,140
+  the WHILE ELF. Flags are `rv64i`, `lp64`, `medany`, `-O2`. The `io`
+  and `os` libraries run over an in-image file system in `htif.c` that
+  follows the shared OS spec (`tcb/`), with a clock frozen at 0; GC stopped
+  before any allocation through the API; a constant hash seed; output over
+  HTIF.
+* **`while.lua` on Sail.** It prints `55 2500 36` and exits 0 in **215,723
   steps**.
-  * `luaV_execute` is entered at step **124,808**; the VM part is 34,332
+  * `luaV_execute` is entered at step **181,166**; the VM part is 34,557
     steps and 671 dispatched instructions.
   * The emulator runs at about 47k steps/s.
-* **Difftest.** **16/16** programs across F1–F4, floats, pcall/error and
-  coroutines agree with native `lua` built from the same source. They take
-  134k–2.6M Sail steps each.
+* **Difftest.** **18/18** programs across F1–F4, floats, pcall/error,
+  coroutines and `io`/`os` agree with native `lua` built from the same
+  source. They take 190k–2.6M Sail steps each.
 * **Census of the ELF.**
-  * The image is 837 functions and 68,072 instructions, against the WHILE
+  * The image is 980 functions and 80,690 instructions, against the WHILE
     ELF's 258 and 25,336.
-  * 693 functions are statically reachable, and the difftests together
-    execute 379.
-  * Shared code: 208 functions are identical to the WHILE ELF modulo
-    relocations (newlib, libgcc, dlmalloc, stdio, setjmp/longjmp). 91 of
-    them are executed, 74 of those inside the proven scope.
+  * 848 functions are statically reachable, and the difftests together
+    execute 502.
+  * Shared code: 203 functions are identical to the WHILE ELF modulo
+    relocations (newlib, libgcc, dlmalloc, stdio, setjmp/longjmp). 101 of
+    them are executed.
   * `luaV_execute` is 4,020 instructions with **one** dispatch `jr` over an
     82-entry jump table.
   * F1's 43 opcode arms total 2,239 instructions, of which 613 are on the
