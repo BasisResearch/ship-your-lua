@@ -263,6 +263,18 @@ theorem Core.fetch (hc : Core p c s w) {pc : Nat} {ins : Word} (hf : p.fetch pc 
   refine (bytesT4_congrT fun i hi => ?_).trans (hc.comp.code_word pc ins hf)
   exact hc.frame _ (hc.ranges.code_out _ (by omega) (by omega))
 
+/-- The instruction at `pc`, read from any memory exact outside the register slots. -/
+theorem Core.fetch_of (hc : Core p c s w) {m : Mem} (h : ∀ y, ¬ Slots p w y → m[y]? = c.σ.mem[y]?)
+    {pc : Nat} {ins : Word} (hf : p.fetch pc = some ins) : bytesT4 m (w.code + 4 * pc) = ins := by
+  have hlt := fetch_lt hf
+  refine (bytesT4_congr fun i hi => ?_).trans (hc.fetch hf)
+  exact h _ (Win.of_slots (hc.ranges.code_out _ (by omega) (by omega)))
+
+/-- A byte store into the register slots is exact outside them. -/
+theorem insert_frame {m : Mem} {x : Nat} {b : BitVec 8} (hx : Slots p w x) :
+    ∀ y, ¬ Slots p w y → (m.insert x b)[y]? = m[y]? := fun y hy => by
+  rw [Std.ExtHashMap.getElem?_insert, if_neg (by simp only [beq_iff_eq]; rintro rfl; exact hy hx)]
+
 /-- `ci->u.l.trap`, as `updatetrap` reads it. -/
 theorem Core.trap (hc : Core p c s w) : bytesT4 c.σ.mem (w.ci + ciTrapOff) = 0 := by
   refine (bytesT4_congrT fun i hi => ?_).trans hc.comp.trap_word

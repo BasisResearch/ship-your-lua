@@ -129,6 +129,32 @@ theorem mapM3 {f : Nat → Option Value} {a b c : Nat} {vs : List Value}
   obtain ⟨x, hx, _, ⟨y, hy, _, ⟨z, hz, _, rfl, rfl⟩, rfl⟩, rfl⟩ := h
   exact ⟨x, y, z, hx, hy, hz, rfl⟩
 
+/-- A step at `OP_TESTSET` (`testsetK`): `R[B]` is `v`; if its falsity is
+`k`, skip (`pc + 2`), else `R[A] := v` and jump to `t`. -/
+theorem step_testset {s s' : State} {w : Word} {t : Nat}
+    (h : Step H p s s') (hK : kernelAt p s.pc = some (testsetK s.pc w t)) :
+    ∃ v, s.regs w.b = some v ∧
+      ((v.isFalse = w.k ∧ s' = ⟨s.pc + 2, s.regs, s.out⟩) ∨
+       (¬ v.isFalse = w.k ∧ s' = ⟨t, upd s.regs w.a v, s.out⟩)) := by
+  obtain ⟨hK', hvs, ho, he⟩ := h
+  rename_i K vs o e
+  cases hK.symm.trans hK'
+  obtain ⟨v, hv, rfl⟩ := mapM1 hvs
+  refine ⟨v, hv, ?_⟩
+  simp only [testsetK, Option.some.injEq] at ho
+  subst ho
+  by_cases hk : v.isFalse = w.k
+  · left
+    simp only [testsetK, hk, ite_true, List.getElem?_cons_zero, Option.some.injEq] at he
+    subst he
+    exact ⟨hk, by simp [VState.apply, writeDefs, KEdge.kills, hk]⟩
+  · right
+    simp only [testsetK, hk, ite_false, List.getElem?_cons_succ, List.getElem?_cons_zero,
+      Option.some.injEq] at he
+    subst he
+    refine ⟨hk, ?_⟩
+    simp [VState.apply, writeDefs, KEdge.kills, hk]
+
 /-- A step whose kernel is `forloopK pc w t`: the count `n`, the step and the
 index are read; count 0 exits to `pc + 1`, otherwise the index is an integer
 and count−1, index+step and the control variable are written, jumping to

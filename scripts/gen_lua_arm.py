@@ -387,6 +387,9 @@ ARMS2 = {"OP_ADD": ("ADD", "Add", "arith", dict(ARITH_RR, binop="add", alu="HAdd
          "OP_LFALSESKIP": ("LFALSESKIP", "Lfalseskip", "settag", (False, 2)),
          "OP_LOADK": ("LOADK", "Loadk", "loadk", None),
          "OP_BNOT": ("BNOT", "Bnot", "bnot", None),
+         "OP_NOT": ("NOT", "Not", "truth", "NOT"),
+         "OP_TEST": ("TEST", "Test", "truth", "TEST"),
+         "OP_TESTSET": ("TESTSET", "Testset", "truth", "TESTSET"),
          "OP_LTI": ("LTI", "Lti", "cmpI", "lt_ai"),
          "OP_GTI": ("GTI", "Gti", "cmpI", "lt_ia"),
          "OP_LEI": ("LEI", "Lei", "cmpI", "le_ai"),
@@ -944,6 +947,8 @@ def paths2(kind, cfg):
         return loadk_paths(cfg)
     if kind == "bnot":
         return bnot_paths(cfg)
+    if kind == "truth":
+        return truth_paths(cfg)
     if kind == "condjump":
         split = """  by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hva'.int_of_tag hTa
@@ -1010,10 +1015,184 @@ def indent(text, n):
     return "\n".join((" " * n + ln) if ln.strip() else ln for ln in text.rstrip("\n").split("\n"))
 
 
+# `l_isfalse` arms. `NOT`: `R[A] := not R[B]` (three exits: false, nil,
+# anything else); `TEST`: jump iff `R[A]`'s truth is `k`; `TESTSET`: if
+# `R[B]`'s falsity is not `k`, `R[A] := R[B]` and jump, else skip.
+TAGSLOT = {"NOT": "ins.b", "TEST": "ins.a", "TESTSET": "ins.b"}
+
+
+def g_false(j, holds):
+    return (f"(by refine guard_false_{'t' if holds else 'f'} (n := w.slot {j}) ?_ hT1; slot_arith)")
+
+
+def g_nil(j, holds):
+    return f"(by refine guard_nil_{'t' if holds else 'f'} (n := w.slot {j}) ?_ hN; slot_arith)"
+
+
+def g_kb(jump_on_eq, hv):
+    """`bne k, bit`: `guard_kb_ne_f` when `k` equals the bit (not taken)."""
+    return f"(by refine guard_kb_ne_{'f' if jump_on_eq else 't'} (x := ins) ?_ hJ; {hv})"
+
+
+TRUTH_PRE = {
+    "NOT": """  have hK : kernelAt p s.pc = some (setR ins.a (s.pc + 1) [.reg ins.b] (δ .not)) := by
+    simp [kernelAt, hf, kernel, hop, opKernel]
+  obtain ⟨vs, v, hvs, hv, rfl⟩ := step_setR hstep hK
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, setR, Kernel.regTop, Opnd.ports] at htop
+  simp only [Opnd.ports] at hvs
+  obtain ⟨vb, hb, rfl⟩ := mapM1 hvs
+  simp only [Opnd.fill, δ, Option.some.injEq] at hv
+  subst hv
+""",
+    "TEST": """  have hK0 : kernelAt p s.pc = docondjump p s.pc ins.k [.reg ins.a] List.head? := by
+    simp [kernelAt, hf, kernel, hop, opKernel]
+  cases ht : nextJump p s.pc with
+  | none =>
+    obtain ⟨hK', -, -, -⟩ := hstep
+    simp [hK0, docondjump, ht] at hK'
+  | some t =>
+  obtain ⟨vs, cv, hvs, hcv, rfl⟩ := step_condjump hstep hK0 ht
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, docondjump, ht, Kernel.regTop, Opnd.ports] at htop
+  simp only [Opnd.ports] at hvs
+  obtain ⟨va, hva, rfl⟩ := mapM1 hvs
+  simp only [Opnd.fill, List.head?, Option.some.injEq] at hcv
+  subst hcv
+  simp only [nextJump, Option.bind_eq_some_iff] at ht
+  obtain ⟨ni, hni, hjt⟩ := ht
+""",
+    "TESTSET": """  cases ht : nextJump p s.pc with
+  | none =>
+    obtain ⟨hK', -, -, -⟩ := hstep
+    simp [kernelAt, hf, kernel, hop, opKernel, ht] at hK'
+  | some t =>
+  have hK : kernelAt p s.pc = some (testsetK s.pc ins t) := by
+    simp [kernelAt, hf, kernel, hop, opKernel, ht]
+  obtain ⟨vb, hb, hcase⟩ := step_testset hstep hK
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, ht, testsetK, Kernel.regTop] at htop
+  simp only [nextJump, Option.bind_eq_some_iff] at ht
+  obtain ⟨ni, hni, hjt⟩ := ht
+""",
+}
+
+TRUTH_FACTS = {
+    "NOT": UNARY_FACTS,
+    "TEST": None,          # the condjump facts
+    "TESTSET": """  have hcode := hr.code_hi
+  have hcdl := hr.code_lo
+  have hlt := fetch_lt hni
+  have hAt : ins.a < p.maxstacksize := by have := Nat.le_max_left ins.a ins.b; omega
+  have hBt : ins.b < p.maxstacksize := by have := Nat.le_max_right ins.a ins.b; omega
+  have hvb := hc1.stack ins.b vb hBt hb
+  simp only [Word.a, Word.b, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt
+""",
+}
+
+
+def truth_paths(op):
+    if op == "NOT":
+        split = """  by_cases hT1 : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vFalse
+  · obtain rfl := hvb.false_of_tag hT1
+    {fls}
+  · rw [hvb.isFalse_of_ne hT1]
+    by_cases hN : (slotTag c1.σ.mem (w.slot ins.b)).toNat % 16 = 0
+    · simp only [hN, decide_true]
+      {nil}
+    · simp only [hN, decide_false]
+      {oth}"""
+
+        def store(b):
+            def close(post, k):
+                return (f"""  have hst := slotStore_sb (A := w.slot ins.a) hW (by slot_arith)
+{x27_to(post, k, "(s.pc + 1)")}  have hcore := hc1.write hq{k} (a := ins.a) (pc' := s.pc + 1)
+    (v := .bool {b}) (by simp only [Word.a, Word.field]; omega)
+    ⟨{pins2(post, k, {"x27": "hx27"})}⟩
+    hst (ValRepr.bool_of _ (by decide))
+""" + done2(k))
+            return close
+        return split, {
+            "fls": ("t", [g_false("ins.b", True)], store("true")),
+            "nil": ("nt", [g_false("ins.b", False), g_nil("ins.b", True)], store("true")),
+            "oth": ("nn", [g_false("ins.b", False), g_nil("ins.b", False)], store("false")),
+        }
+    if op == "TEST":
+        split = """  by_cases hT1 : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vFalse
+  · obtain rfl := hva'.false_of_tag hT1
+    rw [show (!(Value.bool false).isFalse) = false from rfl]
+    by_cases hJ : ins.k = false
+    · rw [if_pos hJ.symm]
+      {fj}
+    · rw [if_neg (fun h => hJ h.symm)]
+      {fs}
+  · rw [hva'.isFalse_of_ne hT1]
+    by_cases hJ : ins.k = !decide ((slotTag c1.σ.mem (w.slot ins.a)).toNat % 16 = 0)
+    · rw [if_pos hJ.symm]
+      {nj}
+    · rw [if_neg (fun h => hJ h.symm)]
+      {ns}"""
+        hv1, hv2 = "decide", "rw [snez_tag (n := w.slot ins.a) ?_]; slot_arith"
+        f1, f0 = g_false("ins.a", True), g_false("ins.a", False)
+        return split, {
+            "fj": ("tn", [f1, g_kb(True, hv1)], cond_jump),
+            "fs": ("tt", [f1, g_kb(False, hv1)], cond_skip),
+            "nj": ("nn", [f0, g_kb(True, hv2)], cond_jump),
+            "ns": ("nt", [f0, g_kb(False, hv2)], cond_skip),
+        }
+    assert op == "TESTSET"
+    split = """  by_cases hT1 : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vFalse
+  · have hF := hvb.false_of_tag hT1
+    subst hF
+    rcases hcase with ⟨hk, rfl⟩ | ⟨hk, rfl⟩
+    · have hJ : ins.k = true := hk.symm
+      {fs}
+    · have hJ : ¬ ins.k = true := fun h => hk h.symm
+      {fj}
+  · have hF := hvb.isFalse_of_ne hT1
+    rcases hcase with ⟨hk, rfl⟩ | ⟨hk, rfl⟩
+    · have hJ : ins.k = decide ((slotTag c1.σ.mem (w.slot ins.b)).toNat % 16 = 0) := hk.symm.trans hF
+      {ns}
+    · have hJ : ¬ ins.k = decide ((slotTag c1.σ.mem (w.slot ins.b)).toNat % 16 = 0) :=
+        fun h => hk (hF.trans h.symm)
+      {nj}"""
+    hv1 = "refine tag_false_bit (n := w.slot ins.b) ?_ hT1; slot_arith"
+    hv2 = "rw [seqz_tag (n := w.slot ins.b) ?_]; slot_arith"
+    f1, f0 = g_false("ins.b", True), g_false("ins.b", False)
+
+    def copy_jump(post, k):
+        # the tag's `sb` precedes `donextjump`'s reads of the next instruction
+        # and of `trap`: both read through the store (`insert_frame`)
+        return (f"""  have hst := slotStore_copy_tv (A := w.slot ins.a) (S := w.slot ins.b) hW (by slot_arith)
+    (by slot_arith) (by slot_arith) (by slot_arith)
+""" + fix_pin("x21", post, k, "(0#64)", """    rw [bytesT4_at (n := w.ci + ciTrapOff) ?_,
+      trap_of_frame hr hc1.comp (hc1.frame_of (insert_frame ?_))] at h
+    · exact h.trans (congrArg some trap_zero)
+    all_goals first | slot_arith | (simp only [Slots]; constructor <;> slot_arith)
+""") + fix_pin(
+            "x27", post, k, "(BitVec.ofNat 64 (w.code + 4 * t))",
+            """    have hj := jumpTo_eq hjt
+    have hax : ni.ax < 2 ^ 25 := Nat.mod_lt _ (by decide)
+    simp only [Word.sj, Word.offsetSJ] at hj
+    refine pin_eq h (nextjump_pc ?_ (hc1.fetch_of (insert_frame ?_) hni) hjt (by omega) (by omega))
+    all_goals first | slot_arith | (simp only [Slots]; constructor <;> slot_arith)
+""") + f"""  have hcore := hc1.write hq{k} (a := ins.a) (pc' := t) (by simp only [Word.a, Word.field]; omega)
+    ⟨{pins2(post, k, {"x21": "hx21", "x27": "hx27"})}⟩
+    hst hvb
+""" + done2(k))
+    return split, {
+        "fj": ("tt", [f1, g_kb(False, hv1)], copy_jump),
+        "fs": ("tn", [f1, g_kb(True, hv1)], cond_skip),
+        "nj": ("nt", [f0, g_kb(False, hv2)], copy_jump),
+        "ns": ("nn", [f0, g_kb(True, hv2)], cond_skip),
+    }
+
+
+
 def pre2(kind, cfg):
     return {"arith": lambda: arith_pre(cfg), "cmpI": lambda: cmpI_pre(CMPI[cfg]),
             "settag": lambda: settag_pre(cfg), "loadk": lambda: LOADK_PRE,
-            "bnot": lambda: BNOT_PRE}.get(kind, lambda: PRE2[kind])()
+            "bnot": lambda: BNOT_PRE, "truth": lambda: TRUTH_PRE[cfg]}.get(kind, lambda: PRE2[kind])()
 
 
 def facts2(kind, cfg):
@@ -1021,7 +1200,8 @@ def facts2(kind, cfg):
             "settag": lambda: """  have hcode := hr.code_hi
   have hlt := fetch_lt hf
   simp only [Word.a, Word.field] at htop
-""", "loadk": lambda: LOADK_FACTS, "bnot": lambda: UNARY_FACTS}.get(kind, lambda: FACTS2[kind])()
+""", "loadk": lambda: LOADK_FACTS, "bnot": lambda: UNARY_FACTS,
+            "truth": lambda: TRUTH_FACTS[cfg] or FACTS2["condjump"]}.get(kind, lambda: FACTS2[kind])()
 
 
 def render_arm2(op, specs, arms):

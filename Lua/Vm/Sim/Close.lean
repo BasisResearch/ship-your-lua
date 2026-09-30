@@ -460,6 +460,113 @@ theorem nextjump_pc {m : Mem} {code pc t a : Nat} {ni : Word} (ha : a = code + 4
   have : ni.toNat >>> 7 < 2 ^ 25 := by rw [Nat.shiftRight_eq_div_pow]; have := ni.isLt; omega
   omega
 
+/-- `setobj` laid out as `lbu`, `ld`, `sb`, `sd` (both reads before the stores). -/
+theorem slotStore_copy_tv {m m' : Mem} {A S a1 a2 s1 s2 : Nat}
+    (h : m' = writeMap8 (m.insert a1 (stData 1 (zero_extend (m := 64) (bytesT1 m s2 : BitVec (8 * 1)))))
+      a2 (sdData_val (sign_extend (m := 64) (bytesT8 m s1 : BitVec (8 * 8)))))
+    (h1 : a1 = A + 8) (h2 : a2 = A) (hs1 : s1 = S) (hs2 : s2 = S + 8) :
+    SlotStore m m' A (slotTag m S) (slotVal m S) := by
+  subst h
+  rw [h1, h2, hs1, hs2, sdData_sext, stData_zext]
+  simpa only [slotTag, slotVal, tvalueTagOff, tvalueValOff, Nat.add_zero] using
+    store_sb_sd m A (bytesT8 m S) (bytesT1 m (S + 8))
+
+/-! ## Truthiness (`l_isfalse`: the tag is `LUA_VFALSE`, or its low nibble is 0) -/
+
+section
+variable {mo : Mem} {t : BitVec 8} {x : BitVec 64} {v : Value}
+
+theorem ValRepr.false_of_tag (h : ValRepr mo t x v) (ht : t = BitVec.ofNat 8 vFalse) :
+    v = .bool false := by
+  cases h with
+  | nil h => subst ht; simp [vFalse] at h
+  | str h _ => subst ht; simp [vShrStr, vLngStr, vFalse] at h
+  | false_ => rfl
+  | _ => exact absurd ht (by decide)
+
+theorem ValRepr.isFalse_of_ne (h : ValRepr mo t x v) (ht : t ≠ BitVec.ofNat 8 vFalse) :
+    v.isFalse = decide (t.toNat % 16 = 0) := by
+  cases h with
+  | nil h => simp [Value.isFalse, h]
+  | false_ => exact absurd rfl ht
+  | str h _ => rcases h with h | h <;> simp [Value.isFalse, h, vShrStr, vLngStr]
+  | true_ => decide
+  | int => simp [Value.isFalse, vNumInt]
+  | print => decide
+
+end
+
+theorem const_one : (0#64) + sign_extend (m := 64) (0x001#12) = BitVec.ofNat 64 vFalse := by decide
+
+section
+variable {m : Mem} {a n : Nat}
+
+/-- `li 1; beq tag`: the `false` test. -/
+theorem guard_false_t (ha : a = n + 8) (h : slotTag m n = BitVec.ofNat 8 vFalse) :
+    (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) == ((0#64) + sign_extend (m := 64) (0x001#12))) = true := by
+  rw [const_one]; exact guard_tag_eq ha h (by decide)
+
+theorem guard_false_f (ha : a = n + 8) (h : slotTag m n ≠ BitVec.ofNat 8 vFalse) :
+    (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) == ((0#64) + sign_extend (m := 64) (0x001#12))) = false := by
+  rw [const_one]; exact guard_tag_ne ha h (by decide)
+
+theorem nibble_beq : ∀ b : BitVec 8,
+    ((zero_extend (m := 64) (b : BitVec (8 * 1)) &&& sign_extend (m := 64) (0x00f#12)) == (0#64))
+      = decide (b.toNat % 16 = 0) := by decide
+
+theorem nibble_snez : ∀ b : BitVec 8,
+    zopz0zI_u (0#64) (zero_extend (m := 64) (b : BitVec (8 * 1)) &&& sign_extend (m := 64) (0x00f#12))
+      = !decide (b.toNat % 16 = 0) := by decide
+
+theorem nibble_seqz : ∀ b : BitVec 8,
+    zopz0zI_u (zero_extend (m := 64) (b : BitVec (8 * 1)) &&& sign_extend (m := 64) (0x00f#12))
+      (sign_extend (m := 64) (0x001#12)) = decide (b.toNat % 16 = 0) := by decide
+
+/-- `andi 15; beqz`: the `nil` test. -/
+theorem guard_nil_t (ha : a = n + 8) (h : (slotTag m n).toNat % 16 = 0) :
+    ((zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) &&& sign_extend (m := 64) (0x00f#12)) == (0#64))
+      = true := by
+  subst ha; rw [nibble_beq]; simpa [slotTag, tvalueTagOff] using h
+
+theorem guard_nil_f (ha : a = n + 8) (h : ¬ (slotTag m n).toNat % 16 = 0) :
+    ((zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) &&& sign_extend (m := 64) (0x00f#12)) == (0#64))
+      = false := by
+  subst ha; rw [nibble_beq]; simpa [slotTag, tvalueTagOff] using h
+
+theorem snez_tag (ha : a = n + 8) :
+    zopz0zI_u (0#64) (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) &&& sign_extend (m := 64) (0x00f#12))
+      = !decide ((slotTag m n).toNat % 16 = 0) := by
+  subst ha; rw [nibble_snez]; rfl
+
+theorem seqz_tag (ha : a = n + 8) :
+    zopz0zI_u (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) &&& sign_extend (m := 64) (0x00f#12))
+      (sign_extend (m := 64) (0x001#12)) = decide ((slotTag m n).toNat % 16 = 0) := by
+  subst ha; rw [nibble_seqz]; rfl
+
+/-- The `false` tag read back as the bit `true` (`TESTSET`'s `mv`). -/
+theorem tag_false_bit (ha : a = n + 8) (h : slotTag m n = BitVec.ofNat 8 vFalse) :
+    zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) + sign_extend (m := 64) (0x000#12)
+      = zero_extend (m := 64) (bool_to_bit true) := by
+  subst ha; simp only [slotTag, tvalueTagOff] at h; rw [h]; decide
+
+end
+
+section
+variable {x : Word} {v : BitVec 64} {b : Bool}
+
+/-- `bne k, b`, taken iff `k` is not the bit `b`. -/
+theorem guard_kb_ne_t (hv : v = zero_extend (m := 64) (bool_to_bit b)) (hJ : ¬ x.k = b) :
+    (((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5)))
+      &&& sign_extend (m := 64) (0x001#12)) != v) = true := by
+  subst hv; rw [kraw_eq, bitb]; cases hk : x.k <;> cases b <;> simp_all
+
+theorem guard_kb_ne_f (hv : v = zero_extend (m := 64) (bool_to_bit b)) (hJ : x.k = b) :
+    (((sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb (sign_extend (m := 64) x) 31 0) (0x0f#5)))
+      &&& sign_extend (m := 64) (0x001#12)) != v) = false := by
+  subst hv; rw [kraw_eq, bitb, hJ]; cases b <;> decide
+
+end
+
 /-! ## `OP_FORLOOP`'s count test and values -/
 
 theorem guard_zero_t {m : Mem} {a n : Nat} (ha : a = n) (h : slotVal m n = 0) :

@@ -18,6 +18,9 @@ import Lua.Vm.Sim.Arms.Loadfalse
 import Lua.Vm.Sim.Arms.Lfalseskip
 import Lua.Vm.Sim.Arms.Loadk
 import Lua.Vm.Sim.Arms.Bnot
+import Lua.Vm.Sim.Arms.Not
+import Lua.Vm.Sim.Arms.Test
+import Lua.Vm.Sim.Arms.Testset
 import Lua.Vm.Sim.Arms.Lti
 import Lua.Vm.Sim.Arms.Gti
 import Lua.Vm.Sim.Arms.Lei
