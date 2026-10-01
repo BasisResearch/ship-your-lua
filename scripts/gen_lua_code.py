@@ -57,8 +57,9 @@ FLOAT = re.compile(r"df|^floor$|^fmod$|^pow$")
 # Callees below the arms on F1 paths: CALL print -> luaD_precall ->
 # luaB_print -> luaL_tolstring, lua_writestring = fwrite (lauxlib.h:260);
 # the error helper luaG_opinterror. (`__udivdi3` is an alias of
-# `__hidden___udivdi3`, the label objdump prints, so it is pinned as that.)
-EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror"]
+# `__hidden___udivdi3`, the label objdump prints, so it is pinned as that;
+# `__umoddi3` holds `__divdi3`'s sign fix-ups, `0x8002f78c`, `0x8002f79c`.)
+EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")

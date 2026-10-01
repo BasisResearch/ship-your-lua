@@ -103,6 +103,8 @@ import Lua.Vm.Arms.Segs.Hmuldi3
 import Lua.Vm.Arms.Segs.Hhidden___udivdi3
 import Lua.Vm.Arms.Segs.Hmoddi3
 import Lua.Vm.Arms.Segs.HluaV_equalobj
+import Lua.Vm.Arms.Segs.Hdivdi3
+import Lua.Vm.Arms.Segs.Humoddi3
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 
