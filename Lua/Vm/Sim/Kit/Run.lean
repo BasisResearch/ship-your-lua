@@ -216,6 +216,17 @@ elab "kit_guard" : tactic => withMainContext do
       catch _ => s.restore
   throwError "kit_guard: no guard lemma applies"
 
+open Lean in
+/-- An address-range fact: a linear (dis)equation or order over `Nat`, or a
+disjunction of them. -/
+partial def natFact (t : Expr) : Bool :=
+  match t.getAppFnArgs with
+  | (``LE.le, #[ty, _, _, _]) | (``LT.lt, #[ty, _, _, _]) | (``Eq, #[ty, _, _])
+  | (``Ne, #[ty, _, _]) => ty.isConstOf ``Nat
+  | (``Or, #[a, b]) | (``And, #[a, b]) => natFact a && natFact b
+  | (``Not, #[a]) => natFact a
+  | _ => false
+
 /-- The value facts `kit_bv` may use: small equations and disequations. -/
 syntax "kit_bv_norm" : tactic
 macro_rules | `(tactic| kit_bv_norm) => `(tactic| fail "no normaliser")
@@ -232,20 +243,24 @@ elab "kit_bv" : tactic => withMainContext do
     withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| (simp; done)))
     return
   catch _ => s1.restore
-  let mut errs : Array MessageData := #[]
+  let mut facts : Array (TSyntax ``Lean.Parser.Tactic.simpLemma) := #[]
   for ldecl in (← getLCtx) do
-    if ldecl.isImplementationDetail then continue
+    if ldecl.isImplementationDetail || ldecl.userName.hasMacroScopes then continue
     let t ← instantiateMVars ldecl.type
     unless ← Meta.isProp t do continue
     if t.getAppFn.isConst && [``Vsa.Sim.SegSt, ``Vsa.Machine.Steps, ``Lua.Vm.Sim.ArmAt, ``Lua.Vm.Sim.Core,
         ``Lua.Vm.Sim.Ranges, ``Lua.Bytecode.Step].contains t.getAppFn.constName! then continue
-    let s ← saveState
-    try
-      withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
-        (simp [$(mkIdent ldecl.userName):ident]; done)))
-      return
-    catch e => do errs := errs.push m!"{ldecl.userName}: {e.toMessageData}"; s.restore
-  throwError "kit_bv: no fact closes the side condition{indentD (MessageData.joinSep errs.toList "\n")}"
+    -- a value fact, not an address-range fact over `Nat`
+    if natFact t then continue
+    facts := facts.push (← `(Lean.Parser.Tactic.simpLemma| $(mkIdent ldecl.userName):term))
+  -- one `simp` with every value fact
+  let s ← saveState
+  try
+    withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
+      (simp [$facts,*]; done)))
+  catch e => do
+    s.restore
+    throwError "kit_bv: no fact closes the side condition: {e.toMessageData}"
 
 open Lean Elab Tactic Meta in
 /-- **`kit_side`**: a side condition of a generated segment. A boolean
@@ -265,8 +280,8 @@ open Lean Elab Tactic Meta
 
 /-- Eight hex digits. -/
 def hex8 (n : Nat) : String :=
-  let s := String.mk (Nat.toDigits 16 n)
-  String.mk (List.replicate (8 - s.length) '0') ++ s
+  let s := String.ofList (Nat.toDigits 16 n)
+  String.ofList (List.replicate (8 - s.length) '0') ++ s
 
 /-- The generated segment theorems that start at `lo`. -/
 def segCands (env : Environment) (lo : Nat) : List Name := Id.run do
@@ -299,12 +314,45 @@ def segPc (ty : Expr) : MetaM (Option Nat) := do
   | some ⟨_, v⟩ => return some v.toNat
   | none => return none
 
+/-- The branch guards (`hg_*`) of segment `n`, instantiated at the segment
+state `hty`'s pins and payload, all discharged by `kit_side`: a cheap
+pre-check that rejects the wrong polarity of a branch before the segment is
+elaborated. -/
+def guardsHold (hty : Expr) (n : Name) : TacticM Bool := withoutModifyingState do
+  let ci ← getConstInfo n
+  let names := ci.type.getForallBinderNames
+  let (xs, _, body) ← forallMetaTelescope ci.type
+  let pre := body.getAppArgs[0]!
+  let src ← listElems hty.getAppArgs[1]!
+  for q in ← listElems pre.getAppArgs[1]! do
+    if let some p := src.find? (fun p => p.getAppArgs[2]! == q.getAppArgs[2]!) then
+      discard <| isDefEq (← whnfR q.getAppArgs[3]!) (← whnfR p.getAppArgs[3]!)
+  unless ← isDefEq pre.getAppArgs[2]! hty.getAppArgs[2]! do return true
+  for x in xs, nm in names do
+    unless nm.toString.startsWith "hg" do continue
+    let ty ← instantiateMVars (← inferType x)
+    if ty.hasExprMVar then return true
+    let g ← mkFreshExprMVar ty
+    try
+      let gs ← withoutRecover <| Term.withoutErrToSorry <|
+        Tactic.run g.mvarId! (evalTactic (← `(tactic| kit_side)))
+      unless gs.isEmpty do return false
+    catch _ => return false
+  return true
+
 /-- One run step: the first candidate segment at the current pc whose pins
 and side conditions hold. -/
 def kitStep (h acc : Ident) (lo : Nat) : TacticM Bool := do
   let cands := segCands (← getEnv) lo
   let mut errs : Array MessageData := #[]
+  let hty ← withMainContext do
+    let some ld := (← getLCtx).findFromUserName? h.getId | throwError "kit_run: no {h}"
+    instantiateMVars ld.type
   for n in cands do
+    if cands.length > 1 then
+      unless ← withMainContext (guardsHold hty n) do
+        errs := errs.push m!"{n}: a guard fails"
+        continue
     let s ← saveState
     try
       let args ← Tactic.runTermElab (segArgs n)

@@ -306,6 +306,10 @@ theorem slotTag_wm8 {m : Mem} {a n : Nat} {d : BitVec (8 * 8)} (h : n + 9 ≤ a 
   simp only [slotTag, tvalueTagOff]
   exact bytesT1_writeMap8_out m a d (by omega)
 
+/-- `li a5,3; sb a5`: the integer tag. -/
+theorem stData_three : stData 1 (sign_extend (m := 64) (0x003#12)) = BitVec.ofNat 8 vNumInt := by
+  decide
+
 /-- A payload load at a raw address that is slot `n`'s (`n` given, the address
 equation discharged by `slot_arith` under `simp (disch := …)`). -/
 theorem ld_slot_gen {m : Mem} {a : Nat} (n : Nat) (h : a = n) :
