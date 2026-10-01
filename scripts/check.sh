@@ -238,6 +238,11 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Compile.while_tv
 #print axioms Lua.Compile.f1b_tv
 #print axioms Lua.Rulebook.sem_iff_solve
+#print axioms Lua.Vm.Boot.vmLoaded_of_checks
+#print axioms Lua.Vm.Boot.Witness.While.vmLoaded_while_entry
+#print axioms Lua.Vm.Boot.Witness.While.runtimeReady_while_entry
+#print axioms Lua.Vm.Boot.Witness.F1Ops.vmLoaded_f1Ops_entry
+#print axioms Lua.Vm.Boot.Witness.F1Ops.runtimeReady_f1Ops_entry
 #print axioms Lua.Rulebook.Sem.det
 #print axioms Lua.Ast.luaSem_iff_run
 #print axioms Lua.Programs.f4Strlite_astSupported
