@@ -46,12 +46,66 @@ theorem Core.kptr_ld {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hc : Co
     sext64_id, hm]
   exact hc.kptr
 
+/-- A byte of the constant array is not a `savestate` word (`Ranges.k_out`):
+reads of `K[C]` through `savestate`'s stores are the entry memory's. -/
+theorem Ranges.k_getElem_wm8 {p : Proto} {w : RelPtrs} (hr : Ranges p w) {m : Mem} {a x : Nat}
+    {d : BitVec (8 * 8)} (hx : w.k ≤ x ∧ x < w.k + stackValueSize * p.k.length)
+    (ha : a = w.ci + ciSavedpcOff ∨ a = w.L + stateTopOff) : (writeMap8 m a d)[x]? = m[x]? := by
+  refine getElem?_writeMap8_out m a d x (Classical.byContradiction fun h => hr.k_out x hx.1 hx.2 ?_)
+  rcases ha with rfl | rfl
+  · exact .inr (.inr (.inl ⟨by omega, by omega⟩))
+  · exact .inr (.inr (.inr (.inl ⟨by omega, by omega⟩)))
+
+/-- The address of `K[C]`'s tag or payload (`k + 16·C + o`). -/
+abbrev KAddr (w : RelPtrs) (y z : BitVec 64) : Nat := (BitVec.ofNat 64 w.k + y + z).toNat
+
+/-- `lbu` of `K[C]`'s tag through a `savestate` store (`ha`: the store is
+`ci->u.l.savedpc` or `L->top`). -/
+theorem Ranges.k_bytesT1_wm8 {p : Proto} {w : RelPtrs} (hr : Ranges p w) {m : Mem} {a : Nat}
+    {d : BitVec (8 * 8)} {y z : BitVec 64}
+    (hx : w.k ≤ KAddr w y z ∧ KAddr w y z < w.k + stackValueSize * p.k.length)
+    (ha : a = w.ci + ciSavedpcOff ∨ a = w.L + stateTopOff) :
+    bytesT1 (writeMap8 m a d) (BitVec.ofNat 64 w.k + y + z).toNat =
+      bytesT1 m (BitVec.ofNat 64 w.k + y + z).toNat := by
+  simp only [bytesT1, hr.k_getElem_wm8 (x := KAddr w y z) hx ha]
+
+/-- `ld` of `K[C]`'s payload through a `savestate` store. -/
+theorem Ranges.k_bytesT8_wm8 {p : Proto} {w : RelPtrs} (hr : Ranges p w) {m : Mem} {a : Nat}
+    {d : BitVec (8 * 8)} {y z : BitVec 64}
+    (hx : w.k ≤ KAddr w y z ∧ KAddr w y z + 8 ≤ w.k + stackValueSize * p.k.length)
+    (ha : a = w.ci + ciSavedpcOff ∨ a = w.L + stateTopOff) :
+    bytesT8 (writeMap8 m a d) (BitVec.ofNat 64 w.k + y + z).toNat =
+      bytesT8 m (BitVec.ofNat 64 w.k + y + z).toNat :=
+  bytesT8_congr fun _ _ => hr.k_getElem_wm8 ⟨by simp only [KAddr] at hx; omega,
+    by simp only [KAddr] at hx; omega⟩ ha
+
+/-- An eight-byte read beside an eight-byte store. -/
+theorem bytesT8_wm8_out {m : Mem} {a x : Nat} {d : BitVec (8 * 8)} (h : x + 8 ≤ a ∨ a + 8 ≤ x) :
+    bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
+  bytesT8_congr fun _ _ => getElem?_writeMap8_out m a d _ (by omega)
+
+/-- The side conditions of the `K` read lemmas: `0(sp)` and `K[C]` apart from
+the `savestate` stores, as address arithmetic. -/
+macro "kitk_disch" : tactic => `(tactic| first
+  | rfl
+  | (simp (disch := kit_disch) only [bytesT8_wm8_out]; done)
+  | (simp only [ciSavedpcOff, stateTopOff]
+     first | (left; kit_disch) | (right; kit_disch))
+  | (simp only [KAddr, stackValueSize]; constructor <;> kit_disch))
+
 set_option hygiene false in
-/-- The `ld 0(sp)` in a segment state's pins, as `w.k` (through `Scratch`
-stores, which miss `sp`). -/
-macro_rules
-  | `(tactic| kit_norm $h) => `(tactic|
-      simp only [hc.kptr_ld rfl] at $h:ident)
+/-- **`kitk_rd`**: the `K` arm's reads normalised: `ld 0(sp)` as `w.k`
+(`Core.kptr_ld`), and `K[C]`'s tag and payload read through `savestate`'s
+stores as the entry memory's (`Ranges.k_bytesT1_wm8`, `k_bytesT8_wm8`). -/
+macro "kitk_rd" loc:(Lean.Parser.Tactic.location)? : tactic => `(tactic|
+  simp (disch := kitk_disch) only [hc.kptr_ld, hr.k_bytesT1_wm8, hr.k_bytesT8_wm8] $[$loc]?)
+
+/-- After each segment, the pins (`kit_norm`). -/
+macro_rules | `(tactic| kit_norm $h) => `(tactic| kitk_rd at $h:ident)
+
+/-- A side condition reading `K[C]`: read it as the entry memory's first
+(`kit_side_pre`). -/
+macro_rules | `(tactic| kit_side_pre) => `(tactic| kitk_rd)
 
 set_option hygiene false in
 /-- **`kitk_const`**: the kernel's `K[C]` (`y`; `none` has no `Step`), its
@@ -61,6 +115,7 @@ macro "kitk_const" : tactic => `(tactic| (
   · simp [hkv] at hk
   simp [hkv, opArith, Kernel.regTop, Opnd.ports] at hk htop
   have hvk := hc.kconst hkv
+  simp only [stackValueSize] at hvk hkv
   have hKc := kval_lt hkv
   have hklo := hr.k_lo; have hkhi := hr.k_hi; have hkal := hr.k_al
   simp only [Word.c, Word.field, Nat.shiftRight_eq_div_pow, stackValueSize] at hKc hkhi))
@@ -78,9 +133,10 @@ macro "kitk_ints " pc:num : tactic => `(tactic| (
 
 set_option hygiene false in
 /-- **`kitk_fall pc`**: `kit_arith_fall` with `K[C]` (`¬ BothIntK` as `hI`). -/
-macro "kitk_fall " pc:num : tactic => `(tactic| (
+macro "kitk_fall " pc:num " with " "(" extra:tacticSeq ")" : tactic => `(tactic| (
   kit_setup $pc
   kitk_const
+  ($extra)
   kit_bound hAt ins.a; kit_bound hBt ins.b
   kit_reg hb vb hvb ins.b
   simp [Opnd.fill] at hk; split at hk
@@ -92,5 +148,8 @@ macro "kitk_fall " pc:num : tactic => `(tactic| (
       fun hC => hI ⟨hB, hC⟩
     kit_next; kit_same
   · kit_next; kit_same))
+
+/-- `kitk_fall pc` with no extra facts. -/
+macro "kitk_fall " pc:num : tactic => `(tactic| kitk_fall $pc with (skip))
 
 end Lua.Vm.Sim
