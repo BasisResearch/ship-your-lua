@@ -52,8 +52,42 @@ def armPins (w : RelPtrs) (pc : Nat) (ins : Word) : List Pin :=
    ⟨Register.x23, BitVec.ofNat 64 w.ci⟩, ⟨Register.x24, BitVec.ofNat 64 Arms.jtBase⟩,
    ⟨Register.x25, BitVec.ofNat 64 w.base⟩, ⟨Register.x27, BitVec.ofNat 64 (w.code + 4 * pc)⟩]
 
+/-- **The caller's frame across a helper call**: the fetch-head registers and
+the arm temporaries `s6`, `s10` (the helper segments' carried pins,
+`scripts/gen_lua_arms.py` `HELPERS`). -/
+structure HFrame where
+  (sp gp s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 : BitVec 64)
+
+/-- The frame as pins. -/
+def HFrame.pins (f : HFrame) : List Pin :=
+  [⟨Register.x2, f.sp⟩, ⟨Register.x3, f.gp⟩, ⟨Register.x8, f.s0⟩, ⟨Register.x9, f.s1⟩,
+   ⟨Register.x18, f.s2⟩, ⟨Register.x19, f.s3⟩, ⟨Register.x20, f.s4⟩, ⟨Register.x21, f.s5⟩,
+   ⟨Register.x22, f.s6⟩, ⟨Register.x23, f.s7⟩, ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩,
+   ⟨Register.x26, f.s10⟩, ⟨Register.x27, f.s11⟩]
+
+/-- A frame to be read off a call site's pins (`pins_of`). -/
+macro "hframe?" : term => `(HFrame.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _)
+
+/-- **The call rule (M5)**: at a helper's entry, run its summary `sum` (a
+`Triple` from the entry pins to the return address), the pins found in the
+current state. -/
+theorem _root_.Vsa.Sim.SegSt.call {pc : BitVec 64} {L L' : List Pin} {P : MState → Prop}
+    {c₀ c : Config} {Q : Config → Prop} (acc : Steps c₀ c) (h : SegSt pc L P c)
+    (hL : PinsHold c.σ L') (sum : Triple (SegSt pc L' P) Q) : ∃ c', Steps c₀ c' ∧ Q c' :=
+  h.run acc hL sum
+
+/-- Re-pin a segment state (its pins looked up elsewhere). -/
+theorem _root_.Vsa.Sim.SegSt.repin {pc : BitVec 64} {L L' : List Pin} {P : MState → Prop}
+    {c : Config} (h : SegSt pc L P c) (hL : PinsHold c.σ L') : SegSt pc L' P c :=
+  ⟨h.good, h.pcAt, hL, h.minstret, h.tick, h.extra⟩
+
+/-- A segment state at a pc shown equal to another. -/
+theorem _root_.Vsa.Sim.SegSt.at {pc pc' : BitVec 64} {L : List Pin} {P : MState → Prop}
+    {c : Config} (h : SegSt pc L P c) (e : pc = pc') : SegSt pc' L P c := e ▸ h
+
 /-- The bound of a pin's position. -/
-macro "pin_len" : tactic => `(tactic| (simp only [armPins, List.length_cons, List.length_nil]; omega))
+macro "pin_len" : tactic =>
+  `(tactic| (simp only [armPins, HFrame.pins, List.length_cons, List.length_nil]; omega))
 
 /-- A register's pin, by name, from a pin list (the first 26 positions). -/
 macro "pin_at " h:term : tactic => `(tactic| first
@@ -100,6 +134,8 @@ elab "pins_of " h:ident : tactic => withMainContext do
   for q in dst do
     let some i := src.findIdx? (fun p => reg p == reg q)
       | throwError "pins_of: register {reg q} not pinned in {h}"
+    -- an unknown value is the pin's own expression (not its whnf)
+    discard <| isDefEq (← whnfR q.getAppArgs[3]!) (← whnfR src[i]!.getAppArgs[3]!)
     parts := parts.push (← `(pinsHold_get ($h).pins $(quote i) (by pin_len)))
   parts := parts.push (← `(trivial))
   evalTactic (← `(tactic| exact ⟨$parts,*⟩))
@@ -159,6 +195,37 @@ elab "kit_guard" : tactic => withMainContext do
       catch _ => s.restore
   throwError "kit_guard: no guard lemma applies"
 
+/-- The value facts `kit_bv` may use: small equations and disequations. -/
+syntax "kit_bv_norm" : tactic
+macro_rules | `(tactic| kit_bv_norm) => `(tactic| fail "no normaliser")
+
+open Lean Elab Tactic Meta in
+/-- **`kit_bv`**: a value guard (a helper's loop test, a sign test) from one
+small fact in context, after the arm's normaliser `kit_bv_norm`. -/
+elab "kit_bv" : tactic => withMainContext do
+  let s0 ← saveState
+  try evalTactic (← `(tactic| kit_bv_norm))
+  catch _ => do s0.restore; throwError "kit_bv: no normaliser in scope"
+  let s1 ← saveState
+  try
+    withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| (simp; done)))
+    return
+  catch _ => s1.restore
+  let mut errs : Array MessageData := #[]
+  for ldecl in (← getLCtx) do
+    if ldecl.isImplementationDetail then continue
+    let t ← instantiateMVars ldecl.type
+    unless ← Meta.isProp t do continue
+    if t.getAppFn.isConst && [``Vsa.Sim.SegSt, ``Vsa.Machine.Steps, ``Lua.Vm.Sim.ArmAt, ``Lua.Vm.Sim.Core,
+        ``Lua.Vm.Sim.Ranges, ``Lua.Bytecode.Step].contains t.getAppFn.constName! then continue
+    let s ← saveState
+    try
+      withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
+        (simp [$(mkIdent ldecl.userName):ident]; done)))
+      return
+    catch e => do errs := errs.push m!"{ldecl.userName}: {e.toMessageData}"; s.restore
+  throwError "kit_bv: no fact closes the side condition{indentD (MessageData.joinSep errs.toList "\n")}"
+
 open Lean Elab Tactic Meta in
 /-- **`kit_side`**: a side condition of a generated segment. A boolean
 equation is a branch guard (`kit_guard_ext`, then `kit_guard`); anything
@@ -169,9 +236,9 @@ elab "kit_side" : tactic => withMainContext do
     | Eq ty _ _ => ty.isConstOf ``Bool
     | _ => false
   if isGuard then
-    evalTactic (← `(tactic| first | kit_guard_ext | kit_guard))
+    evalTactic (← `(tactic| first | kit_guard_ext | kit_guard | kit_bv))
   else
-    evalTactic (← `(tactic| slot_arith))
+    evalTactic (← `(tactic| first | kit_guard_ext | slot_arith | kit_bv))
 
 open Lean Elab Tactic Meta
 
@@ -232,9 +299,12 @@ def kitStep (h acc : Ident) (lo : Nat) : TacticM Bool := do
 
 /-- **`kit_run h acc [stops]`**: run the generated segments from `h` until
 the fetch head or one of the `stops` pcs. -/
-elab "kit_run " h:ident acc:ident stops:(" until " "[" num,* "]")? : tactic => do
-  let stopPcs : List Nat := match stops with
-    | some s => (s.raw[2].getSepArgs.toList.filterMap fun x => x.isNatLit?)
+syntax "kit_run " ident ident (" until " "[" num,* "]")? : tactic
+
+elab_rules : tactic
+  | `(tactic| kit_run $h:ident $acc:ident $[until [$ns,*]]?) => do
+  let stopPcs : List Nat := match ns with
+    | some ns => ns.getElems.toList.map (·.getNat)
     | none => []
   let head := 0x8001bfe4
   let mut fuel := 64
@@ -244,8 +314,8 @@ elab "kit_run " h:ident acc:ident stops:(" until " "[" num,* "]")? : tactic => d
       let some ldecl := (← getLCtx).findFromUserName? h.getId
         | throwError "kit_run: no hypothesis {h}"
       segPc ldecl.type
-    let some pc := pc | throwError "kit_run: {h} is not a SegSt at a literal pc"
-    if pc == head || stopPcs.contains pc then return
+    let some pc := pc | return    -- a computed pc (a return): the caller continues
+    if pc == head || (fuel < 63 && stopPcs.contains pc) then return
     unless ← kitStep h acc pc do
       throwError "kit_run: no segment starts at 0x{hex8 pc}"
   throwError "kit_run: out of fuel"
