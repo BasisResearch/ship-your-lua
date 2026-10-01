@@ -295,7 +295,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 141 ] || fail "expected 141 axiom reports, got $n"
+[ "$n" = 146 ] || fail "expected 146 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"
