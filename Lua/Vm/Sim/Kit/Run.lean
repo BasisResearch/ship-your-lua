@@ -103,11 +103,25 @@ theorem add_imm_m48 (n : Nat) :
   rw [show sign_extend (m := 64) (0xfd0#12) = BitVec.ofNat 64 (2^64 - 48) by decide,
     BitVec.ofNat_add_ofNat]
 
+/-- `addi rd, rs, -k` (a negative 12-bit immediate, `0x800 ≤ k`): any
+callee frame (`addi sp, sp, -80`, …). -/
+theorem imm_neg_add (n k : Nat) (hk : 2048 ≤ k) (hk2 : k < 4096) :
+    BitVec.ofNat 64 n + sign_extend (m := 64) (BitVec.ofNat 12 k) =
+      BitVec.ofNat 64 (n + (2^64 - (4096 - k))) := by
+  rw [show sign_extend (m := 64) (BitVec.ofNat 12 k) = BitVec.ofNat 64 (2^64 - (4096 - k)) by
+    apply BitVec.eq_of_toNat_eq
+    simp only [sign_extend, Sail.BitVec.signExtend, BitVec.toNat_signExtend, BitVec.toNat_ofNat]
+    rw [BitVec.msb_eq_decide]
+    simp only [BitVec.toNat_setWidth, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hk2]
+    rw [if_pos (by simp; omega), Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)]
+    omega,
+    BitVec.ofNat_add_ofNat]
+
 /-- `slot_arith` as a `simp` discharger: one goal, and a failure is a failure
 (no `all_goals`, whose error recovery would admit the goal). -/
 macro "kit_disch" : tactic => `(tactic| (
   try simp (config := { decide := true }) only [extract_sext, field8, sext_shr, add_imm, shl_ofNat,
-    add_imm_m48, BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat, Nat.add_zero, RelPtrs.slot,
+    add_imm_m48, imm_neg_add, BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat, Nat.add_zero, RelPtrs.slot,
     stackValueSize, Word.a, Word.b, Word.c, Word.bx, Word.field, ciTrapOff, and255,
     Nat.shiftRight_eq_div_pow, BitVec.toNat_sub]
   try simp (disch := omega) only [Nat.mod_eq_of_lt]
@@ -266,6 +280,8 @@ elab "kit_bv" : tactic => withMainContext do
   let s0 ← saveState
   try withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| kit_bv_norm))
   catch _ => do s0.restore; throwError "kit_bv: no normaliser in scope"
+  -- the normaliser may close a ground guard by itself
+  if (← getUnsolvedGoals).isEmpty then return
   let s1 ← saveState
   try
     withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| (simp; done)))

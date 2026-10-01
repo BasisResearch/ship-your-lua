@@ -240,6 +240,9 @@ structure Ranges (p : Proto) (w : RelPtrs) : Prop where
   L_al : w.L % 8 = 0
   ci_al : w.ci % 8 = 0
   L_sep_ci : w.L + stateSize ≤ w.ci ∨ w.ci + ciSize ≤ w.L
+  /-- the constant array lies below the C stack (`VmRegionsAt.k_hi` and
+  `cstack_room`): `luaV_equalobj`'s frame below `sp` misses `K[B]` (`OP_EQK`) -/
+  k_top : w.k + stackValueSize * p.k.length ≤ RuntimeData.spEntry - cStackBudget
 
 /-- **The fetch-head registers** for pointers `w` and bytecode pc `pc`. -/
 structure Pins (σ : MState) (w : RelPtrs) (pc : Nat) : Prop where

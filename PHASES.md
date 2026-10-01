@@ -28,7 +28,9 @@ Every row is currently unassigned.
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **proved**: the relation `VmRel`, `dispatch`, and 25 arms `sim_<OP>` (MOVE, LOADI, JMP, ADD, SUB, ADDI, ADDK, SUBK, BAND, BOR, BXOR, EQI, LTI, GTI, LEI, GEI, TEST, TESTSET, NOT, BNOT, LOADK, LOADTRUE, LOADFALSE, LFALSESKIP, FORLOOP) (A1 status) |
 | `vmRel_final_Statement` (the `RETURN*` arms: from `VmRel` at a `Final` state the machine halts with `s.out`) | `Lua/Vm/Sim/Rel.lean` | A1 | open: the `Final` clause of the fold, not a `sim_<OP>` (the return chain's callee contracts) |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
-| `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | `sim_MOD_Statement` proved on the KIT branch (`Lua.Vm.Sim.Kit.sim_MOD`, with `sim_MUL`); `sim_EQ_Statement` proved but for two long strings (`Kit.eq_short`, `Kit.sim_EQ_of_long`): `VmRel` does not place a string's bytes outside the window, so `memcmp` and `δ .eq` can disagree (`abstractions/bakeoff3/KIT.md`); the others open |
+| `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | `sim_MOD_Statement` proved on the KIT branch (`Lua.Vm.Sim.Kit.sim_MOD`, with `sim_MUL`); `sim_EQ_Statement` and `sim_EQK_Statement` proved but for two long strings (`Kit.eq_short`, `Kit.sim_EQ_of_long`; `Kit.eqk_short`, `Kit.sim_EQK_of_long`): `VmRel` does not place a string's bytes outside the window, so `memcmp` and `δ .eq` can disagree (`abstractions/bakeoff3/KIT.md`); the others open |
+| `SimArm .LT`, `SimArm .LE` on two strings (the premise of `Kit.sim_LT_of_str`, `Kit.sim_LE_of_str`; integers and the stuck cases proved: `lt_int`, `lt_stuck`, `le_int`, `le_stuck`) | `Lua/Vm/Sim/Kit/{Lt,Le}.lean` | A1 | open: `l_strcmp` → `strcoll`/`strcmp`/`strlen` read the live string bytes and the `'\0'` after them; needs the string separation of the long-string row and a terminator in `TStringRepr`, plus `strcmp`/`strlen` summaries |
+| `SimArm .FORPREP` | — | A1 | open (lane KIT-2 stopped at the gate): `luaV_tointeger`'s integer summary `Kit.toint_sum` and the C-frame close `Core.bleachF` are proved; the arm's run (8 segments, two call nodes) exceeds the default heartbeat budget in one declaration and needs a split at the call with an abstract mid-state memory (`abstractions/ledger/kit-arms-2.md`) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
 | `CompileTV (fun s p => compile s = some p)` for a Lean `compile` | new `Lua/Compile/` | B2 | open |
@@ -442,8 +444,8 @@ covers the new stages.
       while the kernel skips on a non-integer `K[C]`; `Supported` (or the
       kernel) needs "the `K` operand of a bitwise-`K` opcode is an integer";
     * the shifts (`SHL`/`SHR`/`SHLI`/`SHRI`): inline, but a new kind (the
-      shift-amount branches against `shiftl`); `LOADNIL`: a loop
-      (`loopFromBody`);
+      shift-amount branches against `shiftl`); (`LOADNIL` is proved on the
+      kit: `Kit.sim_LOADNIL`, its loop by `Kit.loadnil_loop`);
     * `RETURN*`: `vmRel_final_Statement` (above);
     * `CALL` (print): callee contracts `luaD_precall` → `luaB_print` →
       `luaL_tolstring` → `lua_writestring` = `fwrite` → newlib stdout → HTIF
