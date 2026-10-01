@@ -113,4 +113,68 @@ theorem bytesT8_wm8_same {m : Mem} {a b : Nat} {d : BitVec (8 * 8)} (h : b = a) 
     bytesT8 (writeMap8 m a d) b = d := by
   subst h; exact bytesT8_writeMap8 m b d
 
+/-- A segment state's memory restated (an address in another form). -/
+theorem _root_.Vsa.Sim.SegSt.mem_eq {pc : BitVec 64} {L : List Pin} {m m' : Mem} {o : Array String}
+    {c : Config} (h : SegSt pc L (ArmPay m o) c) (e : m = m') : SegSt pc L (ArmPay m' o) c :=
+  e ▸ h
+
+/-- A pin whose value is an address in another form (`ofNat a + imm` against
+`ofNat b`): `slot_arith` on the numbers. -/
+macro_rules
+  | `(tactic| kit_val) => `(tactic| (
+      try simp only [List.getElem_cons_succ, List.getElem_cons_zero]
+      apply BitVec.eq_of_toNat_eq; slot_arith))
+
+/-! ## A run of `nil` tags (`OP_LOADNIL`'s loop) -/
+
+/-- `k` tag stores of `LUA_VNIL` (`sb zero, 8(X)`), one per slot from `X`. -/
+def nilMem (M : Mem) (X : Nat) : Nat → Mem
+  | 0 => M
+  | k + 1 => nilMem (M.insert (X + 8) (stData 1 (0#64))) (X + 16) k
+
+theorem nilMem_out {M : Mem} {X x : Nat} :
+    ∀ {k}, (∀ i, i < k → x ≠ X + 16 * i + 8) → (nilMem M X k)[x]? = M[x]?
+  | 0, _ => rfl
+  | k + 1, h => by
+    simp only [nilMem]
+    rw [nilMem_out (fun i hi => by have := h (i + 1) (by omega); omega)]
+    exact getElem?_insert_out (h 0 (by omega))
+
+theorem nilMem_tag {M : Mem} {X : Nat} :
+    ∀ {k i}, i < k → slotTag (nilMem M X k) (X + 16 * i) = 0#8
+  | k + 1, 0, _ => by
+    simp only [nilMem, slotTag, tvalueTagOff, bytesT1, Nat.mul_zero, Nat.add_zero]
+    rw [nilMem_out (fun i _ => by omega)]
+    simp; decide
+  | k + 1, i + 1, h => by
+    simp only [nilMem]
+    have := nilMem_tag (M := M.insert (X + 8) (stData 1 (0#64))) (X := X + 16) (k := k) (i := i)
+      (by omega)
+    rwa [show X + 16 + 16 * i = X + 16 * (i + 1) by omega] at this
+
+/-- `setNils`' register file: `writeDefs` over a range of one value. -/
+theorem writeDefs_range {V : Type} (v : V) (ρ : Nat → Option V) :
+    ∀ (n a j : Nat), writeDefs (List.range' a n) (List.replicate n v) ρ j =
+      if a ≤ j ∧ j < a + n then some v else ρ j
+  | 0, a, j => by simp [writeDefs]; omega
+  | n + 1, a, j => by
+    simp only [List.range'_succ, List.replicate_succ, writeDefs, List.head?_cons, List.tail_cons]
+    rw [writeDefs_range v ρ n (a + 1) j]
+    by_cases h : j = a
+    · simp [h]
+    · simp only [h, ite_false]
+      congr 1; apply propext; omega
+
+theorem writeDefs_range' {V : Type} (v : V) (ρ : Nat → Option V) (n a : Nat) :
+    writeDefs (List.range' a n) (List.replicate n v) ρ =
+      fun j => if a ≤ j ∧ j < a + n then some v else ρ j :=
+  funext (writeDefs_range v ρ n a)
+
+/-- `regTop` of a range of ports. -/
+theorem foldr_range_top : ∀ (n a : Nat),
+    List.foldr (fun r m => max (r + 1) m) 0 (List.range' a (n + 1)) = a + n + 1
+  | 0, a => by simp
+  | n + 1, a => by
+    rw [List.range'_succ, List.foldr_cons, foldr_range_top n (a + 1)]; omega
+
 end Lua.Vm.Sim
