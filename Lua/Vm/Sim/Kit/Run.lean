@@ -173,7 +173,7 @@ elab "pins_of " h:ident : tactic => withMainContext do
     -- an unknown value is the pin's own expression (not its whnf)
     let qv ← whnfR q.getAppArgs[3]!
     let pv ← whnfR src[i]!.getAppArgs[3]!
-    if ← withReducible (isDefEq qv pv) then
+    if (← withReducible (isDefEq qv pv)) || (← isDefEq qv pv) then
       parts := parts.push (← `(pinsHold_get ($h).pins $(quote i) (by pin_len)))
     else
       -- a value in another normal form (an address as `slot`): `kit_val`
@@ -285,7 +285,7 @@ elab "kit_bv" : tactic => withMainContext do
   let s ← saveState
   try
     withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
-      first | (simp [$facts,*]; done) | (simp only [$facts,*]; done) | (simp only [$facts,*]; decide)))
+      first | (simp only [$facts,*]; first | done | decide) | (simp [$facts,*]; done)))
   catch e => do
     s.restore
     throwError "kit_bv: no fact closes the side condition: {e.toMessageData}"
