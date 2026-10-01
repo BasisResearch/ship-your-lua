@@ -2,6 +2,8 @@ import Lua.Vm.Sim.Kit.Add
 import Lua.Vm.Sim.Kit.Mul
 import Lua.Vm.Sim.Kit.Mod
 import Lua.Vm.Sim.Kit.Eq
+import Lua.Vm.Sim.Kit.Lt
+import Lua.Vm.Sim.Kit.Le
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
