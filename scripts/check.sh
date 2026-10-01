@@ -238,6 +238,11 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Compile.while_tv
 #print axioms Lua.Compile.f1b_tv
 #print axioms Lua.Rulebook.sem_iff_solve
+#print axioms Lua.Vm.Boot.vmLoaded_of_checks
+#print axioms Lua.Vm.Boot.Witness.While.vmLoaded_while_entry
+#print axioms Lua.Vm.Boot.Witness.While.runtimeReady_while_entry
+#print axioms Lua.Vm.Boot.Witness.F1Ops.vmLoaded_f1Ops_entry
+#print axioms Lua.Vm.Boot.Witness.F1Ops.runtimeReady_f1Ops_entry
 #print axioms Lua.Rulebook.Sem.det
 #print axioms Lua.Ast.luaSem_iff_run
 #print axioms Lua.Programs.f4Strlite_astSupported
@@ -290,7 +295,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 141 ] || fail "expected 141 axiom reports, got $n"
+[ "$n" = 146 ] || fail "expected 146 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"

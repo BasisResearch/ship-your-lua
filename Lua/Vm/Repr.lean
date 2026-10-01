@@ -142,6 +142,16 @@ def TableHasShortKey (m : Mem) (t : Nat) (key : List UInt8) (v : Value) : Prop :
     rd64 m (node + nodeSize * i + nodeKeyValOff) = some ts ∧ TStringRepr m ts key ∧
     TValueRepr m (node + nodeSize * i) v
 
+/-- `luaH_getshortstr`'s view of a table at `t`: some node of the `2^lsizenode`
+nodes has the short-string key *pointer* `ts` and a value represented as `v`.
+`luaH_getshortstr` compares key pointers (`eqshrstr`), not contents. -/
+def TableHasShortKeyPtr (m : Mem) (t ts : Nat) (v : Value) : Prop :=
+  ∃ lsz node i, rd8 m (t + tableLsizenodeOff) = some lsz ∧
+    rd64 m (t + tableNodeOff) = some node ∧ i < 2 ^ lsz ∧
+    rd8 m (node + nodeSize * i + nodeKeyTtOff) = some vShrStr ∧
+    rd64 m (node + nodeSize * i + nodeKeyValOff) = some ts ∧
+    TValueRepr m (node + nodeSize * i) v
+
 /-- The pointers `VmEntryData` names. -/
 structure EntryPtrs where
   func : Nat
@@ -182,6 +192,15 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   env_tag : tagAt m e.envv = some vTable
   env_val : rd64 m (e.envv + tvalueValOff) = some e.env
   env_print : TableHasShortKey m e.env printKey (.builtin .print)
+  /-- **`GETTABUP _ENV "print"` finds `print` by pointer.** Every short-string
+  constant whose bytes are `"print"` is the key pointer of `_ENV`'s `print`
+  node: `lundump`'s `loadStringN` and `luaL_openlibs`' `lua_setfield` both
+  intern `"print"` (`luaS_newlstr` → `internshrstr`), and `luaH_getshortstr`
+  compares pointers. `env_print` alone compares contents. -/
+  env_print_ptr : ∀ ka i x, rd64 m (e.pa + protoKOff) = some ka → i < p.k.length →
+    tagAt m (ka + tvalueSize * i) = some vShrStr →
+    rd64 m (ka + tvalueSize * i + tvalueValOff) = some x →
+    TStringRepr m x printKey → TableHasShortKeyPtr m e.env x (.builtin .print)
   l_G : rd64 m (L + stateGOff) = some e.g
   gc_stopped : rd8 m (e.g + gGcstpOff) = some gcstpUsr
   stack_last : rd64 m (L + stateStackLastOff) = some e.stackLast

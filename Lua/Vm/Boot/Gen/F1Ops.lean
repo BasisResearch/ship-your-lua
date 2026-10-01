@@ -1,5 +1,4 @@
-import Lua.Vm.Boot.Image
-import Lua.Vm.Runtime
+import Lua.Vm.Boot.Check
 import Lua.Programs.F1Ops
 
 /-!
@@ -9,8 +8,8 @@ The entry state at `luaV_execute` (emulator step 181079): the chunk region
 (`chunk`), 18125 stores from `_start` (`log`), their final bytes (`runs`,
 620 runs), the entry registers (`gprs`), and the witness pointers
 (`e` for `VmEntryData`, `w` for `luaRuntimeReady`, `printSlot` for `_ENV.print`).
-Every field of `VmEntryData … e` and `RuntimeReadyAt … w` holds at this memory
-(evaluated natively by the generator); the kernel witness is open (PHASES A0.6).
+Every field of `VmEntryData … e` and `RuntimeReadyAt … w` holds at this memory:
+the kernel witness is `Lua/Vm/Boot/Witness/F1Ops.lean` (PHASES A0.6).
 -/
 
 namespace Lua.Vm.Boot.Gen.F1Ops
@@ -1610,7 +1609,7 @@ def e : EntryPtrs where
   stackLast := 0x8006f5c0
 
 /-- `_ENV.print`'s node: `(lsizenode, node array, index, key string)`. -/
-def printSlot : Nat × Nat × Nat × Nat := (5, 0x80070a40, 30, 0x80070720)
+def printSlot : PrintSlot := ⟨5, 0x80070a40, 30, 0x80070720⟩
 
 /-- The program-dependent pointers and heap shape of `luaRuntimeReady`. -/
 def w : RtPtrs where
