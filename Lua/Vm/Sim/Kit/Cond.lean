@@ -26,6 +26,12 @@ theorem bne_ite (k c : Bool) :
     ((if k then 1#64 else 0#64) != (if c then 1#64 else 0#64)) = (k != c) := by
   cases k <;> cases c <;> decide
 
+/-- `bne k, c` against a 0/1 answer decided by a proposition
+(`luaV_equalobj`'s `if v1 = v2 then 1 else 0`). -/
+theorem bne_ite_prop (k : Bool) (P : Prop) [Decidable P] :
+    ((if k then 1#64 else 0#64) != (if P then 1#64 else 0#64)) = (k != decide P) := by
+  by_cases h : P <;> cases k <;> simp [h] <;> decide
+
 /-- `ci->u.l.trap` read through the `Scratch` stores. -/
 theorem Core.trap_at' {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hc : Core p c s w)
     {a : Nat} (ha : a = w.ci + 40) : bytesT4 c.σ.mem a = 0 := by
