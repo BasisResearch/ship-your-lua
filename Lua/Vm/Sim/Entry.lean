@@ -239,9 +239,9 @@ theorem Ranges.of_regions {m : Mem} {p : Proto} {w : RelPtrs} {rt : RtPtrs}
     (hsz : rt.sizecode = p.code.length) (hszk : rt.sizek = p.k.length) (hsle : rt.stack ≤ rt.func)
     (hfits : w.func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast) : Ranges p w := by
   obtain ⟨hLlo, hLhi, hcilo, hcihi, hstlo, hsthi, hfal, hcisep, -, -, -, -, -, -, -, -, hcdlo,
-    hcdhi, hcdsep, -, -, hklo, hkhi, hkal, hksep, hLci, hcdL, hcdci, hkL, hkci, hLst⟩ := hrg
+    hcdhi, hcdsep, -, -, hklo, hkhi, hkal, hksep, hLci, hcdL, hcdci, hkL, hkci, hLst, hLal, hcial⟩ := hrg
   obtain ⟨L, ci, func, pa, code, k, sp, mo, ι⟩ := w
-  simp only at hsp hfunc hcode hk hfits hLlo hLhi hcilo hcihi hcisep hLci hcdL hcdci hkL hkci hLst ⊢
+  simp only at hsp hfunc hcode hk hfits hLlo hLhi hcilo hcihi hcisep hLci hcdL hcdci hkL hkci hLst hLal hcial ⊢
   subst hsp hfunc hcode hk
   rw [hsz] at hcdhi hcdsep hcdL hcdci
   rw [hszk] at hkhi hksep hkL hkci
@@ -249,9 +249,9 @@ theorem Ranges.of_regions {m : Mem} {p : Proto} {w : RelPtrs} {rt : RtPtrs}
   simp only [symEnd, symHeapEnd, stateSize, ciSize, tvalueSize, stackValueSize, cStackBudget,
     RuntimeData.spEntry] at *
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun a h1 h2 hw => ?_, fun a h1 h2 h3 hw => ?_, ?_,
-    ?_, ?_, fun a h1 h2 hw => ?_, ?_, ?_, fun a ha => ⟨fun hs => ?_, ?_⟩⟩
+    ?_, ?_, fun a h1 h2 hw => ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   all_goals simp only [Win, Slots, Scratch, RelPtrs.base, stackValueSize, ciSavedpcOff, ciSize,
-    stateTopOff, cStackBudget, execFrame, tohostAddr, RuntimeData.spEntry] at *
+    stateTopOff, stateSize, cStackBudget, execFrame, tohostAddr, RuntimeData.spEntry] at *
   all_goals omega
 
 set_option linter.unusedSimpArgs false in

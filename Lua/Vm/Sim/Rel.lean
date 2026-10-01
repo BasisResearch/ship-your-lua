@@ -230,8 +230,15 @@ structure Ranges (p : Proto) (w : RelPtrs) : Prop where
   frame_sep : w.base + stackValueSize * p.maxstacksize ≤ w.sp
   /-- the constant array lies apart from the register slots -/
   k_sep : w.k + stackValueSize * p.k.length ≤ w.base ∨ w.base + stackValueSize * p.maxstacksize ≤ w.k
-  /-- the scratch words miss the register slots and lie below the C frame -/
-  scratch_out : ∀ a, Scratch w a → ¬ Slots p w a ∧ a < w.sp
+  /-- the `CallInfo` and the `lua_State` (whose `savedpc`, `top` words are
+  `Scratch`) lie apart from the register slots, and below the C stack -/
+  ci_sep : w.ci + ciSize ≤ w.base ∨ w.base + stackValueSize * p.maxstacksize ≤ w.ci
+  L_sep : w.L + stateSize ≤ w.base ∨ w.base + stackValueSize * p.maxstacksize ≤ w.L
+  ci_top : w.ci + ciSize ≤ RuntimeData.spEntry - cStackBudget
+  L_top : w.L + stateSize ≤ RuntimeData.spEntry - cStackBudget
+  slots_top : w.base + stackValueSize * p.maxstacksize ≤ RuntimeData.spEntry - cStackBudget
+  L_al : w.L % 8 = 0
+  ci_al : w.ci % 8 = 0
 
 /-- **The fetch-head registers** for pointers `w` and bytecode pc `pc`. -/
 structure Pins (σ : MState) (w : RelPtrs) (pc : Nat) : Prop where
@@ -400,6 +407,15 @@ structure ArmAt (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) 
 
 section
 variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
+
+/-- The scratch words miss the register slots and lie below the C frame. -/
+theorem Ranges.scratch_out (hr : Ranges p w) (a : Nat) (h : Scratch w a) :
+    ¬ Slots p w a ∧ a < w.sp := by
+  have := hr.ci_sep; have := hr.L_sep; have := hr.ci_top; have := hr.L_top; have := hr.sp_eq
+  have := hr.slots_top
+  simp only [Scratch, Slots, RelPtrs.base, ciSavedpcOff, stateTopOff, ciSize, stateSize,
+    stackValueSize, execFrame, cStackBudget, RuntimeData.spEntry] at *
+  omega
 
 theorem Win.above (hr : Ranges p w) {a : Nat} (h : Win p w a) : tohostAddr + 16 ≤ a := by
   have := hr.sp_eq

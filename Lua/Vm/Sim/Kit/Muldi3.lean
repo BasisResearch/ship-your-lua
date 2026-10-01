@@ -33,9 +33,6 @@ theorem and_one (x : BitVec 64) (h : ¬ x &&& 1#64 = 0#64) : x &&& 1#64 = 1#64 :
   have : (x &&& 1#64).toNat ≠ 0 := fun h0 => h (BitVec.eq_of_toNat_eq h0)
   rw [e] at this ⊢; show _ = 1; omega
 
-/-- The shift amount of `srli`/`slli … 1`. -/
-abbrev sh1 : BitVec 6 := Sail.BitVec.extractLsb (0x01#6) 5 0
-
 /-- The loop from its head `0x8002f6d0`, by the measure `a1`. -/
 theorem muldi3_loop (x y r : BitVec 64) (f : HFrame) (m : Mem) (o : Array String) :
     ∀ n (a0 a1 a2 : BitVec 64), a1.toNat < n → a0 + a2 * a1 = x * y →

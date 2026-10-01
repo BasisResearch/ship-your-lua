@@ -291,6 +291,10 @@ structure VmRegionsAt (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
   /-- The `lua_State` is apart from the Lua stack: `savestate`'s `L->top`
   store (`Scratch`) misses every register slot. -/
   L_sep_stack : L + stateSize ≤ w.stack ∨ w.stackLast ≤ L
+  /-- `L` and `ci` are 8-aligned (`l_alloc` blocks): `savestate`'s `sd` to
+  `ci->u.l.savedpc` and `L->top` -/
+  L_al : L % 8 = 0
+  ci_al : ci % 8 = 0
 
 /-- **The platform loop and the console.** Every segment state carries the
 tick bound (`Vsa.Sim.SegSt.tick`): the loop's counter runs below

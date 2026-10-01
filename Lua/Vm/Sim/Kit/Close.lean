@@ -56,6 +56,25 @@ theorem sim_arm {o : OpCode} (ho : o.toNat < Arms.jtEntries)
   obtain ⟨c', hs, hR'⟩ := body hS hA hf hop hstep
   exact sim_of_run ⟨c', hs1.trans hs, Nat.lt_of_lt_of_le hlt1 hs.steps_le, hR'⟩
 
+/-- **An arm's run under a case condition `Q`** (one path family of an arm):
+`sim_arm`'s premise, split so that each path is its own declaration. -/
+def ArmBody (o : OpCode) (Q : Proto → Config → State → RelPtrs → Word → Prop) : Prop :=
+  ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State} {w : RelPtrs} {ins : Word},
+    ArmAt p c s w ins → p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
+    Q p c s w ins → ∃ c', Steps c c' ∧ VmRelAt p c' s' w
+
+/-- Both operands of `R[B] op R[C]` have the integer tag. -/
+def BothInt (_p : Proto) (c : Config) (_s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt ∧
+    slotTag c.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt
+
+/-- **An `op_arith` arm from its two paths** (both operands integers, or the
+fall-through to `MMBIN`). -/
+theorem sim_arith {o : OpCode} (ho : o.toNat < Arms.jtEntries) (hint : ArmBody o BothInt)
+    (hfall : ArmBody o fun p c s w ins => ¬ BothInt p c s w ins) : SimArm o :=
+  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep =>
+    (Classical.em (BothInt p c s w ins)).elim (hint hS hA hf hop hstep) (hfall hS hA hf hop hstep)
+
 /-! ## M1: the successor by forward evaluation -/
 
 /-- **A step is the stepper's value** (`kstep_iff`). -/
@@ -194,8 +213,9 @@ macro "kit_setup " pc:num : tactic => `(tactic| (
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have := hr.base_lo; have := hr.base_hi; have := hr.base_al; have := hr.ci_lo
   have := hr.ci_hi; have := hr.code_hi; have := hr.code_lo; have := fetch_lt hf
-  have := ins.isLt
-  simp only [stackValueSize, ciSize] at *
+  have := ins.isLt; have := hr.L_lo; have := hr.ci_sep; have := hr.L_sep; have := hr.ci_top
+  have := hr.L_top; have := hr.slots_top; have := hr.sp_eq; have := hr.L_al; have := hr.ci_al
+  simp only [stackValueSize, ciSize, stateSize, RuntimeData.spEntry, cStackBudget, execFrame] at *
   have h0 := hA.seg (pc := BitVec.ofNat 64 $pc) (by rw [opNum_of_op? hop]; decide)
   have acc := Steps.refl c))
 
@@ -223,9 +243,73 @@ macro "kit_next" : tactic => `(tactic| (
   kit_run h0 acc))
 
 set_option hygiene false in
-/-- **`kit_same`**: the close when no register and no memory changed. -/
+/-- **`kit_frame`**: the final memory is the entry memory outside `Scratch`
+(the arm stored nothing, or only `savestate`'s two words). -/
+macro "kit_frame" : tactic => `(tactic| (
+  intro x hx
+  first
+  | rfl
+  | (simp only [Scratch, ciSavedpcOff, stateTopOff, not_or, not_and, Nat.not_lt] at hx
+     simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out])))
+
+set_option hygiene false in
+/-- **`kit_next_until [pcs]`**: `kit_next`, stopping at a call node. -/
+macro "kit_next_until " "[" ns:num,* "]" : tactic => `(tactic| (
+  simp [Opnd.fill, δ, BinOp.int, VState.apply, writeDefs, KEdge.kills] at hk
+  subst hk
+  kit_run h0 acc until [$ns,*]))
+
+set_option hygiene false in
+/-- **`kit_same`**: the close when no register changed and memory only in
+`Scratch`. -/
 macro "kit_same" : tactic => `(tactic|
-  exact ⟨_, acc, hc.bleach_same h0 (by kit_pins h0) (fun _ _ => rfl), h0.pcAt⟩)
+  exact ⟨_, acc, hc.bleach_same h0 (by kit_pins h0) (by kit_frame), h0.pcAt⟩)
+
+set_option hygiene false in
+/-- **`kit_arith_fall pc`**: the fall-through of an `op_arith` arm at `pc`
+(not both operands integers, `¬ BothInt` as `hI`): the kernel goes to
+`MMBIN` (`pc + 1`, nothing written), the machine to its `mv s11,s3` tail. -/
+macro "kit_arith_fall " pc:num : tactic => `(tactic| (
+  kit_setup $pc
+  kit_bound hAt ins.a; kit_bound hBt ins.b; kit_bound hCt ins.c
+  kit_reg hb vb hvb ins.b; kit_reg hcc vc hvc ins.c
+  simp [Opnd.fill] at hk; split at hk
+  · rename_i heq
+    obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
+    exact absurd ⟨hvb.tag_of_int.1, hvc.tag_of_int.1⟩ hI
+  by_cases hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
+  · have hC : ¬ slotTag c.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt := fun hC => hI ⟨hB, hC⟩
+    kit_next; kit_same
+  · kit_next; kit_same))
+
+set_option hygiene false in
+/-- **`kit_arith_ints pc`**: an `op_arith` arm at `pc` with both operands
+integers (`BothInt` as `hI`): the setup, the operand values `x`, `y` as the
+slots' payloads. -/
+macro "kit_arith_ints " pc:num : tactic => `(tactic| (
+  kit_setup $pc
+  kit_bound hAt ins.a; kit_bound hBt ins.b; kit_bound hCt ins.c
+  kit_reg hb vb hvb ins.b; kit_reg hcc vc hvc ins.c
+  have hB := hI.1; have hC := hI.2
+  obtain rfl := hvb.int_of_tag hI.1
+  obtain rfl := hvc.int_of_tag hI.2))
+
+/-! ## Reads through `Scratch` stores -/
+
+theorem slotVal_wm8 {m : Mem} {a n : Nat} {d : BitVec (8 * 8)} (h : n + 8 ≤ a ∨ a + 8 ≤ n) :
+    slotVal (writeMap8 m a d) n = slotVal m n := by
+  simp only [slotVal, tvalueValOff, Nat.add_zero]
+  exact bytesT8_congr fun i _ => getElem?_writeMap8_out m a d _ (by omega)
+
+theorem slotTag_wm8 {m : Mem} {a n : Nat} {d : BitVec (8 * 8)} (h : n + 9 ≤ a ∨ a + 8 ≤ n + 8) :
+    slotTag (writeMap8 m a d) n = slotTag m n := by
+  simp only [slotTag, tvalueTagOff]
+  exact bytesT1_writeMap8_out m a d (by omega)
+
+/-- A payload load at a raw address that is slot `n`'s (`n` given, the address
+equation discharged by `slot_arith` under `simp (disch := …)`). -/
+theorem ld_slot_gen {m : Mem} {a : Nat} (n : Nat) (h : a = n) :
+    sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8)) = slotVal m n := ld_slot h
 
 /-! ## Memory frames of the arms' stores -/
 

@@ -65,6 +65,9 @@ def HFrame.pins (f : HFrame) : List Pin :=
    ⟨Register.x22, f.s6⟩, ⟨Register.x23, f.s7⟩, ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩,
    ⟨Register.x26, f.s10⟩, ⟨Register.x27, f.s11⟩]
 
+/-- The shift amount of `srli`/`slli … 1`. -/
+abbrev sh1 : BitVec 6 := Sail.BitVec.extractLsb (0x01#6) 5 0
+
 /-- A frame to be read off a call site's pins (`pins_of`). -/
 macro "hframe?" : term => `(HFrame.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _)
 
@@ -84,6 +87,16 @@ theorem _root_.Vsa.Sim.SegSt.repin {pc : BitVec 64} {L L' : List Pin} {P : MStat
 /-- A segment state at a pc shown equal to another. -/
 theorem _root_.Vsa.Sim.SegSt.at {pc pc' : BitVec 64} {L : List Pin} {P : MState → Prop}
     {c : Config} (h : SegSt pc L P c) (e : pc = pc') : SegSt pc' L P c := e ▸ h
+
+/-- `slot_arith` as a `simp` discharger: one goal, and a failure is a failure
+(no `all_goals`, whose error recovery would admit the goal). -/
+macro "kit_disch" : tactic => `(tactic| (
+  try simp (config := { decide := true }) only [extract_sext, field8, sext_shr, add_imm, shl_ofNat,
+    BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat, Nat.add_zero, RelPtrs.slot,
+    stackValueSize, Word.a, Word.b, Word.c, Word.bx, Word.field, ciTrapOff, and255,
+    Nat.shiftRight_eq_div_pow, BitVec.toNat_sub]
+  try simp (disch := omega) only [Nat.mod_eq_of_lt]
+  omega))
 
 /-- The bound of a pin's position. -/
 macro "pin_len" : tactic =>
@@ -157,6 +170,11 @@ elab "pin_of " h:ident : tactic => withMainContext do
   | _ => pure ()
   evalTactic (← `(tactic| exact pinsHold_get ($h).pins $(quote i) (by pin_len)))
 
+/-- The arm's normaliser of a segment state's pins after each step (extended
+by `macro_rules`, e.g. a register's payload read back as `slotVal`). -/
+syntax "kit_norm " ident : tactic
+macro_rules | `(tactic| kit_norm $_h) => `(tactic| fail "no normaliser")
+
 /-- An arm-specific guard closer, tried before the generic ones (extended by
 `macro_rules`). -/
 syntax "kit_guard_ext" : tactic
@@ -182,6 +200,9 @@ open Lean Elab Tactic Meta in
 context about a slot's tag or a register's representation (M2): the guard
 lemma fitting each such hypothesis, the address equation by `slot_arith`. -/
 elab "kit_guard" : tactic => withMainContext do
+  -- a tag read through `Scratch` stores is the entry memory's
+  withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
+    try simp (disch := kit_disch) only [bytesT1_writeMap8_out]))
   for ldecl in (← getLCtx) do
     if ldecl.isImplementationDetail then continue
     let hyp := mkIdent ldecl.userName
@@ -204,7 +225,7 @@ open Lean Elab Tactic Meta in
 small fact in context, after the arm's normaliser `kit_bv_norm`. -/
 elab "kit_bv" : tactic => withMainContext do
   let s0 ← saveState
-  try evalTactic (← `(tactic| kit_bv_norm))
+  try withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| kit_bv_norm))
   catch _ => do s0.restore; throwError "kit_bv: no normaliser in scope"
   let s1 ← saveState
   try
@@ -236,9 +257,9 @@ elab "kit_side" : tactic => withMainContext do
     | Eq ty _ _ => ty.isConstOf ``Bool
     | _ => false
   if isGuard then
-    evalTactic (← `(tactic| first | kit_guard_ext | kit_guard | kit_bv))
+    withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| first | kit_guard_ext | kit_guard | kit_bv))
   else
-    evalTactic (← `(tactic| first | kit_guard_ext | slot_arith | kit_bv))
+    withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| first | kit_guard_ext | slot_arith | kit_bv))
 
 open Lean Elab Tactic Meta
 
@@ -290,6 +311,7 @@ def kitStep (h acc : Ident) (lo : Nat) : TacticM Bool := do
       let seg ← `($(mkIdent n) $args*)
       withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
         obtain ⟨_, $acc, $h⟩ := Vsa.Sim.SegSt.run $acc $h (by pins_of $h) $seg))
+      withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| try kit_norm $h))
       return true
     catch e =>
       errs := errs.push m!"{n}: {e.toMessageData}"
