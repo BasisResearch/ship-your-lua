@@ -250,7 +250,8 @@ macro "kit_frame" : tactic => `(tactic| (
   intro x hx
   first
   | rfl
-  | (simp only [Scratch, ciSavedpcOff, stateTopOff, not_or, not_and, Nat.not_lt] at hx
+  | (simp only [Scratch, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget, not_or,
+       not_and, Nat.not_lt] at hx
      simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out])))
 
 set_option hygiene false in

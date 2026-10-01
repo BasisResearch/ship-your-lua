@@ -109,9 +109,10 @@ abbrev eqPre (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) : List Pin :=
     ⟨Register.x1, r⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins
 
 /-- The memory at the return: `ra` saved below `sp`. -/
-abbrev eqMem (m : Mem) (sp : Nat) (r : BitVec 64) : Mem :=
-  writeMap8 m ((BitVec.ofNat 64 sp + sign_extend (m := 64) (0xfd0#12)) +
-    sign_extend (m := 64) (0x028#12)).toNat (sdData_val r)
+syntax "eqMem(" term ", " term ", " term ")" : term
+macro_rules
+  | `(eqMem($m, $sp, $r)) => `(writeMap8 $m ((BitVec.ofNat 64 $sp + sign_extend (m := 64) (0xfd0#12)) +
+      sign_extend (m := 64) (0x028#12)).toNat (sdData_val $r))
 
 /-- The facts every path of the summary uses. -/
 structure EqCtx (m : Mem) (n1 n2 sp : Nat) (r : BitVec 64) : Prop where
@@ -151,12 +152,12 @@ theorem eqo_const (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o :
     (ht1 : slotTag m n1 = BitVec.ofNat 8 t) (ht2 : slotTag m n2 = BitVec.ofNat 8 t) :
     Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
       (SegSt r (⟨Register.x10, 1#64⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins)
-        (ArmPay (eqMem m sp r) o)) := by
+        (ArmPay (eqMem(m, sp, r)) o)) := by
   intro c h
   have acc := Steps.refl c
   obtain ⟨hro, hra, h1, h2, h3, h4, h5, h6, h7⟩ := hx
   have hTH : tohostAddr = 0x8005c6c0 := rfl
-  have hro' : RodataRead (eqMem m sp r) :=
+  have hro' : RodataRead (eqMem(m, sp, r)) :=
     RodataRead.wm8 hro (by simp only [Image.rodataBase, Image.rodataSize]; kit_disch)
   rcases ht with rfl | rfl | rfl
   all_goals
@@ -173,12 +174,12 @@ theorem eqo_pay (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : A
     (ht1 : slotTag m n1 = BitVec.ofNat 8 t) (ht2 : slotTag m n2 = BitVec.ofNat 8 t) :
     Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
       (SegSt r (⟨Register.x10, if slotVal m n1 = slotVal m n2 then 1#64 else 0#64⟩ ::
-        ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins) (ArmPay (eqMem m sp r) o)) := by
+        ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins) (ArmPay (eqMem(m, sp, r)) o)) := by
   intro c h
   have acc := Steps.refl c
   obtain ⟨hro, hra, h1, h2, h3, h4, h5, h6, h7⟩ := hx
   have hTH : tohostAddr = 0x8005c6c0 := rfl
-  have hro' : RodataRead (eqMem m sp r) :=
+  have hro' : RodataRead (eqMem(m, sp, r)) :=
     RodataRead.wm8 hro (by simp only [Image.rodataBase, Image.rodataSize]; kit_disch)
   rcases ht with rfl | rfl | rfl
   all_goals
@@ -210,7 +211,7 @@ theorem eqo_diff (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : 
     (hne : slotTag m n1 ≠ slotTag m n2) :
     Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
       (SegSt r (⟨Register.x10, 0#64⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins)
-        (ArmPay (eqMem m sp r) o)) := by
+        (ArmPay (eqMem(m, sp, r)) o)) := by
   intro c h
   have acc := Steps.refl c
   obtain ⟨hro, hra, h1, h2, h3, h4, h5, h6, h7⟩ := hx
@@ -322,7 +323,7 @@ theorem equalobj_sum (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (
     (hl : ¬ (slotTag m n1 = 84#8 ∧ slotTag m n2 = 84#8)) :
     Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
       (SegSt r (⟨Register.x10, if v1 = v2 then 1#64 else 0#64⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ ::
-        f.pins) (ArmPay (eqMem m sp r) o)) := by
+        f.pins) (ArmPay (eqMem(m, sp, r)) o)) := by
   by_cases he : slotTag m n1 = slotTag m n2
   · have ht := hv1.tag_mem
     simp only [f1Tags, List.mem_cons, List.not_mem_nil, or_false] at ht

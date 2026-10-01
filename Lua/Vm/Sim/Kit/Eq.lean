@@ -79,7 +79,12 @@ theorem eq_skip : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
       (by simp (disch := kit_disch) only [slotTag_wm8, slotVal_wm8]; exact hva)
       (by simp (disch := kit_disch) only [slotTag_wm8, slotVal_wm8]; exact hvb)
       (by simp (disch := kit_disch) only [slotTag_wm8]; exact hl))
-  trace_state
-  sorry
+  have hg : ((if ins.k then 1#64 else 0#64) != (if va = vb then 1#64 else 0#64)) = true := by
+    by_cases he : va = vb <;> cases hkb : ins.k <;> simp_all
+  kit_run h0 acc
+  simp (disch := kit_disch) only [bytesT4_wm8_out] at h0
+  simp (disch := kit_disch) only [Core.trap_at hc] at h0
+  simp only [trap_zero] at h0
+  exact ⟨_, acc, hc.bleach_same h0 (by kit_pins h0) (by kit_frame), h0.pcAt⟩
 
 end Lua.Vm.Sim.Kit
