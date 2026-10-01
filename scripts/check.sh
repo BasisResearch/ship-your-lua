@@ -171,6 +171,16 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.sim_LOADI
 #print axioms Lua.Vm.Sim.sim_JMP
 #print axioms Lua.Vm.Sim.sim_ADD
+#print axioms Lua.Vm.Sim.Kit.sim_ADD
+#print axioms Lua.Vm.Sim.Kit.sim_MUL
+#print axioms Lua.Vm.Sim.Kit.sim_MOD
+#print axioms Lua.Vm.Sim.Kit.eq_short
+#print axioms Lua.Vm.Sim.Kit.sim_EQ_of_long
+#print axioms Lua.Vm.Sim.Kit.muldi3_sum
+#print axioms Lua.Vm.Sim.Kit.udivdi3_sum
+#print axioms Lua.Vm.Sim.Kit.moddi3_sum
+#print axioms Lua.Vm.Sim.Kit.equalobj_sum
+#print axioms Lua.Vm.Sim.Kit.imodC_eq
 #print axioms Lua.Vm.Sim.sim_EQI
 #print axioms Lua.Vm.Sim.sim_FORLOOP
 #print axioms Lua.Vm.Sim.sim_SUB
@@ -280,7 +290,7 @@ LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
-[ "$n" = 131 ] || fail "expected 131 axiom reports, got $n"
+[ "$n" = 141 ] || fail "expected 141 axiom reports, got $n"
 if grep "depends on axioms" "$tmp/out.txt" | sed 's/.*\[//; s/\]//' | tr ',' '\n' | sed 's/ //g' \
    | grep -vxE 'propext|Classical.choice|Quot.sound' | grep -q .; then fail "non-standard axiom"; fi
 echo "check: all stages OK"
