@@ -17,6 +17,7 @@ import Lua.Vm.DecodeCheck
 import Lua.Vm.Code
 import Lua.Vm.Arms
 import Lua.Vm.Sim
+import Lua.Vm.Sim.Kit
 import Lua.Refinement
 import Lua.Ast.Syntax
 import Lua.Ast.Rulebook

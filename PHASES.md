@@ -28,7 +28,7 @@ Every row is currently unassigned.
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **proved**: the relation `VmRel`, `dispatch`, and 25 arms `sim_<OP>` (MOVE, LOADI, JMP, ADD, SUB, ADDI, ADDK, SUBK, BAND, BOR, BXOR, EQI, LTI, GTI, LEI, GEI, TEST, TESTSET, NOT, BNOT, LOADK, LOADTRUE, LOADFALSE, LFALSESKIP, FORLOOP) (A1 status) |
 | `vmRel_final_Statement` (the `RETURN*` arms: from `VmRel` at a `Final` state the machine halts with `s.out`) | `Lua/Vm/Sim/Rel.lean` | A1 | open: the `Final` clause of the fold, not a `sim_<OP>` (the return chain's callee contracts) |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
-| `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | open; plausibly true since `VmRel` exempts `Scratch` and `ValRepr` is tight for `luaV_equalobj` (`abstractions/bakeoff3/BASE.md`) |
+| `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | `sim_MOD_Statement` proved on the KIT branch (`Lua.Vm.Sim.Kit.sim_MOD`, with `sim_MUL`); `sim_EQ_Statement` proved but for two long strings (`Kit.eq_short`, `Kit.sim_EQ_of_long`): `VmRel` does not place a string's bytes outside the window, so `memcmp` and `δ .eq` can disagree (`abstractions/bakeoff3/KIT.md`); the others open |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
 | `CompileTV (fun s p => compile s = some p)` for a Lean `compile` | new `Lua/Compile/` | B2 | open |
@@ -188,7 +188,9 @@ instances, however, are at the WHILE ELF's addresses.
        prologue's loads and `VmRel`'s `Ranges`). `RtPtrs` names the closure,
        the `Proto`, `code` and `sizecode`. `L`, `ci`, the code array and the
        constant array are pairwise apart (`L_sep_ci`, `code_sep_*`,
-       `k_sep_*`: the scratch words miss them);
+       `k_sep_*`: the scratch words miss them); `L` is apart from the Lua
+       stack (`L_sep_stack`: `L->top`'s store misses every slot) and `L`, `ci`
+       are 8-aligned (`L_al`, `ci_al`: `savestate`'s `sd`s);
      * `RuntimeReadyAt.top`: `L->top = func + 1`, an entry-only fact
        (`OP_VARARGPREP` → `luaT_adjustvarargs`), not a fetch-head invariant;
      * `RuntimeReadyAt.interned` (`KInterned`): the short-string constants

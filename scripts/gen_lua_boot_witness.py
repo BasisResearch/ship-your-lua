@@ -352,6 +352,9 @@ def evaluate(lay, M, regs, proto):
     need(code_end <= ci or ci_end <= w["code"], "code_sep_ci")
     need(k_end <= L or L_end <= w["k"], "k_sep_L")
     need(k_end <= ci or ci_end <= w["k"], "k_sep_ci")
+    need(L_end <= w["stack"] or w["stackLast"] <= L, "L_sep_stack")
+    need(L % 8 == 0, "L_al")
+    need(ci % 8 == 0, "ci_al")
     # ---- KInterned: short constants with equal bytes are one TString
     interned = {}
     for i in range(w["sizek"]):
