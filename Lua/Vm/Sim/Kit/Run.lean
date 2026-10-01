@@ -79,6 +79,15 @@ theorem _root_.Vsa.Sim.SegSt.call {pc : BitVec 64} {L L' : List Pin} {P : MState
     (hL : PinsHold c.σ L') (sum : Triple (SegSt pc L' P) Q) : ∃ c', Steps c₀ c' ∧ Q c' :=
   h.run acc hL sum
 
+/-- The fetch-head registers but `sp` (what `luaV_equalobj` keeps). -/
+structure KFrame where
+  (gp s0 s1 s2 s3 s4 s5 s7 s8 s9 s11 : BitVec 64)
+
+def KFrame.pins (f : KFrame) : List Pin :=
+  [⟨Register.x3, f.gp⟩, ⟨Register.x8, f.s0⟩, ⟨Register.x9, f.s1⟩, ⟨Register.x18, f.s2⟩,
+   ⟨Register.x19, f.s3⟩, ⟨Register.x20, f.s4⟩, ⟨Register.x21, f.s5⟩, ⟨Register.x23, f.s7⟩,
+   ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩, ⟨Register.x27, f.s11⟩]
+
 /-- Re-pin a segment state (its pins looked up elsewhere). -/
 theorem _root_.Vsa.Sim.SegSt.repin {pc : BitVec 64} {L L' : List Pin} {P : MState → Prop}
     {c : Config} (h : SegSt pc L P c) (hL : PinsHold c.σ L') : SegSt pc L' P c :=
@@ -88,19 +97,25 @@ theorem _root_.Vsa.Sim.SegSt.repin {pc : BitVec 64} {L L' : List Pin} {P : MStat
 theorem _root_.Vsa.Sim.SegSt.at {pc pc' : BitVec 64} {L : List Pin} {P : MState → Prop}
     {c : Config} (h : SegSt pc L P c) (e : pc = pc') : SegSt pc' L P c := e ▸ h
 
+/-- `addi sp, sp, -48` (`luaV_equalobj`'s frame). -/
+theorem add_imm_m48 (n : Nat) :
+    BitVec.ofNat 64 n + sign_extend (m := 64) (0xfd0#12) = BitVec.ofNat 64 (n + (2^64 - 48)) := by
+  rw [show sign_extend (m := 64) (0xfd0#12) = BitVec.ofNat 64 (2^64 - 48) by decide,
+    BitVec.ofNat_add_ofNat]
+
 /-- `slot_arith` as a `simp` discharger: one goal, and a failure is a failure
 (no `all_goals`, whose error recovery would admit the goal). -/
 macro "kit_disch" : tactic => `(tactic| (
   try simp (config := { decide := true }) only [extract_sext, field8, sext_shr, add_imm, shl_ofNat,
-    BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat, Nat.add_zero, RelPtrs.slot,
+    add_imm_m48, BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat, Nat.add_zero, RelPtrs.slot,
     stackValueSize, Word.a, Word.b, Word.c, Word.bx, Word.field, ciTrapOff, and255,
     Nat.shiftRight_eq_div_pow, BitVec.toNat_sub]
   try simp (disch := omega) only [Nat.mod_eq_of_lt]
-  omega))
+  first | done | omega))
 
 /-- The bound of a pin's position. -/
 macro "pin_len" : tactic =>
-  `(tactic| (simp only [armPins, HFrame.pins, List.length_cons, List.length_nil]; omega))
+  `(tactic| (simp only [armPins, HFrame.pins, KFrame.pins, List.length_cons, List.length_nil]; omega))
 
 /-- A register's pin, by name, from a pin list (the first 26 positions). -/
 macro "pin_at " h:term : tactic => `(tactic| first
@@ -121,6 +136,14 @@ macro "pin_at " h:term : tactic => `(tactic| first
 /-- A pin list, every register looked up by name in `h`. -/
 macro "pins_from " h:term : tactic => `(tactic| (
   repeat' (first | exact (trivial : True) | refine ⟨?_, ?_⟩ | pin_at $h)))
+
+/-- A pin's value shown equal to the one a segment or summary expects. -/
+syntax "kit_val" : tactic
+macro_rules | `(tactic| kit_val) => `(tactic| first
+  | rfl
+  | (simp only [List.getElem_cons_succ, List.getElem_cons_zero]
+     simp (disch := decide) only [slot_addr]
+     simp only [RelPtrs.slot, Word.a, Word.b, Word.c, Word.field, stackValueSize]))
 
 open Lean Elab Tactic Meta in
 /-- The elements of a list literal. -/
@@ -148,8 +171,13 @@ elab "pins_of " h:ident : tactic => withMainContext do
     let some i := src.findIdx? (fun p => reg p == reg q)
       | throwError "pins_of: register {reg q} not pinned in {h}"
     -- an unknown value is the pin's own expression (not its whnf)
-    discard <| isDefEq (← whnfR q.getAppArgs[3]!) (← whnfR src[i]!.getAppArgs[3]!)
-    parts := parts.push (← `(pinsHold_get ($h).pins $(quote i) (by pin_len)))
+    let qv ← whnfR q.getAppArgs[3]!
+    let pv ← whnfR src[i]!.getAppArgs[3]!
+    if ← withReducible (isDefEq qv pv) then
+      parts := parts.push (← `(pinsHold_get ($h).pins $(quote i) (by pin_len)))
+    else
+      -- a value in another normal form (an address as `slot`): `kit_val`
+      parts := parts.push (← `(pin_eq (pinsHold_get ($h).pins $(quote i) (by pin_len)) (by kit_val)))
   parts := parts.push (← `(trivial))
   evalTactic (← `(tactic| exact ⟨$parts,*⟩))
 
@@ -210,7 +238,7 @@ elab "kit_guard" : tactic => withMainContext do
       let s ← saveState
       try
         withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
-          (apply $(mkIdent l) (h := $hyp) <;> first | decide | slot_arith)))
+          (apply $(mkIdent l) (h := $hyp) <;> first | decide | kit_disch)))
         if (← getUnsolvedGoals).isEmpty then return
         s.restore
       catch _ => s.restore
@@ -257,7 +285,7 @@ elab "kit_bv" : tactic => withMainContext do
   let s ← saveState
   try
     withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
-      (simp [$facts,*]; done)))
+      first | (simp [$facts,*]; done) | (simp only [$facts,*]; done) | (simp only [$facts,*]; decide)))
   catch e => do
     s.restore
     throwError "kit_bv: no fact closes the side condition: {e.toMessageData}"
@@ -274,7 +302,7 @@ elab "kit_side" : tactic => withMainContext do
   if isGuard then
     withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| first | kit_guard_ext | kit_guard | kit_bv))
   else
-    withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| first | kit_guard_ext | slot_arith | kit_bv))
+    withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| first | kit_guard_ext | kit_disch | kit_bv))
 
 open Lean Elab Tactic Meta
 

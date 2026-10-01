@@ -239,6 +239,7 @@ structure Ranges (p : Proto) (w : RelPtrs) : Prop where
   slots_top : w.base + stackValueSize * p.maxstacksize ≤ RuntimeData.spEntry - cStackBudget
   L_al : w.L % 8 = 0
   ci_al : w.ci % 8 = 0
+  L_sep_ci : w.L + stateSize ≤ w.ci ∨ w.ci + ciSize ≤ w.L
 
 /-- **The fetch-head registers** for pointers `w` and bytecode pc `pc`. -/
 structure Pins (σ : MState) (w : RelPtrs) (pc : Nat) : Prop where

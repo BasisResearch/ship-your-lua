@@ -249,7 +249,7 @@ theorem Ranges.of_regions {m : Mem} {p : Proto} {w : RelPtrs} {rt : RtPtrs}
   simp only [symEnd, symHeapEnd, stateSize, ciSize, tvalueSize, stackValueSize, cStackBudget,
     RuntimeData.spEntry] at *
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun a h1 h2 hw => ?_, fun a h1 h2 h3 hw => ?_, ?_,
-    ?_, ?_, fun a h1 h2 hw => ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    ?_, ?_, fun a h1 h2 hw => ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   all_goals simp only [Win, Slots, Scratch, RelPtrs.base, stackValueSize, ciSavedpcOff, ciSize,
     stateTopOff, stateSize, cStackBudget, execFrame, tohostAddr, RuntimeData.spEntry] at *
   all_goals omega

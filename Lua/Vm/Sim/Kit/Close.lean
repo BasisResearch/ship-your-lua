@@ -215,6 +215,7 @@ macro "kit_setup " pc:num : tactic => `(tactic| (
   have := hr.ci_hi; have := hr.code_hi; have := hr.code_lo; have := fetch_lt hf
   have := ins.isLt; have := hr.L_lo; have := hr.ci_sep; have := hr.L_sep; have := hr.ci_top
   have := hr.L_top; have := hr.slots_top; have := hr.sp_eq; have := hr.L_al; have := hr.ci_al
+  have := hr.L_sep_ci
   simp only [stackValueSize, ciSize, stateSize, RuntimeData.spEntry, cStackBudget, execFrame] at *
   have h0 := hA.seg (pc := BitVec.ofNat 64 $pc) (by rw [opNum_of_op? hop]; decide)
   have acc := Steps.refl c))
