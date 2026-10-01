@@ -306,11 +306,21 @@ elab "kit_bv" : tactic => withMainContext do
     s.restore
     throwError "kit_bv: no fact closes the side condition: {e.toMessageData}"
 
+/-- A normaliser of every side condition before `kit_side` tries its
+closers (extended by `macro_rules`, e.g. a read through stores rewritten to
+the entry memory's, so that a failing closer never unfolds a store chain). -/
+syntax "kit_side_pre" : tactic
+macro_rules | `(tactic| kit_side_pre) => `(tactic| fail "no pre-normaliser")
+
 open Lean Elab Tactic Meta in
 /-- **`kit_side`**: a side condition of a generated segment. A boolean
 equation is a branch guard (`kit_guard_ext`, then `kit_guard`); anything
 else is address arithmetic (`slot_arith`). -/
 elab "kit_side" : tactic => withMainContext do
+  try withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| kit_side_pre))
+  catch _ => pure ()
+  if (← getUnsolvedGoals).isEmpty then return
+  withMainContext do
   let t ← instantiateMVars (← getMainTarget)
   let isGuard := match_expr t with
     | Eq ty _ _ => ty.isConstOf ``Bool

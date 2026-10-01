@@ -15,4 +15,4 @@ a1-arm-sim	ledger	abstractions/ledger/a1-arm-sim.tsv::Lua/Vm/Sim/Arms/*.lean	A1:
 boot-witness	theorems	Lua/Vm/Boot/Witness/**/*.lean::.*	A0.6: per-program facts of the VmLoaded witness at a traced entry state (hand-written; the generic Boot/*.lean infrastructure is not per-case)
 tv-program	theorems	Lua/Compile/Corpus.lean::.*	B1: per-program translation-validation facts
 os-trace	theorems	Lua/Os/HtifTraces.lean::.*	per-trace facts about the syscall spec
-a1-kit-arm	theorems	Lua/Vm/Sim/Kit/*.lean::^((add|mul|mod|eq|eqk|lt|le|loadnil|forprep)_[a-z_]+|sim_[A-Z]+|sim_[A-Z]+_of_[a-z]+)$	A1 (round-3 route): per-path ArmBody lemmas and sim_* proofs written on the kit; callee summaries and the kit library are setup
+a1-kit-arm	theorems	Lua/Vm/Sim/Kit/*.lean::^((add|mul|mod|eq|eqk|lt|le|loadnil|forprep|mulk|modk|idiv|idivk|unm|shl|shr|shli|shri|bandk|bork|bxork)_[a-z0-9_]+|sim_[A-Z]+|sim_[A-Z]+_of_[a-z]+)$	A1 (round-3 route): per-path ArmBody lemmas and sim_* proofs written on the kit; callee summaries and the kit library are setup

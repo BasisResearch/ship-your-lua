@@ -421,6 +421,17 @@ def arithRR (o : BinOp) : Option (Kernel Value) := some (opArith pc w.a o [.reg 
 def arithRK (o : BinOp) : Option (Kernel Value) :=
   (kval p w.c).map fun y => opArith pc w.a o [.reg w.b, .imm y]
 
+/-- `op_bitwiseK` (`BANDK`/`BORK`/`BXORK`): `lvm.c` reads `K[C]` as
+`ivalue(KC(i))` without a tag test, and only `R[B]` goes through
+`tointegerns`. So the kernel exists only for an integer `K[C]`, which is
+what `lcode.c`'s `codebitwise` emits (a `K` operand only for a `VKINT`
+constant). A string `K[C]` would make the machine compute with the string's
+pointer while `opArith` falls through to `MMBINK`. -/
+def bitwiseRK (o : BinOp) : Option (Kernel Value) :=
+  match kval p w.c with
+  | some (.int y) => some (opArith pc w.a o [.reg w.b, .imm (.int y)])
+  | _ => none
+
 /-- The immediates `sB`, `sC` as values. -/
 def immB : Opnd := .imm (.int (BitVec.ofInt 64 w.sb))
 def immC : Opnd := .imm (.int (BitVec.ofInt 64 w.sc))
@@ -455,9 +466,9 @@ def opKernel : OpCode → Option (Kernel Value)
   | .MULK => arithRK p pc w .mul
   | .MODK => arithRK p pc w .mod
   | .IDIVK => arithRK p pc w .idiv
-  | .BANDK => arithRK p pc w .band
-  | .BORK => arithRK p pc w .bor
-  | .BXORK => arithRK p pc w .bxor
+  | .BANDK => bitwiseRK p pc w .band
+  | .BORK => bitwiseRK p pc w .bor
+  | .BXORK => bitwiseRK p pc w .bxor
   | .ADDI => some (opArith pc w.a .add [.reg w.b, immC w])
   -- `luaV_shiftl(ib, -ic)` and `luaV_shiftl(ic, ib)`: the immediate is shifted
   | .SHRI => some (opArith pc w.a .shr [.reg w.b, immC w])

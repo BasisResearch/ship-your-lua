@@ -7,6 +7,8 @@ import Lua.Vm.Sim.Kit.Le
 import Lua.Vm.Sim.Kit.Eqk
 import Lua.Vm.Sim.Kit.Loadnil
 import Lua.Vm.Sim.Kit.Tointeger
+import Lua.Vm.Sim.Kit.Mulk
+import Lua.Vm.Sim.Kit.Modk
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

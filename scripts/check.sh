@@ -174,6 +174,12 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.sim_ADD
 #print axioms Lua.Vm.Sim.Kit.sim_MUL
 #print axioms Lua.Vm.Sim.Kit.sim_MOD
+#print axioms Lua.Vm.Sim.Kit.sim_MULK
+#print axioms Lua.Vm.Sim.Kit.sim_MODK
+#print axioms Lua.Vm.Sim.Kit.sim_div
+#print axioms Lua.Vm.Sim.Kit.armBody_split
+#print axioms Lua.Vm.Sim.sim_arithK
+#print axioms Lua.Vm.Sim.Ranges.k_getElem_wm8
 #print axioms Lua.Vm.Sim.Kit.eq_short
 #print axioms Lua.Vm.Sim.Kit.sim_EQ_of_long
 #print axioms Lua.Vm.Sim.Kit.muldi3_sum
