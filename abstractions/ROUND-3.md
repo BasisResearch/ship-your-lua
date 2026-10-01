@@ -519,3 +519,16 @@ Re-baseline, at the adoption merge:
 baseline a1-arm-sim 0f7bcc0
 baseline a1-kit-arm 0f7bcc0
 ```
+
+### Carried to the next A1 round
+
+ship-your-interpreter PR #14 (`exponentiate-next` at `7b26c89d`, stacked on #13, not on syi main) adds `SymExecX`, an extended executor with one soundness proof (`symRunX_swp`/`symRunX_cont`). It has:
+- branch decisions from constants, known registers and path facts;
+- bounded jump-table splits;
+- width-exact store forwarding;
+- stepping into callees through `jal ra`;
+- the `xrun` front end over any run predicate.
+
+It covers KPROD's call-node and dispatch blockers. KPROD lost on held-out cost (405 against KIT's 279) and on failed builds (140 of 236). The blockers it reported were `sym_eval` needing closed terms and `omega`/`simp` blowing up on 2^64 literals. Those are what a re-run must show fixed.
+
+When it lands on syi main, re-run the round-3 protocol (`bakeoff3/`, same held-out arms) with `SymExecX` as a fourth contender, measured against KIT. Measurement only, per rule 4.
