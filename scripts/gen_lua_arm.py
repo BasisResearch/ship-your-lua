@@ -1281,7 +1281,18 @@ def render():
     return files
 
 
+# Round 3 of abstraction discovery adopted the kit (Lua/Vm/Sim/Kit, abstractions/ROUND-3.md
+# section 7) for every new A1 arm. This generator is frozen at the 25 arms of rounds 1-2.
+FROZEN_ARMS = {"MOVE", "LOADI", "JMP", "ADD", "SUB", "ADDI", "ADDK", "SUBK", "BAND", "BOR",
+               "BXOR", "EQI", "LTI", "GTI", "LEI", "GEI", "TEST", "TESTSET", "NOT", "BNOT",
+               "LOADK", "LOADTRUE", "LOADFALSE", "LFALSESKIP", "FORLOOP"}
+
+
 def main() -> int:
+    new = {v[0] for v in ARMS.values()} - FROZEN_ARMS
+    if new:
+        print(f"gen_lua_arm.py is frozen (abstractions/ROUND-3.md section 7): prove {sorted(new)} on the kit, Lua/Vm/Sim/Kit", file=sys.stderr)
+        return 1
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true")

@@ -466,3 +466,56 @@ round-2 agents tabulated this independently (R2-1, R2-2, R2-3).
 
 No new survivor. The pool for the bake-off is M1–M6, plus tails, plus the
 decoder gate. The executor is optional.
+
+## 6. Bake-off
+
+The protocol is the same for every contender:
+- held-out cases `SimArm .MUL`, `sim_MOD_Statement` and `sim_EQ_Statement`;
+- a refactor of `sim_ADD`;
+- callee behaviour proved, not assumed.
+
+**Shared base** (`bakeoff3/BASE.md`, merged at `3f9797f`). It made `VmRel` sound for MOD/IDIV/EQ:
+- a `Scratch` disjunct of `Win` (savedpc, `L->top`, callee frames below `sp`);
+- the `L->top` pin moved to entry;
+- nil tag exactly 0, string tag fixed by length, and an intern map `ι`.
+
+The cost was 341 hand lines added and 95 removed, with 0 regenerated.
+
+Every contender then found that the base was still missing `L_sep_stack`, `L_al` and `ci_al`, and each added them (boot-witness obligations, checked at both traced entries).
+
+| contender | setup | callee proofs | MUL / EQ / MOD | held-out hand | refactor `sim_ADD` | generated | build CPU | peak mem | failed builds | wall |
+|---|---|---|---|---|---|---|---|---|---|---|
+| INC (generator) | 482 | 685 | 7 / 102* / 220 | 329 | none (stays 245 generated + template) | 8,766 | 117 s new modules | 2.3 GB (22.3 GB in 2 failed) | 24 | 2 h 10 |
+| **KIT** | 495 (+198 Python) | **524** | 19 / 100* / 160 | **279** | **17 lines** | 8,588 | 249 + 46 s | 2.9 GB | ~10 | 2 h 45 |
+| KPROD (executor) | 878 + 2,442 copied | 692 | 36 / 197* / 172 | 405 | 16 lines | 0 | 86 + 15 s | 3.2 GB | 140 of 236 | 3 h 20 |
+
+\* EQ is proved on every path except two long strings, which is a named premise in every contender.
+
+Full reports: `bakeoff3/{INC,KIT,KPROD}.md`.
+
+**Finding shared by all three.** `sim_EQ_Statement` with two long strings is unprovable against the base `VmRel`:
+- `luaS_eqlngstr` → `memcmp` reads string bytes from live memory;
+- nothing keeps a register's string object outside `Win`.
+
+The fix is a relation separation (strings outside `Win`) plus a `memcmp` summary. It is open in PHASES.
+
+## 7. Decision
+
+**KIT is adopted.** It is the only contender that is cheaper on the held-out cases than the incumbent (279 hand lines against 329, and 524 callee lines against 685) and also shrinks the refactor (`sim_ADD`: 17 lines against 245 generated plus a template). It also had the fewest failed builds.
+
+- KPROD shrinks the refactor too, but costs more on the held-out cases (405 lines) and on setup, so it is rejected under rule 4.
+- KIT is worse than INC on MUL alone (19 against 7). INC's per-arm count excludes its new `arith_call` template, which is in setup.
+
+Enforcement:
+- CLAUDE.md's A1 row now names the kit as the route.
+- `scripts/gen_lua_arm.py` is frozen at its 25 arms (`FROZEN_ARMS`; it exits for any other opcode).
+- The gate gets a new cluster, `a1-kit-arm` (per-path `ArmBody` lemmas and `sim_*` in `Lua/Vm/Sim/Kit`).
+
+The kit's weak point is the default per-declaration heartbeat budget: MOD needed five path lemmas, and one disjunctive fact in the shared setup pushed three of them over the budget. The next round's census should watch it.
+
+Re-baseline, at the adoption merge:
+
+```
+baseline a1-arm-sim 0f7bcc0
+baseline a1-kit-arm 0f7bcc0
+```

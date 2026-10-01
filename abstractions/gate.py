@@ -45,9 +45,11 @@ def commit_time(c):
     return int(r.stdout.strip() or 0)
 
 baselines = {}
+baseline_commit = {}
 for f in glob.glob("abstractions/ROUND-*.md"):
     for m in re.finditer(r"^baseline\s+(\S+)\s+([0-9a-f]{7,40})", open(f).read(), re.M):
         baselines[m.group(1)] = commit_time(m.group(2))
+        baseline_commit[m.group(1)] = m.group(2)
 
 def files(g):
     return sorted(p for p in glob.glob(g, recursive=True) if os.path.isfile(p))
@@ -92,7 +94,14 @@ for row in open("abstractions/clusters.tsv"):
                         t, c = blame_time(p, k + 1); cases.append((t, n, f"{p}:{k+1} {d['name']}/{name}"))
                         k += 1
     if cid in baselines:
-        cases = [x for x in cases if kind == "ledger" or x[0] > baselines[cid]]
+        if kind == "ledger":
+            # a ledger is in proof order: drop the rows it already had at the baseline commit
+            led = sel.split("::")[0]
+            old = subprocess.run(["git", "show", f"{baseline_commit[cid]}:{led}"], capture_output=True, text=True).stdout
+            k = sum(1 for l in old.splitlines() if l.strip() and not l.startswith("#"))
+            cases = cases[max(k, 0):]
+        else:
+            cases = [x for x in cases if x[0] > baselines[cid]]
     cases.sort()
     n = len(cases)
     status = "ok"
