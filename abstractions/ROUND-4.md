@@ -428,3 +428,51 @@ Refinements the numbers force:
 - **Next loads.** The next costs on the path are also loads through
   `savestate`: seg1's `lbu` of `R[B]`'s tag (32.8k, a `slots`-region read)
   and seg5/normalise's `R[B]` payload (19.8k). Then comes the close (25.1k).
+
+## 3. Blind ontologist fan-out (deep seeded, 2 rounds × 5)
+
+The brief is `pilot/ONTOLOGIST_BRIEF_R4.md`; the answers are `fanout/R4-R1-*.md` and `R4-R2-*.md` (3 character seeds and 2 word seeds per round). All 5 round-1 agents reached the same five mechanisms. Round 2 corrected each with disassembly counterexamples, so no round 3 was run.
+
+| # | mechanism | cheapest variant (per round 2) | round-2 corrections |
+|---|---|---|---|
+| M-log | region-tagged write log; separation proved once, loads by `decide`/`rfl` | R1-4 #4 chart lemmas; R1-1 #3 / R1-3 #3 log | R2-2 #1, R2-5 #1: the `BitVec`→`Nat` no-wrap lift is a separate cost; prove it once per region (`Ranges.lift`). R2-1 #2, R2-5 #5: regions from `HeapAt`'s chunk walk, or stack cells by absolute index, survive VARARGPREP's reallocation and CONCAT |
+| M-cut | the state at a cut, and the frame at a call, are composed terms from generated data, never stated | R1-4 #5 `Ckpt` (`@[irreducible]`), with R1-3 #4's normalised values over a log boundary | R2-5 #4: cut at *forks* with two or more feasible leaves (FORPREP forks on the step's sign before both calls; IDIV at `0x8001f730`/`748`), not at arbitrary points. R2-2 #2: generated per-segment proofs reused by every path are the fallback carrier |
+| M-call | helper summaries, parametric in the frame | R1-4 #5 `call_poly`, keyed by (entry pc, return value) | R2-4 #2, R2-1 #3: FORPREP keeps a live pointer in the spill word `sp+16` across both calls, so the frame = live registers + live caller-frame cells. R2-2 #5, R2-5 #2: `__moddi3` returns by `jr t0`, `__divdi3` falls through, so summaries are keyed by entry pc (`udivdi3_sum` already is, at `0x8002f734`, over any `ra` and `t0`) |
+| M-str | a register value's heap footprint is outside `Win`, string bytes are invariant along a run | R1-2 #1a / R1-4 #1: a `ValRepr.str` footprint conjunct + `Core.unseal` | R2-1 #1, R2-4 #1, R2-5 #3: the footprint must be computed per variant from `TStringRepr`'s read list. +16 is `lnglen` (long, read by `luaS_eqlngstr`) or `hnext` (short, written by `tablerehash`/`luaS_remove`). GC writes `next`/`marked`, and `luaS_hashlongstr` writes +10/+12. R1-3 #5's hole at +16 breaks EQ-long. **`TStringRepr.long` lacks `shrlen = 0xFF` (+11)**, which `l_strcmp` branches on (`0x8001a720`, coordinator-checked), so the relation must gain it, checked by the boot witness |
+| M-scan | read-only string loops as chunked first-event folds | R1-4 #2 `scan_loop` + relay lemma, lane lemmas by 256-case `decide` | R2-4 #5: `strcmp` returns a 16-bit halfword difference on some exits (`0x8003b9c4–d8`, coordinator-checked), so summaries are quotiented by the observation the caller makes (sign) |
+| M-loop | one loop rule over families of segment states; closed forms for store loops | R1-4 #3 `segLoop` + tile | R2-4, R2-1 #5: `luaT_adjustvarargs`'s copy (4 stores, 3 bases, stride-0 `L->top`) and RETURN0's nil fill outside `Slots` break one-pointer cells. Use comprehension log entries ("for all i < k, write at off₀ + stride·i", stride 0 allowed) |
+
+### Falsifier result (§2c)
+
+M-log holds. A guarded load costs 0.18–0.53k heartbeats against the kit's 16.9–18.2k, and MODK's general path fits one declaration (138.8k).
+- Half of the kit's per-segment cost is `kit_run`'s branch search.
+- Same-region reads at a symbolic offset are untested.
+- R2-5: MODK cannot tell budget carriers apart (198k against 200k), so FORPREP's prefix and IDIV's mixed-sign path are the discriminating cases.
+
+| seed type | agents | ideas | only that seed type |
+|---|---|---|---|
+| chars | 6 | 30 | segment-local discharge (R2-2), charted pins (R2-2), discriminated footprints + chunk-sourced regions (R2-1), cyclic proofs + lattice acceleration (R1-3) |
+| words | 4 | 20 | observation-quotiented summaries (R2-4), fork-placed cuts + absolute stack charts (R2-5), support-indexed `Sealed` facts (R1-4), affine cursor loops (R1-5) |
+
+## 4. Retrieval by law
+
+- **L4-loop / M-scan:**
+  - loop acceleration (Boigelot 1998; Bozga, Iosif & Konečný 2010);
+  - chains of recurrences (Bachmann, Wang & Zima 1994);
+  - list homomorphisms (Bird 1987; Gibbons 1996);
+  - Myreen's decompilation of loops into tail-recursive functions (FMCAD 2012).
+- **L4-split / M-cut:** retiming (Leiserson & Saxe 1991); strongest postconditions; checkpoint placement (Griewank & Walther, "Revolve", 2000).
+- **M-log:**
+  - type-based alias analysis (Diwan, McKinley & Moss 1998);
+  - the CompCert block memory model (Leroy & Blazy 2008);
+  - proof by reflection (Boutin 1997).
+- **M-str:** dynamic frames (Kassios 2006); Iris persistent points-to.
+- **M-call:** typed assembly language (Morrisett et al., TOPLAS 1999).
+
+All citations are as recalled by the agents; they are marked for checking in the fan-out files.
+
+## 5. Variation (ideonomy: negation and combination)
+
+- **Negate "the log describes memory":** the log describes only what later loads read (R2-4 #3, "filtrate"). This is kept as an M-log optimisation.
+- **Combine M-loop × M-log:** a loop's post-memory is a comprehension entry in the same log (R2-4 #4, R2-1 #5). This unifies LOADNIL's close with MOVE's. It is adopted into the M-loop variant above.
+- **Negate "cut where the budget runs out":** cut where the code forks (R2-5 #4). It is in M-cut.
