@@ -345,3 +345,86 @@ CALL/CONCAT through a footprint-frame lemma.
 | L4-call | holds for registers (14/14 covered, 8/14 exact); refined for values | L4-call′: the frame is generated (live set + composed post-pins), normalised by the kit's read lemmas; it is stated only at split points; callee preconditions are a separate `Ranges` cost |
 | L4-split | refined: additive cost holds, free statement does not | L4-split′: splitting costs about 5k heartbeats; the statement is free exactly when the boundary state is generated (L4-call′); cut where the running per-segment sum (6–42k, driven by loads through stores) nears the budget |
 | L4-str | holds (bytes and terminator, every trace); refined for headers | L4-str′: `TStringRepr`'s footprint of every head-reachable string is untouched by every step; F1 steps touch no byte of the object; GC and the string table touch only `next`/`marked`/`hnext` |
+
+## 2c. Falsifier: a region-tagged write log for loads through `savestate` (2026-10-02)
+
+**Claim.** If a path's memory is a region-tagged write log, a guarded load
+through `savestate`'s two stores costs under 10k heartbeats (likely 1–3k),
+against 15–20k on the kit route (§1b.3). Measurement only; nothing adopted.
+
+**Built** (`abstractions/checks/round4/RegionLog.lean`, not imported by `Lua`;
+`lake env lean abstractions/checks/round4/RegionLog.lean`, 24 s, under 8 GB):
+- `Rgn` (slots, `K`, `ci->u.l.savedpc`, `L->top`, the C frame), `Ent`,
+  `applyLog`, the Boolean forwarder `fwd` (region tags first, then offsets)
+  and `fwd_sound`, with `rl_load1`/`rl_load8`;
+- `rsep_of_ranges`: the regions pairwise disjoint, once, from `Ranges`;
+- `saveMem_log`: `savestate`'s memory is the two-entry log `saveLog`, once
+  for every path;
+- `kslot_addr` (`K[C]`'s address as the arm computes it is
+  `k + (16·C + j)`), `kArr_ram` (the `K` region is RAM, apart from
+  `tohost`: the segments' bus checks), `ktag_eq`, `kval_eq8`.
+
+A load is then one `rw` of `rl_load*` whose `fwd` premise is `rfl`, with no
+`omega` and no `simp`. Axioms of `fwd_sound`, `rsep_of_ranges`, `saveMem_log`,
+`pre_rl`, `pre_rlk` and `modk_rz_one` are `[propext, Classical.choice, Quot.sound]`.
+
+**Measured** (thousands of heartbeats, deltas within one declaration, all in
+the same file). MODK's general pre half is run four ways, differing only at
+seg2 (`lbu` of `K[C]`'s tag and `bne`) and seg4 (`ld` of `K[C]`'s payload and
+`bgeu`):
+
+| | seg2 | seg4 | pre half |
+|---|---|---|---|
+| `pre_kit`: the kit's `kit_run` (= ProfModk) | 38.3 | 42.3 | 150.8 |
+| `pre_kitd`: segment applied directly (polarity named), side conditions by `kit_side`, `kit_norm` | 23.3 | 24.0 | 117.4 |
+| `pre_rl`: segment applied directly, side conditions by the region log | **6.6** | **6.4** | **83.6** |
+| `pre_rlk`: the region log as `kit_side_pre`/`kit_norm` rules inside `kit_run` | 14.3 | 16.5 | 103.2 |
+
+Per load, that is the bus checks `lo`/`hi`/`ht`, the guard and the
+normalisation of the loaded pin:
+
+| | `lo` | `hi` | `ht` | guard | normalise | **load** | segment application + `pins_of` |
+|---|---|---|---|---|---|---|---|
+| kit, tag (seg2) | 1.0 | 1.2 | 0.9 | 8.1 | 5.7 | **16.9** | 6.3 |
+| kit, payload (seg4) | 1.0 | 1.3 | 0.9 | 9.1 | 5.9 | **18.2** | 5.7 |
+| region log, tag (seg2) | 0.04 | 0.04 | 0.04 | 0.06 | — (dead pin) | **0.18** | 6.4 |
+| region log, payload (seg4) | 0.04 | 0.04 | 0.04 | 0.09 | 0.32 | **0.53** | 5.8 |
+
+The one-time costs are: the region facts per arm (`rsep_of_ranges`,
+`saveMem_log`, two bounds) 1.0k; the library file elaborates in about 2 s.
+
+**One declaration.** `modk_rz_one` is MODK's general path (`x % y = 0`):
+`pre_rl`'s run to `__moddi3`'s return, then `modk_rz`'s post half
+(`kit_div_post`: two segments, to the head, `kit_div_close`) in ONE theorem
+under the default 200k budget. It builds at **138.8k**:
+- setup 4.3, region setup 1.0, seg1 32.8, seg2 6.6, seg3 6.3, seg4 6.4;
+- seg5 10.1, normalise 9.7, call node 6.8, `AtRet` repin 5.8;
+- post 9.1 + 14.9, close 25.1.
+
+The kit's single declaration hit the budget at its close (≈ 201k, §1b.3).
+
+**Verdict: holds, with the measurement.** A guarded load through `savestate`
+drops from 16.9–18.2k to 0.18–0.53k, below the predicted 1–3k. A segment
+holding such a load drops from 38–42k to 6.4–6.6k. What is left is the
+segment's own application (≈ 6k, independent of loads). MODK's whole general
+path then fits one declaration with 61k to spare, so `armBody_split` is no
+longer forced for MODK.
+
+Refinements the numbers force:
+- **Half of the kit's segment cost is its polarity search, not the load.**
+  `kit_run` elaborates the wrong branch polarity's guard and fails slowly
+  (38.3 → 23.3 by naming the polarity). With the region log as a
+  `kit_side_pre` rule the search stays (14.3 / 16.5). A route should pick
+  the polarity by evaluating the guard (here one `decide`), not by trying
+  closers.
+- **Only cross-region reads were tested.** `fwd` reduces by `rfl` because the
+  tags differ, and the offsets (`16·C + j`, symbolic) are never compared. A
+  same-region read after a store at a symbolic offset (`R[A]` after a slot
+  store) needs `fwd`'s offset test decided over symbolic offsets. That is
+  not measured.
+- **The address normaliser is the other half of the abstraction.**
+  `kslot_addr` maps the arm's `BitVec` address to `region + offset` once;
+  without it each read re-proves the field arithmetic.
+- **Next loads.** The next costs on the path are also loads through
+  `savestate`: seg1's `lbu` of `R[B]`'s tag (32.8k, a `slots`-region read)
+  and seg5/normalise's `R[B]` payload (19.8k). Then comes the close (25.1k).
