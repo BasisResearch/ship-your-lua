@@ -1,0 +1,126 @@
+== F1 arms of luaV_execute (inline code, up to the fetch head)
+OP_FORPREP: 205 ins, 0 loop(s); jal -> __eqdf2, __gedf2, __hidden___udivdi3, __ledf2, luaG_forerror, luaG_runerror, luaV_tointeger, luaV_tonumber_
+OP_IDIV: 79 ins, 0 loop(s); jal -> __divdf3, __divdi3, __floatdidf, __moddi3, floor, luaG_runerror
+OP_IDIVK: 80 ins, 0 loop(s); jal -> __divdf3, __divdi3, __floatdidf, __moddi3, floor, luaG_runerror
+OP_SHL: 93 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_SHR: 93 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_SHLI: 62 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_SHRI: 63 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_UNM: 39 ins, 0 loop(s); jal -> luaT_trybinTM
+OP_EQ: 31 ins, 0 loop(s); jal -> luaV_equalobj
+OP_EQK: 27 ins, 0 loop(s); jal -> luaV_equalobj
+OP_LT: 160 ins, 0 loop(s); jal -> __adddf3, __eqdf2, __fixdfdi, __floatdidf, __gedf2, __ledf2, floor, l_strcmp, luaT_callorderTM
+OP_LE: 166 ins, 0 loop(s); jal -> __adddf3, __eqdf2, __fixdfdi, __floatdidf, __gedf2, __ledf2, floor, l_strcmp, luaT_callorderTM
+OP_CALL: 42 ins, 0 loop(s); jal -> luaD_precall, luaG_tracecall
+OP_VARARGPREP: 22 ins, 0 loop(s); jal -> luaD_hookcall, luaT_adjustvarargs
+OP_RETURN: 87 ins, 0 loop(s); jal -> luaD_poscall, luaF_close, luaG_tracecall
+OP_RETURN0: 72 ins, 1 loop(s); jal -> luaD_poscall, luaG_tracecall
+  loop head 0x8001c2f4 latch 0x8001c2fc (3 ins, latch `bne`, exit bottom @0x8001c2fc)
+      carried ['a3']; stores ['sb zero,-8(a3)']; calls -
+OP_RETURN1: 84 ins, 1 loop(s); jal -> luaD_poscall, luaG_tracecall
+  loop head 0x8001ed74 latch 0x8001ed7c (3 ins, latch `bne`, exit bottom @0x8001ed7c)
+      carried ['a4']; stores ['sb zero,0(a4)']; calls -
+OP_LOADNIL: 14 ins, 1 loop(s); jal -> -
+  loop head 0x8001d2a8 latch 0x8001d2b0 (3 ins, latch `bne`, exit bottom @0x8001d2b0)
+      carried ['a5']; stores ['sb zero,-8(a5)']; calls -
+OP_BANDK: 54 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_BORK: 54 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_BXORK: 54 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+
+== helpers (whole function bodies)
+luaV_tointeger [90 ins, depth 0]: 0 loop(s); jal -> __adddf3, __eqdf2, __fixdfdi, __gedf2, __ledf2, floor, luaO_str2num
+luaV_tonumber_ [48 ins, depth 0]: 0 loop(s); jal -> __floatdidf, luaO_str2num
+luaV_idiv [32 ins, depth 0]: 0 loop(s); jal -> __divdi3, __moddi3, luaG_runerror
+luaV_mod [28 ins, depth 0]: 0 loop(s); jal -> __moddi3, luaG_runerror
+luaV_shiftl [16 ins, depth 0]: 0 loop(s); jal -> -
+__divdi3 [2 ins, depth 0]: 0 loop(s); jal -> -
+__moddi3 [12 ins, depth 0]: 0 loop(s); jal -> __hidden___udivdi3
+__hidden___udivdi3 [18 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x8002f760 latch 0x8002f774 (6 ins, latch `bnez`, exit bottom @0x8002f774)
+      carried ['a0', 'a1', 'a2', 'a3']; stores -; calls -
+  loop head 0x8002f74c latch 0x8002f758 (4 ins, latch `bltu`, exit mid @0x8002f74c,0x8002f758)
+      carried ['a2', 'a3']; stores -; calls -
+__umoddi3 [4 ins, depth 0]: 0 loop(s); jal -> __hidden___udivdi3
+__muldi3 [9 ins, depth 0]: 1 loop(s); jal -> -
+  loop head 0x8002f6d0 latch 0x8002f6e4 (6 ins, latch `bnez`, exit bottom @0x8002f6e4)
+      carried ['a0', 'a1', 'a2', 'a3']; stores -; calls -
+luaV_equalobj [105 ins, depth 0]: 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+luaS_eqlngstr [20 ins, depth 0]: 0 loop(s); jal -> memcmp
+memcmp [27 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x800361c0 latch 0x800361bc (6 ins, latch `beq`, exit mid @0x800361bc,0x800361d0)
+      carried ['a0', 'a1', 'a4', 'a5']; stores -; calls -
+  loop head 0x800361dc latch 0x800361f4 (7 ins, latch `bltu`, exit mid @0x800361e4,0x800361f4)
+      carried ['a0', 'a1', 'a2', 'a4', 'a5']; stores -; calls -
+l_strcmp [55 ins, depth 0]: 1 loop(s); jal -> strcoll, strlen
+  loop head 0x8001a790 latch 0x8001a78c (41 ins, latch `sub`, exit mid @0x8001a75c,0x8001a778,0x8001a77c,0x8001a7a4)
+      carried ['a0', 'a1', 'a4', 'a5', 'ra', 's0', 's1', 's2', 's3', 's4', 'sp']; stores ['sd s0,32(sp)', 'sd ra,40(sp)', 'sd s1,24(sp)', 'sd s2,16(sp)', 'sd s3,8(sp)', 'sd s4,0(sp)']; calls ['strcoll', 'strlen', 'strlen', 'strcoll']
+strcmp [75 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x8003ba04 latch 0x8003ba18 (6 ins, latch `bnez`, exit mid @0x8003ba14,0x8003ba18)
+      carried ['a0', 'a1', 'a2', 'a3']; stores -; calls -
+  loop head 0x8003b938 latch 0x8003b99c (26 ins, latch `beq`, exit mid @0x8003b950,0x8003b954,0x8003b970,0x8003b974,0x8003b990,0x8003b99c)
+      carried ['a0', 'a1', 'a2', 'a3', 't0', 't1']; stores -; calls -
+strlen [53 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x8003b790 latch 0x8003b7a8 (7 ins, latch `beq`, exit bottom @0x8003b7a8)
+      carried ['a2', 'a4', 'a5']; stores -; calls -
+  loop head 0x8003b7f8 latch 0x8003b7f4 (5 ins, latch `beqz`, exit mid @0x8003b7f4,0x8003b804)
+      carried ['a3', 'a4', 'a5']; stores -; calls -
+strcoll [1 ins, depth 0]: 0 loop(s); jal -> -
+luaT_adjustvarargs [64 ins, depth 0]: 1 loop(s); jal -> luaD_growstack
+  loop head 0x80019874 latch 0x80019894 (9 ins, latch `bne`, exit bottom @0x80019894)
+      carried ['a2', 'a4', 'a5']; stores ['sd a5,16(a6)', 'sd a2,-32(a5)', 'sb a2,-24(a5)', 'sb zero,-16(a4)']; calls -
+luaF_close [87 ins, depth 0]: 2 loop(s); jal -> luaD_call, luaD_callnoyield, luaD_seterrorobj, luaF_closeupval, luaT_gettmbyobj
+  loop head 0x8000c284 latch 0x8000c324 (49 ins, latch `bgeu`, exit bottom @0x8000c324)
+      carried ['a0', 'a3', 'a4', 'a5', 's0', 's7', 's8']; stores ['sd a5,64(s2)', 'sd a4,0(s0)', 'sb a4,8(s0)', 'sd a4,16(s0)', 'sb a4,24(s0)', 'sd a4,32(s0)', 'sb a4,40(s0)', 'sd a5,16(s2)']; calls ['luaT_gettmbyobj', 'luaD_call', 'luaD_callnoyield', 'luaD_seterrorobj']
+  loop head 0x8000c2a0 latch 0x8000c29c (4 ins, latch `bgeu`, exit mid @0x8000c29c,0x8000c2a4)
+      carried ['a4', 'a5']; stores -; calls -
+luaF_closeupval [68 ins, depth 0]: 7 loop(s); jal -> luaC_barrier_
+  loop head 0x8000c160 latch 0x8000c17c (23 ins, latch `beqz`, exit mid @0x8000c124,0x8000c164,0x8000c17c)
+      carried ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']; stores ['sd a4,0(a2)', 'sd a2,32(a4)', 'sd a2,24(a1)', 'sd a3,16(a1)', 'sb a5,32(a1)', 'sb a4,9(a1)']; calls -
+  loop head 0x8000c160 latch 0x8000c188 (26 ins, latch `beqz`, exit mid @0x8000c124,0x8000c164,0x8000c188)
+      carried ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']; stores ['sd a4,0(a2)', 'sd a2,32(a4)', 'sd a2,24(a1)', 'sd a3,16(a1)', 'sb a5,32(a1)', 'sb a4,9(a1)']; calls -
+  loop head 0x8000c1f0 latch 0x8000c210 (23 ins, latch `beqz`, exit mid @0x8000c1b4,0x8000c1f4,0x8000c210)
+      carried ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']; stores ['sd a4,0(a2)', 'sd a2,32(a4)', 'sd a2,24(a1)', 'sd a3,16(a1)', 'sb a5,32(a1)', 'sb a4,9(a1)']; calls -
+  loop head 0x8000c1f0 latch 0x8000c21c (26 ins, latch `beqz`, exit mid @0x8000c1b4,0x8000c1f4,0x8000c21c)
+      carried ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']; stores ['sd a4,0(a2)', 'sd a2,32(a4)', 'sd a2,24(a1)', 'sd a3,16(a1)', 'sb a5,32(a1)', 'sb a4,9(a1)']; calls -
+  loop head 0x8000c194 latch 0x8000c220 (33 ins, latch `j`, exit mid @0x8000c1b4,0x8000c1f4)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7']; stores ['sd a7,8(sp)', 'sd a0,0(sp)', 'sd a4,0(a2)', 'sd a2,32(a4)', 'sd a2,24(a1)', 'sd a3,16(a1)', 'sb a5,32(a1)', 'sb a4,9(a1)']; calls ['luaC_barrier_']
+  loop head 0x8000c1f0 latch 0x8000c1ec (19 ins, latch `beqz`, exit mid @0x8000c1b4,0x8000c1ec,0x8000c1f4)
+      carried ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']; stores ['sd a4,0(a2)', 'sd a2,32(a4)', 'sd a2,24(a1)', 'sd a3,16(a1)', 'sb a5,32(a1)']; calls -
+  loop head 0x8000c160 latch 0x8000c15c (19 ins, latch `beqz`, exit mid @0x8000c124,0x8000c15c,0x8000c164)
+      carried ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']; stores ['sd a4,0(a2)', 'sd a2,32(a4)', 'sd a2,24(a1)', 'sd a3,16(a1)', 'sb a5,32(a1)']; calls -
+luaD_precall [226 ins, depth 0]: 2 loop(s); jal -> luaC_step, luaD_growstack, luaD_hook, luaD_poscall, luaE_extendCI, tryfuncTM
+  loop head 0x8000aae0 latch 0x8000abc8 (13 ins, latch `bne`, exit mid @0x8000aae0,0x8000aae4,0x8000abc8)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6']; stores ['sd a6,0(sp)']; calls ['tryfuncTM']
+  loop head 0x8000ab70 latch 0x8000ab78 (3 ins, latch `bne`, exit bottom @0x8000ab78)
+      carried ['a5']; stores ['sb zero,0(a5)']; calls -
+luaD_poscall [147 ins, depth 0]: 2 loop(s); jal -> luaF_close, rethook
+  loop head 0x8000a464 latch 0x8000a47c (7 ins, latch `bne`, exit bottom @0x8000a47c)
+      carried ['a3', 'a4', 'a5']; stores ['sd a3,-16(a5)', 'sb a3,-8(a5)']; calls -
+  loop head 0x8000a4a4 latch 0x8000a4ac (3 ins, latch `bne`, exit bottom @0x8000a4ac)
+      carried ['a5']; stores ['sb zero,8(a5)']; calls -
+luaB_print [62 ins, depth 0]: 1 loop(s); jal -> fflush, fwrite, luaL_tolstring, lua_gettop, lua_settop
+  loop head 0x80022f8c latch 0x80022f88 (23 ins, latch `jal`, exit mid @0x80022fc0)
+      carried ['a0', 'a2', 'a5', 's0', 's1']; stores -; calls ['luaL_tolstring', 'fwrite', 'fwrite', 'lua_settop']
+luaT_trybinTM [64 ins, depth 0]: 0 loop(s); jal -> luaG_opinterror, luaG_tointerror, luaT_gettmbyobj
+luaO_str2num [191 ins, depth 0]: 4 loop(s); jal -> l_str2dloc, memcpy, strchr, strlen, strpbrk
+  loop head 0x80011a8c latch 0x80011aa0 (6 ins, latch `bnez`, exit bottom @0x80011aa0)
+      carried ['a0', 'a2', 'a5']; stores -; calls -
+  loop head 0x80011a44 latch 0x80011a7c (15 ins, latch `bnez`, exit mid @0x80011a5c,0x80011a60,0x80011a7c)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5']; stores -; calls -
+  loop head 0x80011b2c latch 0x80011b28 (16 ins, latch `beqz`, exit bottom @0x80011b28)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 't3']; stores -; calls -
+  loop head 0x800119bc latch 0x800119d0 (6 ins, latch `bnez`, exit bottom @0x800119d0)
+      carried ['a0', 'a4', 'a5']; stores -; calls -
+luaO_tostring [37 ins, depth 0]: 0 loop(s); jal -> luaS_newlstr, snprintf, tostringbuff.part.0.isra.0
+luaS_newlstr [38 ins, depth 0]: 0 loop(s); jal -> luaC_newobj, luaM_toobig, memcpy
+luaS_hash [15 ins, depth 0]: 1 loop(s); jal -> -
+  loop head 0x800171e8 latch 0x80017204 (8 ins, latch `bne`, exit bottom @0x80017204)
+      carried ['a1', 'a2', 'a3', 'a4', 'a5']; stores -; calls -
+internshrstr [115 ins, depth 0]: 2 loop(s); jal -> luaC_fullgc, luaC_newobj, luaD_throw, luaS_resize, memcmp, memcpy
+  loop head 0x800173f0 latch 0x800173ec (9 ins, latch `beqz`, exit mid @0x800173ec,0x80017408)
+      carried ['a0', 'a5', 's0']; stores -; calls ['memcmp']
+  loop head 0x800173a4 latch 0x800173c0 (8 ins, latch `bne`, exit bottom @0x800173c0)
+      carried ['a2', 'a3', 'a4', 'a5', 's1']; stores -; calls -
+luaL_tolstring [153 ins, depth 0]: 0 loop(s); jal -> luaL_callmeta, luaL_error, luaL_getmetafield.part.0, lua_absindex, lua_getmetatable, lua_isinteger, lua_isstring, lua_pushfstring, lua_pushstring, lua_pushvalue, lua_rotate, lua_settop, lua_toboolean, lua_tointegerx, lua_tolstring, lua_tonumberx, lua_topointer, lua_type, lua_typename
+
+30 functions, 15 with loops, 32 back edges

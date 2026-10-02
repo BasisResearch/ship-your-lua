@@ -1,0 +1,245 @@
+== F1 arms of luaV_execute (inline code, up to the fetch head)
+OP_FORPREP: 205 ins, 0 loop(s); jal -> __eqdf2, __gedf2, __hidden___udivdi3, __ledf2, luaG_forerror, luaG_runerror, luaV_tointeger, luaV_tonumber_
+OP_IDIV: 79 ins, 0 loop(s); jal -> __divdf3, __divdi3, __floatdidf, __moddi3, floor, luaG_runerror
+OP_IDIVK: 80 ins, 0 loop(s); jal -> __divdf3, __divdi3, __floatdidf, __moddi3, floor, luaG_runerror
+OP_SHL: 93 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_SHR: 93 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_SHLI: 62 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_SHRI: 63 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_UNM: 39 ins, 0 loop(s); jal -> luaT_trybinTM
+OP_EQ: 31 ins, 0 loop(s); jal -> luaV_equalobj
+OP_EQK: 27 ins, 0 loop(s); jal -> luaV_equalobj
+OP_LT: 160 ins, 0 loop(s); jal -> __adddf3, __eqdf2, __fixdfdi, __floatdidf, __gedf2, __ledf2, floor, l_strcmp, luaT_callorderTM
+OP_LE: 166 ins, 0 loop(s); jal -> __adddf3, __eqdf2, __fixdfdi, __floatdidf, __gedf2, __ledf2, floor, l_strcmp, luaT_callorderTM
+OP_CALL: 42 ins, 0 loop(s); jal -> luaD_precall, luaG_tracecall
+OP_VARARGPREP: 22 ins, 0 loop(s); jal -> luaD_hookcall, luaT_adjustvarargs
+OP_RETURN: 87 ins, 0 loop(s); jal -> luaD_poscall, luaF_close, luaG_tracecall
+OP_RETURN0: 72 ins, 1 loop(s); jal -> luaD_poscall, luaG_tracecall
+  loop head 0x8001c2f4 latch 0x8001c2fc (3 ins, latch `bne`, exit bottom @0x8001c2fc)
+      carried ['a3']; stores ['sb zero,-8(a3)']; calls -
+OP_RETURN1: 84 ins, 1 loop(s); jal -> luaD_poscall, luaG_tracecall
+  loop head 0x8001ed74 latch 0x8001ed7c (3 ins, latch `bne`, exit bottom @0x8001ed7c)
+      carried ['a4']; stores ['sb zero,0(a4)']; calls -
+OP_LOADNIL: 14 ins, 1 loop(s); jal -> -
+  loop head 0x8001d2a8 latch 0x8001d2b0 (3 ins, latch `bne`, exit bottom @0x8001d2b0)
+      carried ['a5']; stores ['sb zero,-8(a5)']; calls -
+OP_BANDK: 54 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_BORK: 54 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+OP_BXORK: 54 ins, 0 loop(s); jal -> __eqdf2, __fixdfdi, __gedf2, __ledf2, floor
+
+== helpers (whole function bodies)
+__hidden___udivdi3 [18 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x8002f760 latch 0x8002f774 (6 ins, latch `bnez`, exit bottom @0x8002f774)
+      carried ['a0', 'a1', 'a2', 'a3']; stores -; calls -
+  loop head 0x8002f74c latch 0x8002f758 (4 ins, latch `bltu`, exit mid @0x8002f74c,0x8002f758)
+      carried ['a2', 'a3']; stores -; calls -
+__muldi3 [9 ins, depth 0]: 1 loop(s); jal -> -
+  loop head 0x8002f6d0 latch 0x8002f6e4 (6 ins, latch `bnez`, exit bottom @0x8002f6e4)
+      carried ['a0', 'a1', 'a2', 'a3']; stores -; calls -
+__sflush_r [151 ins, depth 0]: 1 loop(s); jal -> _free_r
+  loop head 0x8003287c latch 0x80032878 (10 ins, latch `blez`, exit mid @0x80032878,0x80032898)
+      carried ['a0', 's1', 's2']; stores -; calls ['a5']
+__sfvwrite_r [311 ins, depth 0]: 8 loop(s); jal -> __moddi3, __swsetup_r, _fflush_r, _free_r, _malloc_r, _realloc_r, memchr, memcpy, memmove
+  loop head 0x80033bb8 latch 0x80033d8c (7 ins, latch `j`, exit mid @0x80033bc0)
+      carried ['s1', 's2', 's3']; stores -; calls -
+  loop head 0x80033bb8 latch 0x80033bfc (18 ins, latch `bnez`, exit mid @0x80033bc0,0x80033be4,0x80033bfc)
+      carried ['a0', 'a3', 'a5', 's2', 's3']; stores ['sd a5,16(s4)']; calls ['a5']
+  loop head 0x80033e28 latch 0x80033e34 (4 ins, latch `beqz`, exit bottom @0x80033e34)
+      carried ['s1', 's7']; stores -; calls -
+  loop head 0x80033e3c latch 0x80033dac (114 ins, latch `beqz`, exit mid @0x80033b54,0x80033ba4,0x80033c38,0x80033c58,0x80033c6c,0x80033da8,0x80033df8,0x80033e18,0x80033e24,0x80033e80,0x80033ea4)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'ra', 's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 'sp']; stores ['sd s0,80(sp)', 'sd s4,48(sp)', 'sd s5,40(sp)', 'sd ra,88(sp)', 'sd s1,72(sp)', 'sd s2,64(sp)', 'sd s3,56(sp)', 'sd s6,32(sp)', 'sd s1,72(sp)', 'sd s2,64(sp)', 'sd s3,56(sp)', 'sd s6,32(sp)', 'sd s7,24(sp)', 'sd s8,16(sp)', 'sd s9,8(sp)', 'sd a5,16(s4)', 'sd a5,0(s0)', 'sw a4,12(s0)', 'sd a5,0(s0)']; calls ['__swsetup_r', 'a5', 'memchr', 'memmove', '_fflush_r', '_fflush_r', 'memmove']
+  loop head 0x80033db0 latch 0x80033dac (104 ins, latch `beqz`, exit mid @0x80033b54,0x80033ba4,0x80033c38,0x80033c58,0x80033c6c,0x80033da8,0x80033dac,0x80033df8,0x80033e18,0x80033e24,0x80033e80,0x80033ea4)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'ra', 's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 'sp']; stores ['sd s0,80(sp)', 'sd s4,48(sp)', 'sd s5,40(sp)', 'sd ra,88(sp)', 'sd s1,72(sp)', 'sd s2,64(sp)', 'sd s3,56(sp)', 'sd s6,32(sp)', 'sd s1,72(sp)', 'sd s2,64(sp)', 'sd s3,56(sp)', 'sd s6,32(sp)', 'sd s7,24(sp)', 'sd s8,16(sp)', 'sd s9,8(sp)', 'sd a5,16(s4)', 'sd a5,0(s0)', 'sw a4,12(s0)', 'sd a5,0(s0)']; calls ['__swsetup_r', 'a5', 'memmove', '_fflush_r', '_fflush_r', 'memmove']
+  loop head 0x80033e28 latch 0x80033e24 (119 ins, latch `bnez`, exit mid @0x80033b54,0x80033ba4,0x80033c38,0x80033c58,0x80033c6c,0x80033df8,0x80033e18,0x80033e80,0x80033ea4)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'ra', 's0', 's1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 'sp']; stores ['sd s0,80(sp)', 'sd s4,48(sp)', 'sd s5,40(sp)', 'sd ra,88(sp)', 'sd s1,72(sp)', 'sd s2,64(sp)', 'sd s3,56(sp)', 'sd s6,32(sp)', 'sd s1,72(sp)', 'sd s2,64(sp)', 'sd s3,56(sp)', 'sd s6,32(sp)', 'sd s7,24(sp)', 'sd s8,16(sp)', 'sd s9,8(sp)', 'sd a5,16(s4)', 'sd a5,0(s0)', 'sw a4,12(s0)', 'sd a5,0(s0)']; calls ['__swsetup_r', 'a5', 'memchr', 'memmove', '_fflush_r', '_fflush_r', 'memmove']
+  loop head 0x80033c84 latch 0x80033d7c (68 ins, latch `j`, exit mid @0x80033c94,0x80033cf8,0x80033d68,0x80033fc0)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 's1', 's2', 's3', 's6', 's7', 's9']; stores ['sh a4,16(s0)', 'sd s9,24(s0)', 'sd a0,0(s0)', 'sw s7,12(s0)', 'sw s2,32(s0)', 'sw a3,12(s0)', 'sd a5,0(s0)', 'sd a4,16(s4)']; calls ['_malloc_r', 'memcpy', 'memmove', '_realloc_r']
+  loop head 0x80033c84 latch 0x80033f3c (48 ins, latch `j`, exit mid @0x80033c84,0x80033c94,0x80033f14,0x80033f2c,0x80033f80)
+      carried ['a0', 'a1', 'a3', 'a4', 'a5', 's2', 's3', 's6']; stores ['sd a5,16(s4)', 'sd a5,0(s0)', 'sw a4,12(s0)']; calls ['__moddi3', 'a5', 'memmove', '_fflush_r']
+__ssprint_r [60 ins, depth 0]: 2 loop(s); jal -> __ssputs_r
+  loop head 0x8004972c latch 0x80049728 (9 ins, latch `beqz`, exit mid @0x80049728,0x8004973c,0x80049744)
+      carried ['a2', 'a3', 'a5', 's0', 's2']; stores ['sw a2,8(s1)']; calls -
+  loop head 0x8004972c latch 0x80049774 (19 ins, latch `bnez`, exit mid @0x8004973c,0x80049744,0x8004975c,0x80049774)
+      carried ['a0', 'a2', 'a3', 'a4', 'a5', 's0', 's2']; stores ['sw a2,8(s1)', 'sd a4,16(s1)']; calls ['__ssputs_r']
+_free_r [193 ins, depth 0]: 1 loop(s); jal -> __malloc_lock, _malloc_trim_r
+  loop head 0x8003bfa8 latch 0x8003bfa4 (5 ins, latch `beq`, exit mid @0x8003bfa4,0x8003bfb0)
+      carried ['a2', 'a3']; stores -; calls -
+_malloc_r [562 ins, depth 0]: 8 loop(s); jal -> __malloc_lock, __malloc_unlock, _free_r, _sbrk_r
+  loop head 0x8002fc34 latch 0x8003011c (45 ins, latch `j`, exit mid @0x8002fc6c,0x8002fc70,0x800300fc)
+      carried ['a0', 'a1', 'a2', 'a3', 'a5', 'a7', 't1', 't5', 't6']; stores ['sd a5,8(a6)']; calls -
+  loop head 0x80030108 latch 0x80030114 (4 ins, latch `beqz`, exit bottom @0x80030114)
+      carried ['a0', 'a3', 't6']; stores -; calls -
+  loop head 0x800300d8 latch 0x800300d4 (6 ins, latch `bne`, exit mid @0x800300d4,0x800300e0)
+      carried ['a5', 'a7', 't5']; stores -; calls -
+  loop head 0x8002fc54 latch 0x8002ffa0 (7 ins, latch `j`, exit mid @0x8002fc54,0x8002ff98)
+      carried ['a3', 'a5', 't1', 't6']; stores -; calls -
+  loop head 0x8002fc54 latch 0x8002fc70 (8 ins, latch `bltz`, exit mid @0x8002fc54,0x8002fc6c,0x8002fc70)
+      carried ['a1', 'a2', 'a3']; stores -; calls -
+  loop head 0x8002fc20 latch 0x8002fc2c (4 ins, latch `beqz`, exit bottom @0x8002fc2c)
+      carried ['a0', 'a5', 'a7']; stores -; calls -
+  loop head 0x8002ff40 latch 0x8002ff3c (5 ins, latch `beq`, exit mid @0x8002ff3c,0x8002ff48)
+      carried ['a2', 'a3']; stores -; calls -
+  loop head 0x8002fb64 latch 0x8002fb60 (8 ins, latch `mv`, exit mid @0x8002fb58,0x8002fb5c,0x8002fb70)
+      carried ['a1', 'a2', 'a3', 'a5']; stores -; calls -
+_svfprintf_r [1523 ins, depth 0]: 20 loop(s); jal -> __eqdf2, __locale_mb_cur_max, __ssprint_r, _free_r, _localeconv_r, _malloc_r, memset, strlen
+  loop head 0x80042f3c latch 0x80043150 (3026 ins, latch `j`, exit mid @0x80042fc0,0x80043010,0x8004301c,0x80043188,0x800431c8,0x8004323c,0x80043340,0x8004342c,0x800434a8,0x80043578,0x800435f8,0x80043754,0x80043de8,0x80043e74,0x80043ea4,0x80043ff0,0x80044030,0x800440bc,0x80044120,0x80044318,0x800443cc,0x80044498,0x80044538,0x80044568,0x800445a4,0x800447b4,0x80044860,0x800449a4,0x80044b50,0x80044bcc,0x80044c14,0x80044fb4,0x80045038,0x800450c8,0x8004515c,0x800453f4,0x800454a0,0x800454c8,0x80045538,0x800455c0,0x800456f0,0x80045730,0x800458ec,0x80045924,0x800459cc,0x80045ab0,0x80045b20)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 's0', 's10', 's11', 's4', 's6', 's7', 's8', 's9', 't0', 't1', 't2', 't3', 't4', 't5', 't6']; stores ['sb zero,167(sp)', 'sd a5,0(sp)', 'sd s9,0(sp)', 'sb s8,248(sp)', 'sb zero,167(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a1,0(s7)', 'sd a5,8(s7)', 'sd a2,240(sp)', 'sw t4,232(sp)', 'sd a4,0(s7)', 'sd a4,8(s7)', 'sd a2,240(sp)', 'sw t4,232(sp)', 'sd a2,240(sp)', 'sd s10,0(s7)', 'sd s6,8(s7)', 'sw a5,232(sp)', 'sd a5,16(sp)', 'sw zero,232(sp)', 'sd s8,8(s7)', 'sd a5,0(s7)', 'sd a4,240(sp)', 'sw a5,232(sp)', 'sd a5,16(sp)', 'sd s9,0(sp)', 'sd a5,64(sp)', 'sd a5,24(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd t3,48(sp)', 'sd t1,32(sp)', 'sd a6,152(sp)', 'sd t1,144(sp)', 'sd t0,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd a3,0(s7)', 'sd a3,8(s7)', 'sd a2,240(sp)', 'sw a4,232(sp)', 'sd a2,240(sp)', 'sd a5,0(s7)', 'sw a3,232(sp)', 'sd a5,-8(s7)', 'sw a3,232(sp)', 'sd a5,8(s7)', 'sd a2,240(sp)', 'sd s10,0(s7)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd s9,0(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd t6,112(sp)', 'sd t1,120(sp)', 'sd s6,0(a5)', 'sd s2,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a6,144(sp)', 'sd t1,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd a2,144(sp)', 'sd a6,136(sp)', 'sd t1,120(sp)', 'sd t3,112(sp)', 'sd t6,152(sp)', 'sd a4,0(s7)', 'sd a4,8(s7)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd a2,240(sp)', 'sd a4,-16(s7)', 'sw a5,232(sp)', 'sd a4,-8(s7)', 'sd s9,0(a4)', 'sd s6,8(a4)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd t1,112(sp)', 'sd t6,56(sp)', 'sd a7,48(sp)', 'sd s11,24(sp)', 'sd a0,32(sp)', 'sd a7,24(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd s9,0(sp)', 'sd a5,24(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd s9,0(sp)', 'sd a5,24(sp)', 'sb a5,167(sp)', 'sb a4,347(sp)', 'sd zero,32(sp)', 'sd a5,24(sp)', 'sb a5,167(sp)', 'sd t1,0(sp)', 'sd a5,96(sp)', 'sd a0,128(sp)', 'sd a4,104(sp)', 'sb a5,167(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sd s7,48(sp)', 'sd s4,56(sp)', 'sd s0,120(sp)', 'sd t3,32(sp)', 'sd t1,40(sp)', 'sd s6,112(sp)', 'sb a0,-1(s9)', 'sd s4,104(sp)', 'sd s7,40(sp)', 'sd zero,32(sp)', 'sd s9,0(sp)', 'sd a5,24(sp)', 'sb zero,167(sp)', 'sb a5,347(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sh a5,168(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd a1,24(sp)', 'sd zero,32(sp)', 'sd s9,0(sp)', 'sd a5,24(sp)', 'sd s4,136(sp)', 'sd t3,112(sp)', 'sd t1,120(sp)', 'sd s6,0(a5)', 'sd t5,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd s11,0(s7)', 'sd t4,8(s7)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a6,144(sp)', 'sd t1,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a3,8(s7)', 'sd s10,0(s7)', 'sd s9,240(sp)', 'sw a4,232(sp)', 'sw s4,232(sp)', 'sd s9,240(sp)', 'sd a5,0(s6)', 'sd a5,-8(s6)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sw s4,232(sp)', 'sd s9,240(sp)', 'sd a5,0(s6)', 'sd s7,8(s6)', 'sd a5,0(s6)', 'sd a2,240(sp)', 'sw s4,232(sp)', 'sd a4,8(s6)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a6,152(sp)', 'sd t1,144(sp)', 'sd t0,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd s9,0(s7)', 'sd s6,8(s7)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a6,56(sp)', 'sd t3,48(sp)', 'sb a4,-1(s10)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd s10,0(s7)', 'sd s8,8(s7)', 'sd a2,240(sp)', 'sw a4,232(sp)', 'sd a2,240(sp)', 'sd a5,0(s7)', 'sw a4,232(sp)', 'sd a5,-8(s7)', 'sd s11,0(s7)', 'sd s6,8(s7)', 'sd a2,240(sp)', 'sw a4,232(sp)', 'sd s9,0(a4)', 'sd s6,8(a4)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd s4,144(sp)', 'sd t3,112(sp)', 'sd t6,120(sp)', 'sd t1,136(sp)', 'sd s6,0(a5)', 'sd t4,8(a5)', 'sd a0,240(sp)', 'sw a1,232(sp)', 'sd a4,8(s7)', 'sd a2,240(sp)', 'sw t4,232(sp)', 'sd s11,0(s7)', 'sd s10,0(s7)', 'sd a3,8(s7)', 'sd s9,240(sp)', 'sw s4,232(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd t3,48(sp)', 'sd s7,0(a5)', 'sd s8,8(a5)', 'sd a4,240(sp)', 'sw s4,232(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a5,24(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd t1,48(sp)', 'sd s11,32(sp)', 'sd a5,24(sp)', 'sd a0,64(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sb a2,-1(s10)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a1,24(sp)', 'sb a5,0(s10)', 'sd zero,32(sp)', 'sb a5,248(sp)', 'sd s9,240(sp)', 'sw s4,232(sp)', 'sd s11,0(s6)', 'sd s7,8(s6)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd a1,24(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd s9,0(sp)', 'sd a7,24(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd t3,112(sp)', 'sd t6,120(sp)', 'sd t1,136(sp)', 'sd s7,0(a5)', 'sd s8,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd s10,136(sp)', 'sd s0,56(sp)', 'sd t3,120(sp)', 'sd t1,144(sp)', 'sd a6,152(sp)', 'sd a5,48(sp)', 'sd a1,0(a3)', 'sd s11,8(a3)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd a2,240(sp)', 'sd s10,0(a3)', 'sd s9,8(a3)', 'sw a1,232(sp)', 'sd a1,24(sp)', 'sd a5,104(sp)', 'sd t6,112(sp)', 'sd s6,0(a3)', 'sd s8,8(a3)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd t6,0(a3)', 'sd s9,8(a3)', 'sd a6,152(sp)', 'sd t1,144(sp)', 'sd t0,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sb a5,168(sp)', 'sb a5,169(sp)', 'sd zero,112(sp)', 'sd zero,32(sp)', 'sd t3,40(sp)', 'sd a5,48(sp)', 'sd a0,56(sp)', 'sw a4,176(sp)', 'sd a5,40(sp)', 'sd a5,40(sp)', 'sd s0,120(sp)', 'sd t3,88(sp)', 'sb a3,0(s6)', 'sd a0,56(sp)', 'sd s9,216(sp)', 'sb a0,-1(a4)', 'sd a5,216(sp)', 'sb a3,-1(a4)', 'sb a3,184(sp)', 'sw s6,176(sp)', 'sd a5,40(sp)', 'sb a4,185(sp)', 'sd t3,56(sp)', 'sd s7,88(sp)', 'sb a5,-1(s4)', 'sb a3,-1(s11)', 'sb a5,-1(a3)', 'sd a5,88(sp)', 'sb t5,167(sp)', 'sb s8,169(sp)', 'sb zero,167(sp)', 'sb a5,168(sp)', 'sd a1,24(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd t1,48(sp)', 'sd a7,32(sp)', 'sd t3,24(sp)', 'sd s10,216(sp)', 'sd s7,32(sp)', 'sd a7,48(sp)', 'sd zero,32(sp)', 'sd t1,56(sp)', 'sd a7,48(sp)', 'sd t3,24(sp)', 'sb zero,0(a4)', 'sd a7,24(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a5,104(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sd a5,24(sp)', 'sd a5,24(sp)', 'sd zero,112(sp)', 'sd a5,112(sp)', 'sd t1,40(sp)', 'sd t3,32(sp)', 'sd t1,40(sp)', 'sd t3,32(sp)', 'sd a5,216(sp)', 'sb a2,0(a3)', 'sd a5,40(sp)', 'sb a4,167(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a6,144(sp)', 'sd t1,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sb a5,167(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a1,24(sp)', 'sd t1,48(sp)', 'sd a7,32(sp)', 'sd t3,24(sp)', 'sd s10,216(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a7,24(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd a6,144(sp)', 'sd t1,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd a2,240(sp)', 'sd a5,0(s7)', 'sw a3,232(sp)', 'sd a5,8(s7)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a5,24(sp)', 'sd a5,24(sp)', 'sd t1,56(sp)', 'sd t6,48(sp)', 'sd a7,32(sp)', 'sd s11,24(sp)', 'sd t1,48(sp)', 'sd a7,32(sp)', 'sd t3,24(sp)', 'sd a0,32(sp)', 'sd zero,112(sp)', 'sd t1,40(sp)', 'sd t3,32(sp)', 'sd s10,32(sp)', 'sd zero,112(sp)', 'sd s7,104(sp)', 'sb a3,185(sp)', 'sb a3,0(a4)', 'sd a5,88(sp)', 'sd a5,40(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd a5,40(sp)', 'sb s8,184(sp)', 'sw s6,176(sp)', 'sb a4,185(sp)', 'sd t1,48(sp)', 'sd zero,32(sp)', 'sd a5,104(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sb a5,-1(s6)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd a5,40(sp)', 'sd t1,48(sp)', 'sd s4,0(a5)', 'sd s6,8(a5)', 'sd a2,240(sp)', 'sw a3,232(sp)', 'sd a2,240(sp)', 'sw a3,232(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a5,112(sp)', 'sd zero,32(sp)', 'sd a5,40(sp)', 'sd t1,48(sp)', 'sd a3,40(sp)', 'sd t3,32(sp)', 'sd a5,40(sp)', 'sd a7,24(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sb a5,167(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sb a1,-1(a3)', 'sd a0,48(sp)', 'sd t3,120(sp)', 'sd t6,32(sp)', 'sd a3,104(sp)', 'sd a6,56(sp)', 'sb a2,167(sp)', 'sd zero,32(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sb a4,185(sp)', 'sb a4,186(sp)', 'sd t1,48(sp)', 'sd zero,32(sp)', 'sd a5,112(sp)', 'sd zero,112(sp)', 'sd a5,112(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd s4,40(sp)', 'sd s10,32(sp)', 'sd a5,112(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd a4,24(sp)', 'sw a4,176(sp)', 'sd a5,88(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a5,40(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd a5,40(sp)']; calls ['__locale_mb_cur_max', 's4', '_free_r', 'memset', '__ssprint_r', '__unorddf2', '__ledf2', '__ledf2', '__ssprint_r', '__ssprint_r', 'memset', '_wcrtomb_r', '__ssprint_r', '__ssprint_r', '__eqdf2', '__ssprint_r', 'memchr', '_localeconv_r', 'strlen', '_localeconv_r', '__hidden___udivdi3', '__umoddi3', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__eqdf2', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__trunctfdf2', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__unorddf2', 'frexp', '__muldf3', '__eqdf2', '__eqdf2', '__muldf3', '__fixdfsi', '__floatsidf', '__subdf3', '__gedf2', '__eqdf2', '__moddi3', '__divdi3', '__ssprint_r', 'memset', '_wcrtomb_r', 'memset', '_wcsrtombs_r', '__ssprint_r', '_dtoa_r', '__eqdf2', '__ssprint_r', '_wcsrtombs_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', 'strlen', '_malloc_r', '_malloc_r', '_dtoa_r', '__ssprint_r', '__ssprint_r', 'strncpy', '__hidden___udivdi3', '__umoddi3', '__ssprint_r', '__eqdf2', '__ssprint_r', '__ssprint_r', '__eqdf2', '__muldi3', '_dtoa_r', '__eqdf2']
+  loop head 0x8004408c latch 0x80044088 (10 ins, latch `bge`, exit mid @0x80044088,0x800440a8)
+      carried ['a2', 'a5', 's11', 's7']; stores ['sd s9,0(s7)', 'sd s6,8(s7)', 'sd a2,240(sp)', 'sw a5,232(sp)']; calls -
+  loop head 0x8004408c latch 0x800440d0 (18 ins, latch `blt`, exit mid @0x800440a8,0x800440bc,0x800440d0)
+      carried ['a0', 'a2', 'a5', 's11', 's7']; stores ['sd s9,0(s7)', 'sd s6,8(s7)', 'sd a2,240(sp)', 'sw a5,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80044508 latch 0x80044504 (19 ins, latch `bge`, exit mid @0x80044504,0x80044538)
+      carried ['a0', 'a4', 'a5', 's4', 's6']; stores ['sd s7,0(a5)', 'sd s8,8(a5)', 'sd a4,240(sp)', 'sw s4,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80045a80 latch 0x80045a7c (19 ins, latch `bge`, exit mid @0x80045a7c,0x80045ab0)
+      carried ['a0', 'a2', 'a3', 'a5', 's11']; stores ['sd s4,0(a5)', 'sd s6,8(a5)', 'sd a2,240(sp)', 'sw a3,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80044a10 latch 0x80044ab8 (126 ins, latch `bgtz`, exit mid @0x80044abc,0x80044b50,0x80044c14,0x8004515c,0x800458ec)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 's0', 's10', 's4', 's7', 's9', 't6']; stores ['sd a5,48(sp)', 'sd a1,0(a3)', 'sd s11,8(a3)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd a2,240(sp)', 'sd s10,0(a3)', 'sd s9,8(a3)', 'sw a1,232(sp)', 'sd a5,104(sp)', 'sd t6,112(sp)', 'sd s6,0(a3)', 'sd s8,8(a3)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd t6,0(a3)', 'sd s9,8(a3)', 'sd a5,104(sp)', 'sd a5,104(sp)']; calls ['__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r']
+  loop head 0x800442e8 latch 0x800442e4 (19 ins, latch `bge`, exit mid @0x800442e4,0x80044318)
+      carried ['a0', 'a2', 'a4', 'a5', 's11']; stores ['sd s9,0(a4)', 'sd s6,8(a4)', 'sd a2,240(sp)', 'sw a5,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80044ac0 latch 0x80044abc (3124 ins, latch `blez`, exit mid @0x80042fc0,0x80043010,0x8004301c,0x80043188,0x800431c8,0x8004323c,0x80043340,0x8004342c,0x800434a8,0x80043578,0x800435f8,0x80043754,0x80043de8,0x80043e74,0x80043ea4,0x80043ff0,0x80044030,0x800440bc,0x80044120,0x80044318,0x800443cc,0x80044498,0x80044538,0x80044568,0x800445a4,0x800447b4,0x80044860,0x800448c0,0x800449a4,0x80044b50,0x80044bcc,0x80044c14,0x80044fb4,0x80045038,0x800450c8,0x8004515c,0x800453f4,0x800454a0,0x800454c8,0x80045538,0x800455c0,0x800456f0,0x80045730,0x800458ec,0x80045924,0x800459cc,0x80045ab0,0x80045b20)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'ra', 's0', 's1', 's10', 's11', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 'sp', 't0', 't1', 't2', 't3', 't4', 't5', 't6']; stores ['sd ra,584(sp)', 'sd a3,24(sp)', 'sd a1,8(sp)', 'sd s0,576(sp)', 'sd s1,568(sp)', 'sd s6,528(sp)', 'sd a4,80(sp)', 'sd a0,72(sp)', 'sd s2,560(sp)', 'sd s3,552(sp)', 'sd s4,544(sp)', 'sd s5,536(sp)', 'sd s7,520(sp)', 'sd s8,512(sp)', 'sd s9,504(sp)', 'sd s10,496(sp)', 'sd s11,488(sp)', 'sd zero,240(sp)', 'sw zero,232(sp)', 'sd s5,224(sp)', 'sd zero,40(sp)', 'sd zero,64(sp)', 'sd zero,88(sp)', 'sd zero,104(sp)', 'sd zero,128(sp)', 'sd zero,96(sp)', 'sd zero,16(sp)', 'sd s6,0(sp)', 'sb zero,167(sp)', 'sd a5,0(sp)', 'sd s9,0(sp)', 'sb s8,248(sp)', 'sb zero,167(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a1,0(s7)', 'sd a5,8(s7)', 'sd a2,240(sp)', 'sw t4,232(sp)', 'sd a4,0(s7)', 'sd a4,8(s7)', 'sd a2,240(sp)', 'sw t4,232(sp)', 'sd a2,240(sp)', 'sd s10,0(s7)', 'sd s6,8(s7)', 'sw a5,232(sp)', 'sd a5,16(sp)', 'sw zero,232(sp)', 'sd s8,8(s7)', 'sd a5,0(s7)', 'sd a4,240(sp)', 'sw a5,232(sp)', 'sd a5,16(sp)', 'sd s9,0(sp)', 'sd a5,64(sp)', 'sd a5,24(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd t3,48(sp)', 'sd t1,32(sp)', 'sd a6,152(sp)', 'sd t1,144(sp)', 'sd t0,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd a3,0(s7)', 'sd a3,8(s7)', 'sd a2,240(sp)', 'sw a4,232(sp)', 'sd a2,240(sp)', 'sd a5,0(s7)', 'sw a3,232(sp)', 'sd a5,-8(s7)', 'sw a3,232(sp)', 'sd a5,8(s7)', 'sd a2,240(sp)', 'sd s10,0(s7)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd s9,0(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd t6,112(sp)', 'sd t1,120(sp)', 'sd s6,0(a5)', 'sd s2,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a6,144(sp)', 'sd t1,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd a2,144(sp)', 'sd a6,136(sp)', 'sd t1,120(sp)', 'sd t3,112(sp)', 'sd t6,152(sp)', 'sd a4,0(s7)', 'sd a4,8(s7)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd a2,240(sp)', 'sd a4,-16(s7)', 'sw a5,232(sp)', 'sd a4,-8(s7)', 'sd s9,0(a4)', 'sd s6,8(a4)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd t1,112(sp)', 'sd t6,56(sp)', 'sd a7,48(sp)', 'sd s11,24(sp)', 'sd a0,32(sp)', 'sd a7,24(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd s9,0(sp)', 'sd a5,24(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd s9,0(sp)', 'sd a5,24(sp)', 'sb a5,167(sp)', 'sb a4,347(sp)', 'sd zero,32(sp)', 'sd a5,24(sp)', 'sb a5,167(sp)', 'sd t1,0(sp)', 'sd a5,96(sp)', 'sd a0,128(sp)', 'sd a4,104(sp)', 'sb a5,167(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sd s7,48(sp)', 'sd s4,56(sp)', 'sd s0,120(sp)', 'sd t3,32(sp)', 'sd t1,40(sp)', 'sd s6,112(sp)', 'sb a0,-1(s9)', 'sd s4,104(sp)', 'sd s7,40(sp)', 'sd zero,32(sp)', 'sd s9,0(sp)', 'sd a5,24(sp)', 'sb zero,167(sp)', 'sb a5,347(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sh a5,168(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd a1,24(sp)', 'sd zero,32(sp)', 'sd s9,0(sp)', 'sd a5,24(sp)', 'sd s9,0(sp)', 'sd a3,24(sp)', 'sb a5,0(a4)', 'sd a5,0(a4)', 'sd s4,136(sp)', 'sd t3,112(sp)', 'sd t1,120(sp)', 'sd s6,0(a5)', 'sd t5,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd s11,0(s7)', 'sd t4,8(s7)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a6,144(sp)', 'sd t1,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a3,8(s7)', 'sd s10,0(s7)', 'sd s9,240(sp)', 'sw a4,232(sp)', 'sw s4,232(sp)', 'sd s9,240(sp)', 'sd a5,0(s6)', 'sd a5,-8(s6)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sw s4,232(sp)', 'sd s9,240(sp)', 'sd a5,0(s6)', 'sd s7,8(s6)', 'sd a5,0(s6)', 'sd a2,240(sp)', 'sw s4,232(sp)', 'sd a4,8(s6)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a6,152(sp)', 'sd t1,144(sp)', 'sd t0,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd s9,0(s7)', 'sd s6,8(s7)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a6,56(sp)', 'sd t3,48(sp)', 'sb a4,-1(s10)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd s10,0(s7)', 'sd s8,8(s7)', 'sd a2,240(sp)', 'sw a4,232(sp)', 'sd a2,240(sp)', 'sd a5,0(s7)', 'sw a4,232(sp)', 'sd a5,-8(s7)', 'sd s11,0(s7)', 'sd s6,8(s7)', 'sd a2,240(sp)', 'sw a4,232(sp)', 'sd s9,0(a4)', 'sd s6,8(a4)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd s4,144(sp)', 'sd t3,112(sp)', 'sd t6,120(sp)', 'sd t1,136(sp)', 'sd s6,0(a5)', 'sd t4,8(a5)', 'sd a0,240(sp)', 'sw a1,232(sp)', 'sd a4,8(s7)', 'sd a2,240(sp)', 'sw t4,232(sp)', 'sd s11,0(s7)', 'sd s10,0(s7)', 'sd a3,8(s7)', 'sd s9,240(sp)', 'sw s4,232(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd t3,48(sp)', 'sd s7,0(a5)', 'sd s8,8(a5)', 'sd a4,240(sp)', 'sw s4,232(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a5,24(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd t1,48(sp)', 'sd s11,32(sp)', 'sd a5,24(sp)', 'sd a0,64(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sb a2,-1(s10)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a1,24(sp)', 'sb a5,0(s10)', 'sd zero,32(sp)', 'sb a5,248(sp)', 'sd s9,240(sp)', 'sw s4,232(sp)', 'sd s11,0(s6)', 'sd s7,8(s6)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd s9,0(sp)', 'sb zero,167(sp)', 'sd a1,24(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd s9,0(sp)', 'sd a0,0(a5)', 'sd a0,24(a5)', 'sd s2,560(sp)', 'sd s3,552(sp)', 'sd s4,544(sp)', 'sd s5,536(sp)', 'sd s7,520(sp)', 'sd s8,512(sp)', 'sd s9,504(sp)', 'sd s10,496(sp)', 'sd s11,488(sp)', 'sw a5,32(a4)', 'sd a7,24(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd t3,112(sp)', 'sd t6,120(sp)', 'sd t1,136(sp)', 'sd s7,0(a5)', 'sd s8,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd s10,136(sp)', 'sd s0,56(sp)', 'sd t3,120(sp)', 'sd t1,144(sp)', 'sd a6,152(sp)', 'sd a5,48(sp)', 'sd a1,0(a3)', 'sd s11,8(a3)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd a2,240(sp)', 'sd s10,0(a3)', 'sd s9,8(a3)', 'sw a1,232(sp)', 'sd a1,24(sp)', 'sd a5,104(sp)', 'sd t6,112(sp)', 'sd s6,0(a3)', 'sd s8,8(a3)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd t6,0(a3)', 'sd s9,8(a3)', 'sd a6,152(sp)', 'sd t1,144(sp)', 'sd t0,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sb a5,168(sp)', 'sb a5,169(sp)', 'sd zero,112(sp)', 'sd zero,32(sp)', 'sd t3,40(sp)', 'sd a5,48(sp)', 'sd a0,56(sp)', 'sw a4,176(sp)', 'sd a5,40(sp)', 'sd a5,40(sp)', 'sd s0,120(sp)', 'sd t3,88(sp)', 'sb a3,0(s6)', 'sd a0,56(sp)', 'sd s9,216(sp)', 'sb a0,-1(a4)', 'sd a5,216(sp)', 'sb a3,-1(a4)', 'sb a3,184(sp)', 'sw s6,176(sp)', 'sd a5,40(sp)', 'sb a4,185(sp)', 'sd t3,56(sp)', 'sd s7,88(sp)', 'sb a5,-1(s4)', 'sb a3,-1(s11)', 'sb a5,-1(a3)', 'sd a5,88(sp)', 'sb t5,167(sp)', 'sb s8,169(sp)', 'sb zero,167(sp)', 'sb a5,168(sp)', 'sd a1,24(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd t1,48(sp)', 'sd a7,32(sp)', 'sd t3,24(sp)', 'sd s10,216(sp)', 'sd s7,32(sp)', 'sd a7,48(sp)', 'sd zero,32(sp)', 'sd t1,56(sp)', 'sd a7,48(sp)', 'sd t3,24(sp)', 'sb zero,0(a4)', 'sd a7,24(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a2,240(sp)', 'sw a5,232(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a5,104(sp)', 'sb zero,167(sp)', 'sd a5,24(sp)', 'sd a5,24(sp)', 'sd a5,24(sp)', 'sd zero,112(sp)', 'sd a5,112(sp)', 'sd t1,40(sp)', 'sd t3,32(sp)', 'sd t1,40(sp)', 'sd t3,32(sp)', 'sd a5,216(sp)', 'sb a2,0(a3)', 'sd a5,40(sp)', 'sb a4,167(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a2,240(sp)', 'sw a1,232(sp)', 'sd a6,144(sp)', 'sd t1,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sb a5,167(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a1,24(sp)', 'sd t1,48(sp)', 'sd a7,32(sp)', 'sd t3,24(sp)', 'sd s10,216(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a7,24(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd a6,144(sp)', 'sd t1,136(sp)', 'sd t6,120(sp)', 'sd t3,112(sp)', 'sd a2,240(sp)', 'sd a5,0(s7)', 'sw a3,232(sp)', 'sd a5,8(s7)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd a5,24(sp)', 'sd a5,24(sp)', 'sh a5,0(a4)', 'sd t1,56(sp)', 'sd t6,48(sp)', 'sd a7,32(sp)', 'sd s11,24(sp)', 'sd t1,48(sp)', 'sd a7,32(sp)', 'sd t3,24(sp)', 'sd a0,32(sp)', 'sd zero,112(sp)', 'sd t1,40(sp)', 'sd t3,32(sp)', 'sd s10,32(sp)', 'sd zero,112(sp)', 'sd s7,104(sp)', 'sb a3,185(sp)', 'sb a3,0(a4)', 'sd a5,88(sp)', 'sd a5,40(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd a5,40(sp)', 'sb s8,184(sp)', 'sw s6,176(sp)', 'sb a4,185(sp)', 'sd t1,48(sp)', 'sd zero,32(sp)', 'sd a5,104(sp)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sb a5,-1(s6)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd a5,40(sp)', 'sd t1,48(sp)', 'sd s4,0(a5)', 'sd s6,8(a5)', 'sd a2,240(sp)', 'sw a3,232(sp)', 'sd a2,240(sp)', 'sw a3,232(sp)', 'sd s11,0(s7)', 'sd s4,8(s7)', 'sd a6,112(sp)', 'sd t1,56(sp)', 'sd t3,48(sp)', 'sw a5,0(a4)', 'sd a5,112(sp)', 'sd zero,32(sp)', 'sd a5,40(sp)', 'sd t1,48(sp)', 'sd a3,40(sp)', 'sd t3,32(sp)', 'sd a5,40(sp)', 'sd a7,24(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sb a5,167(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sb a1,-1(a3)', 'sd a0,48(sp)', 'sd t3,120(sp)', 'sd t6,32(sp)', 'sd a3,104(sp)', 'sd a6,56(sp)', 'sb a2,167(sp)', 'sd zero,32(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sb a4,185(sp)', 'sb a4,186(sp)', 'sd t1,48(sp)', 'sd zero,32(sp)', 'sd a5,112(sp)', 'sd zero,112(sp)', 'sd a5,112(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd s4,40(sp)', 'sd s10,32(sp)', 'sd a5,112(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd a4,24(sp)', 'sw a4,176(sp)', 'sd a5,88(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd zero,32(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd a5,40(sp)', 'sd zero,56(sp)', 'sd zero,48(sp)', 'sd t1,48(sp)', 'sd t3,32(sp)', 'sd a5,40(sp)']; calls ['_localeconv_r', 'strlen', 'memset', '__locale_mb_cur_max', 's4', '_free_r', 'memset', '__ssprint_r', '__unorddf2', '__ledf2', '__ledf2', '__ssprint_r', '__ssprint_r', 'memset', '_wcrtomb_r', '__ssprint_r', '__ssprint_r', '__eqdf2', '__ssprint_r', 'memchr', '_localeconv_r', 'strlen', '_localeconv_r', '__hidden___udivdi3', '__umoddi3', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__eqdf2', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__trunctfdf2', '__ssprint_r', '__ssprint_r', '_malloc_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', '__unorddf2', 'frexp', '__muldf3', '__eqdf2', '__eqdf2', '__muldf3', '__fixdfsi', '__floatsidf', '__subdf3', '__gedf2', '__eqdf2', '__moddi3', '__divdi3', '__ssprint_r', 'memset', '_wcrtomb_r', 'memset', '_wcsrtombs_r', '__ssprint_r', '_dtoa_r', '__eqdf2', '__ssprint_r', '_wcsrtombs_r', '__ssprint_r', '__ssprint_r', '__ssprint_r', 'strlen', '_malloc_r', '_malloc_r', '_dtoa_r', '__ssprint_r', '__ssprint_r', 'strncpy', '__hidden___udivdi3', '__umoddi3', '__ssprint_r', '__eqdf2', '__ssprint_r', '__ssprint_r', '__eqdf2', '__muldi3', '_dtoa_r', '__eqdf2']
+  loop head 0x80044b20 latch 0x80044b1c (10 ins, latch `bge`, exit mid @0x80044b1c,0x80044b3c)
+      carried ['a1', 'a2', 'a3', 's0']; stores ['sd s6,0(a3)', 'sd s8,8(a3)', 'sd a2,240(sp)', 'sw a1,232(sp)']; calls -
+  loop head 0x80044b20 latch 0x80044b68 (19 ins, latch `blt`, exit mid @0x80044b3c,0x80044b50,0x80044b68)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 's0']; stores ['sd s6,0(a3)', 'sd s8,8(a3)', 'sd a2,240(sp)', 'sw a1,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80044974 latch 0x80044970 (19 ins, latch `bge`, exit mid @0x80044970,0x800449a4)
+      carried ['a0', 'a1', 'a2', 'a5', 's4']; stores ['sd s7,0(a5)', 'sd s8,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80043724 latch 0x8004371c (19 ins, latch `blt`, exit mid @0x8004371c,0x80043754)
+      carried ['a0', 'a2', 'a4', 'a5', 's11']; stores ['sd s9,0(a4)', 'sd s6,8(a4)', 'sd a2,240(sp)', 'sw a5,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80043548 latch 0x80043544 (10 ins, latch `bge`, exit mid @0x80043544,0x80043564)
+      carried ['a1', 'a2', 'a5', 's4']; stores ['sd s6,0(a5)', 'sd s2,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)']; calls -
+  loop head 0x80043548 latch 0x80043590 (19 ins, latch `blt`, exit mid @0x80043564,0x80043578,0x80043590)
+      carried ['a0', 'a1', 'a2', 'a5', 's4', 't4']; stores ['sd s6,0(a5)', 'sd s2,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80043db8 latch 0x80043db4 (10 ins, latch `bge`, exit mid @0x80043db4,0x80043dd4)
+      carried ['a1', 'a2', 'a5', 's4']; stores ['sd s6,0(a5)', 'sd t5,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)']; calls -
+  loop head 0x80043db8 latch 0x80043e04 (20 ins, latch `blt`, exit mid @0x80043dd4,0x80043de8,0x80043e04)
+      carried ['a0', 'a1', 'a2', 'a5', 's4', 't0', 't5']; stores ['sd s6,0(a5)', 'sd t5,8(a5)', 'sd a2,240(sp)', 'sw a1,232(sp)']; calls ['__ssprint_r']
+  loop head 0x8004439c latch 0x80044398 (10 ins, latch `bge`, exit mid @0x80044398,0x800443b8)
+      carried ['a0', 'a1', 'a5', 's4']; stores ['sd s6,0(a5)', 'sd t4,8(a5)', 'sd a0,240(sp)', 'sw a1,232(sp)']; calls -
+  loop head 0x8004439c latch 0x800443e8 (20 ins, latch `blt`, exit mid @0x800443b8,0x800443cc,0x800443e8)
+      carried ['a0', 'a1', 'a5', 's4', 't2', 't4']; stores ['sd s6,0(a5)', 'sd t4,8(a5)', 'sd a0,240(sp)', 'sw a1,232(sp)']; calls ['__ssprint_r']
+  loop head 0x80042f40 latch 0x80043178 (17 ins, latch `j`, exit mid @0x80042f60,0x80042f64)
+      carried ['a0', 's6']; stores -; calls ['__locale_mb_cur_max', 's4', 'memset']
+  loop head 0x80042f40 latch 0x80042f74 (14 ins, latch `j`, exit mid @0x80042f60,0x80042f64,0x80042f6c)
+      carried ['a0', 'a5', 's6']; stores -; calls ['__locale_mb_cur_max', 's4']
+_write [166 ins, depth 0]: 2 loop(s); jal -> __errno, memcpy, memset, realloc
+  loop head 0x80000d2c latch 0x80000d40 (6 ins, latch `bne`, exit bottom @0x80000d40)
+      carried ['a1', 'a2', 'a5']; stores ['sd a5,-1656(a2)']; calls -
+  loop head 0x80000bb0 latch 0x80000bb4 (2 ins, latch `bltu`, exit bottom @0x80000bb4)
+      carried ['a1']; stores -; calls -
+correctstack [30 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x80009940 latch 0x8000996c (12 ins, latch `bnez`, exit bottom @0x8000996c)
+      carried ['a2', 'a3', 'a4', 'a5']; stores ['sd a2,8(a5)', 'sd a3,0(a5)', 'sw a0,40(a5)']; calls -
+  loop head 0x80009920 latch 0x80009930 (5 ins, latch `bnez`, exit bottom @0x80009930)
+      carried ['a4', 'a5']; stores ['sd a4,16(a5)']; calls -
+internshrstr [115 ins, depth 0]: 2 loop(s); jal -> luaC_fullgc, luaC_newobj, luaD_throw, luaS_resize, memcmp, memcpy
+  loop head 0x800173f0 latch 0x800173ec (9 ins, latch `beqz`, exit mid @0x800173ec,0x80017408)
+      carried ['a0', 'a5', 's0']; stores -; calls ['memcmp']
+  loop head 0x800173a4 latch 0x800173c0 (8 ins, latch `bne`, exit bottom @0x800173c0)
+      carried ['a2', 'a3', 'a4', 'a5', 's1']; stores -; calls -
+luaB_print [62 ins, depth 0]: 1 loop(s); jal -> fflush, fwrite, luaL_tolstring, lua_gettop, lua_settop
+  loop head 0x80022f8c latch 0x80022f88 (23 ins, latch `jal`, exit mid @0x80022fc0)
+      carried ['a0', 'a2', 'a5', 's0', 's1']; stores -; calls ['luaL_tolstring', 'fwrite', 'fwrite', 'lua_settop']
+luaC_step [338 ins, depth 0]: 9 loop(s); jal -> __divdi3, __hidden___udivdi3, __muldi3, atomic, atomic2gen, entergen, enterinc, entersweep, finishgencycle, luaE_setdebt, reallymarkobject, singlestep, sweepgen.isra.0
+  loop head 0x8000ed70 latch 0x8000ed6c (4 ins, latch `jal`, exit mid @0x8000ed74)
+      carried ['a5']; stores -; calls ['singlestep']
+  loop head 0x8000f0e4 latch 0x8000f0f0 (4 ins, latch `bne`, exit bottom @0x8000f0f0)
+      carried ['a5']; stores -; calls ['singlestep']
+  loop head 0x8000eeec latch 0x8000eee8 (9 ins, latch `beqz`, exit mid @0x8000eee8,0x8000ef04)
+      carried ['a4', 'a5', 's3']; stores ['sb a5,9(s3)']; calls -
+  loop head 0x8000eeec latch 0x8000ef18 (12 ins, latch `bnez`, exit mid @0x8000eef4,0x8000ef04,0x8000ef18)
+      carried ['a4', 'a5', 's3']; stores ['sb a5,9(s3)']; calls ['reallymarkobject']
+  loop head 0x8000eea0 latch 0x8000ee9c (9 ins, latch `beq`, exit mid @0x8000ee9c,0x8000eeb8)
+      carried ['a1', 'a4', 'a5']; stores ['sb a5,9(a1)']; calls -
+  loop head 0x8000eea0 latch 0x8000eed0 (13 ins, latch `bne`, exit mid @0x8000eea8,0x8000eeb8,0x8000eed0)
+      carried ['a1', 'a4', 'a5']; stores ['sb a5,9(a1)', 'sd a1,8(sp)']; calls ['reallymarkobject']
+  loop head 0x8000ee4c latch 0x8000ee48 (9 ins, latch `beq`, exit mid @0x8000ee48,0x8000ee64)
+      carried ['a4', 'a5', 's2']; stores ['sb a5,9(s2)']; calls -
+  loop head 0x8000ee4c latch 0x8000ee7c (13 ins, latch `bne`, exit mid @0x8000ee54,0x8000ee64,0x8000ee7c)
+      carried ['a3', 'a4', 'a5', 's2']; stores ['sb a5,9(s2)']; calls ['reallymarkobject']
+  loop head 0x8000ed18 latch 0x8000ed14 (7 ins, latch `beq`, exit mid @0x8000ed14,0x8000ed2c)
+      carried ['a0', 'a4', 'a5', 's2']; stores -; calls ['singlestep']
+luaD_poscall [147 ins, depth 0]: 2 loop(s); jal -> luaF_close, rethook
+  loop head 0x8000a464 latch 0x8000a47c (7 ins, latch `bne`, exit bottom @0x8000a47c)
+      carried ['a3', 'a4', 'a5']; stores ['sd a3,-16(a5)', 'sb a3,-8(a5)']; calls -
+  loop head 0x8000a4a4 latch 0x8000a4ac (3 ins, latch `bne`, exit bottom @0x8000a4ac)
+      carried ['a5']; stores ['sb zero,8(a5)']; calls -
+luaD_precall [226 ins, depth 0]: 2 loop(s); jal -> luaC_step, luaD_growstack, luaD_hook, luaD_poscall, luaE_extendCI, tryfuncTM
+  loop head 0x8000aae0 latch 0x8000abc8 (13 ins, latch `bne`, exit mid @0x8000aae0,0x8000aae4,0x8000abc8)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6']; stores ['sd a6,0(sp)']; calls ['tryfuncTM']
+  loop head 0x8000ab70 latch 0x8000ab78 (3 ins, latch `bne`, exit bottom @0x8000ab78)
+      carried ['a5']; stores ['sb zero,0(a5)']; calls -
+luaD_reallocstack [99 ins, depth 0]: 3 loop(s); jal -> correctstack, luaD_throw, luaM_realloc_
+  loop head 0x80009d94 latch 0x80009d9c (3 ins, latch `bne`, exit bottom @0x80009d9c)
+      carried ['a5']; stores ['sb zero,88(a5)']; calls -
+  loop head 0x80009cec latch 0x80009d08 (8 ins, latch `bnez`, exit bottom @0x80009d08)
+      carried ['a3', 'a4', 'a5']; stores ['sd a3,8(a5)', 'sd a4,0(a5)']; calls -
+  loop head 0x80009cd0 latch 0x80009ce0 (5 ins, latch `bnez`, exit bottom @0x80009ce0)
+      carried ['a4', 'a5']; stores ['sd a4,16(a5)']; calls -
+luaG_traceexec [182 ins, depth 0]: 1 loop(s); jal -> luaD_hook, luaD_throw, luaG_getfuncline
+  loop head 0x8000971c latch 0x80009718 (5 ins, latch `beq`, exit mid @0x80009718,0x80009720)
+      carried ['a0', 'a2', 'a4']; stores -; calls -
+luaO_pushvfstring [134 ins, depth 0]: 1 loop(s); jal -> addstr2buff, luaG_runerror, luaS_newlstr, luaV_concat, strchr, strlen
+  loop head 0x80011e1c latch 0x80011e8c (194 ins, latch `bnez`, exit mid @0x80011e30,0x80011e8c)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 's0', 's10', 's11', 's9']; stores ['sw a5,52(sp)', 'sd a4,24(sp)', 'sb a5,32(sp)', 'sb a5,31(sp)', 'sd a4,24(sp)', 'sb a5,32(sp)', 'sb s0,0(a2)', 'sw a5,52(sp)', 'sb s2,0(s10)', 'sw a5,52(sp)', 'sb a3,7(a4)', 'sb a5,24(a4)', 'sd a4,0(sp)', 'sd a0,0(a4)', 'sb a5,8(a4)', 'sd a5,16(s11)', 'sw a5,48(sp)', 'sw zero,52(sp)', 'sd a5,8(sp)', 'sd a3,0(sp)', 'sd a0,0(a3)', 'sb a4,8(a3)', 'sd a4,16(a5)', 'sw a5,48(sp)', 'sw zero,52(sp)', 'sd a4,0(sp)', 'sd a0,0(a4)', 'sb a5,8(a4)', 'sd a5,16(s11)', 'sw a5,48(sp)', 'sw zero,52(sp)', 'sw zero,52(sp)']; calls ['addstr2buff', 'strlen', 'addstr2buff', 'strchr', 'snprintf', 'addnum2buff', 'addstr2buff', 'addnum2buff', 'luaS_newlstr', 'luaS_newlstr', 'luaS_newlstr', 'luaV_concat', 'luaV_concat', 'luaV_concat']
+lua_settop [58 ins, depth 0]: 1 loop(s); jal -> luaF_close
+  loop head 0x80001c0c latch 0x80001c18 (4 ins, latch `bnez`, exit bottom @0x80001c18)
+      carried ['a4', 'a5']; stores ['sb zero,0(a4)']; calls -
+memchr [48 ins, depth 0]: 3 loop(s); jal -> -
+  loop head 0x80036184 latch 0x80036180 (4 ins, latch `beq`, exit mid @0x80036180,0x80036188)
+      carried ['a0', 'a5']; stores -; calls -
+  loop head 0x80036148 latch 0x8003616c (10 ins, latch `bltu`, exit mid @0x80036160,0x8003616c)
+      carried ['a0', 'a2', 'a4', 'a5']; stores -; calls -
+  loop head 0x800360e4 latch 0x800360fc (7 ins, latch `bnez`, exit mid @0x800360e4,0x800360f0,0x800360fc)
+      carried ['a0', 'a2', 'a5']; stores -; calls -
+memcmp [27 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x800361c0 latch 0x800361bc (6 ins, latch `beq`, exit mid @0x800361bc,0x800361d0)
+      carried ['a0', 'a1', 'a4', 'a5']; stores -; calls -
+  loop head 0x800361dc latch 0x800361f4 (7 ins, latch `bltu`, exit mid @0x800361e4,0x800361f4)
+      carried ['a0', 'a1', 'a2', 'a4', 'a5']; stores -; calls -
+memcpy [74 ins, depth 0]: 4 loop(s); jal -> -
+  loop head 0x8003b6c8 latch 0x8003b6d8 (5 ins, latch `bne`, exit bottom @0x8003b6d8)
+      carried ['a1', 'a4', 'a5']; stores ['sb a5,-1(a4)']; calls -
+  loop head 0x8003b6e0 latch 0x8003b734 (22 ins, latch `blt`, exit bottom @0x8003b734)
+      carried ['a1', 'a3', 'a4', 'a6', 't0', 't1', 't3', 't4', 't5', 't6']; stores ['sd a3,0(a4)', 'sd t0,-64(a4)', 'sd a3,-8(a4)', 'sd t6,-56(a4)', 'sd t5,-48(a4)', 'sd t4,-40(a4)', 'sd t3,-32(a4)', 'sd t1,-24(a4)', 'sd a6,-16(a4)']; calls -
+  loop head 0x8003b688 latch 0x8003b698 (5 ins, latch `bltu`, exit bottom @0x8003b698)
+      carried ['a3', 'a5', 'a6']; stores ['sd a6,-8(a5)']; calls -
+  loop head 0x8003b73c latch 0x8003b768 (12 ins, latch `bnez`, exit mid @0x8003b750,0x8003b768)
+      carried ['a1', 'a3', 'a4', 'a5']; stores ['sb a3,-1(a4)', 'sb a3,-1(a4)']; calls -
+memmove [74 ins, depth 0]: 4 loop(s); jal -> -
+  loop head 0x8003b48c latch 0x8003b49c (5 ins, latch `bne`, exit bottom @0x8003b49c)
+      carried ['a1', 'a4', 'a5']; stores ['sb a4,-1(a5)']; calls -
+  loop head 0x8003b4c8 latch 0x8003b4f0 (11 ins, latch `bne`, exit bottom @0x8003b4f0)
+      carried ['a1', 'a3', 'a4']; stores ['sd a3,-32(a4)', 'sd a3,-24(a4)', 'sd a3,-16(a4)', 'sd a3,-8(a4)']; calls -
+  loop head 0x8003b52c latch 0x8003b53c (5 ins, latch `bne`, exit bottom @0x8003b53c)
+      carried ['a1', 'a7', 't1']; stores ['sd t1,0(a7)']; calls -
+  loop head 0x8003b458 latch 0x8003b468 (5 ins, latch `bne`, exit bottom @0x8003b468)
+      carried ['a2', 'a4', 'a5']; stores ['sb a4,0(a2)']; calls -
+memset [39 ins, depth 0]: 1 loop(s); jal -> -
+  loop head 0x8003b590 latch 0x8003b59c (4 ins, latch `bltu`, exit bottom @0x8003b59c)
+      carried ['a4']; stores ['sd a1,0(a4)', 'sd a1,8(a4)']; calls -
+strchr [92 ins, depth 0]: 6 loop(s); jal -> -
+  loop head 0x80036360 latch 0x80036368 (3 ins, latch `bnez`, exit bottom @0x80036368)
+      carried ['a0', 'a5']; stores -; calls -
+  loop head 0x8003633c latch 0x80036354 (7 ins, latch `beqz`, exit bottom @0x80036354)
+      carried ['a0', 'a4', 'a5']; stores -; calls -
+  loop head 0x800362ec latch 0x800362fc (5 ins, latch `bnez`, exit mid @0x800362f0,0x800362fc)
+      carried ['a0', 'a5']; stores -; calls -
+  loop head 0x800362d8 latch 0x800362d4 (55 ins, latch `addi`, exit mid @0x8003620c,0x80036218,0x8003621c,0x800362cc,0x800362d0,0x800362dc)
+      carried ['a0', 'a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 't1', 't3']; stores -; calls -
+  loop head 0x80036298 latch 0x800362c4 (12 ins, latch `beqz`, exit bottom @0x800362c4)
+      carried ['a0', 'a1', 'a2', 'a4', 'a5']; stores -; calls -
+  loop head 0x80036214 latch 0x80036228 (6 ins, latch `bnez`, exit mid @0x80036218,0x8003621c,0x80036228)
+      carried ['a0', 'a5']; stores -; calls -
+strcmp [75 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x8003ba04 latch 0x8003ba18 (6 ins, latch `bnez`, exit mid @0x8003ba14,0x8003ba18)
+      carried ['a0', 'a1', 'a2', 'a3']; stores -; calls -
+  loop head 0x8003b938 latch 0x8003b99c (26 ins, latch `beq`, exit mid @0x8003b950,0x8003b954,0x8003b970,0x8003b974,0x8003b990,0x8003b99c)
+      carried ['a0', 'a1', 'a2', 'a3', 't0', 't1']; stores -; calls -
+strlen [53 ins, depth 0]: 2 loop(s); jal -> -
+  loop head 0x8003b790 latch 0x8003b7a8 (7 ins, latch `beq`, exit bottom @0x8003b7a8)
+      carried ['a2', 'a4', 'a5']; stores -; calls -
+  loop head 0x8003b7f8 latch 0x8003b7f4 (5 ins, latch `beqz`, exit mid @0x8003b7f4,0x8003b804)
+      carried ['a3', 'a4', 'a5']; stores -; calls -
+
+81 functions, 27 with loops, 93 back edges
