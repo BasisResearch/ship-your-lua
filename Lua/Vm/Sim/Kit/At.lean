@@ -108,6 +108,9 @@ inductive Loc
   | srem (x y : Loc) | sdiv (x y : Loc) | udiv (x y : Loc) | umod (x y : Loc)
   | snez (x : Loc)
   | cell (e : Aff)
+  -- the bitwise and shift arms (`and`, `or`, `sll`, `srl`, `addiw`, `subw`/`negw`)
+  | and (x y : Loc) | or (x y : Loc) | sll (x y : Loc) | srl (x y : Loc)
+  | addw (x y : Loc) | subw (x y : Loc)
 
 /-- The value of a location. -/
 def Loc.den (X : Cx) : Loc → BitVec 64
@@ -132,6 +135,13 @@ def Loc.den (X : Cx) : Loc → BitVec 64
   | .umod x y => x.den X % y.den X
   | .snez x => zero_extend (m := 64) (bool_to_bit (zopz0zI_u 0#64 (x.den X)))
   | .cell e => bytesT8 X.c.σ.mem (e.den X)
+  | .and x y => x.den X &&& y.den X
+  | .or x y => x.den X ||| y.den X
+  | .sll x y => shift_bits_left (x.den X) (Sail.BitVec.extractLsb (y.den X) 5 0)
+  | .srl x y => shift_bits_right (x.den X) (Sail.BitVec.extractLsb (y.den X) 5 0)
+  | .addw x y => sign_extend (m := 64) (Sail.BitVec.extractLsb (x.den X + y.den X) 31 0)
+  | .subw x y => sign_extend (m := 64)
+      ((Sail.BitVec.extractLsb (x.den X) 31 0) - (Sail.BitVec.extractLsb (y.den X) 31 0))
 
 /-- `snez`'s value. -/
 theorem snez_eq (x : BitVec 64) :
@@ -493,6 +503,14 @@ partial def atEq : TacticM Unit := withMainContext do
     try
       evalTactic (← `(tactic| with_reducible refine un_congr ?_))
       atEq
+      return
+    catch _ => s2.restore
+    -- an operand not in the last position (`extractLsb x 31 0`): `congr 1`
+    try
+      evalTactic (← `(tactic| congr 1))
+      for g in ← getUnsolvedGoals do
+        setGoals [g]
+        atEq
       return
     catch _ => s2.restore
   -- an address

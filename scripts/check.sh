@@ -190,6 +190,12 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.sim_UNM_of_str
 #print axioms Lua.Vm.Sim.At.unm_int
 #print axioms Lua.Vm.Sim.At.unm_stuck
+#print axioms Lua.Vm.Sim.At.sim_SHL
+#print axioms Lua.Vm.Sim.At.sim_SHR
+#print axioms Lua.Vm.Sim.At.sim_shift
+#print axioms Lua.Vm.Sim.At.sim_unary
+#print axioms Lua.Vm.Sim.shiftrK_neg_run
+#print axioms Lua.Vm.Sim.sc_eq
 #print axioms Lua.Vm.Sim.Kit.armBody_split
 #print axioms Lua.Vm.Sim.sim_arithK
 #print axioms Lua.Vm.Sim.Ranges.k_getElem_wm8

@@ -54,7 +54,8 @@ M64 = (1 << 64) - 1
 # the arms this generator serves: opcode -> (module, jump-table target)
 ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
         "OP_IDIV": ("Idiv", 0x8001deac), "OP_IDIVK": ("Idivk", 0x8001d768),
-        "OP_UNM": ("Unm", 0x8001d8a4)}
+        "OP_UNM": ("Unm", 0x8001d8a4), "OP_SHL": ("Shl", 0x8001d5f0),
+        "OP_SHR": ("Shr", 0x8001d57c)}
 
 ABI = {"zero": 0, "ra": 1, "sp": 2, "gp": 3, "tp": 4, "t0": 5, "t1": 6, "t2": 7,
        "s0": 8, "fp": 8, "s1": 9}
@@ -151,7 +152,8 @@ def lean_loc(x):
         return f"(.{k} .{x[1]} {x[2]})"
     if k == "cell":
         return f"(.cell {lean_aff(x[1], x[2])})"
-    if k in ("add", "sub", "xor", "srem", "sdiv", "udiv", "umod"):
+    if k in ("add", "sub", "xor", "srem", "sdiv", "udiv", "umod", "and", "or", "sll", "srl",
+             "addw", "subw"):
         return f"(.{k} {lean_loc(x[1])} {lean_loc(x[2])})"
     if k == "snez":
         return f"(.snez {lean_loc(x[1])})"
@@ -328,6 +330,12 @@ def step(st, raw):
         st.set(R(o[0]), ("sub", ("lit", 0), st.get(R(o[1]))))
     elif mnem == "xor":
         st.set(R(o[0]), ("xor", st.get(R(o[1])), st.get(R(o[2]))))
+    elif mnem in ("and", "or", "sll", "srl", "subw"):
+        st.set(R(o[0]), (mnem, st.get(R(o[1])), st.get(R(o[2]))))
+    elif mnem == "negw":
+        st.set(R(o[0]), ("subw", ("lit", 0), st.get(R(o[1]))))
+    elif mnem == "addiw":
+        st.set(R(o[0]), ("addw", st.get(R(o[1])), ("lit", imm(o[2]) & M64)))
     elif mnem == "snez":
         st.set(R(o[0]), ("snez", st.get(R(o[1]))))
     elif mnem == "slli":
