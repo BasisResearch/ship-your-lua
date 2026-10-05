@@ -53,7 +53,8 @@ M64 = (1 << 64) - 1
 
 # the arms this generator serves: opcode -> (module, jump-table target)
 ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
-        "OP_IDIV": ("Idiv", 0x8001deac), "OP_IDIVK": ("Idivk", 0x8001d768)}
+        "OP_IDIV": ("Idiv", 0x8001deac), "OP_IDIVK": ("Idivk", 0x8001d768),
+        "OP_UNM": ("Unm", 0x8001d8a4)}
 
 ABI = {"zero": 0, "ra": 1, "sp": 2, "gp": 3, "tp": 4, "t0": 5, "t1": 6, "t2": 7,
        "s0": 8, "fp": 8, "s1": 9}
@@ -385,8 +386,17 @@ def sgn(v):
     return v - (1 << 64) if v >> 63 else v
 
 
-def decide(head, x, y, facts):
-    """The branch's value when the operands decide it, else None."""
+VNUMFLT = 19     # LUA_VNUMFLT: no F1 value has it (`ValRepr.ne_float`)
+# the arms whose float paths are pruned (the earlier arms keep their files)
+PRUNE_ARMS = {"OP_UNM", "OP_SHL", "OP_SHR", "OP_SHLI", "OP_SHRI", "OP_BANDK", "OP_BORK",
+              "OP_BXORK"}
+PRUNE_FLOAT = [False]
+
+
+def decide(head, x, y, facts, f1=True):
+    """The branch's value when the operands decide it, else None. With `f1`,
+    a tag is never the float tag: the float paths are infeasible (the arm
+    closes the not-taken guard from `ValRepr.ne_float`)."""
     vx, vy = litval(x), litval(y)
     if vx is not None and vy is not None:
         return {"==": vx == vy, "!=": vx != vy, "zopz0zI_s": sgn(vx) < sgn(vy),
@@ -394,6 +404,8 @@ def decide(head, x, y, facts):
                 "zopz0zKzJ_u": vx >= vy}[head]
     if head in ("==", "!="):
         loc, v = (x, vy) if vy is not None else (y, vx) if vx is not None else (None, None)
+        if f1 and PRUNE_FLOAT[0] and loc is not None and loc[0] in ("tag", "ktag") and v == VNUMFLT:
+            return head == "!="
         if loc is not None and loc in facts:
             rel, w = facts[loc]
             eq = (w == v) if rel == "eq" else (False if w == v else None)
@@ -611,7 +623,7 @@ class Arm:
                         d = decide(head, x, y, st2.facts)
                         if d is not None and d != taken:
                             raise Stop("infeasible")
-                        ground = decide(head, x, y, {}) is not None
+                        ground = decide(head, x, y, {}, f1=False) is not None
                         if head in ("==", "!="):
                             loc, v = (x, litval(y)) if litval(y) is not None else (y, litval(x))
                             if v is not None and litval(loc) is None:
@@ -716,6 +728,7 @@ class Arm:
         self.order.append(key)
 
     def run(self):
+        PRUNE_FLOAT[0] = self.op in PRUNE_ARMS
         self.dropped = []
         st = State(HEADROW, [], {})
         for f in self.walk(self.target, st) or []:
