@@ -39,12 +39,65 @@ structure LsCtx (m : Mem) (sp : Nat) (r : BitVec 64) (t1 t2 : Nat) (s1 s2 : List
   a1 : LsStr m t1 s1 sp
   a2 : LsStr m t2 s2 sp
 
-/-- **`l_strcmp`'s answer**: some `a0` whose bit 31 is `lexLt`, the memory
-changed only in `[lo, hi)`. -/
+/-- **What `l_strcmp`'s callers observe of its answer** `v`: bit 31
+(`srliw 31`, `OP_LT`) is `lexLt`; zero iff the strings are equal; a
+sign-extended 32-bit value, so `slti 1` (`OP_LE`) reads its sign
+(`LsObs.le`). -/
+structure LsObs (v : BitVec 64) (s1 s2 : List UInt8) : Prop where
+  neg : v.getLsbD 31 = lexLt s1 s2
+  zero : v = 0#64 ↔ s1 = s2
+  small : v.toNat < 2 ^ 31 ∨ 2 ^ 64 - 2 ^ 31 ≤ v.toNat
+
+theorem getLsbD31 (v : BitVec 64) : v.getLsbD 31 = decide (v.toNat / 2 ^ 31 % 2 = 1) := by
+  rw [BitVec.getLsbD_eq_getElem (by omega), BitVec.getElem_eq_testBit_toNat, Nat.testBit_eq_decide_div_mod_eq]
+
+/-- **`OP_LE`'s test** (`slti a0, a0, 1`): `l_strcmp(a, b) ≤ 0` is `a ≤ b`. -/
+theorem LsObs.le {v : BitVec 64} {s1 s2 : List UInt8} (h : LsObs v s1 s2) :
+    zopz0zI_s v (sign_extend (m := 64) (0x001#12)) = !lexLt s2 s1 := by
+  have hn := h.neg; have hz := h.zero
+  rw [not_lexLt_iff, ← hn, getLsbD31]
+  unfold zopz0zI_s
+  rw [show (sign_extend (m := 64) (0x001#12)).toInt = 1 by decide]
+  rw [BitVec.toInt_eq_toNat_cond]
+  rcases h.small with hs | hs
+  · have e : v.toNat / 2 ^ 31 % 2 = 0 := by omega
+    by_cases h0 : v = 0#64
+    · have := hz.1 h0; subst h0; simp_all
+    · have h0' : v.toNat ≠ 0 := fun e => h0 (BitVec.eq_of_toNat_eq e)
+      have : ¬ s1 = s2 := fun e => h0 (hz.2 e)
+      simp [this, e]; split <;> omega
+  · have e : v.toNat / 2 ^ 31 % 2 = 1 := by omega
+    have := v.isLt
+    simp [e]; split <;> omega
+
+theorem zext_bit_toNat (b : Bool) : (zero_extend (m := 64) (bool_to_bit b)).toNat < 2 := by
+  cases b <;> decide
+
+/-- The observation of a 0/1 answer (`snez`: the first string continues). -/
+theorem lsObs_bit {s1 s2 : List UInt8} (b : Bool) (hz : b = false ↔ s1 = s2) (hn : lexLt s1 s2 = false) :
+    LsObs (zero_extend (m := 64) (bool_to_bit b)) s1 s2 := by
+  refine ⟨?_, ?_, ?_⟩
+  · cases b <;> simp [hn] <;> decide
+  · rw [← hz]; cases b <;> decide
+  · have := zext_bit_toNat b; omega
+
+/-- The observation of `-1` (the first string ended). -/
+theorem lsObs_m1 {s1 s2 : List UInt8} (hn : lexLt s1 s2 = true) (hne : s1 ≠ s2) :
+    LsObs ((0#64) + sign_extend (m := 64) (0xfff#12)) s1 s2 :=
+  ⟨by rw [hn]; decide, ⟨fun e => absurd e (by decide), fun e => absurd e hne⟩, by decide⟩
+
+/-- `snez` of a value. -/
+theorem ult0_ofNat {a : Nat} (ha : a < 2 ^ 64) :
+    zopz0zI_u (0#64) (BitVec.ofNat 64 a) = false ↔ a = 0 := by
+  unfold zopz0zI_u
+  simp [Sail.BitVec.toNatInt, Nat.mod_eq_of_lt ha]
+
+/-- **`l_strcmp`'s answer**: some `a0` its callers observe as the strings'
+order (`LsObs`), the memory changed only in `[lo, hi)`. -/
 structure LsRet (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (lo hi : Nat)
     (s1 s2 : List UInt8) (c : Config) : Prop where
   intro ::
-  ret : ∃ v m', AgreeOut m' m lo hi ∧ RetAt r sp f m' o v c ∧ v.getLsbD 31 = lexLt s1 s2
+  ret : ∃ v m', AgreeOut m' m lo hi ∧ RetAt r sp f m' o v c ∧ LsObs v s1 s2
 
 /-- `l_strcmp`'s frame `[sp - 48, sp)`: the saved registers. -/
 structure LsFrame (mL m : Mem) (sp : Nat) (r : BitVec 64) (f : KFrame) : Prop where
@@ -114,7 +167,7 @@ theorem ret_tgt' (r : BitVec 64) (h : r.toNat % 4 = 0) : BitVec.update r 0 0#1 =
 restored. -/
 theorem lstrcmp_exit (sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o : Array String)
     (s1 s2 : List UInt8) (hra : r.toNat % 4 = 0) (hsp : tohostAddr + 16 + 64 ≤ sp) (hsp2 : sp ≤ 2 ^ 32)
-    (hF : LsFrame mL m sp r f) (v x8 x9 x18 x19 x20 : BitVec 64) (hv : v.getLsbD 31 = lexLt s1 s2) :
+    (hF : LsFrame mL m sp r f) (v x8 x9 x18 x19 x20 : BitVec 64) (hv : LsObs v s1 s2) :
     Triple (SegSt 0x8001a7a8#64 (lsE v sp f x8 x9 x18 x19 x20) (ArmPay mL o))
       (LsRet r (BitVec.ofNat 64 sp) f m o (sp - 48) sp s1 s2) := by
   intro c h
@@ -142,7 +195,7 @@ theorem cb_len (s : List UInt8) : cb s s.length = 0#8 := by simp [cb]
 theorem ls_ans {mL : Mem} {P Q i : Nat} {s1 s2 : List UInt8} {v : BitVec 64} (hM : LsMem mL P Q s1 s2)
     (hA : Agree s1 s2 i) (hans : ScAns mL (P + i) (Q + i) v) :
     ∃ k, (∀ j, j < k → cb s1 (i + j) = cb s2 (i + j) ∧ cb s1 (i + j) ≠ 0#8) ∧
-      ((v ≠ 0#64 ∧ v.getLsbD 31 = lexLt s1 s2) ∨ (v = 0#64 ∧ cb s1 (i + k) = 0#8 ∧ cb s2 (i + k) = 0#8)) := by
+      ((v ≠ 0#64 ∧ LsObs v s1 s2) ∨ (v = 0#64 ∧ cb s1 (i + k) = 0#8 ∧ cb s2 (i + k) = 0#8)) := by
   obtain ⟨k, hok, hev, hobs⟩ := hans.ans
   have l1 := hA.le1; have l2 := hA.le2
   -- the scan stays within both strings
@@ -167,7 +220,8 @@ theorem ls_ans {mL : Mem} {P Q i : Nat} {s1 s2 : List UInt8} {v : BitVec 64} (hM
   · refine .inr ⟨hobs.zero.2 (by rw [hd]), ?_, ?_⟩
     · exact Classical.byContradiction fun hz => hev ⟨hd, hz⟩
     · rw [← hd]; exact Classical.byContradiction fun hz => hev ⟨hd, hz⟩
-  · refine .inl ⟨fun e => hd (BitVec.eq_of_toNat_eq (hobs.zero.1 e)), ?_⟩
+  · have hv0 : v ≠ 0#64 := fun e => hd (BitVec.eq_of_toNat_eq (hobs.zero.1 e))
+    refine .inl ⟨hv0, ⟨?_, ⟨fun e => absurd e hv0, fun e => absurd (by rw [e]) hd⟩, hobs.small⟩⟩
     rw [hobs.neg, lexLt_of_diff (hA.scan hok') hd]
 
 /-- **A chunk's outcome**: `l_strcmp`'s answer, or the next chunk's head. -/
@@ -227,7 +281,7 @@ theorem lstrcmp_mid (P Q sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o 
     kit_run h acc until [0x8001a7a8]
     have h2 := h.repin (L' := lsE _ sp f _ _ _ _ _) (by pins_of h)
     obtain ⟨c', hs, h'⟩ := lstrcmp_exit sp r f mL m o s1 s2 hra hsp hsp2 hF _ _ _ _ _ _
-      (by rw [zext_bit31, hL.1 (by omega)]) _ h2
+      (lsObs_bit _ ((ult0_ofNat (by omega)).trans ((hAk.eq_iff (by omega)).trans (by omega)).symm) (hL.1 (by omega))) _ h2
     exact ⟨c', acc.trans hs, ⟨.inl h'⟩⟩
   · have g := ofNat_beq_f (a := s2.length - i) (b := k) (by omega) (by omega) e2
     by_cases e1 : s1.length - i = k
@@ -235,7 +289,7 @@ theorem lstrcmp_mid (P Q sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o 
       kit_run h acc until [0x8001a7a8]
       have h2 := h.repin (L' := lsE _ sp f _ _ _ _ _) (by pins_of h)
       obtain ⟨c', hs, h'⟩ := lstrcmp_exit sp r f mL m o s1 s2 hra hsp hsp2 hF _ _ _ _ _ _
-        (by rw [hL.2.1 (by omega) (by omega)]; decide) _ h2
+        (lsObs_m1 (hL.2.1 (by omega) (by omega)) fun e => by subst e; omega) _ h2
       exact ⟨c', acc.trans hs, ⟨.inl h'⟩⟩
     · have g' := ofNat_beq_f (a := s1.length - i) (b := k) (by omega) (by omega) e1
       kit_run h acc until [0x8001a790]

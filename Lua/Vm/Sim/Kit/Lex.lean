@@ -108,4 +108,59 @@ theorem lexLt_of_zero {s1 s2 : List UInt8} {n : Nat} (h : Agree s1 s2 n) (h1 : c
   · rw [List.drop_of_length_le (by omega : s1.length ≤ n), List.drop_eq_getElem_cons (by omega : n < s2.length)]
     rfl
 
+/-! ## The order `lexLt` (`OP_LE` observes `l_strcmp ≤ 0`) -/
+
+theorem u8_lt_toNat {a b : UInt8} : a < b ↔ a.toNat < b.toNat := UInt8.lt_iff_toNat_lt
+theorem u8_eq_toNat {a b : UInt8} : a = b ↔ a.toNat = b.toNat := ⟨fun h => h ▸ rfl, fun h => UInt8.toNat_inj.mp h⟩
+
+/-- `lexLt` is irreflexive. -/
+theorem lexLt_irrefl : ∀ s : List UInt8, lexLt s s = false
+  | [] => rfl
+  | a :: as => by simp [lexLt, lexLt_irrefl as]
+
+/-- `lexLt` is asymmetric. -/
+theorem lexLt_asymm : ∀ s t : List UInt8, lexLt s t = true → lexLt t s = false
+  | [], [], h => by simp [lexLt] at h
+  | [], _ :: _, _ => rfl
+  | _ :: _, [], h => by simp [lexLt] at h
+  | a :: as, b :: bs, h => by
+    simp only [lexLt, Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, beq_iff_eq] at h
+    simp only [lexLt, Bool.or_eq_false_iff, decide_eq_false_iff_not, Bool.and_eq_false_iff, beq_eq_false_iff_ne]
+    rcases h with h | ⟨rfl, h⟩
+    · rw [u8_lt_toNat] at h
+      exact ⟨by rw [u8_lt_toNat]; omega, .inl fun e => by rw [u8_eq_toNat] at e; omega⟩
+    · exact ⟨by rw [u8_lt_toNat]; omega, .inr (lexLt_asymm as bs h)⟩
+
+/-- `lexLt` is total: neither way, the strings are equal. -/
+theorem lexLt_total : ∀ s t : List UInt8, lexLt s t = false → lexLt t s = false → s = t
+  | [], [], _, _ => rfl
+  | [], _ :: _, h, _ => by simp [lexLt] at h
+  | _ :: _, [], _, h => by simp [lexLt] at h
+  | a :: as, b :: bs, h1, h2 => by
+    simp only [lexLt, Bool.or_eq_false_iff, decide_eq_false_iff_not, Bool.and_eq_false_iff,
+      beq_eq_false_iff_ne] at h1 h2
+    rw [u8_lt_toNat] at h1 h2
+    have e : a = b := by rw [u8_eq_toNat]; omega
+    subst e
+    rcases h1.2 with h | h
+    · exact absurd rfl h
+    rcases h2.2 with h' | h'
+    · exact absurd rfl h'
+    rw [lexLt_total as bs h h']
+
+/-- **`a ≤ b`** in `lexLt`'s order: `¬ b < a` is `a < b` or `a = b`. -/
+theorem not_lexLt_iff (s t : List UInt8) : (!lexLt t s) = (lexLt s t || decide (s = t)) := by
+  cases h1 : lexLt s t <;> cases h2 : lexLt t s <;> simp
+  · exact lexLt_total s t h1 h2
+  · intro e; subst e; rw [lexLt_irrefl] at h2; exact absurd h2 (by decide)
+  · exact absurd (lexLt_asymm s t h1) (by simp [h2])
+
+/-- Agreement up to the end of the second string: equal iff the first ends there too. -/
+theorem Agree.eq_iff {s1 s2 : List UInt8} {n : Nat} (h : Agree s1 s2 n) (hn : n = s2.length) :
+    s1 = s2 ↔ s1.length = n := by
+  constructor
+  · rintro rfl; exact hn.symm
+  · intro e
+    exact List.ext_getElem (by omega) fun j h1 h2 => h.eq j h1 h2 (by omega)
+
 end Lua.Vm.Sim

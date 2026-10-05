@@ -50,7 +50,7 @@ theorem srliw31 (v : BitVec 64) :
 
 set_option hygiene false in
 local macro_rules
-  | `(tactic| kit_bv_norm) => `(tactic| try simp only [kraw_eq, srliw31, hv, bne_ite])
+  | `(tactic| kit_bv_norm) => `(tactic| try simp only [kraw_eq, srliw31, hv.neg, bne_ite])
 
 set_option hygiene false in
 /-- The string path's tag guards: the tags are string tags. -/
