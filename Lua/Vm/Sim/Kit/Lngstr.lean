@@ -32,7 +32,7 @@ structure RetOut (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (l
 callee frames below `sp`, the same object only for one content. -/
 structure LngCtx (m : Mem) (sp : Nat) (r : BitVec 64) (t1 t2 : Nat) (s1 s2 : List UInt8) : Prop where
   ra : r.toNat % 4 = 0
-  sp_lo : tohostAddr + 16 + 64 ≤ sp
+  sp_lo : tohostAddr + 16 + 48 ≤ sp
   sp_hi : sp ≤ 2 ^ 32
   sp_al : sp % 8 = 0
   v1 : StrView m t1 s1

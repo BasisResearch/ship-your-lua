@@ -144,6 +144,21 @@ theorem StrView.lnglen_eq {m : Mem} {t1 t2 : Nat} {s1 s2 : List UInt8} (h1 : Str
     rwa [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
   · intro e; rw [e]
 
+/-- `StrApart` for a smaller interval. -/
+theorem StrApart.mono {ts : Nat} {s : List UInt8} {lo hi lo' hi' : Nat} (h : StrApart ts s lo hi)
+    (h1 : lo ≤ lo') (h2 : hi' ≤ hi) : StrApart ts s lo' hi' := by
+  simp only [StrApart] at h ⊢; omega
+
+/-- **A live string**: its view in `m`, and the object apart from `[lo, hi)`. -/
+structure StrAt (m : Mem) (ts : Nat) (s : List UInt8) (lo hi : Nat) : Prop where
+  view : StrView m ts s
+  apart : StrApart ts s lo hi
+
+theorem _root_.Lua.Vm.Sim.ValRepr.tsr {mo : Mem} {ι : Strs} {t : BitVec 8} {x : BitVec 64} {str : List UInt8}
+    (h : ValRepr mo ι t x (.str str)) : TStringRepr mo x.toNat str := by
+  cases h with
+  | str hts _ _ => exact hts
+
 section
 variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
 
@@ -190,6 +205,15 @@ theorem Core.unseal (hc : Core p c s w) {ts : Nat} {str : List UInt8} (ho : StrO
   have hw := ho.out x (by omega) (by simp only [tstringContentsOff]; omega)
   simp only [bytesT1, hm x hw]
   exact hc.frame x hw
+
+
+/-- **A represented string is live** (M-str), in any memory that agrees with
+the machine's outside `Scratch` (an arm's run to a call). -/
+theorem Core.str_at (hc : Core p c s w) {t : BitVec 8} {x : BitVec 64} {str : List UInt8}
+    (hv : ValRepr w.mo w.ι t x (.str str)) {m : Mem} (hm : ∀ a, ¬ Scratch w a → m[a]? = c.σ.mem[a]?) :
+    StrAt m x.toNat str (RuntimeData.spEntry - cStackBudget) (w.sp + execFrame) :=
+  have ho := hv.owned hc.comp
+  ⟨hc.unseal ho hv.tsr fun a ha => hm a fun h => ha (.inr (.inr h)), hc.ranges.own_apart ho⟩
 
 end
 
