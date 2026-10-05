@@ -32,6 +32,16 @@ theorem stData_three_n : stData 1 (BitVec.ofNat 64 vNumInt) = BitVec.ofNat 8 vNu
 theorem xor_true_of_ne {a b : Bool} (h : ¬ a = b) : (a ^^ b) = true := by
   cases a <;> cases b <;> simp_all
 
+/-- `blt`/`bge` over two registers, as `Int` comparisons. -/
+theorem slt_toInt (x y : BitVec 64) : zopz0zI_s x y = decide (x.toInt < y.toInt) := by
+  unfold zopz0zI_s; simp
+theorem sge_toInt (x y : BitVec 64) : zopz0zKzJ_s x y = decide (y.toInt ≤ x.toInt) := by
+  unfold zopz0zKzJ_s; simp
+
+/-- The successor pc in another form. -/
+theorem AtFin.pc_eq {X : Cx} {M : List Ent} {W : List SlotW} {pc pc' : Nat} {c : Vsa.Machine.Config}
+    (h : AtFin X M W pc c) (e : pc = pc') : AtFin X M W pc' c := e ▸ h
+
 theorem beq_false_of_ne {x y : BitVec 64} (h : x ≠ y) : (x == y) = false := by simpa using h
 
 theorem bne_true_of_ne {x y : BitVec 64} (h : x ≠ y) : (x != y) = true := by simpa using h
@@ -51,11 +61,16 @@ elab "at_vals" : tactic => withMainContext do
         ``Lua.Vm.Sim.ValRepr].contains t.getAppFn.constName! then continue
     if natFact t then continue
     facts := facts.push (← `(Lean.Parser.Tactic.simpLemma| $(mkIdent ldecl.userName):term))
-  evalTactic (← `(tactic| (
-    simp (config := { decide := true }) only [Loc.den, Fld.den, Nat.add_zero, bgeu_one, slt_zero,
-      sge_zero, BitVec.msb_xor, Bool.xor_self, Bool.xor_false, Bool.false_xor, Bool.xor_true, Bool.true_xor,
-      Bool.not_eq_true, xor_true_of_ne, beq_iff_eq, beq_eq_false_iff_ne, bne_iff_ne, ne_eq, $facts,*]
-    first | done | decide)))
+  evalTactic (← `(tactic| first
+    | (simp (config := { decide := true }) only [Loc.den, Fld.den, Nat.add_zero, bgeu_one, slt_zero,
+        sge_zero, BitVec.msb_xor, Bool.xor_self, Bool.xor_false, Bool.false_xor, Bool.xor_true,
+        Bool.true_xor, Bool.not_eq_true, xor_true_of_ne, beq_iff_eq, beq_eq_false_iff_ne, bne_iff_ne,
+        ne_eq, BitVec.zero_sub, BitVec.neg_eq_zero_iff, $facts,*]
+       first | done | decide)
+    | (simp (config := { decide := true }) only [Loc.den, Fld.den, Nat.add_zero, slt_toInt, sge_toInt,
+        beq_iff_eq, beq_eq_false_iff_ne, bne_iff_ne, ne_eq, decide_eq_true_eq, decide_eq_false_iff_not,
+        Int.not_lt, Int.not_le, $facts,*]
+       first | done | decide | omega)))
 
 /-- The arm's closer of an at-lemma's hypothesis: a slot bound (`omega`
 over the arm's register bounds), else a guard or precondition (`at_vals`). -/
@@ -64,6 +79,7 @@ macro_rules
     | (simp only [Fld.den, Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow] at *; omega)
     | at_vals)
 
+set_option hygiene false in
 /-- The registers the successor keeps: every register but the stored slots'. -/
 macro "at_hold" : tactic => `(tactic| (
   intro j hj
@@ -71,15 +87,18 @@ macro "at_hold" : tactic => `(tactic| (
     SlotW.j, Fld.den, Nat.add_zero, ne_eq] at hj
   simp_all))
 
+set_option hygiene false in
 /-- The stored slots represent the successor's values. -/
 macro "at_new" : tactic => `(tactic| (
   intro e he v hv
   simp only [List.mem_cons, List.not_mem_nil, or_false] at he
-  rcases he with rfl | rfl | rfl <;>
-  ( simp only [SlotW.j, Fld.den, Nat.add_zero, Loc.den] at hv ⊢
-    simp at hv
-    subst hv
-    simp only [stData_three_lit, stData_three_n]
+  all_goals rcases he with he | he | he <;>
+  ( try subst he
+    try simp only [SlotW.j, Fld.den, Nat.add_zero, Loc.den] at hv
+    try simp only [SlotW.j, Fld.den, Nat.add_zero, Loc.den]
+    try simp at hv
+    try subst hv
+    try simp only [stData_three_lit, stData_three_n]
     first | exact .int | (simp_all [snez_eq, BitVec.msb_xor]; done) |
       (simp_all [snez_eq, BitVec.msb_xor]; exact .int))))
 
@@ -89,16 +108,25 @@ open Lean Elab Tactic Meta in
 elab "at_close " ns:ident h:ident acc:ident : tactic => do
   let env ← getEnv
   let mut errs : Array MessageData := #[]
+  let key ← withMainContext do
+    let some ld := (← getLCtx).findFromUserName? h.getId | throwError "at_close: no {h}"
+    atKey ld.type
   for k in ["fin"] ++ (List.range 40).map (fun i => s!"fin_{i + 1}") do
     let n := ns.getId ++ Name.mkSimple k
     unless env.contains n do continue
+    unless (← lemmaKey n) == key do
+      errs := errs.push m!"{n}: key {(← lemmaKey n)} ≠ {key}"
+      continue
     let s ← saveState
     try
       let args ← Tactic.runTermElab (atRunArgs n)
       let args := args.pop
       let lem ← `($(mkIdent n) $args* $h)
-      withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
-        exact ⟨_, $acc, ($lem).close $(mkIdent `hX) (by at_hold) (by at_new)⟩))
+      withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| (
+        refine ⟨_, $acc, (($lem).pc_eq ?_).close $(mkIdent `hX) ?_ ?_⟩
+        first | rfl | omega | (simp only []; omega)
+        at_hold
+        at_new)))
       return
     catch e =>
       errs := errs.push m!"{n}: {e.toMessageData}"

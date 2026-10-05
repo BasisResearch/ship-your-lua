@@ -747,6 +747,27 @@ def atCands (ns : Name) (pc : Nat) (ret : Option Nat) : MetaM (List Name) := do
       if env.contains n then out := out ++ [n]
   return out
 
+/-- A row's or log's name (its head constant: `r3`, `headRow`, `m2`, `[]`). -/
+def headName (e : Expr) : Name := e.getAppFn.constName?.getD .anonymous
+
+/-- The (row, log) names of an `At` hypothesis. -/
+def atKey (ty : Expr) : MetaM (Name × Name) := do
+  let ty ← instantiateMVars ty
+  return (headName ty.getAppArgs[2]!, headName ty.getAppArgs[3]!)
+
+/-- The (row, log) names an at-lemma (`AtStep`) starts from, or a fin
+lemma's `At` hypothesis has. -/
+def lemmaKey (n : Name) : MetaM (Name × Name) := do
+  let ci ← getConstInfo n
+  forallTelescope ci.type fun xs body => do
+    if body.isAppOfArity ``AtStep 7 then
+      return (headName body.getAppArgs[2]!, headName body.getAppArgs[3]!)
+    for x in xs.reverse do
+      let t ← inferType x
+      if t.isAppOfArity ``At 5 then
+        return (headName t.getAppArgs[2]!, headName t.getAppArgs[3]!)
+    return (.anonymous, .anonymous)
+
 /-- The literal return address in an `At` row (`ra`'s pin), if any. -/
 def atRet (ty : Expr) : MetaM (Option Nat) := do
   let ty ← instantiateMVars ty
@@ -776,7 +797,11 @@ elab "at_run " ns:ident h:ident acc:ident : tactic => do
     let cands ← atCands ns.getId pc ret
     let mut done := false
     let mut errs : Array MessageData := #[]
+    let key ← withMainContext do
+      let some ld := (← getLCtx).findFromUserName? h.getId | throwError "at_run: no {h}"
+      atKey ld.type
     for n in cands do
+      unless (← lemmaKey n) == key do continue
       let s ← saveState
       try
         let args ← Tactic.runTermElab (atRunArgs n)
