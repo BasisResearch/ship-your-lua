@@ -9,6 +9,8 @@ import Lua.Vm.Sim.Kit.Loadnil
 import Lua.Vm.Sim.Kit.Tointeger
 import Lua.Vm.Sim.Kit.Mulk
 import Lua.Vm.Sim.Kit.Modk
+import Lua.Vm.Sim.Kit.EqLong
+import Lua.Vm.Sim.Kit.LtStr
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
@@ -20,4 +22,12 @@ call-node summaries of the libgcc helpers at the Lua ELF's addresses
 restated (`Kit/ModEq.lean`), and the arms `sim_ADD` (refactor), `sim_MUL`,
 `sim_MOD` (held out), `luaV_equalobj`'s summary (`Kit/Equalobj.lean`) and `OP_EQ` but
 two long strings (`Kit/Eq.lean`: `eq_short`, `sim_EQ_of_long`).
+
+Round 4 (S-SCAN): the loop and scan rules (`Kit/Scan.lean`: `seg_loop`,
+`scan_loop`, `relay`, comprehension log entries `compMem`), live string
+views (`Kit/Str.lean`: `Core.unseal`, `Core.str_at`), word lanes
+(`Kit/Word.lean`), the string callees (`Kit/Memcmp.lean`, `Kit/Lngstr.lean`,
+`Kit/Strcmp.lean`, `Kit/Strlen.lean`, `Kit/Lstrcmp.lean`,
+`Kit/LstrcmpPro.lean`, with `Kit/Lex.lean` relating chunks to `lexLt`), and
+the closed arms `sim_EQ` (`Kit/EqLong.lean`) and `sim_LT` (`Kit/LtStr.lean`).
 -/
