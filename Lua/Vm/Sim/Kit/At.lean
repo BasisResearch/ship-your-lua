@@ -693,6 +693,7 @@ def atRunArgs (n : Name) : TermElabM (Array Term) := do
     let mut args : Array Term := #[]
     for x in xs do
       let t ← inferType x
+      unless (← x.fvarId!.getDecl).binderInfo.isExplicit do continue
       let nm := (← x.fvarId!.getDecl).userName.toString
       if nm == "hX" then args := args.push (mkIdent `hX)
       else if ← Meta.isProp t then args := args.push (← `((by at_hyp)))
@@ -707,19 +708,38 @@ def atPc (ty : Expr) : MetaM (Option Nat) := do
   | some ⟨_, v⟩ => return some v.toNat
   | none => return none
 
-/-- The at-lemmas of namespace `ns` that start at `pc` (their `AtStep`'s
-first pc). -/
-def atCands (ns : Name) (pc : Nat) : MetaM (List Name) := do
+/-- The at-lemmas of namespace `ns` that may start at `pc`, by name: a
+segment's `at_<pc>_<hi>[_t|_n][_k]`, and a call's `call_<ret>[_k]` where
+`ret` is the row's return address (`ra`, a literal). -/
+def atCands (ns : Name) (pc : Nat) (ret : Option Nat) : MetaM (List Name) := do
+  let env ← getEnv
   let mut out := []
-  for (n, ci) in (← getEnv).constants.map₂.toList do
-    unless n.getPrefix == ns do continue
-    let ok ← forallTelescope ci.type fun _ body => do
-      unless body.isAppOfArity ``AtStep 7 do return false
-      match ← getBitVecValue? body.getAppArgs[1]! with
-      | some ⟨_, v⟩ => return v.toNat == pc
-      | none => return false
-    if ok then out := out ++ [n]
+  let ks := ["", "_1", "_2", "_3", "_4", "_5", "_6", "_7"]
+  for d in [0:96] do
+    let hi := pc + 4 * (d + 1)
+    for suf in ["", "_t", "_n"] do
+      for k in ks do
+        let n := ns ++ Name.mkSimple s!"at_{hex8 pc}_{hex8 hi}{suf}{k}"
+        if env.contains n then out := out ++ [n]
+  if let some r := ret then
+    for k in ks do
+      let n := ns ++ Name.mkSimple s!"call_{hex8 r}{k}"
+      if env.contains n then out := out ++ [n]
   return out
+
+/-- The literal return address in an `At` row (`ra`'s pin), if any. -/
+def atRet (ty : Expr) : MetaM (Option Nat) := do
+  let ty ← instantiateMVars ty
+  unless ty.isAppOfArity ``At 5 do return none
+  let row ← whnfR ty.getAppArgs[2]!
+  let pins ← try listElems row catch _ => return none
+  for p in pins do
+    if p.getAppArgs[2]!.isConstOf ``Register.x1 then
+      let v := p.getAppArgs[3]!
+      -- `Loc.den X (.lit r)`
+      if v.isAppOfArity ``Loc.den 2 && v.appArg!.isAppOfArity ``Loc.lit 1 then
+        if let some ⟨_, r⟩ ← getBitVecValue? v.appArg!.appArg! then return some r.toNat
+  return none
 
 /-- **`at_run ns h acc`**: from `h : At X pc …`, apply the at-lemmas of `ns`
 that start at the current pc (the first whose row matches and whose
@@ -728,12 +748,12 @@ elab "at_run " ns:ident h:ident acc:ident : tactic => do
   let mut fuel := 64
   while fuel > 0 do
     fuel := fuel - 1
-    let pc ← withMainContext do
+    let (pc, ret) ← withMainContext do
       let some ld := (← getLCtx).findFromUserName? h.getId | throwError "at_run: no {h}"
-      atPc ld.type
+      return (← atPc ld.type, ← atRet ld.type)
     let some pc := pc | throwError "at_run: no pc"
     if pc == 0x8001bfe4 then return
-    let cands ← atCands ns.getId pc
+    let cands ← atCands ns.getId pc ret
     let mut done := false
     let mut errs : Array MessageData := #[]
     for n in cands do
