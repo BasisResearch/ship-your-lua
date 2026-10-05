@@ -45,7 +45,7 @@ local macro_rules
 set_option hygiene false in
 /-- The saved registers of the prologue's stores. -/
 local macro "ls_frame" : tactic => `(tactic|
-  exact ⟨fun x hx => by simp (disch := kit_disch) only [getElem?_wm8_out],
+  exact ⟨rfl, fun x hx => by simp (disch := kit_disch) only [getElem?_wm8_out],
     by simp (disch := kit_disch) only [bytesT8_wm8_out, bytesT8_wm8_same, sdData_id],
     by simp (disch := kit_disch) only [bytesT8_wm8_out, bytesT8_wm8_same, sdData_id],
     by simp (disch := kit_disch) only [bytesT8_wm8_out, bytesT8_wm8_same, sdData_id],
@@ -118,7 +118,7 @@ local macro "ls_variant " n:ident l1:term "," l2:term "," via:tactic : command =
   theorem $n (t1 t2 : Nat) (s1 s2 : List UInt8) (r : BitVec 64) (sp : Nat) (f : KFrame) (m : Mem)
       (o : Array String) (hx : LsCtx m sp r t1 t2 s1 s2) (hl1 : $l1) (hl2 : $l2) :
       Triple (SegSt 0x8001a704#64 (lstrPre t1 t2 r sp f) (ArmPay m o))
-        (LsRet r (BitVec.ofNat 64 sp) f m o (sp - 48) sp s1 s2) := by
+        (LsRet r sp f m o s1 s2) := by
     ls_pro hl1, hl2
     $via)
 
@@ -132,7 +132,7 @@ ls_variant lstrcmp_SS ¬ 40 < s1.length, ¬ 40 < s2.length, ls_viaB
 theorem lstrcmp_sum (t1 t2 : Nat) (s1 s2 : List UInt8) (r : BitVec 64) (sp : Nat) (f : KFrame) (m : Mem)
     (o : Array String) (hx : LsCtx m sp r t1 t2 s1 s2) :
     Triple (SegSt 0x8001a704#64 (lstrPre t1 t2 r sp f) (ArmPay m o))
-      (LsRet r (BitVec.ofNat 64 sp) f m o (sp - 48) sp s1 s2) := by
+      (LsRet r sp f m o s1 s2) := by
   by_cases l1 : 40 < s1.length <;> by_cases l2 : 40 < s2.length
   · exact lstrcmp_LL t1 t2 s1 s2 r sp f m o hx l1 l2
   · exact lstrcmp_LS t1 t2 s1 s2 r sp f m o hx l1 l2

@@ -92,15 +92,38 @@ theorem ult0_ofNat {a : Nat} (ha : a < 2 ^ 64) :
   unfold zopz0zI_u
   simp [Sail.BitVec.toNatInt, Nat.mod_eq_of_lt ha]
 
+/-- **`l_strcmp`'s memory on return**: its prologue's six saves
+(`s0`, `ra`, `s1`–`s4`) in `[sp - 48, sp)`; `strcoll`/`strcmp` and
+`strlen` store nothing. -/
+def lsMem (m : Mem) (sp : Nat) (r : BitVec 64) (f : KFrame) : Mem :=
+  writeMap8 (writeMap8 (writeMap8 (writeMap8 (writeMap8 (writeMap8 m (sp - 48 + 32) (sdData_val f.s0))
+    (sp - 48 + 40) (sdData_val r)) (sp - 48 + 24) (sdData_val f.s1)) (sp - 48 + 16) (sdData_val f.s2))
+    (sp - 48 + 8) (sdData_val f.s3)) (sp - 48) (sdData_val f.s4)
+
+theorem lsMem_agree (m : Mem) (sp : Nat) (r : BitVec 64) (f : KFrame) (hsp : 48 ≤ sp) :
+    AgreeOut (lsMem m sp r f) m (sp - 48) sp := fun x hx => by
+  simp only [lsMem]
+  rw [getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega),
+    getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega),
+    getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega)]
+
 /-- **`l_strcmp`'s answer**: some `a0` its callers observe as the strings'
-order (`LsObs`), the memory changed only in `[lo, hi)`. -/
-structure LsRet (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (lo hi : Nat)
+order (`LsObs`), in the memory `lsMem` (its frame's saves). -/
+structure LsRet (r : BitVec 64) (sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
     (s1 s2 : List UInt8) (c : Config) : Prop where
   intro ::
-  ret : ∃ v m', AgreeOut m' m lo hi ∧ RetAt r sp f m' o v c ∧ LsObs v s1 s2
+  ret : ∃ v, RetAt r (BitVec.ofNat 64 sp) f (lsMem m sp r f) o v c ∧ LsObs v s1 s2
+
+/-- The answer with its memory as a frame (`AgreeOut` outside `[sp - 48, sp)`). -/
+theorem LsRet.out {r : BitVec 64} {sp : Nat} {f : KFrame} {m : Mem} {o : Array String} {s1 s2 : List UInt8}
+    {c : Config} (h : LsRet r sp f m o s1 s2 c) (hsp : 48 ≤ sp) :
+    ∃ v m', AgreeOut m' m (sp - 48) sp ∧ RetAt r (BitVec.ofNat 64 sp) f m' o v c ∧ LsObs v s1 s2 :=
+  let ⟨⟨v, h, hv⟩⟩ := h
+  ⟨v, _, lsMem_agree m sp r f hsp, h, hv⟩
 
 /-- `l_strcmp`'s frame `[sp - 48, sp)`: the saved registers. -/
 structure LsFrame (mL m : Mem) (sp : Nat) (r : BitVec 64) (f : KFrame) : Prop where
+  eq : mL = lsMem m sp r f
   agree : AgreeOut mL m (sp - 48) sp
   ra : bytesT8 mL (sp - 48 + 40) = r
   s0 : bytesT8 mL (sp - 48 + 32) = f.s0
@@ -169,14 +192,14 @@ theorem lstrcmp_exit (sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o : A
     (s1 s2 : List UInt8) (hra : r.toNat % 4 = 0) (hsp : tohostAddr + 16 + 64 ≤ sp) (hsp2 : sp ≤ 2 ^ 32)
     (hF : LsFrame mL m sp r f) (v x8 x9 x18 x19 x20 : BitVec 64) (hv : LsObs v s1 s2) :
     Triple (SegSt 0x8001a7a8#64 (lsE v sp f x8 x9 x18 x19 x20) (ArmPay mL o))
-      (LsRet r (BitVec.ofNat 64 sp) f m o (sp - 48) sp s1 s2) := by
+      (LsRet r sp f m o s1 s2) := by
   intro c h
   have acc := Steps.refl c
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   kit_run h acc
   have h := h.at (ret_tgt' r hra)
   rw [show sp - 48 + 48 = sp by omega] at h
-  exact ⟨_, acc, ⟨⟨v, mL, hF.agree, h.repin (by pins_of h), hv⟩⟩⟩
+  exact ⟨_, acc, ⟨⟨v, hF.eq ▸ h.repin (by pins_of h), hv⟩⟩⟩
 
 /-- The C views of both strings in `l_strcmp`'s memory, and the bounds. -/
 structure LsMem (mL : Mem) (P Q : Nat) (s1 s2 : List UInt8) : Prop where
@@ -228,7 +251,7 @@ theorem ls_ans {mL : Mem} {P Q i : Nat} {s1 s2 : List UInt8} {v : BitVec 64} (hM
 structure LsNext (r : BitVec 64) (sp : Nat) (f : KFrame) (m mL : Mem) (o : Array String) (P Q : Nat)
     (s1 s2 : List UInt8) (i : Nat) (c : Config) : Prop where
   intro ::
-  next : LsRet r (BitVec.ofNat 64 sp) f m o (sp - 48) sp s1 s2 c ∨
+  next : LsRet r sp f m o s1 s2 c ∨
     ∃ i' z', i < i' ∧ Agree s1 s2 i' ∧
       SegSt 0x8001a790#64 (lsH P Q s1.length s2.length i' z' sp f) (ArmPay mL o) c
 
@@ -335,7 +358,7 @@ theorem lstrcmp_loop (P Q sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o
     (s1 s2 : List UInt8) (hra : r.toNat % 4 = 0) (hsp : tohostAddr + 16 + 64 ≤ sp) (hsp2 : sp ≤ 2 ^ 32)
     (hF : LsFrame mL m sp r f) (hM : LsMem mL P Q s1 s2) (i : Nat) (z : BitVec 64) (hA : Agree s1 s2 i) :
     Triple (SegSt 0x8001a790#64 (lsH P Q s1.length s2.length i z sp f) (ArmPay mL o))
-      (LsRet r (BitVec.ofNat 64 sp) f m o (sp - 48) sp s1 s2) := fun c h =>
+      (LsRet r sp f m o s1 s2) := fun c h =>
   seg_loop (S := fun (a : Nat × BitVec 64) c => Agree s1 s2 a.1 ∧
       SegSt 0x8001a790#64 (lsH P Q s1.length s2.length a.1 a.2 sp f) (ArmPay mL o) c)
     (fun a => s1.length + 1 - a.1) (fun ⟨i, z⟩ c ⟨hA, h⟩ => by

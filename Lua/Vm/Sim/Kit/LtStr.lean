@@ -99,13 +99,14 @@ local macro "lt_str_call" : tactic => `(tactic| (
   have hse : RuntimeData.spEntry = 0x87fffe20 := rfl
   have hcb : cStackBudget = 0x10000 := rfl
   have hef : execFrame = 176 := rfl
-  obtain ⟨_, acc, ⟨⟨v, m', hO, h0, hv⟩⟩⟩ := h0.call acc (by pins_of h0)
+  obtain ⟨_, acc, hR⟩ := h0.call acc (by pins_of h0)
     (lstrcmp_sum _ _ x y 0x8001e260#64 w.sp (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _ _
       ⟨RodataRead.wm8 (RodataRead.wm8 hc.rodata (by simp only [Image.rodataBase, Image.rodataSize]; kit_disch))
           (by simp only [Image.rodataBase, Image.rodataSize]; kit_disch), by decide, by omega, by omega,
         by omega,
         (fun a => ⟨a.view, a.apart.mono (by omega) (by omega)⟩) (hc.str_at hva (by kit_frame)),
         (fun a => ⟨a.view, a.apart.mono (by omega) (by omega)⟩) (hc.str_at hvb (by kit_frame))⟩)
+  obtain ⟨v, m', hO, h0, hv⟩ := hR.out (by omega)
   dsimp only [RetAt] at h0
   have hLci := hr.L_sep_ci; simp only [stateSize, ciSize] at hLci))
 
