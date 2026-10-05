@@ -46,6 +46,35 @@ theorem seg_loop {α : Type} {S : α → Config → Prop} {X : Config → Prop} 
       exact ⟨c2, hs1.trans hs2, h2⟩
     · exact ⟨c1, hs1, hx⟩
 
+/-! ## M-loop: comprehension log entries -/
+
+/-- **A comprehension log entry** ("for all `i < k`, write `b` at `o + s·i`",
+stride `s`, `0` allowed), the stores applied in order on `M`: a store loop's
+memory after `k` iterations. -/
+def compMem (M : Mem) (o s : Nat) (b : BitVec 8) : Nat → Mem
+  | 0 => M
+  | k + 1 => (compMem M o s b k).insert (o + s * k) b
+
+/-- A read the entry does not cover. -/
+theorem compMem_out {M : Mem} {o s x : Nat} {b : BitVec 8} :
+    ∀ {k}, (∀ i, i < k → x ≠ o + s * i) → (compMem M o s b k)[x]? = M[x]?
+  | 0, _ => rfl
+  | k + 1, h => by
+    simp only [compMem]
+    rw [getElem?_insert_out (h k (by omega)), compMem_out fun i hi => h i (by omega)]
+
+/-- A read the entry covers. -/
+theorem compMem_in {M : Mem} {o s : Nat} {b : BitVec 8} :
+    ∀ {k i}, i < k → (compMem M o s b k)[o + s * i]? = some b
+  | k + 1, i, hi => by
+    simp only [compMem]
+    by_cases e : o + s * i = o + s * k
+    · rw [e]; simp
+    · rw [getElem?_insert_out e]; exact compMem_in (by
+        rcases Nat.lt_or_ge i k with h | h
+        · exact h
+        · exact absurd (by rw [show i = k by omega]) e)
+
 /-! ## M-scan -/
 
 /-- **A read-only scan** over positions below `n`: the state family `S i`
