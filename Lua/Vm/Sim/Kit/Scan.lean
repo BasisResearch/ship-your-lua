@@ -120,6 +120,15 @@ elab "guard_assumption" : tactic => withMainContext do
       return
   throwError "guard_assumption: no such fact"
 
+open Lean Elab Tactic Meta in
+/-- **`kit_seg h acc seg`**: one named segment step (the polarity chosen by
+the proof, no search): values `_`, side conditions by `kit_side`. -/
+elab "kit_seg " h:ident acc:ident n:ident : tactic => withMainContext do
+  let name ← realizeGlobalConstNoOverloadWithInfo n
+  let args ← Tactic.runTermElab (segArgs name)
+  let seg ← `($(mkIdent name) $args*)
+  evalTactic (← `(tactic| obtain ⟨_, $acc, $h⟩ := Vsa.Sim.SegSt.run $acc $h (by pins_of $h) $seg))
+
 /-! ## Lanes -/
 
 /-- `++` is injective. -/
