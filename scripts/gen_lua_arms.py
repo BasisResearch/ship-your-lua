@@ -102,7 +102,7 @@ HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26], [], []),
             [], []),
            ("__moddi3", "__moddi3", 0x8002f7b0, 0x8002f7e0, [22, 26], [], []),
            ("luaV_equalobj", "LuaV_equalobj", 0x8001b780, 0x8001bad0, [],
-            [0x8001b84c, 0x8001b7f4], [0x8001b810, 0x8001b8f8]),
+            [0x8001b84c, 0x8001b7f4, 0x8001b8f8], [0x8001b810]),
            # `__divdi3` (`0x8002f72c`): its sign tests, then either falls through
            # into `__hidden___udivdi3` (`0x8002f734`, its own helper) or branches
            # into the sign fix-ups that objdump labels `__umoddi3+0x10`/`+0x20`
@@ -114,8 +114,20 @@ HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26], [], []),
 # integers, `forprepK`)
 HELPERS += [("luaV_tointeger", "LuaV_tointeger", 0x8001ade8, 0x8001af50, [22, 26], [],
              [0x8001ae4c, 0x8001ae98])]
+# axis S (S-SCAN): the string callees. `luaV_equalobj`'s long-string arm
+# (`0x8001b8f8`, now a root of its jump table) tail-calls `luaS_eqlngstr` ->
+# `memcmp`; `OP_LT`/`OP_LE` on two strings call `l_strcmp` -> `strcoll`
+# (`j strcmp`) and `strlen`.
+SUMMARISED |= {"l_strcmp"}
+HELPERS += [("luaS_eqlngstr", "LuaS_eqlngstr", 0x80017184, 0x800171d4, [], [], []),
+            ("memcmp", "Memcmp", 0x80036198, 0x80036204, [], [], []),
+            ("l_strcmp", "L_strcmp", 0x8001a704, 0x8001a7e0, [], [], []),
+            ("strcoll", "Strcoll", 0x80036374, 0x80036378, [], [], []),
+            ("strcmp", "Strcmp", 0x8003b920, 0x8003ba4c, [], [], []),
+            ("strlen", "Strlen", 0x8003b770, 0x8003b844, [], [], [])]
 # the registers a helper returns (live at its `ret`)
-RESULTS = {"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
+RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
+           "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
            "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}}
 

@@ -59,7 +59,9 @@ FLOAT = re.compile(r"df|^floor$|^fmod$|^pow$")
 # the error helper luaG_opinterror. (`__udivdi3` is an alias of
 # `__hidden___udivdi3`, the label objdump prints, so it is pinned as that;
 # `__umoddi3` holds `__divdi3`'s sign fix-ups, `0x8002f78c`, `0x8002f79c`.)
-EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3"]
+EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3",
+         # axis S: the string callees of EQ (long strings) and LT/LE
+         "luaS_eqlngstr", "memcmp", "strcoll", "strcmp", "strlen"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")
