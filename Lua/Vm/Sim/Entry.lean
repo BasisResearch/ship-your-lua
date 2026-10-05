@@ -139,13 +139,15 @@ theorem slotTag_of_tagAt {m : Mem} {a t : Nat} (h : tagAt m a = some t) :
 theorem slotVal_of_rd64 {m : Mem} {a x : Nat} (h : rd64 m (a + tvalueValOff) = some x) :
     slotVal m a = BitVec.ofNat 64 x := bytesT8_of_rd64 h
 
-/-- A represented non-nil `TValue`, as the arms read it, for an intern map `ι`
-that a short string's pointer agrees with. (A table's nil may be any variant
-of type 0; a register's is exactly `LUA_VNIL`.) -/
-theorem _root_.Lua.Vm.TValueRepr.valRepr {m : Mem} {a : Nat} {v : Value} {ι : List UInt8 → Nat}
+/-- A represented non-nil `TValue`, as the arms read it, for strings `ι` whose
+intern map a short string's pointer agrees with and which own its object.
+(A table's nil may be any variant of type 0; a register's is exactly
+`LUA_VNIL`.) -/
+theorem _root_.Lua.Vm.TValueRepr.valRepr {m : Mem} {a : Nat} {v : Value} {ι : Strs}
     (h : TValueRepr m a v) (hnil : v ≠ .nil)
     (hι : ∀ s ts, v = .str s → rd64 m (a + tvalueValOff) = some ts → s.length ≤ maxShortLen →
-      ts = ι s) :
+      ts = ι.ptr s)
+    (hown : ∀ s ts, v = .str s → rd64 m (a + tvalueValOff) = some ts → ι.own ts s) :
     ValRepr m ι (slotTag m a) (slotVal m a) v := by
   cases h with
   | nil => exact absurd rfl hnil
@@ -155,16 +157,18 @@ theorem _root_.Lua.Vm.TValueRepr.valRepr {m : Mem} {a : Nat} {v : Value} {ι : L
   | str ht hv hts =>
     rw [slotTag_of_tagAt ht, slotVal_of_rd64 hv]
     have hlt := rd64_lt hv
-    refine .str ?_ fun hl => ?_ <;> rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt]
+    refine .str ?_ (fun hl => ?_) ?_ <;> rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt]
     · exact hts
     · exact hι _ _ rfl hv hl
+    · exact hown _ _ rfl hv
   | print ht hv => rw [slotTag_of_tagAt ht, slotVal_of_rd64 hv]; exact .print rfl
 
 /-- A represented constant, as the `K` arms read it. -/
 theorem _root_.Lua.Vm.ConstRepr.valRepr {m : Mem} {a : Nat} {c : Const} {v : Value}
-    {ι : List UInt8 → Nat} (h : ConstRepr m a c) (hv : c.toValue? = some v)
+    {ι : Strs} (h : ConstRepr m a c) (hv : c.toValue? = some v)
     (hι : ∀ s ts, c = .str s → rd64 m (a + tvalueValOff) = some ts → s.length ≤ maxShortLen →
-      ts = ι s) :
+      ts = ι.ptr s)
+    (hown : ∀ s ts, c = .str s → rd64 m (a + tvalueValOff) = some ts → ι.own ts s) :
     ValRepr m ι (slotTag m a) (slotVal m a) v := by
   cases h with
   | nil ht =>
@@ -172,14 +176,15 @@ theorem _root_.Lua.Vm.ConstRepr.valRepr {m : Mem} {a : Nat} {c : Const} {v : Val
     rw [slotTag_of_tagAt ht]; exact .nil
   | bool h =>
     simp only [Const.toValue?, Option.some.injEq] at hv; subst hv
-    exact h.valRepr (by simp) (by simp)
+    exact h.valRepr (by simp) (by simp) (by simp)
   | int h =>
     simp only [Const.toValue?, Option.some.injEq] at hv; subst hv
-    exact h.valRepr (by simp) (by simp)
+    exact h.valRepr (by simp) (by simp) (by simp)
   | float => simp [Const.toValue?] at hv
   | str h =>
     simp only [Const.toValue?, Option.some.injEq] at hv; subst hv
-    exact h.valRepr (by simp) fun s ts e => hι s ts (by cases e; rfl)
+    exact h.valRepr (by simp) (fun s ts e => hι s ts (by cases e; rfl))
+      (fun s ts e => hown s ts (by cases e; rfl))
 
 /-- **An intern map** for a relation `P` that is functional in its second
 argument: the witness `RelPtrs.ι` from `KInterned`. -/
@@ -191,13 +196,19 @@ theorem exists_intern {α β : Type} [Inhabited β] (P : α → β → Prop)
   simp only [h, dif_pos]
   exact hu a x _ hx h.choose_spec
 
+/-- **The string objects of the constant array** (`Strs.own` at the entry):
+`ts` holding `s` is some string constant `k[i]`. -/
+def KStrIn (m : Mem) (k sizek ts : Nat) (s : List UInt8) : Prop := ∃ i, KStrAt m k sizek i ts s
+
 /-- The constant array of a represented `Proto`; if its short strings are
-interned (`KInterned`), some intern map `ι` represents every constant. -/
+interned (`KInterned`), some intern map `ι` represents every constant, with
+the string constants as the owned strings (`KStrIn`). -/
 theorem _root_.Lua.Vm.ProtoRepr.kArr {m : Mem} {pa ka : Nat} {p : Proto} (h : ProtoRepr m pa p)
     (hk : rd64 m (pa + protoKOff) = some ka) :
     rd32 m (pa + protoSizekOff) = some p.k.length ∧
       (KInterned m ka p.k.length → ∃ ι : List UInt8 → Nat, ∀ i v, kval p i = some v →
-        ValRepr m ι (slotTag m (ka + stackValueSize * i)) (slotVal m (ka + stackValueSize * i)) v) := by
+        ValRepr m ⟨ι, KStrIn m ka p.k.length⟩ (slotTag m (ka + stackValueSize * i))
+          (slotVal m (ka + stackValueSize * i)) v) := by
   obtain ⟨hsk, hks⟩ : rd32 m (pa + protoSizekOff) = some p.k.length ∧
       ∀ i (h : i < p.k.length), ConstRepr m (ka + tvalueSize * i) (p.k[i]'h) := by
     match h with
@@ -216,16 +227,25 @@ theorem _root_.Lua.Vm.ProtoRepr.kArr {m : Mem} {pa ka : Nat} {p : Proto} (h : Pr
   simp only [kval, Proto.const, Option.bind_eq_some_iff] at hv
   obtain ⟨c, hc, hcv⟩ := hv
   obtain ⟨hi, rfl⟩ := List.getElem?_eq_some_iff.1 hc
-  refine (hks i hi).valRepr hcv fun s ts e hts hl => ?_
-  have hr := hks i hi
-  rw [e] at hr
-  cases hr with
-  | str hr =>
+  refine (hks i hi).valRepr hcv (fun s ts e hts hl => ?_) (fun s ts e hts => ?_)
+  · have hr := hks i hi
+    rw [e] at hr
     cases hr with
-    | str ht hv' hts' =>
-      rw [hts, Option.some.injEq] at hv'
-      subst hv'
-      exact hι s _ ⟨i, hi, by rw [ht, strTag, if_pos hl], hts, hl, hts'⟩
+    | str hr =>
+      cases hr with
+      | str ht hv' hts' =>
+        rw [hts, Option.some.injEq] at hv'
+        subst hv'
+        exact hι s _ ⟨i, hi, by rw [ht, strTag, if_pos hl], hts, hl, hts'⟩
+  · have hr := hks i hi
+    rw [e] at hr
+    cases hr with
+    | str hr =>
+      cases hr with
+      | str ht hv' hts' =>
+        rw [hts, Option.some.injEq] at hv'
+        subst hv'
+        exact ⟨i, hi, ht, hts, hts'⟩
 
 /-- **The relation's address facts** (`Ranges`) from the entry's
 `VmRegionsAt`, for pointers whose `ci->func`, code and constant arrays are the
@@ -240,7 +260,7 @@ theorem Ranges.of_regions {m : Mem} {p : Proto} {w : RelPtrs} {rt : RtPtrs}
     (hfits : w.func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast) : Ranges p w := by
   obtain ⟨hLlo, hLhi, hcilo, hcihi, hstlo, hsthi, hfal, hcisep, -, -, -, -, -, -, -, -, hcdlo,
     hcdhi, hcdsep, -, -, hklo, hkhi, hkal, hksep, hLci, hcdL, hcdci, hkL, hkci, hLst, hLal, hcial⟩ := hrg
-  obtain ⟨L, ci, func, pa, code, k, sp, mo, ι⟩ := w
+  obtain ⟨L, ci, func, pa, code, k, sp, mo, ι, rt'⟩ := w
   simp only at hsp hfunc hcode hk hfits hLlo hLhi hcilo hcihi hcisep hLci hcdL hcdci hkL hkci hLst hLal hcial ⊢
   subst hsp hfunc hcode hk
   rw [hsz] at hcdhi hcdsep hcdL hcdci
@@ -253,6 +273,35 @@ theorem Ranges.of_regions {m : Mem} {p : Proto} {w : RelPtrs} {rt : RtPtrs}
   all_goals simp only [Win, Slots, Scratch, RelPtrs.base, stackValueSize, ciSavedpcOff, ciSize,
     stateTopOff, stateSize, cStackBudget, execFrame, tohostAddr, RuntimeData.spEntry] at *
   all_goals omega
+
+/-- **A string constant's chunk owns it in the relation**: the entry's
+`StrChunkAt` (heap, apart from the Lua stack, `L` and `ci`) puts the chunk
+apart from the window, whose slots lie in the Lua stack, whose scratch words
+lie in `L` and `ci`, and whose C frames lie above the heap (`cstack_room`). -/
+theorem chunkOwns_of_strChunkAt {p : Proto} {w : RelPtrs} {c : DlHeap.Chunk} {ts : Nat}
+    {s : List UInt8} (h : StrChunkAt w.L w.ci w.rt c ts s.length)
+    (hsp : w.sp = RuntimeData.spEntry - execFrame) (hst : w.rt.stack ≤ w.func)
+    (hfits : w.func + stackValueSize * (1 + p.maxstacksize) ≤ w.rt.stackLast) :
+    ChunkOwns p w c ts s := by
+  refine ⟨h.walk, h.inuse, h.lo, h.hi, fun a h1 h2 hw => ?_⟩
+  have := h.heap; have := h.stack_sep; have := h.L_sep; have := h.ci_sep
+  have hroom := cstack_room
+  simp only [Win, Slots, Scratch, RelPtrs.base, stackValueSize, execFrame, ciSavedpcOff, ciSize,
+    stateTopOff, stateSize, cStackBudget, symHeapEnd, RuntimeData.spEntry] at *
+  omega
+
+/-- **`Complement.own` at the entry**: the owned strings are the string
+constants (`KStrIn`), each in a chunk the boot witness found (`KOwned`). -/
+theorem own_of_kowned {p : Proto} {w : RelPtrs} {n : Nat} (hk : KOwned w.mo w.L w.ci w.rt)
+    (hown : w.ι.own = KStrIn w.mo w.rt.k n) (hn : w.rt.sizek = n)
+    (hsp : w.sp = RuntimeData.spEntry - execFrame) (hst : w.rt.stack ≤ w.func)
+    (hfits : w.func + stackValueSize * (1 + p.maxstacksize) ≤ w.rt.stackLast) :
+    ∀ ts s, w.ι.own ts s → StrOwned p w ts s := by
+  intro ts s h
+  rw [hown] at h
+  obtain ⟨i, hi⟩ := h
+  obtain ⟨c, hc⟩ := hk i ts s (by rw [hn]; exact hi)
+  exact ⟨c, chunkOwns_of_strChunkAt hc hsp hst hfits⟩
 
 set_option linter.unusedSimpArgs false in
 /-- **The entry lemma (A1).** The prologue runs from the entry to the fetch
@@ -422,13 +471,14 @@ theorem vmRel_entry : vmRel_entry_Statement := by
       Nat.mod_eq_of_lt, hRci, hRfunc, hRcl, hRk, bytesT8_writeMap8, sdData_id]
   simp only [stackValueSize] at hfits
   refine ⟨c2, hs1.trans hs2, ⟨L, ci, e.func, e.pa, e.code, rt.k, RuntimeData.spEntry - execFrame,
-    c.σ.mem, ι⟩, ⟨hq2.good, hq2.minstret, hq2.tick,
+    c.σ.mem, ⟨ι, KStrIn c.σ.mem rt.k p.k.length⟩, rt⟩, ⟨hq2.good, hq2.minstret, hq2.tick,
     ⟨pinsHold_get hp2 10 (by simp), pinsHold_get hp2 11 (by simp), pinsHold_get hp2 9 (by simp),
       hx9, hx18, hx21, pinsHold_get hp2 8 (by simp), pinsHold_get hp2 12 (by simp), hx25, hx27⟩,
     (output_congr (hq2.armOut.trans hq1.armOut)).trans hRt.harness.console, hq2.armOk, hq2.armText,
     fun a ha => congrArg (Option.getD · 0) (hA2 a ?_), hkp, fun j v _ h => ?_,
     ⟨hM.text, hM.rodata, hE.proto, hE.proto_code, fun i ins hf => ?_, bytesT8_of_rd64 hE.ci_func,
-      ?_, ⟨rt, efunc.symm, hlua, hRt.heap, hRt.error_jmp⟩, hkι⟩,
+      ?_, ⟨efunc.symm, hlua, hRt.heap, hRt.error_jmp⟩, hkι,
+      own_of_kowned hRt.kowned rfl esizek rfl hsle (by rw [← esl]; exact hE.frame_fits)⟩,
     Ranges.of_regions hrg rfl efunc ecode rfl esz esizek hlua.stack_le
       (by rw [← esl]; exact hE.frame_fits)⟩, hq2.pcAt⟩
   · simp only [Win, Slots, Scratch, RelPtrs.base, stackValueSize] at ha; omega

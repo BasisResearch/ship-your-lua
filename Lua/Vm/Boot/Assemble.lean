@@ -107,7 +107,8 @@ theorem runtimeReadyAt_of_checks {σ : MState} {gprs : List (Nat × BitVec 64)} 
         lua := luaStateCheck_sound hv' hrt.lua
         top := hv'.reads hrt.top (by mem_tac)
         regions := regionsCheck_sound hv' hrt.regions
-        interned := internedCheck_sound hv' hrt.interned }
+        interned := internedCheck_sound hv' hrt.interned
+        kowned := kownedCheck_sound hv' hrt.kowned }
 
 /-- **The assembly.** The traced registers, an empty console, a tick below 2,
 memory agreeing with the view `bootView chunk runs`, and the passing checks at

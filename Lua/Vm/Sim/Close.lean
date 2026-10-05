@@ -31,7 +31,7 @@ open Vsa.Machine (MState Config)
 /-! ## Tags -/
 
 section
-variable {mo : Mem} {ι : List UInt8 → Nat} {t : BitVec 8} {x : BitVec 64} {v : Value}
+variable {mo : Mem} {ι : Strs} {t : BitVec 8} {x : BitVec 64} {v : Value}
 
 /-- A string's tag is one of the two string variants (whatever its length). -/
 theorem strTag_cases (s : List UInt8) : strTag s = vShrStr ∨ strTag s = vLngStr := by
@@ -93,13 +93,13 @@ theorem guard_tag_bne_f (ha : a = n + 8) (h : slotTag m n = BitVec.ofNat 8 t) (h
   simp only [bne, guard_tag_eq ha h ht, Bool.not_true]
 
 /-- The float test (`li 19; bne`), never taken on an F1 value. -/
-theorem guard_not_float {mo : Mem} {ι : List UInt8 → Nat} {x : BitVec 64} {v : Value} (ha : a = n + 8)
+theorem guard_not_float {mo : Mem} {ι : Strs} {x : BitVec 64} {v : Value} (ha : a = n + 8)
     (h : ValRepr mo ι (slotTag m n) x v) :
     (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) != ((0#64) + sign_extend (m := 64) (0x013#12))) = true := by
   rw [const_19]; exact guard_tag_bne_t ha h.ne_float (by decide)
 
 /-- The float test laid out as `li 19; beq` (not taken on an F1 value). -/
-theorem guard_not_float_f {mo : Mem} {ι : List UInt8 → Nat} {x : BitVec 64} {v : Value} (ha : a = n + 8)
+theorem guard_not_float_f {mo : Mem} {ι : Strs} {x : BitVec 64} {v : Value} (ha : a = n + 8)
     (h : ValRepr mo ι (slotTag m n) x v) :
     (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) == ((0#64) + sign_extend (m := 64) (0x013#12))) = false := by
   rw [const_19]; exact guard_tag_ne ha h.ne_float (by decide)
@@ -253,7 +253,7 @@ theorem slotStore_copy {m m' : Mem} {A S a1 a2 s1 s2 : Nat}
     store_sd_sb m A (bytesT8 m S) (bytesT1 m (S + 8))
 
 /-- A boolean's tag, from a ground stored byte. -/
-theorem ValRepr.bool_of {mo : Mem} {ι : List UInt8 → Nat} {t : BitVec 8} {x : BitVec 64} (b : Bool)
+theorem ValRepr.bool_of {mo : Mem} {ι : Strs} {t : BitVec 8} {x : BitVec 64} (b : Bool)
     (h : t = BitVec.ofNat 8 (if b then vTrue else vFalse)) : ValRepr mo ι t x (.bool b) := by
   cases b <;> (subst h; first | exact .true_ | exact .false_)
 
@@ -477,7 +477,7 @@ theorem slotStore_copy_tv {m m' : Mem} {A S a1 a2 s1 s2 : Nat}
 /-! ## Truthiness (`l_isfalse`: the tag is `LUA_VFALSE`, or its low nibble is 0) -/
 
 section
-variable {mo : Mem} {ι : List UInt8 → Nat} {t : BitVec 8} {x : BitVec 64} {v : Value}
+variable {mo : Mem} {ι : Strs} {t : BitVec 8} {x : BitVec 64} {v : Value}
 
 theorem ValRepr.false_of_tag (h : ValRepr mo ι t x v) (ht : t = BitVec.ofNat 8 vFalse) :
     v = .bool false := by

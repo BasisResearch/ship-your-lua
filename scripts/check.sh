@@ -225,6 +225,15 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Core.update
 #print axioms Lua.Vm.Sim.Ranges.of_regions
 #print axioms Lua.Vm.TStringRepr.inj
+#print axioms Lua.Vm.TStringRepr.long_shrlen
+#print axioms Lua.Vm.Boot.kownedCheck_sound
+#print axioms Lua.Vm.Boot.strLenV_sound
+#print axioms Lua.Vm.Sim.chunkOwns_of_strChunkAt
+#print axioms Lua.Vm.Sim.own_of_kowned
+#print axioms Lua.Vm.Sim.StrOwned.out
+#print axioms Lua.Vm.Sim.Core.reg_owned
+#print axioms Lua.Vm.Sim.Core.k_owned
+#print axioms Lua.Vm.Sim.Core.str_frame
 #print axioms Lua.Vm.ProtoRepr.kArr
 #print axioms Lua.Vm.Sim.exists_intern
 #print axioms Lua.Vm.Sim.Core.forloop

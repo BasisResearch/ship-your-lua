@@ -197,7 +197,18 @@ instances, however, are at the WHILE ELF's addresses.
        (`OP_VARARGPREP` → `luaT_adjustvarargs`), not a fetch-head invariant;
      * `RuntimeReadyAt.interned` (`KInterned`): the short-string constants
        are interned (`loadStringN` → `luaS_newlstr`), so `vmRel_entry` builds
-       `VmRel`'s intern map `ι`.
+       `VmRel`'s intern map `ι.ptr`;
+     * `RuntimeReadyAt.kowned` (`KOwned`, round-4 BASE-S): every string
+       constant's object (header, contents, terminator) lies in the user range
+       of an in-use chunk of `HeapAt`'s walk, in the heap and apart from the
+       Lua stack, `L` and `ci` (`StrChunkAt`). `vmRel_entry` turns it into
+       `VmRel`'s `Complement.own` (`chunkOwns_of_strChunkAt`): every string a
+       register or constant points to (`Strs.own`, carried by `ValRepr.str`)
+       is owned by a chunk apart from `Win ∪ Scratch` (`StrOwned`,
+       `Core.reg_owned`, `Core.k_owned`, `Core.str_frame`);
+     * `TStringRepr.long` (round-4 BASE-S) carries `shrlen = 0xFF` (`+11`,
+       `luaS_createlngstrobj`; `l_strcmp` branches on it at `0x8001a720`),
+       checked by `tstrCheck` and the generator's `check_tstring`.
    * `luaLayout : VmLayout := ⟨luaRuntimeReady⟩`. The boot-invariant values it
      pins (entry `sp`/`ra`, the `jmp_buf`, the caller frames, the return
      chain, `nCcalls`) are `Lua/Vm/RuntimeData.lean`. The offsets are
@@ -248,13 +259,14 @@ instances, however, are at the WHILE ELF's addresses.
        `memfsCheck`, `luaStateCheck` (with `strtCheck`, `strcacheCheck`),
        `regionsCheck` (every round-3 `VmRegionsAt` field), `internedCheck`
        (`KInterned`, by `strDiff`: distinct pointers must differ in bytes),
+       `kownedCheck` (`KOwned`, by `strLenV` and a search of the chunk walk),
        `heapCheck`, `runsAvoid` (no store in `.text`/`.rodata`), and
        `logOk_of_chunks`.
      * `Lua/Vm/Boot/Assemble.lean`: `EntryRegs` (`GoodState`, `pc`, the HTIF
        mailbox, the traced GPRs), `gprsCheck`, `runtimeReadyAt_of_checks`,
        `vmLoaded_of_checks`, `vmLoaded_of_boot`.
      * Per program: 18 store chunks of 1024 and 10 run chunks of 64
-       (`LogOk`), `regsOk`, `imageOk`, `entryOk`, `rtOk` (9 structure
+       (`LogOk`), `regsOk`, `imageOk`, `entryOk`, `rtOk` (10 structure
        checks), each one line.
      * Cost: each witness module ≈ 4–5 min wall, 236 s CPU, 3.0 GB peak
        (a 1024-store chunk ≈ 8 s, a 64-run chunk ≈ 7 s, `rtOk` ≈ 25 s,

@@ -29,7 +29,7 @@ instruction `s.pc`. It is `∃ w, VmRelAt p c s w` over the pointers `w`
   `defMask p s.pc` (`Lua/FragmentSound.lean`), and it holds of the entry
   state (all ⊥) for any stack contents. `ValRepr` is tight enough for
   `luaV_equalobj`: nil is exactly `LUA_VNIL`, a string's tag follows its
-  length, and a short string's pointer is the intern map's `w.ι s`.
+  length, and a short string's pointer is the intern map's `w.ι.ptr s`.
 * **Output** (`Core.out`): the HTIF console so far is `s.out`.
 * **Registers present, mailbox idle** (`Core.ok`, `RegsOk`): every GPR holds a
   value and no `tohost` word is half-written (ship-your-interpreter's `VsaOk`
@@ -64,6 +64,17 @@ namespace Lua.Vm.Sim
 open Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config)
 
+/-- **The relation's strings.** `ptr` is the intern map: the one `TString`
+of each short content (`internshrstr`), which a short-string register points
+to. `own` is the set of string objects a register or constant may point to;
+`Complement.own` places each in an in-use allocator chunk apart from the
+window (`StrOwned`). At the entry it is the string constants
+(`Lua.Vm.KStrAt`); an arm that creates a string (`CONCAT`, `CALL`) must add
+it. -/
+structure Strs where
+  ptr : List UInt8 → Nat
+  own : Nat → List UInt8 → Prop
+
 /-- **A register's value from its slot's tag byte `t` and payload `x`.**
 The `TValueRepr` of `Lua/Vm/Repr.lean` in the form the arms read it (`lbu`
 of the tag, `ld` of the payload); a string's bytes live in the complement
@@ -75,17 +86,21 @@ memory `mo`. Tight enough that `luaV_equalobj` (which compares `ttypetag`,
   the empty and absent-key variants never reach a register;
 * a string's tag is `strTag s` (the variant follows the length, as
   `luaS_newlstr` chooses it), so equal contents have equal tags;
-* a short string's pointer is the intern map's `ι s` (`internshrstr`: one
+* a short string's pointer is the intern map's `ι.ptr s` (`internshrstr`: one
   `TString` per short content), so pointer equality (`eqshrstr`) is content
   equality; distinct contents have distinct pointers because `TStringRepr` is
-  functional (`TStringRepr.inj`). -/
-inductive ValRepr (mo : Mem) (ι : List UInt8 → Nat) : BitVec 8 → BitVec 64 → Value → Prop where
+  functional (`TStringRepr.inj`);
+* a string's object is one the relation owns (`Strs.own`): `Complement.own`
+  puts it in an in-use allocator chunk apart from the window (`StrOwned`).
+  Copying a register copies its `ValRepr`, so ownership travels with the
+  value and no arm restates it. -/
+inductive ValRepr (mo : Mem) (ι : Strs) : BitVec 8 → BitVec 64 → Value → Prop where
   | nil {x} : ValRepr mo ι (BitVec.ofNat 8 vNil) x .nil
   | false_ {x} : ValRepr mo ι (BitVec.ofNat 8 vFalse) x (.bool false)
   | true_ {x} : ValRepr mo ι (BitVec.ofNat 8 vTrue) x (.bool true)
   | int {i} : ValRepr mo ι (BitVec.ofNat 8 vNumInt) i (.int i)
-  | str {x s} : TStringRepr mo x.toNat s → (s.length ≤ maxShortLen → x.toNat = ι s) →
-      ValRepr mo ι (BitVec.ofNat 8 (strTag s)) x (.str s)
+  | str {x s} : TStringRepr mo x.toNat s → (s.length ≤ maxShortLen → x.toNat = ι.ptr s) →
+      ι.own x.toNat s → ValRepr mo ι (BitVec.ofNat 8 (strTag s)) x (.str s)
   | print {x} : x = BitVec.ofNat 64 symLuaBPrint →
       ValRepr mo ι (BitVec.ofNat 8 vLcf) x (.builtin .print)
 
@@ -132,9 +147,12 @@ structure RelPtrs where
   sp : Nat
   /-- the memory outside the window -/
   mo : Mem
-  /-- the intern map: the one `TString` of each short content
-  (`internshrstr`), which a short-string register points to (`ValRepr.str`) -/
-  ι : List UInt8 → Nat
+  /-- the strings (`Strs`): the intern map, which a short-string register
+  points to, and the owned string objects (`ValRepr.str`) -/
+  ι : Strs
+  /-- the runtime's pointers and heap shape (`RuntimeMem`): the allocator
+  chunks that own the strings (`StrOwned`) -/
+  rt : RtPtrs
 
 namespace RelPtrs
 
@@ -178,6 +196,34 @@ the complement's (`Core.frame`). -/
 def Win (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
   Slots p w a ∨ (w.sp ≤ a ∧ a < w.sp + execFrame) ∨ Scratch w a
 
+/-- **The chunk `c` owns the string object at `ts`** holding `s`: `c` is an
+in-use chunk of the allocator's walk (`HeapAt`'s `chunks`, `w.rt`), its user
+range `[addr + 16, addr + size + 8)` (an in-use chunk also owns the next
+chunk's `prev_size` word) holds the whole object (the header from `ts`, the
+contents at `+24` and the terminator), and no byte of that range is in the
+window. Keyed to the chunk, not to the window: a freed string's bytes are
+the allocator's (dlmalloc's `fd`/`bk` overwrite its tag and length), and an
+in-use chunk is apart from every other chunk however the window moves. -/
+structure ChunkOwns (p : Proto) (w : RelPtrs) (c : DlHeap.Chunk) (ts : Nat) (s : List UInt8) :
+    Prop where
+  walk : c ∈ w.rt.chunks
+  inuse : c.inuse = true
+  lo : c.addr + 16 ≤ ts
+  hi : ts + tstringContentsOff + s.length + 1 ≤ c.addr + c.size + 8
+  out : ∀ a, c.addr + 16 ≤ a → a < c.addr + c.size + 8 → ¬ Win p w a
+
+/-- **An owned string object**: some chunk owns it (`ChunkOwns`). -/
+def StrOwned (p : Proto) (w : RelPtrs) (ts : Nat) (s : List UInt8) : Prop :=
+  ∃ c, ChunkOwns p w c ts s
+
+/-- An owned string object lies outside the window, header to terminator. -/
+theorem StrOwned.out {p : Proto} {w : RelPtrs} {ts : Nat} {s : List UInt8}
+    (h : StrOwned p w ts s) : ∀ a, ts ≤ a → a < ts + tstringContentsOff + s.length + 1 →
+      ¬ Win p w a := by
+  obtain ⟨c, hc⟩ := h
+  intro a h1 h2
+  exact hc.out a (by have := hc.lo; omega) (by have := hc.hi; omega)
+
 /-- The parts of `luaRuntimeReady` that live in memory and that the F1 arms
 keep: the Lua state (with `ci->func = func`), the heap and the error
 handler. (`StdioBoot`/`MemfsBoot` describe the state before the first
@@ -201,10 +247,12 @@ structure Complement (p : Proto) (w : RelPtrs) : Prop where
   func_word : bytesT8 w.mo (w.ci + ciFuncOff) = BitVec.ofNat 64 w.func
   /-- `ci->u.l.trap = 0` (no hooks), as `updatetrap` reads it -/
   trap_word : bytesT4 w.mo (w.ci + ciTrapOff) = 0
-  runtime : ∃ rt, RuntimeMem w.mo w.L w.ci w.func rt
+  runtime : RuntimeMem w.mo w.L w.ci w.func w.rt
   /-- the constants (`kval`), as the `K` arms read `k[i]` -/
   kconst : ∀ i v, kval p i = some v →
     ValRepr w.mo w.ι (slotTag w.mo (w.k + stackValueSize * i)) (slotVal w.mo (w.k + stackValueSize * i)) v
+  /-- every string object a register or constant may point to is owned -/
+  own : ∀ ts s, w.ι.own ts s → StrOwned p w ts s
 
 /-- **Where things are**: the address ranges the arms' side conditions need,
 and the window's separation from the code array and the `CallInfo`. -/
@@ -381,7 +429,7 @@ is `Protect(cond = luaV_equalobj(L, s2v(ra), rb))` then `docondjump`:
   integers by payload, booleans by tag, `print` by its one pointer, long
   strings by length and `memcmp` (`luaS_eqlngstr`, over the `TStringRepr`
   bytes), and short strings by pointer (`eqshrstr`), which is content
-  equality because short-string registers hold `ι s` (`ValRepr.str`) and a
+  equality because short-string registers hold `ι.ptr s` (`ValRepr.str`) and a
   pointer holds one content (`TStringRepr.inj`). It never reaches
   `luaT_callTMres` on F1 values (`__eq` is only tried for tables and full
   userdata);
@@ -477,6 +525,31 @@ theorem Core.kconst (hc : Core p c s w) {i : Nat} {v : Value} (hk : kval p i = s
     fun j hj => hc.frame _ (hc.ranges.k_out _ (by omega) (by simp only [stackValueSize] at *; omega))
   rw [ht, hv]
   exact hc.comp.kconst i v hk
+
+/-- A represented string's object is owned (`Complement.own`). -/
+theorem ValRepr.owned (hc : Complement p w) {t : BitVec 8} {x : BitVec 64} {str : List UInt8}
+    (h : ValRepr w.mo w.ι t x (.str str)) : StrOwned p w x.toNat str := by
+  cases h with
+  | str _ _ ho => exact hc.own _ _ ho
+
+/-- **A string register's object is owned**: it lies in an in-use allocator
+chunk apart from the window, so the machine's bytes there are the
+complement's (`Core.frame`). -/
+theorem Core.reg_owned (hc : Core p c s w) {j : Nat} {str : List UInt8} (hj : j < p.maxstacksize)
+    (hv : s.regs j = some (.str str)) : StrOwned p w (slotVal c.σ.mem (w.slot j)).toNat str :=
+  (hc.stack j _ hj hv).owned hc.comp
+
+/-- **A string constant's object is owned.** -/
+theorem Core.k_owned (hc : Core p c s w) {i : Nat} {str : List UInt8} (hk : kval p i = some (.str str)) :
+    StrOwned p w (slotVal c.σ.mem (w.k + stackValueSize * i)).toNat str :=
+  (hc.kconst hk).owned hc.comp
+
+/-- **An owned string's bytes are the complement's**: every byte of the
+object, header to terminator, reads (totally) as `w.mo`'s. -/
+theorem Core.str_frame (hc : Core p c s w) {ts : Nat} {str : List UInt8} (ho : StrOwned p w ts str)
+    {a : Nat} (h1 : ts ≤ a) (h2 : a < ts + tstringContentsOff + str.length + 1) :
+    bytesT1 c.σ.mem a = bytesT1 w.mo a :=
+  hc.frame a (ho.out a h1 h2)
 
 /-! ## Re-establishing the relation after an arm -/
 

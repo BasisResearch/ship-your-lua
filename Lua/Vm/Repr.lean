@@ -46,7 +46,9 @@ def BytesAt (m : Mem) (a : Nat) (bs : List UInt8) : Prop :=
 
 /-- A `TString` at `ts` holding the bytes `s`: short strings (header tag
 `LUA_VSHRSTR`, `shrlen`) up to `LUAI_MAXSHORTLEN`, long strings otherwise
-(header tag `LUA_VLNGSTR`, `u.lnglen`); contents are NUL-terminated. The
+(header tag `LUA_VLNGSTR`, `u.lnglen`, and `shrlen = 0xFF`, which
+`luaS_createlngstrobj` stores and `l_strcmp` branches on at `0x8001a720`);
+contents are NUL-terminated. The
 header tag is `GCObject.tt`, which `luaC_newobj` stores without
 `BIT_ISCOLLECTABLE` (`gcShrStr = 4`, not the `TValue` tag `vShrStr = 68`). -/
 inductive TStringRepr (m : Mem) : Nat → List UInt8 → Prop where
@@ -57,6 +59,7 @@ inductive TStringRepr (m : Mem) : Nat → List UInt8 → Prop where
   | long {ts s} : rd8 m (ts + gcTtOff) = some gcLngStr → maxShortLen < s.length →
       rd64 m (ts + tstringLnglenOff) = some s.length →
       BytesAt m (ts + tstringContentsOff) s → m[ts + tstringContentsOff + s.length]? = some 0 →
+      rd8 m (ts + tstringShrlenOff) = some 0xFF →
       TStringRepr m ts s
 
 /-- The `TValue` tag of a string with bytes `s`: the variant is determined by

@@ -378,6 +378,25 @@ def evaluate(lay, M, regs, proto):
         n = rd(ts + lay["tstringShrlenOff"], 1)
         s = bytes(rd(ts + lay["tstringContentsOff"] + j, 1) for j in range(n))
         need(interned.setdefault(s, ts) == ts, "KInterned")
+    # ---- KOwned: every string constant lies in an in-use chunk apart from the
+    # Lua stack, L and ci (`StrChunkAt`, `kownedCheck`)
+    for i in range(w["sizek"]):
+        a = w["k"] + lay["tvalueSize"] * i
+        if rd(a + lay["tvalueTagOff"], 1) not in (lay["vShrStr"], lay["vLngStr"]):
+            continue
+        ts = rd(a + lay["tvalueValOff"], 8)
+        tt = rd(ts + lay["gcTtOff"], 1)
+        n = (rd(ts + lay["tstringShrlenOff"], 1) if tt == lay["gcShrStr"]
+             else rd(ts + lay["tstringLnglenOff"], 8))
+        obj_end = ts + lay["tstringContentsOff"] + n + 1
+
+        def owns(c):
+            ca, sz, inuse = c
+            lo_, hi_ = ca + 16, ca + sz + 8
+            return (inuse and lo_ <= ts and obj_end <= hi_ and hi_ <= lay["symHeapEnd"]
+                    and (hi_ <= w["stack"] or w["stackLast"] <= lo_)
+                    and (hi_ <= L or L_end <= lo_) and (hi_ <= ci or ci_end <= lo_))
+        need(any(owns(c) for c in w["chunks"]), f"KOwned: k[{i}]'s string in an owned chunk")
     return e, w, slot, inv
 
 
@@ -422,6 +441,7 @@ def check_tstring(lay, M, ts, s):
     else:
         need(rd(ts + lay["gcTtOff"], 1) == lay["gcLngStr"], "long string tag")
         need(rd(ts + lay["tstringLnglenOff"], 8) == n, "lnglen")
+        need(rd(ts + lay["tstringShrlenOff"], 1) == 0xFF, "long shrlen = 0xFF")
     c = ts + lay["tstringContentsOff"]
     need(all(rd(c + i, 1) == s[i] for i in range(n)) and rd(c + n, 1) == 0, "string bytes")
 

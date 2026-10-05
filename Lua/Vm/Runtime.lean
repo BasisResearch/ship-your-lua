@@ -23,6 +23,8 @@ what `luaV_execute` and its F1 callees read outside those:
   table and string cache, the basic types' metatables);
 * `VmRegionsAt`: where the objects `luaV_execute` addresses lie (the heap, and
   apart from the Lua stack), for A1's `VmRel`;
+* `KInterned`, `KOwned`: the string constants are interned, and each lies in
+  an in-use allocator chunk apart from the Lua stack, `L` and `ci`;
 * `HarnessAt`: the platform loop's tick counter and the empty console.
 
 Every field says which callee reads it. Boot-invariant values (the entry `sp`,
@@ -320,6 +322,41 @@ def KInterned (m : Mem) (k sizek : Nat) : Prop :=
     rd64 m (k + tvalueSize * j + tvalueValOff) = some y →
     s.length ≤ maxShortLen → TStringRepr m x s → TStringRepr m y s → x = y
 
+/-- **`k[i]` is the string `s`, at `ts`**: the constant's tag (`strTag s`),
+its pointer, and the `TString` there. -/
+structure KStrAt (m : Mem) (k sizek i ts : Nat) (s : List UInt8) : Prop where
+  lt : i < sizek
+  tag : tagAt m (k + tvalueSize * i) = some (strTag s)
+  ptr : rd64 m (k + tvalueSize * i + tvalueValOff) = some ts
+  str : TStringRepr m ts s
+
+/-- **The chunk `c` owns the `TString` at `ts` with `n` content bytes**: an
+in-use chunk of the allocator's walk whose user range
+`[addr + 16, addr + size + 8)` holds the object (header, contents at `+24`,
+terminator) and lies in the heap, apart from the Lua stack
+`[stack, stack_last)`, the `lua_State` and the `CallInfo`. These are the
+facts A1's `Lua.Vm.Sim.ChunkOwns` needs for the window (register slots,
+`savedpc`, `L->top`, the C stack above the heap). -/
+structure StrChunkAt (L ci : Nat) (w : RtPtrs) (c : DlHeap.Chunk) (ts n : Nat) : Prop where
+  walk : c ∈ w.chunks
+  inuse : c.inuse = true
+  lo : c.addr + 16 ≤ ts
+  hi : ts + tstringContentsOff + n + 1 ≤ c.addr + c.size + 8
+  heap : c.addr + c.size + 8 ≤ symHeapEnd
+  stack_sep : c.addr + c.size + 8 ≤ w.stack ∨ w.stackLast ≤ c.addr + 16
+  L_sep : c.addr + c.size + 8 ≤ L ∨ L + stateSize ≤ c.addr + 16
+  ci_sep : c.addr + c.size + 8 ≤ ci ∨ ci + ciSize ≤ c.addr + 16
+
+/-- **The string constants are owned by the allocator.** `luaS_newlstr` →
+`luaC_newobj` → `l_alloc` → `realloc` gives every `TString` its own block,
+which stays in use while the prototype reaches it. A1's `VmRel` reads string
+bytes through its complement memory only outside the window, so it needs
+every constant's object in an in-use chunk apart from the window
+(`Lua.Vm.Sim.Complement.own`); dlmalloc's free path overwrites a freed
+string's header, so the fact is keyed to the in-use chunks. -/
+def KOwned (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop :=
+  ∀ i ts s, KStrAt m w.k w.sizek i ts s → ∃ c, StrChunkAt L ci w c ts s.length
+
 /-- **The runtime at `luaV_execute`'s entry**, for the witness `w`. -/
 structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
   harness : HarnessAt c
@@ -340,6 +377,7 @@ structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
   top : rd64 c.σ.mem (L + stateTopOff) = some (w.func + stackValueSize)
   regions : VmRegionsAt c.σ.mem L ci w
   interned : KInterned c.σ.mem w.k w.sizek
+  kowned : KOwned c.σ.mem L ci w
 
 /-- **`luaRuntimeReady`**: some choice of the program-dependent pointers and
 heap shape makes the runtime ready. -/
