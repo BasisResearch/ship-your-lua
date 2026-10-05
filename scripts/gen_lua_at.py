@@ -53,7 +53,7 @@ M64 = (1 << 64) - 1
 
 # the arms this generator serves: opcode -> (module, jump-table target)
 ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
-        "OP_IDIV": ("Idiv", 0x8001deac)}
+        "OP_IDIV": ("Idiv", 0x8001deac), "OP_IDIVK": ("Idivk", 0x8001d768)}
 
 ABI = {"zero": 0, "ra": 1, "sp": 2, "gp": 3, "tp": 4, "t0": 5, "t1": 6, "t2": 7,
        "s0": 8, "fp": 8, "s1": 9}

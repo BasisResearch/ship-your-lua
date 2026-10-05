@@ -186,6 +186,7 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.divdi3_sum
 #print axioms Lua.Vm.Sim.Kit.idivC_eq
 #print axioms Lua.Vm.At.FORPREP.call_8001e200
+#print axioms Lua.Vm.Sim.At.sim_IDIVK
 #print axioms Lua.Vm.Sim.Kit.armBody_split
 #print axioms Lua.Vm.Sim.sim_arithK
 #print axioms Lua.Vm.Sim.Ranges.k_getElem_wm8
