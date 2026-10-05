@@ -1,5 +1,6 @@
 import Lua.Vm.Sim.Kit.Word
 import Lua.Vm.Sim.Kit.Memcmp
+import Lua.Vm.Sim.Kit.Lngstr
 import Lua.Vm.Arms.Segs.Hstrcmp
 
 /-!
@@ -45,6 +46,7 @@ structure ScRet (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (P 
 
 /-- The facts every path uses: `P`'s terminator at `t`, the reads in RAM. -/
 structure ScCtx (m : Mem) (P Q t : Nat) (r : BitVec 64) : Prop where
+  ro : RodataRead m
   ra : r.toNat % 4 = 0
   p_lo : tohostAddr + 16 ≤ P
   q_lo : tohostAddr + 16 ≤ Q
@@ -303,5 +305,262 @@ theorem strcmp_hw (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : A
       · exact strcmp_hw2 P Q i r sp f m o hra hok hnz ⟨h01.1, h01.2, h23.1, h23.2⟩ h45
     · exact strcmp_hw1 P Q i r sp f m o hra hok hnz h01 h23
   · exact strcmp_hw0 P Q i r sp f m o hra hok hnz h01
+
+/-! ## The word loop (`0x8003b938`, unrolled three times) -/
+
+/-- The mask register, an atom. -/
+def maskV : BitVec 64 := 0x7f7f7f7f7f7f7f7f#64
+
+/-- `li t2, -1`, an atom. -/
+def onesV : BitVec 64 := (0#64) + sign_extend (m := 64) (0xfff#12)
+
+theorem ones_eq : (0#64) + sign_extend (m := 64) (0xfff#12) = onesV := rfl
+
+/-- The bytes of `mask` (one kernel check). -/
+theorem mask_bytes : ∀ j, j < 8 → Image.rodataByte (0x8005c620 - Image.rodataBase + j) = 0x7f#8 := by
+  decide +kernel
+
+/-- `ld a5, mask` (`.rodata` at `0x8005c620`). -/
+theorem mask_ld {m : Mem} (hro : RodataRead m) :
+    sign_extend (m := 64) (bytesT8 m (((0x8003b930#64) + sign_extend (m := 64) ((0x00021#20) +++ 0x000#12)) +
+      sign_extend (m := 64) (0xcf0#12)).toNat : BitVec (8 * 8)) = maskV := by
+  rw [sext64_id, show ((((0x8003b930#64) + sign_extend (m := 64) ((0x00021#20) +++ 0x000#12)) +
+      sign_extend (m := 64) (0xcf0#12)).toNat) = 0x8005c620 by decide]
+  have hb : ∀ j, j < 8 → bytesT1 m (0x8005c620 + j) = 0x7f#8 := by
+    intro j hj
+    have := hro (0x8005c620 - Image.rodataBase + j) (by simp only [Image.rodataBase, Image.rodataSize]; omega)
+    rw [show Image.rodataBase + (0x8005c620 - Image.rodataBase + j) = 0x8005c620 + j by
+      simp only [Image.rodataBase]; omega] at this
+    rw [this]; exact mask_bytes j hj
+  have h0 := hb 0 (by omega)
+  simp only [bytesT1, Nat.add_zero] at h0 hb
+  simp only [bytesT8, h0, hb 1 (by omega), hb 2 (by omega), hb 3 (by omega), hb 4 (by omega),
+    hb 5 (by omega), hb 6 (by omega), hb 7 (by omega), maskV]
+  decide
+
+/-- `ld` of a word through its 8 bytes. -/
+theorem ld_word0 {m : Mem} {y : Nat} : sign_extend (m := 64) (bytesT8 m y : BitVec (8 * 8)) = wordAt m y :=
+  sext64_id _
+
+/-- The zero-byte test of the word at `x + k` (`hzW_bytes`): no zero byte. -/
+theorem sc_hz_ok {m : Mem} {x k : Nat} (hk : k < 2048) (h : x + k < 2 ^ 64)
+    (hz : ∀ j, j < 8 → bytesT1 m (x + k + j) ≠ 0#8) :
+    (((((sign_extend (m := 64) (bytesT8 m (BitVec.ofNat 64 x + sign_extend (m := 64) (BitVec.ofNat 12 k)).toNat :
+      BitVec (8 * 8))) &&& maskV) + maskV) ||| ((sign_extend (m := 64) (bytesT8 m (BitVec.ofNat 64 x +
+        sign_extend (m := 64) (BitVec.ofNat 12 k)).toNat : BitVec (8 * 8))) ||| maskV)) != onesV) = false := by
+  rw [addr_imm hk h, sext64_id]
+  have e := (hzW_bytes (m := m) (p := x + k)).2 hz
+  simp only [hzW, maskW] at e
+  rw [show maskV = 0x7f7f7f7f7f7f7f7f#64 from rfl, show onesV = (0#64) + sign_extend (m := 64) (0xfff#12) from rfl,
+    e]; simp
+
+/-- … and with a zero byte. -/
+theorem sc_hz_zero {m : Mem} {x k : Nat} (hk : k < 2048) (h : x + k < 2 ^ 64)
+    (hz : ¬ ∀ j, j < 8 → bytesT1 m (x + k + j) ≠ 0#8) :
+    (((((sign_extend (m := 64) (bytesT8 m (BitVec.ofNat 64 x + sign_extend (m := 64) (BitVec.ofNat 12 k)).toNat :
+      BitVec (8 * 8))) &&& maskV) + maskV) ||| ((sign_extend (m := 64) (bytesT8 m (BitVec.ofNat 64 x +
+        sign_extend (m := 64) (BitVec.ofNat 12 k)).toNat : BitVec (8 * 8))) ||| maskV)) != onesV) = true := by
+  rw [addr_imm hk h, sext64_id]
+  have e := hzW_bytes (m := m) (p := x + k)
+  simp only [hzW, maskW] at e
+  rw [show maskV = 0x7f7f7f7f7f7f7f7f#64 from rfl, show onesV = (0#64) + sign_extend (m := 64) (0xfff#12) from rfl,
+    bne_iff_ne]
+  exact fun e' => hz (e.1 e')
+
+theorem bne_of_eq {a b : BitVec 64} (h : a = b) : (a != b) = false := by simp [h]
+theorem bne_of_ne {a b : BitVec 64} (h : a ≠ b) : (a != b) = true := by simp [h]
+
+/-- The first of a decidable property below `n`. -/
+theorem exists_first {P : Nat → Prop} [DecidablePred P] (n : Nat) :
+    (∃ z, z < n ∧ P z) → ∃ z, z < n ∧ P z ∧ ∀ y, y < z → ¬ P y := by
+  induction n with
+  | zero => exact fun ⟨_, h, _⟩ => absurd h (Nat.not_lt_zero _)
+  | succ n ih =>
+    intro ⟨z, hz, hp⟩
+    by_cases h : ∃ y, y < n ∧ P y
+    · obtain ⟨y, hy, hpy, hmin⟩ := ih h
+      exact ⟨y, by omega, hpy, hmin⟩
+    · exact ⟨z, hz, hp, fun y hy hpy => h ⟨y, by omega, hpy⟩⟩
+
+/-- **The answer at a word with a zero byte, equal to the other**: the
+first zero, `a0 = 0`. -/
+theorem sc_ans_zero {m : Mem} {P Q p : Nat} (hok : ∀ j, j < p → ScOk m P Q j)
+    (hz : ¬ ∀ k, k < 8 → bytesT1 m (P + p + k) ≠ 0#8) (he : wordAt m (P + p) = wordAt m (Q + p)) :
+    ScAns m P Q ((0#64) + sign_extend (m := 64) (0x000#12)) := by
+  have hl := mc_lanes.1 he
+  obtain ⟨z, hz8, hz0, hmin⟩ := exists_first (P := fun k => bytesT1 m (P + p + k) = 0#8) 8
+    (by simp only [Classical.not_forall, Classical.not_not] at hz; obtain ⟨k, hk, e⟩ := hz; exact ⟨k, hk, e⟩)
+  have hlz := hl z hz8; simp only [McEq] at hlz
+  refine ⟨⟨p + z, fun j hj => ?_, fun h' => h'.2 ?_, ?_⟩⟩
+  · rcases Nat.lt_or_ge j p with h | h
+    · exact hok j h
+    · have e1 := hl (j - p) (by omega); have e2 := hmin (j - p) (by omega)
+      simp only [McEq] at e1
+      rw [show P + (p + (j - p)) = P + j by omega, show Q + (p + (j - p)) = Q + j by omega] at e1
+      rw [show P + p + (j - p) = P + j by omega] at e2
+      exact ⟨e1, e2⟩
+  · rw [← Nat.add_assoc]; exact hz0
+  · rw [← Nat.add_assoc, ← Nat.add_assoc] at hlz
+    rw [Vsa.Sim.sext_zero, BitVec.add_zero, ← Nat.add_assoc, ← Nat.add_assoc, ← hlz, hz0]
+    exact ⟨by simp, by decide⟩
+
+/-- The word loop's state: `a0 = P + i`, `a1 = Q + i`, the mask and `-1`. -/
+abbrev scW (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+  ⟨Register.x10, BitVec.ofNat 64 (P + i)⟩ :: ⟨Register.x11, BitVec.ofNat 64 (Q + i)⟩ ::
+    ⟨Register.x15, maskV⟩ :: ⟨Register.x7, onesV⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
+
+set_option hygiene false in
+local macro_rules | `(tactic| kit_norm $h) => `(tactic|
+  simp (disch := kit_disch) only [add_imm, BitVec.toNat_ofNat, Nat.mod_eq_of_lt, ld_word0, Nat.add_zero,
+    ones_eq, mask_ld hro] at $h:ident)
+
+set_option hygiene false in
+/-- The guard facts of one word at `P + i + k`. -/
+local macro "sc_word" k:num : tactic => `(tactic| (
+  have hk8 : P + i + $k < 2 ^ 64 := by omega))
+
+/-- No event before `p` puts `p` at or before `P`'s terminator. -/
+theorem sc_le_term {m : Mem} {P Q t p : Nat} {r : BitVec 64} (hx : ScCtx m P Q t r)
+    (hok : ∀ j, j < p → ScOk m P Q j) : p ≤ t :=
+  Nat.not_lt.1 fun h => (hok t h).2 hx.term
+
+/-- A word without a zero byte, equal to the other: no event in it. -/
+theorem sc_ok_word {m : Mem} {P Q p : Nat} (hok : ∀ j, j < p → ScOk m P Q j)
+    (hzk : ∀ k, k < 8 → bytesT1 m (P + p + k) ≠ 0#8) (he : wordAt m (P + p) = wordAt m (Q + p)) :
+    ∀ j, j < p + 8 → ScOk m P Q j := fun j hj => by
+  rcases Nat.lt_or_ge j p with h | h
+  · exact hok j h
+  · have e1 := mc_lanes.1 he (j - p) (by omega); have e2 := hzk (j - p) (by omega)
+    simp only [McEq] at e1
+    rw [show P + (p + (j - p)) = P + j by omega, show Q + (p + (j - p)) = Q + j by omega] at e1
+    rw [show P + p + (j - p) = P + j by omega] at e2
+    exact ⟨e1, e2⟩
+
+set_option hygiene false in
+/-- A word with a zero byte: equal (answer `0`) or relayed to the byte loop. -/
+local macro "sc_zero_exit" k:num : tactic => `(tactic| (
+  have hz := sc_hz_zero (m := m) (x := P + i) (k := $k) (by decide) hk8 hzk
+  by_cases he : wordAt m (P + i + $k) = wordAt m (Q + i + $k)
+  · have hw := bne_of_eq he
+    kit_run h acc
+    have h := h.at (Vsa.Sim.ret_tgt r hra)
+    exact ⟨_, acc, .inl ⟨⟨_, h.repin (by pins_of h), sc_ans_zero (p := i + $k) hok hzk he⟩⟩⟩
+  · have hw := bne_of_ne he
+    kit_run h acc until [0x8003ba04]
+    obtain ⟨c', hs, h'⟩ := strcmp_bytes P Q t r sp f m o hx (i + $k)
+      (Nat.lt_succ_of_le (sc_le_term hx hok)) hok _ (h.repin (by pins_of h))
+    exact ⟨c', acc.trans hs, .inl h'⟩))
+
+set_option hygiene false in
+/-- The common start of a word step. -/
+local macro "sc_wstart" : tactic => `(tactic| (
+  intro c h
+  have acc := Steps.refl c
+  sc_ctx hx
+  have hro := hx.ro
+  have hit := sc_le_term hx hok))
+
+/-- **The first word of the loop's body** (`0x8003b938`). -/
+theorem strcmp_w0 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : ScCtx m P Q t r) (i : Nat) (hok : ∀ j, j < i + 0 → ScOk m P Q j) :
+    Triple (SegSt 0x8003b938#64 (scW P Q i r sp f) (ArmPay m o))
+      (fun c => ScRet r sp f m o P Q c ∨
+        ((∀ j, j < i + 8 → ScOk m P Q j) ∧ SegSt 0x8003b958#64 (scW P Q i r sp f) (ArmPay m o) c)) := by
+  sc_wstart
+  sc_word 0
+  by_cases hzk : ∀ j, j < 8 → bytesT1 m (P + i + 0 + j) ≠ 0#8
+  · have hz := sc_hz_ok (m := m) (x := P + i) (k := 0) (by decide) hk8 hzk
+    by_cases he : wordAt m (P + i + 0) = wordAt m (Q + i + 0)
+    · have hw := bne_of_eq he
+      kit_run h acc until [0x8003b958]
+      exact ⟨_, acc, .inr ⟨sc_ok_word hok hzk he, h.repin (by pins_of h)⟩⟩
+    · have hw := bne_of_ne he
+      kit_run h acc until [0x8003b9a0]
+      obtain ⟨c', hs, h'⟩ := strcmp_hw P Q (i + 0) r sp f m o hra hok hzk he _ (h.repin (by pins_of h))
+      exact ⟨c', acc.trans hs, .inl h'⟩
+  · sc_zero_exit 0
+
+/-- **The second word** (`0x8003b958`). -/
+theorem strcmp_w1 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : ScCtx m P Q t r) (i : Nat) (hok : ∀ j, j < i + 8 → ScOk m P Q j) :
+    Triple (SegSt 0x8003b958#64 (scW P Q i r sp f) (ArmPay m o))
+      (fun c => ScRet r sp f m o P Q c ∨
+        ((∀ j, j < i + 16 → ScOk m P Q j) ∧ SegSt 0x8003b978#64 (scW P Q i r sp f) (ArmPay m o) c)) := by
+  sc_wstart
+  sc_word 8
+  by_cases hzk : ∀ j, j < 8 → bytesT1 m (P + i + 8 + j) ≠ 0#8
+  · have hz := sc_hz_ok (m := m) (x := P + i) (k := 8) (by decide) hk8 hzk
+    by_cases he : wordAt m (P + i + 8) = wordAt m (Q + i + 8)
+    · have hw := bne_of_eq he
+      kit_run h acc until [0x8003b978]
+      exact ⟨_, acc, .inr ⟨fun j hj => sc_ok_word hok hzk he j (by omega), h.repin (by pins_of h)⟩⟩
+    · have hw := bne_of_ne he
+      kit_run h acc until [0x8003b9a0]
+      obtain ⟨c', hs, h'⟩ := strcmp_hw P Q (i + 8) r sp f m o hra hok hzk he _ (h.repin (by pins_of h))
+      exact ⟨c', acc.trans hs, .inl h'⟩
+  · sc_zero_exit 8
+
+/-- **The third word** (`0x8003b978`), then the loop's back edge. -/
+theorem strcmp_w2 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : ScCtx m P Q t r) (i : Nat) (hok : ∀ j, j < i + 16 → ScOk m P Q j) :
+    Triple (SegSt 0x8003b978#64 (scW P Q i r sp f) (ArmPay m o))
+      (fun c => ScRet r sp f m o P Q c ∨
+        ((∀ j, j < i + 24 → ScOk m P Q j) ∧ SegSt 0x8003b938#64 (scW P Q (i + 24) r sp f) (ArmPay m o) c)) := by
+  sc_wstart
+  sc_word 16
+  by_cases hzk : ∀ j, j < 8 → bytesT1 m (P + i + 16 + j) ≠ 0#8
+  · have hz := sc_hz_ok (m := m) (x := P + i) (k := 16) (by decide) hk8 hzk
+    by_cases he : wordAt m (P + i + 16) = wordAt m (Q + i + 16)
+    · have hw := bne_of_eq he
+      have hw' : (wordAt m (P + i + 16) == wordAt m (Q + i + 16)) = true := by simp [he]
+      kit_run h acc until [0x8003b938]
+      exact ⟨_, acc, .inr ⟨fun j hj => sc_ok_word hok hzk he j (by omega), h.repin (by pins_of h)⟩⟩
+    · have hw := bne_of_ne he
+      have hw' : (wordAt m (P + i + 16) == wordAt m (Q + i + 16)) = false := by simp [he]
+      kit_run h acc until [0x8003b9a0]
+      obtain ⟨c', hs, h'⟩ := strcmp_hw P Q (i + 16) r sp f m o hra hok hzk he _ (h.repin (by pins_of h))
+      exact ⟨c', acc.trans hs, .inl h'⟩
+  · sc_zero_exit 16
+
+/-- **The word loop** (`scan_loop`, 24 bytes a pass). -/
+theorem strcmp_words (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : ScCtx m P Q t r) : ∀ i, i < t + 1 → (∀ j, j < i → ScOk m P Q j) →
+    Triple (SegSt 0x8003b938#64 (scW P Q i r sp f) (ArmPay m o)) (ScRet r sp f m o P Q) :=
+  scan_loop (t + 1) (ScOk m P Q) fun i _ hok c h => by
+    obtain ⟨c1, hs1, h1⟩ := strcmp_w0 P Q t r sp f m o hx i hok c h
+    rcases h1 with h1 | ⟨hok1, h1⟩
+    · exact ⟨c1, hs1, .inr h1⟩
+    obtain ⟨c2, hs2, h2⟩ := strcmp_w1 P Q t r sp f m o hx i hok1 c1 h1
+    rcases h2 with h2 | ⟨hok2, h2⟩
+    · exact ⟨c2, hs1.trans hs2, .inr h2⟩
+    obtain ⟨c3, hs3, h3⟩ := strcmp_w2 P Q t r sp f m o hx i hok2 c2 h2
+    rcases h3 with h3 | ⟨hok3, h3⟩
+    · exact ⟨c3, (hs1.trans hs2).trans hs3, .inr h3⟩
+    exact ⟨c3, (hs1.trans hs2).trans hs3,
+      .inl ⟨i + 24, by omega, Nat.lt_succ_of_le (sc_le_term hx hok3), hok3, h3⟩⟩
+
+/-- `strcmp`'s entry pins. -/
+abbrev scPre (P Q : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+  ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x11, BitVec.ofNat 64 Q⟩ :: ⟨Register.x1, r⟩ ::
+    ⟨Register.x2, sp⟩ :: f.pins
+
+/-- **`strcmp`, the call-node summary**: the answer at the first position
+where the strings differ or `P`'s ends, observed by `CmpObs`. -/
+theorem strcmp_sum (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : ScCtx m P Q t r) :
+    Triple (SegSt 0x8003b920#64 (scPre P Q r sp f) (ArmPay m o)) (ScRet r sp f m o P Q) := by
+  intro c h
+  have acc := Steps.refl c
+  sc_ctx hx
+  have hro := hx.ro
+  have hnil : ∀ j, j < 0 → ScOk m P Q j := fun j hj => absurd hj (Nat.not_lt_zero j)
+  by_cases hal : (((BitVec.ofNat 64 P ||| BitVec.ofNat 64 Q) &&& sign_extend (m := 64) (0x007#12)) != (0#64)) = true
+  · kit_run h acc until [0x8003ba04]
+    obtain ⟨c', hs, h'⟩ := strcmp_bytes P Q t r sp f m o hx 0 (by omega) hnil _ (h.repin (by pins_of h))
+    exact ⟨c', acc.trans hs, h'⟩
+  · simp only [Bool.not_eq_true] at hal
+    kit_run h acc until [0x8003b938]
+    obtain ⟨c', hs, h'⟩ := strcmp_words P Q t r sp f m o hx 0 (by omega) hnil _ (h.repin (by pins_of h))
+    exact ⟨c', acc.trans hs, h'⟩
 
 end Lua.Vm.Sim.Kit
