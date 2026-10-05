@@ -71,6 +71,43 @@ macro "at_fallK " ns:ident pc:num : tactic => `(tactic| (
     at_go $ns
   · at_go $ns))
 
+/-- `R[B]` has the integer tag (the one-register `opArith` arms: `SHLI`,
+`SHRI`, and `BANDK`/`BORK`/`BXORK`, whose `K[C]` is not tested). -/
+def TagB (_p : Proto) (c : Config) (_s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
+
+set_option hygiene false in
+/-- **`at_int1 pc`**: the setup of a one-register `opArith` arm at `pc` with
+`TagB` (`hI`): the immediate unfolded, `R[B]`'s value its payload. -/
+macro "at_int1 " pc:num : tactic => `(tactic| (
+  kit_setup $pc
+  simp only [immC, Opnd.ports] at hk htop
+  try simp [Opnd.ports] at htop
+  kit_bound hAt ins.a; kit_bound hBt ins.b
+  kit_reg hb vb hvb ins.b
+  have hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt := hI
+  obtain rfl := hvb.int_of_tag hB))
+
+set_option hygiene false in
+/-- **`at_fall1 NS pc`**: the fall-through of a one-register `opArith` arm
+(`¬ TagB`): the kernel's exit to `MMBIN*`. -/
+macro "at_fall1 " ns:ident pc:num : tactic => `(tactic| (
+  rintro p hS c s s' w ins hA hf hop hstep hI
+  kit_setup $pc
+  simp only [immC, Opnd.ports] at hk htop
+  try simp [Opnd.ports] at htop
+  kit_bound hAt ins.a; kit_bound hBt ins.b
+  kit_reg hb vb hvb ins.b
+  have hfb := hvb.ne_float
+  have hB : ¬ slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt := hI
+  simp [Opnd.fill] at hk; split at hk
+  · rename_i heq
+    obtain ⟨e1, e2⟩ := pair_eq heq
+    first | (subst e1; exact absurd hvb.tag_of_int.1 hB) | (subst e2; exact absurd hvb.tag_of_int.1 hB)
+  simp [VState.apply, writeDefs, KEdge.kills] at hk
+  subst hk
+  at_go $ns))
+
 /-! ## The division arms -/
 
 set_option hygiene false in

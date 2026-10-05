@@ -505,14 +505,16 @@ partial def atEq : TacticM Unit := withMainContext do
       atEq
       return
     catch _ => s2.restore
-    -- an operand not in the last position (`extractLsb x 31 0`): `congr 1`
-    try
-      evalTactic (← `(tactic| congr 1))
-      for g in ← getUnsolvedGoals do
+    -- an operand not in the last position (`extractLsb x 31 0`): congruence
+    -- on every argument (no closing by `rfl`: never whnf a Sail term)
+    if l.getAppFn.constName! == ``Sail.BitVec.extractLsb then
+     try
+      let gs ← (← getMainGoal).congrN 1 (closePre := false) (closePost := false)
+      for g in gs do
         setGoals [g]
         atEq
       return
-    catch _ => s2.restore
+     catch _ => s2.restore
   -- an address
   try
     evalTactic (← `(tactic| (apply BitVec.eq_of_toNat_eq; kit_disch)))
@@ -556,8 +558,11 @@ elab "at_pins " h:ident : tactic => withMainContext do
     if ← withReducible (isDefEq qv pv) then
       parts := parts.push (← `(pinsHold_get ($h).pins $(quote i) (by pin_len)))
     else
-      parts := parts.push (← `(pin_eq (pinsHold_get ($h).pins $(quote i) (by pin_len))
-        (by simp only [List.getElem_cons_succ, List.getElem_cons_zero, HFrame.pins]; at_eq)))
+      -- the pin's fact elaborated on its own first (elaborated against the
+      -- row's value, `addiw`'s pin sends the unifier into a loop)
+      parts := parts.push (← `((by
+        have hh := pinsHold_get ($h).pins $(quote i) (by pin_len)
+        exact pin_eq hh (by simp only [List.getElem_cons_succ, List.getElem_cons_zero, HFrame.pins]; at_eq))))
   parts := parts.push (← `(trivial))
   evalTactic (← `(tactic| exact ⟨$parts,*⟩))
 
@@ -672,11 +677,11 @@ macro "at_fin" : tactic => `(tactic| (
       cStackBudget, execFrame, stackValueSize, not_or, not_and, Nat.not_lt] at h1 h2 h3
     try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out]
   · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Loc.den]
+      SlotW.j, Fld.den, Loc.den, Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.add_zero, Nat.sub_zero]
     try refine ⟨?_, ?_⟩
     all_goals at_eq
   · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Loc.den]
+      SlotW.j, Fld.den, Loc.den, Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.add_zero, Nat.sub_zero]
     try refine ⟨?_, ?_⟩
     all_goals at_eq
   · intro x h1 h2
