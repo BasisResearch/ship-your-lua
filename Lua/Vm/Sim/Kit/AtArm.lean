@@ -26,6 +26,12 @@ namespace Lua.Vm.Sim.At
 
 open Lua.Vm.Sim Lua.Bytecode Lua.Vm.Layout Lua.Vm.Sim.Kit
 
+theorem stData_three_lit : stData 1 (0x3#64 : BitVec 64) = BitVec.ofNat 8 vNumInt := by decide
+theorem stData_three_n : stData 1 (BitVec.ofNat 64 vNumInt) = BitVec.ofNat 8 vNumInt := by decide
+
+theorem xor_true_of_ne {a b : Bool} (h : ¬ a = b) : (a ^^ b) = true := by
+  cases a <;> cases b <;> simp_all
+
 theorem beq_false_of_ne {x y : BitVec 64} (h : x ≠ y) : (x == y) = false := by simpa using h
 
 theorem bne_true_of_ne {x y : BitVec 64} (h : x ≠ y) : (x != y) = true := by simpa using h
@@ -48,7 +54,7 @@ elab "at_vals" : tactic => withMainContext do
   evalTactic (← `(tactic| (
     simp (config := { decide := true }) only [Loc.den, Fld.den, Nat.add_zero, bgeu_one, slt_zero,
       sge_zero, BitVec.msb_xor, Bool.xor_self, Bool.xor_false, Bool.false_xor, Bool.xor_true, Bool.true_xor,
-      Bool.not_eq_true, beq_iff_eq, beq_eq_false_iff_ne, bne_iff_ne, ne_eq, $facts,*]
+      Bool.not_eq_true, xor_true_of_ne, beq_iff_eq, beq_eq_false_iff_ne, bne_iff_ne, ne_eq, $facts,*]
     first | done | decide)))
 
 /-- The arm's closer of an at-lemma's hypothesis: a slot bound (`omega`
@@ -73,8 +79,9 @@ macro "at_new" : tactic => `(tactic| (
   ( simp only [SlotW.j, Fld.den, Nat.add_zero, Loc.den] at hv ⊢
     simp at hv
     subst hv
-    rw [show stData 1 (0x3#64 : BitVec 64) = BitVec.ofNat 8 vNumInt by decide]
-    first | exact .int | (simp_all; done) | (simp_all; exact .int))))
+    simp only [stData_three_lit, stData_three_n]
+    first | exact .int | (simp_all [snez_eq, BitVec.msb_xor]; done) |
+      (simp_all [snez_eq, BitVec.msb_xor]; exact .int))))
 
 open Lean Elab Tactic Meta in
 /-- **`at_close NS h acc`**: the close at the fetch head: the generated

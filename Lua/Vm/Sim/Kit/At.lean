@@ -130,8 +130,19 @@ def Loc.den (X : Cx) : Loc → BitVec 64
   | .sdiv x y => (x.den X).sdiv (y.den X)
   | .udiv x y => x.den X / y.den X
   | .umod x y => x.den X % y.den X
-  | .snez x => if x.den X = 0#64 then 0#64 else 1#64
+  | .snez x => zero_extend (m := 64) (bool_to_bit (zopz0zI_u 0#64 (x.den X)))
   | .cell e => bytesT8 X.c.σ.mem (e.den X)
+
+/-- `snez`'s value. -/
+theorem snez_eq (x : BitVec 64) :
+    zero_extend (m := 64) (bool_to_bit (zopz0zI_u 0#64 x)) = if x = 0#64 then 0#64 else 1#64 := by
+  by_cases h : x = 0#64
+  · subst h; decide
+  · have : 0 < x.toNat := Nat.pos_of_ne_zero fun e => h (BitVec.eq_of_toNat_eq e)
+    have e : zopz0zI_u 0#64 x = true := by
+      unfold zopz0zI_u; simp only [Sail.BitVec.toNatInt]
+      exact decide_eq_true (Int.ofNat_lt.mpr (by simpa using this))
+    rw [e, if_neg h]; decide
 
 /-- A store of the path. -/
 inductive Ent
@@ -534,7 +545,7 @@ elab "at_pins " h:ident : tactic => withMainContext do
       parts := parts.push (← `(pinsHold_get ($h).pins $(quote i) (by pin_len)))
     else
       parts := parts.push (← `(pin_eq (pinsHold_get ($h).pins $(quote i) (by pin_len))
-        (by simp only [List.getElem_cons_succ, List.getElem_cons_zero]; at_eq)))
+        (by simp only [List.getElem_cons_succ, List.getElem_cons_zero, HFrame.pins]; at_eq)))
   parts := parts.push (← `(trivial))
   evalTactic (← `(tactic| exact ⟨$parts,*⟩))
 
@@ -542,6 +553,7 @@ elab "at_pins " h:ident : tactic => withMainContext do
 `(by at_guard hg_k)` for a guard `hg_k`, `(by kit_disch)` for the rest. -/
 def atSegArgs (n : Name) : TermElabM (Array Term) := do
   let ci ← getConstInfo n
+  let outer ← getLCtx
   forallTelescope ci.type fun xs _ => do
     let mut args := #[]
     for x in xs do
@@ -549,7 +561,10 @@ def atSegArgs (n : Name) : TermElabM (Array Term) := do
       let nm := (← x.fvarId!.getDecl).userName.toString
       if ← Meta.isProp t then
         if nm.startsWith "hg" then
-          args := args.push (← `((by at_guard $(mkIdent (Name.mkSimple nm)))))
+          if outer.findFromUserName? (Name.mkSimple nm) |>.isSome then
+            args := args.push (← `((by at_guard $(mkIdent (Name.mkSimple nm)))))
+          else
+            args := args.push (← `((by first | decide | (simp; done))))
         else args := args.push (← `((by kit_disch)))
       else args := args.push (← `(_))
     return args
@@ -568,28 +583,33 @@ row's form. -/
 elab "at_seg " n:ident : tactic => do
   evalTactic (← `(tactic| at_open))
   let nm ← realizeGlobalConstNoOverload n
-  let args ← Tactic.runTermElab (atSegArgs nm)
+  let args ← withMainContext <| Tactic.runTermElab (atSegArgs nm)
   let seg ← `($(mkIdent nm) $args*)
   let h := mkIdent `h; let acc := mkIdent `acc
   evalTactic (← `(tactic|
     obtain ⟨_, $acc, $h⟩ := Vsa.Sim.SegSt.run $acc $h (by pins_of $h) $seg))
   evalTactic (← `(tactic| exact ⟨_, $acc, (Vsa.Sim.SegSt.repin $h (by at_pins $h)).mem_eq (by at_mem)⟩))
 
-set_option hygiene false in
-/-- **`at_call sum`**: a call at-lemma's proof: the helper's summary `sum`
-(a call node, `SegSt.call`) at the row, the return row and memory by
-`at_pins`/`at_mem`. -/
-macro "at_call " sum:term : tactic => `(tactic| (
-  at_open
-  obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h) $sum
-  exact ⟨_, acc, (Vsa.Sim.SegSt.repin h (by at_pins h)).mem_eq (by at_mem)⟩))
+/-- A dead callee-saved register's pin (every GPR holds a value, `RegsOk`):
+`s6`/`s10` in a helper's frame where the row has no location for them. -/
+theorem _root_.Vsa.Sim.SegSt.pin22 {pc : BitVec 64} {L : List Pin} {m : Mem} {o : Array String}
+    {c : Vsa.Machine.Config} (h : SegSt pc L (ArmPay m o) c) :
+    ∃ t, SegSt pc (⟨Register.x22, t⟩ :: L) (ArmPay m o) c := by
+  obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp (h.armOk.gpr 22 (by decide) (by decide))
+  exact ⟨t, h.repin ⟨ht, h.pins⟩⟩
+
+theorem _root_.Vsa.Sim.SegSt.pin26 {pc : BitVec 64} {L : List Pin} {m : Mem} {o : Array String}
+    {c : Vsa.Machine.Config} (h : SegSt pc L (ArmPay m o) c) :
+    ∃ t, SegSt pc (⟨Register.x26, t⟩ :: L) (ArmPay m o) c := by
+  obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp (h.armOk.gpr 26 (by decide) (by decide))
+  exact ⟨t, h.repin ⟨ht, h.pins⟩⟩
 
 set_option hygiene false in
-/-- `at_call` for a helper that carries `t0` (`__udivdi3`): `t0`'s value
-pinned first (`SegSt.pin5`). -/
-macro "at_call5 " sum:term : tactic => `(tactic| (
-  at_open
-  obtain ⟨_, h⟩ := h.pin5
+/-- **`at_call sum`**: a call at-lemma's proof, after `at_open` and the pins
+of the registers the row leaves dead (`SegSt.pin5`, `pin22`, `pin26`): the
+helper's summary `sum` (a call node, `SegSt.call`) at the row, the return
+row and memory by `at_pins`/`at_mem`. -/
+macro "at_call " sum:term : tactic => `(tactic| (
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h) $sum
   exact ⟨_, acc, (Vsa.Sim.SegSt.repin h (by at_pins h)).mem_eq (by at_mem)⟩))
 

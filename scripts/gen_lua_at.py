@@ -461,24 +461,29 @@ def call_effect(st, callee, ret):
     """The state after a summarised call, and the at-lemma's extra hypotheses
     and proof."""
     a0, a1 = st.get(10), st.get(11)
-    post = State({r: st.get(r) for r in FRAME}, st.log, st.facts)
+    dead = [r for r in FRAME if r not in st.regs]
+    if not set(dead) <= {22, 26}:
+        raise Stop(f"frame registers {dead} unknown")
+    post = State({r: st.get(r) for r in FRAME if r not in dead}, st.log, st.facts)
+    pins = [f"Vsa.Sim.SegSt.pin{r}" for r in dead]
     post.bounds = set()
     hyps, pre_regs = [], [10, 11, 1] + FRAME
     if callee == "__moddi3":
         post.set(10, ("srem", a0, a1))
         hyps.append(f"(hn : {den(a1)} ≠ 0#64)")
-        proof = ("at_call (Lua.Vm.Sim.Kit.moddi3_sum _ _ _ hframe? _ _ "
+        proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.moddi3_sum _ _ _ hframe? _ _ "
                  "(by at_unfold at hn; exact hn) (by decide))")
     elif callee == "__divdi3":
         post.set(10, ("sdiv", a0, a1))
         hyps.append(f"(hn : {den(a1)} ≠ 0#64)")
-        proof = ("at_call (Lua.Vm.Sim.Kit.divdi3_sum _ _ _ hframe? _ _ "
+        proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.divdi3_sum _ _ _ hframe? _ _ "
                  "(by at_unfold at hn; exact hn) (by decide))")
     elif callee == "__hidden___udivdi3":
         post.set(10, ("udiv", a0, a1))
         post.set(11, ("umod", a0, a1))
         hyps.append(f"(hn : {den(a1)} ≠ 0#64)")
-        proof = ("at_call5 (Lua.Vm.Sim.Kit.udivdi3_sum _ _ _ _ hframe? _ _ "
+        pins = ["Vsa.Sim.SegSt.pin5"] + pins
+        proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.udivdi3_sum _ _ _ _ hframe? _ _ "
                  "(by at_unfold at hn; exact hn) (by decide))")
     elif callee == "luaV_tointeger":
         s = to_aff(a0)
@@ -488,16 +493,18 @@ def call_effect(st, callee, ret):
         f, k, _ = slot_of(terms, s[1])
         q = to_aff(a1)
         qt = tuple(sorted(q[0].items(), key=lambda y: ATOMS.index(y[0])))
-        hyps.append(f"(ht : slotTag (Log.den X {{log}}) (X.w.slot (X.ins.{f} + {k})) = 3#8)")
+        hyps.append(f"(ht : slotTag X.c.σ.mem (X.w.slot (X.ins.{f} + {k})) = 3#8)")
         sp = (("sp", 1),)
         post.store("sd", sp, -24, st.get(9))
         post.store("sd", sp, -8, st.get(1))
         post.store("sd", qt, q[1], post.load(terms, s[1], 8))
         post.set(10, ("lit", 1))
-        proof = ("at_call (Lua.Vm.Sim.Kit.toint_sum _ _ _ _ hframe? _ _ "
-                 "(by constructor <;> first | decide | omega) rfl (by at_pre ht))")
+        proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ hframe? _ _ "
+                 "(by constructor <;> first | decide | kit_disch) (by rfl) (by at_pre ht))")
     else:
         raise Stop(f"no summary for {callee}")
+    proof = "\n  ".join(["at_open"] + [f"obtain ⟨_, h⟩ := {p} h" for p in pins] +
+                          [proof.replace("[{pins}] ", "")])
     return post, hyps, proof, pre_regs
 
 
@@ -539,8 +546,15 @@ class Arm:
         return n
 
     def bounds(self, st):
+        """The slot and `K` bounds a lemma's side conditions use: the slots it
+        touches, and the slots of the stores its loads are forwarded past."""
+        bs = set(st.bounds)
+        for _, t, a, _ in st.log:
+            so = slot_of(t, a)
+            if so:
+                bs.add((so[0], so[1]))
         out = []
-        for b in sorted(st.bounds):
+        for b in sorted(bs):
             if b == ("K",):
                 out.append("(hK : X.ins.c < X.p.k.length)")
             else:
