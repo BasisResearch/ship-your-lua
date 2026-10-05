@@ -55,8 +55,28 @@ theorem modk_corr : ArmBody .MODK (DivPath BothIntK dvK fun x y => DivGen y ∧ 
     ¬ y.msb = (x.srem y).msb) := by
   modk_gen
 
+/-- Not both integers: the kernel's fall-through to `MMBINK`, on the at-lemmas. -/
+theorem modk_fall : ArmBody .MODK fun p c s w ins => ¬ BothIntK p c s w ins := by
+  rintro p hS c s s' w ins hA hf hop hstep hI
+  kit_setup 0x8001dad0
+  kitk_const
+  kit_bound hAt ins.a; kit_bound hBt ins.b
+  kit_reg hb vb hvb ins.b
+  have hfb := hvb.ne_float; have hfk := hvk.ne_float
+  simp [Opnd.fill] at hk; split at hk
+  · rename_i heq
+    obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
+    exact absurd ⟨hvb.tag_of_int.1, hvk.tag_of_int.1⟩ hI
+  simp [VState.apply, writeDefs, KEdge.kills] at hk
+  subst hk
+  by_cases hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
+  · have hC : ¬ slotTag c.σ.mem (w.k + stackValueSize * ins.c) = BitVec.ofNat 8 vNumInt :=
+      fun hC => hI ⟨hB, hC⟩
+    at_go Lua.Vm.At.MODK
+  · at_go Lua.Vm.At.MODK
+
 /-- **`OP_MODK`** on the location-list route. -/
 theorem sim_MODK : SimArm .MODK := sim_div (by decide) _ _ modk_zero modk_m1 modk_rz modk_same
-  modk_corr fun {p} hS {c s s' w ins} hA hf hop hstep hI => by kitk_fall 0x8001dad0
+  modk_corr modk_fall
 
 end Lua.Vm.Sim.At

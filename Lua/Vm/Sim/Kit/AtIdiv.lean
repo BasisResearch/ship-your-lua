@@ -50,9 +50,27 @@ theorem idiv_same : ArmBody .IDIV (DivPath BothInt dvR fun x y => DivGen y ∧ x
 theorem idiv_diff : ArmBody .IDIV (DivPath BothInt dvR fun x y => DivGen y ∧ ¬ x.msb = y.msb ∧ True) := by
   idiv_gen
 
+/-- Not both integers: the kernel's fall-through to `MMBIN`, on the at-lemmas. -/
+theorem idiv_fall : ArmBody .IDIV fun p c s w ins => ¬ BothInt p c s w ins := by
+  rintro p hS c s s' w ins hA hf hop hstep hI
+  kit_setup 0x8001deac
+  kit_bound hAt ins.a; kit_bound hBt ins.b; kit_bound hCt ins.c
+  kit_reg hb vb hvb ins.b; kit_reg hcc vc hvc ins.c
+  have hfb := hvb.ne_float; have hfc := hvc.ne_float
+  simp [Opnd.fill] at hk; split at hk
+  · rename_i heq
+    obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
+    exact absurd ⟨hvb.tag_of_int.1, hvc.tag_of_int.1⟩ hI
+  simp [VState.apply, writeDefs, KEdge.kills] at hk
+  subst hk
+  by_cases hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
+  · have hC : ¬ slotTag c.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt := fun hC => hI ⟨hB, hC⟩
+    at_go Lua.Vm.At.IDIV
+  · at_go Lua.Vm.At.IDIV
+
 /-- **`OP_IDIV`** on the location-list route. -/
 theorem sim_IDIV : SimArm .IDIV := sim_div (by decide) (fun x y => x.msb = y.msb) (fun _ _ => True)
   idiv_zero idiv_m1 idiv_same idiv_diff (fun {_} _ {_ _ _ _ _} _ _ _ _ hq => absurd trivial hq.2.2.2)
-  fun {p} hS {c s s' w ins} hA hf hop hstep hI => by kit_arith_fall 0x8001deac
+  idiv_fall
 
 end Lua.Vm.Sim.At

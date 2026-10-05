@@ -341,12 +341,8 @@ macro "at_addr" : tactic => `(tactic| (
 /-- **`at_sep`**: `Sep x n a m` for a load against a store: the addresses
 normalised, then the regions (`Rgn.sep`) or, in one region, the offsets. -/
 elab "at_sep" : tactic => withMainContext do
-  if (← getOptions).getBool `at.debug then
-    logInfo m!"at_sep on {← ppGoal (← getMainGoal)}"
   evalTactic (← `(tactic| at_addr))
   withMainContext do
-  if (← getOptions).getBool `at.debug then
-    logInfo m!"at_sep normalised {← ppGoal (← getMainGoal)}"
   let t ← whnfR (← instantiateMVars (← getMainTarget)).cleanupAnnotations
   let args := t.getAppArgs
   unless t.isAppOfArity ``Sep 4 do throwError "at_sep: not a Sep goal: {t}"
@@ -453,8 +449,6 @@ partial def atEq : TacticM Unit := withMainContext do
   let isLoad (e : Expr) : Bool :=
     (e.find? fun x => x.isAppOf ``bytesT8 || x.isAppOf ``bytesT1 || x.isAppOf ``slotVal ||
       x.isAppOf ``slotTag).isSome
-  if (← getOptions).getBool `at.debug then
-    logInfo m!"at_eq start isLoad={isLoad t}: {t}"
   -- every load forwarded through the path's stores, `0(sp)` read as `k`
   if isLoad t then
     let hc := mkIdent `hc

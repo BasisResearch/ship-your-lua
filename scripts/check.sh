@@ -35,6 +35,7 @@ python3 scripts/gen_lua_code.py --check || fail "code pins drift"
 python3 scripts/gen_lua_decode_check.py --check || fail "decode check drift"
 python3 scripts/gen_lua_arms.py --check || fail "F1 arm segments drift"
 python3 scripts/gen_lua_arm.py --check || fail "A1 arm simulation lemmas drift"
+python3 scripts/gen_lua_at.py --check || fail "at-lemma (location-list rows) drift"
 python3 scripts/syi/gen_alloc_steps.py --check || fail "allocator step table drift"
 python3 scripts/draft_f1_arms.py | tail -1 | grep -q "; 0 steps need" || fail "F1 arm steps without a site class"
 # boot traces to luaV_execute (re-traced on the emulator, ~25 s): the runtime
@@ -177,6 +178,14 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.sim_MULK
 #print axioms Lua.Vm.Sim.Kit.sim_MODK
 #print axioms Lua.Vm.Sim.Kit.sim_div
+#print axioms Lua.Vm.Sim.At.sim_MODK
+#print axioms Lua.Vm.Sim.At.sim_IDIV
+#print axioms Lua.Vm.Sim.At.sim_FORPREP
+#print axioms Lua.Vm.Sim.At.Rgn.sep
+#print axioms Lua.Vm.Sim.At.AtFin.close
+#print axioms Lua.Vm.Sim.Kit.divdi3_sum
+#print axioms Lua.Vm.Sim.Kit.idivC_eq
+#print axioms Lua.Vm.At.FORPREP.call_8001e200
 #print axioms Lua.Vm.Sim.Kit.armBody_split
 #print axioms Lua.Vm.Sim.sim_arithK
 #print axioms Lua.Vm.Sim.Ranges.k_getElem_wm8

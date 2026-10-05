@@ -42,6 +42,15 @@ theorem sge_toInt (x y : BitVec 64) : zopz0zKzJ_s x y = decide (y.toInt ≤ x.to
 theorem AtFin.pc_eq {X : Cx} {M : List Ent} {W : List SlotW} {pc pc' : Nat} {c : Vsa.Machine.Config}
     (h : AtFin X M W pc c) (e : pc = pc') : AtFin X M W pc' c := e ▸ h
 
+/-- A tag guard (`li 19; bne`, `beq a, s2`) as a comparison of tag bytes. -/
+theorem zext_beq_lit (b : BitVec 8) (t : Nat) (ht : t < 256) :
+    (zero_extend (m := 64) (b : BitVec (8 * 1)) == BitVec.ofNat 64 t) = decide (b = BitVec.ofNat 8 t) :=
+  zext_tag_beq b t ht
+
+theorem zext_bne_lit (b : BitVec 8) (t : Nat) (ht : t < 256) :
+    (zero_extend (m := 64) (b : BitVec (8 * 1)) != BitVec.ofNat 64 t) = !decide (b = BitVec.ofNat 8 t) := by
+  simp only [bne, zext_tag_beq b t ht]
+
 theorem beq_false_of_ne {x y : BitVec 64} (h : x ≠ y) : (x == y) = false := by simpa using h
 
 theorem bne_true_of_ne {x y : BitVec 64} (h : x ≠ y) : (x != y) = true := by simpa using h
@@ -66,6 +75,11 @@ elab "at_vals" : tactic => withMainContext do
         sge_zero, BitVec.msb_xor, Bool.xor_self, Bool.xor_false, Bool.false_xor, Bool.xor_true,
         Bool.true_xor, Bool.not_eq_true, xor_true_of_ne, beq_iff_eq, beq_eq_false_iff_ne, bne_iff_ne,
         ne_eq, BitVec.zero_sub, BitVec.neg_eq_zero_iff, $facts,*]
+       first | done | decide)
+    | (simp (config := { decide := true }) only [Loc.den, Fld.den, Nat.add_zero,
+        zext_beq_lit _ 19 (by decide), zext_bne_lit _ 19 (by decide), zext_beq_lit _ vNumInt (by decide),
+        zext_bne_lit _ vNumInt (by decide), decide_eq_true_eq, decide_eq_false_iff_not,
+        Bool.not_eq_true', Bool.not_eq_false', $facts,*]
        first | done | decide)
     | (simp (config := { decide := true }) only [Loc.den, Fld.den, Nat.add_zero, slt_toInt, sge_toInt,
         beq_iff_eq, beq_eq_false_iff_ne, bne_iff_ne, ne_eq, decide_eq_true_eq, decide_eq_false_iff_not,
