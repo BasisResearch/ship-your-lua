@@ -57,7 +57,7 @@ structure LsFrame (mL m : Mem) (sp : Nat) (r : BitVec 64) (f : KFrame) : Prop wh
   s4 : bytesT8 mL (sp - 48) = f.s4
 
 /-- The contents as their C view. -/
-theorem StrView.cb_at {m : Mem} {ts : Nat} {s : List UInt8} (h : StrView m ts s) {j : Nat}
+theorem _root_.Lua.Vm.Sim.StrView.cb_at {m : Mem} {ts : Nat} {s : List UInt8} (h : StrView m ts s) {j : Nat}
     (hj : j ≤ s.length) : bytesT1 m (ts + tstringContentsOff + j) = cb s j := by
   unfold cb
   rcases Nat.lt_or_ge j s.length with h' | h'
@@ -289,5 +289,47 @@ theorem lstrcmp_loop (P Q sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o
       rcases hn with hr | ⟨i', z', hi, hA', h'⟩
       · exact ⟨c', hs, .inr hr⟩
       · exact ⟨c', hs, .inl ⟨(i', z'), by have := hA'.le1; simp only; omega, hA', h'⟩⟩) (i, z) c ⟨hA, h⟩
+
+/-- The first call site (`0x8001a744`, a long second string): `s3 = lnglen`. -/
+abbrev lsA (P Q t2 n1 : Nat) (y z : BitVec 64) (sp : Nat) (f : KFrame) : List Pin :=
+  ⟨Register.x11, BitVec.ofNat 64 t2⟩ :: ⟨Register.x8, BitVec.ofNat 64 P⟩ :: ⟨Register.x9, BitVec.ofNat 64 Q⟩ ::
+    ⟨Register.x18, BitVec.ofNat 64 n1⟩ :: ⟨Register.x19, y⟩ :: ⟨Register.x20, z⟩ ::
+    ⟨Register.x2, BitVec.ofNat 64 (sp - 48)⟩ :: ⟨Register.x3, f.gp⟩ ::
+    ⟨Register.x21, f.s5⟩ :: ⟨Register.x23, f.s7⟩ :: ⟨Register.x24, f.s8⟩ :: ⟨Register.x25, f.s9⟩ ::
+    ⟨Register.x27, f.s11⟩ :: []
+
+/-- **The first chunk from the first call site** (`0x8001a744`). -/
+theorem lstrcmp_A (P Q t2 sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o : Array String)
+    (s1 s2 : List UInt8) (hra : r.toNat % 4 = 0) (hsp : tohostAddr + 16 + 64 ≤ sp) (hsp2 : sp ≤ 2 ^ 32)
+    (hF : LsFrame mL m sp r f) (hM : LsMem mL P Q s1 s2) (y z : BitVec 64)
+    (ht2 : tohostAddr + 16 ≤ t2) (ht2' : t2 + 24 ≤ 2 ^ 32)
+    (hln : bytesT8 mL (t2 + 16) = BitVec.ofNat 64 s2.length) :
+    Triple (SegSt 0x8001a744#64 (lsA P Q t2 s1.length y z sp f) (ArmPay mL o))
+      (LsNext r sp f m mL o P Q s1 s2 0) := by
+  intro c h
+  have acc := Steps.refl c
+  ls_ctx
+  have i := 0
+  have hA : Agree s1 s2 0 := ⟨Nat.zero_le _, Nat.zero_le _, fun j _ _ hj => absurd hj (Nat.not_lt_zero j)⟩
+  have sc : ScCtx mL (P + 0) (Q + 0) (s1.length - 0) 0x8001a754#64 := ⟨hM.ro, by decide, by omega, by omega,
+    by omega, by omega, by rw [Nat.add_assoc, show 0 + (s1.length - 0) = s1.length by omega,
+      hM.c1 _ (Nat.le_refl _), cb_len]⟩
+  kit_run h acc until [0x8003b920]
+  have hln' := hln; unfold bytesT8 at hln'; rw [hln'] at h
+  obtain ⟨_, acc, ⟨v, h, hv⟩⟩ := h.call acc (by pins_of h)
+    (strcmp_sum (P + 0) (Q + 0) (s1.length - 0) 0x8001a754#64 (BitVec.ofNat 64 (sp - 48))
+      (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) mL o sc)
+  dsimp only [RetAt] at h
+  obtain ⟨k, hok, hd | ⟨hv0, hz1, hz2⟩⟩ := ls_ans hM hA hv
+  · have g : ((v + sign_extend (m := 64) (0x000#12)) != 0#64) = true := by simp [Vsa.Sim.sext_zero, hd.1]
+    kit_run h acc until [0x8001a7a8]
+    have h2 := h.repin (L' := lsE _ sp f _ _ _ _ _) (by pins_of h)
+    obtain ⟨c', hs, h'⟩ := lstrcmp_exit sp r f mL m o s1 s2 hra hsp hsp2 hF _ _ _ _ _ _ hd.2 _ h2
+    exact ⟨c', acc.trans hs, ⟨.inl h'⟩⟩
+  · have g : ((v + sign_extend (m := 64) (0x000#12)) != 0#64) = false := by simp [Vsa.Sim.sext_zero, hv0]
+    kit_run h acc until [0x8001a760]
+    obtain ⟨c', hs, h'⟩ := lstrcmp_mid P Q sp r f mL m o s1 s2 hra hsp hsp2 hF hM 0 k z hA hok hz1 hz2 _
+      (h.repin (by pins_of h))
+    exact ⟨c', acc.trans hs, h'⟩
 
 end Lua.Vm.Sim.Kit

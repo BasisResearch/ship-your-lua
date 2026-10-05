@@ -121,6 +121,12 @@ elab "guard_assumption" : tactic => withMainContext do
   throwError "guard_assumption: no such fact"
 
 open Lean Elab Tactic Meta in
+/-- Fails unless the goal is, syntactically, a `Bool` equation (a branch guard). -/
+elab "bool_goal" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  unless t.isAppOfArity ``Eq 3 && (t.getArg! 0).isConstOf ``Bool do throwError "bool_goal: not a guard"
+
+open Lean Elab Tactic Meta in
 /-- **`kit_seg h acc seg`**: one named segment step (the polarity chosen by
 the proof, no search): values `_`, side conditions by `kit_side`. -/
 elab "kit_seg " h:ident acc:ident n:ident : tactic => withMainContext do
