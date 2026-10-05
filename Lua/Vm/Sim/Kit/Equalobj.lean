@@ -234,7 +234,7 @@ theorem eqo_diff (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : 
 /-! ## M2: what the tag says about the value -/
 
 section
-variable {mo : Mem} {ι : List UInt8 → Nat}
+variable {mo : Mem} {ι : Strs}
 
 theorem strTag_lit (s : List UInt8) :
     BitVec.ofNat 8 (strTag s) = 68#8 ∨ BitVec.ofNat 8 (strTag s) = 84#8 := by
@@ -283,7 +283,7 @@ theorem _root_.Lua.Vm.Sim.ValRepr.eq_of_tag {t : BitVec 8} {x1 x2 : BitVec 64} {
 end
 
 section
-variable {mo : Mem} {ι : List UInt8 → Nat}
+variable {mo : Mem} {ι : Strs}
 
 theorem strTag_short {s : List UInt8} (h : BitVec.ofNat 8 (strTag s) = 68#8) : s.length ≤ maxShortLen := by
   unfold strTag at h; split at h
@@ -303,7 +303,7 @@ theorem _root_.Lua.Vm.Sim.ValRepr.eq_iff_payload {t1 t2 : BitVec 8} {x1 x2 : Bit
     | (simp; done)
     | (rename_i e1 e2; subst e1 e2; simp)
     | skip
-  rename_i s1 r1 i1 s2 r2 i2
+  rename_i s1 r1 i1 _ s2 r2 i2 _
   have h68 : BitVec.ofNat 8 (strTag s1) = 68#8 := by
     rcases strTag_lit s1 with e | e <;> rw [e] at ht ⊢ <;> revert ht <;> decide
   have hs1 := i1 (strTag_short h68)
@@ -317,7 +317,7 @@ end
 values, not both long strings, `a0` is `δ .eq`'s answer as 0/1; `ra` is saved
 below `sp`. -/
 theorem equalobj_sum (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
-    (hx : EqCtx m n1 n2 sp r) {mo : Mem} {ι : List UInt8 → Nat} {v1 v2 : Value}
+    (hx : EqCtx m n1 n2 sp r) {mo : Mem} {ι : Strs} {v1 v2 : Value}
     (hv1 : ValRepr mo ι (slotTag m n1) (slotVal m n1) v1)
     (hv2 : ValRepr mo ι (slotTag m n2) (slotVal m n2) v2)
     (hl : ¬ (slotTag m n1 = 84#8 ∧ slotTag m n2 = 84#8)) :

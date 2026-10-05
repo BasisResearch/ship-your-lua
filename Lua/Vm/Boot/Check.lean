@@ -66,7 +66,8 @@ def tstrCheck (v : View) (ts : Nat) (s : List UInt8) : Bool :=
   (if s.length ≤ maxShortLen then
     readsOk v [(ts + gcTtOff, 1, gcShrStr), (ts + tstringShrlenOff, 1, s.length)]
   else
-    readsOk v [(ts + gcTtOff, 1, gcLngStr), (ts + tstringLnglenOff, 8, s.length)]) &&
+    readsOk v [(ts + gcTtOff, 1, gcLngStr), (ts + tstringLnglenOff, 8, s.length),
+      (ts + tstringShrlenOff, 1, 0xFF)]) &&
   bytesOk v (ts + tstringContentsOff) s && v (ts + tstringContentsOff + s.length) == some 0
 
 theorem tstrCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ts : Nat} {s : List UInt8}
@@ -78,12 +79,20 @@ theorem tstrCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ts : Nat} {s
   split at hr
   · exact .short (h.reads hr (by mem_tac)) ‹_› (h.reads hr (by mem_tac)) hbytes hzero
   · exact .long (h.reads hr (by mem_tac)) (by omega) (h.reads hr (by mem_tac)) hbytes hzero
+      (h.reads hr (by mem_tac))
 
 theorem _root_.Lua.Vm.TStringRepr.short_len {m : Mem} {ts : Nat} {s : List UInt8} (h : TStringRepr m ts s)
     (hs : s.length ≤ maxShortLen) : rd8 m (ts + tstringShrlenOff) = some s.length := by
   cases h with
   | short _ _ hl _ _ => exact hl
   | long _ hlt _ _ _ => omega
+
+/-- A long string's `shrlen` is `0xFF` (`luaS_createlngstrobj`). -/
+theorem _root_.Lua.Vm.TStringRepr.long_shrlen {m : Mem} {ts : Nat} {s : List UInt8}
+    (h : TStringRepr m ts s) (hs : maxShortLen < s.length) : rd8 m (ts + tstringShrlenOff) = some 0xFF := by
+  cases h with
+  | short _ hle _ _ _ => omega
+  | long _ _ _ _ _ hf => exact hf
 
 theorem _root_.Lua.Vm.TStringRepr.byte {m : Mem} {ts : Nat} {s : List UInt8} (h : TStringRepr m ts s)
     {j : Nat} (hj : j < s.length) :
@@ -617,6 +626,78 @@ theorem internedCheck_sound {m : Mem} {v : View} (h : PartialView m v) {k sizek 
     exact (hne x y rfl rfl).elim
   · cases hij
 
+/-- The content length of the string at `ts`, by its header's variant. -/
+def strLenV (v : View) (ts : Nat) : Option Nat :=
+  match r8 v (ts + gcTtOff) with
+  | some t => if t = gcShrStr then r8 v (ts + tstringShrlenOff)
+      else if t = gcLngStr then r64 v (ts + tstringLnglenOff) else none
+  | none => none
+
+theorem strLenV_sound {m : Mem} {v : View} (h : PartialView m v) {ts n : Nat} {s : List UInt8}
+    (hc : strLenV v ts = some n) (hr : TStringRepr m ts s) : n = s.length := by
+  unfold strLenV at hc
+  split at hc
+  · rename_i t ht
+    have ht' := h.rd8 ht
+    cases hr with
+    | short htt _ hl _ _ =>
+      obtain rfl := Option.some.inj (ht'.symm.trans htt)
+      rw [if_pos rfl] at hc
+      exact Option.some.inj ((h.rd8 hc).symm.trans hl)
+    | long htt _ hl _ _ _ =>
+      obtain rfl := Option.some.inj (ht'.symm.trans htt)
+      rw [if_neg (by decide), if_pos rfl] at hc
+      exact Option.some.inj ((h.rd64 hc).symm.trans hl)
+  · cases hc
+
+/-- The arithmetic of `StrChunkAt` for one chunk. -/
+def chunkOwnsOk (L ci : Nat) (w : RtPtrs) (ts n : Nat) (c : DlHeap.Chunk) : Bool :=
+  c.inuse && decide (c.addr + 16 ≤ ts ∧ ts + tstringContentsOff + n + 1 ≤ c.addr + c.size + 8 ∧
+    c.addr + c.size + 8 ≤ symHeapEnd ∧
+    (c.addr + c.size + 8 ≤ w.stack ∨ w.stackLast ≤ c.addr + 16) ∧
+    (c.addr + c.size + 8 ≤ L ∨ L + stateSize ≤ c.addr + 16) ∧
+    (c.addr + c.size + 8 ≤ ci ∨ ci + ciSize ≤ c.addr + 16))
+
+/-- `KOwned m L ci w`: every string constant's object lies in a chunk of the
+walk that passes `chunkOwnsOk`. -/
+def kownedCheck (v : View) (L ci : Nat) (w : RtPtrs) : Bool :=
+  (List.range w.sizek).all fun i =>
+    match r8 v (w.k + tvalueSize * i + tvalueTagOff) with
+    | some t =>
+      if t = vShrStr ∨ t = vLngStr then
+        match r64 v (w.k + tvalueSize * i + tvalueValOff) with
+        | some ts =>
+          match strLenV v ts with
+          | some n => w.chunks.any (chunkOwnsOk L ci w ts n)
+          | none => false
+        | none => false
+      else true
+    | none => false
+
+theorem kownedCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat} {w : RtPtrs}
+    (hc : kownedCheck v L ci w = true) : KOwned m L ci w := by
+  intro i ts s hk
+  have hi := List.all_eq_true.mp hc i (List.mem_range.mpr hk.lt)
+  split at hi
+  · rename_i t ht
+    have htag : t = strTag s := Option.some.inj ((h.rd8 ht).symm.trans hk.tag)
+    have hstr : t = vShrStr ∨ t = vLngStr := by
+      rw [htag]; unfold strTag; split <;> simp
+    rw [if_pos hstr] at hi
+    split at hi
+    · rename_i ts' hts
+      obtain rfl := Option.some.inj ((h.rd64 hts).symm.trans hk.ptr)
+      split at hi
+      · rename_i n hn
+        obtain rfl := strLenV_sound h hn hk.str
+        obtain ⟨c, hcm, hco⟩ := List.any_eq_true.mp hi
+        simp only [chunkOwnsOk, Bool.and_eq_true, decide_eq_true_eq] at hco
+        obtain ⟨hin, a1, a2, a3, a4, a5, a6⟩ := hco
+        exact ⟨c, hcm, hin, a1, a2, a3, a4, a5, a6⟩
+      · cases hi
+    · cases hi
+  · cases hi
+
 /-- Every memory structure of `RuntimeReadyAt c L ci w` over the view, one
 Bool each (the generated witness decides each with its own `decide +kernel`). -/
 structure RtChecks (v : View) (L ci : Nat) (w : RtPtrs) : Prop where
@@ -629,6 +710,7 @@ structure RtChecks (v : View) (L ci : Nat) (w : RtPtrs) : Prop where
   top : readsOk v [(L + stateTopOff, 8, w.func + stackValueSize)] = true
   regions : regionsCheck v L ci w = true
   interned : internedCheck v w.k w.sizek = true
+  kowned : kownedCheck v L ci w = true
 
 /-! ## The chunked log check -/
 
