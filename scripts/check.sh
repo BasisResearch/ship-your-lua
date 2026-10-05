@@ -349,6 +349,13 @@ import VsaIris.Vsa.SymJalr
 #print axioms VsaIris.Inst.whileSites_not_tohost
 #print axioms Vsa.Sim.stepObs_tohost_putchar
 #print axioms Vsa.Sim.stepOnce_tohost_G
+#print axioms Lua.Bytecode.DefInit.pc_pos
+#print axioms Lua.Vm.Sim.reach_pc_zero
+#print axioms Lua.Vm.Sim.fold_sim
+#print axioms Lua.Vm.Sim.vmSim_of_arms
+#print axioms Lua.Vm.Sim.armTable
+#print axioms Lua.Vm.Sim.vmSim_of_open
+#print axioms Lua.Vm.Sim.vm_refinement_of_open
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
