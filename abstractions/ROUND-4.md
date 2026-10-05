@@ -442,6 +442,15 @@ The brief is `pilot/ONTOLOGIST_BRIEF_R4.md`; the answers are `fanout/R4-R1-*.md`
 | M-scan | read-only string loops as chunked first-event folds | R1-4 #2 `scan_loop` + relay lemma, lane lemmas by 256-case `decide` | R2-4 #5: `strcmp` returns a 16-bit halfword difference on some exits (`0x8003b9c4–d8`, coordinator-checked), so summaries are quotiented by the observation the caller makes (sign) |
 | M-loop | one loop rule over families of segment states; closed forms for store loops | R1-4 #3 `segLoop` + tile | R2-4, R2-1 #5: `luaT_adjustvarargs`'s copy (4 stores, 3 bases, stride-0 `L->top`) and RETURN0's nil fill outside `Slots` break one-pointer cells. Use comprehension log entries ("for all i < k, write at off₀ + stride·i", stride 0 allowed) |
 
+**R2-3** (character seed) adds:
+
+- **Return-and-join cuts.**
+  - Cut at every call return and every join, naming the join state by the kernel's output. IDIV's two-helper path rejoins at `0x8001f74c`.
+  - FORPREP permutes the head registers across its first call (`s11` = `plimit`, `s3` = pc), so the cut language needs an `out` constructor, not head-shaped pins.
+- **Atom-indexed slot labels.** `A+3` against `A+1` is decided as data.
+- **Indexed-entry blocks.** `memset` (on CALL print's `_write` path) enters a Duff's-device block by `jr 12(a3)`. The same rule covers `luaV_equalobj`'s switch.
+- **Freed strings.** dlmalloc's `bk` overwrites a freed TString's tag, length byte and hash. "Outside `Win`" should therefore be keyed to the allocator's in-use chunks (`HeapAt`), which also survives window moves. This agrees with R2-1 #2.
+
 ### Falsifier result (§2c)
 
 M-log holds. A guarded load costs 0.18–0.53k heartbeats against the kit's 16.9–18.2k, and MODK's general path fits one declaration (138.8k).
