@@ -485,3 +485,56 @@ All citations are as recalled by the agents; they are marked for checking in the
 - **Negate "the log describes memory":** the log describes only what later loads read (R2-4 #3, "filtrate"). This is kept as an M-log optimisation.
 - **Combine M-loop × M-log:** a loop's post-memory is a comprehension entry in the same log (R2-4 #4, R2-1 #5). This unifies LOADNIL's close with MOVE's. It is adopted into the M-loop variant above.
 - **Negate "cut where the budget runs out":** cut where the code forks (R2-5 #4). It is in M-cut.
+
+## 6. Bake-off
+
+The protocol is `bakeoff4/` (the scratch protocol is copied into each contender's report). Builds were capped at 16 GB and staggered, at most four agents at a time. Hand lines are non-blank, non-comment lines.
+
+**BASE-S** (shared correctness fix, merged at `6defac8`, 215 lines):
+- `TStringRepr.long` carries `shrlen = 0xFF`;
+- every register and K string lies in an in-use allocator chunk outside `Win ∪ Scratch`;
+- both facts are kernel-checked at both entries.
+
+### Axis B: budget and calls
+
+Held-out cases are IDIV and FORPREP; the refactor is MODK.
+
+| contender | setup | callees | IDIV / FORPREP | held-out | MODK | largest decl | failed builds | wall |
+|---|---|---|---|---|---|---|---|---|
+| B-INC (kit, hand splits) | 37 | 82 | 84 / 263 | 347 | 31 → 31 | 205k (arm) | 0 + ≈22 iterations | ≈1 h |
+| B-LOGCUT (region log + generated cuts) | 938 + 46 py | 107 | 88 / 153 | 241 | 23 → 14 | 86k on arm paths; `sim_IDIV` 184k | ≈15 + ≈75 | ≈1 h 52 |
+| **B-SEGLOCAL** (segment-local at-lemmas over location-list rows) | 709 + 604 py | 88 | **53 / 64** | **117** | ≈91 → 57 | **≤ 37.9k on arm paths**; generated `FORPREP.fin_1` 197.8k | ≈12 + ≈45 | ≈3 h 35 |
+
+### Axis S: strings and loops
+
+Held-out cases are EQ on two long strings and LT on two strings; the refactor is LOADNIL.
+
+| contender | setup | callees | EQ / LT | held-out incl. callees | LOADNIL | hand loop inductions | largest decl | failed builds | wall |
+|---|---|---|---|---|---|---|---|---|---|
+| S-INC (kit, hand loops) | 94 + 12 py | 1,997 | 21 / 170 | 2,188 | 47 → 47 (kept) | 7 | 183.6k | 1 + ≈80 | ≈2 h 20 |
+| **S-SCAN** (`scan_loop`, `seg_loop` + `compMem`, per-variant footprints) | 461 + 14 py | **1,347** | 39 / 111 | **1,497** | arm 47 → 47, its own lemmas −21 | 0 | 200.3k (`lt_str_take`) | 0 + ≈90 | ≈2 h 20 |
+
+## 7. Decision
+
+**Axis B: B-SEGLOCAL is adopted.**
+- Its held-out cost is 117 lines, against 241 for B-LOGCUT and 347 for B-INC.
+- The MODK refactor shrinks (≈91 → 57), and every path is one declaration.
+- Arm paths cost at most 37.9k heartbeats, against 205k on the kit, and a generated segment costs 0.14k inside an arm.
+- B-LOGCUT also beats the incumbent, but not B-SEGLOCAL. It is not adopted; its region-log forwarder (`Rgn`) survives inside B-SEGLOCAL's at-lemmas.
+
+**Axis S: S-SCAN is adopted.**
+- Its held-out cost, including callees, is 1,497 lines against 2,188, mostly 650 fewer callee lines. It writes 0 hand loop inductions against 7.
+- The refactor shrinks only marginally: LOADNIL's own lemmas go (−21), but the arm stays at 47 lines. This is the weaker half of the win, and it is recorded as such.
+
+**Risks carried forward:**
+- The generated `fin` close lemmas reach 197.8k. B-SEGLOCAL's fix is to prove each store's region once, as the loads already do.
+- S-SCAN's `lt_str_take` is at 200.3k because it predates the at-lemmas. Moving LT onto the at-lemmas is the first task.
+- The runner's `whnfR` polarity pre-check (S-SCAN, S-INC) should be replaced by B-SEGLOCAL's row-keyed `at_run`.
+
+**Enforcement:**
+- CLAUDE.md's A1 row now requires the at-lemma route for arms, plus the kit's scan, loop and string rules.
+- The gate is re-baselined:
+
+```
+baseline a1-kit-arm b837ed1
+```
