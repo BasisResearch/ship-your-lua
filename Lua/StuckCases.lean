@@ -55,6 +55,10 @@ and every def port of that edge gets a value. -/
 def Kernel.Wf {V : Type} (K : Kernel V) : Prop :=
   ∀ vs o, K.body vs = some o → ∃ e, K.edges[o.edge]? = some e ∧ e.defs.length ≤ o.vals.length
 
+/-- Close a `Kernel.Wf` case whose body gave `some out`. -/
+local macro "wf_done" : tactic =>
+  `(tactic| (simp only [Option.some.injEq] at *; subst_vars; exact ⟨_, rfl, by simp⟩))
+
 section Wf
 variable {p : Proto} {pc : Nat} {w : Word}
 
@@ -81,12 +85,11 @@ theorem wf_opArith (a : Nat) (b : BinOp) (os : List Opnd) : (opArith pc a b os).
   intro vs o h
   simp only [opArith] at h
   split at h
-  · simp only [Option.map_eq_some_iff] at h
-    obtain ⟨v, -, rfl⟩ := h
-    exact ⟨_, rfl, by simp⟩
-  · simp only [Option.some.injEq] at h
-    subst h
-    exact ⟨_, rfl, by simp⟩
+  · split at h
+    · wf_done
+    · wf_done
+    · cases h
+  · wf_done
 
 theorem wf_mmbin {tm : Nat} {os : List Opnd} {K : Kernel Value} (h : mmbin p pc tm os = some K) :
     K.Wf := by
@@ -121,9 +124,17 @@ theorem wf_forprepK : (forprepK pc w).Wf := by
   split at h
   · split at h
     · cases h
-    · simp only [Option.some.injEq] at h
-      subst h
-      split <;> exact ⟨_, rfl, by simp⟩
+    · obtain ⟨r, -, rfl⟩ := Option.map_eq_some_iff.1 h
+      split
+      · split <;> exact ⟨_, rfl, by simp⟩
+      · exact ⟨_, rfl, by simp⟩
+  · split at h
+    · split at h
+      · cases h
+      · split at h
+        · split at h <;> wf_done
+        · split at h <;> wf_done
+    · cases h
   · cases h
 
 theorem wf_forloopK (t : Nat) : (forloopK pc w t).Wf := by
@@ -131,14 +142,13 @@ theorem wf_forloopK (t : Nat) : (forloopK pc w t).Wf := by
   simp only [forloopK] at h
   split at h
   · split at h
-    · simp only [Option.some.injEq] at h
-      subst h
-      exact ⟨_, rfl, by simp⟩
+    · wf_done
     · split at h
-      · simp only [Option.some.injEq] at h
-        subst h
-        exact ⟨_, rfl, by simp⟩
+      · wf_done
       · cases h
+  · split at h
+    · split at h <;> wf_done
+    · split at h <;> wf_done
   · cases h
 
 theorem wf_callK : (callK p pc w).Wf := by
@@ -159,15 +169,15 @@ theorem wf_concatK : (concatK pc w).Wf := by
 /-- **Every kernel of the table is well-formed.** -/
 theorem opKernel_wf {o : OpCode} {K : Kernel Value} (h : opKernel p pc w o = some K) : K.Wf := by
   cases o
-  case MOVE | LOADI | LOADFALSE | LFALSESKIP | LOADTRUE | UNM | BNOT | NOT | LEN =>
+  case MOVE | LOADI | LOADF | LOADFALSE | LFALSESKIP | LOADTRUE | UNM | BNOT | NOT | LEN =>
     simp only [opKernel, move, Option.some.injEq] at h; subst h; exact wf_setR _ _ _ _
   case LOADNIL => simp only [opKernel, Option.some.injEq] at h; subst h; exact wf_setNils _ _ _
-  case ADDI | SHRI | SHLI | ADD | SUB | MUL | MOD | IDIV | BAND | BOR | BXOR | SHL | SHR =>
+  case ADDI | SHRI | SHLI | ADD | SUB | MUL | MOD | IDIV | BAND | BOR | BXOR | SHL | SHR | DIV | POW =>
     simp only [opKernel, arithRR, Option.some.injEq] at h; subst h; exact wf_opArith _ _ _
   case LOADK =>
     simp only [opKernel, move, Option.map_eq_some_iff] at h
     obtain ⟨_, -, rfl⟩ := h; exact wf_setR _ _ _ _
-  case ADDK | SUBK | MULK | MODK | IDIVK =>
+  case ADDK | SUBK | MULK | MODK | IDIVK | DIVK | POWK =>
     simp only [opKernel, arithRK, Option.map_eq_some_iff] at h
     obtain ⟨_, -, rfl⟩ := h; exact wf_opArith _ _ _
   case JMP =>
@@ -349,9 +359,16 @@ theorem opArith_fault {a : Nat} {b : BinOp} {os : List Opnd} {vs : List Value}
   simp only [opArith] at h
   split at h
   · rename_i x y hf
-    simp only [Option.map_eq_none_iff] at h
-    refine ⟨by simp only [Fault.Fails, hf]; exact h, ?_⟩
-    cases b <;> simp [δ, BinOp.int] at h ⊢
+    split at h
+    · cases h
+    · cases h
+    · rename_i hr
+      refine ⟨by simp only [Fault.Fails, hf, δ, hr, resVal], ?_⟩
+      simp only [fastArith] at hr
+      split at hr
+      · have := Lua.Num.rawArith_err hr
+        cases b <;> simp_all [BinOp.toOp]
+      · cases hr
   · cases h
 
 /-- A conditional jump fails only at its test. -/
@@ -390,7 +407,7 @@ theorem body_fault {o : OpCode} {K : Kernel Value} {vs : List Value}
     (hK : opKernel p pc w o = some K) (hl : vs.length = K.reads.length)
     (hb : K.body vs = none) : ∃ φ : Fault, φ.Fails vs ∧ o ∈ φ.ops ∧ φ.PortsOf K := by
   cases o
-  case MOVE | LOADI | LOADFALSE | LFALSESKIP | LOADTRUE =>
+  case MOVE | LOADI | LOADF | LOADFALSE | LFALSESKIP | LOADTRUE =>
     simp only [opKernel, move, Option.some.injEq] at hK; subst hK
     have := head_fill (by simpa [setR] using hl)
     rw [setR_none hb] at this; cases this
@@ -409,13 +426,13 @@ theorem body_fault {o : OpCode} {K : Kernel Value} {vs : List Value}
     match h : Opnd.fill [.reg w.b] vs, fill_length (os := [.reg w.b]) (by simpa [setR] using hl) with
     | [v], _ => rw [h] at this; simp [δ] at this
   case LOADNIL => simp only [opKernel, Option.some.injEq] at hK; subst hK; simp [setNils] at hb
-  case ADDI | SHRI | SHLI | ADD | SUB | MUL | MOD | IDIV | BAND | BOR | BXOR | SHL | SHR =>
+  case ADDI | SHRI | SHLI | ADD | SUB | MUL | MOD | IDIV | BAND | BOR | BXOR | SHL | SHR | DIV | POW =>
     simp only [opKernel, arithRR, Option.some.injEq] at hK; subst hK
     obtain ⟨hF, hb'⟩ := opArith_fault hb
     first
       | (simp at hb'; done)
       | exact ⟨_, hF, by simp [Fault.ops], rfl⟩
-  case ADDK | SUBK | MULK | MODK | IDIVK =>
+  case ADDK | SUBK | MULK | MODK | IDIVK | DIVK | POWK =>
     simp only [opKernel, arithRK, Option.map_eq_some_iff] at hK
     obtain ⟨_, -, rfl⟩ := hK
     obtain ⟨hF, hb'⟩ := opArith_fault hb
@@ -575,12 +592,312 @@ theorem stuck_cases {H : Host} {p : Proto} {s : State} (hS : Supported p)
       obtain ⟨φ, hF, hm, hp⟩ := body_fault hK hl hb
       exact ⟨_, o, K, vs, φ, hw, ho, hK, hvs, hb, hF, hm, hp⟩
 
+/-! ## A loop's internal registers (`loopsOk`)
+
+`OP_FORLOOP` reads its count, limit and index with `ivalue`/`fltvalue` and
+no tag test (`lvm.c:1784-1801`, `floatforloop`), so its kernel has a step
+only when `R[A..A+2]` hold what `FORPREP`/`FORLOOP` store: three integers or
+three floats (`LoopTriple`). `loopsOk` (`Supported`) makes that an invariant
+of every reachable state inside the loop (`loop_inv`): only `FORPREP` enters
+the range, and nothing strictly inside writes the three registers. -/
+
+/-- What `FORPREP`/`FORLOOP` leave in `R[A..A+2]`: three integers (index,
+count, step) or three floats (index, limit, step). -/
+inductive LoopTriple : Option Value → Option Value → Option Value → Prop where
+  | int (i n st : BitVec 64) : LoopTriple (some (.int i)) (some (.int n)) (some (.int st))
+  | flt (i : Float.Model) (ni : Bool) (l : Float.Model) (nl : Bool) (st : Float.Model) (ns : Bool) :
+      LoopTriple (some (.flt i ni)) (some (.flt l nl)) (some (.flt st ns))
+
+theorem mapM_three {V : Type} {f : Nat → Option V} {a b c : Nat} {vs : List V}
+    (h : [a, b, c].mapM f = some vs) : ∃ x y z, f a = some x ∧ f b = some y ∧ f c = some z ∧
+      vs = [x, y, z] := by
+  simp only [List.mapM_cons, List.mapM_nil, Option.bind_eq_bind, Option.bind_eq_some_iff,
+    Option.pure_def, Option.some.injEq] at h
+  obtain ⟨x, hx, _, ⟨y, hy, _, ⟨z, hz, _, rfl, rfl⟩, rfl⟩, rfl⟩ := h
+  exact ⟨x, y, z, hx, hy, hz, rfl⟩
+
+/-- The `FORLOOP` kernel steps on a loop triple. -/
+theorem forloop_body_some {pc t : Nat} {w : Word} {x y z : Value}
+    (h : LoopTriple (some x) (some y) (some z)) : ((forloopK pc w t).body [x, y, z]).isSome := by
+  cases h with
+  | int i n st => unfold forloopK; dsimp only; split <;> rfl
+  | flt i ni l nl st ns => unfold forloopK; dsimp only; split <;> (split <;> rfl)
+
+section Loop
+variable {p : Proto}
+
+/-- The kernel at a fetched instruction. -/
+theorem kernelAt_of {pc : Nat} {w : Word} {o : OpCode} (hf : p.fetch pc = some w)
+    (ho : w.op? = some o) : kernelAt p pc = opKernel p pc w o := by
+  simp only [kernelAt, hf, Option.bind_some, kernel, ho]
+
+/-- `writeDefs` at a def port: the value listed for its first occurrence. -/
+theorem writeDefs_cons_self {V : Type} {d : Nat} {ds : List Nat} {v : V} {vs : List V}
+    {ρ : Nat → Option V} : writeDefs (d :: ds) (v :: vs) ρ d = some v := by
+  simp [writeDefs]
+
+theorem writeDefs_cons_ne {V : Type} {d j : Nat} {ds : List Nat} {vs : List V}
+    {ρ : Nat → Option V} (h : j ≠ d) : writeDefs (d :: ds) vs ρ j = writeDefs ds vs.tail ρ j := by
+  simp [writeDefs, h]
+
+/-- An edge with no kill ports leaves a non-def register as it was. -/
+theorem apply_nokill {line : List Value → String} {s : State} {e : KEdge} {o : Out Value} {j : Nat}
+    (hk : e.killN = 0) (hd : j ∉ e.defs) : (s.apply line e o).regs j = s.regs j := by
+  rw [apply_regs_frame _ _ _ hd]
+  have : ¬ e.kills j := by simp only [KEdge.kills, hk]; omega
+  simp [this]
+
+/-- **The loop check, unfolded** for the `FORLOOP` `w` at `f` with head `q`. -/
+structure LoopFacts (p : Proto) (f : Nat) (w : Word) (q : Nat) : Prop where
+  /-- the head is `FORPREP` with the same `A`, skipping to `f + 1` -/
+  head : ∃ w', p.fetch q = some w' ∧ w'.op? = some .FORPREP ∧ w'.a = w.a ∧ w'.bx + 1 = w.bx
+  q_eq : q + w.bx = f
+  pos : 1 ≤ w.bx
+  /-- inside `(q, f)`, no edge defines or kills `R[A..A+2]` -/
+  inside : ∀ pc K, q < pc → pc < f → kernelAt p pc = some K → ∀ e ∈ K.edges, e.avoids w.a = true
+  /-- outside `[q, f]`, no edge enters `(q, f]` -/
+  outside : ∀ pc K, (pc < q ∨ f < pc) → kernelAt p pc = some K → ∀ e ∈ K.edges,
+    ¬ (q < e.tgt ∧ e.tgt ≤ f)
+
+theorem loopFacts {f : Nat} {w : Word} {q : Nat} (h : loopOk p f w = true)
+    (hq : loopHead p f w = some q) : LoopFacts p f w q := by
+  unfold loopHead at hq
+  split at hq
+  · rename_i hb
+    split at hq
+    · rename_i w' hw'
+      split at hq
+      · rename_i hc
+        cases hq
+        unfold loopOk at h
+        rw [show loopHead p f w = some (f - w.bx) by
+          unfold loopHead; simp only [hb, and_self, ↓reduceIte, hw', hc]] at h
+        have hall := List.all_eq_true.1 h
+        have hof : ∀ pc K, kernelAt p pc = some K → pc < p.code.length ∧ ∃ w'', p.fetch pc = some w'' ∧ kernel p pc w'' = some K := by
+          intro pc K hK
+          obtain ⟨w'', hw'', hk⟩ := Option.bind_eq_some_iff.1 hK
+          exact ⟨(List.getElem?_eq_some_iff.1 hw'').1, w'', hw'', hk⟩
+        refine ⟨⟨w', hw', hc.1, hc.2.1, hc.2.2⟩, by omega, hb.1, ?_, ?_⟩
+        · intro pc K h1 h2 hK e he
+          obtain ⟨hlt, w'', hw'', hk⟩ := hof pc K hK
+          have := hall pc (List.mem_range.2 hlt)
+          simp only [hw'', hk, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_eq_eq_not,
+            Bool.not_true, decide_eq_false_iff_not] at this
+          exact List.all_eq_true.1 (this.1.resolve_left (by omega)) e he
+        · intro pc K h1 hK e he
+          obtain ⟨hlt, w'', hw'', hk⟩ := hof pc K hK
+          have := hall pc (List.mem_range.2 hlt)
+          simp only [hw'', hk, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_eq_eq_not,
+            Bool.not_true, decide_eq_false_iff_not] at this
+          have := List.all_eq_true.1 (this.2.resolve_left (by omega)) e he
+          simp only [Bool.not_eq_eq_eq_not, Bool.not_true, decide_eq_false_iff_not] at this
+          exact this
+      · cases hq
+    · cases hq
+  · cases hq
+
+/-- A `FORPREP` step into its loop body: the integer loop (edge 0) or the
+float loop (edge 2). -/
+theorem forprep_into {pc : Nat} {w : Word} {vs : List Value} {o : Out Value} {e : KEdge}
+    (hb : (forprepK pc w).body vs = some o) (he : (forprepK pc w).edges[o.edge]? = some e)
+    (ht : e.tgt ≤ pc + w.bx + 1) :
+    (∃ i l st n, vs = [.int i, l, .int st] ∧ e = { tgt := pc + 1, defs := [w.a + 3, w.a + 1] } ∧
+      o.vals = [.int i, .int n]) ∨
+    (∃ fi ni fl nl fs ns, e = { tgt := pc + 1, defs := [w.a, w.a + 1, w.a + 2, w.a + 3] } ∧
+      o.vals = [.flt fi ni, .flt fl nl, .flt fs ns, .flt fi ni]) := by
+  simp only [forprepK] at hb
+  split at hb
+  · rename_i i l st
+    split at hb
+    · cases hb
+    · obtain ⟨r, -, rfl⟩ := Option.map_eq_some_iff.1 hb
+      split at he
+      · rename_i lim
+        split at he
+        · rename_i n hn
+          simp only [forprepK, List.getElem?_cons_zero, Option.some.injEq] at he
+          subst he
+          exact .inl ⟨i, l, st, n, rfl, rfl, rfl⟩
+        · simp only [forprepK, List.getElem?_cons_succ, List.getElem?_cons_zero,
+            Option.some.injEq] at he
+          subst he; simp only at ht; omega
+      · simp only [forprepK, List.getElem?_cons_succ, List.getElem?_cons_zero,
+          Option.some.injEq] at he
+        subst he; simp only at ht; omega
+  · split at hb
+    · split at hb
+      · cases hb
+      · split at hb <;> split at hb <;> simp only [Option.some.injEq] at hb <;> subst hb <;>
+          simp only [forprepK, List.getElem?_cons_succ, List.getElem?_cons_zero,
+            Option.some.injEq] at he
+        all_goals first
+          | exact .inr ⟨_, _, _, _, _, _, he.symm, rfl⟩
+          | (subst he; simp only at ht; omega)
+    · cases hb
+  · cases hb
+
+/-- A `FORLOOP` step back into its loop body: the integer loop (edge 1) or
+the float loop (edge 2). -/
+theorem forloop_into {pc t : Nat} {w : Word} {vs : List Value} {o : Out Value} {e : KEdge}
+    (hb : (forloopK pc w t).body vs = some o) (he : (forloopK pc w t).edges[o.edge]? = some e)
+    (ht : e.tgt ≠ pc + 1) :
+    (∃ i n st, vs = [.int i, .int n, .int st] ∧ e = { tgt := t, defs := [w.a + 1, w.a, w.a + 3] } ∧
+      o.vals = [.int (n - 1), .int (i + st), .int (i + st)]) ∨
+    (∃ i ni l nl st ns, vs = [.flt i ni, .flt l nl, .flt st ns] ∧
+      e = { tgt := t, defs := [w.a, w.a + 3] } ∧
+      o.vals = [.ofFloat (Float.Model.add i st), .ofFloat (Float.Model.add i st)]) := by
+  simp only [forloopK] at hb
+  split at hb
+  · rename_i i n st
+    split at hb
+    · simp only [Option.some.injEq] at hb
+      subst hb
+      simp only [forloopK, List.getElem?_cons_zero, Option.some.injEq] at he
+      subst he; simp only at ht; omega
+    · split at hb
+      · rename_i i'
+        simp only [Option.some.injEq] at hb
+        subst hb
+        simp only [forloopK, List.getElem?_cons_succ, List.getElem?_cons_zero,
+          Option.some.injEq] at he
+        exact .inl ⟨i', n, st, rfl, he.symm, rfl⟩
+      · cases hb
+  · rename_i i ni l nl st ns
+    split at hb <;> split at hb <;> simp only [Option.some.injEq] at hb <;> subst hb <;>
+      simp only [forloopK, List.getElem?_cons_succ, List.getElem?_cons_zero,
+        Option.some.injEq] at he
+    all_goals first
+      | exact .inr ⟨i, ni, l, nl, st, ns, rfl, he.symm, rfl⟩
+      | (subst he; simp only at ht; omega)
+  · cases hb
+
+/-- The loop invariant: at every state inside the range `(q, f]` of a
+checked loop, the internal registers hold a loop triple. -/
+def LoopInv (p : Proto) (s : State) : Prop :=
+  ∀ f w q, p.fetch f = some w → w.op? = some .FORLOOP → loopHead p f w = some q →
+    q < s.pc → s.pc ≤ f → LoopTriple (s.regs w.a) (s.regs (w.a + 1)) (s.regs (w.a + 2))
+
+theorem loopInv_step {H : Host} (hS : Supported p) {s s' : State} (h : Step H p s s')
+    (hI : LoopInv p s) : LoopInv p s' := by
+  intro f w q hf ho hq h1 h2
+  have hok : loopOk p f w = true := by
+    have := List.all_eq_true.1 hS.2 f (List.mem_range.2 (List.getElem?_eq_some_iff.1 hf).1)
+    simpa [hf, ho] using this
+  have hL := loopFacts hok hq
+  obtain ⟨hK, hvs, hb, he⟩ := h
+  rename_i K vs o e
+  have hem : e ∈ K.edges := List.mem_of_getElem? he
+  -- `s'.pc = e.tgt`
+  show LoopTriple ((s.apply (printLine H) e o).regs w.a) ((s.apply (printLine H) e o).regs (w.a + 1))
+    ((s.apply (printLine H) e o).regs (w.a + 2))
+  change q < e.tgt at h1
+  change e.tgt ≤ f at h2
+  rcases Nat.lt_or_ge s.pc q with hlt | hge
+  · exact absurd ⟨h1, h2⟩ (hL.outside _ _ (.inl hlt) hK e hem)
+  rcases Nat.lt_or_ge f s.pc with hgt | hle
+  · exact absurd ⟨h1, h2⟩ (hL.outside _ _ (.inr hgt) hK e hem)
+  rcases Nat.eq_or_lt_of_le hge with heq | hgt'
+  · -- at the head `FORPREP`
+    obtain ⟨w', hw', ho', ha, hbx⟩ := hL.head
+    have hqf := hL.q_eq
+    rw [← heq, kernelAt_of hw' ho'] at hK
+    simp only [opKernel, Option.some.injEq] at hK
+    subst hK
+    rcases forprep_into hb he (by omega) with ⟨i, l, st, n, rfl, rfl, hv⟩ | ⟨fi, ni, fl, nl, fs, ns, rfl, hv⟩
+    · obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
+      simp only [List.cons.injEq, and_true] at hxyz
+      obtain ⟨rfl, rfl, rfl⟩ := hxyz
+      rw [← ha]
+      have e1 : (s.apply (printLine H) { tgt := q + 1, defs := [w'.a + 3, w'.a + 1] } o).regs w'.a = some (.int i) := by
+        rw [apply_nokill rfl (by simp)]; exact hx
+      have e2 : (s.apply (printLine H) { tgt := q + 1, defs := [w'.a + 3, w'.a + 1] } o).regs (w'.a + 1) = some (.int n) := by
+        simp only [VState.apply, hv, writeDefs_cons_ne (show w'.a + 1 ≠ w'.a + 3 by omega)]
+        simp [writeDefs]
+      have e3 : (s.apply (printLine H) { tgt := q + 1, defs := [w'.a + 3, w'.a + 1] } o).regs (w'.a + 2) = some (.int st) := by
+        rw [apply_nokill rfl (by simp)]; exact hz
+      rw [e1, e2, e3]; exact .int _ _ _
+    · rw [← ha]
+      have e0 : ∀ j k, k < 4 → j = w'.a + k →
+          (s.apply (printLine H) { tgt := q + 1, defs := [w'.a, w'.a + 1, w'.a + 2, w'.a + 3] } o).regs j =
+            [Value.flt fi ni, .flt fl nl, .flt fs ns, .flt fi ni][k]? := by
+        intro j k hk hj; subst hj
+        simp only [VState.apply, hv]
+        rcases (by omega : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3) with rfl | rfl | rfl | rfl <;> simp [writeDefs]
+      rw [e0 w'.a 0 (by omega) (by omega), e0 (w'.a + 1) 1 (by omega) rfl,
+        e0 (w'.a + 2) 2 (by omega) rfl]
+      exact .flt _ _ _ _ _ _
+  rcases Nat.eq_or_lt_of_le hle with heq | hlt'
+  · -- at the `FORLOOP` itself
+    rw [heq, kernelAt_of hf ho] at hK
+    simp only [opKernel, Option.map_eq_some_iff] at hK
+    obtain ⟨t, -, rfl⟩ := hK
+    rcases forloop_into hb he (by omega) with ⟨i, n, st, rfl, rfl, hv⟩ | ⟨i, ni, l, nl, st, ns, rfl, rfl, hv⟩
+    · obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
+      simp only [List.cons.injEq, and_true] at hxyz
+      obtain ⟨rfl, rfl, rfl⟩ := hxyz
+      have e1 : (s.apply (printLine H) { tgt := t, defs := [w.a + 1, w.a, w.a + 3] } o).regs w.a = some (.int (i + st)) := by
+        simp only [VState.apply, hv, writeDefs_cons_ne (show w.a ≠ w.a + 1 by omega)]
+        simp [writeDefs]
+      have e2 : (s.apply (printLine H) { tgt := t, defs := [w.a + 1, w.a, w.a + 3] } o).regs (w.a + 1) = some (.int (n - 1)) := by
+        simp only [VState.apply, hv]; simp [writeDefs]
+      have e3 : (s.apply (printLine H) { tgt := t, defs := [w.a + 1, w.a, w.a + 3] } o).regs (w.a + 2) = some (.int st) := by
+        rw [apply_nokill rfl (by simp)]; exact hz
+      rw [e1, e2, e3]; exact .int _ _ _
+    · obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
+      simp only [List.cons.injEq, and_true] at hxyz
+      obtain ⟨rfl, rfl, rfl⟩ := hxyz
+      have e1 : (s.apply (printLine H) { tgt := t, defs := [w.a, w.a + 3] } o).regs w.a =
+          some (.ofFloat (Float.Model.add i st)) := by
+        simp only [VState.apply, hv]; simp [writeDefs]
+      have e2 : (s.apply (printLine H) { tgt := t, defs := [w.a, w.a + 3] } o).regs (w.a + 1) = some (.flt l nl) := by
+        rw [apply_nokill rfl (by simp)]; exact hy
+      have e3 : (s.apply (printLine H) { tgt := t, defs := [w.a, w.a + 3] } o).regs (w.a + 2) = some (.flt st ns) := by
+        rw [apply_nokill rfl (by simp)]; exact hz
+      rw [e1, e2, e3]; exact .flt _ _ _ _ _ _
+  · -- strictly inside: the three registers are untouched
+    have hav := hL.inside _ _ hgt' hlt' hK e hem
+    simp only [KEdge.avoids, Bool.and_eq_true, List.all_eq_true, decide_eq_true_eq] at hav
+    have hkeep : ∀ j, w.a ≤ j → j < w.a + 3 → (s.apply (printLine H) e o).regs j = s.regs j := by
+      intro j hj1 hj2
+      have hd : j ∉ e.defs := fun hm => by have := hav.1 j hm; omega
+      rw [apply_regs_frame _ _ _ hd]
+      have : ¬ e.kills j := by simp only [KEdge.kills]; omega
+      simp [this]
+    rw [hkeep _ (by omega) (by omega), hkeep _ (by omega) (by omega), hkeep _ (by omega) (by omega)]
+    exact hI f w q hf ho hq hgt' (by omega)
+
+/-- **The loop invariant holds at every reachable state.** -/
+theorem loop_inv {H : Host} (hS : Supported p) {s : State} (h : Steps H p State.init s) :
+    LoopInv p s := by
+  suffices ∀ a, Steps H p a s → LoopInv p a → LoopInv p s from
+    this _ h fun _ _ _ _ _ _ h0 _ => absurd h0 (Nat.not_lt_zero _)
+  intro a hs
+  clear h
+  induction hs with
+  | refl => exact id
+  | head st _ ih => exact fun ha => ih (loopInv_step hS st ha)
+
+/-- **A reachable `FORLOOP` has a step**: its internal registers hold a loop
+triple (`loop_inv`). -/
+theorem forloop_regs {H : Host} (hS : Supported p) {s : State} (h : Steps H p State.init s)
+    {w : Word} (hf : p.fetch s.pc = some w) (ho : w.op? = some .FORLOOP) :
+    LoopTriple (s.regs w.a) (s.regs (w.a + 1)) (s.regs (w.a + 2)) := by
+  have hok : loopOk p s.pc w = true := by
+    have := List.all_eq_true.1 hS.2 s.pc (List.mem_range.2 (List.getElem?_eq_some_iff.1 hf).1)
+    simpa [hf, ho] using this
+  cases hq : loopHead p s.pc w with
+  | none => simp [loopOk, hq] at hok
+  | some q =>
+    have hL := loopFacts hok hq
+    exact loop_inv hS h s.pc w q hf ho hq (by have := hL.q_eq; have := hL.pos; omega) (Nat.le_refl _)
+
+end Loop
+
 /-! ## Lua errors and escapes -/
 
-/-- An integer or a string: what Lua's string-to-number coercion
-(`l_strton`, `lstrlib.c` `tonum`) might accept. -/
-def Value.numLike : Value → Bool
-  | .int _ | .str _ => true
+/-- A number (`ttisnumber`). -/
+def Value.isNum : Value → Bool
+  | .int _ | .flt _ _ => true
   | _ => false
 
 def Value.isStr : Value → Bool
@@ -593,34 +910,14 @@ def zeroStep : Value → Value → Bool
   | .int _, .int c => c == 0
   | _, _ => false
 
-/-- **The faults where Lua 5.4.7 may continue** (a conservative superset;
-`LUA_NOCVTS2N` is unset, so strings coerce to numbers):
-
-* string arithmetic (`lstrlib.c` `arith`): both operands numbers or strings,
-  one a string; a float numeral gives a float (`"1.5" + 1`);
-* `-s` on a string (`arith_unm`; `-"1.5"` is `-1.5`);
-* `forprep` on numbers and strings but not the zero-step case: a string limit
-  is coerced by `forlimit` (`luaV_tointeger`), a string `init`/`step` takes
-  the float loop;
-* `OP_FORLOOP`: `lvm.c` reads the count and index with `ivalue` and no tag
-  test, or takes `floatforloop` (never an error; unreachable from `luac`
-  output, which never writes a loop's internal registers).
-
-A non-numeral string (`"x" + 1`) is a Lua error that this predicate still
-counts as an escape. -/
+/-- **The faults where Lua 5.4.7 continues** (exact). With floats and string
+coercion in `δ` (`LUA_NOCVTS2N` unset), every failing primitive, `CONCAT`,
+`FORPREP` and `CALL` is a Lua error (`Fault.site`); only `OP_FORLOOP` never
+raises: `lvm.c` reads the count and index with `ivalue` and no tag test, or
+takes `floatforloop`, whatever the registers hold. A supported program never
+reaches a stuck `FORLOOP` (`forloop_regs`), so it never escapes
+(`noEscape_of_supported`). -/
 def Fault.Escape : Fault → List Value → Prop
-  | .prim (.tm b) os, vs =>
-    match Opnd.fill os vs with
-    | [x, y] => b.strMeta && (x.isStr || y.isStr) && x.numLike && y.numLike
-    | _ => False
-  | .prim .unm os, vs =>
-    match Opnd.fill os vs with
-    | [x] => x.isStr
-    | _ => False
-  | .forprep, vs =>
-    match vs with
-    | [i, l, st] => i.numLike && l.numLike && st.numLike && !zeroStep i st
-    | _ => False
   | .forloop, _ => True
   | _, _ => False
 
@@ -660,7 +957,7 @@ def Fault.site : Fault → List Value → ErrSite
     match Opnd.fill os vs with
     | [x, y] =>
       if b.strMeta && (x.isStr || y.isStr) then .strarith
-      else if !b.strMeta && !x.isStr && !y.isStr && x.numLike && y.numLike then .tointerror
+      else if !b.strMeta && x.isNum && y.isNum then .tointerror
       else .opinterror
     | _ => .opinterror
   | .prim .len _, _ => .typeerror
@@ -677,6 +974,24 @@ def Fault.site : Fault → List Value → ErrSite
 /-- **No reachable stuck state of `p` escapes**: every one is a Lua error. -/
 def NoEscape (H : Host) (p : Proto) : Prop :=
   ∀ s w o K vs φ, Steps H p State.init s → StuckAt p s w o K vs φ → ¬ φ.Escape vs
+
+/-- **A supported program never escapes**: its only escaping fault is a
+stuck `FORLOOP`, and the loop check keeps every reachable `FORLOOP`'s
+registers a loop triple, on which the kernel steps. -/
+theorem noEscape_of_supported {H : Host} {p : Proto} (hS : Supported p) : NoEscape H p := by
+  intro s w o K vs φ hs hA hesc
+  cases φ <;> simp only [Fault.Escape] at hesc
+  have ho : o = .FORLOOP := by simpa [Fault.ops] using hA.mem
+  subst ho
+  have hK := hA.kernel
+  simp only [opKernel, Option.map_eq_some_iff] at hK
+  obtain ⟨t, -, rfl⟩ := hK
+  have hT := forloop_regs hS hs hA.fetch hA.op
+  obtain ⟨x, y, z, hx, hy, hz, rfl⟩ := mapM_three hA.reads
+  rw [hx, hy, hz] at hT
+  have := forloop_body_some (pc := s.pc) (w := w) (t := t) hT
+  rw [hA.body] at this
+  cases this
 
 /-! ## Runs to a stuck state -/
 

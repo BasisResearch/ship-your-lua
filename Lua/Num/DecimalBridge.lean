@@ -13,21 +13,13 @@ are equal to it, so swapping them for it (step S1 of
 
 namespace Lua.Num
 
-/-- The bytecode semantics' digit scan is `digits`. -/
-theorem digits_bytecode : Lua.Bytecode.digits = digits := by
-  funext hex s a n
-  induction s generalizing a n with
-  | nil => rfl
-  | cons c cs ih =>
-    simp only [Lua.Bytecode.digits, digits]
-    have : Lua.Bytecode.digitVal hex c = digitVal hex c := rfl
-    rw [this]; cases digitVal hex c <;> simp [ih]
+/-- The bytecode semantics' digit scan is `digits` (it is exported from
+`Lua.Num`). -/
+theorem digits_bytecode : Lua.Bytecode.digits = digits := rfl
 
-/-- The bytecode semantics' `str2int` is `str2int`. -/
-theorem str2int_bytecode : Lua.Bytecode.str2int = str2int := by
-  funext s
-  simp only [Lua.Bytecode.str2int, str2int, digits_bytecode, takeSign]
-  rfl
+/-- The bytecode semantics' `str2int` is `str2int` (it is exported from
+`Lua.Num`, FLOAT-DESIGN.md S1). -/
+theorem str2int_bytecode : Lua.Bytecode.str2int = str2int := rfl
 
 /-- `digits` as a `takeWhile`: the value, count and rest of the leading
 digits. -/

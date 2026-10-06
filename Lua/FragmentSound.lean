@@ -259,7 +259,8 @@ theorem edges_lt {p : Proto} {pc : Nat} {l : List Edge} (h : edges p pc = some l
 
 /-- **Supported yields the certificate** for the mask it computed. -/
 theorem Supported.defInit {p : Proto} (h : Supported p) : DefInit p (defMask p) := by
-  unfold Supported supportedB at h
+  replace h := h.1
+  unfold supportedB at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨_, hpos⟩, _⟩, h⟩ := h
   split at h

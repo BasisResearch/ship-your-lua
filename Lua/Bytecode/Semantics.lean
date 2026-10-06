@@ -1,5 +1,6 @@
 import Lua.Bytecode.Syntax
 import Lua.Bytecode.Kernel
+import Lua.Num.Arith
 
 /-!
 # Lua 5.4 bytecode semantics `BcSem` — fragment F1
@@ -11,26 +12,42 @@ ports, edges with def and kill ports, and a body computing values through
 the shared primitive `δ`. The terms are built from combinators named after
 `lvm.c`'s macros (`opArith`, `docondjump`, `setR`); `opKernel` is the table.
 `Step` has one rule: fetch, then run the kernel. Registers hold `Option
-Value`: ⊥ is a stale value, and reading it is stuck. F1 covers integers, moves, constants, integer arithmetic and bitwise
-operations (F1b), comparisons and
-conditional jumps, integer numeric `for` (`FORPREP`/`FORLOOP`), `RETURN*`,
-and calls to the builtin `print` fetched from `_ENV`. `Lua/Bytecode/Fragment.lean`
-says which programs are in F1 and ledgers every other opcode.
+Value`: ⊥ is a stale value, and reading it is stuck. F1 covers integers and
+floats (`abstractions/FLOAT-DESIGN.md` §2), moves, constants, arithmetic and
+bitwise operations, string coercion of numerals (`LUA_NOCVTS2N` is unset),
+comparisons and conditional jumps, numeric `for` (integer and float loops,
+`FORPREP`/`FORLOOP`), `RETURN*`, and calls to the builtin `print` fetched
+from `_ENV`. `Lua/Bytecode/Fragment.lean` says which programs are in F1 and
+ledgers every other opcode.
+
+The numbers are the shared layer `Lua.Num` (`Lua/Num/Arith.lean`,
+`Lua/Num/Decimal.lean`, `Lua/Num/Pow.lean`): integers are `BitVec 64`,
+floats are core's IEEE binary64 model `Float.Model`, and every numeric
+function is a transcription of the C it names (`luaO_rawarith`, `LTnum`,
+`luaV_equalobj`, `luaO_str2num`, `tostringbuff`, newlib's `pow`, …).
 
 Faithfulness conventions (each is what `lvm.c` does, cited per rule):
 
 * `pc` is the index of the instruction being executed; `lvm.c`'s `pc` after
   `vmfetch` is our `pc + 1`, so a C `pc += n` lands on `pc + 1 + n` here.
-* Arithmetic and bitwise operations (F1b, merged into F1) on integers store
-  the result and SKIP the following `MMBIN*` (`op_arith_aux`,
-  `op_bitwise`: `pc++`). A non-integer operand in F1 is a runtime
-  error (no floats or strings arise in F1), so no rule applies: the state is
-  stuck, the program has no behaviour, and `stuck_sim` must show the binary
-  does not exit 0.
+* Arithmetic and bitwise operations on numbers store the result and SKIP the
+  following `MMBIN*` (`op_arith_aux`, `op_arithf_aux`, `op_bitwise`: `pc++`):
+  that fast path is `luaO_rawarith` (`fastArith`). Otherwise they fall
+  through to `MMBIN*`, whose only defined case is the string library's
+  arithmetic metamethods (`lstrlib.c` `arith`); every other case is a Lua
+  error, so no rule applies: the state is stuck, the program has no
+  behaviour, and `stuck_sim` must show the binary does not exit 0.
+* A float carries, besides its `Float.Model` value, the sign bit of the
+  double (`Value.flt x neg`): the model canonicalises NaN, and the sign of a
+  NaN is the one bit of it Lua observes (`print(-(0/0))` writes `-nan`). Every
+  float an operation computes is `Value.ofFloat` of the model's result (the
+  ELF's soft-float gives the canonical positive NaN); `UNM` flips the sign,
+  copies keep it.
 * Conditional jumps (`docondjump`): if `cond ≠ k` skip the next instruction,
   else execute the next instruction's jump (`donextjump`: `pc += sJ + 1`).
 * `//` and `%` are floor division/modulo with `luaV_idiv`/`luaV_mod`'s
-  special cases (division by zero is an error; `n // -1 = -n` wrapping).
+  special cases (division by zero is an error; `n // -1 = -n` wrapping), and
+  `luai_numidiv`/`luai_nummod` on floats.
 * `print` writes `tostring` of each argument separated by `\t`, then `\n`
   (`luaB_print`). The rendering of a function value (`function: 0x…`, an
   address in the binary) is a parameter of the semantics (`Host`).
@@ -45,15 +62,46 @@ inductive Builtin where
   | print
   deriving DecidableEq, Repr, Inhabited
 
-/-- Values of F1 (strings are carried for later fragments; F1 never
-creates one in a register). -/
+/-- Values of F1. A float is the model's value `x` and the sign bit `neg` of
+the double (for a non-NaN it is `x`'s sign; for a NaN, which `Float.Model`
+canonicalises, it is the sign `print` shows). -/
 inductive Value where
   | nil
   | bool (b : Bool)
   | int (i : BitVec 64)
+  | flt (x : Float.Model) (neg : Bool)
   | str (s : List UInt8)
   | builtin (f : Builtin)
   deriving DecidableEq, Repr, Inhabited
+
+/-- A computed float (`setfltvalue` of an operation's result): its sign bit
+is the model's (the canonical NaN is positive). -/
+def Value.ofFloat (x : Float.Model) : Value := .flt x x.toBits.toBitVec.msb
+
+/-- A number as a value. -/
+def Value.ofNum : Lua.Num.Numeral → Value
+  | .int i => .int i
+  | .flt x => .ofFloat x
+
+/-- A number (`ttisnumber`), without string coercion. -/
+def Value.toNum? : Value → Option Lua.Num.Numeral
+  | .int i => some (.int i)
+  | .flt x _ => some (.flt x)
+  | _ => none
+
+/-- `lstrlib.c` `tonum` (and `l_strton`, `lvm.c:91`): a number, or a string
+that `luaO_str2num` reads whole (`lua_stringtonumber(L, s) == len + 1`). -/
+def Value.tonum? : Value → Option Lua.Num.Numeral
+  | .int i => some (.int i)
+  | .flt x _ => some (.flt x)
+  | .str s => Lua.Num.str2number s
+  | _ => none
+
+/-- `tonumber` (`lvm.h:51`, `luaV_tonumber_`, `lvm.c:104`): the value as a
+float; a float keeps its bits. -/
+def Value.tonumber? : Value → Option Value
+  | .flt x n => some (.flt x n)
+  | v => v.tonum?.map fun a => .ofFloat a.toFloat
 
 /-- `l_isfalse`: `nil` and `false` are false. -/
 def Value.isFalse : Value → Bool
@@ -61,13 +109,25 @@ def Value.isFalse : Value → Bool
   | .bool b => !b
   | _ => false
 
-/-- A constant as a value (`none` for floats: not in F1). -/
+/-- A signalling NaN: exponent all ones, a nonzero fraction, the quiet bit
+(51) clear. `Float.Model` has one (quiet) NaN, and libm's `pow` tells the two
+apart (`e_pow.c:121,128` returns 1 for `pow(qNaN, 0)`, NaN for
+`pow(sNaN, 0)`), so a signalling NaN is not a value of the semantics. No
+operation of the ELF makes one (soft-float returns the canonical quiet NaN)
+and `luac` never emits a NaN constant. -/
+def isSNaN (b : BitVec 64) : Bool :=
+  (b >>> 52) &&& 0x7ff = 0x7ff && b &&& 0xfffffffffffff ≠ 0 && !b.getLsbD 51
+
+/-- A constant as a value: a float constant is its bit pattern
+(`lundump.c` `loadConstants`, `setfltvalue`), its sign bit kept; a
+signalling NaN has none (`isSNaN`). -/
 def Const.toValue? : Const → Option Value
   | .nil => some .nil
   | .bool b => some (.bool b)
   | .int i => some (.int i)
   | .str s => some (.str s)
-  | .float _ => none
+  | .float b =>
+    if isSNaN b then none else some (.flt (Float.Model.ofBits (UInt64.ofBitVec b)) b.msb)
 
 /-- Implementation-defined renderings the semantics must not invent: how
 `tostring` shows a function value (`function: 0x…` with the C address in
@@ -79,12 +139,15 @@ structure Host where
 /-- Bytes to a string, one `Char` per byte (the HTIF console's convention). -/
 def bytesToString (s : List UInt8) : String := String.ofList (s.map fun b => Char.ofNat b.toNat)
 
-/-- `luaL_tolstring` on F1 values. -/
+/-- `luaL_tolstring` on F1 values (`lauxlib.c:906-912`): an integer with
+`%I` (`LUA_INTEGER_FMT`), a float with `%f`, which `luaO_pushvfstring`
+renders by `tostringbuff` (`lobject.c:511-515`). -/
 def Value.show (H : Host) : Value → String
   | .nil => "nil"
   | .bool true => "true"
   | .bool false => "false"
   | .int i => toString i.toInt
+  | .flt x n => bytesToString (Lua.Num.tostringbuff n x)
   | .str s => bytesToString s
   | .builtin f => H.showBuiltin f
 
@@ -95,36 +158,29 @@ def printLine (H : Host) (args : List Value) : String :=
 /-- The bytes of `"print"`. -/
 def printKey : List UInt8 := [0x70, 0x72, 0x69, 0x6e, 0x74]
 
-/-! ## Integer operations (`lvm.c`, `llimits.h`) -/
+/-! ## Integer operations and numerals (`Lua.Num`) -/
 
-/-- `luaV_idiv`: floor division; `none` is the division-by-zero error.
-For `n = -1` this is `0 - m` (wrapping), which `Int.fdiv` + wrap agrees with. -/
-def idiv (m n : BitVec 64) : Option (BitVec 64) :=
-  if n = 0 then none else some (BitVec.ofInt 64 (Int.fdiv m.toInt n.toInt))
+-- `luaV_idiv`, `luaV_mod`, `luaV_shiftl`, `luaV_shiftr` and `l_str2int` are
+-- the shared layer's (`Lua/Num/Arith.lean`, `Lua/Num/Decimal.lean`).
+export Lua.Num (idiv imod shiftl shiftr isSpace digitVal digits str2int)
 
-/-- `luaV_mod`: floor modulo; `none` is the `n%0` error. -/
-def imod (m n : BitVec 64) : Option (BitVec 64) :=
-  if n = 0 then none else some (BitVec.ofInt 64 (Int.fmod m.toInt n.toInt))
-
-/-- `luaV_shiftl` (`lvm.c`): a negative `y` shifts right (logically: `intop`
-works on `lua_Unsigned`), and a shift by 64 or more bits in either direction
-gives 0. -/
-def shiftl (x y : BitVec 64) : BitVec 64 :=
-  if y.toInt < 0 then (if y.toInt ≤ -64 then 0 else x >>> (-y.toInt).toNat)
-  else (if 64 ≤ y.toInt then 0 else x <<< y.toNat)
-
-/-- `luaV_shiftr(x,y)` is `luaV_shiftl(x, intop(-, 0, y))` (`lvm.h`): the
-negation wraps, so `y = minint` shifts left by `minint`, giving 0. -/
-def shiftr (x y : BitVec 64) : BitVec 64 := shiftl x (0 - y)
 /-! ## The shared primitive δ -/
 
 /-- The binary operators of `luaV_execute`'s arithmetic and bitwise arms. -/
 inductive BinOp where
-  | add | sub | mul | mod | idiv | band | bor | bxor | shl | shr
+  | add | sub | mul | mod | idiv | band | bor | bxor | shl | shr | pow | div
   deriving DecidableEq, Repr
 
-/-- The integer operation (`l_addi`, …, `luaV_mod`, `luaV_idiv`,
-`luaV_shiftl`/`luaV_shiftr`); `none` is the runtime error (`n%0`, `n//0`). -/
+/-- The `lua_arith` operator (`LUA_OPADD` …, `lua.h:216`). -/
+def BinOp.toOp : BinOp → Lua.Num.Op
+  | .add => .add | .sub => .sub | .mul => .mul | .mod => .mod | .idiv => .idiv
+  | .band => .band | .bor => .bor | .bxor => .bxor | .shl => .shl | .shr => .shr
+  | .pow => .pow | .div => .div
+
+/-- The integer operation of the integer fast path (`l_addi`, …, `luaV_mod`,
+`luaV_idiv`, `luaV_shiftl`/`luaV_shiftr`); `none` is the runtime error
+(`n%0`, `n//0`). `/` and `^` have none (`op_arithf`: floats only); they are
+`none` here and never used (`fastArith_int`). -/
 def BinOp.int : BinOp → BitVec 64 → BitVec 64 → Option (BitVec 64)
   | .add, x, y => some (x + y)
   | .sub, x, y => some (x - y)
@@ -136,71 +192,56 @@ def BinOp.int : BinOp → BitVec 64 → BitVec 64 → Option (BitVec 64)
   | .bxor, x, y => some (x ^^^ y)
   | .shl, x, y => some (shiftl x y)
   | .shr, x, y => some (shiftr x y)
+  | .pow, _, _ => none
+  | .div, _, _ => none
 
-/-- The operator of a `TMS` event (`ltm.h`: `TM_ADD = 6` … `TM_SHR = 17`;
-`TM_POW`/`TM_DIV` are float-only). -/
+/-- The operator of a `TMS` event (`ltm.h`: `TM_ADD = 6` … `TM_SHR = 17`). -/
 def BinOp.ofTM : Nat → Option BinOp
-  | 6 => some .add | 7 => some .sub | 8 => some .mul | 9 => some .mod | 12 => some .idiv
+  | 6 => some .add | 7 => some .sub | 8 => some .mul | 9 => some .mod | 10 => some .pow
+  | 11 => some .div | 12 => some .idiv
   | 13 => some .band | 14 => some .bor | 15 => some .bxor | 16 => some .shl | 17 => some .shr
   | _ => none
 
-/-- The string library's metamethods (`lstrlib.c`, `stringmetamethods`)
-cover the arithmetic operators only, not the bitwise ones. -/
+/-- The string library's metamethods (`lstrlib.c:330-341`,
+`stringmetamethods`) cover the arithmetic operators only, not the bitwise
+ones. -/
 def BinOp.strMeta : BinOp → Bool
-  | .add | .sub | .mul | .mod | .idiv => true
+  | .add | .sub | .mul | .mod | .idiv | .pow | .div => true
   | _ => false
 
-/-- `lisspace` in the "C" locale. -/
-def isSpace (c : UInt8) : Bool := c == 32 || (9 ≤ c && c ≤ 13)
-
-/-- A digit's value (`lisdigit`, and `lisxdigit`/`luaO_hexavalue` if `hex`). -/
-def digitVal (hex : Bool) (c : UInt8) : Option Nat :=
-  if 48 ≤ c ∧ c ≤ 57 then some (c.toNat - 48)
-  else if hex ∧ 97 ≤ c ∧ c ≤ 102 then some (c.toNat - 87)
-  else if hex ∧ 65 ≤ c ∧ c ≤ 70 then some (c.toNat - 55)
-  else none
-
-/-- The leading digits of `s`: their value (accumulated from `a`), their
-count (from `n`), and the rest. -/
-def digits (hex : Bool) : List UInt8 → Nat → Nat → Nat × Nat × List UInt8
-  | [], a, n => (a, n, [])
-  | c :: cs, a, n =>
-    match digitVal hex c with
-    | some d => digits hex cs (a * (if hex then 16 else 10) + d) (n + 1)
-    | none => (a, n, c :: cs)
-
-/-- `luaO_str2num` of a whole Lua string, when it gives an integer
-(`l_str2int`, `lobject.c`): spaces, a sign, `0x` hex digits (wrapping) or
-decimal digits (rejected on overflow: `l_str2d` then makes it a float),
-spaces, and nothing else (an embedded `\0` ends the C string early, so
-`lua_stringtonumber` rejects it). -/
-def str2int (s : List UInt8) : Option (BitVec 64) :=
-  let s := s.dropWhile isSpace
-  let (neg, s) := match s with
-    | 45 :: t => (true, t)
-    | 43 :: t => (false, t)
-    | t => (false, t)
-  let (hex, s) := match s with
-    | 48 :: x :: t => if x == 120 || x == 88 then (true, t) else (false, s)
-    | _ => (false, s)
-  let (a, n, rest) := digits hex s 0 0
-  if n = 0 ∨ (rest.dropWhile isSpace) ≠ [] ∨ (!hex ∧ 2 ^ 63 - 1 + (if neg then 1 else 0) < a) then
-    none
-  else some (if neg then 0 - BitVec.ofNat 64 a else BitVec.ofNat 64 a)
-
-/-- An arithmetic metamethod's operand (`lstrlib.c` `tonum`), when it is an
-integer: an integer, or a string converting to one. -/
-def Value.toInt? : Value → Option (BitVec 64)
-  | .int i => some i
-  | .str s => str2int s
+/-- A result of `luaO_rawarith` as a value (`none`: no result). -/
+def resVal : Lua.Num.Res → Option Value
+  | .val n => some (.ofNum n)
   | _ => none
 
-/-- A concatenation operand as bytes (`tostring`: integers with `%lld`);
-anything else is an error (`luaG_concaterror`). -/
+/-- **`luaV_execute`'s arithmetic fast path** (`op_arith`, `op_arithK`,
+`op_arithI`, `op_arithf`, `op_arithfK`, `op_bitwise`, `op_bitwiseK`,
+`OP_SHRI`, `OP_SHLI`; `lvm.c:905-1011, 1440-1459`): `luaO_rawarith` on two
+numbers (`Lua.Num.rawArith`); a non-number operand fails (`tonumberns`,
+`tointegerns`), and the instruction falls through to `MMBIN*`. -/
+def fastArith (o : BinOp) (x y : Value) : Lua.Num.Res :=
+  match x.toNum?, y.toNum? with
+  | some a, some b => Lua.Num.rawArith o.toOp a b
+  | _, _ => .fail
+
+/-- A concatenation operand as bytes (`luaV_concat`'s `tostring`,
+`luaO_tostring`: integers with `%lld`, floats by `tostringbuff`); anything
+else is an error (`luaG_concaterror`). -/
 def Value.toStr? : Value → Option (List UInt8)
   | .str s => some s
   | .int i => some ((toString i.toInt).toList.map fun c => c.toNat.toUInt8)
+  | .flt x n => some (Lua.Num.tostringbuff n x)
   | _ => none
+
+/-- **Raw equality** (`luaV_equalobj`, `lvm.c:569`, without metamethods: F1
+has no tables or userdata): numbers by `Lua.Num.eqNum` (`1 == 1.0`, NaN
+unequal, `-0 == 0`); every other pair structurally (`ValRepr` makes the
+machine's tag a function of the value, and strings compare by content). -/
+def Value.rawEq : Value → Value → Bool
+  | .flt a _, .flt b _ => Lua.Num.eqNum (.flt a) (.flt b)
+  | .int i, .flt b _ => Lua.Num.eqNum (.int i) (.flt b)
+  | .flt a _, .int j => Lua.Num.eqNum (.flt a) (.int j)
+  | x, y => decide (x = y)
 
 /-- `l_strcmp(a, b) < 0` in the "C" locale: byte-lexicographic order on
 unsigned bytes, a proper prefix first. -/
@@ -224,25 +265,47 @@ inductive Prim where
 
 /-- **δ**: the value of a primitive on its operands; `none` is a runtime
 error (no rule). Order tests give booleans (`luaV_lessthan`,
-`luaV_lessequal`, `luaV_rawequalobj`). -/
+`luaV_lessequal`, `luaV_rawequalobj`).
+
+* `.arith o`: the fast path's result (`fastArith`); `none` also where it
+  falls through (the kernel `opArith` tells the two apart);
+* `.tm o` (`MMBIN*`, `luaT_trybinTM`): the string library's metamethod
+  `arith` (`lstrlib.c:288`): when `o` has one and an operand is a string,
+  `tonum` both and `lua_arith` (`luaO_rawarith`); anything else is an error
+  (`luaG_opinterror`, `luaG_tointerror`, `trymt`'s `luaL_error`);
+* `.unm` (`OP_UNM`, `lvm.c:1540`): integers wrap, floats flip the sign
+  (`luai_numunm`; a NaN's sign too), a string goes to `__unm` (`arith_unm`);
+* `.bnot` (`OP_BNOT`, `lvm.c:1555`): `tointegerns`, else an error;
+* `.lt`/`.le`: `LTnum`/`LEnum` on numbers, `l_strcmp` on strings, else an
+  error (`luaG_ordererror`). -/
 def δ : Prim → List Value → Option Value
-  | .arith o, [.int x, .int y] => (o.int x y).map .int
+  | .arith o, [x, y] => resVal (fastArith o x y)
   | .tm o, [x, y] =>
     if o.strMeta ∧ (x matches .str _ ∨ y matches .str _) then
-      match x.toInt?, y.toInt? with
-      | some a, some b => (o.int a b).map .int
+      match x.tonum?, y.tonum? with
+      | some a, some b => resVal (Lua.Num.rawArith o.toOp a b)
       | _, _ => none
     else none
   | .unm, [.int x] => some (.int (0 - x))
-  | .unm, [.str s] => (str2int s).map fun x => .int (0 - x)
+  | .unm, [.flt x n] => some (.flt (Float.Model.neg x) (!n))
+  | .unm, [.str s] => (Lua.Num.str2number s).bind fun a => resVal (Lua.Num.rawArith .unm a a)
   | .bnot, [.int x] => some (.int (~~~x))
+  | .bnot, [.flt x _] => (Lua.Num.flttointeger x .eq).map fun i => .int (~~~i)
   | .not, [v] => some (.bool v.isFalse)
-  | .eq, [x, y] => some (.bool (decide (x = y)))
+  | .eq, [x, y] => some (.bool (x.rawEq y))
   | .lt, [.int x, .int y] => some (.bool (decide (x.toInt < y.toInt)))
   | .le, [.int x, .int y] => some (.bool (decide (x.toInt ≤ y.toInt)))
   | .len, [.str s] => some (.int (BitVec.ofNat 64 s.length))
   | .lt, [.str a, .str b] => some (.bool (lexLt a b))
   | .le, [.str a, .str b] => some (.bool (!lexLt b a))
+  | .lt, [x, y] =>
+    match x.toNum?, y.toNum? with
+    | some a, some b => some (.bool (Lua.Num.ltNum a b))
+    | _, _ => none
+  | .le, [x, y] =>
+    match x.toNum?, y.toNum? with
+    | some a, some b => some (.bool (Lua.Num.leNum a b))
+    | _, _ => none
   | .concat, vs => (vs.mapM Value.toStr?).map fun ss => .str ss.flatten
   | _, _ => none
 
@@ -275,6 +338,31 @@ def forCount (init limit step : BitVec 64) : Option (BitVec 64) :=
   else
     if init.toInt < limit.toInt then none else some ((init - limit) / ((0 - (step + 1)) + 1))
 
+/-- `LUA_MAXINTEGER`. -/
+def maxInt : BitVec 64 := BitVec.ofNat 64 (2 ^ 63 - 1)
+/-- `LUA_MININTEGER`. -/
+def minInt : BitVec 64 := BitVec.ofNat 64 (2 ^ 63)
+
+/-- `forlimit` (`lvm.c:178`) for an integer loop: `none` is `luaG_forerror`
+(the limit is not a number or numeral); `some none`: skip the loop; `some
+(some l)`: the integer limit `l`. `luaV_tointeger` (`lvm.c:153`: `l_strton`,
+then `luaV_tointegerns` with `F2Iceil` for a negative step, else `F2Ifloor`);
+failing that, `tonumber` and the sign of the float decides: a positive one is
+too large (clip to `LUA_MAXINTEGER`, or skip a descending loop), anything
+else too small (NaN included: `luai_numlt(0, NaN)` is false). The final "not
+to run" test (`lvm.c:196`) is `forCount`'s. -/
+def forLimit (lim : Value) (step : BitVec 64) : Option (Option (BitVec 64)) :=
+  match lim.tonum?.bind (Lua.Num.Numeral.tointegerns (if step.toInt < 0 then .ceil else .floor)) with
+  | some l => some (some l)
+  | none =>
+    match lim.tonum? with
+    | none => none
+    | some n =>
+      if Float.Model.lt Lua.Num.zero n.toFloat then
+        (if step.toInt < 0 then some none else some (some maxInt))
+      else
+        (if 0 < step.toInt then some none else some (some minInt))
+
 /-! ## Kernel combinators, one per `lvm.c` macro -/
 
 /-- An operand: a register (a read port) or a value fixed by the
@@ -296,7 +384,7 @@ def Opnd.fill : List Opnd → List Value → List Value
   | .reg _ :: os, v :: vs => v :: fill os vs
   | .reg _ :: os, [] => fill os []
 
-/-- The constant `K[i]` as an operand (`none` for floats: not in F1). -/
+/-- The constant `K[i]` as an operand. -/
 def kval (p : Proto) (i : Nat) : Option Value := (p.const i).bind Const.toValue?
 
 /-- `R[a] := f(operands)`, then continue at `next`. -/
@@ -320,14 +408,19 @@ def jump (t : Nat) : Kernel Value where
   edges := [{ tgt := t }]
   body _ := some { edge := 0 }
 
-/-- `op_arith`/`op_arithK`/`op_arithI`/`op_bitwise`/`op_bitwiseK`: on two
-integers, `R[a] := x op y` and skip the following `MMBIN*` (`pc++`);
-otherwise fall through to it. -/
+/-- `op_arith`/`op_arithK`/`op_arithI`/`op_arithf`/`op_arithfK`/`op_bitwise`/
+`op_bitwiseK` (`lvm.c:905-1011`): where the fast path (`fastArith`) has a
+result, `R[a] := x op y` and skip the following `MMBIN*` (`pc++`); where it
+fails, fall through to it; `luaV_mod`/`luaV_idiv` by zero is an error. -/
 def opArith (pc a : Nat) (o : BinOp) (os : List Opnd) : Kernel Value where
   reads := Opnd.ports os
   edges := [{ tgt := pc + 2, defs := [a] }, { tgt := pc + 1 }]
   body vs := match Opnd.fill os vs with
-    | [.int x, .int y] => (δ (.arith o) [.int x, .int y]).map fun v => { edge := 0, vals := [v] }
+    | [x, y] =>
+      match fastArith o x y with
+      | .val n => some { edge := 0, vals := [.ofNum n] }
+      | .fail => some { edge := 1 }
+      | .err => none
     | _ => some { edge := 1 }
 
 /-- `OP_MMBIN*` (`luaT_trybinTM`) after the arithmetic instruction at
@@ -365,31 +458,68 @@ def testsetK (t : Nat) : Kernel Value where
     | [v] => some (if v.isFalse = w.k then { edge := 0 } else { edge := 1, vals := [v] })
     | _ => none
 
-/-- `OP_FORPREP` (`forprep`), integer loop: `R[A+3] := init`; if the loop
-runs, the count replaces the limit, else jump past the loop. -/
+/-- `OP_FORPREP` (`forprep`, `lvm.c:205`).
+
+* **Integer loop** (`init` and `step` integers): a zero step is an error;
+  `R[A+3] := init`; the limit is `forLimit`'s (a numeral string is coerced,
+  a float limit is floored or ceiled, an out-of-range one clipped or the loop
+  skipped); if the loop runs, the count replaces the limit (edge 0), else
+  jump past the loop (edge 1).
+* **Float loop** (otherwise): `tonumber` the limit, the step and `init`
+  (strings coerced; failure is `luaG_forerror`), a zero step is an error;
+  skip the loop (edge 3, nothing written) or make all four registers floats
+  (edge 2). -/
 def forprepK : Kernel Value where
   reads := [w.a, w.a + 1, w.a + 2]
   edges := [{ tgt := pc + 1, defs := [w.a + 3, w.a + 1] },
-    { tgt := pc + 1 + w.bx + 1, defs := [w.a + 3] }]
+    { tgt := pc + 1 + w.bx + 1, defs := [w.a + 3] },
+    { tgt := pc + 1, defs := [w.a, w.a + 1, w.a + 2, w.a + 3] },
+    { tgt := pc + 1 + w.bx + 1 }]
   body
-    | [.int i, .int l, .int st] =>
+    | [.int i, l, .int st] =>
       if st = 0 then none else
-      some (match forCount i l st with
-        | some n => { edge := 0, vals := [.int i, .int n] }
-        | none => { edge := 1, vals := [.int i] })
+      (forLimit l st).map fun
+        | some lim =>
+          match forCount i lim st with
+          | some n => { edge := 0, vals := [.int i, .int n] }
+          | none => { edge := 1, vals := [.int i] }
+        | none => { edge := 1, vals := [.int i] }
+    | [i, l, st] =>
+      match l.tonumber?, st.tonumber?, i.tonumber? with
+      | some (.flt fl nl), some (.flt fs ns), some (.flt fi ni) =>
+        if Float.Model.beq fs Lua.Num.zero then none
+        else if (if Float.Model.lt Lua.Num.zero fs then Float.Model.lt fl fi
+                 else Float.Model.lt fi fl) then some { edge := 3 }
+        else some { edge := 2, vals := [.flt fi ni, .flt fl nl, .flt fs ns, .flt fi ni] }
+      | _, _, _ => none
     | _ => none
 
-/-- `OP_FORLOOP`, integer loop: count 0 falls out; otherwise count−1,
-index += step, `R[A+3] := index`, jump back to `t`. -/
+/-- `OP_FORLOOP` (`lvm.c:1784`), on the variant of the step `R[A+2]`.
+
+* **Integer loop**: count 0 falls out; otherwise count−1, index += step,
+  `R[A+3] := index`, jump back to `t` (edge 1).
+* **Float loop** (`floatforloop`, `lvm.c:270`): index += step; while
+  `0 < step ? index <= limit : limit <= index`, `R[A] := R[A+3] := index`
+  and jump back (edge 2).
+
+`lvm.c` reads the count and the index with `ivalue`/`fltvalue` and no tag
+test; a supported program never writes these registers inside the loop
+(`loopsOk`), so they hold what `FORPREP`/`FORLOOP` stored. -/
 def forloopK (t : Nat) : Kernel Value where
   reads := [w.a, w.a + 1, w.a + 2]
-  edges := [{ tgt := pc + 1 }, { tgt := t, defs := [w.a + 1, w.a, w.a + 3] }]
+  edges := [{ tgt := pc + 1 }, { tgt := t, defs := [w.a + 1, w.a, w.a + 3] },
+    { tgt := t, defs := [w.a, w.a + 3] }]
   body
     | [i, .int n, .int st] =>
       if n = 0 then some { edge := 0 } else
       match i with
       | .int i => some { edge := 1, vals := [.int (n - 1), .int (i + st), .int (i + st)] }
       | _ => none
+    | [.flt i _, .flt l _, .flt st _] =>
+      let idx := Float.Model.add i st
+      if (if Float.Model.lt Lua.Num.zero st then Float.Model.le idx l else Float.Model.le l idx)
+      then some { edge := 2, vals := [.ofFloat idx, .ofFloat idx] }
+      else some { edge := 0 }
     | _ => none
 
 /-- `OP_CALL` of `print` with `B-1` arguments: print them, the `C-1`
@@ -442,6 +572,8 @@ def opKernel : OpCode → Option (Kernel Value)
   | .MOVE => some (move w.a (pc + 1) (.reg w.b))
   | .LOADI => some (move w.a (pc + 1) (.imm (.int (BitVec.ofInt 64 w.sbx))))
   | .LOADK => (kval p w.bx).map fun v => move w.a (pc + 1) (.imm v)
+  -- `cast_num(sBx)` (`__floatsidf`, exact)
+  | .LOADF => some (move w.a (pc + 1) (.imm (.ofFloat (Lua.Num.ofI (BitVec.ofInt 64 w.sbx)))))
   | .LOADFALSE => some (move w.a (pc + 1) (.imm (.bool false)))
   | .LFALSESKIP => some (move w.a (pc + 2) (.imm (.bool false)))
   | .LOADTRUE => some (move w.a (pc + 1) (.imm (.bool true)))
@@ -461,11 +593,15 @@ def opKernel : OpCode → Option (Kernel Value)
   | .BXOR => arithRR pc w .bxor
   | .SHL => arithRR pc w .shl
   | .SHR => arithRR pc w .shr
+  | .DIV => arithRR pc w .div
+  | .POW => arithRR pc w .pow
   | .ADDK => arithRK p pc w .add
   | .SUBK => arithRK p pc w .sub
   | .MULK => arithRK p pc w .mul
   | .MODK => arithRK p pc w .mod
   | .IDIVK => arithRK p pc w .idiv
+  | .DIVK => arithRK p pc w .div
+  | .POWK => arithRK p pc w .pow
   | .BANDK => bitwiseRK p pc w .band
   | .BORK => bitwiseRK p pc w .bor
   | .BXORK => bitwiseRK p pc w .bxor
