@@ -209,6 +209,21 @@ HELPERS += [("luaH_getshortstr", "LuaH_getshortstr", 0x8001808c, 0x800180f8, [22
              [0x800180ec])]
 SUMMARISED |= {"luaH_getshortstr"}
 SIM_OPS |= {"OP_GETTABUP"}
+# lane float-m0: libgcc's soft-float routines of the T1/T2 float paths
+# (FLOAT-DESIGN.md §3, M0), all loop-free but `__clzdi2` (a counted byte scan,
+# unrolled by `scripts/gen_lua_fn.py`); their whole-function summaries are
+# `scripts/gen_lua_fn.py`'s (`Lua/Vm/Fn/*`)
+FLOAT_HELPERS = [("__clzdi2", 0x8002f7ec, 0x8002f844), ("__floatsidf", 0x8002f0f8, 0x8002f188),
+                 ("__floatdidf", 0x8002f200, 0x8002f358), ("__fixdfdi", 0x8002f188, 0x8002f200),
+                 ("__eqdf2", 0x8002e350, 0x8002e3c0), ("__gedf2", 0x8002e3c0, 0x8002e460),
+                 ("__ledf2", 0x8002e460, 0x8002e504), ("__adddf3", 0x8002d7a8, 0x8002de30),
+                 ("__subdf3", 0x8002e9d0, 0x8002f0b0)]
+HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
+# the arms whose float paths run through the soft-float call nodes (lane
+# float-m0, M1): only there is a call to a soft-float routine a call node (its
+# return address continues the arm), so the other arms' segments stay as they are
+FLOAT_CALLS = {fn for fn, _, _ in FLOAT_HELPERS}
+FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -224,7 +239,10 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__call_exitprocs": set(), "__retarget_lock_acquire_recursive": set(),
            "__retarget_lock_release_recursive": set(), "_exit": set(),
            "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
-           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}}
+           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"},
+           "__clzdi2": {"x10"}, "__floatsidf": {"x10"}, "__floatdidf": {"x10"},
+           "__fixdfdi": {"x10"}, "__eqdf2": {"x10"}, "__gedf2": {"x10"}, "__ledf2": {"x10"},
+           "__adddf3": {"x10"}, "__subdf3": {"x10"}}
 
 
 def helper_cfg(lo, hi):
@@ -316,8 +334,9 @@ def helper_live(cuts, owner):
     return {n: live_out(n) - info[n][1] for n in cuts}
 
 
-def helper_all():
-    """[(module, battery, segment module)] for every helper."""
+def helper_cuts():
+    """Every helper segment: name -> (lo, hi, path, keep), its owner, and the
+    registers it carries for later segments (`helper_live`)."""
     cuts, owner = {}, {}
     for fn, cap, lo, hi, temps, roots, stops in HELPERS:
         g, segs = helper_segments(lo, hi, roots, stops)
@@ -326,7 +345,26 @@ def helper_all():
                 name = f"seg_{a:08x}_{b:08x}{suf}"
                 cuts[name] = (a, b, path, KEEP + temps)
                 owner[name] = fn
-    extra = helper_live(cuts, owner)
+    return cuts, owner, helper_live(cuts, owner)
+
+
+def helper_specs(fn):
+    """[(name, lo, hi, spec)] of helper `fn`'s segments, as emitted
+    (`scripts/gen_lua_fn.py` folds them)."""
+    cuts, owner, extra = helper_cuts()
+    out = []
+    for name, (a, b, path, keep) in cuts.items():
+        if owner[name] != fn:
+            continue
+        keep = sorted(set(keep) | {int(r[1:]) for r in extra[name]})
+        spec, _ = seg_spec(a, b, path, name, True, keep=keep)
+        out.append((name, a, b, spec))
+    return out
+
+
+def helper_all():
+    """[(module, battery, segment module)] for every helper."""
+    cuts, owner, extra = helper_cuts()
     out = []
     for fn, cap, lo, hi, temps, roots, stops in HELPERS:
         specs, sites = [], {}
@@ -350,10 +388,18 @@ def helper_emit(fn, cap, lo, hi, specs, sites):
         p = sites[key].split("\t")
         objs.append(gen_sites.Site(int(p[0], 16), int(p[1], 16), p[2], p[3:], n))
     mod = HMOD.get(fn, "H" + fn.lstrip("_"))
+    pdir = ROOT / "Lua/Vm/Code" / cap
+    if pdir.is_dir():
+        # a helper whose code pins are split into parts (`__adddf3`, `__subdf3`)
+        tmpl = (f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}_p{{part}}Loaded hmem)")
+        pmap = gen_sites.load_parts(pdir)
+        imps = [f"Lua.Vm.Code.FixedImage_{cap}.P{k:02d}" for k in sorted(set(pmap.values()))]
+    else:
+        tmpl = f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}Loaded hmem)"
+        pmap = {a: 0 for a in range(lo, hi, 4)}
+        imps = [f"Lua.Vm.Code.FixedImage_{cap}"]
     battery = gen_sites.emit_battery(
-        objs, PRED, "", [f"Lua.Vm.Code.FixedImage_{cap}", "Lua.Vm.Arms.Text"], "", NS,
-        f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}Loaded hmem)",
-        {a: 0 for a in range(lo, hi, 4)},
+        objs, PRED, "", imps + ["Lua.Vm.Arms.Text"], "", NS, tmpl, pmap,
         f"the helper {fn} (driver: scripts/gen_lua_arms.py)")
     bodies = []
     for name, spec in specs:
@@ -448,9 +494,12 @@ def collect(only):
         spec, rows = seg_spec(lo, hi, path, name, name in sim)
         specs[name] = (lo, spec, rows)
     # calls to a summarised helper continue at the return address (call nodes)
+    float_segs = {n for op, ns in arms if op in FLOAT_ARMS for n in ns}
     jal_end = {n for n, (lo, hi, path) in cuts.items()
                if g[hi - 4][0].split()[0] == "jal"
-               and re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in SUMMARISED}
+               and (re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in SUMMARISED
+                    or (n in float_segs
+                        and re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in FLOAT_CALLS))}
     for name, regs in live_keep(arms, specs, sim, jal_end).items():
         if regs:
             lo, hi, path = cuts[name]

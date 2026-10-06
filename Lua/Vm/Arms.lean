@@ -134,6 +134,15 @@ import Lua.Vm.Arms.Segs.Hswrite
 import Lua.Vm.Arms.Segs.Hwrite_r
 import Lua.Vm.Arms.Segs.Hsflush_r
 import Lua.Vm.Arms.Segs.HluaH_getshortstr
+import Lua.Vm.Arms.Segs.Hclzdi2
+import Lua.Vm.Arms.Segs.Hfloatsidf
+import Lua.Vm.Arms.Segs.Hfloatdidf
+import Lua.Vm.Arms.Segs.Hfixdfdi
+import Lua.Vm.Arms.Segs.Heqdf2
+import Lua.Vm.Arms.Segs.Hgedf2
+import Lua.Vm.Arms.Segs.Hledf2
+import Lua.Vm.Arms.Segs.Hadddf3
+import Lua.Vm.Arms.Segs.Hsubdf3
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 
