@@ -1,5 +1,6 @@
 import Lua.Vm.Arms.Sites.Hswrite
 import Lua.Vm.Arms.RegsOk
+import Lua.Vm.Arms.TextHalf
 import Lua.Vm.Arms.Text
 import Vsa.Sim.SegState
 

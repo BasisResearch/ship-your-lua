@@ -314,7 +314,9 @@ def helper_emit(fn, cap, lo, hi, specs, sites):
         em.emit()
         bodies.append(em.body_text)
     jalr = any(st["class"] == "jalr" for _, spec in specs for st in spec["steps"])
-    ok_imports = OK_IMPORT + ("\nimport Lua.Vm.Arms.RegsOkJalr" if jalr else "")
+    half = any(st["class"] == "sh" for _, spec in specs for st in spec["steps"])
+    ok_imports = OK_IMPORT + ("\nimport Lua.Vm.Arms.RegsOkJalr" if jalr else "") + \
+        ("\nimport Lua.Vm.Arms.TextHalf" if half else "")
     text = f"""import {NS}.Sites.{mod}
 import {ok_imports}
 import Lua.Vm.Arms.Text
