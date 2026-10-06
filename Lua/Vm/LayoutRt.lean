@@ -129,6 +129,8 @@ def symSglueSize : Nat := 24
 def symSf : Nat := 0x8005e5b0
 /-- `sizeof` of `__sf` (`nm -S`) -/
 def symSfSize : Nat := 552
+/-- `__swrite` — stdio's write hook (a `FILE`'s `_write`) -/
+def symSwrite : Nat := 0x80034f18
 /-- `_impure_data` -/
 def symImpureData : Nat := 0x8005d1b8
 /-- `sizeof` of `_impure_data` (`nm -S`) -/

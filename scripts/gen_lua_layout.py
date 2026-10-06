@@ -289,6 +289,7 @@ RT_SYMS = [
     ("symStdioExitHandler", "__stdio_exit_handler", "non-NULL once `__sinit` ran"),
     ("symSglue", "__sglue", ""),
     ("symSf", "__sf", "the three standard `FILE`s"),
+    ("symSwrite", "__swrite", "stdio's write hook (a `FILE`'s `_write`)"),
     ("symImpureData", "_impure_data", ""),
     ("symFsReady", "fs_ready", "htif.c"),
     ("symFds", "fds", "htif.c descriptor table"),
