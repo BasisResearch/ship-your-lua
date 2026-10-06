@@ -12,6 +12,15 @@ import Lua.Vm.Sim.Kit.Modk
 import Lua.Vm.Sim.Kit.AtModk
 import Lua.Vm.Sim.Kit.AtIdiv
 import Lua.Vm.Sim.Kit.AtForprep
+import Lua.Vm.Sim.Kit.AtIdivk
+import Lua.Vm.Sim.Kit.AtUnm
+import Lua.Vm.Sim.Kit.AtShl
+import Lua.Vm.Sim.Kit.AtShr
+import Lua.Vm.Sim.Kit.AtShli
+import Lua.Vm.Sim.Kit.AtShri
+import Lua.Vm.Sim.Kit.AtBandk
+import Lua.Vm.Sim.Kit.AtBork
+import Lua.Vm.Sim.Kit.AtBxork
 import Lua.Vm.Sim.Kit.EqLong
 import Lua.Vm.Sim.Kit.LtStr
 

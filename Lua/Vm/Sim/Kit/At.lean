@@ -108,6 +108,9 @@ inductive Loc
   | srem (x y : Loc) | sdiv (x y : Loc) | udiv (x y : Loc) | umod (x y : Loc)
   | snez (x : Loc)
   | cell (e : Aff)
+  -- the bitwise and shift arms (`and`, `or`, `sll`, `srl`, `addiw`, `subw`/`negw`)
+  | and (x y : Loc) | or (x y : Loc) | sll (x y : Loc) | srl (x y : Loc)
+  | addw (x y : Loc) | subw (x y : Loc)
 
 /-- The value of a location. -/
 def Loc.den (X : Cx) : Loc → BitVec 64
@@ -132,6 +135,13 @@ def Loc.den (X : Cx) : Loc → BitVec 64
   | .umod x y => x.den X % y.den X
   | .snez x => zero_extend (m := 64) (bool_to_bit (zopz0zI_u 0#64 (x.den X)))
   | .cell e => bytesT8 X.c.σ.mem (e.den X)
+  | .and x y => x.den X &&& y.den X
+  | .or x y => x.den X ||| y.den X
+  | .sll x y => shift_bits_left (x.den X) (Sail.BitVec.extractLsb (y.den X) 5 0)
+  | .srl x y => shift_bits_right (x.den X) (Sail.BitVec.extractLsb (y.den X) 5 0)
+  | .addw x y => sign_extend (m := 64) (Sail.BitVec.extractLsb (x.den X + y.den X) 31 0)
+  | .subw x y => sign_extend (m := 64)
+      ((Sail.BitVec.extractLsb (x.den X) 31 0) - (Sail.BitVec.extractLsb (y.den X) 31 0))
 
 /-- `snez`'s value. -/
 theorem snez_eq (x : BitVec 64) :
@@ -432,6 +442,12 @@ by the goal's shape, a load forwarded through the path's stores
 partial def atEq : TacticM Unit := withMainContext do
   let t ← instantiateMVars (← getMainTarget)
   let some (_, _, _) := t.eq? | throwError "at_eq: not an equation"
+  -- an affine location left folded (a stored value computed from `C`)
+  if (t.find? fun e => e.isConstOf ``Aff.den).isSome then
+    evalTactic (← `(tactic| simp only [Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.add_zero,
+      Nat.sub_zero]))
+    unless (← getUnsolvedGoals).isEmpty do atEq
+    return
   let s0 ← saveState
   try
     evalTactic (← `(tactic| with_reducible rfl)); return
@@ -478,7 +494,9 @@ partial def atEq : TacticM Unit := withMainContext do
         if (← getUnsolvedGoals).isEmpty then return
         s1.restore
       catch _ => s1.restore
-    throwError "at_eq: load not forwarded: {← ppGoal (← getMainGoal)}"
+    -- a binary operation on loads (`and a4,a4,a3`): its operands, below
+    unless sameHead l r && l.getAppNumArgs == 6 do
+      throwError "at_eq: load not forwarded: {← ppGoal (← getMainGoal)}"
   -- an operation: congruence on its arguments
   if sameHead l r && l.getAppFn.constName! != ``BitVec.ofNat then
     let s2 ← saveState
@@ -495,6 +513,16 @@ partial def atEq : TacticM Unit := withMainContext do
       atEq
       return
     catch _ => s2.restore
+    -- an operand not in the last position (`extractLsb x 31 0`): congruence
+    -- on every argument (no closing by `rfl`: never whnf a Sail term)
+    if l.getAppFn.constName! == ``Sail.BitVec.extractLsb then
+     try
+      let gs ← (← getMainGoal).congrN 1 (closePre := false) (closePost := false)
+      for g in gs do
+        setGoals [g]
+        atEq
+      return
+     catch _ => s2.restore
   -- an address
   try
     evalTactic (← `(tactic| (apply BitVec.eq_of_toNat_eq; kit_disch)))
@@ -538,8 +566,11 @@ elab "at_pins " h:ident : tactic => withMainContext do
     if ← withReducible (isDefEq qv pv) then
       parts := parts.push (← `(pinsHold_get ($h).pins $(quote i) (by pin_len)))
     else
-      parts := parts.push (← `(pin_eq (pinsHold_get ($h).pins $(quote i) (by pin_len))
-        (by simp only [List.getElem_cons_succ, List.getElem_cons_zero, HFrame.pins]; at_eq)))
+      -- the pin's fact elaborated on its own first (elaborated against the
+      -- row's value, `addiw`'s pin sends the unifier into a loop)
+      parts := parts.push (← `((by
+        have hh := pinsHold_get ($h).pins $(quote i) (by pin_len)
+        exact pin_eq hh (by simp only [List.getElem_cons_succ, List.getElem_cons_zero, HFrame.pins]; at_eq))))
   parts := parts.push (← `(trivial))
   evalTactic (← `(tactic| exact ⟨$parts,*⟩))
 
@@ -559,6 +590,12 @@ def atSegArgs (n : Name) : TermElabM (Array Term) := do
             args := args.push (← `((by at_guard $(mkIdent (Name.mkSimple nm)))))
           else
             args := args.push (← `((by first | decide | (simp; done))))
+        else if (t.find? fun e => e.isConstOf ``bytesT8).isSome then
+          -- an address through a load in the segment (`ld a4,0(sp)`: `k`)
+          args := args.push (← `((by
+            (try simp (disch := kit_disch) only [kptr_at $(mkIdent `hc)])
+            (try simp only [sext64_id])
+            kit_disch)))
         else args := args.push (← `((by kit_disch)))
       else args := args.push (← `(_))
     return args
