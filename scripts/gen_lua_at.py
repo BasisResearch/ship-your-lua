@@ -54,11 +54,11 @@ M64 = (1 << 64) - 1
 # the arms this generator serves: opcode -> (module, jump-table target)
 ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
         "OP_IDIV": ("Idiv", 0x8001deac), "OP_LE": ("Le", 0x8001c60c), "OP_LT": ("Lt", 0x8001c894),
-        "OP_EQK": ("Eqk", 0x8001c850)}
+        "OP_EQK": ("Eqk", 0x8001c850), "OP_LEN": ("Len", 0x8001dc14)}
 
 # the library modules an arm's at-lemmas need beyond `At`/`Summaries`
 IMPORTS = {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
-           "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"]}
+           "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"]}
 
 ABI = {"zero": 0, "ra": 1, "sp": 2, "gp": 3, "tp": 4, "t0": 5, "t1": 6, "t2": 7,
        "s0": 8, "fp": 8, "s1": 9}
@@ -154,6 +154,9 @@ def lean_loc(x):
         return "(.lit (BitVec.ofNat 64 (X.w.code + 4 * jmpPc X)))"
     if k == "strle":
         return f"(.lit (if !lexLt (sOf X .{x[2]}) (sOf X .{x[1]}) then 1#64 else 0#64))"
+    if k == "slen":
+        # closed over the context: a log may hold it (`Loc.fn`)
+        return f"(.fn fun X => BitVec.ofNat 64 (sOf X .{x[1]}).length)"
     if k == "streqk":
         return "(.lit (if sOf X .a = kOf X then 1#64 else 0#64))"
     if k == "strlt":
@@ -520,7 +523,8 @@ def code(lo, hi):
 # the summarised calls: entry -> (helper, result registers, Lean application)
 CALLS = {
     0x8002f7b0: "__moddi3", 0x8002f72c: "__divdi3", 0x8002f734: "__hidden___udivdi3",
-    0x8001ade8: "luaV_tointeger", 0x8001a704: "l_strcmp", 0x8001b780: "luaV_equalobj"}
+    0x8001ade8: "luaV_tointeger", 0x8001a704: "l_strcmp", 0x8001b780: "luaV_equalobj",
+    0x8001bae0: "luaV_objlen"}
 
 # a call node observed by the instruction after it (`l_strcmp`'s answer is
 # only known up to `LsObs`): the call lemma runs on through that observing
@@ -591,6 +595,20 @@ def call_effect(st, callee, ret):
                  "(hta : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 0)) = 84#8)",
                  "(htk : slotTag X.c.σ.mem (X.w.k + stackValueSize * X.ins.b) = 84#8)"]
         return post, hyps, "at_open\n  at_eqk", pre_regs
+    elif callee == "luaV_objlen":
+        # `len_sum`: `luaV_objlen(L, R[A], R[B])` on a string `R[B]`; the
+        # return memory: `ra` saved at `sp - 8`, then `R[A]` the integer `#R[B]`
+        a2 = st.get(12)
+        sa, sb = aff({"base": 1, "a": 16}), aff({"base": 1, "b": 16})
+        if a0 != ("L",) or a1 != sa or a2 != sb:
+            raise Stop(f"luaV_objlen of {a0}, {a1}, {a2}")
+        post = State({r: st.get(r) for r in FRAME if r not in (22, 26)}, st.log, st.facts)
+        post.bounds = {("a", 0), ("b", 0)}
+        post.store("sd", (("sp", 1),), -8, ("lit", ret))
+        post.store("sb", sa[1], 8, ("lit", 3))
+        post.store("sd", sa[1], 0, ("slen", "b"))
+        hyps += ["(y : List UInt8)", "(hsb : X.s.regs (X.ins.b + 0) = some (.str y))"]
+        return post, hyps, "at_open\n  at_objlen", pre_regs
     elif callee == "luaV_tointeger":
         s = to_aff(a0)
         if s is None or not slot_of(tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))), s[1]):

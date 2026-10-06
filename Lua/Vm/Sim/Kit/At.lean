@@ -108,6 +108,9 @@ inductive Loc
   | srem (x y : Loc) | sdiv (x y : Loc) | udiv (x y : Loc) | umod (x y : Loc)
   | snez (x : Loc)
   | cell (e : Aff)
+  /-- a value stated over the context (`Kit/AtCond.lean`: a call's answer,
+  such as a string register's length), closed so a log may hold it -/
+  | fn (f : Cx → BitVec 64)
 
 /-- The value of a location. -/
 def Loc.den (X : Cx) : Loc → BitVec 64
@@ -132,6 +135,7 @@ def Loc.den (X : Cx) : Loc → BitVec 64
   | .umod x y => x.den X % y.den X
   | .snez x => zero_extend (m := 64) (bool_to_bit (zopz0zI_u 0#64 (x.den X)))
   | .cell e => bytesT8 X.c.σ.mem (e.den X)
+  | .fn f => f X
 
 /-- `snez`'s value. -/
 theorem snez_eq (x : BitVec 64) :

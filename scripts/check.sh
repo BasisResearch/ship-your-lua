@@ -217,6 +217,11 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.lngeq_sum
 #print axioms Lua.Vm.Sim.Kit.eqo_long_ex
 #print axioms Lua.Vm.At.EQK.call_8001c87c
+#print axioms Lua.Vm.Sim.At.sim_LEN
+#print axioms Lua.Vm.Sim.At.len_str
+#print axioms Lua.Vm.Sim.At.len_sum
+#print axioms Lua.Vm.Sim.Kit.objlen_sum
+#print axioms Lua.Vm.At.LEN.call_8001dc48
 #print axioms Lua.Vm.Sim.lexLt_total
 #print axioms Lua.Vm.Sim.Kit.memcmp_sum
 #print axioms Lua.Vm.Sim.Kit.eqlngstr_sum

@@ -5,6 +5,7 @@ import Lua.Vm.Sim.Kit.Eqk
 import Lua.Vm.At.Le
 import Lua.Vm.At.Lt
 import Lua.Vm.At.Eqk
+import Lua.Vm.At.Len
 
 /-!
 # `OP_LE` and `OP_LT` on two strings on the location-list route (lane F1-2)
@@ -185,5 +186,38 @@ theorem EqkTest.cases {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : 
 
 /-- **`sim_EQK`**: `OP_EQK` simulates its kernel, every path proved. -/
 theorem sim_EQK : SimArm .EQK := sim_EQK_of_long (ArmBody.byTest _ EqkTest.cases eqk_long_take eqk_long_skip)
+
+/-! ## `OP_LEN` on a string -/
+
+/-- `R[B]` holds a string. -/
+def StrB (_p : Proto) (_c : Config) (s : State) (_w : RelPtrs) (ins : Word) : Prop :=
+  ∃ y, s.regs ins.b = some (.str y)
+
+/-- `OP_LEN` on a string: `luaV_objlen` (`len_sum`), `R[A] := #R[B]`. -/
+theorem len_str : ArmBody .LEN StrB := fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
+  obtain ⟨y, hy⟩ := hT
+  kit_setup 0x8001dc14
+  simp only [setR, Opnd.ports, List.foldr] at htop hk
+  kit_bound hAt ins.a; kit_bound hBt ins.b
+  kit_reg hbb vb hvb ins.b
+  rw [hy] at hbb; cases hbb
+  have hsy : sOf ⟨p, c, s, w, ins⟩ .b = y := by simp [sOf, Fld.den, hy]
+  simp [Opnd.fill, δ, VState.apply, writeDefs, KEdge.kills] at hk
+  subst hk
+  at_go Lua.Vm.At.LEN
+
+/-- `OP_LEN` on anything but a string: `δ .len` has no answer, no step. -/
+theorem len_stuck : ArmBody .LEN fun p c s w ins => ¬ StrB p c s w ins :=
+  fun {p} hS {c s s' w ins} hA hf hop hstep hn => by
+  kit_setup 0x8001dc14
+  simp only [setR, Opnd.ports, List.foldr] at htop hk
+  kit_reg hbb vb hvb ins.b
+  exfalso
+  rcases vb with _ | _ | _ | y | _ <;> simp [Opnd.fill, δ] at hk
+  exact hn ⟨y, hbb⟩
+
+/-- **`sim_LEN`**: `OP_LEN` simulates its kernel, every path proved. -/
+theorem sim_LEN : SimArm .LEN := sim_arm (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep =>
+  (Classical.em (StrB p c s w ins)).elim (len_str hS hA hf hop hstep) (len_stuck hS hA hf hop hstep)
 
 end Lua.Vm.Sim.At

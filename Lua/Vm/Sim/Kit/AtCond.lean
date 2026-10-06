@@ -2,6 +2,7 @@ import Lua.Vm.Sim.Kit.AtArm
 import Lua.Vm.Sim.Kit.Cond
 import Lua.Vm.Sim.Kit.LstrcmpPro
 import Lua.Vm.Sim.Kit.EqLong
+import Lua.Vm.Sim.Kit.Objlen
 
 /-!
 # `docondjump` and the string call node on the location-list route (lane F1-2)
@@ -50,6 +51,10 @@ theorem sOf_eq {X : Cx} {f : Fld} {j : Nat} {x : List UInt8} (h : X.s.regs j = s
 macro "fld_eq" : tactic => `(tactic|
   simp only [Fld.den, Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow, Nat.add_zero])
 
+/-- A register bound over the instruction's fields in either form. -/
+macro "fld_omega" : tactic => `(tactic|
+  (simp only [Fld.den, Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow] at *; omega))
+
 /-- A `donextjump` lies before a `JMP`. -/
 theorem jmp_lt {X : Cx} (hj : (nextJump X.p X.s.pc).isSome = true) : X.s.pc + 1 < X.p.code.length := by
   obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp hj
@@ -72,24 +77,38 @@ macro "at_scr" : tactic => `(tactic| (
     not_and, Nat.not_lt] at hx
   simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out]))
 
+/-- The run's memory agrees with the entry memory outside `Scratch` and the
+register slots (an arm's stores, a callee's frame and its stores of `R[A]`). -/
+abbrev WinFrame (X : Cx) (m : Mem) : Prop :=
+  ∀ a, ¬ Scratch X.w a → ¬ Slots X.p X.w a → m[a]? = X.c.σ.mem[a]?
+
+set_option hygiene false in
+/-- `WinFrame` of a log of `Scratch` and slot stores (after `at_open`). -/
+macro "at_win" : tactic => `(tactic| (
+  intro x hx hx'
+  simp only [Scratch, Slots, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget, not_or,
+    not_and, Nat.not_lt, stackValueSize] at hx hx'
+  simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out]))
+
 /-! ## `updatetrap` -/
 
 /-- `lw t6, 40(s7)`: `ci->u.l.trap`, read through `Scratch` stores. -/
-theorem trap_ld {X : Cx} (hX : X.Ok) {m : Mem} (hm : ScrFrame X m) {a : Nat} (ha : a = X.w.ci + 40) :
+theorem trap_ld {X : Cx} (hX : X.Ok) {m : Mem} (hm : WinFrame X m) {a : Nat} (ha : a = X.w.ci + 40) :
     sign_extend (m := 64) (bytesT4 m a : BitVec (8 * 4)) = 0#64 := by
   have hc := hX.core
   have hr := hc.ranges
-  have := hr.L_sep_ci; have := hr.ci_top; have := hr.sp_eq; have := hr.L_lo
-  simp only [ciSize, stateSize, RuntimeData.spEntry, cStackBudget, execFrame] at *
+  have := hr.L_sep_ci; have := hr.ci_top; have := hr.sp_eq; have := hr.L_lo; have := hr.ci_sep
+  simp only [ciSize, stateSize, RuntimeData.spEntry, cStackBudget, execFrame, stackValueSize] at *
   have e : bytesT4 m a = 0 := by
     subst ha
-    refine (bytesT4_congr fun i hi => hm _ fun hs => ?_).trans hc.trap
-    simp only [Scratch, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget] at hs
-    omega
+    refine (bytesT4_congr fun i hi => hm _ (fun hs => ?_) fun hs => ?_).trans hc.trap
+    · simp only [Scratch, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget] at hs
+      omega
+    · simp only [Slots, stackValueSize] at hs; omega
   rw [e]; decide
 
 /-- `sext.w s5, t6` after the reload. -/
-theorem trap_sx {X : Cx} (hX : X.Ok) {m : Mem} (hm : ScrFrame X m) {a : Nat} (ha : a = X.w.ci + 40) :
+theorem trap_sx {X : Cx} (hX : X.Ok) {m : Mem} (hm : WinFrame X m) {a : Nat} (ha : a = X.w.ci + 40) :
     sign_extend (m := 64) (Sail.BitVec.extractLsb ((sign_extend (m := 64) (bytesT4 m a : BitVec (8 * 4)))
       + sign_extend (m := 64) (0x000#12)) 31 0) = 0#64 := by
   rw [trap_ld hX hm ha]; decide
@@ -98,7 +117,7 @@ theorem trap_sx {X : Cx} (hX : X.Ok) {m : Mem} (hm : ScrFrame X m) {a : Nat} (ha
 
 /-- **`donextjump`'s target**: the following `OP_JMP`'s `sJ`, read through
 `Scratch` stores, relative to `pc + 2`. -/
-theorem jmp_at {X : Cx} (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) {m : Mem} (hm : ScrFrame X m)
+theorem jmp_at {X : Cx} (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) {m : Mem} (hm : WinFrame X m)
     {a : Nat} (ha : a = X.w.code + 4 * (X.s.pc + 1)) :
     BitVec.ofNat 64 (X.w.code + 4 * (X.s.pc + 1)) + shift_bits_left ((sign_extend (m := 64) (shift_bits_right
       (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 m a : BitVec (8 * 4))) 31 0) (0x07#5)))
@@ -117,7 +136,10 @@ theorem jmp_at {X : Cx} (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) {
   have hsj : ni.sj < 2 ^ 25 := by
     simp only [Word.sj, Word.ax, Word.field, Word.offsetSJ]; have := ni.isLt; omega
   have := hr.code_hi
-  exact nextjump_pc ha (Core.fetch_scratch' hc hm hni) hjt (by omega) (by omega)
+  have hw : bytesT4 m (X.w.code + 4 * (X.s.pc + 1)) = ni :=
+    (bytesT4_congr fun i hi => hm _ (fun hs => hr.code_out _ (by omega) (by omega) (.inr (.inr hs)))
+      fun hs => hr.code_out _ (by omega) (by omega) (.inl hs)).trans (hc.fetch hni)
+  exact nextjump_pc ha hw hjt (by omega) (by omega)
 
 /-! ## `l_strcmp`'s call node at a row -/
 
@@ -237,6 +259,56 @@ macro "at_eqk" : tactic => `(tactic| (
   · at_pins h
   · at_mem))
 
+/-! ## `luaV_objlen`'s call node at a row (`OP_LEN` on a string) -/
+
+/-- A register slot read through `Scratch` stores. -/
+theorem slot_scr {X : Cx} (hX : X.Ok) {m : Mem} (hm : ScrFrame X m) {j : Nat} (hj : j < X.p.maxstacksize) :
+    slotTag m (X.w.slot j) = slotTag X.c.σ.mem (X.w.slot j) ∧
+      slotVal m (X.w.slot j) = slotVal X.c.σ.mem (X.w.slot j) := by
+  have hr := hX.core.ranges
+  have := hr.ci_sep; have := hr.L_sep; have := hr.slots_top; have := hr.ci_top; have := hr.L_top
+  simp only [stackValueSize, ciSize, stateSize, RuntimeData.spEntry, cStackBudget] at *
+  have hs : ∀ i, i < 16 → ¬ Scratch X.w (X.w.slot j + i) := fun i hi h => by
+    simp only [Scratch, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget, RelPtrs.slot,
+      stackValueSize] at h
+    omega
+  refine ⟨?_, bytesT8_congr fun i hi => ?_⟩
+  · simp only [slotTag, bytesT1, tvalueTagOff, hm _ (hs 8 (by omega))]
+  · simp only [tvalueValOff, Nat.add_zero]; exact hm _ (hs i (by omega))
+
+/-- **`luaV_objlen(L, R[A], R[B])` on a string at a row**: the integer `#y`
+stored in `R[A]`, the memory `olMem` (`objlen_sum`). -/
+theorem len_sum {X : Cx} (hX : X.Ok) {m : Mem} (hm : ScrFrame X m) {ja jb : Nat}
+    (hja : ja < X.p.maxstacksize) (hjb : jb < X.p.maxstacksize) {y : List UInt8}
+    (hy : X.s.regs jb = some (.str y)) (L r : BitVec 64) (hra : r.toNat % 4 = 0) (f : KFrame)
+    (o : Array String) :
+    Triple (SegSt 0x8001bae0#64 (olPre L r (X.w.slot ja) (X.w.slot jb) X.w.sp f) (ArmPay m o))
+      (SegSt r (⟨Register.x2, BitVec.ofNat 64 X.w.sp⟩ :: f.pins) (ArmPay (olMem m (X.w.slot ja) X.w.sp r y.length) o)) := by
+  have hc := hX.core
+  have hr := hc.ranges
+  have hvb := hc.stack jb _ hjb hy
+  have ⟨et, ev⟩ := slot_scr hX hm hjb
+  have a2 := hc.str_at hvb hm
+  have hsp := hr.sp_eq; have := hr.slots_top; have := hr.base_lo; have := hr.base_al
+  simp only [RuntimeData.spEntry, cStackBudget, execFrame, stackValueSize, RelPtrs.slot] at *
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  exact objlen_sum L r _ _ X.w.sp f m o _ y
+    ⟨hra, by omega, by omega, by omega, by omega, by omega, by omega, by omega, by omega,
+      et.trans hvb.tag_eq, ev.trans (bv_ofNat_toNat _).symm, a2.view, a2.apart.mono (by omega) (by omega)⟩
+
+set_option hygiene false in
+/-- **`at_objlen`**: the `OP_LEN` call lemma's proof (after `at_open`): the
+call node `len_sum` at the row, the length as the location over `sOf`, the
+return row and memory (`olMem`) by `at_pins`/`at_mem`. -/
+macro "at_objlen" : tactic => `(tactic| (
+  obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)
+    (len_sum hX (by at_scr) (by fld_omega) (by fld_omega) hsb _ _ (by decide)
+      (Lua.Vm.Sim.KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _)
+  rw [← sOf_eq (f := .b) hsb (by fld_eq)] at h
+  refine ⟨_, acc, (Vsa.Sim.SegSt.repin h ?_).mem_eq ?_⟩
+  · at_pins h
+  · simp only [Lua.Vm.Sim.Kit.olMem]; at_mem))
+
 /-! ## The rules -/
 
 open Lean Elab Tactic Meta in
@@ -250,12 +322,12 @@ elab "at_eq_cond" : tactic => withMainContext do
     if has r ``lexLt || has r ``kOf then pure #[← `(tactic| with_reducible assumption)]
     else if l.isAppOf ``HAnd.hAnd && r.isAppOf ``ite then pure #[← `(tactic| exact kraw_eq _)]
     else if has r ``jmpPc then
-      pure #[← `(tactic| exact jmp_at $(mkIdent `hX) (by assumption) (by at_scr) (by kit_disch))]
+      pure #[← `(tactic| exact jmp_at $(mkIdent `hX) (by assumption) (by at_win) (by kit_disch))]
     else if has l ``bytesT4 && has l ``sign_extend then
       -- `sext (lw …)` itself, or `sext.w` of it (`extractLsb`)
       if has l ``Sail.BitVec.extractLsb then
-        pure #[← `(tactic| exact trap_sx $(mkIdent `hX) (by at_scr) (by kit_disch))]
-      else pure #[← `(tactic| exact trap_ld $(mkIdent `hX) (by at_scr) (by kit_disch))]
+        pure #[← `(tactic| exact trap_sx $(mkIdent `hX) (by at_win) (by kit_disch))]
+      else pure #[← `(tactic| exact trap_ld $(mkIdent `hX) (by at_win) (by kit_disch))]
     else throwError "at_eq_cond: no rule"
   for tac in tacs do
     let s ← saveState
