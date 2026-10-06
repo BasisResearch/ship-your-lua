@@ -97,7 +97,7 @@ theorem divR_q {p : Proto} (hS : Supported p) {s : State} {ins : Word} {o : OpCo
     (hK : opKernel p s.pc ins o = some (opArith s.pc ins.a b [.reg ins.b, .reg ins.c]))
     (hvs : (opArith s.pc ins.a b [.reg ins.b, .reg ins.c]).reads.mapM s.regs = some vs)
     (hb : (opArith s.pc ins.a b [.reg ins.b, .reg ins.c]).body vs = none) :
-    ∀ c' w, ArmAt p c' s w ins → DivPath BothInt dvR (fun _ y => y = 0#64) p c' s w ins := by
+    ∀ c' w, ArmAt p c' s w ins → DivZero BothInt dvR p c' s w ins := by
   intro c' w hA
   obtain ⟨i, hfill⟩ := opArith_zero hb
   simp only [opArith, Opnd.ports, List.mapM_cons, List.mapM_nil] at hvs
@@ -117,7 +117,7 @@ theorem divK_q {p : Proto} (hS : Supported p) {s : State} {ins : Word} {o : OpCo
     (hvs : (opArith s.pc ins.a b [.reg ins.b, .imm v]).reads.mapM s.regs = some vs)
     (hb : (opArith s.pc ins.a b [.reg ins.b, .imm v]).body vs = none) :
     ∀ c' w, ArmAt p c' s w ins →
-      WithK (DivPath BothIntK dvK (fun _ y => y = 0#64)) p c' s w ins := by
+      WithK (DivZero BothIntK dvK) p c' s w ins := by
   intro c' w hA
   obtain ⟨i, hfill⟩ := opArith_zero hb
   simp only [opArith, Opnd.ports, List.mapM_cons, List.mapM_nil] at hvs
@@ -134,10 +134,7 @@ theorem forprep_q {p : Proto} (hS : Supported p) {s : State} {ins : Word} {vs : 
     (hf : p.fetch s.pc = some ins) (hop : ins.op? = some .FORPREP)
     (hvs : (forprepK s.pc ins).reads.mapM s.regs = some vs)
     (hz : Fault.site .forprep vs = .runerror) :
-    ∀ c' w, ArmAt p c' s w ins →
-      slotTag c'.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt ∧
-      slotTag c'.σ.mem (w.slot (ins.a + 2)) = BitVec.ofNat 8 vNumInt ∧
-      slotVal c'.σ.mem (w.slot (ins.a + 2)) = 0#64 := by
+    ∀ c' w, ArmAt p c' s w ins → FpZero p c' s w ins := by
   intro c' w hA
   have hK : opKernel p s.pc ins .FORPREP = some (forprepK s.pc ins) := rfl
   simp only [forprepK, List.mapM_cons, List.mapM_nil] at hvs

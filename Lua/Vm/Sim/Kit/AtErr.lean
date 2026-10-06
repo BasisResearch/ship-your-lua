@@ -75,37 +75,38 @@ macro "at_err " ns:ident : tactic => `(tactic| (
   at_run $ns h0 acc
   exact ⟨_, acc, h0.pcAt⟩))
 
-set_option hygiene false in
-/-- The setup of a division arm's `n = 0` path: both operands integers (the
-tags `hB`, `hC`), the divisor `hz`. -/
-local macro "div_err " pc:num : tactic => `(tactic| (
-  rintro p hS c s w ins hA hf hop ⟨hI, hz⟩
-  simp only [dvR, dvK] at hz
-  kit_setup_err $pc
-  kit_bound hAt ins.a; kit_bound hBt ins.b
-  have hB := hI.1; have hC := hI.2))
-
-/-- `OP_IDIV` with `R[C] = 0`: `luaV_idiv`'s `luaG_runerror(L, "attempt to perform 'n//0'")`. -/
-theorem idiv_err : ArmErr .IDIV (DivPath BothInt dvR fun _ y => y = 0#64) symLuaGRunerror := by
-  div_err 0x8001deac
-  kit_bound hCt ins.c
-  at_err Lua.Vm.At.IDIV
-
-/-- `OP_MOD` with `R[C] = 0`: `luaV_mod`'s `'n%%0'`. -/
-theorem mod_err : ArmErr .MOD (DivPath BothInt dvR fun _ y => y = 0#64) symLuaGRunerror := by
-  div_err 0x8001dc58
-  kit_bound hCt ins.c
-  at_err Lua.Vm.At.MOD
+/-- A division path by zero (`DivPath` with the divisor `0`). -/
+abbrev DivZero (B : Proto → Config → State → RelPtrs → Word → Prop) (dv : RelPtrs → Word → Nat) :
+    Proto → Config → State → RelPtrs → Word → Prop :=
+  DivPath B dv fun _ y => y = 0#64
 
 /-- A `K` operand's path: `K[C]` exists (the kernel's `kval`), and `Q`. -/
 def WithK (Q : Proto → Config → State → RelPtrs → Word → Prop) (p : Proto) (c : Config)
     (s : State) (w : RelPtrs) (ins : Word) : Prop :=
   (kval p ins.c).isSome = true ∧ Q p c s w ins
 
+/-- `forprep`'s integer case with a zero step: `init` and `step` integers,
+`step = 0`. -/
+def FpZero (_p : Proto) (c : Config) (_s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  slotTag c.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt ∧
+    slotTag c.σ.mem (w.slot (ins.a + 2)) = BitVec.ofNat 8 vNumInt ∧
+    slotVal c.σ.mem (w.slot (ins.a + 2)) = 0#64
+
 set_option hygiene false in
-/-- `div_err` with `K[C]`: its bounds and its slot's facts (`kitk_const`'s,
-from `kval` instead of the kernel). -/
-local macro "divk_err " pc:num : tactic => `(tactic| (
+/-- **`div_err pc NS`**: a division arm's `n = 0` path (`R[C]`): both
+operands integers (the tags `hB`, `hC`), the divisor `hz`, then `at_err`. -/
+local macro "div_err " pc:num ns:ident : tactic => `(tactic| (
+  rintro p hS c s w ins hA hf hop ⟨hI, hz⟩
+  simp only [dvR, dvK] at hz
+  kit_setup_err $pc
+  kit_bound hAt ins.a; kit_bound hBt ins.b; kit_bound hCt ins.c
+  have hB := hI.1; have hC := hI.2
+  at_err $ns))
+
+set_option hygiene false in
+/-- **`divk_err pc NS`**: `div_err` with `K[C]`: its bounds and its slot's
+facts (`kitk_const`'s, from `kval` instead of the kernel). -/
+local macro "divk_err " pc:num ns:ident : tactic => `(tactic| (
   rintro p hS c s w ins hA hf hop ⟨hkv', hI, hz⟩
   simp only [dvR, dvK] at hz
   kit_setup_err $pc
@@ -115,28 +116,35 @@ local macro "divk_err " pc:num : tactic => `(tactic| (
   have hklo := hr.k_lo; have hkhi := hr.k_hi; have hkal := hr.k_al
   simp only [Word.c, Word.field, Nat.shiftRight_eq_div_pow, stackValueSize] at hKc hkhi
   kit_bound hAt ins.a; kit_bound hBt ins.b
-  have hB := hI.1; have hC := hI.2))
+  have hB := hI.1; have hC := hI.2
+  at_err $ns))
+
+set_option hygiene false in
+/-- **`fp_err`**: `forprep`'s zero step. -/
+local macro "fp_err" : tactic => `(tactic| (
+  rintro p hS c s w ins hA hf hop ⟨hTi, hTs, hz⟩
+  kit_setup_err 0x8001c0f8
+  at_err Lua.Vm.At.FORPREP))
+
+/-- `OP_IDIV` with `R[C] = 0`: `luaV_idiv`'s `luaG_runerror(L, "attempt to perform 'n//0'")`. -/
+theorem idiv_err : ArmErr .IDIV (DivZero BothInt dvR) symLuaGRunerror := by
+  div_err 0x8001deac Lua.Vm.At.IDIV
+
+/-- `OP_MOD` with `R[C] = 0`: `luaV_mod`'s `'n%%0'`. -/
+theorem mod_err : ArmErr .MOD (DivZero BothInt dvR) symLuaGRunerror := by
+  div_err 0x8001dc58 Lua.Vm.At.MOD
 
 /-- `OP_IDIVK` with `K[C] = 0`. -/
-theorem idivk_err :
-    ArmErr .IDIVK (WithK (DivPath BothIntK dvK fun _ y => y = 0#64)) symLuaGRunerror := by
-  divk_err 0x8001d768
-  at_err Lua.Vm.At.IDIVK
+theorem idivk_err : ArmErr .IDIVK (WithK (DivZero BothIntK dvK)) symLuaGRunerror := by
+  divk_err 0x8001d768 Lua.Vm.At.IDIVK
 
 /-- `OP_MODK` with `K[C] = 0`. -/
-theorem modk_err :
-    ArmErr .MODK (WithK (DivPath BothIntK dvK fun _ y => y = 0#64)) symLuaGRunerror := by
-  divk_err 0x8001dad0
-  at_err Lua.Vm.At.MODK
+theorem modk_err : ArmErr .MODK (WithK (DivZero BothIntK dvK)) symLuaGRunerror := by
+  divk_err 0x8001dad0 Lua.Vm.At.MODK
 
 /-- `forprep`'s integer case with a zero step: `luaG_runerror(L, "'for' step is zero")`
 (before the limit is looked at). -/
-theorem forprep_err : ArmErr .FORPREP (fun _ c _ w ins =>
-    slotTag c.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt ∧
-    slotTag c.σ.mem (w.slot (ins.a + 2)) = BitVec.ofNat 8 vNumInt ∧
-    slotVal c.σ.mem (w.slot (ins.a + 2)) = 0#64) symLuaGRunerror := by
-  rintro p hS c s w ins hA hf hop ⟨hTi, hTs, hz⟩
-  kit_setup_err 0x8001c0f8
-  at_err Lua.Vm.At.FORPREP
+theorem forprep_err : ArmErr .FORPREP FpZero symLuaGRunerror := by
+  fp_err
 
 end Lua.Vm.Sim.At
