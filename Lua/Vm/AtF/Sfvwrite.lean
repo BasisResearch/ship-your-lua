@@ -813,6 +813,7 @@ structure Ok_S (X : FCx) : Prop where
    ⟨Register.x10, 0x8005d1b8#64⟩,
    ⟨Register.x11, 0x8005e668#64⟩,
    ⟨Register.x12, BitVec.ofNat 64 (X.n 25)⟩,
+   ⟨Register.x13, 0x400#64⟩,
    ⟨Register.x15, 0x80034f18#64⟩,
    ⟨Register.x18, BitVec.ofNat 64 (X.n 21)⟩,
    ⟨Register.x19, BitVec.ofNat 64 (X.n 21)⟩,

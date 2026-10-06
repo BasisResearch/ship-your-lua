@@ -240,6 +240,10 @@ HELPERS += [("__sfvwrite_r", "__sfvwrite_r", 0x80033b50, 0x8003402c, [22, 26], [
 # short-write paths are decided by `_flags2 = 0` and `__sfvwrite_r`'s `0`)
 HELPERS += [("fwrite", "Fwrite", 0x800342e4, 0x80034300, [22, 26], [], []),
             ("_fwrite_r", "_fwrite_r", 0x800340fc, 0x800342e4, [22, 26], [], [0x800342c0])]
+# indirect calls whose target the callee rows know (`jalr` through a `FILE`
+# hook): the callee's entry reads flow back into the caller's segments, as a
+# `jal`'s do (`__sfvwrite_r`'s `fp->_write`, `__swrite`, reads `a3`)
+INDIRECT = {0x80033df0: 0x80034f18}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -327,6 +331,8 @@ def helper_live(cuts, owner):
     def live_out(n):
         if info[n][2] is None:
             hi = cuts[n][1]
+            if hi - 4 in INDIRECT:
+                return set().union(*[live[m] for m in cuts if cuts[m][0] == INDIRECT[hi - 4]])
             if d2s_last_is_ret(hi):     # a return: the helper's results
                 return RESULTS[owner[n]]
             # a computed jump (a jump table): its targets are the helper's roots
