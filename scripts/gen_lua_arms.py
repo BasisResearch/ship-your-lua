@@ -223,6 +223,9 @@ HELPERS += [("fflush", "Fflush", 0x80032a1c, 0x80032af8, [22, 26], [],
 # stores, so four stores in one segment state their data exponentially
 HELPERS += [("memmove", "Memmove", 0x8003b444, 0x8003b56c, [22, 26],
              [0x8003b4d8, 0x8003b4e0, 0x8003b4e8], [0x8003b450])]
+# lane F1-8: `_fflush_r(ptr, stdout)` (`__sfvwrite_r`'s flushes; the `__sinit`
+# call `0x80032a04` is a stop: `StdioUp`)
+HELPERS += [("_fflush_r", "_fflush_r", 0x80032954, 0x80032a1c, [22, 26], [], [0x80032a04])]
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -238,7 +241,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__call_exitprocs": set(), "__retarget_lock_acquire_recursive": set(),
            "__retarget_lock_release_recursive": set(), "_exit": set(),
            "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
-           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}, "memmove": {"x10"}}
+           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}, "memmove": {"x10"}, "_fflush_r": {"x10"}}
 
 
 def helper_cfg(lo, hi):

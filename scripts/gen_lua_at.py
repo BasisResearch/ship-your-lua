@@ -1713,6 +1713,16 @@ FNS = {
         stops=[0x80032ed0],
         doc="`fflush(stdout)`: `_REENT`'s `CHECK_INIT`, the lock, `__sflush_r`, "
             "the unlock (`__sinit`, `0x80032ed0`, is a stop: `StdioUp.init`)."),
+    # `_fflush_r(ptr, stdout)`: as `fflush`, `ptr` given (`__sfvwrite_r`'s flushes)
+    "_fflush_r": dict(
+        mod="Fflush_r", entry=0x80032954,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e720 + 1024 + 2048 ≤ X.n 0"] + CALLEE_OK,
+        cells={(2, STDOUT + 16): 0x2889, (4, STDOUT + 176): 0},
+        calls={0x800326f8: dict(ret={10: ("lit", 0)})},
+        stops=[0x80032a04],
+        doc="`_fflush_r(_REENT, stdout)`: `CHECK_INIT`, the lock, `__sflush_r`, the "
+            "unlock (`__sinit`, `0x80032a04`, is a stop: `StdioUp.init`)."),
     # `memmove(dst, src, n)` with `[dst, dst+n)`, `[src, src+n)` disjoint: the
     # forward copies (bytes; or, both 8-aligned and `n > 31`, 32-byte blocks,
     # then words, then bytes), each loop a root
