@@ -179,10 +179,10 @@ from pathlib import Path
 
 PIN_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sh": "store", "sb": "store",
            "btaken": "btaken", "bnottaken": "bnottaken",
-           "jal": "jal", "jr": "jr", "j": "jr"}
+           "jal": "jal", "jr": "jr", "j": "jr", "jalr": "jalr"}
 OBS_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sh": "store", "sb": "store",
            "btaken": "btaken", "bnottaken": "bnottaken",
-           "jal": "jal", "jr": "jr", "j": "jr"}
+           "jal": "jal", "jr": "jr", "j": "jr", "jalr": "jalr"}
 STORE_FN = {"sd": ("writeMap8", "sdData_val"), "sw": ("writeMap4", "swData"),
             "sh": ("writeMap2", "shData"),
             "sb": (None, None)}  # sb handled specially (insert)
@@ -425,9 +425,9 @@ class SegmentEmitter:
                 f"sign_extend (m := 64) ({imm}) = ({bv64(tgt)[1:-1]} : BitVec 64)"
                 f" from by apply BitVec.eq_of_toNat_eq; decide]")
             end_pc = bv64(tgt)[1:-1]
-        elif cls == "jr":
+        elif cls in ("jr", "jalr"):
             pc_val = self.subst(st["pc_val"], k)
-            rws = [f"obs_jr_pc hobs{k}"]
+            rws = [f"obs_{obs}_pc hobs{k}"]
             if st.get("pc_rw"):        # none: pc_val is the site's own target
                 rws.append(self.subst(st["pc_rw"], k))
             self.lines.append(
@@ -440,13 +440,13 @@ class SegmentEmitter:
         # rd
         rd = st.get("rd")
         rd_val = st.get("rd_val")
-        if cls == "jal" and rd_val is None and rd is not None:
+        if cls in ("jal", "jalr") and rd_val is None and rd is not None:
             ret = addr + 4
             rd_val = f"({bv64(ret)[1:-1]} : BitVec 64)"
             st.setdefault("rw", f"show BitVec.addInt {bv64(addr)} 4 = "
                                 f"({bv64(ret)[1:-1]} : BitVec 64) from by decide")
         if rd is not None:
-            rdfam = "jal" if cls == "jal" else "alu"
+            rdfam = cls if cls in ("jal", "jalr") else "alu"
             dec5 = "(by decide) " * 5
             if st.get("rw"):
                 self.lines.append(
@@ -532,7 +532,7 @@ class SegmentEmitter:
                 f"    (ReadsLikePost.out hobs{k}).trans {self.pv('hout')}")
         # the register invariant
         if self.ok:
-            dec = " (by decide)" if obs in ("alu", "jal") else ""
+            dec = " (by decide)" if obs in ("alu", "jal", "jalr") else ""
             self.lines.append(
                 f"  have hok{k} : {self.ok['pred']} σ{k} :=\n"
                 f"    {self.ok['ns']}.{obs} hobs{k}{dec} {self.pv('hok')}")

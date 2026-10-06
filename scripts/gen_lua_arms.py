@@ -160,6 +160,13 @@ HELPERS += [("_write", "_write", 0x80000ae8, 0x80000d80, [22, 26], [0x80000d40],
 # the `-1` path `0x8003b3f0` is a stop: the console write returns `n`).
 HELPERS += [("__swrite", "__swrite", 0x80034f18, 0x80034fa0, [22, 26], [], [0x80034f68]),
             ("_write_r", "_write_r", 0x8003b3b0, 0x8003b40c, [22, 26], [], [0x8003b3f0])]
+# lane F1-6: `__sflush_r` on a write stream (`__SWR`): `_p := _bf._base`,
+# `_w := 0` (line-buffered) and the write loop through the `FILE`'s hook (`jalr
+# a5`, `0x80032890`; its return `0x80032894` is a root). The read path
+# (`0x8003271c`) and the short-write error exit (`0x8003289c`) are stops: the
+# console hook writes everything (`swrite_sum`).
+HELPERS += [("__sflush_r", "__sflush_r", 0x800326f8, 0x80032954, [22, 26], [0x80032894],
+             [0x8003271c, 0x8003289c])]
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -169,7 +176,8 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
            "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaT_adjustvarargs": set(), "luaV_objlen": set(),
-           "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"}}
+           "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
+           "__sflush_r": {"x10"}}
 
 
 def helper_cfg(lo, hi):
@@ -305,8 +313,10 @@ def helper_emit(fn, cap, lo, hi, specs, sites):
         em = gen_segment.SegmentEmitter(spec)
         em.emit()
         bodies.append(em.body_text)
+    jalr = any(st["class"] == "jalr" for _, spec in specs for st in spec["steps"])
+    ok_imports = OK_IMPORT + ("\nimport Lua.Vm.Arms.RegsOkJalr" if jalr else "")
     text = f"""import {NS}.Sites.{mod}
-import {OK_IMPORT}
+import {ok_imports}
 import Lua.Vm.Arms.Text
 import Vsa.Sim.SegState
 

@@ -96,7 +96,7 @@ _TOT = {"ld": "ld_tot", "lw": "lw_tot", "lbu": "lbu_tot", "lh": "lh_tot",
         "lhu": "lhu_tot", "lwu": "lwu_tot"}
 GEN_SITES = {c for c in KNOWN if _TOT.get(c, c) in _gen_sites.CLASS_EMITTERS}
 # Step classes scripts/syi/gen_segment.py can emit.
-GEN_SEGMENT = {"alu", "sd", "sw", "sh", "sb", "btaken", "bnottaken", "jal", "jr",
+GEN_SEGMENT = {"alu", "sd", "sw", "sh", "sb", "btaken", "bnottaken", "jal", "jr", "jalr",
                "j", "call"}
 
 BITOP = {"andi": "&&&", "ori": "|||", "xori": "^^^",
@@ -622,6 +622,14 @@ class SegStBuilder:
                 hyps.append(f"(htgt_{k} : {upd}.toNat % 4 = 0)")
                 st["pc_val"] = upd
                 st["call"] = pre + f"htgt_{k} $hi"
+            elif c == "jalr":                        # an indirect call
+                upd = (f"(BitVec.update ({V(int(o[1]))} + sign_extend (m := 64) "
+                       f"(0x{o[2]}#12)) 0 0#1)")
+                hyps.append(f"(htgt_{k} : {upd}.toNat % 4 = 0)")
+                st["pc_val"] = upd
+                st["rd"] = f"x{rd}"
+                st["call"] = pre + f"htgt_{k} $hi"
+                val[rd] = f"(0x{ins.addr + 4:08x}#64 : BitVec 64)"
             else:                                    # register write
                 value = self.alu_value(ins, V, gs)
                 st.update(rd=f"x{rd}", rd_val=value, call=pre + "$hi")
