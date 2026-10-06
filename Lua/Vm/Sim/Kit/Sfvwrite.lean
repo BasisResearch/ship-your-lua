@@ -1123,7 +1123,29 @@ theorem sfv_turn {G : SfvG} (hG : G.Ok) (a : FCx × List (BitVec 8)) :
 
 /-! ## The run -/
 
+/-- The run's invariant after the entry's saves (`m2`: `ra`, `s0`–`s9` at
+`[sp - 88, sp)`), nothing consumed yet. -/
+theorem sfv_entry {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) (hm : X.m = G.m)
+    (hs : StdoutAt G.m G.buf G.pend0) (hu : StdioUp G.m) (hres : bytesT8 G.m (G.U + 16) = BitVec.ofNat 64 G.n) :
+    SfvStA G (Lua.Vm.AtF.Sfvwrite.m2 X) G.o G.pend0 0 ∧
+      bytesT8 (Lua.Vm.AtF.Sfvwrite.m2 X) (G.U + 16) = BitVec.ofNat 64 G.n := by
+  sfv_nums hG
+  sfv_cx hX
+  have hb := hs.buf_lo
+  have hM : ∀ a, (G.sp ≤ a ∨ a + 88 < G.sp) → (Lua.Vm.AtF.Sfvwrite.m2 X)[a]? = G.m[a]? := by
+    intro a ha
+    simp only [Lua.Vm.AtF.Sfvwrite.m2]
+    simp (disch := omega) only [getElem?_writeMap8_out]
+    rw [hm]
+  refine ⟨⟨hs.below fun a ha => hM a (by omega), hu.below fun a ha => hM a (by omega),
+    ⟨[], rfl, by simp [bytesAt]⟩, ?_, SfvKeep.of_agree fun a ha => bT1_congr (hM a (by omega)), by omega⟩,
+    (bT8_congr fun i _ => hM _ (by omega)).trans hres⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp only [Lua.Vm.AtF.Sfvwrite.m2] <;>
+    simp (disch := omega) only [fw8_same, fw8_wm8, hX.r, hX.s0, hX.s1, hX.s2, hX.s3, hX.s4, hX.s5, hX.s6, hX.s7,
+      hX.s8, hX.s9]
+
 /-- **`__sfvwrite_r(_REENT, stdout, uio)` on the line-buffered `stdout`**:
+
 the entry (`n = 0`: straight back; else the frame saved, the iov read,
 `memchr`), then the loop (`seg_loop` on `sfvMu`). -/
 theorem sfvwrite_lbf : SfvwriteLbf_Statement := by
@@ -1167,18 +1189,7 @@ theorem sfvwrite_lbf : SfvwriteLbf_Statement := by
     fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x800360d8]
     simp only [Lua.Vm.AtF.Sfvwrite.r4, hX.sp] at h
     -- the frame saved: the run's invariant on the entry memory
-    have hM : ∀ a, (sp ≤ a ∨ a + 88 < sp) → (Lua.Vm.AtF.Sfvwrite.m2 X)[a]? = m[a]? := by
-      intro a ha
-      simp only [Lua.Vm.AtF.Sfvwrite.m2]
-      simp (disch := omega) only [getElem?_writeMap8_out]
-      rfl
-    have st0 : SfvStA G (Lua.Vm.AtF.Sfvwrite.m2 X) o pend 0 := by
-      refine ⟨hs.below fun a ha => hM a (by omega), hu.below fun a ha => hM a (by omega),
-        ⟨[], rfl, by simp [bytesAt]; rfl⟩, ?_, SfvKeep.of_agree fun a ha => bT1_congr (hM a (by omega)), by omega⟩
-      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp only [Lua.Vm.AtF.Sfvwrite.m2] <;>
-        simp (disch := omega) only [fw8_same, fw8_wm8] <;> rfl
-    have res0 : bytesT8 (Lua.Vm.AtF.Sfvwrite.m2 X) (U + 16) = BitVec.ofNat 64 n :=
-      (bT8_congr fun i _ => hM _ (by omega)).trans hio.resid
+    obtain ⟨st0, res0⟩ := sfv_entry hG hX rfl hs hu hio.resid
     obtain ⟨c2, s2, h2⟩ := sfv_mc hG hX (p := src) (len := n) (μ0 := 2 * n + 2) (st0.cast (by omega)) res0
       (by omega) (Nat.le_refl _) (by omega) (by split <;> omega)
       (h.repin (L' := callPre _ _ _ (sfvF X (X.b 3) (X.b 4) (X.b 7) _ _ _)) (by pins_of h))
