@@ -847,4 +847,75 @@ theorem sfv_write {G : SfvG} (hG : G.Ok) {X : FCx} {μ0 : Nat} (S : SfvStep G X 
     (h.repin (by pins_of h))
   exact ⟨c3, acc.trans s3, h3⟩
 
+/-- `subw s8, s8, s3` after `mv s3, s6` (`s6 + 0`), tested against `0`. -/
+theorem g_nld0 {a b : Nat} (hb : b ≤ a) (ha : a < 2 ^ 31) :
+    (sign_extend (m := 64) (Sail.BitVec.extractLsb (BitVec.ofNat 64 a) 31 0 -
+      Sail.BitVec.extractLsb (BitVec.ofNat 64 b + sign_extend (m := 64) (0x000#12)) 31 0) != 0#64) =
+      !decide (a = b) := by
+  rw [Vsa.Sim.sext_zero, BitVec.add_zero, bne, g_nld hb ha]
+
+theorem v_nld0 {a b : Nat} (hb : b ≤ a) (ha : a < 2 ^ 31) :
+    sign_extend (m := 64) (Sail.BitVec.extractLsb (BitVec.ofNat 64 a) 31 0 -
+      Sail.BitVec.extractLsb (BitVec.ofNat 64 b + sign_extend (m := 64) (0x000#12)) 31 0) =
+      BitVec.ofNat 64 (a - b) := by
+  rw [Vsa.Sim.sext_zero, BitVec.add_zero, subw_nat hb (by omega) (by omega)]
+
+/-- **A fill of the buffer** (`memmove` at `0x80033e5c`: `pend` non-empty
+and `s` past the room `w = 1024 - |pend|`): `w` bytes after `pend`,
+`_p += w`, the full buffer flushed (`sfv_flush`), then the tail with
+`nldist - w` (`w < s ≤ nldist`). -/
+theorem sfv_fillp {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0 : Nat} (S : SfvStep G X pend μ0)
+    (hw : 1024 - pend.length < X.n 21) :
+    Triple (SegSt 0x8003b444#64 (Lua.Vm.AtF.Sfvwrite.r33 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+  intro c h
+  have hX := S.cx
+  sfv_nums hG
+  sfv_cx hX
+  sfv_step S
+  have hb := S.st.stdout.buf_lo; have hr := S.st.stdout.room
+  have hp : bytesT8 X.m 0x8005e668 = BitVec.ofNat 64 (G.buf + pend.length) := S.st.stdout.p
+  simp only [Lua.Vm.AtF.Sfvwrite.r33, hX.sp, hp, sfvW_eq S.st.stdout] at h
+  obtain ⟨c2, M', s2, hret, hkeep, hmv⟩ := sfv_move hG S.st (ret := 0x80033e68#64) (by decide)
+    (p := X.n 25) (k := 1024 - pend.length) (by omega) (by omega) (by omega)
+    (h.repin (L' := callPre _ _ _ (sfvF X _ _ _ _ _ _)) (by pins_of h))
+  rw [← hX.sp] at hret
+  simp only [mmRet] at hret
+  -- `memmove`'s return (`0x80033e68`): `_p += w`, the flush of the full buffer
+  let Y : FCx := X.set [(20, X.n 21), (22, 1024 - pend.length)] [] M' X.o
+  have hY : SfvAt G Y := sfv_at% hX
+  have hY' : Lua.Vm.AtF.Sfvwrite.Ok_S Y := by sfv_ok hY
+  have h : SegSt 0x80033e68#64 (Lua.Vm.AtF.Sfvwrite.r24 Y) (ArmPay Y.m Y.o) c2 := hret.repin (by pins_of hret)
+  have acc := s2
+  fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80032954]
+  have stf := sfv_fill hG S.st (M' := M') hkeep hmv (by omega) (by omega)
+  have hYsp : Y.n 0 = G.sp := hX.sp
+  simp only [Lua.Vm.AtF.Sfvwrite.r34, hYsp] at h
+  obtain ⟨c3, M'', s3, hret, st', kh⟩ := sfv_flush hG stf (ret := 0x80033e80#64) (by decide)
+    (h.repin (L' := callPre _ _ _ (sfvF X _ _ _ _ _ _)) (by pins_of h))
+  have acc := acc.trans s3
+  rw [← hX.sp] at hret
+  simp only [wrRet] at hret
+  -- `_fflush_r`'s return (`0x80033e80`): `nldist - w`, then the tail
+  generalize pushes X.o (pend ++ bytesAt G.m (G.src + (X.n 25 - G.src)) (1024 - pend.length)) = o' at hret st'
+  let Z : FCx := X.set [(20, X.n 21), (22, 1024 - pend.length)] [] M'' o'
+  have hZ : SfvAt G Z := sfv_at% hX
+  have hZ' : Lua.Vm.AtF.Sfvwrite.Ok_S Z := by sfv_ok hZ
+  have h : SegSt 0x80033e80#64 (Lua.Vm.AtF.Sfvwrite.r5 Z) (ArmPay Z.m Z.o) c3 := hret.repin (by pins_of hret)
+  have hg := g_nld0 (a := Z.n 24) (b := Z.n 22) (by sfv_om) (by sfv_om)
+  rw [show decide (Z.n 24 = Z.n 22) = false by sfv_set; simp; omega, Bool.not_false] at hg
+
+  fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033e0c]
+  simp only [Lua.Vm.AtF.Sfvwrite.r35, v_nld0 (a := Z.n 24) (b := Z.n 22) (by sfv_om) (by sfv_om)] at h
+  let T : FCx := X.set [(20, 1024 - pend.length), (22, 1024 - pend.length), (24, Z.n 24 - Z.n 22)]
+    [(14, 1#64), (16, BitVec.ofNat 64 (Z.n 22)), (17, BitVec.ofNat 64 (Z.n 22))] M'' o'
+  have hT : SfvAt G T := sfv_at% hX
+  have res' : bytesT8 T.m (G.U + 16) = BitVec.ofNat 64 (T.n 23) := by
+    show bytesT8 M'' (G.U + 16) = BitVec.ofNat 64 (X.n 23)
+    rw [← S.res, bytesT8_congrT (a := G.U + 16) fun i _ => kh _ (by omega), fw8_wm8 (by omega)]
+    exact bT8_congr fun i _ => hkeep _ (.inr (by omega))
+  obtain ⟨c4, s4, h4⟩ := sfv_tail hG hT (pend := []) (μ0 := μ0) (st'.cast (by sfv_om)) res' (by sfv_om)
+    (by sfv_om) (by sfv_om) (.inr ⟨rfl, by sfv_om, by sfv_om⟩)
+    (by sfv_set; have hm := S.mu; split at hm <;> simp <;> omega) _ (h.repin (by pins_of h))
+  exact ⟨c4, acc.trans s4, h4⟩
+
 end Lua.Vm.Sim.Kit
