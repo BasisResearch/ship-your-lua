@@ -135,10 +135,11 @@ for k in range(45):
     P.append(m + '1e' + ex)                            # just above
     P.append(format(mid - Decimal(10) ** (mid.adjusted() - 60), 'e'))   # just below
 
-# strtod's exponent saturation (strtod.c:412-416) needs 20k-character
-# numerals; they go last, in their own program (`_strtod_l`'s bignum path on
-# 20,006 digits is slow on Sail)
-LONG = ["0." + "0" * 20005 + "1e20010", "1" + "0" * 20005 + "e-20010"]
+# strtod's exponent saturation (strtod.c:412-416) needs a 20k-character
+# numeral; it goes last, in its own program. (Its mirror "1" + "0"*20005 +
+# "e-20010" runs `_strtod_l`'s bignum path on 20,006 digits: over 90 min on
+# Sail, so it is not a vector.)
+LONG = ["0." + "0" * 20005 + "1e20010"]
 
 def lua_str(s):
     """A Lua expression for the byte string `s` (runs of 64+ equal bytes
