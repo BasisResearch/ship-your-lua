@@ -100,6 +100,20 @@ theorem _root_.Lua.Vm.Sim.ValRepr.str_parts {mo : Mem} {ι : Strs} {t : BitVec 8
   cases h with
   | str _ hp ho => exact ⟨ho, hp⟩
 
+/-- A string constant's value. -/
+theorem kval_str {p : Proto} {i : Nat} {s : List UInt8} (h : p.const i = some (.str s)) :
+    kval p i = some (.str s) := by
+  simp only [kval, h, Option.bind_some]; rfl
+
+/-- **`_ENV` from the relation for a `"print"` constant**: `K[i]`'s object is
+owned and is the intern pointer (`ValRepr.str`), so `Complement.env` applies. -/
+theorem _root_.Lua.Vm.Sim.Core.envMem {p : Proto} {c : Vsa.Machine.Config} {s : State} {w : RelPtrs}
+    (hc : Core p c s w) {i : Nat} (hk : kval p i = some (.str printKey)) :
+    EnvMem w.mo w.rt.cl (w.ι.ptr printKey) (HeapRead p w) := by
+  obtain ⟨hown, hptr⟩ := (hc.kconst hk).str_parts
+  rw [hptr (by decide)] at hown
+  exact hc.comp.env _ hown
+
 /-- **The call node `luaH_getshortstr`** at the arm's row: on `_ENV`'s table
 and the key `K[C] = "print"` (its intern pointer), it returns the node
 `EnvMem` finds, the memory unchanged. The memory at the call is the entry

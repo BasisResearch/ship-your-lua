@@ -29,14 +29,14 @@ local macro_rules
   | `(tactic| at_hyp) => `(tactic| first
     | assumption
     | (simp only [Loc.den, Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.add_zero, Nat.sub_zero,
-        htagm, hptagm]; decide))
+        env_tag_m hc hE, env_ptag_m hc hE]; decide))
 
 set_option hygiene false in
 /-- `R[A]` holds `print`: the found node's tag and value (`env_ptag_m`, `env_pval_m`). -/
 local macro_rules
   | `(tactic| at_new_ext) => `(tactic| (
     simp only [Loc.den, Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.add_zero, Nat.sub_zero,
-      stData_zext, hptagm, hpvalm, tvalueValOff] at *
+      stData_zext, env_ptag_m hc hE, env_pval_m hc hE, tvalueValOff] at *
     exact .print rfl))
 
 /-- **`sim_GETTABUP`**: `OP_GETTABUP` simulates its kernel (`_ENV.print`),
@@ -46,17 +46,11 @@ theorem sim_GETTABUP : SimArm .GETTABUP := sim_arm (by decide) fun {p} hS {c s s
   by_cases hcond : ins.b = 0 ∧ p.const ins.c = some (Const.str printKey)
   · simp only [hcond, and_self, ite_true] at hk htop
     obtain ⟨hb0, hkc0⟩ := hcond
-    have hkc : kval p ins.c = some (.str printKey) := by
-      simp only [kval, hkc0, Option.bind_some]; rfl
+    have hkc := kval_str hkc0
     simp [move, setR, Opnd.ports, List.foldr] at htop
     kit_bound hAt ins.a
     have hK := kval_lt hkc
-    obtain ⟨hown, hptr⟩ := (hc.kconst hkc).str_parts
-    rw [hptr (by decide)] at hown
-    have hE := hc.comp.env _ hown
-    have htagm := env_tag_m hc hE
-    have hptagm := env_ptag_m hc hE
-    have hpvalm := env_pval_m hc hE
+    have hE := hc.envMem hkc
     simp [move, setR, Opnd.ports, Opnd.fill, VState.apply, writeDefs, KEdge.kills] at hk
     subst hk
     at_go Lua.Vm.At.GETTABUP
