@@ -1,6 +1,8 @@
 # Floats in `δ`: design
 
-Status: design only. Nothing here is built.
+Status: S0a, S0b (lanes float-s0a/s0b), S0c, S1, S1b, S2 and the operator
+and `for` part of S3 (lane float-s1, `abstractions/ledger/float-s1.md`) are
+built; M0 onwards (the machine side, `FloatArms`) is open.
 
 **Why.** `vm_refinement_Statement luaLayout` is false as stated. Lua 5.4.7
 coerces strings to numbers (`LUA_NOCVTS2N` is unset), and that coercion can
@@ -212,7 +214,18 @@ call it, so `LuaSem` and `BcSem` cannot drift. Today they have duplicate
 | `rawArith o : Num → Num → Option Num` | `luaO_rawarith` | bitwise: `tointegerns F2Ieq` both, else fail; `/`, `^`: `tonumberns` both ⇒ float; others: int×int ⇒ `intarith` (an error on `n//0`, `n%0`), else floats |
 | `showNum` | `tostringbuff` | int: `%d`; flt: `Decimal.tostringbuff` |
 
-**The pow decision.** C does not fix `pow`'s accuracy, and the ELF's
+**The pow decision (as built, lane float-s1).** `pow` is NOT a `Host`
+field: a field would make `δ`, and with it `opKernel`/`kernelAt` and every
+kernel use, depend on `Host`, while there is one implementation to describe,
+the ELF's. `Lua.Num.pow` (`Lua/Num/Pow.lean`) transcribes newlib 4.5.0's
+fdlibm `pow` (`w_pow.c` over `e_pow.c`, `s_scalbn.c`) over `Float.Model`, as
+`strtod`/`%.14g` already follow newlib; it is computable, so concrete
+programs still `decide`, and 1,570 Sail vectors match it bit for bit. A
+signalling NaN, which the model cannot hold and on which `pow` differs, is
+not a value (`isSNaN`: such a constant has no `LOADK` kernel). The original
+proposal follows.
+
+C does not fix `pow`'s accuracy, and the ELF's
 `__ieee754_pow` (fdlibm) is not correctly rounded. Make it a `Host` field,
 `Host.pow : F64 → F64 → F64`, beside `showBuiltin`. `luaLayout`'s instance is
 `fdlibmPow`, a Lean transcription of `e_pow.c` over `F64`'s operations: it

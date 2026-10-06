@@ -935,10 +935,12 @@ inductive ErrSite where
   non-number -/
   | opinterror
   /-- `luaG_tointerror` (via `luaT_trybinTM`): a bitwise metamethod event on
-  two numbers (`MMBIN*` reached by a jump, not a fall-through) -/
+  two numbers (a float without an integer value, or `MMBIN*` reached by a
+  jump) -/
   | tointerror
-  /-- `luaL_error` in `lstrlib.c` `trymt`: string arithmetic with an operand
-  that is not a number -/
+  /-- string arithmetic: `luaL_error` in `lstrlib.c` `trymt` (an operand that
+  is not a number or numeral), or `luaV_mod`/`luaV_idiv` by zero inside the
+  string metamethod (`luaG_runerror`) -/
   | strarith
   /-- `luaG_typeerror` (via `luaV_objlen`): `#` of a non-string -/
   | typeerror
