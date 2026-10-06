@@ -10,9 +10,20 @@ third below the mean of its first quarter:
 
     mean(last quarter) > (2/3) * mean(first quarter)
 
-The failure message is "run /abstraction-discovery". The only exemption
-is automation: a cluster whose last-quarter mean is <= FLOOR lines (default
-3: one-line `decide`/generated proofs) is already at its floor.
+The failure message is "run /abstraction-discovery". Following the skill's
+revised gate (folded 2026-10):
+
+* cases are ordered by proof order (commit time, then file and line),
+  never by cost;
+* the trend is reported without failing until each quarter has at least
+  MINQ cases (default 3);
+* a cluster whose last-quarter mean is <= FLOOR hand lines (default 5) is at
+  its automation floor and does not fail on the trend;
+* the open named premises (`def …_Statement`) in a cluster's files are
+  reported, since lines miss them.
+
+A lemma written to pass the gate counts as factoring only with two users;
+that rule is checked in review (ROUND-*.md), not here.
 Re-baselining after an adopted abstraction: a `baseline <id> <commit>` line
 in abstractions/ROUND-*.md restricts the cluster to cases introduced after
 that commit.
@@ -28,7 +39,8 @@ from census import decls  # noqa: E402
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--n", type=int, default=8)
-ap.add_argument("--floor", type=float, default=3.0)
+ap.add_argument("--floor", type=float, default=5.0)
+ap.add_argument("--minq", type=int, default=3)
 ap.add_argument("--report", action="store_true")
 a = ap.parse_args()
 
@@ -102,10 +114,18 @@ for row in open("abstractions/clusters.tsv"):
             cases = cases[max(k, 0):]
         else:
             cases = [x for x in cases if x[0] > baselines[cid]]
-    cases.sort()
+    def order(x):
+        m = re.match(r"(.*?):(\d+)", x[2])
+        return (x[0], m.group(1), int(m.group(2))) if m else (x[0], x[2], 0)
+    cases.sort(key=order)
     n = len(cases)
     status = "ok"
-    if n >= a.n:
+    if n >= a.n and n // 4 < a.minq:
+        q = max(1, n // 4)
+        first = sum(c for _, c, _ in cases[:q]) / q
+        last = sum(c for _, c, _ in cases[-q:]) / q
+        status = f"ok (small sample: first {first:.1f}, last {last:.1f}; not judged below {4 * a.minq} cases)"
+    elif n >= a.n:
         q = max(1, n // 4)
         first = sum(c for _, c, _ in cases[:q]) / q
         last = sum(c for _, c, _ in cases[-q:]) / q
@@ -114,7 +134,11 @@ for row in open("abstractions/clusters.tsv"):
             failed = True
         else:
             status = f"ok (first {first:.1f}, last {last:.1f})"
-    print(f"{cid}: {n} cases — {status}")
+    prem = 0
+    if kind != "ledger":
+        for p in files(sel.split("::")[0]):
+            prem += len(re.findall(r"^def \w+_Statement\b", open(p).read(), re.M))
+    print(f"{cid}: {n} cases — {status}" + (f"; open named premises in its files: {prem}" if prem else ""))
     if a.report:
         for t, c, where in cases:
             print(f"    {t if kind == 'ledger' else time.strftime('%Y-%m-%d %H:%M', time.localtime(t))}  {c:6.1f}  {where}")
