@@ -356,6 +356,10 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.armTable
 #print axioms Lua.Vm.Sim.vmSim_of_open
 #print axioms Lua.Vm.Sim.vm_refinement_of_open
+#print axioms Lua.Vm.Sim.entrySim
+#print axioms Lua.Vm.Sim.entry_fresh
+#print axioms Lua.Vm.Sim.entry_at
+#print axioms Lua.Vm.Sim.relParts
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

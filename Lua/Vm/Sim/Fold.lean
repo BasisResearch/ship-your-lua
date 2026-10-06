@@ -1,5 +1,6 @@
 import Lua.Vm.Sim
 import Lua.Vm.Sim.Kit
+import Lua.Vm.Sim.Vararg
 import Lua.Theorems
 
 /-!
@@ -240,25 +241,18 @@ theorem stepOp {H : Host} {p : Proto} {s s' : State} (h : Step H p s s') :
 
 /-! ## The clauses at `luaLayout` -/
 
-/-- **The entry-only facts** at the fetch head, for pointers `w`:
-`luaT_adjustvarargs` (`OP_VARARGPREP` at pc 0) reads `L->top`, which `VmRel`
-leaves free (`Scratch`), and compares `L->stack_last - L->top` with
-`maxstacksize + 1` (`luaD_checkstack`, else `luaD_growstack`). -/
-structure FreshAt (p : Proto) (c : Config) (w : RelPtrs) : Prop where
-  /-- `L->top = func + 1` (`RuntimeReadyAt.top`): no arguments -/
-  top : bytesT8 c.σ.mem (w.L + stateTopOff) = BitVec.ofNat 64 (w.func + stackValueSize)
-  /-- `L->stack_last - L->top > maxstacksize + 1` slots: no `luaD_growstack` -/
-  room : w.func + stackValueSize * (p.maxstacksize + 3) ≤ w.rt.stackLast
-
 /-- **At the fetch head with the entry-only facts**, for some pointers. -/
 def FreshRel (p : Proto) (c : Config) (s : State) : Prop :=
   ∃ w, VmRelAt p c s w ∧ FreshAt p c w
 
 /-- **The entry clause**: the prologue reaches the fetch head in `VmRel` with
-the entry state, and the entry-only facts hold. (`vmRel_entry` proves the
-`VmRel` part.) -/
+the entry state, and the entry-only facts hold (`FreshAt`, `entry_fresh`). -/
 def EntrySim : Prop :=
   ∀ p c, Supported p → VmLoaded luaLayout p c → Reaches (FreshRel p) c State.init
+
+theorem entrySim : EntrySim := fun _ _ _ hL =>
+  let ⟨c', w, hs, hR, hF⟩ := entry_fresh hL
+  ⟨c', hs, w, hR, hF⟩
 
 /-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at
 a `VARARGPREP`, `reach_pc_zero`), `luaT_adjustvarargs` moves `ci->func` one
@@ -408,17 +402,17 @@ theorem armTable (h : OpenArms) : ∀ o ∈ armOps, SimArm o := by
   case CALL => exact h.CALL
   all_goals simp [armOps, kernelOps] at ho
 
-/-- **`VmSim luaLayout` from the open premises**: the proved arms are
-discharged; what is left is exactly the open arms (`OpenArms`), the entry-only
-facts (`EntrySim`), `VARARGPREP` (`VarargSim`), the return chain (`FinalSim`)
-and the error paths (`StuckSim`). -/
-theorem vmSim_of_open (arms : OpenArms) (entry : EntrySim) (vararg : VarargSim)
-    (final : FinalSim) (stuck : StuckSim) : VmSim luaLayout :=
-  vmSim_of_arms (armTable arms) entry vararg final stuck
+/-- **`VmSim luaLayout` from the open premises**: the proved arms and the
+entry (`entrySim`) are discharged; what is left is exactly the open arms
+(`OpenArms`), `VARARGPREP` (`VarargSim`), the return chain (`FinalSim`) and
+the error paths (`StuckSim`). -/
+theorem vmSim_of_open (arms : OpenArms) (vararg : VarargSim) (final : FinalSim)
+    (stuck : StuckSim) : VmSim luaLayout :=
+  vmSim_of_arms (armTable arms) entrySim vararg final stuck
 
 /-- **Layer A from the open premises** (`vm_refinement_of_sim`). -/
-theorem vm_refinement_of_open (arms : OpenArms) (entry : EntrySim) (vararg : VarargSim)
-    (final : FinalSim) (stuck : StuckSim) : vm_refinement_Statement luaLayout :=
-  vm_refinement_of_sim (vmSim_of_open arms entry vararg final stuck)
+theorem vm_refinement_of_open (arms : OpenArms) (vararg : VarargSim) (final : FinalSim)
+    (stuck : StuckSim) : vm_refinement_Statement luaLayout :=
+  vm_refinement_of_sim (vmSim_of_open arms vararg final stuck)
 
 end Lua.Vm.Sim

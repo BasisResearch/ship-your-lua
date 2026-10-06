@@ -303,11 +303,79 @@ theorem own_of_kowned {p : Proto} {w : RelPtrs} {n : Nat} (hk : KOwned w.mo w.L 
   obtain ⟨c, hc⟩ := hk i ts s (by rw [hn]; exact hi)
   exact ⟨c, chunkOwns_of_strChunkAt hc hsp hst hfits⟩
 
+/-- `p->maxstacksize` of a represented `Proto`. -/
+theorem _root_.Lua.Vm.ProtoRepr.maxstack {m : Mem} {pa : Nat} {p : Proto} (h : ProtoRepr m pa p) :
+    rd8 m (pa + protoMaxstacksizeOff) = some p.maxstacksize := by
+  match h with
+  | .mk _ _ _ hms _ _ _ _ _ _ _ _ _ _ _ _ _ _ => exact hms
+
+/-- **The relation's complement and ranges**, named (`relParts`). -/
+structure RelParts (p : Proto) (w : RelPtrs) : Prop where
+  comp : Complement p w
+  ranges : Ranges p w
+
+/-- **The complement and the ranges from the runtime's memory structures**: a
+memory `m` holding the image, the prototype (`ProtoAt`) and the structures of
+`RtPostAt` (the heap, the Lua state with `ci->func = func`, the error handler,
+the regions, the interned and owned string constants) is the complement of a
+relation at those pointers, with `luaV_execute`'s frame below the entry `sp`.
+Used at the entry (`entry_at`) and after `OP_VARARGPREP`'s stores
+(`Lua.Vm.Sim.entrySim`). -/
+theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs}
+    (htext : Arms.TextLoaded m) (hro : RodataLoaded m) (hpr : ProtoAt m pa p code)
+    (hrt : RtPostAt m L ci rt) (hfunc : rt.func = func) (hpa : rt.proto = pa)
+    (hsp : sp = RuntimeData.spEntry - execFrame)
+    (hfits : func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast) :
+    ∃ ι : Strs, RelParts p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩ := by
+  have hrg := hrt.regions
+  have hlua := hrt.lua
+  have ecode : code = rt.code := by
+    have h := hrg.code; rw [hpa, hpr.code] at h; exact Option.some.inj h
+  obtain ⟨hsz, hwords⟩ := hpr.proto.code hpr.code
+  obtain ⟨hszk, hkc⟩ := hpr.proto.kArr (ka := rt.k) (by rw [← hpa]; exact hrg.kArr)
+  have esizek : rt.sizek = p.k.length := by
+    have h := hrg.sizek; rw [hpa, hszk] at h; exact (Option.some.inj h).symm
+  obtain ⟨ι, hkι⟩ := hkc (by rw [← esizek]; exact hrt.interned)
+  have esz : rt.sizecode = p.code.length := by
+    have h := hrg.sizecode; rw [hpa, hsz] at h; exact (Option.some.inj h).symm
+  have hsle : rt.stack ≤ func := hfunc ▸ hlua.stack_le
+  subst hsp
+  refine ⟨⟨ι, KStrIn m rt.k p.k.length⟩, ⟨⟨htext, hro, hpr.proto, hpr.code, fun i ins hf => ?_,
+    ?_, ?_, ⟨hfunc, hlua, hrt.heap, hrt.error_jmp⟩, hkι,
+    own_of_kowned hrt.kowned rfl esizek rfl hsle hfits⟩,
+    Ranges.of_regions hrg rfl hfunc.symm ecode rfl esz esizek hlua.stack_le hfits⟩⟩
+  · obtain ⟨hlt, hi⟩ := List.getElem?_eq_some_iff.1 hf
+    rw [bytesT4_of_rd32 (hwords i hlt), hi, BitVec.ofNat_toNat, BitVec.setWidth_eq]
+  · rw [← hfunc]; exact bytesT8_of_rd64 hlua.func
+  · rw [bytesT4_of_rd32 hlua.trap]; rfl
+
+/-- **The entry run's facts** (`entry_at`): the prologue's run from `c` to the
+fetch head `c'` in the relation with pointers `w`, the entry data `e` and the
+witness `w.rt` at `c`, the complement memory `c`'s, and the prologue's stores
+in its C frame (with the closure saved at `8(sp)`). -/
+structure EntryAt (p : Proto) (c c' : Vsa.Machine.Config) (w : RelPtrs) (e : EntryPtrs) : Prop where
+  steps : Vsa.Machine.Steps c c'
+  rel : VmRelAt p c' State.init w
+  entry : VmEntryData c.σ.mem w.L w.ci p e
+  ready : RuntimeReadyAt c w.L w.ci w.rt
+  mo : w.mo = c.σ.mem
+  sp : w.sp = RuntimeData.spEntry - execFrame
+  efunc : e.func = w.func
+  rt_func : w.rt.func = w.func
+  epa : e.pa = w.pa
+  rt_proto : w.rt.proto = w.pa
+  rt_k : w.k = w.rt.k
+  ecode : e.code = w.code
+  ecl : e.cl = w.rt.cl
+  esl : e.stackLast = w.rt.stackLast
+  agree : AgreeOut c'.σ.mem c.σ.mem (RuntimeData.spEntry - execFrame) RuntimeData.spEntry
+  clslot : bytesT8 c'.σ.mem (w.sp + 8) = BitVec.ofNat 64 w.rt.cl
+
 set_option linter.unusedSimpArgs false in
-/-- **The entry lemma (A1).** The prologue runs from the entry to the fetch
-head, in the relation with the initial state. -/
-theorem vmRel_entry : vmRel_entry_Statement := by
-  intro p c hS hL
+/-- **The entry run (A1).** The prologue runs from the entry to the fetch
+head, in the relation with the initial state (`EntryAt`). -/
+theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p c) :
+    ∃ c' w e, EntryAt p c c' w e := by
   obtain ⟨L, ci, e, hM, hE, rt, hRt⟩ := hL
   have hcs := hRt.cstack
   obtain ⟨v8, h8⟩ := Option.isSome_iff_exists.1 (hcs.callee_saved 8 (by decide))
@@ -470,21 +538,51 @@ theorem vmRel_entry : vmRel_entry_Statement := by
     simp (disch := omega) only [add_imm, BitVec.toNat_ofNat, Nat.add_zero, sext64,
       Nat.mod_eq_of_lt, hRci, hRfunc, hRcl, hRk, bytesT8_writeMap8, sdData_id]
   simp only [stackValueSize] at hfits
-  refine ⟨c2, hs1.trans hs2, ⟨L, ci, e.func, e.pa, e.code, rt.k, RuntimeData.spEntry - execFrame,
-    c.σ.mem, ⟨ι, KStrIn c.σ.mem rt.k p.k.length⟩, rt⟩, ⟨hq2.good, hq2.minstret, hq2.tick,
-    ⟨pinsHold_get hp2 10 (by simp), pinsHold_get hp2 11 (by simp), pinsHold_get hp2 9 (by simp),
-      hx9, hx18, hx21, pinsHold_get hp2 8 (by simp), pinsHold_get hp2 12 (by simp), hx25, hx27⟩,
-    (output_congr (hq2.armOut.trans hq1.armOut)).trans hRt.harness.console, hq2.armOk, hq2.armText,
-    fun a ha => congrArg (Option.getD · 0) (hA2 a ?_), hkp, fun j v _ h => ?_,
-    ⟨hM.text, hM.rodata, hE.proto, hE.proto_code, fun i ins hf => ?_, bytesT8_of_rd64 hE.ci_func,
-      ?_, ⟨efunc.symm, hlua, hRt.heap, hRt.error_jmp⟩, hkι,
-      own_of_kowned hRt.kowned rfl esizek rfl hsle (by rw [← esl]; exact hE.frame_fits)⟩,
-    Ranges.of_regions hrg rfl efunc ecode rfl esz esizek hlua.stack_le
-      (by rw [← esl]; exact hE.frame_fits)⟩, hq2.pcAt⟩
+  obtain ⟨ι', hP⟩ := relParts (L := L) (ci := ci) (sp := RuntimeData.spEntry - execFrame)
+    hM.text hM.rodata ⟨hE.proto, hE.proto_code⟩
+    ⟨hRt.heap, hlua, hRt.error_jmp, hrg, hRt.interned, hRt.kowned⟩ efunc.symm epa.symm rfl
+    (by rw [← esl]; exact hE.frame_fits)
+  have hwo : ∀ {m : Mem} {a x : Nat} {d : BitVec (8 * 8)}, x + 8 ≤ a ∨ a + 8 ≤ x →
+      bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
+    fun h => bytesT8_congr fun _ _ => getElem?_writeMap8_out _ _ _ _ (by omega)
+  have hcl8 : bytesT8 c2.σ.mem (RuntimeData.spEntry - execFrame + 8) = BitVec.ofNat 64 rt.cl := by
+    rw [hq2.armMem]
+    simp (disch := omega) only [add_imm, BitVec.toNat_ofNat, Nat.add_zero, sext64,
+      Nat.mod_eq_of_lt, hRci, hRfunc]
+    rw [hwo (by simp only [RuntimeData.spEntry, execFrame]; omega), bytesT8_writeMap8, sdData_id]
+    simp (disch := omega) only [add_imm, BitVec.toNat_ofNat, Nat.add_zero, sext64,
+      Nat.mod_eq_of_lt, hRci, hRfunc, ecl]
+  refine ⟨c2, ⟨L, ci, e.func, e.pa, e.code, rt.k, RuntimeData.spEntry - execFrame,
+    c.σ.mem, ι', rt⟩, e,
+    { steps := hs1.trans hs2
+      rel := ⟨⟨hq2.good, hq2.minstret, hq2.tick,
+        ⟨pinsHold_get hp2 10 (by simp), pinsHold_get hp2 11 (by simp),
+          pinsHold_get hp2 9 (by simp), hx9, hx18, hx21, pinsHold_get hp2 8 (by simp),
+          pinsHold_get hp2 12 (by simp), hx25, hx27⟩,
+        (output_congr (hq2.armOut.trans hq1.armOut)).trans hRt.harness.console, hq2.armOk,
+        hq2.armText, fun a ha => congrArg (Option.getD · 0) (hA2 a ?_), hkp,
+        fun j v _ h => ?_, hP.comp, hP.ranges⟩, hq2.pcAt⟩
+      entry := hE
+      ready := hRt
+      mo := rfl
+      sp := rfl
+      efunc := rfl
+      rt_func := efunc.symm
+      epa := rfl
+      rt_proto := epa.symm
+      rt_k := rfl
+      ecode := rfl
+      ecl := ecl
+      esl := esl
+      agree := hA2
+      clslot := hcl8 }⟩
   · simp only [Win, Slots, Scratch, RelPtrs.base, stackValueSize] at ha; omega
   · simp [State.init] at h
-  · obtain ⟨hlt, hi⟩ := List.getElem?_eq_some_iff.1 hf
-    rw [bytesT4_of_rd32 (hwords i hlt), hi, BitVec.ofNat_toNat, BitVec.setWidth_eq]
-  · rw [bytesT4_of_rd32 hlua.trap]; rfl
+
+/-- **The entry lemma (A1).** The prologue runs from the entry to the fetch
+head, in the relation with the initial state. -/
+theorem vmRel_entry : vmRel_entry_Statement := fun _ _ _ hL =>
+  let ⟨c', w, _, h⟩ := entry_at hL
+  ⟨c', h.steps, w, h.rel⟩
 
 end Lua.Vm.Sim
