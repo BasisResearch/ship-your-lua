@@ -442,6 +442,12 @@ by the goal's shape, a load forwarded through the path's stores
 partial def atEq : TacticM Unit := withMainContext do
   let t ← instantiateMVars (← getMainTarget)
   let some (_, _, _) := t.eq? | throwError "at_eq: not an equation"
+  -- an affine location left folded (a stored value computed from `C`)
+  if (t.find? fun e => e.isConstOf ``Aff.den).isSome then
+    evalTactic (← `(tactic| simp only [Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.add_zero,
+      Nat.sub_zero]))
+    unless (← getUnsolvedGoals).isEmpty do atEq
+    return
   let s0 ← saveState
   try
     evalTactic (← `(tactic| with_reducible rfl)); return
@@ -488,7 +494,9 @@ partial def atEq : TacticM Unit := withMainContext do
         if (← getUnsolvedGoals).isEmpty then return
         s1.restore
       catch _ => s1.restore
-    throwError "at_eq: load not forwarded: {← ppGoal (← getMainGoal)}"
+    -- a binary operation on loads (`and a4,a4,a3`): its operands, below
+    unless sameHead l r && l.getAppNumArgs == 6 do
+      throwError "at_eq: load not forwarded: {← ppGoal (← getMainGoal)}"
   -- an operation: congruence on its arguments
   if sameHead l r && l.getAppFn.constName! != ``BitVec.ofNat then
     let s2 ← saveState
@@ -582,6 +590,12 @@ def atSegArgs (n : Name) : TermElabM (Array Term) := do
             args := args.push (← `((by at_guard $(mkIdent (Name.mkSimple nm)))))
           else
             args := args.push (← `((by first | decide | (simp; done))))
+        else if (t.find? fun e => e.isConstOf ``bytesT8).isSome then
+          -- an address through a load in the segment (`ld a4,0(sp)`: `k`)
+          args := args.push (← `((by
+            (try simp (disch := kit_disch) only [kptr_at $(mkIdent `hc)])
+            (try simp only [sext64_id])
+            kit_disch)))
         else args := args.push (← `((by kit_disch)))
       else args := args.push (← `(_))
     return args
@@ -677,11 +691,11 @@ macro "at_fin" : tactic => `(tactic| (
       cStackBudget, execFrame, stackValueSize, not_or, not_and, Nat.not_lt] at h1 h2 h3
     try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out]
   · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Loc.den, Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.add_zero, Nat.sub_zero]
+      SlotW.j, Fld.den, Loc.den]
     try refine ⟨?_, ?_⟩
     all_goals at_eq
   · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Loc.den, Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.add_zero, Nat.sub_zero]
+      SlotW.j, Fld.den, Loc.den]
     try refine ⟨?_, ?_⟩
     all_goals at_eq
   · intro x h1 h2

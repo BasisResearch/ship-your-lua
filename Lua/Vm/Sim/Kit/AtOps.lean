@@ -108,6 +108,61 @@ macro "at_fall1 " ns:ident pc:num : tactic => `(tactic| (
   subst hk
   at_go $ns))
 
+/-- **A one-register `opArith` arm from its two paths** (`R[B]` an integer,
+or the fall-through). -/
+theorem sim_tagB {o : OpCode} (ho : o.toNat < Arms.jtEntries) (hint : ArmBody o TagB)
+    (hfall : ArmBody o fun p c s w ins => ¬ TagB p c s w ins) : SimArm o :=
+  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep =>
+    (Classical.em (TagB p c s w ins)).elim (hint hS hA hf hop hstep) (hfall hS hA hf hop hstep)
+
+set_option hygiene false in
+/-- `op_bitwiseK`'s `K[C]` (`bitwiseRK`): the kernel exists only for an
+integer constant `y` (the other cases have no `Step`); `hvk` its slot's
+representation, its payload substituted for `y`. -/
+macro "kitb_const" : tactic => `(tactic| (
+  simp only [bitwiseRK] at hk htop
+  rcases hkv : kval p ins.c with _ | ⟨_ | _ | y | _ | _⟩ <;> simp [hkv] at hk
+  simp [hkv, opArith, Kernel.regTop, Opnd.ports] at hk htop
+  have hvk := hc.kconst hkv
+  have hKc := kval_lt hkv
+  obtain ⟨-, rfl⟩ := hvk.tag_of_int))
+
+set_option hygiene false in
+/-- **`at_bitk NS pc comm`**: the integer path of `BANDK`/`BORK`/`BXORK` at
+`pc` (`TagB`): `K[C]`'s payload with no tag test, the kernel's `R[B] op K[C]`
+turned to the machine's operand order by `comm`, the at-lemmas. -/
+macro "at_bitk " ns:ident pc:num comm:ident : tactic => `(tactic| (
+  rintro p hS c s s' w ins hA hf hop hstep hI
+  kit_setup $pc
+  kitb_const
+  kit_bound hAt ins.a; kit_bound hBt ins.b
+  kit_reg hb vb hvb ins.b
+  have hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt := hI
+  obtain rfl := hvb.int_of_tag hB
+  simp only [Opnd.fill, δ, BinOp.int, $comm:ident (slotVal c.σ.mem (w.slot ins.b))] at hk
+  simp [VState.apply, writeDefs, KEdge.kills] at hk
+  subst hk
+  at_go $ns))
+
+set_option hygiene false in
+/-- **`at_bitk_fall NS pc`**: `BANDK`/`BORK`/`BXORK` with `¬ TagB`: the
+fall-through to `MMBINK`. -/
+macro "at_bitk_fall " ns:ident pc:num : tactic => `(tactic| (
+  rintro p hS c s s' w ins hA hf hop hstep hI
+  kit_setup $pc
+  kitb_const
+  kit_bound hAt ins.a; kit_bound hBt ins.b
+  kit_reg hb vb hvb ins.b
+  have hfb := hvb.ne_float
+  have hB : ¬ slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt := hI
+  simp [Opnd.fill] at hk; split at hk
+  · rename_i heq
+    obtain ⟨e1, -⟩ := pair_eq heq
+    subst e1; exact absurd hvb.tag_of_int.1 hB
+  simp [VState.apply, writeDefs, KEdge.kills] at hk
+  subst hk
+  at_go $ns))
+
 /-! ## The division arms -/
 
 set_option hygiene false in

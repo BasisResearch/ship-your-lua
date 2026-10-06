@@ -194,6 +194,10 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.sim_SHR
 #print axioms Lua.Vm.Sim.At.sim_SHLI
 #print axioms Lua.Vm.Sim.At.sim_SHRI
+#print axioms Lua.Vm.Sim.At.sim_BANDK
+#print axioms Lua.Vm.Sim.At.sim_BORK
+#print axioms Lua.Vm.Sim.At.sim_BXORK
+#print axioms Lua.Vm.Sim.At.sim_tagB
 #print axioms Lua.Vm.Sim.At.sim_shift
 #print axioms Lua.Vm.Sim.At.sim_unary
 #print axioms Lua.Vm.Sim.shiftrK_neg_run
