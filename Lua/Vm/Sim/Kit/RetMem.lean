@@ -45,6 +45,31 @@ def RetDirty (w : RelPtrs) (x : Nat) : Prop :=
   (w.L + stateNCcallsOff ≤ x ∧ x < w.L + stateNCcallsOff + 4) ∨
   (RuntimeData.spEntry - cStackBudget ≤ x ∧ x < w.sp)
 
+namespace RetDirty
+variable {w : RelPtrs} {i : Nat}
+
+theorem func (h : i < 8) : RetDirty w (w.ci + ciFuncOff + i) :=
+  .inl ⟨by omega, by omega⟩
+theorem savedpc (h : i < 8) : RetDirty w (w.ci + ciSavedpcOff + i) :=
+  .inr (.inl ⟨by omega, by omega⟩)
+theorem nres (h : i < 4) : RetDirty w (w.ci + ciNresOff + i) :=
+  .inr (.inr (.inl ⟨by omega, by omega⟩))
+theorem top (h : i < 8) : RetDirty w (w.L + stateTopOff + i) :=
+  .inr (.inr (.inr (.inl ⟨by omega, by omega⟩)))
+theorem lci (h : i < 8) : RetDirty w (w.L + stateCiOff + i) :=
+  .inr (.inr (.inr (.inr (.inl ⟨by omega, by omega⟩))))
+theorem errorJmp (h : i < 8) : RetDirty w (w.L + stateErrorJmpOff + i) :=
+  .inr (.inr (.inr (.inr (.inr (.inl ⟨by omega, by omega⟩)))))
+theorem errfunc (h : i < 8) : RetDirty w (w.L + stateErrfuncOff + i) :=
+  .inr (.inr (.inr (.inr (.inr (.inr (.inl ⟨by omega, by omega⟩))))))
+theorem nCcalls (h : i < 4) : RetDirty w (w.L + stateNCcallsOff + i) :=
+  .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inl ⟨by omega, by omega⟩)))))))
+theorem below {a : Nat} (h1 : RuntimeData.spEntry - cStackBudget ≤ a) (h2 : a < w.sp) :
+    RetDirty w a :=
+  .inr (.inr (.inr (.inr (.inr (.inr (.inr (.inr ⟨h1, h2⟩)))))))
+
+end RetDirty
+
 /-- **The memory `m` agrees with the head memory `m0`** off the dirty words. -/
 def RAgree (w : RelPtrs) (m0 m : Mem) : Prop := ∀ x, ¬ RetDirty w x → m[x]? = m0[x]?
 
@@ -145,6 +170,39 @@ theorem _root_.Lua.Vm.Sim.Ranges.L_out (hr : Ranges p w) {a : Nat} (h1 : w.L ≤
 theorem _root_.Lua.Vm.Sim.Ranges.ci_out' (hr : Ranges p w) {a : Nat} (h1 : w.ci ≤ a) (h2 : a < w.ci + ciSize)
     (h3 : a < w.ci + ciSavedpcOff ∨ w.ci + ciSavedpcOff + 8 ≤ a) : ¬ Win p w a :=
   hr.ci_out a h1 h2 h3
+
+/-- An `L` field off the dirty words is not dirty. -/
+theorem _root_.Lua.Vm.Sim.Ranges.nd_L (hr : Ranges p w) {o k : Nat} (h1 : o + k ≤ stateSize)
+    (h2 : (o + k ≤ stateTopOff ∨ stateTopOff + 8 ≤ o) ∧ (o + k ≤ stateCiOff ∨ stateCiOff + 8 ≤ o) ∧
+      (o + k ≤ stateErrorJmpOff ∨ stateErrorJmpOff + 8 ≤ o) ∧
+      (o + k ≤ stateErrfuncOff ∨ stateErrfuncOff + 8 ≤ o) ∧
+      (o + k ≤ stateNCcallsOff ∨ stateNCcallsOff + 4 ≤ o)) :
+    ∀ i, i < k → ¬ RetDirty w (w.L + o + i) := fun i hi => by
+  have a1 := hr.L_top; have a2 := hr.L_sep_ci; have a3 := hr.sp_eq
+  simp only [RetDirty, ciFuncOff, ciSavedpcOff, ciNresOff, stateTopOff, stateCiOff, stateErrorJmpOff,
+    stateErrfuncOff, stateNCcallsOff, cStackBudget, RuntimeData.spEntry, stateSize, ciSize,
+    execFrame] at a1 a2 a3 h1 h2 ⊢
+  omega
+
+/-- A `CallInfo` field off the dirty words is not dirty. -/
+theorem _root_.Lua.Vm.Sim.Ranges.nd_ci (hr : Ranges p w) {o k : Nat} (h1 : o + k ≤ ciSize)
+    (h2 : (o + k ≤ ciFuncOff ∨ ciFuncOff + 8 ≤ o) ∧ (o + k ≤ ciSavedpcOff ∨ ciSavedpcOff + 8 ≤ o) ∧
+      (o + k ≤ ciNresOff ∨ ciNresOff + 4 ≤ o)) :
+    ∀ i, i < k → ¬ RetDirty w (w.ci + o + i) := fun i hi => by
+  have a1 := hr.ci_top; have a2 := hr.L_sep_ci; have a3 := hr.sp_eq
+  simp only [RetDirty, ciFuncOff, ciSavedpcOff, ciNresOff, stateTopOff, stateCiOff, stateErrorJmpOff,
+    stateErrfuncOff, stateNCcallsOff, cStackBudget, RuntimeData.spEntry, stateSize, ciSize,
+    execFrame] at a1 a2 a3 h1 h2 ⊢
+  omega
+
+/-- `luaV_execute`'s own frame is not dirty. -/
+theorem _root_.Lua.Vm.Sim.Ranges.nd_sp (hr : Ranges p w) {o k : Nat} (h1 : o + k ≤ execFrame) :
+    ∀ i, i < k → ¬ RetDirty w (w.sp + o + i) := fun i hi => by
+  have a1 := hr.ci_top; have a2 := hr.L_top; have a3 := hr.sp_eq
+  simp only [RetDirty, ciFuncOff, ciSavedpcOff, ciNresOff, stateTopOff, stateCiOff, stateErrorJmpOff,
+    stateErrfuncOff, stateNCcallsOff, cStackBudget, RuntimeData.spEntry, stateSize, ciSize,
+    execFrame] at a1 a2 a3 h1 ⊢
+  omega
 
 /-- **The head's view of the Lua state**: the words the return path reads. -/
 structure HeadReads (m0 : Mem) (w : RelPtrs) : Prop where
