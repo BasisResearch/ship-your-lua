@@ -68,7 +68,9 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          # callee, then `ccall` -> ... -> `main` -> `_start` -> `exit` -> `_exit`
          "luaF_closeupval", "luaD_callnoyield", "luaD_rawrunprotected", "luaD_pcall",
          "lua_pcallk", "main", "_start", "exit", "__call_exitprocs",
-         "__retarget_lock_acquire_recursive", "__retarget_lock_release_recursive", "_exit"]
+         "__retarget_lock_acquire_recursive", "__retarget_lock_release_recursive", "_exit",
+         # lane F1-6: htif.c's console write, the bottom of `print`'s stdio chain
+         "_write", "_write_r", "__swrite", "__sflush_r"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")

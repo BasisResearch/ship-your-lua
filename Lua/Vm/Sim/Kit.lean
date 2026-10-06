@@ -27,6 +27,10 @@ import Lua.Vm.Sim.Kit.Varargprep
 import Lua.Vm.Sim.Kit.AtStr
 import Lua.Vm.Sim.Kit.RetFinal
 import Lua.Vm.Sim.Kit.AtErr
+import Lua.Vm.Sim.Kit.Write
+import Lua.Vm.Sim.Kit.Swrite
+import Lua.Vm.Sim.Kit.Sflush
+import Lua.Vm.Sim.Kit.CallSpec
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

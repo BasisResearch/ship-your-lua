@@ -38,6 +38,34 @@ def ljStatusOff : Nat := 216
 def jmpBufSize : Nat := 208
 /-- `sizeof(FILE)` — newlib's `struct __sFILE` -/
 def fileSize : Nat := 184
+/-- `offsetof(FILE, _p)` — the next byte of the buffer -/
+def fileBufPOff : Nat := 0
+/-- `offsetof(FILE, _r)` — read space left -/
+def fileROff : Nat := 8
+/-- `offsetof(FILE, _w)` — write space left (`0` when line-buffered) -/
+def fileWOff : Nat := 12
+/-- `offsetof(FILE, _flags)` — `__SLBF`, `__SWR`, … (`short`) -/
+def fileFlagsOff : Nat := 16
+/-- `offsetof(FILE, _file)` — the descriptor (`short`) -/
+def fileFileOff : Nat := 18
+/-- `offsetof(FILE, _bf._base)` — the buffer -/
+def fileBfBaseOff : Nat := 24
+/-- `offsetof(FILE, _bf._size)` — its size -/
+def fileBfSizeOff : Nat := 32
+/-- `offsetof(FILE, _lbfsize)` — `-_bf._size` when line-buffered -/
+def fileLbfsizeOff : Nat := 40
+/-- `offsetof(FILE, _cookie)` — the hooks' argument (the `FILE`) -/
+def fileCookieOff : Nat := 48
+/-- `offsetof(FILE, _write)` — the write hook (`__swrite`) -/
+def fileWriteOff : Nat := 64
+/-- `offsetof(FILE, _ub._base)` — the ungetc buffer -/
+def fileUbBaseOff : Nat := 88
+/-- `offsetof(FILE, _lock)` — the stream lock (`__retarget_lock_*`, no-ops) -/
+def fileLockOff : Nat := 160
+/-- `offsetof(FILE, _flags2)` — `__SNLK` (bit 0: no locking) … -/
+def fileFlags2Off : Nat := 176
+/-- `offsetof(struct _reent, __cleanup)` — non-NULL once `__sinit` ran (`CHECK_INIT`) -/
+def reentCleanupOff : Nat := 72
 /-- `offsetof(struct _reent, _stdin)` -/
 def reentStdinOff : Nat := 8
 /-- `offsetof(struct _reent, _stdout)` -/
@@ -111,6 +139,8 @@ def symSglueSize : Nat := 24
 def symSf : Nat := 0x8005e5b0
 /-- `sizeof` of `__sf` (`nm -S`) -/
 def symSfSize : Nat := 552
+/-- `__swrite` — stdio's write hook (a `FILE`'s `_write`) -/
+def symSwrite : Nat := 0x80034f18
 /-- `_impure_data` -/
 def symImpureData : Nat := 0x8005d1b8
 /-- `sizeof` of `_impure_data` (`nm -S`) -/

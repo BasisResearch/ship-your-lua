@@ -455,6 +455,19 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.idivk_err
 #print axioms Lua.Vm.Sim.At.modk_err
 #print axioms Lua.Vm.Sim.At.forprep_err
+#print axioms Lua.Vm.Sim.Kit.segSt_putc
+#print axioms Lua.Vm.Sim.Kit.output_pushes
+#print axioms Lua.Vm.Sim.Kit.write_putc
+#print axioms Lua.Vm.Sim.Kit.write_loop
+#print axioms Lua.Vm.Sim.Kit.write_sum
+#print axioms Lua.Vm.Sim.Kit.write_r_sum
+#print axioms Lua.Vm.Sim.Kit.swrite_sum
+#print axioms Vsa.Sim.exec_sh
+#print axioms Lua.Vm.RegsOk.jalr
+#print axioms Lua.Vm.Sim.Kit.sfl_head
+#print axioms Lua.Vm.Sim.Kit.sfl_ret
+#print axioms Lua.Vm.Sim.Kit.sfl_outW
+#print axioms Lua.Vm.Sim.Kit.sflush_sum
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

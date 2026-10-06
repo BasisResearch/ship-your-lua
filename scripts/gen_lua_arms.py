@@ -51,6 +51,7 @@ TEMPLATE = ("Lua.Vm.Code.luaV_execute_at_{addr} "
 CODE_IMPORTS = ["Lua.Vm.Code.FixedImage_LuaV_execute", "Lua.Vm.Arms.Text"]
 SURVIVAL = {"sd": "Lua.Vm.Arms.TextLoaded.writeMap8 $prev _ {hwin}",
             "sw": "Lua.Vm.Arms.TextLoaded.writeMap4 $prev _ {hwin}",
+            "sh": "Lua.Vm.Arms.TextLoaded.writeMap2 $prev _ {hwin}",
             "sb": "Lua.Vm.Arms.TextLoaded.insert $prev _ {hwin}"}
 JT = json.load(open(dfa.ARMS_JSON))["summary"]["jump_table"]
 # The arms with an A1 simulation proof (Lua/Vm/Sim/Arms, scripts/gen_lua_arm.py).
@@ -178,6 +179,32 @@ HELPERS += [("luaF_close", "LuaF_close", 0x8000c224, 0x8000c380, [22, 26], [], [
             ("_exit", "_exit", 0x8000063c, 0x8000064c, [22, 26], [], [])]
 # helper modules whose `H<name>` would collide (`exit`, `_exit`)
 HMOD = {"_exit": "HUexit"}
+# lane F1-6: htif.c's `_write` on a console descriptor (`getfd`, the
+# `htif_putc` loop). The `tohost` store `0x80000d3c` is MMIO, not a memory
+# store: it is a stop, and the loop resumes at the root `0x80000d40` after the
+# console step (`Kit/Console.lean`). The lazy `fs_init` (`0x80000b04`: on
+# `print`'s path `__smakebuf_r`'s `_fstat` ran it first), the file path
+# (`0x80000b5c`, `kind == FD_FILE`) and the `EBADF` exit (`0x80000d58`) are
+# stops: a console descriptor of an initialised table reaches none of them.
+HELPERS += [("_write", "_write", 0x80000ae8, 0x80000d80, [22, 26], [0x80000d40],
+             [0x80000b04, 0x80000d3c, 0x80000b5c, 0x80000d58])]
+# lane F1-6: newlib's write path above it: `__swrite` (the `FILE`'s write
+# hook: clear `__SOFF`, tail-call `_write_r`; the `__SAPP` seek `0x80034f68` is a
+# stop: stdout is not opened for append) and `_write_r` (`errno = 0`, `_write`;
+# the `-1` path `0x8003b3f0` is a stop: the console write returns `n`).
+HELPERS += [("__swrite", "__swrite", 0x80034f18, 0x80034fa0, [22, 26], [], [0x80034f68]),
+            ("_write_r", "_write_r", 0x8003b3b0, 0x8003b40c, [22, 26], [], [0x8003b3f0])]
+# lane F1-6: `__sflush_r` on a write stream (`__SWR`): `_p := _bf._base`,
+# `_w := 0` (line-buffered) and the write loop through the `FILE`'s hook (`jalr
+# a5`, `0x80032890`; its return `0x80032894` is a root). The read path
+# (`0x8003271c`) and the short-write error exit (`0x8003289c`) are stops: the
+# console hook writes everything (`swrite_sum`).
+HELPERS += [("__sflush_r", "__sflush_r", 0x800326f8, 0x80032954, [22, 26], [0x80032894],
+             [0x8003271c, 0x8003289c])]
+# `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
+# `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
+# liveness flows through it to the root after it.
+TOHOST_SEAMS = {0x80000d3c: {"x12", "x15"}}
 # the registers a helper returns (live at its `ret`)
 RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
@@ -187,7 +214,9 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "luaD_callnoyield": set(), "luaD_rawrunprotected": {"x10"}, "luaD_pcall": {"x10"},
            "lua_pcallk": {"x10"}, "main": {"x10"}, "_start": set(), "exit": set(),
            "__call_exitprocs": set(), "__retarget_lock_acquire_recursive": set(),
-           "__retarget_lock_release_recursive": set(), "_exit": set()}
+           "__retarget_lock_release_recursive": set(), "_exit": set(),
+           "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
+           "__sflush_r": {"x10"}}
 
 
 def helper_cfg(lo, hi):
@@ -264,7 +293,10 @@ def helper_live(cuts, owner):
             # a computed jump (a jump table): its targets are the helper's roots
             return set().union(*[live[m] for m in cuts
                                  if owner[m] == owner[n] and cuts[m][0] in roots[owner[n]]])
-        return set().union(*[live[m] for m in cuts if cuts[m][0] == info[n][2]])
+        end = info[n][2]
+        if end in TOHOST_SEAMS:     # the console store, then the code after it
+            return TOHOST_SEAMS[end] | set().union(*[live[m] for m in cuts if cuts[m][0] == end + 4])
+        return set().union(*[live[m] for m in cuts if cuts[m][0] == end])
     changed = True
     while changed:
         changed = False
@@ -320,8 +352,12 @@ def helper_emit(fn, cap, lo, hi, specs, sites):
         em = gen_segment.SegmentEmitter(spec)
         em.emit()
         bodies.append(em.body_text)
+    jalr = any(st["class"] == "jalr" for _, spec in specs for st in spec["steps"])
+    half = any(st["class"] == "sh" for _, spec in specs for st in spec["steps"])
+    ok_imports = OK_IMPORT + ("\nimport Lua.Vm.Arms.RegsOkJalr" if jalr else "") + \
+        ("\nimport Lua.Vm.Arms.TextHalf" if half else "")
     text = f"""import {NS}.Sites.{mod}
-import {OK_IMPORT}
+import {ok_imports}
 import Lua.Vm.Arms.Text
 import Vsa.Sim.SegState
 

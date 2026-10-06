@@ -177,13 +177,14 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # small helpers
 
-PIN_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sb": "store",
+PIN_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sh": "store", "sb": "store",
            "btaken": "btaken", "bnottaken": "bnottaken",
-           "jal": "jal", "jr": "jr", "j": "jr"}
-OBS_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sb": "store",
+           "jal": "jal", "jr": "jr", "j": "jr", "jalr": "jalr"}
+OBS_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sh": "store", "sb": "store",
            "btaken": "btaken", "bnottaken": "bnottaken",
-           "jal": "jal", "jr": "jr", "j": "jr"}
+           "jal": "jal", "jr": "jr", "j": "jr", "jalr": "jalr"}
 STORE_FN = {"sd": ("writeMap8", "sdData_val"), "sw": ("writeMap4", "swData"),
+            "sh": ("writeMap2", "shData"),
             "sb": (None, None)}  # sb handled specially (insert)
 SEXT_K = {8: "sext_ff8_toNat", 16: "sext_ff0_toNat", 32: "sext_fe0_toNat",
           48: "sext_fd0_toNat", 64: "sext_fc0_toNat"}
@@ -404,7 +405,7 @@ class SegmentEmitter:
             f"{bv64(addr)}\n      {call}")
         obs = OBS_FAM[cls]
         # PC
-        if cls in ("alu", "sd", "sw", "sb", "bnottaken"):
+        if cls in ("alu", "sd", "sw", "sh", "sb", "bnottaken"):
             nxt = addr + 4
             self.lines.append(
                 f"  have hpc{k} : σ{k}.regs.get? Register.PC = some "
@@ -424,9 +425,9 @@ class SegmentEmitter:
                 f"sign_extend (m := 64) ({imm}) = ({bv64(tgt)[1:-1]} : BitVec 64)"
                 f" from by apply BitVec.eq_of_toNat_eq; decide]")
             end_pc = bv64(tgt)[1:-1]
-        elif cls == "jr":
+        elif cls in ("jr", "jalr"):
             pc_val = self.subst(st["pc_val"], k)
-            rws = [f"obs_jr_pc hobs{k}"]
+            rws = [f"obs_{obs}_pc hobs{k}"]
             if st.get("pc_rw"):        # none: pc_val is the site's own target
                 rws.append(self.subst(st["pc_rw"], k))
             self.lines.append(
@@ -439,13 +440,13 @@ class SegmentEmitter:
         # rd
         rd = st.get("rd")
         rd_val = st.get("rd_val")
-        if cls == "jal" and rd_val is None and rd is not None:
+        if cls in ("jal", "jalr") and rd_val is None and rd is not None:
             ret = addr + 4
             rd_val = f"({bv64(ret)[1:-1]} : BitVec 64)"
             st.setdefault("rw", f"show BitVec.addInt {bv64(addr)} 4 = "
                                 f"({bv64(ret)[1:-1]} : BitVec 64) from by decide")
         if rd is not None:
-            rdfam = "jal" if cls == "jal" else "alu"
+            rdfam = cls if cls in ("jal", "jalr") else "alu"
             dec5 = "(by decide) " * 5
             if st.get("rw"):
                 self.lines.append(
@@ -466,7 +467,7 @@ class SegmentEmitter:
             f"  obtain ⟨vmi{k}, hmi{k}⟩ := obs_{obs}_minstret hobs{k}")
         # memory threading
         pred = self.spec["loaded_pred"]
-        if cls in ("sd", "sw", "sb"):
+        if cls in ("sd", "sw", "sh", "sb"):
             prev = self.mem_expr if self.mem_expr is not None else \
                 self.spec["pre_bind"]["mem0"]
             key = self.subst(st["key"], k)
@@ -531,7 +532,7 @@ class SegmentEmitter:
                 f"    (ReadsLikePost.out hobs{k}).trans {self.pv('hout')}")
         # the register invariant
         if self.ok:
-            dec = " (by decide)" if obs in ("alu", "jal") else ""
+            dec = " (by decide)" if obs in ("alu", "jal", "jalr") else ""
             self.lines.append(
                 f"  have hok{k} : {self.ok['pred']} σ{k} :=\n"
                 f"    {self.ok['ns']}.{obs} hobs{k}{dec} {self.pv('hok')}")

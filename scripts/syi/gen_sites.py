@@ -606,7 +606,7 @@ class Emitter:
         rs2, rs1, imm = int(s.fields[0]), int(s.fields[1]), int(s.fields[2], 16)
         if rs1 == 0:
             raise ValueError(f"line {s.lineno}: store with rs1=x0 unsupported")
-        mn = {8: "sd", 4: "sw", 1: "sb"}[nbytes]
+        mn = {8: "sd", 4: "sw", 2: "sh", 1: "sb"}[nbytes]
         ea = f"(v{rs1} + sign_extend (m := 64) (0x{imm:03x}#12))"
         v2 = vname(rs2)
         if nbytes == 8:
@@ -619,6 +619,11 @@ class Emitter:
                        f"(0x{s.addr:08x}#64)).mem\n"
                        f"        {ea}.toNat (swData {v2})")
             helper, hkind = "exec_sw", "map"
+        elif nbytes == 2:
+            mem_val = (f"writeMap2 (afterNextPC (afterPrelude σ) "
+                       f"(0x{s.addr:08x}#64)).mem\n"
+                       f"        {ea}.toNat (shData {v2})")
+            helper, hkind = "exec_sh", "map"
         else:
             mem_val = (f"((afterNextPC (afterPrelude σ) (0x{s.addr:08x}#64)).mem.insert\n"
                        f"        {ea}.toNat (stData 1 {v2}))")
@@ -671,6 +676,9 @@ class Emitter:
 
     def emit_sw(self, s: Site) -> str:
         return self._store(s, 4)
+
+    def emit_sh(self, s: Site) -> str:
+        return self._store(s, 2)
 
     def emit_sb(self, s: Site) -> str:
         return self._store(s, 1)
@@ -755,6 +763,39 @@ class Emitter:
         )
         return head + body
 
+
+    def emit_jalr(self, s: Site) -> str:
+        """`jalr rd, imm(rs1)` with a link (`rd != x0`): an indirect call
+        (`jalr a5` through a `FILE`'s hook)."""
+        rd, rs1, imm = int(s.fields[0]), int(s.fields[1]), int(s.fields[2], 16)
+        if rd == 0 or rs1 == 0:
+            raise ValueError(f"line {s.lineno}: jalr needs rd, rs1 != x0")
+        b = word_bytes(s.word)
+        upd = (f"(BitVec.update (v{rs1} + sign_extend (m := 64) (0x{imm:03x}#12)) 0 0#1)")
+        extra_hyps = f"\n    (htgt : {upd}.toNat % 4 = 0)\n   "
+        head = self.head(
+            self.site_name(s.addr), s.addr,
+            f"`jalr x{rd},0x{imm:x}(x{rs1})` (link `x{rd} := 0x{(s.addr + 4):x}`).", [rs1], "",
+            reg_hyp(rs1), extra_hyps,
+            "σ'.mem = σ.mem",
+            f"sigmaPost_jalr σ pc vminstret\n          {upd} Register.x{rd} (BitVec.addInt pc 4)")
+        body = (
+            f"  refine stepObs_jalr σ i u (0x{s.addr:08x}#64) vminstret v{rs1} "
+            f"(0x{s.word:08x}#32) (0x{imm:03x}#12)\n"
+            f"    ({regidx(rs1)}) ({regidx(rd)}) Register.x{rd} (BitVec.addInt (0x{s.addr:08x}#64) 4)\n"
+            f"    {b[0]} {b[1]} {b[2]} {b[3]}\n"
+            "    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)\n"
+            "    (by apply BitVec.eq_of_toNat_eq; decide) "
+            "(by apply BitVec.eq_of_toNat_eq; decide)\n"
+            f"{decode_block(s.word)}\n"
+            f"    (rX_bits_x{rs1} _ v{rs1}\n"
+            f"      (by rw [get?_afterNextPC σ (0x{s.addr:08x}#64) _ (by decide) "
+            f"(by decide)]; exact hx{rs1}))\n"
+            "    htgt\n"
+            "    (by decide) (by decide) (by decide) (by decide) (by decide) ?_ hi\n"
+            f"  exact wX_bits_x{rd} _ (BitVec.addInt (0x{s.addr:08x}#64) 4)\n"
+        )
+        return head + body
 
     # -- ship-your-lua: the remaining classes of the luaV_execute arms --------
     #
@@ -948,9 +989,11 @@ CLASS_EMITTERS = {
     "sd": "emit_sd",
     "sw": "emit_sw",
     "sb": "emit_sb",
+    "sh": "emit_sh",
     "jal": "emit_jal",
     "j": "emit_j",
     "jr": "emit_jr",
+    "jalr": "emit_jalr",
     **{c: "emit_itype" for c in ("andi", "ori", "xori", "slti", "sltiu")},
     **{c: "emit_shiftiop" for c in ("slli", "srli", "srai")},
     **{c: "emit_shiftiwop" for c in ("slliw", "srliw", "sraiw")},
@@ -1049,6 +1092,10 @@ def emit_battery(sites: list, pred: str, accessor: str, imports_extra: list[str]
         imports.append("Vsa.Sim.RamReadPins")
     if any(s.cls.endswith("_tot") or s.cls.endswith("_totb") for s in sites):
         imports.append("Vsa.Sim.ExecLoadTotal")
+    if any(s.cls == "jalr" for s in sites):
+        imports.append("Vsa.Sim.SnprintfSitesRet5")
+    if any(s.cls == "sh" for s in sites):
+        imports.append("Vsa.Sim.StoreHalf")
     if any(s.cls in NEEDS_STRCPY_SITES for s in sites):
         imports.append("Vsa.Sim.StrcpySites")
     imports.extend(m for m in imports_extra if m not in imports)
