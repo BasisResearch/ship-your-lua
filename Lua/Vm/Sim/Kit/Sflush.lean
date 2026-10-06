@@ -176,6 +176,8 @@ structure SflOut (m m' : Mem) (sp buf : Nat) : Prop where
   keep_hi : ∀ a, sp ≤ a → bytesT1 m' a = bytesT1 m a
   keep_lo : ∀ a, a + 512 ≤ sp → (a < stdoutFile ∨ stdoutFile + fileSize ≤ a) →
     (a < errnoAddr ∨ errnoAddr + 4 ≤ a) → bytesT1 m' a = bytesT1 m a
+  /-- `stdout` past `_flags` (`_file`, the hooks, `_lock`, `_flags2`) -/
+  keep_file : ∀ a, stdoutFile + fileFileOff ≤ a → a < stdoutFile + fileSize → bytesT1 m' a = bytesT1 m a
 
 /-- **`__sflush_r`'s return**: `a0 = 0`, `sp` and the frame restored, the
 pending bytes on the console. -/
@@ -399,7 +401,7 @@ theorem sfl_savedW (m : Mem) (sp buf : Nat) (r : BitVec 64) (f : AbiFrame) (h1 :
 set_option hygiene false in
 /-- The `StdoutAt … []` and keep facts of a flushed memory. -/
 local macro "sfl_out_tac" : tactic => `(tactic| (
-  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, rfl, by decide, hs.buf_lo, hs.buf_hi, ?_, ?_⟩, ?_, ?_⟩
+  refine ⟨⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, rfl, by decide, hs.buf_lo, hs.buf_hi, ?_, ?_⟩, ?_, ?_, ?_⟩
   · sfl_rd; rfl
   · sfl_rd; decide
   · sfl_rd; first | decide | exact hs.flags
@@ -412,7 +414,8 @@ local macro "sfl_out_tac" : tactic => `(tactic| (
   · sfl_rd; exact hs.ready
   · sfl_rd; exact hs.stdout
   · intro a ha; sfl_rd
-  · intro a ha hf he; sfl_rd))
+  · intro a ha hf he; sfl_rd
+  · intro a h1 h2; sfl_rd))
 
 theorem sfl_out (m : Mem) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
     (hs : StdoutAt m buf pend) (h1 : buf + 1024 + 512 ≤ sp) (h2 : sp ≤ 2 ^ 32) :
