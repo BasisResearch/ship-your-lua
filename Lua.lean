@@ -55,6 +55,8 @@ import Lua.Compile.Corpus
 import Lua.Os.HtifFs
 import Lua.Os.Htif
 import Lua.Os.HtifTraces
+import Lua.Num.F64
+import Lua.Num.Arith
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/
