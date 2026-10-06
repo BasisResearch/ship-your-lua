@@ -111,7 +111,7 @@ theorem Core.bleach (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Lis
   subst hm
   have hr := hc.ranges
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hseg.armText, fun x hx => ?_, ?_, hst, hc.comp, hr⟩
+    hseg.armOk, hseg.armText, fun x hx => ?_, ?_, hst, hc.comp, hr, hc.saved_of hfr⟩
   · simp only [bytesT1, hfr x (Win.of_slots hx) (fun h => hx (.inr (.inr h)))]
     exact hc.frame x hx
   · refine (bytesT8_congr fun i _ => hfr _ (fun hs => ?_) (fun hs => ?_)).trans hc.kptr

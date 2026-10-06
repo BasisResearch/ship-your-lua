@@ -24,6 +24,11 @@ def jbS0 : Nat := 1
 def jbSp : Nat := 13
 /-- `L->nCcalls` at the entry (two non-yieldable C calls, one C level). -/
 def nCcallsEntry : Nat := 0x20001
+/-- `s1`, `s2 … s11` at the entry, as `(register, value)`: the callers' values,
+which `luaV_execute`'s prologue saves (`sd s1,152(sp)` … `sd s11,72(sp)`) and its
+epilogue restores for the return chain (`s0` is `L`). -/
+def calleeSavedEntry : List (Nat × Nat) :=
+  [(9, 0x0), (18, 0x10), (19, 0x8006ed48), (20, 0x1), (21, 0x0), (22, 0x0), (23, 0x0), (24, 0x0), (25, 0x0), (26, 0x0), (27, 0x0)]
 
 /-- The present bytes of the caller frames `[spEntry, __stack_top)`, as
 maximal runs. -/

@@ -72,6 +72,13 @@ structure CStackAt (σ : MState) : Prop where
   /-- Saved by `luaV_execute`'s prologue (`sd s0 … s11`), so they must be
   readable; their values are the callers', restored at the return. -/
   callee_saved : ∀ r ∈ calleeSavedRegs, (gprGet σ r).isSome = true
+  /-- `s0 = L` (`ccall`'s `mv s0,a0`): `ccall` reloads `L->nCcalls` through it
+  after `luaV_execute` returns. -/
+  s0 : gprGet σ 8 = gprGet σ 10
+  /-- `s1`, `s2 … s11` are the callers' values (`RuntimeData.calleeSavedEntry`),
+  which the return chain reads after `luaV_execute`'s epilogue restores them
+  (`luaD_pcall`'s `s1` = the old `errfunc`, …). -/
+  saved : ∀ rv ∈ RuntimeData.calleeSavedEntry, gprGet σ rv.1 = some (BitVec.ofNat 64 rv.2)
   /-- The caller frames above `sp`, byte for byte as the boot left them: the
   return path after `luaV_execute` returns (`ccall`'s `ld ra,24(sp)`, `f_call`,
   `luaD_rawrunprotected`, `luaD_pcall`, `lua_pcallk`, `main`, `_start`'s

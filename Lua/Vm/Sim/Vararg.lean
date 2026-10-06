@@ -193,6 +193,9 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
         (by rw [hrf]; omega))
       (hE.vararg_proto _ hdirty) hRt.vararg (by simp only [RtPtrs.vmoved]; rw [hrf]) hrp rfl
       (by simp only [RtPtrs.vmoved, stackValueSize]; omega)
+      (callers_congr hRt.cstack.callers fun a h1 h2 => hdirty a (by
+        simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, RuntimeData.spEntry] at h1 ⊢
+        omega))
     exact ⟨ι', hP⟩
 
 /-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at

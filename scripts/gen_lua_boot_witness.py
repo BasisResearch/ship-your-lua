@@ -256,6 +256,11 @@ def evaluate(lay, M, regs, proto):
     inv = {}
     inv["spEntry"], inv["retCcall"] = regs[2], regs[1]
     need(regs[3] == lay["symGlobalPointer"], "gp")
+    # the callee-saved registers `luaV_execute`'s prologue saves and its
+    # epilogue restores for the return chain: s0 = L (`ccall`'s `mv s0,a0`),
+    # s1, s2 ... s11 the callers' values
+    need(regs[8] == L, "s0 = L")
+    inv["calleeSaved"] = [(r, regs[r]) for r in [9] + list(range(18, 28))]
     stack_top = lay["symStackTop"]
     segs, run = [], None
     for a in range(regs[2], stack_top):
@@ -637,6 +642,11 @@ def render_data(lay, inv, names):
         f"def jbSp : Nat := {lay['jbSp']}",
         "/-- `L->nCcalls` at the entry (two non-yieldable C calls, one C level). -/",
         f"def nCcallsEntry : Nat := {inv['nCcallsEntry']:#x}",
+        "/-- `s1`, `s2 … s11` at the entry, as `(register, value)`: the callers' values,",
+        "which `luaV_execute`'s prologue saves (`sd s1,152(sp)` … `sd s11,72(sp)`) and its",
+        "epilogue restores for the return chain (`s0` is `L`). -/",
+        "def calleeSavedEntry : List (Nat × Nat) :=",
+        "  [" + ", ".join(f"({r}, {v:#x})" for r, v in inv["calleeSaved"]) + "]",
         "",
         "/-- The present bytes of the caller frames `[spEntry, __stack_top)`, as",
         "maximal runs. -/",

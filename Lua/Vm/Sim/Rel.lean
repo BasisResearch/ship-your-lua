@@ -234,6 +234,22 @@ structure RuntimeMem (m : Mem) (L ci func : Nat) (rt : RtPtrs) : Prop where
   heap : DlHeap.HeapAt m rt.top rt.brkv rt.chunks (fun i => rt.bins.getD i [])
   error_jmp : ErrorJmpAt m L
 
+/-- The caller frames lie in `[spEntry, __stack_top)`. -/
+theorem callerFrames_above : ∀ s ∈ RuntimeData.callerFrames,
+    RuntimeData.spEntry ≤ s.1 ∧ s.1 + s.2.length ≤ 0x88000000 := by
+  decide +kernel
+
+/-- Byte segments survive a memory change that keeps their bytes. -/
+theorem _root_.Lua.Vm.SegsAt.congr {m m' : Mem} {segs : List (Nat × List UInt8)}
+    (h : SegsAt m segs) (hm : ∀ s ∈ segs, ∀ i, i < s.2.length → m'[s.1 + i]? = m[s.1 + i]?) :
+    SegsAt m' segs := fun s hs i hi => (hm s hs i hi).trans (h s hs i hi)
+
+/-- **The caller frames survive** a memory change that keeps `[spEntry, __stack_top)`. -/
+theorem callers_congr {m m' : Mem} (h : SegsAt m RuntimeData.callerFrames)
+    (hm : ∀ a, RuntimeData.spEntry ≤ a → a < 0x88000000 → m'[a]? = m[a]?) :
+    SegsAt m' RuntimeData.callerFrames :=
+  h.congr fun s hs i hi => have := callerFrames_above s hs; hm _ (by omega) (by omega)
+
 /-- **The complement**: what the relation knows about `w.mo`. -/
 structure Complement (p : Proto) (w : RelPtrs) : Prop where
   text : Arms.TextLoaded w.mo
@@ -253,6 +269,11 @@ structure Complement (p : Proto) (w : RelPtrs) : Prop where
     ValRepr w.mo w.ι (slotTag w.mo (w.k + stackValueSize * i)) (slotVal w.mo (w.k + stackValueSize * i)) v
   /-- every string object a register or constant may point to is owned -/
   own : ∀ ts s, w.ι.own ts s → StrOwned p w ts s
+  /-- the caller frames above the entry `sp`, as the boot left them
+  (`CStackAt.callers`): the return chain after `luaV_execute` returns
+  (`ccall`, `luaD_rawrunprotected`, `luaD_pcall`, `lua_pcallk`, `main`) reloads
+  its saved registers and locals, and `lj.status`, from them -/
+  callers : SegsAt w.mo RuntimeData.callerFrames
 
 /-- **Where things are**: the address ranges the arms' side conditions need,
 and the window's separation from the code array and the `CallInfo`. -/
@@ -305,6 +326,37 @@ structure Pins (σ : MState) (w : RelPtrs) (pc : Nat) : Prop where
   base : σ.regs.get? Register.x25 = some (BitVec.ofNat 64 w.base)
   pc : σ.regs.get? Register.x27 = some (BitVec.ofNat 64 (w.code + 4 * pc))
 
+/-- The slot of a saved `s`-register in `luaV_execute`'s frame: `sd s1,152(sp)`,
+`sd s2,144(sp)` … `sd s11,72(sp)`. -/
+def savedOff (r : Nat) : Nat := if r = 9 then 152 else 144 - 8 * (r - 18)
+
+/-- **`luaV_execute`'s saved words** at `72…175(sp)`: the prologue's `sd ra,168(sp)`
+(the return into `ccall`), `sd s0,160(sp)` (`L`) and `sd s1,152(sp)` …
+`sd s11,72(sp)` (the callers' values, `RuntimeData.calleeSavedEntry`). Only the
+prologue writes these words; the epilogue of `OP_RETURN*` (`CIST_FRESH`)
+reloads them for the return chain (`ccall`, `luaD_rawrunprotected`,
+`luaD_pcall`, `lua_pcallk`, `main`). -/
+structure SavedAt (m : Mem) (w : RelPtrs) : Prop where
+  ra : bytesT8 m (w.sp + 168) = BitVec.ofNat 64 RuntimeData.retCcall
+  s0 : bytesT8 m (w.sp + 160) = BitVec.ofNat 64 w.L
+  s : ∀ rv ∈ RuntimeData.calleeSavedEntry, bytesT8 m (w.sp + savedOff rv.1) = BitVec.ofNat 64 rv.2
+
+/-- The saved `s`-register slots lie in `[72, 152]`. -/
+theorem savedOff_mem : ∀ rv ∈ RuntimeData.calleeSavedEntry,
+    72 ≤ savedOff rv.1 ∧ savedOff rv.1 + 8 ≤ 160 := by
+  decide
+
+/-- **The saved words are a region fact**: a memory equal on `[sp + 72, sp + 176)`
+keeps them. -/
+theorem SavedAt.congr {m m' : Mem} {w : RelPtrs} (h : SavedAt m w)
+    (hm : ∀ x, w.sp + 72 ≤ x → x < w.sp + execFrame → m'[x]? = m[x]?) : SavedAt m' w where
+  ra := (bytesT8_congr fun i hi => hm _ (by omega) (by simp only [execFrame]; omega)).trans h.ra
+  s0 := (bytesT8_congr fun i hi => hm _ (by omega) (by simp only [execFrame]; omega)).trans h.s0
+  s rv hrv := by
+    have := savedOff_mem rv hrv
+    exact (bytesT8_congr fun i hi => hm _ (by omega) (by simp only [execFrame]; omega)).trans
+      (h.s rv hrv)
+
 /-- Everything but the machine pc: shared by the head (`VmRelAt`) and the arm
 entry after dispatch (`ArmAt`). -/
 structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
@@ -326,6 +378,9 @@ structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
     ValRepr w.mo w.ι (slotTag c.σ.mem (w.slot j)) (slotVal c.σ.mem (w.slot j)) v
   comp : Complement p w
   ranges : Ranges p w
+  /-- `luaV_execute`'s saved `ra`, `s0 … s11` (`SavedAt`): no arm writes
+  `72…175(sp)`, so every close keeps them (`Core.saved_of`) -/
+  saved : SavedAt c.σ.mem w
 
 /-- **The payload of an arm's segments** (`gen_lua_arms.py`, `sim` segments):
 `.text` present, the memory `m`, the console `o`, `RegsOk`. -/
@@ -570,6 +625,14 @@ theorem Core.kptr_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Slots p w x �
   (bytesT8_congr fun i _ => h _ fun hs => by
     have := hc.ranges.frame_sep; simp only [Slots] at hs; omega).trans hc.kptr
 
+/-- **The saved words survive every close**: a memory that is exact outside the
+register slots and `Scratch` (the C frame is neither) keeps them. -/
+theorem Core.saved_of (hc : Core p c s w) {m : Mem}
+    (h : ∀ x, ¬ Slots p w x → ¬ Scratch w x → m[x]? = c.σ.mem[x]?) : SavedAt m w :=
+  hc.saved.congr fun x h1 _ => h x
+    (fun hs => by have := hc.ranges.frame_sep; simp only [Slots] at hs; omega)
+    (fun hs => by have := (hc.ranges.scratch_out _ hs).2; omega)
+
 theorem output_congr {σ σ' : MState} (h : σ'.sailOutput = σ.sailOutput) :
     Vsa.Machine.output σ' = Vsa.Machine.output σ := by
   simp only [Vsa.Machine.output, h]
@@ -589,7 +652,7 @@ theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List
     hst.frame x (Classical.byContradiction fun h => hx (hwin x h))
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
     hseg.armOk, hc.text_of hfr, hc.frame_of hfr, hc.kptr_of hfr, fun j v' hj hv' => ?_, hc.comp,
-    hc.ranges⟩
+    hc.ranges, hc.saved_of fun x hx _ => hfr x hx⟩
   · simp only at hv'
     by_cases hja : j = a
     · subst hja
@@ -614,7 +677,7 @@ theorem Core.jump (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List 
     Core p c' ⟨pc', s.regs, s.out⟩ w := by
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
     hseg.armOk, hmem ▸ hc.text, hmem ▸ hc.frame, hmem ▸ hc.kptr, fun j v hj hv => ?_, hc.comp,
-    hc.ranges⟩
+    hc.ranges, hmem ▸ hc.saved⟩
   rw [hmem]
   exact hc.stack j v hj hv
 
