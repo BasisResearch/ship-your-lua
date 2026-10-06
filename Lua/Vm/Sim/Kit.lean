@@ -38,6 +38,8 @@ import Lua.Vm.Sim.Kit.Memchr
 import Lua.Vm.Sim.Kit.Fwrite
 import Lua.Vm.Sim.Kit.Sfvwrite
 import Lua.Vm.AtF.Sinit
+import Lua.Vm.Sim.Kit.Sinit
+import Lua.Vm.Sim.Kit.Malloc
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

@@ -1970,23 +1970,16 @@ FNS = {
     # `__sinit(_REENT)` at the first write (`StdioBoot`: `__cleanup` and
     # `__stdio_exit_handler` still NULL): the handlers, then `global_stdio_init`'s
     # `std()` of `stdin`, `stdout`, `stderr` (walked through, with `memset` and the
-    # no-op locks); one path, one store chain
+    # no-op locks). The two `__retarget_lock_init_recursive` calls between the
+    # `std()`s are roots that carry the stack slots (`calls`): no store chain is
+    # longer than one `std()`, and the epilogue reads the saved slots as the
+    # carried facts of the last root
     "__sinit": dict(
         mod="Sinit", entry=0x80032ed0,
         row=abi_row({10: ("lit", IMPURE_DATA)}),
         ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0"] + CALLEE_OK,
         cells={(8, IMPURE_DATA + 72): 0, (8, 0x8005d3e0): 0},
-        # the saved frames (`__sinit`'s at `sp - 16`, `global_stdio_init`'s at
-        # `sp - 64`), read back in the epilogue root
-        rcells={(((0, 1),), -64): ("bv", 5), (((0, 1),), -56): ("bv", 4), (((0, 1),), -48): ("bv", 3),
-                (((0, 1),), -40): ("bv", 2), (((0, 1),), -32): ("lit", IMPURE_DATA),
-                (((0, 1),), -24): ("lit", 0x80032f1c), (((0, 1),), -16): ("bv", 1), (((0, 1),), -8): ("bv", 0)},
-        # `global_stdio_init`'s epilogue a root: its loads read the root memory's
-        # saved slots (`rcells`), not back through the three `FILE`s' stores
-        loops={0x80032d54: dict(name="E", row={2: N((0, 1), add=-64), 3: ("lit", 0x8005ced0),
-                                               **{r: ("bv", 20 + k) for k, r in
-                                                  enumerate([8, 9] + list(range(18, 28)))}},
-                                ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0"] + CALLEE_OK)},
+        calls={0x8003b418: dict(ret={})},
         doc="`__sinit(_REENT)` from the boot state."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
     # in the byte scan, the end); the alignment bytes, the words (the
