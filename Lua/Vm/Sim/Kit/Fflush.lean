@@ -46,7 +46,7 @@ structure FlushMid (m m' : Mem) (sp buf : Nat) (r : BitVec 64) : Prop where
 `stdout` at `sp - 32` and `ra` at `sp - 8`, over a memory `M` equal to `m`
 outside the frame. -/
 theorem sfl_mid32 {sp buf : Nat} {pend : List (BitVec 8)} {r ret : BitVec 64} {f : AbiFrame} {m M : Mem}
-    {o : Array String} {c : Config} (hx : StdioCtx sp buf r) (hs : StdoutAt m buf pend) (hu : StdioUp m)
+    {o : Array String} {c : Config} (hx : StdioCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) (hu : StdioUp m)
     (hret : ret.toNat % 4 = 0) (hM : ∀ a, (a < sp - 32 ∨ sp ≤ a) → M[a]? = m[a]?)
     (h32 : bytesT8 M (sp - 32) = 0x8005e668#64) (h8 : bytesT8 M (sp - 8) = r)
     (h : SegSt 0x800326f8#64 (sflPre 0x8005d1b8#64 (sp - 32) ret f) (ArmPay M o) c) :
@@ -75,7 +75,7 @@ theorem sfl_mid32 {sp buf : Nat} {pend : List (BitVec 8)} {r ret : BitVec 64} {f
 /-- **The caller's return after the flush**: its last store (`sd a0, 0(sp)`,
 `0` at `sp - 32`) and the summary's post. -/
 theorem flush_fin {sp buf : Nat} {pend : List (BitVec 8)} {r : BitVec 64} {f : AbiFrame} {m m' : Mem}
-    {o : Array String} {c : Config} (hx : StdioCtx sp buf r) (hs : StdoutAt m buf pend)
+    {o : Array String} {c : Config} (hx : StdioCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv)
     (hmid : FlushMid m m' sp buf r)
     (h : wrRet r sp 0 f (writeMap8 m' (sp - 32) (sdData_val 0x0#64)) (pushes o pend) c) :
     FlushPost r sp buf pend f m o c := by
@@ -119,7 +119,7 @@ theorem fflush_stdout : FflushStdout_Statement := by
 
 /-- **`_fflush_r(_REENT, stdout)`** (`__sfvwrite_r`'s flushes): as `fflush`. -/
 theorem fflush_r_stdout (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame) (m : Mem)
-    (o : Array String) (hx : StdioCtx sp buf r) (hs : StdoutAt m buf pend) (hu : StdioUp m) :
+    (o : Array String) (hx : StdioCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) (hu : StdioUp m) :
     Triple (SegSt 0x80032954#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
         ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))
       (FlushPost r sp buf pend f m o) := by

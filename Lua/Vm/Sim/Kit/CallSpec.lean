@@ -61,6 +61,13 @@ structure StdoutKeep (m m' : Mem) (sp buf : Nat) : Prop where
   keep_lo : ∀ a, a + 2048 ≤ sp → (a < stdoutFile ∨ stdoutFile + fileSize ≤ a) →
     (a < buf ∨ buf + 1024 ≤ a) → (a < errnoAddr ∨ errnoAddr + 4 ≤ a) → bytesT1 m' a = bytesT1 m a
 
+/-- What a stdio call that runs callees of its own keeps: as `StdoutKeep`,
+below `sp` only past its callees' stack depth `d`. -/
+structure StdoutKeepD (m m' : Mem) (sp buf d : Nat) : Prop where
+  keep_hi : ∀ a, sp ≤ a → bytesT1 m' a = bytesT1 m a
+  keep_lo : ∀ a, a + d ≤ sp → (a < stdoutFile ∨ stdoutFile + fileSize ≤ a) →
+    (a < buf ∨ buf + 1024 ≤ a) → (a < errnoAddr ∨ errnoAddr + 4 ≤ a) → bytesT1 m' a = bytesT1 m a
+
 /-- A callee's entry pins: the arguments, `ra`, `sp`, `gp`, the caller's frame. -/
 abbrev callPre (args : List Pin) (sp : Nat) (r : BitVec 64) (f : AbiFrame) : List Pin :=
   args ++ ⟨Register.x1, r⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ ::
@@ -70,16 +77,17 @@ abbrev callPre (args : List Pin) (sp : Nat) (r : BitVec 64) (f : AbiFrame) : Lis
 returns `n`; the console gains `out` and the buffer holds `pend'`, where
 `out ++ pend' = pend ++ (the n bytes at src)` (the flushes happen at the
 newlines and when the buffer fills; the logical console is all that `print`'s
-final `fflush` needs). -/
+final `fflush` needs). The stack below `sp` is the callees' down to 4 KiB
+(`fwrite` → `__sfvwrite_r` → `_fflush_r` → `__sflush_r` → `__swrite` → …). -/
 def FwriteStdout_Statement : Prop :=
   ∀ (sp buf src n : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String),
-    StdioCtx sp buf r → StdoutAt m buf pend → StdioUp m →
-    0x80000000 ≤ src → src + n + 2048 ≤ sp →
+    StdioCtx sp buf r → StdoutAt m buf pend → StdioUp m → buf + 4096 ≤ sp →
+    errnoAddr + 4 ≤ src → src + n + 4096 ≤ sp →
     (src + n ≤ buf ∨ buf + 1024 ≤ src) → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
     Triple (SegSt 0x800342e4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 src⟩, ⟨Register.x11, BitVec.ofNat 64 1⟩,
         ⟨Register.x12, BitVec.ofNat 64 n⟩, ⟨Register.x13, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))
       (fun c => ∃ m' out pend', wrRet r sp n f m' (pushes o out) c ∧ StdoutAt m' buf pend' ∧ StdioUp m' ∧
-        out ++ pend' = pend ++ bytesAt m src n ∧ StdoutKeep m m' sp buf)
+        out ++ pend' = pend ++ bytesAt m src n ∧ StdoutKeepD m m' sp buf 4096)
 
 /-- **`fflush(stdout)`** (`0x80032a1c`): the pending bytes on the console,
 `0` returned, the buffer empty. -/

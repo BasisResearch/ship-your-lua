@@ -141,6 +141,10 @@ import Lua.Vm.Arms.Segs.Hmemchr
 import Lua.Vm.Arms.Segs.Hsfvwrite_r
 import Lua.Vm.Arms.Segs.Hfwrite
 import Lua.Vm.Arms.Segs.Hfwrite_r
+import Lua.Vm.Arms.Segs.Hsinit
+import Lua.Vm.Arms.Segs.Hglobal_stdio_init_part_0
+import Lua.Vm.Arms.Segs.Hmemset
+import Lua.Vm.Arms.Segs.Hretarget_lock_init_recursive
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

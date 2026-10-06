@@ -243,8 +243,11 @@ def classify(addr: int, word: int, raw: str, path: dict) -> list[Row]:
             return [unsupported(addr, word, raw, "jalr funct3 != 0")]
         if f["rs1"] == 0:
             return [unsupported(addr, word, raw, "jalr with rs1=x0")]
-        if f["rd"] == 0 and f["imm_i"] == 0:
-            return [Row(addr, word, "jr", [f["rs1"]], raw=raw)]
+        if f["rd"] == 0:
+            # `jr off(rs1)`: a computed jump (`memset`'s jump into its `sb`
+            # chain); the offset a second field only when nonzero
+            imm = f["imm_i"]
+            return [Row(addr, word, "jr", [f["rs1"]] + ([f"{imm:03x}"] if imm else []), raw=raw)]
         # indirect call / general jalr (`jalr ra,off(a5)`)
         return [Row(addr, word, "jalr",
                     [f["rd"], f["rs1"], f"{f['imm_i']:03x}"], raw=raw)]

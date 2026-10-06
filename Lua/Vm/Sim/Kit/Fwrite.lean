@@ -32,26 +32,25 @@ structure SfvUio (m : Mem) (U I src n : Nat) : Prop where
 
 /-- What `__sfvwrite_r` keeps: the caller's frames above `sp` but the
 `uio_resid` it counts down, and below `sp` everything but `stdout`, its
-buffer, `errno` and the callee frames. -/
+buffer, `errno` and the callee frames (3 KiB: its own 96 bytes, then
+`_fflush_r`'s 2 KiB). -/
 structure SfvKeep (m m' : Mem) (sp buf U : Nat) : Prop where
   keep_hi : ∀ a, sp ≤ a → (a < U + 16 ∨ U + 24 ≤ a) → bytesT1 m' a = bytesT1 m a
-  keep_lo : ∀ a, a + 1024 ≤ sp → (a < stdoutFile ∨ stdoutFile + fileSize ≤ a) →
+  keep_lo : ∀ a, a + 3072 ≤ sp → (a < stdoutFile ∨ stdoutFile + fileSize ≤ a) →
     (a < buf ∨ buf + 1024 ≤ a) → (a < errnoAddr ∨ errnoAddr + 4 ≤ a) → bytesT1 m' a = bytesT1 m a
 
 /-- **`__sfvwrite_r(_REENT, stdout, uio)` on the set-up line-buffered
 `stdout`** (`0x80033b50`), one iov of `n` bytes at `src` (apart from `stdout`
 and its buffer, below the stack): `0` returned, the console gains `out` and
-the buffer holds `pend'`, `out ++ pend' = pend ++ (the n bytes)`. Open: the
-line-buffered loop over the generated at-lemmas (`Lua/Vm/AtF/Sfvwrite.lean`,
-9 roots), with `memchr_nl`, `memmove_sum`, `fflush_r_stdout` and `swrite_sum`
-at the call returns (PHASES A0.2). -/
+the buffer holds `pend'`, `out ++ pend' = pend ++ (the n bytes)`. Proved in
+`Kit/Sfvwrite.lean` (`sfvwrite_lbf`). -/
 def SfvwriteLbf_Statement : Prop :=
   ∀ (sp buf U I src n : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame) (m : Mem)
     (o : Array String),
-    r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → buf + 2048 ≤ sp →
+    r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → buf + 3584 ≤ sp →
     StdoutAt m buf pend → StdioUp m → SfvUio m U I src n →
-    sp ≤ I → I + 16 ≤ U → U + 24 ≤ sp + 2048 → U % 8 = 0 → I % 8 = 0 →
-    0x80000000 ≤ src → src + n + 1024 ≤ sp →
+    sp ≤ I → I + 16 ≤ U → U + 24 ≤ sp + 2048 → U + 24 ≤ 2 ^ 32 → U % 8 = 0 → I % 8 = 0 →
+    errnoAddr + 4 ≤ src → src + n + 3072 ≤ sp →
     (src + n ≤ buf ∨ buf + 1024 ≤ src) → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
     Triple (SegSt 0x80033b50#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
         ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩, ⟨Register.x12, BitVec.ofNat 64 U⟩] sp r f) (ArmPay m o))
@@ -69,7 +68,7 @@ abbrev fwFrame (f : AbiFrame) (n : Nat) : AbiFrame :=
 
 /-- **`fwrite(src, 1, n, stdout)` from `__sfvwrite_r`'s summary.** -/
 theorem fwrite_stdout_of_sfv (hsfv : SfvwriteLbf_Statement) : FwriteStdout_Statement := by
-  intro sp buf src n pend r f m o hx hs hu hsrc hsp hb hst c h
+  intro sp buf src n pend r f m o hx hs hu hbs hsrc hsp hb hst c h
   have hb0 := hs.buf_lo; have h1 := hx.sp_lo; have h2 := hx.sp_hi; have h3 := hx.sp_al; have hra := hx.ra
   stdio_nums
   have hEA : errnoAddr = 0x8005d408 := rfl
@@ -96,7 +95,7 @@ theorem fwrite_stdout_of_sfv (hsfv : SfvwriteLbf_Statement) : FwriteStdout_State
   obtain ⟨c2, s2, m', out, pend', hret, hs', hu', hout, hkeep⟩ :=
     hsfv (sp - 112) buf (sp - 72) (sp - 88) src n pend 0x800341f8#64 (fwFrame f n)
       (Lua.Vm.AtF.Fwrite.m3 (fwCx sp src n r f m o)) o (by decide) (by omega) (by omega) (by omega) hs3 hu3 hio
-      (by omega) (by omega) (by omega) (by omega) (by omega) hsrc (by omega) hb hst _
+      (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) hsrc (by omega) hb hst _
       (by fcx_unfold; simp only [callPre, List.cons_append, List.nil_append]; exact h.repin (by pins_of h))
   have acc := acc.trans s2
   -- the return from `__sfvwrite_r`: a fresh root over `m'`

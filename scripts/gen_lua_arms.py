@@ -240,6 +240,21 @@ HELPERS += [("__sfvwrite_r", "__sfvwrite_r", 0x80033b50, 0x8003402c, [22, 26], [
 # short-write paths are decided by `_flags2 = 0` and `__sfvwrite_r`'s `0`)
 HELPERS += [("fwrite", "Fwrite", 0x800342e4, 0x80034300, [22, 26], [], []),
             ("_fwrite_r", "_fwrite_r", 0x800340fc, 0x800342e4, [22, 26], [], [0x800342c0])]
+# lane F1-9: `__sinit` at the first write (`global_stdio_init`: `std()` of the
+# three `FILE`s, each `memset(&_mbstate, 0, 8)` and a no-op lock init); only
+# `memset`'s short path (`n <= 15`: a computed jump into its `sb` chain, whose
+# targets are roots; the block loop `0x8003b578` a stop)
+HELPERS += [("__sinit", "__sinit", 0x80032ed0, 0x80032f30, [22, 26], [], []),
+            ("global_stdio_init.part.0", "Global_stdio_init_part_0", 0x80032bfc, 0x80032d7c, [22, 26],
+             [0x80032d4c, 0x80032d54], []),
+            ("memset", "Memset", 0x8003b56c, 0x8003b648, [22, 26],
+             [0x8003b5bc + 4 * i for i in range(15)], [0x8003b578]),
+            ("__retarget_lock_init_recursive", "__retarget_lock_init_recursive",
+             0x8003b418, 0x8003b41c, [22, 26], [], [])]
+# indirect calls whose target the callee rows know (`jalr` through a `FILE`
+# hook): the callee's entry reads flow back into the caller's segments, as a
+# `jal`'s do (`__sfvwrite_r`'s `fp->_write`, `__swrite`, reads `a3`)
+INDIRECT = {0x80033df0: 0x80034f18}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -255,7 +270,9 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__call_exitprocs": set(), "__retarget_lock_acquire_recursive": set(),
            "__retarget_lock_release_recursive": set(), "_exit": set(),
            "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
-           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}, "memmove": {"x10"}, "_fflush_r": {"x10"}, "memchr": {"x10"}, "__sfvwrite_r": {"x10"}, "fwrite": {"x10"}, "_fwrite_r": {"x10"}}
+           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}, "memmove": {"x10"}, "_fflush_r": {"x10"}, "memchr": {"x10"}, "__sfvwrite_r": {"x10"}, "fwrite": {"x10"}, "_fwrite_r": {"x10"},
+           "__sinit": set(), "global_stdio_init.part.0": set(), "memset": {"x10"},
+           "__retarget_lock_init_recursive": set()}
 
 
 def helper_cfg(lo, hi):
@@ -327,6 +344,8 @@ def helper_live(cuts, owner):
     def live_out(n):
         if info[n][2] is None:
             hi = cuts[n][1]
+            if hi - 4 in INDIRECT:
+                return set().union(*[live[m] for m in cuts if cuts[m][0] == INDIRECT[hi - 4]])
             if d2s_last_is_ret(hi):     # a return: the helper's results
                 return RESULTS[owner[n]]
             # a computed jump (a jump table): its targets are the helper's roots
@@ -380,15 +399,15 @@ def helper_emit(fn, cap, lo, hi, specs, sites):
     for n, key in enumerate(sorted(sites), 1):
         p = sites[key].split("\t")
         objs.append(gen_sites.Site(int(p[0], 16), int(p[1], 16), p[2], p[3:], n))
-    mod = HMOD.get(fn, "H" + fn.lstrip("_"))
+    mod = HMOD.get(fn, "H" + re.sub(r"[^A-Za-z0-9_]", "_", fn.lstrip("_")))
     # a helper whose code pins are split into parts (`gen_lua_code.py`, more
     # than 256 instructions: `__sfvwrite_r`) fetches through its part's pin
     part_dir = ROOT / f"Lua/Vm/Code/{cap}"
     if part_dir.is_dir():
-        template = f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}_p{{part}}Loaded hmem)"
+        template = f"Lua.Vm.Code.{re.sub(r"[^A-Za-z0-9_]", "_", fn)}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}_p{{part}}Loaded hmem)"
         parts = gen_sites.load_parts(part_dir)
     else:
-        template = f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}Loaded hmem)"
+        template = f"Lua.Vm.Code.{re.sub(r"[^A-Za-z0-9_]", "_", fn)}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}Loaded hmem)"
         parts = {a: 0 for a in range(lo, hi, 4)}
     battery = gen_sites.emit_battery(
         objs, PRED, "", [f"Lua.Vm.Code.FixedImage_{cap}", "Lua.Vm.Arms.Text"], "", NS,

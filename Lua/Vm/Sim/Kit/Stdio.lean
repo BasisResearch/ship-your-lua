@@ -7,7 +7,7 @@ import Lua.Vm.Sim.Kit.AtFn
 The stdio callees on the callee-context route (`Kit/AtFn.lean`) store only
 into their stack frames, above `stdout` and its buffer. `StdoutAt` and
 `StdioUp` read below the buffer's end, so they survive any memory that agrees
-with the old one there (`StdoutAt.below`, `StdioUp.below`).
+with the old one there (`StdoutAtW.below`, `StdioUp.below`).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -38,8 +38,8 @@ macro "stdio_nums" : tactic => `(tactic| (
   have : fileWriteOff = 64 := rfl))
 
 /-- **`stdout` across stores above its buffer.** -/
-theorem StdoutAt.below {m m' : Mem} {buf : Nat} {pend : List (BitVec 8)} (hs : StdoutAt m buf pend)
-    (h : ∀ a, a < buf + 1024 → m'[a]? = m[a]?) : StdoutAt m' buf pend := by
+theorem StdoutAtW.below {m m' : Mem} {buf : Nat} {pend : List (BitVec 8)} {wv : BitVec 32}
+    (hs : StdoutAtW m buf pend wv) (h : ∀ a, a < buf + 1024 → m'[a]? = m[a]?) : StdoutAtW m' buf pend wv := by
   have hb := hs.buf_lo; have hr := hs.room
   stdio_nums
   refine ⟨(bT8_congr fun i _ => h _ (by omega)).trans hs.p, (bT4_congr fun i _ => h _ (by omega)).trans hs.w,
@@ -80,7 +80,8 @@ theorem StdioUp.flags2' {m : Mem} (hu : StdioUp m) : bytesT4 m 0x8005e718 = 0x0#
 theorem StdioUp.init' {m : Mem} (hu : StdioUp m) : (bytesT8 m 0x8005d200 == 0x0#64) = false := by
   have h : bytesT8 m 0x8005d200 ≠ 0#64 := hu.init
   simpa only [beq_eq_false_iff_ne] using h
-theorem StdoutAt.flags' {m : Mem} {buf : Nat} {pend : List (BitVec 8)} (hs : StdoutAt m buf pend) :
+theorem StdoutAtW.flags' {m : Mem} {buf : Nat} {pend : List (BitVec 8)} {wv : BitVec 32}
+    (hs : StdoutAtW m buf pend wv) :
     bytesT2 m 0x8005e678 = 0x2889#16 := hs.flags
 
 end Lua.Vm.Sim.Kit

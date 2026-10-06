@@ -27,10 +27,12 @@ open Lua.Vm.Sim Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps)
 
 /-- **newlib's `stdout`, set up and line-buffered**, its buffer at `buf`
-holding `pend`. -/
-structure StdoutAt (m : Mem) (buf : Nat) (pend : List (BitVec 8)) : Prop where
+holding `pend` (up to a full buffer), its write count `_w` the word `wv`
+(`StdoutAt`: `-|pend|`; `__sfvwrite_r`'s fill path advances `_p` alone
+before the flush, which resets `_w` without reading it). -/
+structure StdoutAtW (m : Mem) (buf : Nat) (pend : List (BitVec 8)) (wv : BitVec 32) : Prop where
   p : bytesT8 m (stdoutFile + fileBufPOff) = BitVec.ofNat 64 (buf + pend.length)
-  w : bytesT4 m (stdoutFile + fileWOff) = 0#32 - BitVec.ofNat 32 pend.length
+  w : bytesT4 m (stdoutFile + fileWOff) = wv
   flags : bytesT2 m (stdoutFile + fileFlagsOff) = 0x2889#16
   file : bytesT2 m (stdoutFile + fileFileOff) = 1#16
   base : bytesT8 m (stdoutFile + fileBfBaseOff) = BitVec.ofNat 64 buf
@@ -39,13 +41,17 @@ structure StdoutAt (m : Mem) (buf : Nat) (pend : List (BitVec 8)) : Prop where
   cookie : bytesT8 m (stdoutFile + fileCookieOff) = BitVec.ofNat 64 stdoutFile
   write : bytesT8 m (stdoutFile + fileWriteOff) = BitVec.ofNat 64 symSwrite
   bytes : bytesAt m buf pend.length = pend
-  room : pend.length < 1024
+  room : pend.length ≤ 1024
   /-- the buffer is heap memory: above the C runtime's globals, apart from `stdout` -/
   buf_lo : stdoutFile + fileSize ≤ buf
   buf_hi : buf + 1024 ≤ 2 ^ 32
   /-- htif.c's descriptor table: `fs_init` ran, `fds[1]` is the console -/
   ready : bytesT4 m symFsReady ≠ 0#32
   stdout : bytesT4 m (symFds + 24) = 2#32
+
+/-- **`stdout` between calls**: `_w = -|pend|`. -/
+abbrev StdoutAt (m : Mem) (buf : Nat) (pend : List (BitVec 8)) : Prop :=
+  StdoutAtW m buf pend (0#32 - BitVec.ofNat 32 pend.length)
 
 /-! ## Reads through the stores of the write path -/
 
@@ -307,7 +313,7 @@ abbrev sflP3c (sp : Nat) (ptr r : BitVec 64) (f : AbiFrame) : List Pin :=
 /-- **`__sflush_r`'s entry on `stdout`** (to `0x8003283c`): the saves, the
 write-mode test (`__SWR`). -/
 theorem sfl_pro1 (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) :
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) :
     Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o))
       (SegSt 0x8003283c#64 (sflP3c sp ptr r f) (ArmPay (sflMem0 m sp r f) o)) := by
   intro c h
@@ -333,7 +339,7 @@ abbrev sflP48 (sp buf : Nat) (ptr : BitVec 64) (f : AbiFrame) : List Pin :=
 /-- **The buffer test** (`0x8003283c` → `0x80032848`): `_bf._base ≠ NULL`,
 `s2` saved. -/
 theorem sfl_pro2 (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) :
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) :
     Triple (SegSt 0x8003283c#64 (sflP3c sp ptr r f) (ArmPay (sflMem0 m sp r f) o))
       (SegSt 0x80032848#64 (sflP48 sp buf ptr f)
         (ArmPay (writeMap8 (sflMem0 m sp r f) (sp - 48 + 16) (sdData_val f.s2)) o)) := by
@@ -353,7 +359,7 @@ theorem sfl_pro2 (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : 
 /-- **`__sflush_r`'s prologue on `stdout`** up to the pending count's test
 (`0x80032868`): the saves, `_p := _bf._base`, the count `_p - _bf._base`. -/
 theorem sfl_pro (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) :
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) :
     Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o))
       (SegSt 0x80032868#64 (sflP68 sp buf pend.length ptr f) (ArmPay (sflMem3 m sp r f buf) o)) := by
   intro c h
@@ -393,7 +399,7 @@ theorem sfl_mid (sp buf n : Nat) (ptr : BitVec 64) (f : AbiFrame) (M : Mem) (o :
 /-- **`__sflush_r` up to the write** (pending bytes): `__swrite`'s entry with
 the pending count, the `FILE`'s `_p`, `_w` reset. -/
 theorem sfl_head (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) (hn : 0 < pend.length) :
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) (hn : 0 < pend.length) :
     Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o))
       (SegSt 0x80034f18#64 (swPre ptr (sp - 48) buf pend.length 0x80032894#64 (sflFrame f ptr buf pend.length))
         (ArmPay (sflMem m sp r f buf) o)) := by
@@ -411,7 +417,7 @@ theorem sfl_head (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : 
 
 /-- **`__sflush_r` with nothing pending**: straight to the exit. -/
 theorem sfl_head0 (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) (hn : pend.length = 0) :
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) (hn : pend.length = 0) :
     Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o))
       (SegSt 0x800328d4#64 (sflT sp (BitVec.ofNat 64 stdoutFile) (BitVec.ofNat 64 pend.length)
         (BitVec.ofNat 64 buf) ptr f) (ArmPay (sflMem m sp r f buf) o)) := by
@@ -491,20 +497,20 @@ local macro "sfl_out_tac" : tactic => `(tactic| (
   · intro a h1 h2; sfl_rd))
 
 theorem sfl_out (m : Mem) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (hs : StdoutAt m buf pend) (h1 : buf + 1024 + 512 ≤ sp) (h2 : sp ≤ 2 ^ 32) :
+    {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) (h1 : buf + 1024 + 512 ≤ sp) (h2 : sp ≤ 2 ^ 32) :
     SflOut m (sflMem m sp r f buf) sp buf := by
   have := hs.buf_lo
   sfl_out_tac
 
 theorem sfl_outW (m : Mem) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (hs : StdoutAt m buf pend) (h1 : buf + 1024 + 512 ≤ sp) (h2 : sp ≤ 2 ^ 32) :
+    {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) (h1 : buf + 1024 + 512 ≤ sp) (h2 : sp ≤ 2 ^ 32) :
     SflOut m (sflMemW m sp r f buf) sp buf := by
   have := hs.buf_lo
   sfl_out_tac
 
 /-- `__swrite`'s facts at the flush's call. -/
 theorem sfl_swctx (m : Mem) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (hs : StdoutAt m buf pend) (h1 : buf + 1024 + 512 ≤ sp) (h2 : sp ≤ 2 ^ 32) (h3 : sp % 16 = 0) :
+    {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) (h1 : buf + 1024 + 512 ≤ sp) (h2 : sp ≤ 2 ^ 32) (h3 : sp % 16 = 0) :
     SwCtx (sflMem m sp r f buf) (sp - 48) buf pend.length 0x80032894#64 0x2889#16 := by
   have := hs.buf_lo; have := hs.room
   have hEA : errnoAddr = 0x8005d408 := rfl
@@ -520,7 +526,7 @@ theorem sfl_swctx (m : Mem) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 
 console through `__swrite` → `_write_r` → `_write`, `0` returned, the buffer
 empty (`SflOut`). -/
 theorem sflush_sum (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
-    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) :
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) {wv : BitVec 32} (hs : StdoutAtW m buf pend wv) :
     Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o)) (SflRet r sp buf f m (pushes o pend)) := by
   intro c h
   have hb := hs.buf_lo; have hr := hs.room

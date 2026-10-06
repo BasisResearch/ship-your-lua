@@ -737,10 +737,11 @@ class Emitter:
 
     def emit_jr(self, s: Site) -> str:
         rs1 = int(s.fields[0])
+        imm = int(s.fields[1], 16) if len(s.fields) > 1 else 0
         if rs1 == 0:
             raise ValueError(f"line {s.lineno}: jr with rs1=x0 unsupported")
         b = word_bytes(s.word)
-        upd = (f"(BitVec.update (v{rs1} + sign_extend (m := 64) (0x000#12)) 0 0#1)")
+        upd = (f"(BitVec.update (v{rs1} + sign_extend (m := 64) (0x{imm:03x}#12)) 0 0#1)")
         extra_hyps = f"\n    (htgt : {upd}.toNat % 4 = 0)\n   "
         head = self.head(
             self.site_name(s.addr), s.addr,
@@ -750,7 +751,7 @@ class Emitter:
             f"sigmaPost_jump_x0 σ pc vminstret\n          {upd}")
         body = (
             f"  exact stepObs_jr σ i u (0x{s.addr:08x}#64) vminstret v{rs1} "
-            f"(0x{s.word:08x}#32) (0x000#12)\n"
+            f"(0x{s.word:08x}#32) (0x{imm:03x}#12)\n"
             f"    ({regidx(rs1)}) {b[0]} {b[1]} {b[2]} {b[3]}\n"
             "    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)\n"
             "    (by apply BitVec.eq_of_toNat_eq; decide) "

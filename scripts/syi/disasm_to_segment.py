@@ -618,7 +618,7 @@ class SegStBuilder:
                 st["call"] = "$vmi $hG $hpc $hmi $hmem rfl (by decide) $hi"
             elif c == "jr":
                 upd = (f"(BitVec.update ({V(int(o[0]))} + sign_extend (m := 64) "
-                       f"(0x000#12)) 0 0#1)")
+                       f"(0x{o[1] if len(o) > 1 else '000'}#12)) 0 0#1)")
                 hyps.append(f"(htgt_{k} : {upd}.toNat % 4 = 0)")
                 st["pc_val"] = upd
                 st["call"] = pre + f"htgt_{k} $hi"
