@@ -466,4 +466,71 @@ theorem sfv_tail {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {pend : List 
     show bytesT8 (Lua.Vm.AtF.Sfvwrite.m5 X) (G.U + 16) = BitVec.ofNat 64 (X.n 23 - X.n 20)
     rw [fw8_same (by omega), v_resid hres (by omega) hw (by omega)]
 
+/-- The caller's frame `__sfvwrite_r`'s calls see (its loop registers `s2`,
+`s3`, `s6`–`s9` as the call rows hold them). -/
+abbrev sfvF (X : FCx) (v18 v19 v22 v23 v24 v25 : BitVec 64) : AbiFrame :=
+  ⟨0x8005e668#64, BitVec.ofNat 64 (X.n 2 + 16), v18, v19, BitVec.ofNat 64 (X.n 1), 0x8005d1b8#64, v22, v23, v24, v25,
+    X.b 11, X.b 12⟩
+
+/-- `subw s8, s8, s3` tested against `0`. -/
+theorem g_nld {a b : Nat} (hb : b ≤ a) (ha : a < 2 ^ 31) :
+    (sign_extend (m := 64) (Sail.BitVec.extractLsb (BitVec.ofNat 64 a) 31 0 -
+      Sail.BitVec.extractLsb (BitVec.ofNat 64 b) 31 0) == 0#64) = decide (a = b) := by
+  rw [subw_nat hb (by omega) (by omega), show (0#64 : BitVec 64) = BitVec.ofNat 64 0 from rfl,
+    fbeq (by omega) (by decide)]
+  simp; omega
+
+/-- **The newline distance after a copy or a write** (`0x80033e00`, the root
+`N`): `s = X.n 21 = X.n 20` bytes consumed; at the newline the flush
+(`sfv_flush`), then the tail with the newline unknown; else the tail with
+`nldist - s`. -/
+theorem sfv_nld {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {pend : List (BitVec 8)} {μ0 : Nat}
+    (st : SfvStA G X.m X.o pend (X.n 20 + X.n 25 - G.src))
+    (res : bytesT8 X.m (G.U + 16) = BitVec.ofNat 64 (X.n 23))
+    (cur : X.n 25 + X.n 23 = G.src + G.n) (lo : G.src ≤ X.n 25) (hs : X.n 21 = X.n 20) (hw : X.n 20 ≤ X.n 23)
+    (hnl : X.n 21 ≤ X.n 24) (hnb : X.n 24 < 2 ^ 31)
+    (hμ : 2 * (X.n 23 - X.n 20) + (if pend.length = 1024 then 1 else 0) < μ0) :
+    Triple (SegSt 0x80033e00#64 (Lua.Vm.AtF.Sfvwrite.r37 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+  intro c h
+  sfv_nums hG
+  sfv_cx hX
+  have hX' : Lua.Vm.AtF.Sfvwrite.Ok_N X := by sfv_ok hX
+  have acc := Steps.refl c
+  have hg := g_nld hnl hnb
+  by_cases e : X.n 24 = X.n 21
+  · rw [decide_eq_true e] at hg
+    fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80032954]
+    simp only [Lua.Vm.AtF.Sfvwrite.r39, hX.sp, subw_nat hnl (by omega) (by omega)] at h
+    obtain ⟨c2, M', s2, hret, st', kh⟩ := sfv_flush hG st (ret := 0x80033ea4#64) (by decide)
+      (h.repin (L' := callPre _ _ _ (sfvF X _ _ (X.b 17) _ _ _)) (by pins_of h))
+    have acc := acc.trans s2
+    rw [← hX.sp, ← ofNat64_toNat (X.b 17)] at hret
+    simp only [wrRet] at hret
+    -- `_fflush_r`'s return (`0x80033ea4`), then the tail with the newline unknown
+    have hY : SfvAt G (X.set [(22, (X.b 17).toNat), (24, X.n 24 - X.n 21)] [] M' (pushes X.o pend)) := sfv_at% hX
+    have hY' : Lua.Vm.AtF.Sfvwrite.Ok_S (X.set [(22, (X.b 17).toNat), (24, X.n 24 - X.n 21)] [] M'
+        (pushes X.o pend)) := by sfv_ok hY
+    have h : SegSt 0x80033ea4#64 (Lua.Vm.AtF.Sfvwrite.r5 (X.set [(22, (X.b 17).toNat), (24, X.n 24 - X.n 21)] []
+        M' (pushes X.o pend))) (ArmPay (X.set [(22, (X.b 17).toNat), (24, X.n 24 - X.n 21)] [] M' (pushes X.o pend)).m
+        (X.set [(22, (X.b 17).toNat), (24, X.n 24 - X.n 21)] [] M' (pushes X.o pend)).o) c2 :=
+      hret.repin (by pins_of hret)
+    fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033e0c]
+    have hZ : SfvAt G (X.set [(22, (X.b 17).toNat), (24, X.n 24 - X.n 21)]
+        [(14, 0#64), (16, BitVec.ofNat 64 (X.n 21)), (17, BitVec.ofNat 64 (X.b 17).toNat)] M' (pushes X.o pend)) :=
+      sfv_at% hX
+    have res' : bytesT8 M' (G.U + 16) = BitVec.ofNat 64 (X.n 23) := by
+      rw [← res]; exact bytesT8_congrT (a := G.U + 16) fun i _ => kh _ (by omega)
+    obtain ⟨c3, s3, h3⟩ := sfv_tail hG hZ (pend := []) (μ0 := μ0) st' res' (by sfv_set; omega) (by sfv_set; omega)
+      (by sfv_set; omega) (.inl rfl) (by sfv_set; simp; omega) _ (h.repin (by pins_of h))
+    exact ⟨c3, acc.trans s3, h3⟩
+  · rw [decide_eq_false e] at hg
+    fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033e0c]
+    simp only [Lua.Vm.AtF.Sfvwrite.r38, subw_nat hnl (by omega) (by omega)] at h
+    have hZ : SfvAt G (X.set [(24, X.n 24 - X.n 21)] [(14, 1#64), (16, BitVec.ofNat 64 (X.n 21))] X.m X.o) :=
+      sfv_at% hX
+    obtain ⟨c3, s3, h3⟩ := sfv_tail hG hZ (pend := pend) (μ0 := μ0) st res (by sfv_set; omega)
+      (by sfv_set; omega) (by sfv_set; omega) (.inr ⟨rfl, by sfv_set; omega, by sfv_set; omega⟩)
+      (by sfv_set; omega) _ (h.repin (by pins_of h))
+    exact ⟨c3, acc.trans s3, h3⟩
+
 end Lua.Vm.Sim.Kit
