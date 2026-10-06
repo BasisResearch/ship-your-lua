@@ -1645,7 +1645,8 @@ class Fn:
             if r in fresh:
                 # a register the summary proof re-binds: a fresh Nat atom of the
                 # return's root, the same for every path into the call
-                regs[r] = ("nat", ((self.fresh_nat(ret, r), 1),), 0)
+                at = spec.get("fresh_at", {}).get(r)
+                regs[r] = ("nat", ((at if at is not None else self.fresh_nat(ret, r), 1),), 0)
             elif phase_free(v):
                 regs[r] = v
             else:
@@ -1858,16 +1859,19 @@ SFV_OK = ["sp_lo : 0x8005e720 + 96 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_a
           "u_hi : X.n 1 + 24 ≤ 2 ^ 32", "u_al : X.n 1 % 8 = 0", "i_al : X.n 2 % 8 = 0"]
 # the loop's registers, re-bound after each call: `s2`, `s3`, `s6`-`s9`
 SFV_FRESH = (18, 19, 22, 23, 24, 25)
+# … at the same atoms after every call (X.n 20 … X.n 25), and the loop roots'
+# `s3`, `s7`, `s8`, `s9` there too: one context shape for every root
+SFV_AT = {18: 20, 19: 21, 22: 22, 23: 23, 24: 24, 25: 25}
 # its saved `ra` and `s0`-`s9` (`sd ra, 88(sp)`, …), as the caller's words
 SFV_FRAME = {(((0, 1),), -8 * (k + 1)): ("bv", k) for k in range(11)}
 # the line-buffered loop's registers: `sp`, `gp`, `s0` = stdout, `s1` = the next
-# iov, `s4` = uio, `s5` = _REENT, `s7` = bytes left (X.n 7), `s8` = the newline
-# distance (X.n 8), `s9` = the cursor (X.n 9), `s10`, `s11` the caller's; `s2`, `s3`,
+# iov, `s4` = uio, `s5` = _REENT, `s7` = bytes left (X.n 23), `s8` = the newline
+# distance (X.n 24), `s9` = the cursor (X.n 25), `s10`, `s11` the caller's; `s2`, `s3`,
 # `s6` (scratch the segments carry) words
 SFV_LOOP_ROW = {2: N((0, 1), add=-96), 3: ("lit", 0x8005ced0), 8: ("lit", 0x8005e668),
                 9: N((2, 1), add=16), 20: N((1, 1)), 21: ("lit", 0x8005d1b8),
                 18: ("bv", 15), 19: ("bv", 16), 22: ("bv", 17),
-                23: N((7, 1)), 24: N((8, 1)), 25: N((9, 1)), 26: ("bv", 11), 27: ("bv", 12)}
+                23: N((23, 1)), 24: N((24, 1)), 25: N((25, 1)), 26: ("bv", 11), 27: ("bv", 12)}
 
 # `memchr`'s range `[X.n 1, X.n 1 + X.n 2)`: in RAM, off `tohost`
 MC_OK = ["p_lo : 0x80000000 ≤ X.n 1", "p_hi : X.n 1 + X.n 2 ≤ 2 ^ 32",
@@ -1918,8 +1922,8 @@ FNS = {
             "stop: `StdioUp.init`)."),
     # `__sfvwrite_r(_REENT, stdout, uio)` on the set-up line-buffered `stdout`,
     # one iov (`fwrite`'s): X.n 0 = sp, X.n 1 = uio, X.n 2 = iov, X.n 3 = n,
-    # X.n 4 = src; the line-buffered loop's head a root (X.n 7 = bytes left,
-    # X.n 8 = the newline distance, X.n 9 = the cursor, X.b 14 = "newline known")
+    # X.n 4 = src; the line-buffered loop's head a root (X.n 23 = bytes left,
+    # X.n 24 = the newline distance, X.n 25 = the cursor, X.b 14 = "newline known")
     "__sfvwrite_r": dict(
         mod="Sfvwrite", entry=0x80033b50,
         row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT), 12: N((1, 1))}),
@@ -1929,10 +1933,10 @@ FNS = {
         rcells={**SFV_FRAME, (((1, 1),), 0): N((2, 1)), (((2, 1),), 0): N((4, 1)),
                 (((2, 1),), 8): N((3, 1))},
         entry_rcells={(((1, 1),), 16): N((3, 1))},
-        calls={0x800360d8: dict(ret=[{10: ("lit", 0)}, {10: N((6, 1))}], fresh=SFV_FRESH),
-               0x8003b444: dict(ret={}, fresh=SFV_FRESH),
-               0x80032954: dict(ret={10: ("lit", 0)}, fresh=SFV_FRESH),
-               0x80034f18: dict(ret={10: N((5, 1))}, fresh=SFV_FRESH)},
+        calls={0x800360d8: dict(ret=[{10: ("lit", 0)}, {10: N((6, 1))}], fresh=SFV_FRESH, fresh_at=SFV_AT),
+               0x8003b444: dict(ret={}, fresh=SFV_FRESH, fresh_at=SFV_AT),
+               0x80032954: dict(ret={10: ("lit", 0)}, fresh=SFV_FRESH, fresh_at=SFV_AT),
+               0x80034f18: dict(ret={10: N((5, 1))}, fresh=SFV_FRESH, fresh_at=SFV_AT)},
         stops=[0x80033c2c, 0x80033ba8, 0x80033c70, 0x80033ea8, 0x80034008],
         stop_unless={0x80033e28: (9, N((2, 1)))},
         # the loop head (`a0` = "newline known") and the step's body after the
@@ -1940,13 +1944,13 @@ FNS = {
         # both of `memchr`'s returns): two roots, so the body's paths are
         # generated once; their rows pin only the registers the paths read
         loops={0x80033dac: dict(name="L", row={**SFV_LOOP_ROW, 10: ("bv", 14)},
-                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 7: 1}),
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 23: 1}),
                0x80033db0: dict(name="D", row=SFV_LOOP_ROW,
-                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 7: 1, 8: 1}),
-               # the step size `s = min(len, nldist)` (`s3`, X.n 10) chosen: one root, so
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 23: 1, 24: 1}),
+               # the step size `s = min(len, nldist)` (`s3`, X.n 21) chosen: one root, so
                # the copy, write and fill paths are generated once for both minima
-               0x80033dbc: dict(name="S", row={**SFV_LOOP_ROW, 19: N((10, 1))},
-                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 7: 1, 8: 1, 10: 1})},
+               0x80033dbc: dict(name="S", row={**SFV_LOOP_ROW, 19: N((21, 1))},
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 23: 1, 24: 1, 21: 1})},
         doc="`__sfvwrite_r` on the line-buffered `stdout` (the set-up, unbuffered and "
             "fully buffered paths and the error exits are stops)."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
