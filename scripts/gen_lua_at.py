@@ -1183,10 +1183,12 @@ class FState:
         self.facts = dict(facts or {})
         self.hyps = []                # the root-memory facts this segment reads
         self.root = root              # the root's context facts (`Ok`, `Ok_<loop>`)
+        self.nfacts = []              # the path's branch outcomes over Nat atoms (`hf*`)
 
     def copy(self):
         s = FState(self.regs, self.log, self.carried, self.facts, self.root)
         s.hyps = list(self.hyps)
+        s.nfacts = list(self.nfacts)
         return s
 
     def get(self, r):
@@ -1239,7 +1241,7 @@ class Fn:
         self.mod = spec["mod"]
         self.sp = spec.get("sp", 0)            # the Nat atom that is `sp`
         self.segs = seg_full()
-        self.rows, self.mems, self.facts_n = {}, {}, {}
+        self.rows, self.mems, self.facts_n, self.nfacts_n = {}, {}, {}, {}
         self.lemmas, self.order, self.dropped = {}, [], []
         self.roots, self.ends, self.mods = [], [], set()
         self.root_seen = set()
@@ -1288,6 +1290,27 @@ class Fn:
             else:
                 txt = f"({txt}).insert ({ad}) (stData 1 ({v}))"
         return txt
+
+    def nat_fact(self, head, x, y, taken):
+        """A branch outcome between two Nat-valued registers, as a Prop over the
+        atoms (later segments of the path state it as a hypothesis `hf*`: the
+        guard of one segment is the side condition of the next), or None."""
+        def nt(v):
+            if v[0] == "lit" and v[1] < 2 ** 63:
+                return str(v[1])
+            if v[0] == "nat" and all(c > 0 for _, c in v[1]):
+                if v[2] < 0 and sum(c * self.lb(i) for i, c in v[1]) + v[2] < 0:
+                    return None
+                return f"({nat_txt(v[1], v[2])})"
+            return None
+        a, b = nt(x), nt(y)
+        if a is None or b is None:
+            return None
+        rel = {("==", True): f"{a} = {b}", ("==", False): f"{a} ≠ {b}",
+               ("!=", True): f"{a} ≠ {b}", ("!=", False): f"{a} = {b}",
+               ("zopz0zI_u", True): f"{a} < {b}", ("zopz0zI_u", False): f"{b} ≤ {a}",
+               ("zopz0zKzJ_u", True): f"{b} ≤ {a}", ("zopz0zKzJ_u", False): f"{a} < {b}"}
+        return rel.get((head, taken))
 
     def fact(self, text):
         if text not in self.facts_n:
@@ -1439,6 +1462,9 @@ class Fn:
                     loc, v = (x, litval(y)) if litval(y) is not None else (y, litval(x))
                     if v is not None and litval(loc) is None:
                         st2.facts[loc] = ("eq" if (head == "==") == taken else "ne", v)
+                nf = self.nat_fact(head, x, y, taken)
+                if nf is not None and not ground and nf not in st2.nfacts:
+                    st2.nfacts.append(nf)
                 if not ground:
                     (g, gt), = sg["guards"].items()
                     if "opq" in (x[0], y[0]):
@@ -1575,11 +1601,15 @@ class Fn:
     def emit(self, name, pc, st, st2, nxt, guard, kind):
         pre_row, pre_mem = self.row(st.regs), self.mem(st.log)
         post_row, post_mem = self.row(st2.regs), self.mem(st2.log)
-        key = ("seg", name, pre_row, pre_mem, post_row, post_mem)
+        key = ("seg", name, pre_row, pre_mem, post_row, post_mem, tuple(st.nfacts))
         if key in self.lemmas:
             return
         self.mods.add(self.segs[name]["mod"])
         hyps = ["(X : FCx)", f"(hX : {st.root} X)"]
+        for nf in st.nfacts:
+            if nf not in self.nfacts_n:
+                self.nfacts_n[nf] = f"hf{len(self.nfacts_n)}"
+            hyps.append(f"({self.nfacts_n[nf]} : {nf})")
         for h in st2.hyps + guard:
             if h not in hyps:
                 hyps.append(h)
@@ -1696,6 +1726,11 @@ def mm_span(k):
             f"s_th : X.n 2 + {k} ≤ 0x8005c6c0 ∨ 0x8005c6c8 ≤ X.n 2"]
 
 
+# `memchr`'s range `[X.n 1, X.n 1 + X.n 2)`: in RAM, off `tohost`
+MC_OK = ["p_lo : 0x80000000 ≤ X.n 1", "p_hi : X.n 1 + X.n 2 ≤ 2 ^ 32",
+         "p_th : X.n 1 + X.n 2 ≤ 0x8005c6c0 ∨ 0x8005c6c8 ≤ X.n 1",
+         "sp_hi : X.n 0 ≤ 2 ^ 32", "ra : (X.b 0).toNat % 4 = 0"]
+
 STDOUT = 0x8005e668
 IMPURE_PTR, IMPURE_DATA = 0x8005d398, 0x8005d1b8
 CALLEE_OK = ["sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
@@ -1723,6 +1758,30 @@ FNS = {
         stops=[0x80032a04],
         doc="`_fflush_r(_REENT, stdout)`: `CHECK_INIT`, the lock, `__sflush_r`, the "
             "unlock (`__sinit`, `0x80032a04`, is a stop: `StdioUp.init`)."),
+    # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
+    # in the byte scan, the end); the alignment bytes, the words (the
+    # zero-lane test on `word ^ 0x0a…0a`), the bytes, each loop a root
+    "memchr": dict(
+        mod="Memchr", entry=0x800360d8,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 10), 12: N((2, 1))}),
+        ok=MC_OK, lb={1: 0x80000000},
+        loops={
+            0x800360e4: dict(name="A", row={**frame_row(), 10: N((1, 1)), 12: N((2, 1)), 6: ("lit", 10),
+                                             11: ("lit", 10)},
+                             ok=MC_OK, lb={1: 0x80000000}),
+            0x80036148: dict(name="W", row={**frame_row(), 10: N((1, 1)), 12: N((2, 1)), 6: ("lit", 10),
+                                             13: ("lit", 0x0a0a0a0a0a0a0a0a),
+                                             17: ("lit", 0xfefefefefefefeff),
+                                             11: ("lit", 0x8080808080808080), 16: ("lit", 7)},
+                             ok=MC_OK + ["p_al : X.n 1 % 8 = 0", "r_gt : 7 < X.n 2"],
+                             lb={1: 0x80000000, 2: 8}),
+            0x80036184: dict(name="B", row={**frame_row(), 10: N((1, 1)), 12: N((2, 1)), 6: ("lit", 10)},
+                             ok=["p_lo : 0x80000000 ≤ X.n 1", "p_lt : X.n 1 < X.n 2",
+                                 "e_hi : X.n 2 ≤ 2 ^ 32",
+                                 "p_th : X.n 2 ≤ 0x8005c6c0 ∨ 0x8005c6c8 ≤ X.n 1",
+                                 "sp_hi : X.n 0 ≤ 2 ^ 32", "ra : (X.b 0).toNat % 4 = 0"],
+                             lb={1: 0x80000000, 2: 0x80000001})},
+        doc="`memchr(s, '\\n', n)`."),
     # `memmove(dst, src, n)` with `[dst, dst+n)`, `[src, src+n)` disjoint: the
     # forward copies (bytes; or, both 8-aligned and `n > 31`, 32-byte blocks,
     # then words, then bytes), each loop a root

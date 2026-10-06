@@ -137,6 +137,7 @@ import Lua.Vm.Arms.Segs.HluaH_getshortstr
 import Lua.Vm.Arms.Segs.Hfflush
 import Lua.Vm.Arms.Segs.Hmemmove
 import Lua.Vm.Arms.Segs.Hfflush_r
+import Lua.Vm.Arms.Segs.Hmemchr
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

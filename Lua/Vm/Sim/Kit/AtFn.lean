@@ -309,7 +309,7 @@ macro_rules
 
 /-- A branch guard from the at-lemma's hypothesis about the row's values. -/
 macro "fat_guard " h:ident : tactic => `(tactic| first
-  | exact $h
+  | with_reducible exact $h
   | (refine At.guard_congr (by exact $h) ?_ ?_ <;> at_eq))
 
 /-- The argument syntax of a segment theorem for `fat_seg`: `_` for values,
@@ -404,8 +404,8 @@ macro_rules
   | `(tactic| fat_hyp) => `(tactic| first
     | with_reducible assumption
     | omega
-    | ((try simp only [at_row, abiCx, FCx.mk', List.getD_cons_zero, List.getD_cons_succ])
-       with_reducible assumption)
+    | ((try simp only [at_row, abiCx, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]) <;>
+       first | with_reducible assumption | omega)
     | (fat_cmp; done)
     | (fat_rd; first | done | ground_decide | with_reducible assumption))
 

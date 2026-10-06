@@ -831,7 +831,7 @@ structure Ok_W8 (X : FCx) : Prop where
 @[at_row] abbrev m5 (X : FCx) : Mem :=
   writeMap8 (X.m) (X.n 1 + 8 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 8 * X.n 4)))
 
-theorem at_8003b484_8003b48c (X : FCx) (hX : Ok X) :
+theorem at_8003b484_8003b48c (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf1 : 31 < (X.n 3)) :
     Triple (SegSt 0x8003b484#64 (r1 X) (ArmPay X.m X.o))
       (SegSt (0x8003b48c#64) (r2 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -840,7 +840,7 @@ theorem at_8003b484_8003b48c (X : FCx) (hX : Ok X) :
   fat_seg Lua.Vm.Arms.seg_8003b484_8003b48c
   fat_close
 
-theorem at_8003b554_8003b560 (X : FCx) (hX : Ok X) :
+theorem at_8003b554_8003b560 (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf1 : 31 < (X.n 3)) :
     Triple (SegSt 0x8003b554#64 (r3 X) (ArmPay X.m X.o))
       (SegSt (0x8003b484#64) (r1 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -849,7 +849,7 @@ theorem at_8003b554_8003b560 (X : FCx) (hX : Ok X) :
   fat_seg Lua.Vm.Arms.seg_8003b554_8003b560
   fat_close
 
-theorem at_8003b4a4_8003b4b4_t (X : FCx) (hX : Ok X) (hg_4 : ((((BitVec.ofNat 64 (X.n 1)) ||| (BitVec.ofNat 64 (X.n 2))) &&& sign_extend (m := 64) (0x007#12)) != (0#64)) = true) :
+theorem at_8003b4a4_8003b4b4_t (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf1 : 31 < (X.n 3)) (hg_4 : ((((BitVec.ofNat 64 (X.n 1)) ||| (BitVec.ofNat 64 (X.n 2))) &&& sign_extend (m := 64) (0x007#12)) != (0#64)) = true) :
     Triple (SegSt 0x8003b4a4#64 (r4 X) (ArmPay X.m X.o))
       (SegSt (0x8003b554#64) (r3 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -858,7 +858,7 @@ theorem at_8003b4a4_8003b4b4_t (X : FCx) (hX : Ok X) (hg_4 : ((((BitVec.ofNat 64
   fat_seg Lua.Vm.Arms.seg_8003b4a4_8003b4b4_t
   fat_close
 
-theorem at_8003b4b4_8003b4c8 (X : FCx) (hX : Ok X) :
+theorem at_8003b4b4_8003b4c8 (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf1 : 31 < (X.n 3)) :
     Triple (SegSt 0x8003b4b4#64 (r3 X) (ArmPay X.m X.o))
       (SegSt (0x8003b4c8#64) (r5 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -867,7 +867,7 @@ theorem at_8003b4b4_8003b4c8 (X : FCx) (hX : Ok X) :
   fat_seg Lua.Vm.Arms.seg_8003b4b4_8003b4c8
   fat_close
 
-theorem at_8003b4a4_8003b4b4_n (X : FCx) (hX : Ok X) (hg_4 : ((((BitVec.ofNat 64 (X.n 1)) ||| (BitVec.ofNat 64 (X.n 2))) &&& sign_extend (m := 64) (0x007#12)) != (0#64)) = false) :
+theorem at_8003b4a4_8003b4b4_n (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf1 : 31 < (X.n 3)) (hg_4 : ((((BitVec.ofNat 64 (X.n 1)) ||| (BitVec.ofNat 64 (X.n 2))) &&& sign_extend (m := 64) (0x007#12)) != (0#64)) = false) :
     Triple (SegSt 0x8003b4a4#64 (r4 X) (ArmPay X.m X.o))
       (SegSt (0x8003b4b4#64) (r3 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -876,7 +876,7 @@ theorem at_8003b4a4_8003b4b4_n (X : FCx) (hX : Ok X) (hg_4 : ((((BitVec.ofNat 64
   fat_seg Lua.Vm.Arms.seg_8003b4a4_8003b4b4_n
   fat_close
 
-theorem at_8003b470_8003b478_t (X : FCx) (hX : Ok X) (hg_2 : zopz0zI_u (0x1f#64) (BitVec.ofNat 64 (X.n 3)) = true) :
+theorem at_8003b470_8003b478_t (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hg_2 : zopz0zI_u (0x1f#64) (BitVec.ofNat 64 (X.n 3)) = true) :
     Triple (SegSt 0x8003b470#64 (r0 X) (ArmPay X.m X.o))
       (SegSt (0x8003b4a4#64) (r4 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -885,7 +885,7 @@ theorem at_8003b470_8003b478_t (X : FCx) (hX : Ok X) (hg_2 : zopz0zI_u (0x1f#64)
   fat_seg Lua.Vm.Arms.seg_8003b470_8003b478_t
   fat_close
 
-theorem at_8003b560_8003b564 (X : FCx) (hX : Ok X) :
+theorem at_8003b560_8003b564 (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf2 : (X.n 3) ≤ 31) (hf3 : (X.n 3) = 0) :
     Triple (SegSt 0x8003b560#64 (r6 X) (ArmPay X.m X.o))
       (SegSt (X.b 0) (r7 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -894,7 +894,7 @@ theorem at_8003b560_8003b564 (X : FCx) (hX : Ok X) :
   fat_seg Lua.Vm.Arms.seg_8003b560_8003b564
   fat_close
 
-theorem at_8003b47c_8003b484_t (X : FCx) (hX : Ok X) (hg_2 : (BitVec.ofNat 64 (X.n 3) == 0x0#64) = true) :
+theorem at_8003b47c_8003b484_t (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf2 : (X.n 3) ≤ 31) (hg_2 : (BitVec.ofNat 64 (X.n 3) == 0x0#64) = true) :
     Triple (SegSt 0x8003b47c#64 (r8 X) (ArmPay X.m X.o))
       (SegSt (0x8003b560#64) (r6 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -903,7 +903,16 @@ theorem at_8003b47c_8003b484_t (X : FCx) (hX : Ok X) (hg_2 : (BitVec.ofNat 64 (X
   fat_seg Lua.Vm.Arms.seg_8003b47c_8003b484_t
   fat_close
 
-theorem at_8003b47c_8003b484_n (X : FCx) (hX : Ok X) (hg_2 : (BitVec.ofNat 64 (X.n 3) == 0x0#64) = false) :
+theorem at_8003b484_8003b48c_1 (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf2 : (X.n 3) ≤ 31) (hf4 : (X.n 3) ≠ 0) :
+    Triple (SegSt 0x8003b484#64 (r1 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b48c#64) (r2 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b484_8003b48c
+  fat_close
+
+theorem at_8003b47c_8003b484_n (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf2 : (X.n 3) ≤ 31) (hg_2 : (BitVec.ofNat 64 (X.n 3) == 0x0#64) = false) :
     Triple (SegSt 0x8003b47c#64 (r8 X) (ArmPay X.m X.o))
       (SegSt (0x8003b484#64) (r1 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -912,7 +921,7 @@ theorem at_8003b47c_8003b484_n (X : FCx) (hX : Ok X) (hg_2 : (BitVec.ofNat 64 (X
   fat_seg Lua.Vm.Arms.seg_8003b47c_8003b484_n
   fat_close
 
-theorem at_8003b478_8003b47c (X : FCx) (hX : Ok X) :
+theorem at_8003b478_8003b47c (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf2 : (X.n 3) ≤ 31) :
     Triple (SegSt 0x8003b478#64 (r4 X) (ArmPay X.m X.o))
       (SegSt (0x8003b47c#64) (r8 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -921,7 +930,7 @@ theorem at_8003b478_8003b47c (X : FCx) (hX : Ok X) :
   fat_seg Lua.Vm.Arms.seg_8003b478_8003b47c
   fat_close
 
-theorem at_8003b470_8003b478_n (X : FCx) (hX : Ok X) (hg_2 : zopz0zI_u (0x1f#64) (BitVec.ofNat 64 (X.n 3)) = false) :
+theorem at_8003b470_8003b478_n (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hg_2 : zopz0zI_u (0x1f#64) (BitVec.ofNat 64 (X.n 3)) = false) :
     Triple (SegSt 0x8003b470#64 (r0 X) (ArmPay X.m X.o))
       (SegSt (0x8003b478#64) (r4 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -939,7 +948,52 @@ theorem at_8003b444_8003b448_t (X : FCx) (hX : Ok X) (hg_1 : zopz0zKzJ_u (BitVec
   fat_seg Lua.Vm.Arms.seg_8003b444_8003b448_t
   fat_close
 
-theorem at_8003b470_8003b478_t_1 (X : FCx) (hX : Ok X) (hg_2 : zopz0zI_u (0x1f#64) (BitVec.ofNat 64 (X.n 3)) = true) :
+theorem at_8003b484_8003b48c_2 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf1 : 31 < (X.n 3)) :
+    Triple (SegSt 0x8003b484#64 (r1 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b48c#64) (r2 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b484_8003b48c
+  fat_close
+
+theorem at_8003b554_8003b560_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf1 : 31 < (X.n 3)) :
+    Triple (SegSt 0x8003b554#64 (r3 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b484#64) (r1 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b554_8003b560
+  fat_close
+
+theorem at_8003b4a4_8003b4b4_t_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf1 : 31 < (X.n 3)) (hg_4 : ((((BitVec.ofNat 64 (X.n 1)) ||| (BitVec.ofNat 64 (X.n 2))) &&& sign_extend (m := 64) (0x007#12)) != (0#64)) = true) :
+    Triple (SegSt 0x8003b4a4#64 (r4 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b554#64) (r3 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b4a4_8003b4b4_t
+  fat_close
+
+theorem at_8003b4b4_8003b4c8_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf1 : 31 < (X.n 3)) :
+    Triple (SegSt 0x8003b4b4#64 (r3 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b4c8#64) (r5 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b4b4_8003b4c8
+  fat_close
+
+theorem at_8003b4a4_8003b4b4_n_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf1 : 31 < (X.n 3)) (hg_4 : ((((BitVec.ofNat 64 (X.n 1)) ||| (BitVec.ofNat 64 (X.n 2))) &&& sign_extend (m := 64) (0x007#12)) != (0#64)) = false) :
+    Triple (SegSt 0x8003b4a4#64 (r4 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b4b4#64) (r3 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b4a4_8003b4b4_n
+  fat_close
+
+theorem at_8003b470_8003b478_t_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hg_2 : zopz0zI_u (0x1f#64) (BitVec.ofNat 64 (X.n 3)) = true) :
     Triple (SegSt 0x8003b470#64 (r9 X) (ArmPay X.m X.o))
       (SegSt (0x8003b4a4#64) (r4 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -948,7 +1002,52 @@ theorem at_8003b470_8003b478_t_1 (X : FCx) (hX : Ok X) (hg_2 : zopz0zI_u (0x1f#6
   fat_seg Lua.Vm.Arms.seg_8003b470_8003b478_t
   fat_close
 
-theorem at_8003b470_8003b478_n_1 (X : FCx) (hX : Ok X) (hg_2 : zopz0zI_u (0x1f#64) (BitVec.ofNat 64 (X.n 3)) = false) :
+theorem at_8003b560_8003b564_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf2 : (X.n 3) ≤ 31) (hf3 : (X.n 3) = 0) :
+    Triple (SegSt 0x8003b560#64 (r6 X) (ArmPay X.m X.o))
+      (SegSt (X.b 0) (r7 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b560_8003b564
+  fat_close
+
+theorem at_8003b47c_8003b484_t_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf2 : (X.n 3) ≤ 31) (hg_2 : (BitVec.ofNat 64 (X.n 3) == 0x0#64) = true) :
+    Triple (SegSt 0x8003b47c#64 (r8 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b560#64) (r6 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b47c_8003b484_t
+  fat_close
+
+theorem at_8003b484_8003b48c_3 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf2 : (X.n 3) ≤ 31) (hf4 : (X.n 3) ≠ 0) :
+    Triple (SegSt 0x8003b484#64 (r1 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b48c#64) (r2 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b484_8003b48c
+  fat_close
+
+theorem at_8003b47c_8003b484_n_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf2 : (X.n 3) ≤ 31) (hg_2 : (BitVec.ofNat 64 (X.n 3) == 0x0#64) = false) :
+    Triple (SegSt 0x8003b47c#64 (r8 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b484#64) (r1 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b47c_8003b484_n
+  fat_close
+
+theorem at_8003b478_8003b47c_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hf2 : (X.n 3) ≤ 31) :
+    Triple (SegSt 0x8003b478#64 (r4 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b47c#64) (r8 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_d_lo, hx_s_lo, hx_sp_hi, hx_ra, hx_disj, hx_d_hi, hx_s_hi, hx_s_th⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_8003b478_8003b47c
+  fat_close
+
+theorem at_8003b470_8003b478_n_1 (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hf6 : (X.n 2 + X.n 3) ≤ (X.n 1)) (hg_2 : zopz0zI_u (0x1f#64) (BitVec.ofNat 64 (X.n 3)) = false) :
     Triple (SegSt 0x8003b470#64 (r9 X) (ArmPay X.m X.o))
       (SegSt (0x8003b478#64) (r4 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -957,7 +1056,7 @@ theorem at_8003b470_8003b478_n_1 (X : FCx) (hX : Ok X) (hg_2 : zopz0zI_u (0x1f#6
   fat_seg Lua.Vm.Arms.seg_8003b470_8003b478_n
   fat_close
 
-theorem at_8003b448_8003b450_t (X : FCx) (hX : Ok X) (hg_2 : zopz0zKzJ_u (BitVec.ofNat 64 (X.n 1)) (BitVec.ofNat 64 (X.n 2 + X.n 3)) = true) :
+theorem at_8003b448_8003b450_t (X : FCx) (hX : Ok X) (hf5 : (X.n 2) < (X.n 1)) (hg_2 : zopz0zKzJ_u (BitVec.ofNat 64 (X.n 1)) (BitVec.ofNat 64 (X.n 2 + X.n 3)) = true) :
     Triple (SegSt 0x8003b448#64 (r0 X) (ArmPay X.m X.o))
       (SegSt (0x8003b470#64) (r9 X) (ArmPay X.m X.o)) := by
   intro c h
@@ -984,7 +1083,7 @@ theorem at_8003b48c_8003b4a0_t (X : FCx) (hX : Ok_B X) (hg_5 : (BitVec.ofNat 64 
   fat_seg Lua.Vm.Arms.seg_8003b48c_8003b4a0_t
   fat_close
 
-theorem at_8003b4a0_8003b4a4 (X : FCx) (hX : Ok_B X) :
+theorem at_8003b4a0_8003b4a4 (X : FCx) (hX : Ok_B X) (hf7 : (X.n 1 + X.n 4 + 1) = (X.n 1 + X.n 3)) :
     Triple (SegSt 0x8003b4a0#64 (r11 X) (ArmPay (m0 X) X.o))
       (SegSt (X.b 0) (r12 X) (ArmPay (m0 X) X.o)) := by
   intro c h
@@ -1011,7 +1110,7 @@ theorem at_8003b4e8_8003b4f4_t (X : FCx) (hX : Ok_W32 X) (hg_3 : (BitVec.ofNat 6
   fat_seg Lua.Vm.Arms.seg_8003b4e8_8003b4f4_t
   fat_close
 
-theorem at_8003b560_8003b564_1 (X : FCx) (hX : Ok_W32 X) :
+theorem at_8003b560_8003b564_2 (X : FCx) (hX : Ok_W32 X) (hf8 : (X.n 1 + 32 * X.n 4 + 32) = (X.n 1 + 32 * X.n 5)) :
     Triple (SegSt 0x8003b560#64 (r16 X) (ArmPay (m4 X) X.o))
       (SegSt (X.b 0) (r7 X) (ArmPay (m4 X) X.o)) := by
   intro c h
@@ -1020,7 +1119,7 @@ theorem at_8003b560_8003b564_1 (X : FCx) (hX : Ok_W32 X) :
   fat_seg Lua.Vm.Arms.seg_8003b560_8003b564
   fat_close
 
-theorem at_8003b47c_8003b484_t_1 (X : FCx) (hX : Ok_W32 X) (hg_2 : (((BitVec.ofNat 64 (X.n 3)) &&& sign_extend (m := 64) (0x01f#12)) == 0x0#64) = true) :
+theorem at_8003b47c_8003b484_t_2 (X : FCx) (hX : Ok_W32 X) (hf8 : (X.n 1 + 32 * X.n 4 + 32) = (X.n 1 + 32 * X.n 5)) (hg_2 : (((BitVec.ofNat 64 (X.n 3)) &&& sign_extend (m := 64) (0x01f#12)) == 0x0#64) = true) :
     Triple (SegSt 0x8003b47c#64 (r17 X) (ArmPay (m4 X) X.o))
       (SegSt (0x8003b560#64) (r16 X) (ArmPay (m4 X) X.o)) := by
   intro c h
@@ -1029,7 +1128,7 @@ theorem at_8003b47c_8003b484_t_1 (X : FCx) (hX : Ok_W32 X) (hg_2 : (((BitVec.ofN
   fat_seg Lua.Vm.Arms.seg_8003b47c_8003b484_t
   fat_close
 
-theorem at_8003b484_8003b48c_1 (X : FCx) (hX : Ok_W32 X) :
+theorem at_8003b484_8003b48c_4 (X : FCx) (hX : Ok_W32 X) (hf8 : (X.n 1 + 32 * X.n 4 + 32) = (X.n 1 + 32 * X.n 5)) :
     Triple (SegSt 0x8003b484#64 (r18 X) (ArmPay (m4 X) X.o))
       (SegSt (0x8003b48c#64) (r19 X) (ArmPay (m4 X) X.o)) := by
   intro c h
@@ -1038,7 +1137,7 @@ theorem at_8003b484_8003b48c_1 (X : FCx) (hX : Ok_W32 X) :
   fat_seg Lua.Vm.Arms.seg_8003b484_8003b48c
   fat_close
 
-theorem at_8003b47c_8003b484_n_1 (X : FCx) (hX : Ok_W32 X) (hg_2 : (((BitVec.ofNat 64 (X.n 3)) &&& sign_extend (m := 64) (0x01f#12)) == 0x0#64) = false) :
+theorem at_8003b47c_8003b484_n_2 (X : FCx) (hX : Ok_W32 X) (hf8 : (X.n 1 + 32 * X.n 4 + 32) = (X.n 1 + 32 * X.n 5)) (hg_2 : (((BitVec.ofNat 64 (X.n 3)) &&& sign_extend (m := 64) (0x01f#12)) == 0x0#64) = false) :
     Triple (SegSt 0x8003b47c#64 (r17 X) (ArmPay (m4 X) X.o))
       (SegSt (0x8003b484#64) (r18 X) (ArmPay (m4 X) X.o)) := by
   intro c h
@@ -1047,7 +1146,7 @@ theorem at_8003b47c_8003b484_n_1 (X : FCx) (hX : Ok_W32 X) (hg_2 : (((BitVec.ofN
   fat_seg Lua.Vm.Arms.seg_8003b47c_8003b484_n
   fat_close
 
-theorem at_8003b564_8003b56c (X : FCx) (hX : Ok_W32 X) :
+theorem at_8003b564_8003b56c (X : FCx) (hX : Ok_W32 X) (hf8 : (X.n 1 + 32 * X.n 4 + 32) = (X.n 1 + 32 * X.n 5)) :
     Triple (SegSt 0x8003b564#64 (r20 X) (ArmPay (m4 X) X.o))
       (SegSt (0x8003b47c#64) (r17 X) (ArmPay (m4 X) X.o)) := by
   intro c h
@@ -1056,7 +1155,7 @@ theorem at_8003b564_8003b56c (X : FCx) (hX : Ok_W32 X) :
   fat_seg Lua.Vm.Arms.seg_8003b564_8003b56c
   fat_close
 
-theorem at_8003b4f4_8003b518_t (X : FCx) (hX : Ok_W32 X) (hg_9 : (((BitVec.ofNat 64 (X.n 3)) &&& sign_extend (m := 64) (0x018#12)) == (0#64)) = true) :
+theorem at_8003b4f4_8003b518_t (X : FCx) (hX : Ok_W32 X) (hf8 : (X.n 1 + 32 * X.n 4 + 32) = (X.n 1 + 32 * X.n 5)) (hg_9 : (((BitVec.ofNat 64 (X.n 3)) &&& sign_extend (m := 64) (0x018#12)) == (0#64)) = true) :
     Triple (SegSt 0x8003b4f4#64 (r15 X) (ArmPay (m4 X) X.o))
       (SegSt (0x8003b564#64) (r20 X) (ArmPay (m4 X) X.o)) := by
   intro c h
@@ -1065,7 +1164,7 @@ theorem at_8003b4f4_8003b518_t (X : FCx) (hX : Ok_W32 X) (hg_9 : (((BitVec.ofNat
   fat_seg Lua.Vm.Arms.seg_8003b4f4_8003b518_t
   fat_close
 
-theorem at_8003b518_8003b52c (X : FCx) (hX : Ok_W32 X) :
+theorem at_8003b518_8003b52c (X : FCx) (hX : Ok_W32 X) (hf8 : (X.n 1 + 32 * X.n 4 + 32) = (X.n 1 + 32 * X.n 5)) :
     Triple (SegSt 0x8003b518#64 (r20 X) (ArmPay (m4 X) X.o))
       (SegSt (0x8003b52c#64) (r21 X) (ArmPay (m4 X) X.o)) := by
   intro c h
@@ -1074,7 +1173,7 @@ theorem at_8003b518_8003b52c (X : FCx) (hX : Ok_W32 X) :
   fat_seg Lua.Vm.Arms.seg_8003b518_8003b52c
   fat_close
 
-theorem at_8003b4f4_8003b518_n (X : FCx) (hX : Ok_W32 X) (hg_9 : (((BitVec.ofNat 64 (X.n 3)) &&& sign_extend (m := 64) (0x018#12)) == (0#64)) = false) :
+theorem at_8003b4f4_8003b518_n (X : FCx) (hX : Ok_W32 X) (hf8 : (X.n 1 + 32 * X.n 4 + 32) = (X.n 1 + 32 * X.n 5)) (hg_9 : (((BitVec.ofNat 64 (X.n 3)) &&& sign_extend (m := 64) (0x018#12)) == (0#64)) = false) :
     Triple (SegSt 0x8003b4f4#64 (r15 X) (ArmPay (m4 X) X.o))
       (SegSt (0x8003b518#64) (r20 X) (ArmPay (m4 X) X.o)) := by
   intro c h
@@ -1128,7 +1227,7 @@ theorem at_8003b52c_8003b540_t (X : FCx) (hX : Ok_W8 X) (hg_5 : (BitVec.ofNat 64
   fat_seg Lua.Vm.Arms.seg_8003b52c_8003b540_t
   fat_close
 
-theorem at_8003b560_8003b564_2 (X : FCx) (hX : Ok_W8 X) :
+theorem at_8003b560_8003b564_3 (X : FCx) (hX : Ok_W8 X) (hf9 : (X.n 2 + 8 * X.n 4 + 8) = (X.n 2 + 8 * X.n 3)) :
     Triple (SegSt 0x8003b560#64 (r28 X) (ArmPay (m5 X) X.o))
       (SegSt (X.b 0) (r12 X) (ArmPay (m5 X) X.o)) := by
   intro c h
@@ -1137,7 +1236,7 @@ theorem at_8003b560_8003b564_2 (X : FCx) (hX : Ok_W8 X) :
   fat_seg Lua.Vm.Arms.seg_8003b560_8003b564
   fat_close
 
-theorem at_8003b47c_8003b484_t_2 (X : FCx) (hX : Ok_W8 X) (hg_2 : (((BitVec.ofNat 64 (X.n 5)) &&& sign_extend (m := 64) (0x007#12)) == 0x0#64) = true) :
+theorem at_8003b47c_8003b484_t_3 (X : FCx) (hX : Ok_W8 X) (hf9 : (X.n 2 + 8 * X.n 4 + 8) = (X.n 2 + 8 * X.n 3)) (hg_2 : (((BitVec.ofNat 64 (X.n 5)) &&& sign_extend (m := 64) (0x007#12)) == 0x0#64) = true) :
     Triple (SegSt 0x8003b47c#64 (r29 X) (ArmPay (m5 X) X.o))
       (SegSt (0x8003b560#64) (r28 X) (ArmPay (m5 X) X.o)) := by
   intro c h
@@ -1146,7 +1245,7 @@ theorem at_8003b47c_8003b484_t_2 (X : FCx) (hX : Ok_W8 X) (hg_2 : (((BitVec.ofNa
   fat_seg Lua.Vm.Arms.seg_8003b47c_8003b484_t
   fat_close
 
-theorem at_8003b484_8003b48c_2 (X : FCx) (hX : Ok_W8 X) :
+theorem at_8003b484_8003b48c_5 (X : FCx) (hX : Ok_W8 X) (hf9 : (X.n 2 + 8 * X.n 4 + 8) = (X.n 2 + 8 * X.n 3)) :
     Triple (SegSt 0x8003b484#64 (r30 X) (ArmPay (m5 X) X.o))
       (SegSt (0x8003b48c#64) (r31 X) (ArmPay (m5 X) X.o)) := by
   intro c h
@@ -1155,7 +1254,7 @@ theorem at_8003b484_8003b48c_2 (X : FCx) (hX : Ok_W8 X) :
   fat_seg Lua.Vm.Arms.seg_8003b484_8003b48c
   fat_close
 
-theorem at_8003b47c_8003b484_n_2 (X : FCx) (hX : Ok_W8 X) (hg_2 : (((BitVec.ofNat 64 (X.n 5)) &&& sign_extend (m := 64) (0x007#12)) == 0x0#64) = false) :
+theorem at_8003b47c_8003b484_n_3 (X : FCx) (hX : Ok_W8 X) (hf9 : (X.n 2 + 8 * X.n 4 + 8) = (X.n 2 + 8 * X.n 3)) (hg_2 : (((BitVec.ofNat 64 (X.n 5)) &&& sign_extend (m := 64) (0x007#12)) == 0x0#64) = false) :
     Triple (SegSt 0x8003b47c#64 (r29 X) (ArmPay (m5 X) X.o))
       (SegSt (0x8003b484#64) (r30 X) (ArmPay (m5 X) X.o)) := by
   intro c h
@@ -1164,7 +1263,7 @@ theorem at_8003b47c_8003b484_n_2 (X : FCx) (hX : Ok_W8 X) (hg_2 : (((BitVec.ofNa
   fat_seg Lua.Vm.Arms.seg_8003b47c_8003b484_n
   fat_close
 
-theorem at_8003b540_8003b554 (X : FCx) (hX : Ok_W8 X) :
+theorem at_8003b540_8003b554 (X : FCx) (hX : Ok_W8 X) (hf9 : (X.n 2 + 8 * X.n 4 + 8) = (X.n 2 + 8 * X.n 3)) :
     Triple (SegSt 0x8003b540#64 (r27 X) (ArmPay (m5 X) X.o))
       (SegSt (0x8003b47c#64) (r29 X) (ArmPay (m5 X) X.o)) := by
   intro c h
