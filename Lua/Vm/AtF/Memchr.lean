@@ -75,6 +75,7 @@ structure Ok_B (X : FCx) : Prop where
   sp_hi : X.n 0 ≤ 2 ^ 32
   ra : (X.b 0).toNat % 4 = 0
 
+
 @[at_row] abbrev r0 (X : FCx) : List Pin :=
   [⟨Register.x1, X.b 0⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
@@ -752,7 +753,6 @@ structure Ok_B (X : FCx) : Prop where
    ⟨Register.x25, X.b 10⟩,
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
-
 
 theorem at_80036190_80036198 (X : FCx) (hX : Ok X) (hf0 : (X.n 2) ≤ 7) (hf1 : (X.n 2) = 0) :
     Triple (SegSt 0x80036190#64 (r1 X) (ArmPay X.m X.o))

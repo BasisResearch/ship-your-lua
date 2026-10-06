@@ -282,6 +282,7 @@ macro_rules
     | ground_decide
     | ((try fat_rd)
        first
+       | ground_decide
        | exact upd_ret0 _ (by assumption)
        | exact Lua.Vm.Sim.Kit.upd_ret _ (by assumption)
        | (rw [upd_ret0 _ (by assumption)] <;> assumption)

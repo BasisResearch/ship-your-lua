@@ -44,6 +44,18 @@ structure Ok (X : FCx) : Prop where
   sp_al : X.n 0 % 16 = 0
   ra : (X.b 0).toNat % 4 = 0
 
+@[at_row] abbrev m0 (X : FCx) : Mem :=
+  writeMap8 (X.m) (X.n 0 - 8) (sdData_val (X.b 0))
+
+@[at_row] abbrev m1 (X : FCx) : Mem :=
+  writeMap8 (writeMap8 (writeMap8 (X.m) (X.n 0 - 8) (sdData_val (X.b 0))) (X.n 0 - 24) (sdData_val (0x8005d1b8#64))) (X.n 0 - 32) (sdData_val (0x8005e668#64))
+
+@[at_row] abbrev m2 (X : FCx) : Mem :=
+  writeMap8 (writeMap8 (writeMap8 (writeMap8 (X.m) (X.n 0 - 8) (sdData_val (X.b 0))) (X.n 0 - 24) (sdData_val (0x8005d1b8#64))) (X.n 0 - 32) (sdData_val (0x8005e668#64))) (X.n 0 - 32) (sdData_val (0x8005e668#64))
+
+@[at_row] abbrev m3 (X : FCx) : Mem :=
+  writeMap8 (X.m) (X.n 0 - 32) (sdData_val (0x0#64))
+
 @[at_row] abbrev r0 (X : FCx) : List Pin :=
   [⟨Register.x1, X.b 0⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
@@ -327,18 +339,6 @@ structure Ok (X : FCx) : Prop where
    ⟨Register.x25, X.b 10⟩,
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev m0 (X : FCx) : Mem :=
-  writeMap8 (X.m) (X.n 0 - 8) (sdData_val (X.b 0))
-
-@[at_row] abbrev m1 (X : FCx) : Mem :=
-  writeMap8 (writeMap8 (writeMap8 (X.m) (X.n 0 - 8) (sdData_val (X.b 0))) (X.n 0 - 24) (sdData_val (0x8005d1b8#64))) (X.n 0 - 32) (sdData_val (0x8005e668#64))
-
-@[at_row] abbrev m2 (X : FCx) : Mem :=
-  writeMap8 (writeMap8 (writeMap8 (writeMap8 (X.m) (X.n 0 - 8) (sdData_val (X.b 0))) (X.n 0 - 24) (sdData_val (0x8005d1b8#64))) (X.n 0 - 32) (sdData_val (0x8005e668#64))) (X.n 0 - 32) (sdData_val (0x8005e668#64))
-
-@[at_row] abbrev m3 (X : FCx) : Mem :=
-  writeMap8 (X.m) (X.n 0 - 32) (sdData_val (0x0#64))
 
 theorem at_8003298c_80032998 (X : FCx) (hX : Ok X) :
     Triple (SegSt 0x8003298c#64 (r1 X) (ArmPay (m1 X) X.o))

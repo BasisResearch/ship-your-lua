@@ -1097,6 +1097,55 @@ def fsubst(text, env, mem):
 
 # the lower bound of a Nat atom in the root being walked (`Fn.lb`)
 FN_LB = [lambda i: 0]
+# whether a Nat atom is below `2^32` by the root's facts (`Fn.ub`): `2^64 - x`
+# is then the exact modular negation
+FN_UB = [lambda i: False]
+
+
+def _items(s):
+    """Top-level space-separated items of a term (balanced groups kept whole)."""
+    out, depth, cur = [], 0, []
+    for ch in s.strip():
+        if ch in "([⟨":
+            depth += 1
+        elif ch in ")]⟩":
+            depth -= 1
+        if ch == " " and depth == 0:
+            if cur:
+                out.append("".join(cur))
+            cur = []
+        else:
+            cur.append(ch)
+    if cur:
+        out.append("".join(cur))
+    return out
+
+
+def _unparen(s):
+    s = s.strip()
+    while s.startswith("(") and _group(s, 0)[1] == len(s):
+        s = s[1:-1].strip()
+    return s
+
+
+def peel_stores(text, k):
+    """The data of the last `k` stores of a store chain (newest first): the
+    register value under its wrapper (`sdData_val v`, `swData v`, `shData v`,
+    `stData 1 v`)."""
+    out = []
+    t = _unparen(text)
+    for _ in range(k):
+        it = _items(t)
+        if it[0] in ("writeMap8", "writeMap4", "writeMap2"):
+            inner, data = it[1], it[3]
+        elif len(it) == 3 and it[0].endswith(".insert"):
+            inner, data = it[0][:-len(".insert")], it[2]
+        else:
+            raise Stop(f"store chain {t[:60]}")
+        d = _items(_unparen(data))
+        out.append(" ".join(d[2:] if d[0] == "stData" else d[1:]))
+        t = _unparen(inner)
+    return out
 
 
 def nat_txt(terms, add, addr=False):
@@ -1137,6 +1186,13 @@ def fv(v):
     if k == "lit":
         return f"0x{v[1]:x}#64"
     if k == "nat":
+        if any(c < 0 and not FN_UB[0](i) for i, c in v[1]):
+            # a difference of atoms: the BitVec subtraction (exact without bounds)
+            pos = tuple((i, c) for i, c in v[1] if c > 0)
+            neg = tuple((i, -c) for i, c in v[1] if c < 0)
+            pa, na = max(v[2], 0), max(-v[2], 0)
+            p_txt = nat_txt(pos, pa) if pos else f"{pa}"
+            return f"(BitVec.ofNat 64 ({p_txt}) - BitVec.ofNat 64 ({nat_txt(neg, na)}))"
         return f"BitVec.ofNat 64 ({nat_txt(v[1], v[2])})"
     if k == "bv":
         return f"X.b {v[1]}"
@@ -1184,11 +1240,13 @@ class FState:
         self.hyps = []                # the root-memory facts this segment reads
         self.root = root              # the root's context facts (`Ok`, `Ok_<loop>`)
         self.nfacts = []              # the path's branch outcomes over Nat atoms (`hf*`)
+        self.entry = False            # in the entry root (`entry_rcells` hold)
 
     def copy(self):
         s = FState(self.regs, self.log, self.carried, self.facts, self.root)
         s.hyps = list(self.hyps)
         s.nfacts = list(self.nfacts)
+        s.entry = self.entry
         return s
 
     def get(self, r):
@@ -1242,6 +1300,7 @@ class Fn:
         self.sp = spec.get("sp", 0)            # the Nat atom that is `sp`
         self.segs = seg_full()
         self.rows, self.mems, self.facts_n, self.nfacts_n = {}, {}, {}, {}
+        self.atoms_bv = {}
         self.lemmas, self.order, self.dropped = {}, [], []
         self.roots, self.ends, self.mods = [], [], set()
         self.root_seen = set()
@@ -1255,6 +1314,10 @@ class Fn:
         """A lower bound of atom `i` in the current root (`sp` is a RAM address)."""
         d = self.oks[self.cur][1]
         return d.get(i, 0x80000000 if i == self.sp else 0)
+
+    def ub(self, i):
+        """An atom bounded by one of the root's facts (`… ≤ 2 ^ 32`)."""
+        return any(re.search(rf"X\.n {i}\b", f) and "2 ^ 32" in f for f in self.oks[self.cur][0])
 
     def fnat(self, terms, add):
         """A Nat-affine value (printed by `nat_txt`: exact or modular), or
@@ -1354,6 +1417,13 @@ class Fn:
             val = self.spec["cells"][(w, add)]
             st.hyps.append(self.fact(f"bytesT{w} X.m 0x{add:x} = 0x{val:x}#{8 * w}"))
             return ("lit", sx(val, 8 * w) if signed and w < 8 else val)
+        # a word the root memory holds at an address over the atoms (`rcells`:
+        # a structure the caller passes, a slot of the callee's own frame)
+        rc = {**self.spec.get("rcells", {}), **(self.spec.get("entry_rcells", {}) if st.entry else {})}
+        if w == 8 and (terms, add) in rc:
+            val = rc[(terms, add)]
+            st.hyps.append(self.fact(f"bytesT8 X.m ({nat_txt(terms, add, True)}) = {fv(val)}"))
+            return val
         return ("ld", w, signed, terms, add)
 
     # ---- instructions
@@ -1422,6 +1492,12 @@ class Fn:
             raise Stop("too deep")
         if pc in self.spec.get("stops", ()):
             raise Stop(f"stop 0x{pc:x}")
+        # a block reached only with a register at a given value (`stop_unless`:
+        # the other arrivals are infeasible, the summary proof refutes their guard)
+        if pc in self.spec.get("stop_unless", {}):
+            r, v = self.spec["stop_unless"][pc]
+            if st.regs.get(r) != v:
+                raise Stop(f"stop 0x{pc:x} unless x{r} = {fv(v)}")
         cands = [n for n in self.segs if int(n[4:12], 16) == pc]
         if not cands:
             raise Stop(f"no segment at 0x{pc:x}")
@@ -1440,6 +1516,7 @@ class Fn:
         sg = self.segs[name]
         self.cur = st.root
         FN_LB[0] = self.lb
+        FN_UB[0] = self.ub
         st2 = st.copy()
         st2.hyps = []
         env = {r: fv(st2.get(r)) for r, _ in sg["pre"]}
@@ -1512,6 +1589,15 @@ class Fn:
                 v = ("txt", fsubst(post[r], env, memtxt))
             regs[r] = v
         st2.regs = regs
+        # a store of a value in no canonical form: its data is the segment's own
+        # post-memory term's (each store's data peeled off the store chain)
+        n_st = len(st2.log) - len(st.log)
+        if any(e[3][0] == "opq" for e in st2.log[:n_st]):
+            if sg["mem"] is None:
+                raise Stop("a store of a value in no canonical form")
+            datas = peel_stores(fsubst(sg["mem"], env, memtxt), n_st)
+            st2.log = [(w, t, a, ("txt", datas[i]) if v[0] == "opq" else v)
+                       for i, (w, t, a, v) in enumerate(st2.log[:n_st])] + st2.log[n_st:]
         for e in st2.log:
             if e[3][0] == "opq":
                 raise Stop("a store of a value in no canonical form")
@@ -1549,13 +1635,42 @@ class Fn:
         sp = st.get(2)
         if sp[0] != "nat":
             raise Stop("sp at a call")
-        regs = {r: v for r, v in st.regs.items()
-                if r in (2, 3, 8, 9, *range(18, 28)) and phase_free(v)}
-        for r, v in spec.get("ret", {}).items():
-            regs[r] = v
+        # the callee-saved registers survive; a value over the old root memory
+        # (a load, a segment term) is a fresh word atom of the new root
+        regs = {}
+        fresh = spec.get("fresh", ())
+        for r, v in st.regs.items():
+            if r not in (2, 3, 8, 9, *range(18, 28)):
+                continue
+            if r in fresh:
+                # a register the summary proof re-binds: a fresh Nat atom of the
+                # return's root, the same for every path into the call
+                regs[r] = ("nat", ((self.fresh_nat(ret, r), 1),), 0)
+            elif phase_free(v):
+                regs[r] = v
+            else:
+                regs[r] = ("bv", self.fresh_bv(ret, r))
         carried = [(w, t, a, v) for w, t, a, v in st.log + st.carried
                    if self.region(t) == "sp" and t == sp[1] and a >= sp[2] and phase_free(v)]
-        self.root(ret, FState(regs, [], carried, root=st.root))
+        variants = spec.get("ret", {})
+        for var in (variants if isinstance(variants, list) else [variants]):
+            regs2 = dict(regs)
+            regs2.update(var)
+            self.root(ret, FState(regs2, [], carried, root=st.root))
+
+    def fresh_nat(self, ret, r):
+        """The Nat atom standing for register `r`'s value at the return `ret`."""
+        key = ("n", ret, r)
+        if key not in self.atoms_bv:
+            self.atoms_bv[key] = 20 + len(self.atoms_bv)
+        return self.atoms_bv[key]
+
+    def fresh_bv(self, ret, r):
+        """The word atom standing for register `r`'s value at the return `ret`."""
+        key = (ret, r)
+        if key not in self.atoms_bv:
+            self.atoms_bv[key] = 20 + len(self.atoms_bv)
+        return self.atoms_bv[key]
 
     def pure_call(self, callee, st):
         """The state after a call to a summary that keeps the memory: the
@@ -1632,7 +1747,9 @@ class Fn:
         self.order.append(key)
 
     def run(self):
-        self.root(self.spec["entry"], FState(self.spec["row"]))
+        st = FState(self.spec["row"])
+        st.entry = True
+        self.root(self.spec["entry"], st)
         for pc, lp in self.spec.get("loops", {}).items():
             self.root(pc, FState(lp["row"], root=f"Ok_{lp['name']}"))
 
@@ -1683,8 +1800,8 @@ open Vsa.Machine (Config)
 namespace {ns}
 
 {ok}
-{rows}
 {mems}
+{rows}
 {body}
 end {ns}
 """
@@ -1726,6 +1843,15 @@ def mm_span(k):
             f"s_th : X.n 2 + {k} ≤ 0x8005c6c0 ∨ 0x8005c6c8 ≤ X.n 2"]
 
 
+# `__sfvwrite_r`'s frame `[sp - 96, sp)`, the uio and its iov: in RAM above `tohost`
+SFV_OK = ["sp_lo : 0x8005e720 + 96 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+          "ra : (X.b 0).toNat % 4 = 0", "i_ge : X.n 0 ≤ X.n 2", "i_u : X.n 2 + 16 ≤ X.n 1",
+          "u_hi : X.n 1 + 24 ≤ 2 ^ 32", "u_al : X.n 1 % 8 = 0", "i_al : X.n 2 % 8 = 0"]
+# the loop's registers, re-bound after each call: `s2`, `s3`, `s6`-`s9`
+SFV_FRESH = (18, 19, 22, 23, 24, 25)
+# its saved `ra` and `s0`-`s9` (`sd ra, 88(sp)`, …), as the caller's words
+SFV_FRAME = {(((0, 1),), -8 * (k + 1)): ("bv", k) for k in range(11)}
+
 # `memchr`'s range `[X.n 1, X.n 1 + X.n 2)`: in RAM, off `tohost`
 MC_OK = ["p_lo : 0x80000000 ≤ X.n 1", "p_hi : X.n 1 + X.n 2 ≤ 2 ^ 32",
          "p_th : X.n 1 + X.n 2 ≤ 0x8005c6c0 ∨ 0x8005c6c8 ≤ X.n 1",
@@ -1758,6 +1884,34 @@ FNS = {
         stops=[0x80032a04],
         doc="`_fflush_r(_REENT, stdout)`: `CHECK_INIT`, the lock, `__sflush_r`, the "
             "unlock (`__sinit`, `0x80032a04`, is a stop: `StdioUp.init`)."),
+    # `__sfvwrite_r(_REENT, stdout, uio)` on the set-up line-buffered `stdout`,
+    # one iov (`fwrite`'s): X.n 0 = sp, X.n 1 = uio, X.n 2 = iov, X.n 3 = n,
+    # X.n 4 = src; the line-buffered loop's head a root (X.n 7 = bytes left,
+    # X.n 8 = the newline distance, X.n 9 = the cursor, X.b 14 = "newline known")
+    "__sfvwrite_r": dict(
+        mod="Sfvwrite", entry=0x80033b50,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT), 12: N((1, 1))}),
+        ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0},
+        cells={(2, STDOUT + 16): 0x2889, (4, STDOUT + 32): 1024, (8, STDOUT + 64): 0x80034f18,
+               (8, STDOUT + 48): STDOUT},
+        rcells={**SFV_FRAME, (((1, 1),), 0): N((2, 1)), (((2, 1),), 0): N((4, 1)),
+                (((2, 1),), 8): N((3, 1))},
+        entry_rcells={(((1, 1),), 16): N((3, 1))},
+        calls={0x800360d8: dict(ret=[{10: ("lit", 0)}, {10: N((6, 1))}], fresh=SFV_FRESH),
+               0x8003b444: dict(ret={}, fresh=SFV_FRESH),
+               0x80032954: dict(ret={10: ("lit", 0)}, fresh=SFV_FRESH),
+               0x80034f18: dict(ret={10: N((5, 1))}, fresh=SFV_FRESH)},
+        stops=[0x80033c2c, 0x80033ba8, 0x80033c70, 0x80033ea8, 0x80034008],
+        stop_unless={0x80033e28: (9, N((2, 1)))},
+        loops={0x80033dac: dict(name="L", row={**frame_row(), 1: ("bv", 18), 2: N((0, 1), add=-96),
+                                               8: ("lit", STDOUT), 9: N((2, 1), add=16),
+                                               18: ("bv", 15), 19: ("bv", 16), 20: N((1, 1)),
+                                               21: ("lit", IMPURE_DATA), 22: ("bv", 17),
+                                               23: N((7, 1)), 24: N((8, 1)), 25: N((9, 1)),
+                                               10: ("bv", 14)},
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 7: 1})},
+        doc="`__sfvwrite_r` on the line-buffered `stdout` (the set-up, unbuffered and "
+            "fully buffered paths and the error exits are stops)."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
     # in the byte scan, the end); the alignment bytes, the words (the
     # zero-lane test on `word ^ 0x0a…0a`), the bytes, each loop a root
@@ -1819,6 +1973,7 @@ FNS = {
 
 
 def fn_main(names, check):
+    sys.setrecursionlimit(20000)
     drift = False
     for nm in names:
         f = Fn(nm, FNS[nm])

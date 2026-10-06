@@ -93,6 +93,24 @@ structure Ok_W8 (X : FCx) : Prop where
   d_al : X.n 1 % 8 = 0
   s_al : X.n 2 % 8 = 0
 
+@[at_row] abbrev m0 (X : FCx) : Mem :=
+  (X.m).insert (X.n 1 + X.n 4) (stData 1 (zero_extend (m := 64) (bytesT1 X.m (X.n 2 + X.n 4) : BitVec (8 * 1))))
+
+@[at_row] abbrev m1 (X : FCx) : Mem :=
+  writeMap8 (X.m) (X.n 1 + 32 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4)))
+
+@[at_row] abbrev m2 (X : FCx) : Mem :=
+  writeMap8 (writeMap8 (X.m) (X.n 1 + 32 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4)))) (X.n 1 + 32 * X.n 4 + 8) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 8)))
+
+@[at_row] abbrev m3 (X : FCx) : Mem :=
+  writeMap8 (writeMap8 (writeMap8 (X.m) (X.n 1 + 32 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4)))) (X.n 1 + 32 * X.n 4 + 8) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 8)))) (X.n 1 + 32 * X.n 4 + 16) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 16)))
+
+@[at_row] abbrev m4 (X : FCx) : Mem :=
+  writeMap8 (writeMap8 (writeMap8 (writeMap8 (X.m) (X.n 1 + 32 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4)))) (X.n 1 + 32 * X.n 4 + 8) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 8)))) (X.n 1 + 32 * X.n 4 + 16) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 16)))) (X.n 1 + 32 * X.n 4 + 24) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 24)))
+
+@[at_row] abbrev m5 (X : FCx) : Mem :=
+  writeMap8 (X.m) (X.n 1 + 8 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 8 * X.n 4)))
+
 @[at_row] abbrev r0 (X : FCx) : List Pin :=
   [⟨Register.x1, X.b 0⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
@@ -812,24 +830,6 @@ structure Ok_W8 (X : FCx) : Prop where
    ⟨Register.x25, X.b 10⟩,
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev m0 (X : FCx) : Mem :=
-  (X.m).insert (X.n 1 + X.n 4) (stData 1 (zero_extend (m := 64) (bytesT1 X.m (X.n 2 + X.n 4) : BitVec (8 * 1))))
-
-@[at_row] abbrev m1 (X : FCx) : Mem :=
-  writeMap8 (X.m) (X.n 1 + 32 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4)))
-
-@[at_row] abbrev m2 (X : FCx) : Mem :=
-  writeMap8 (writeMap8 (X.m) (X.n 1 + 32 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4)))) (X.n 1 + 32 * X.n 4 + 8) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 8)))
-
-@[at_row] abbrev m3 (X : FCx) : Mem :=
-  writeMap8 (writeMap8 (writeMap8 (X.m) (X.n 1 + 32 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4)))) (X.n 1 + 32 * X.n 4 + 8) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 8)))) (X.n 1 + 32 * X.n 4 + 16) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 16)))
-
-@[at_row] abbrev m4 (X : FCx) : Mem :=
-  writeMap8 (writeMap8 (writeMap8 (writeMap8 (X.m) (X.n 1 + 32 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4)))) (X.n 1 + 32 * X.n 4 + 8) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 8)))) (X.n 1 + 32 * X.n 4 + 16) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 16)))) (X.n 1 + 32 * X.n 4 + 24) (sdData_val (bytesT8 X.m (X.n 2 + 32 * X.n 4 + 24)))
-
-@[at_row] abbrev m5 (X : FCx) : Mem :=
-  writeMap8 (X.m) (X.n 1 + 8 * X.n 4) (sdData_val (bytesT8 X.m (X.n 2 + 8 * X.n 4)))
 
 theorem at_8003b484_8003b48c (X : FCx) (hX : Ok X) (hf0 : (X.n 1) ≤ (X.n 2)) (hf1 : 31 < (X.n 3)) :
     Triple (SegSt 0x8003b484#64 (r1 X) (ArmPay X.m X.o))
