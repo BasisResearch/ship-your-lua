@@ -359,13 +359,16 @@ def entryCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : Print
   slotCheck v e.env slot.lsz slot.node slot.idx slot.ts &&
   tstrCheck v slot.ts printKey &&
   printPtrCheck v e.pa p.k.length slot.ts &&
-  decide (e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast)
+  decide (e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast) &&
+  decide (e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast) &&
+  protoCheck (v.minus (VarargDirty ci e.func)) e.pa p &&
+  readsOk (v.minus (VarargDirty ci e.func)) [(e.pa + protoCodeOff, 8, e.code)]
 
 theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat} {p : Proto}
     {e : EntryPtrs} {slot : PrintSlot} (hc : entryCheck v L ci p e slot = true) :
     VmEntryData m L ci p e := by
   simp only [entryCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hvp⟩, hvc⟩ := hc
   exact
     { ci_eq := h.reads hr (by mem_tac)
       ci_func := h.reads hr (by mem_tac)
@@ -386,7 +389,10 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
       l_G := h.reads hr (by mem_tac)
       gc_stopped := h.reads hr (by mem_tac)
       stack_last := h.reads hr (by mem_tac)
-      frame_fits := hfit }
+      frame_fits := hfit
+      vararg_room := hroom
+      vararg_proto := fun _ hm =>
+        ⟨protoCheck_sound (h.minus _ hm) hvp, (h.minus _ hm).reads hvc (by mem_tac)⟩ }
 
 /-! ## `luaRuntimeReady`'s memory structures -/
 
@@ -698,6 +704,16 @@ theorem kownedCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat
     · cases hi
   · cases hi
 
+/-- **The checks after `OP_VARARGPREP`'s stores** (`RuntimeReadyAt.vararg`): the
+memory structures at the view `postView`, for the moved witness. -/
+structure RtPostChecks (v : View) (L ci : Nat) (w : RtPtrs) : Prop where
+  heap : heapCheck (postView v ci w.func w.cl w.ciTop) w.top w.brkv w.chunks w.bins = true
+  lua : luaStateCheck (postView v ci w.func w.cl w.ciTop) L ci w.vmoved = true
+  errorJmp : errorJmpCheck (postView v ci w.func w.cl w.ciTop) L = true
+  regions : regionsCheck (postView v ci w.func w.cl w.ciTop) L ci w.vmoved = true
+  interned : internedCheck (postView v ci w.func w.cl w.ciTop) w.k w.sizek = true
+  kowned : kownedCheck (postView v ci w.func w.cl w.ciTop) L ci w.vmoved = true
+
 /-- Every memory structure of `RuntimeReadyAt c L ci w` over the view, one
 Bool each (the generated witness decides each with its own `decide +kernel`). -/
 structure RtChecks (v : View) (L ci : Nat) (w : RtPtrs) : Prop where
@@ -711,6 +727,8 @@ structure RtChecks (v : View) (L ci : Nat) (w : RtPtrs) : Prop where
   regions : regionsCheck v L ci w = true
   interned : internedCheck v w.k w.sizek = true
   kowned : kownedCheck v L ci w = true
+  /-- the same structures after `OP_VARARGPREP`'s stores (`RuntimeReadyAt.vararg`) -/
+  post : RtPostChecks v L ci w
 
 /-! ## The chunked log check -/
 

@@ -108,7 +108,15 @@ theorem runtimeReadyAt_of_checks {σ : MState} {gprs : List (Nat × BitVec 64)} 
         top := hv'.reads hrt.top (by mem_tac)
         regions := regionsCheck_sound hv' hrt.regions
         interned := internedCheck_sound hv' hrt.interned
-        kowned := kownedCheck_sound hv' hrt.kowned }
+        kowned := kownedCheck_sound hv' hrt.kowned
+        vararg :=
+          have hp := hv'.varargMemV ci w.func w.cl w.ciTop
+          { heap := heapAt_of_check hp hrt.post.heap
+            lua := luaStateCheck_sound hp hrt.post.lua
+            error_jmp := errorJmpCheck_sound hp hrt.post.errorJmp
+            regions := regionsCheck_sound hp hrt.post.regions
+            interned := internedCheck_sound hp hrt.post.interned
+            kowned := kownedCheck_sound hp hrt.post.kowned } }
 
 /-- **The assembly.** The traced registers, an empty console, a tick below 2,
 memory agreeing with the view `bootView chunk runs`, and the passing checks at

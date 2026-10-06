@@ -155,6 +155,66 @@ def TableHasShortKeyPtr (m : Mem) (t ts : Nat) (v : Value) : Prop :=
     rd64 m (node + nodeSize * i + nodeKeyValOff) = some ts ∧
     TValueRepr m (node + nodeSize * i) v
 
+/-! ## The stores of `OP_VARARGPREP` at the entry
+
+`luaT_adjustvarargs(L, 0, ci, p)` with `L->top = ci->func + 1` (no arguments)
+writes `ci->u.l.nextraargs = 0`, copies the function's `TValue` one slot up
+(`setobjs2s(L, L->top++, ci->func)`: payload and tag), and moves `ci->func`
+and `ci->top` up by one slot. (It also writes `L->top` and its own frame below
+`sp`, which A1's relation leaves free.) -/
+
+/-- `n` little-endian bytes of `x` at `a`. -/
+def writeLE (m : Mem) (a : Nat) : Nat → Nat → Mem
+  | 0, _ => m
+  | n + 1, x => (writeLE m a n x).insert (a + n) (BitVec.ofNat 8 (x / 256 ^ n))
+
+theorem getElem?_writeLE (m : Mem) (a : Nat) : ∀ (n x k : Nat),
+    (writeLE m a n x)[k]? =
+      if a ≤ k ∧ k < a + n then some (BitVec.ofNat 8 (x / 256 ^ (k - a))) else m[k]?
+  | 0, x, k => by simp [writeLE]; omega
+  | n + 1, x, k => by
+    simp only [writeLE, Std.ExtHashMap.getElem?_insert, beq_iff_eq]
+    by_cases hk : a + n = k
+    · subst hk; simp
+    · rw [if_neg hk, getElem?_writeLE m a n x k]
+      by_cases h : a ≤ k ∧ k < a + n
+      · rw [if_pos h, if_pos (by omega)]
+      · rw [if_neg h, if_neg (by omega)]
+
+/-- **The bytes `luaT_adjustvarargs` writes at the entry** (`VarargDirty`):
+`ci->func` and `ci->top`, `ci->u.l.nextraargs`, and the payload and tag of the
+slot above `ci->func`. -/
+def VarargDirty (ci func a : Nat) : Prop :=
+  (ci + ciFuncOff ≤ a ∧ a < ci + ciTopOff + 8) ∨
+  (ci + ciNextraargsOff ≤ a ∧ a < ci + ciNextraargsOff + 4) ∨
+  (func + stackValueSize ≤ a ∧ a < func + stackValueSize + tvalueTagOff + 1)
+
+instance (ci func a : Nat) : Decidable (VarargDirty ci func a) := by
+  unfold VarargDirty; infer_instance
+
+/-- **The memory after `luaT_adjustvarargs` at the entry**, for the function
+slot `func`, its closure `cl` and `ci->top = top`. -/
+def varargMemV (m : Mem) (ci func cl top : Nat) : Mem :=
+  writeLE (writeLE (writeLE (writeLE (writeLE m (ci + ciNextraargsOff) 4 0)
+    (func + stackValueSize) 8 cl) (func + stackValueSize + tvalueTagOff) 1 vLcl)
+    (ci + ciFuncOff) 8 (func + stackValueSize)) (ci + ciTopOff) 8 (top + stackValueSize)
+
+/-- `varargMemV` changes only the bytes of `VarargDirty`. -/
+theorem varargMemV_out (m : Mem) (ci func cl top : Nat) {a : Nat} (h : ¬ VarargDirty ci func a) :
+    (varargMemV m ci func cl top)[a]? = m[a]? := by
+  simp only [VarargDirty, ciFuncOff, ciTopOff, ciNextraargsOff, stackValueSize, tvalueTagOff,
+    not_or, not_and, Nat.not_lt] at h
+  simp only [varargMemV, getElem?_writeLE, ciFuncOff, ciTopOff, ciNextraargsOff, stackValueSize,
+    tvalueTagOff]
+  rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
+    if_neg (by omega)]
+
+/-- **The prototype after `OP_VARARGPREP`'s stores** (as `ProtoRepr` and the
+code pointer `lw` follows). -/
+structure ProtoAt (m : Mem) (pa : Nat) (p : Proto) (code : Nat) : Prop where
+  proto : ProtoRepr m pa p
+  code : rd64 m (pa + protoCodeOff) = some code
+
 /-- The pointers `VmEntryData` names. -/
 structure EntryPtrs where
   func : Nat
@@ -208,5 +268,14 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   gc_stopped : rd8 m (e.g + gGcstpOff) = some gcstpUsr
   stack_last : rd64 m (L + stateStackLastOff) = some e.stackLast
   frame_fits : e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast
+  /-- `OP_VARARGPREP` → `luaT_adjustvarargs` → `luaD_checkstack(L, maxstacksize + 1)`
+  with `L->top = func + 1` does not grow the stack (`L->stack_last - L->top >
+  maxstacksize + 1` slots) -/
+  vararg_room : e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast
+  /-- the prototype and its code pointer lie apart from the bytes
+  `luaT_adjustvarargs` writes (`VarargDirty`): they hold in every memory that
+  agrees with this one elsewhere -/
+  vararg_proto : ∀ m' : Mem, (∀ a, ¬ VarargDirty ci e.func a → m'[a]? = m[a]?) →
+    ProtoAt m' e.pa p e.code
 
 end Lua.Vm

@@ -59,7 +59,9 @@ theorem regsOk : gprsCheck gprs L ci = true := by decide +kernel
 theorem imageOk : runsAvoid runs Image.textBase (Image.rodataBase + Image.rodataSize) = true := by
   decide +kernel
 theorem entryOk : entryCheck view L ci proto e printSlot = true := by decide +kernel
-theorem rtOk : RtChecks view L ci w := by constructor <;> decide +kernel
+theorem rtPostOk : RtPostChecks view L ci w := by constructor <;> decide +kernel
+theorem rtOk : RtChecks view L ci w := by
+  constructor <;> first | exact rtPostOk | decide +kernel
 
 /-- **`luaRuntimeReady` at the traced entry**, witnessed by `w`, for every
 machine state with the traced registers and memory extending the boot view. -/
