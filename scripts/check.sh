@@ -360,6 +360,13 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.entry_fresh
 #print axioms Lua.Vm.Sim.entry_at
 #print axioms Lua.Vm.Sim.relParts
+#print axioms Lua.Vm.Sim.Kit.adjvar_sum
+#print axioms Lua.Vm.Sim.Kit.av_guard
+#print axioms Lua.Vm.Sim.Kit.vmem_frame
+#print axioms Lua.Vm.Sim.Kit.vclose
+#print axioms Lua.Vm.Sim.Kit.varargSim
+#print axioms Lua.Vm.Sim.maxstack_not_dirty
+#print axioms Lua.Vm.Sim.dispatchM
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

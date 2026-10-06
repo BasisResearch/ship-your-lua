@@ -181,12 +181,12 @@ theorem getElem?_writeLE (m : Mem) (a : Nat) : ∀ (n x k : Nat),
       · rw [if_pos h, if_pos (by omega)]
       · rw [if_neg h, if_neg (by omega)]
 
-/-- **The bytes `luaT_adjustvarargs` writes at the entry** (`VarargDirty`):
-`ci->func` and `ci->top`, `ci->u.l.nextraargs`, and the payload and tag of the
-slot above `ci->func`. -/
+/-- **The bytes around `luaT_adjustvarargs`'s stores at the entry**
+(`VarargDirty`): the whole `CallInfo` (it writes `ci->func`, `ci->top` and
+`ci->u.l.nextraargs`; `OP_VARARGPREP`'s `savepc` writes `ci->u.l.savedpc`)
+and the payload and tag of the slot above `ci->func`. -/
 def VarargDirty (ci func a : Nat) : Prop :=
-  (ci + ciFuncOff ≤ a ∧ a < ci + ciTopOff + 8) ∨
-  (ci + ciNextraargsOff ≤ a ∧ a < ci + ciNextraargsOff + 4) ∨
+  (ci ≤ a ∧ a < ci + ciSize) ∨
   (func + stackValueSize ≤ a ∧ a < func + stackValueSize + tvalueTagOff + 1)
 
 instance (ci func a : Nat) : Decidable (VarargDirty ci func a) := by
@@ -202,8 +202,7 @@ def varargMemV (m : Mem) (ci func cl top : Nat) : Mem :=
 /-- `varargMemV` changes only the bytes of `VarargDirty`. -/
 theorem varargMemV_out (m : Mem) (ci func cl top : Nat) {a : Nat} (h : ¬ VarargDirty ci func a) :
     (varargMemV m ci func cl top)[a]? = m[a]? := by
-  simp only [VarargDirty, ciFuncOff, ciTopOff, ciNextraargsOff, stackValueSize, tvalueTagOff,
-    not_or, not_and, Nat.not_lt] at h
+  simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, not_or, not_and, Nat.not_lt] at h
   simp only [varargMemV, getElem?_writeLE, ciFuncOff, ciTopOff, ciNextraargsOff, stackValueSize,
     tvalueTagOff]
   rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),

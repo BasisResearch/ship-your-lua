@@ -64,6 +64,12 @@ structure FreshAt (p : Proto) (c : Config) (w : RelPtrs) : Prop where
   ci_func : bytesT8 c.σ.mem (w.ci + ciFuncOff) = BitVec.ofNat 64 w.func
   ci_top : bytesT8 c.σ.mem (w.ci + ciTopOff) = BitVec.ofNat 64 w.rt.ciTop
   rt_func : w.rt.func = w.func
+  rt_proto : w.rt.proto = w.pa
+  /-- `p->maxstacksize` lies outside the `CallInfo` (the `savedpc` and
+  `nextraargs` stores miss it) -/
+  pa_sep : w.pa + protoMaxstacksizeOff < w.ci ∨ w.ci + ciSize ≤ w.pa + protoMaxstacksizeOff
+  /-- where the objects lie (`luaRuntimeReady`'s regions, in the complement) -/
+  regions : VmRegionsAt w.mo w.L w.ci w.rt
   /-- the relation after the move: its complement and ranges -/
   post : ∃ ι, RelParts p (w.vmoved ι)
 
@@ -78,8 +84,43 @@ theorem FixedBytesLoaded.vararg {base size : Nat} {byte : Nat → BitVec 8} {m :
     {ci func cl top : Nat} (hci : tohostAddr ≤ ci) (hf : tohostAddr ≤ func) :
     Vsa.Sim.Code.FixedBytesLoaded base size byte (varargMemV m ci func cl top) :=
   Vsa.Sim.Code.FixedBytesLoaded.transport h fun a _ h2 => varargMemV_out m ci func cl top (by
-    simp only [VarargDirty, ciFuncOff, ciTopOff, ciNextraargsOff, stackValueSize, tvalueTagOff]
+    simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff]
     omega)
+
+/-- `FreshAt` reads the configuration only through its memory. -/
+theorem FreshAt.of_mem {p : Proto} {c c' : Config} {w : RelPtrs} (h : FreshAt p c w)
+    (hm : c'.σ.mem = c.σ.mem) : FreshAt p c' w := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16⟩ := h
+  rw [← hm] at h1 h3 h4 h5 h6 h7 h8 h9 h10 h11
+  exact ⟨h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16⟩
+
+theorem rd8_insert_self (m : Mem) (x : Nat) (b : BitVec 8) : rd8 (m.insert x b) x = some b.toNat := by
+  simp [rd8, rdLE]
+
+theorem rd8_lt {m : Mem} {a v : Nat} (h : rd8 m a = some v) : v < 256 := by
+  simp only [rd8, rdLE, List.range_one, List.foldr_cons, List.foldr_nil, Nat.add_zero] at h
+  cases hb : m[a]? with
+  | none => rw [hb] at h; cases h
+  | some b =>
+    rw [hb] at h
+    simp at h
+    have := b.isLt; omega
+
+/-- **A framed prototype does not read the frame**: if `ProtoRepr` holds in
+every memory agreeing with `m` off `VarargDirty`, then `p->maxstacksize` lies
+off it (else a memory with that byte changed would break it). -/
+theorem maxstack_not_dirty {m : Mem} {ci func pa code : Nat} {p : Proto}
+    (h : ∀ m' : Mem, (∀ a, ¬ VarargDirty ci func a → m'[a]? = m[a]?) → ProtoAt m' pa p code) :
+    ¬ VarargDirty ci func (pa + protoMaxstacksizeOff) := by
+  intro hd
+  have h1 := (h m (fun _ _ => rfl)).proto.maxstack
+  have hlt := rd8_lt h1
+  have h2 := (h (m.insert (pa + protoMaxstacksizeOff) (BitVec.ofNat 8 (p.maxstacksize + 1)))
+    (fun a ha => by
+      rw [Std.ExtHashMap.getElem?_insert, if_neg (by
+        simp only [beq_iff_eq]; intro e; exact ha (e ▸ hd))])).proto.maxstack
+  rw [rd8_insert_self, Option.some.injEq, BitVec.toNat_ofNat] at h2
+  omega
 
 /-- **The entry-only facts hold at the fetch head the prologue reaches.** -/
 theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
@@ -123,7 +164,8 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
     fun a ha => hag.bytesT1 (by simp only [RuntimeData.spEntry, execFrame]; omega)
   refine ⟨c', _, h.steps, h.rel,
     { top := ?_, room := ?_, pad := ?_, clslot := h.clslot, clp := ?_, msz := ?_, slot_val := ?_,
-      slot_tag := ?_, stack_last := ?_, ci_func := ?_, ci_top := ?_, rt_func := hrf, post := ?_ }⟩
+      slot_tag := ?_, stack_last := ?_, ci_func := ?_, ci_top := ?_, rt_func := hrf,
+      rt_proto := hrp, pa_sep := ?_, regions := hRt.regions, post := ?_ }⟩
   · rw [out8 _ (by simp only [stateTopOff]; omega), bytesT8_of_rd64 hRt.top, hrf]
   · simp only [stackValueSize]; omega
   · intro a h1 h2
@@ -136,6 +178,9 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
   · rw [out8 _ (by simp only [stateStackLastOff]; omega), ← esl, bytesT8_of_rd64 hE.stack_last]
   · rw [out8 _ (by simp only [ciFuncOff]; omega), bytesT8_of_rd64 hE.ci_func]
   · rw [out8 _ (by simp only [ciTopOff]; omega), bytesT8_of_rd64 hRt.lua.ci_top]
+  · have := maxstack_not_dirty hE.vararg_proto
+    simp only [VarargDirty, ciSize, not_or, not_and, Nat.not_lt] at this
+    simp only [ciSize]; omega
   · -- the relation after the stores, by `relParts` at `varargMem`
     have hdirty : ∀ a, ¬ VarargDirty ci e.func a →
         (varargMem c.σ.mem ci rt)[a]? = c.σ.mem[a]? := fun a ha => by
@@ -149,5 +194,15 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
       (hE.vararg_proto _ hdirty) hRt.vararg (by simp only [RtPtrs.vmoved]; rw [hrf]) hrp rfl
       (by simp only [RtPtrs.vmoved, stackValueSize]; omega)
     exact ⟨ι', hP⟩
+
+/-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at
+a `VARARGPREP`, `reach_pc_zero`), `luaT_adjustvarargs` moves `ci->func` one
+slot up and the machine is back at the fetch head with the successor
+(`VmRel` at the new `func`). -/
+def VarargSim : Prop :=
+  ∀ {p : Proto}, Supported p → ∀ {c : Config} {w : RelPtrs}, VmRelAt p c State.init w →
+    FreshAt p c w → ∀ {ins : Word} {s' : State}, p.fetch 0 = some ins →
+    ins.op? = some .VARARGPREP → Step binaryHost p State.init s' →
+      ∃ c' n, 0 < n ∧ Vsa.Machine.StepsN n c c' ∧ VmRel p c' s'
 
 end Lua.Vm.Sim

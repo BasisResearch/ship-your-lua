@@ -254,15 +254,6 @@ theorem entrySim : EntrySim := fun _ _ _ hL =>
   let ⟨c', w, hs, hR, hF⟩ := entry_fresh hL
   ⟨c', hs, w, hR, hF⟩
 
-/-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at
-a `VARARGPREP`, `reach_pc_zero`), `luaT_adjustvarargs` moves `ci->func` one
-slot up and the machine is back at the fetch head with the successor
-(`VmRel` at the new `func`). -/
-def VarargSim : Prop :=
-  ∀ {p : Proto}, Supported p → ∀ {c : Config} {w : RelPtrs}, VmRelAt p c State.init w →
-    FreshAt p c w → ∀ {ins : Word} {s' : State}, p.fetch 0 = some ins →
-    ins.op? = some .VARARGPREP → Step binaryHost p State.init s' → RunsTo (VmRel p) c s'
-
 /-- **The `Final` clause** at reachable states (`RETURN*`; implied by
 `vmRel_final_Statement`, `finalSim_of_statement`). -/
 def FinalSim : Prop :=
@@ -402,17 +393,17 @@ theorem armTable (h : OpenArms) : ∀ o ∈ armOps, SimArm o := by
   case CALL => exact h.CALL
   all_goals simp [armOps, kernelOps] at ho
 
-/-- **`VmSim luaLayout` from the open premises**: the proved arms and the
-entry (`entrySim`) are discharged; what is left is exactly the open arms
-(`OpenArms`), `VARARGPREP` (`VarargSim`), the return chain (`FinalSim`) and
-the error paths (`StuckSim`). -/
-theorem vmSim_of_open (arms : OpenArms) (vararg : VarargSim) (final : FinalSim)
-    (stuck : StuckSim) : VmSim luaLayout :=
-  vmSim_of_arms (armTable arms) entrySim vararg final stuck
+/-- **`VmSim luaLayout` from the open premises**: the proved arms, the entry
+(`entrySim`) and `VARARGPREP` (`Kit.varargSim`) are discharged; what is left is
+exactly the open arms (`OpenArms`), the return chain (`FinalSim`) and the
+error paths (`StuckSim`). -/
+theorem vmSim_of_open (arms : OpenArms) (final : FinalSim) (stuck : StuckSim) :
+    VmSim luaLayout :=
+  vmSim_of_arms (armTable arms) entrySim Kit.varargSim final stuck
 
 /-- **Layer A from the open premises** (`vm_refinement_of_sim`). -/
-theorem vm_refinement_of_open (arms : OpenArms) (vararg : VarargSim) (final : FinalSim)
-    (stuck : StuckSim) : vm_refinement_Statement luaLayout :=
-  vm_refinement_of_sim (vmSim_of_open arms vararg final stuck)
+theorem vm_refinement_of_open (arms : OpenArms) (final : FinalSim) (stuck : StuckSim) :
+    vm_refinement_Statement luaLayout :=
+  vm_refinement_of_sim (vmSim_of_open arms final stuck)
 
 end Lua.Vm.Sim
