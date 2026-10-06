@@ -19,10 +19,11 @@ open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps StepsN)
 
 theorem bork_int : ArmBody .BORK TagB := by at_bitk Lua.Vm.At.BORK 0x8001d6b8 BitVec.or_comm
-theorem bork_fall : ArmBody .BORK fun p c s w ins => ¬ TagB p c s w ins := by
+theorem bork_fall : ArmBody .BORK fun p c s w ins =>
+    ¬ TagB p c s w ins ∧ ¬ FltB p s ins := by
   at_bitk_fall Lua.Vm.At.BORK 0x8001d6b8
 
 /-- **`OP_BORK`** on the location-list route. -/
-theorem sim_BORK : SimArm .BORK := sim_tagB (by decide) bork_int bork_fall
+theorem sim_BORK : SimArmOn .BORK fun p s ins => ¬ FltB p s ins := sim_tagB (by decide) bork_int bork_fall
 
 end Lua.Vm.Sim.At

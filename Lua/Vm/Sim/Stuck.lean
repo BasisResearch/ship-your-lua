@@ -2,7 +2,7 @@ import Lua.Vm.Sim.Fold
 import Lua.StuckCases
 
 /-!
-# The stuck clause: Lua errors, escapes, and Layer A without escapes
+# The stuck clause: Lua errors, and Layer A from them
 
 `StuckSim` (`Lua/Vm/Sim/Fold.lean`) asks, at every reachable stuck non-final
 state, that the machine diverge or halt with a nonzero code (`StuckOut`; the
@@ -10,11 +10,10 @@ output before the halt is unconstrained, and `FoldSim.stuckOut` needs no
 more). `stuck_cases` (`Lua/StuckCases.lean`) enumerates those states as
 `StuckAt … φ` for a failing `Fault` `φ`, and splits them:
 
-* **escapes** (`Fault.Escape`): Lua continues with a value F1 does not have
-  (a float from string arithmetic, a coerced `for`). `StuckSim` is false
-  there: `Lua/Programs/Escape.lean` has three `Supported` programs whose ELF
-  exits 0 on the Sail model, and derives from `vm_refinement_Statement
-  luaLayout` that it never does (`escStrflt_obstruction`);
+* **escapes** (`Fault.Escape`, exact since floats and string coercion are in
+  `δ`): only a stuck `OP_FORLOOP`, where `lvm.c` continues on whatever the
+  loop's registers hold; a supported program never reaches one
+  (`noEscape_of_supported`, by the loop check `loopsOk`);
 * **errors** (the rest): Lua raises an error from the C function
   `Fault.site` names. The machine obligation is `ErrorSim`, one field per
   site: from `VmRel` at such a state, `StuckOut`. Every site ends in
@@ -22,11 +21,10 @@ more). `stuck_cases` (`Lua/StuckCases.lean`) enumerates those states as
   return → `lua_pcallk` returns `LUA_ERRRUN` → `main` prints `lua: <msg>` to
   stderr and returns 2 → `exit(2)` → `_exit`'s `tohost` store.
 
-`StuckSimNE` is `StuckSim` under `NoEscape`, and it follows from `ErrorSim`
-(`stuckSimNE_of_error`). The corrected Layer A, `vm_refinement_ne_Statement`
-(`vm_refinement_Statement` with `NoEscape p` as a hypothesis), follows from
-`OpenArms`, `FinalSim` and `ErrorSim` (`vm_refinement_ne_of_open`) by the
-same fold.
+So `StuckSim` follows from `ErrorSim` (`stuckSim_of_error`), and Layer A
+from `OpenArms`, `FloatArms` and `ErrorSim` (`vm_refinement_of_error`), with
+no `NoEscape` hypothesis. `StuckSimNE` and `vm_refinement_ne_Statement` (the
+lane-5 route under `NoEscape`) remain, now with `NoEscape` derived.
 -/
 
 namespace Lua.Vm.Sim
@@ -89,11 +87,20 @@ theorem stuckSimNE_of_error (h : ErrorSim) : StuckSimNE := by
   obtain ⟨w, o, K, vs, φ, hA⟩ := stuck_cases hS hs hnf hst
   exact h.at _ p c s w o K vs φ hS hs hR hA (hNE s w o K vs φ hs hA) rfl
 
-/-- `StuckSim` is `StuckSimNE` where no program escapes. That premise is
-false (`Lua.Programs.escStrflt_escapes`), as is `StuckSim`. -/
+/-- `StuckSim` is `StuckSimNE` where no program escapes. -/
 theorem stuckSim_of_NE (h : StuckSimNE) (hall : ∀ p, Supported p → NoEscape binaryHost p) :
     StuckSim :=
   fun p c s hS hs hR hnf hst => h p c s hS (hall p hS) hs hR hnf hst
+
+/-- **The stuck clause from the error sites**: no supported program escapes
+(`noEscape_of_supported`). -/
+theorem stuckSim_of_error (h : ErrorSim) : StuckSim :=
+  stuckSim_of_NE (stuckSimNE_of_error h) fun _ hS => noEscape_of_supported hS
+
+/-- **Layer A from the open premises and the error sites** (no `NoEscape`). -/
+theorem vm_refinement_of_error (arms : OpenArms) (farms : FloatArms) (err : ErrorSim) :
+    vm_refinement_Statement luaLayout :=
+  vm_refinement_of_open arms farms finalSim (stuckSim_of_error err)
 
 /-! ## Layer A without escapes -/
 
@@ -126,14 +133,18 @@ theorem vm_refinement_ne_of_sim (H : VmSimNE) : vm_refinement_ne_Statement := by
 
 /-- **Layer A without escapes from the open premises**: the open arms, the
 return chain and the error sites. -/
-theorem vm_refinement_ne_of_open (arms : OpenArms) (final : FinalSim) (err : ErrorSim) :
-    vm_refinement_ne_Statement :=
+theorem vm_refinement_ne_of_open (arms : OpenArms) (farms : FloatArms) (final : FinalSim)
+    (err : ErrorSim) : vm_refinement_ne_Statement :=
   vm_refinement_ne_of_sim
-    (vmSimNE_of_arms (armTable arms) entrySim Kit.varargSim final (stuckSimNE_of_error err))
+    (vmSimNE_of_arms (armTable arms farms) entrySim Kit.varargSim final (stuckSimNE_of_error err))
 
 /-- **Layer A without escapes, `FinalSim` discharged** (`finalSim`, lane F1-4). -/
-theorem vm_refinement_ne_of_open' (arms : OpenArms) (err : ErrorSim) :
+theorem vm_refinement_ne_of_open' (arms : OpenArms) (farms : FloatArms) (err : ErrorSim) :
     vm_refinement_ne_Statement :=
-  vm_refinement_ne_of_open arms finalSim err
+  vm_refinement_ne_of_open arms farms finalSim err
+
+/-- **`NoEscape` is derived**: Layer A without escapes is Layer A. -/
+theorem vm_refinement_of_ne (h : vm_refinement_ne_Statement) : vm_refinement_Statement luaLayout :=
+  fun p c hS hL => h p c hS (noEscape_of_supported hS) hL
 
 end Lua.Vm.Sim

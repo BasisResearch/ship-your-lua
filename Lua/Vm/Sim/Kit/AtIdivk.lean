@@ -33,11 +33,12 @@ theorem idivk_diff : ArmBody .IDIVK (DivPath BothIntK dvK fun x y => DivGen y �
   at_div_gen (kitk_ints 0x8001d768) Lua.Vm.At.IDIVK idivC_eq
 
 /-- Not both integers: the kernel's fall-through to `MMBINK`. -/
-theorem idivk_fall : ArmBody .IDIVK fun p c s w ins => ¬ BothIntK p c s w ins := by
+theorem idivk_fall : ArmBody .IDIVK fun p c s w ins =>
+    ¬ BothIntK p c s w ins ∧ ¬ FltBK p s ins := by
   at_fallK Lua.Vm.At.IDIVK 0x8001d768
 
 /-- **`OP_IDIVK`** on the location-list route. -/
-theorem sim_IDIVK : SimArm .IDIVK := sim_div (by decide) (fun x y => x.msb = y.msb) (fun _ _ => True)
+theorem sim_IDIVK : SimArmOn .IDIVK fun p s ins => ¬ FltBK p s ins := sim_div (by decide) (fun x y => x.msb = y.msb) (fun _ _ => True)
   idivk_zero idivk_m1 idivk_same idivk_diff (fun {_} _ {_ _ _ _ _} _ _ _ _ hq => absurd trivial hq.2.2.2)
   idivk_fall
 

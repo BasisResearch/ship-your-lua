@@ -36,19 +36,27 @@ def FpQ (q : BitVec 64 → BitVec 64 → BitVec 64 → Prop) (_p : Proto) (c : C
   q (slotVal c.σ.mem (w.slot ins.a)) (slotVal c.σ.mem (w.slot (ins.a + 1)))
     (slotVal c.σ.mem (w.slot (ins.a + 2)))
 
+/-- A `FORPREP` path on three integers (`¬ ForCoerce`). -/
+def FpQN (q : BitVec 64 → BitVec 64 → BitVec 64 → Prop) (p : Proto) (c : Config) (s : State)
+    (w : RelPtrs) (ins : Word) : Prop :=
+  FpQ q p c s w ins ∧ ¬ ForCoerce p s ins
+
 set_option hygiene false in
 /-- The kit's setup for `FORPREP`: the kernel forward, its three registers
-integers (any other value is the kernel's stuck case). -/
+integers (`¬ ForCoerce`: the coerced and float loops are `FloatArms.FORPREP`). -/
 local macro "fp_setup" : tactic => `(tactic| (
-  rintro p hS c s s' w ins hA hf hop hstep hq
+  rintro p hS c s s' w ins hA hf hop hstep ⟨hq, hN⟩
   simp only [FpQ] at hq
+  obtain ⟨⟨i, hi⟩, ⟨l, hl⟩, ⟨st, hs⟩⟩ := Classical.not_not.1 hN
   kit_setup 0x8001c0f8
   simp [forprepK] at hk htop
   kit_reg h1 vi hvi ins.a
   kit_reg h2 vl hvl (ins.a + 1)
   kit_reg h3 vs hvs (ins.a + 2)
-  rcases vi with _ | _ | i | _ | _ <;> rcases vl with _ | _ | l | _ | _ <;>
-    rcases vs with _ | _ | st | _ | _ <;> simp at hk
+  obtain rfl := Option.some.inj (h1.symm.trans hi)
+  obtain rfl := Option.some.inj (h2.symm.trans hl)
+  obtain rfl := Option.some.inj (h3.symm.trans hs)
+  simp at hk
   obtain ⟨hTi, rfl⟩ := hvi.tag_of_int
   obtain ⟨hTl, rfl⟩ := hvl.tag_of_int
   obtain ⟨hTs, rfl⟩ := hvs.tag_of_int))
@@ -60,32 +68,41 @@ theorem msb_of_neg {x : BitVec 64} (h0 : x ≠ 0#64) (h : ¬ 0 < x.toInt) : x.ms
   have : x.toInt ≠ 0 := fun e => h0 (BitVec.eq_of_toInt_eq (by rw [e]; rfl))
   rw [BitVec.msb_eq_toInt]; simp; omega
 
-theorem fp_zero : ArmBody .FORPREP (FpQ fun _ _ st => st = 0#64) := by
+theorem fp_zero : ArmBody .FORPREP
+    (FpQN (fun _ _ st => st = 0#64)) := by
   fp_setup; simp [hq] at hk
 
-theorem fp_up_skip : ArmBody .FORPREP (FpQ fun i l st => st ≠ 0#64 ∧ 0 < st.toInt ∧ l.toInt < i.toInt) := by
+theorem fp_up_skip : ArmBody .FORPREP
+    (FpQN (fun i l st => st ≠ 0#64 ∧ 0 < st.toInt ∧ l.toInt < i.toInt)) := by
   fp_setup; obtain ⟨hst, hpos, hgt⟩ := hq; have hmsb := msb_of_pos hpos
   simp [hst, forCount, hpos, hgt, VState.apply, writeDefs, KEdge.kills] at hk; subst hk
   at_go Lua.Vm.At.FORPREP
 
-theorem fp_up_run : ArmBody .FORPREP (FpQ fun i l st => st ≠ 0#64 ∧ 0 < st.toInt ∧ ¬ l.toInt < i.toInt) := by
+theorem fp_up_run : ArmBody .FORPREP
+    (FpQN (fun i l st => st ≠ 0#64 ∧ 0 < st.toInt ∧ ¬ l.toInt < i.toInt)) := by
   fp_setup; obtain ⟨hst, hpos, hgt⟩ := hq; have hmsb := msb_of_pos hpos
   simp [hst, forCount, hpos, hgt, VState.apply, writeDefs, KEdge.kills] at hk; subst hk
   at_go Lua.Vm.At.FORPREP
 
-theorem fp_down_skip : ArmBody .FORPREP (FpQ fun i l st => st ≠ 0#64 ∧ ¬ 0 < st.toInt ∧ i.toInt < l.toInt) := by
+theorem fp_down_skip : ArmBody .FORPREP
+    (FpQN (fun i l st => st ≠ 0#64 ∧ ¬ 0 < st.toInt ∧ i.toInt < l.toInt)) := by
   fp_setup; obtain ⟨hst, hpos, hlt⟩ := hq; have hmsb := msb_of_neg hst hpos
   simp [hst, forCount, hpos, hlt, VState.apply, writeDefs, KEdge.kills] at hk; subst hk
   at_go Lua.Vm.At.FORPREP
 
-theorem fp_down_run : ArmBody .FORPREP (FpQ fun i l st => st ≠ 0#64 ∧ ¬ 0 < st.toInt ∧ ¬ i.toInt < l.toInt) := by
+theorem fp_down_run : ArmBody .FORPREP
+    (FpQN (fun i l st => st ≠ 0#64 ∧ ¬ 0 < st.toInt ∧ ¬ i.toInt < l.toInt)) := by
   fp_setup; obtain ⟨hst, hpos, hlt⟩ := hq; have hmsb := msb_of_neg hst hpos
   simp [hst, forCount, hpos, hlt, VState.apply, writeDefs, KEdge.kills, neg_step] at hk; subst hk
   at_go Lua.Vm.At.FORPREP
 
-/-- **`OP_FORPREP`** on the location-list route. -/
-theorem sim_FORPREP : SimArm .FORPREP := sim_arm (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep => by
-  have h := fun {q} (b : ArmBody .FORPREP (FpQ q)) (hq : FpQ q p c s w ins) => b hS hA hf hop hstep hq
+/-- **`OP_FORPREP`** on the location-list route, on three integers (its
+coerced and float loops are `FloatArms.FORPREP`). -/
+theorem sim_FORPREP : SimArmOn .FORPREP fun p s ins => ¬ ForCoerce p s ins :=
+    sim_arm_on (o := .FORPREP) (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hN => by
+  have h := fun {q : BitVec 64 → BitVec 64 → BitVec 64 → Prop} (b : ArmBody .FORPREP (FpQN q))
+      (hq : FpQ q p c s w ins) =>
+    b hS hA hf hop hstep ⟨hq, hN⟩
   by_cases hst : slotVal c.σ.mem (w.slot (ins.a + 2)) = 0#64
   · exact h fp_zero hst
   by_cases hpos : 0 < (slotVal c.σ.mem (w.slot (ins.a + 2))).toInt

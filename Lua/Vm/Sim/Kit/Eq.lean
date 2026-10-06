@@ -43,15 +43,18 @@ set_option hygiene false in
 local macro_rules
   | `(tactic| kit_bv_norm) => `(tactic| try simp only [kraw_eq])
 
-theorem eq_skip : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
+theorem eq_skip : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧ ¬ FltAB p s ins ∧
     ∀ va vb, s.regs ins.a = some va → s.regs ins.b = some vb → ins.k ≠ decide (va = vb) :=
-  fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hl, hkk⟩ => by
+  fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hl, hN, hkk⟩ => by
   kit_setup 0x8001c690
   rcases hnj : nextJump p s.pc with _ | t <;> simp [hnj] at hk htop
   kit_bound hAt ins.a; kit_bound hBt ins.b
   kit_reg hba va hva ins.a; kit_reg hbb vb hvb ins.b
+  have hnfa := notFlt_of_reg (fun h => hN (.inl h)) hba
+  have hnfb := notFlt_of_reg (fun h => hN (.inr h)) hbb
   have hk2 : ¬ decide (va = vb) = ins.k := fun e => hkk va vb hba hbb e.symm
-  simp [Opnd.fill, δ, VState.apply, writeDefs, KEdge.kills, Value.isFalse, hk2] at hk
+  simp [Opnd.fill, δ, Value.rawEq_of_notFlt hnfa hnfb, VState.apply, writeDefs, KEdge.kills,
+    Value.isFalse, hk2] at hk
   subst hk
   kit_run h0 acc until [0x8001b780]
   have hro : RodataRead c.σ.mem := hc.rodata
@@ -62,7 +65,7 @@ theorem eq_skip : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
         by decide, by kit_disch, by kit_disch, by kit_disch, by kit_disch, by kit_disch, by kit_disch,
         by kit_disch⟩
       (by simp (disch := kit_disch) only [slotTag_wm8, slotVal_wm8]; exact hva)
-      (by simp (disch := kit_disch) only [slotTag_wm8, slotVal_wm8]; exact hvb)
+      (by simp (disch := kit_disch) only [slotTag_wm8, slotVal_wm8]; exact hvb) hnfa hnfb
       (by simp (disch := kit_disch) only [slotTag_wm8]; exact hl))
   have hg : ((if ins.k then 1#64 else 0#64) != (if va = vb then 1#64 else 0#64)) = true := by
     by_cases he : va = vb <;> cases hkb : ins.k <;> simp_all
@@ -73,15 +76,18 @@ theorem eq_skip : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
   simp only [trap_zero] at h0
   exact ⟨_, acc, hc.bleach_same h0 (by kit_pins h0) (by kit_frame), h0.pcAt⟩
 
-theorem eq_take : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
+theorem eq_take : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧ ¬ FltAB p s ins ∧
     ∀ va vb, s.regs ins.a = some va → s.regs ins.b = some vb → ins.k = decide (va = vb) :=
-  fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hl, hkk⟩ => by
+  fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hl, hN, hkk⟩ => by
   kit_setup 0x8001c690
   rcases hnj : nextJump p s.pc with _ | t <;> simp [hnj] at hk htop
   kit_bound hAt ins.a; kit_bound hBt ins.b
   kit_reg hba va hva ins.a; kit_reg hbb vb hvb ins.b
+  have hnfa := notFlt_of_reg (fun h => hN (.inl h)) hba
+  have hnfb := notFlt_of_reg (fun h => hN (.inr h)) hbb
   have hk2 : decide (va = vb) = ins.k := (hkk va vb hba hbb).symm
-  simp [Opnd.fill, δ, VState.apply, writeDefs, KEdge.kills, Value.isFalse, hk2] at hk
+  simp [Opnd.fill, δ, Value.rawEq_of_notFlt hnfa hnfb, VState.apply, writeDefs, KEdge.kills,
+    Value.isFalse, hk2] at hk
   subst hk
   obtain ⟨ni, hni, hjt⟩ : ∃ ni, p.fetch (s.pc + 1) = some ni ∧ jumpTo (s.pc + 2) ni.sj = some t := by
     simp only [nextJump, Option.bind_eq_some_iff] at hnj; exact hnj
@@ -98,7 +104,7 @@ theorem eq_take : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
         by decide, by kit_disch, by kit_disch, by kit_disch, by kit_disch, by kit_disch, by kit_disch,
         by kit_disch⟩
       (by simp (disch := kit_disch) only [slotTag_wm8, slotVal_wm8]; exact hva)
-      (by simp (disch := kit_disch) only [slotTag_wm8, slotVal_wm8]; exact hvb)
+      (by simp (disch := kit_disch) only [slotTag_wm8, slotVal_wm8]; exact hvb) hnfa hnfb
       (by simp (disch := kit_disch) only [slotTag_wm8]; exact hl))
   have hg : ((if ins.k then 1#64 else 0#64) != (if va = vb then 1#64 else 0#64)) = false := by
     rw [← hk2]; by_cases he : va = vb <;> simp [he]
@@ -112,22 +118,23 @@ theorem eq_take : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
   · exact ⟨_, acc, hc.bleach_same h0 (by kit_pins h0) (by kit_frame), h0.pcAt⟩
   · kit_disch
 
-/-- **`OP_EQ` but two long strings**: both exits of `docondjump`. -/
-theorem eq_short : ArmBody .EQ EqShort := fun {p} hS {c s s' w ins} hA hf hop hstep hl => by
+/-- **`OP_EQ` but two long strings or a float**: both exits of `docondjump`. -/
+theorem eq_short : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧ ¬ FltAB p s ins :=
+    fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hl, hN⟩ => by
   by_cases hk : ∀ va vb, s.regs ins.a = some va → s.regs ins.b = some vb → ins.k = decide (va = vb)
-  · exact eq_take hS hA hf hop hstep ⟨hl, hk⟩
-  · refine eq_skip hS hA hf hop hstep ⟨hl, fun va vb ha hb e => hk fun va' vb' ha' hb' => ?_⟩
+  · exact eq_take hS hA hf hop hstep ⟨hl, hN, hk⟩
+  · refine eq_skip hS hA hf hop hstep ⟨hl, hN, fun va vb ha hb e => hk fun va' vb' ha' hb' => ?_⟩
     rw [ha] at ha'; rw [hb] at hb'; cases ha'; cases hb'; exact e
 
-/-- **`sim_EQ` from the long-string path**: `SimArm .EQ` holds as soon as the
+/-- **`sim_EQ` from the long-string path**: `OP_EQ` off its float paths holds as soon as the
 run with two long strings in `R[A]`, `R[B]` (`luaS_eqlngstr` → `memcmp`) is
 supplied; `abstractions/bakeoff3/KIT.md` records why `VmRel` cannot supply it
 (a string's bytes are described in the complement `w.mo` only, and nothing
 places them outside the window, where the machine's `memcmp` reads them). -/
 theorem sim_EQ_of_long (hlong : ArmBody .EQ fun p c s w ins => ¬ EqShort p c s w ins) :
-    SimArm .EQ :=
-  sim_arm (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep =>
-    (Classical.em (EqShort p c s w ins)).elim (eq_short hS hA hf hop hstep)
+    SimArmOn .EQ fun p s ins => ¬ FltAB p s ins :=
+  sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
+    (Classical.em (EqShort p c s w ins)).elim (fun hl => eq_short hS hA hf hop hstep ⟨hl, hN⟩)
       (hlong hS hA hf hop hstep)
 
 end Lua.Vm.Sim.Kit

@@ -46,7 +46,9 @@ theorem mod_m1 : ArmBody .MOD fun p c s w ins => BothInt p c s w ins ∧ divisor
   fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hI, hm⟩ => by
   kit_arith_ints 0x8001dc58
   have hz : ¬ slotVal c.σ.mem (w.slot ins.c) = 0#64 := by simp only [divisor] at hm; rw [hm]; decide
-  simp only [Opnd.fill, δ, BinOp.int, imodC_eq _ _ hz] at hk
+  simp only [Opnd.fill, δ, BinOp.int, fastArith_add, fastArith_sub, fastArith_mul, fastArith_mod,
+    fastArith_idiv, fastArith_band, fastArith_bor, fastArith_bxor, fastArith_shl, fastArith_shr,
+    Res.ofInt_some, Res.ofInt_none, Value.ofNum_int, imodC_eq _ _ hz] at hk
   simp only [divisor] at hm
   rw [hm, srem_neg_one] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
@@ -74,7 +76,9 @@ local macro "mod_call" : tactic => `(tactic| (
   simp only [divisor] at hy
   have hz : ¬ slotVal c.σ.mem (w.slot ins.c) = 0#64 := fun e => hy (.inl e)
   simp at hy
-  simp only [Opnd.fill, δ, BinOp.int, imodC_eq _ _ hz] at hk
+  simp only [Opnd.fill, δ, BinOp.int, fastArith_add, fastArith_sub, fastArith_mul, fastArith_mod,
+    fastArith_idiv, fastArith_band, fastArith_bor, fastArith_bxor, fastArith_shl, fastArith_shr,
+    Res.ofInt_some, Res.ofInt_none, Value.ofNum_int, imodC_eq _ _ hz] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   kit_run h0 acc until [0x8002f7b0]
@@ -110,7 +114,7 @@ theorem mod_corr : ArmBody .MOD (ModGen fun c w ins => crem c w ins ≠ 0#64 ∧
     (by mod_vals; simp only [hr0, hms, not_false_eq_true, and_self, ite_true, stData_three, sdData_id]
         exact .int), h0.pcAt⟩
 
-theorem sim_MOD : SimArm .MOD := sim_arith (by decide)
+theorem sim_MOD : SimArmOn .MOD fun p s ins => ¬ FltBC p s ins := sim_arith (by decide)
   (fun {p} hS {c s s' w ins} hA hf hop hstep hI => by
     by_cases hz : divisor c w ins = 0#64
     · exact mod_zero hS hA hf hop hstep ⟨hI, hz⟩

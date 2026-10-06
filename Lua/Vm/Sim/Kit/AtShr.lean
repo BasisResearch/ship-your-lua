@@ -26,10 +26,11 @@ theorem shr_p3 : ArmBody .SHR (Sh3 BothInt amtNC BitVec.msb rL) := by
   at_shift (kit_arith_ints 0x8001d57c) Lua.Vm.At.SHR shiftrC_neg_big
 theorem shr_p4 : ArmBody .SHR (Sh4 BothInt amtNC BitVec.msb rL) := by
   at_shift (kit_arith_ints 0x8001d57c) Lua.Vm.At.SHR shiftrC_neg_run
-theorem shr_fall : ArmBody .SHR fun p c s w ins => ¬ BothInt p c s w ins := by
+theorem shr_fall : ArmBody .SHR fun p c s w ins =>
+    ¬ BothInt p c s w ins ∧ ¬ FltBC p s ins := by
   at_fall Lua.Vm.At.SHR 0x8001d57c
 
 /-- **`OP_SHR`** on the location-list route. -/
-theorem sim_SHR : SimArm .SHR := sim_shift (by decide) _ _ _ shr_p1 shr_p2 shr_p3 shr_p4 shr_fall
+theorem sim_SHR : SimArmOn .SHR fun p s ins => ¬ FltBC p s ins := sim_shift (by decide) _ _ _ shr_p1 shr_p2 shr_p3 shr_p4 shr_fall
 
 end Lua.Vm.Sim.At

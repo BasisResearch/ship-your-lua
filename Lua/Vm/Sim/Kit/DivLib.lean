@@ -44,17 +44,19 @@ abbrev DivGen (y : BitVec 64) : Prop := ¬ (y = 0#64 ∨ y = -1#64)
 abbrev dvR (w : RelPtrs) (ins : Word) : Nat := w.slot ins.c
 abbrev dvK (w : RelPtrs) (ins : Word) : Nat := w.k + stackValueSize * ins.c
 
-/-- **A division arm from its paths.** -/
+/-- **A division arm off its float paths `F`, from its paths.** -/
 theorem sim_div {o : OpCode} (ho : o.toNat < Arms.jtEntries)
     {B : Proto → Config → State → RelPtrs → Word → Prop} {dv : RelPtrs → Word → Nat}
+    {F : Proto → State → Word → Prop}
     (P Q : BitVec 64 → BitVec 64 → Prop)
     (h0 : ArmBody o (DivPath B dv fun _ y => y = 0#64))
     (h1 : ArmBody o (DivPath B dv fun _ y => y = -1#64))
     (h2 : ArmBody o (DivPath B dv fun x y => DivGen y ∧ P x y))
     (h3 : ArmBody o (DivPath B dv fun x y => DivGen y ∧ ¬ P x y ∧ Q x y))
     (h4 : ArmBody o (DivPath B dv fun x y => DivGen y ∧ ¬ P x y ∧ ¬ Q x y))
-    (hfall : ArmBody o fun p c s w ins => ¬ B p c s w ins) : SimArm o :=
-  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep => by
+    (hfall : ArmBody o fun p c s w ins => ¬ B p c s w ins ∧ ¬ F p s ins) :
+    SimArmOn o fun p s ins => ¬ F p s ins :=
+  sim_arm_on ho fun {p} hS {c s s' w ins} hA hf hop hstep hN => by
     by_cases hI : B p c s w ins
     · by_cases hz : slotVal c.σ.mem (dv w ins) = 0#64
       · exact h0 hS hA hf hop hstep ⟨hI, hz⟩
@@ -66,7 +68,7 @@ theorem sim_div {o : OpCode} (ho : o.toNat < Arms.jtEntries)
       by_cases hQ : Q (slotVal c.σ.mem (w.slot ins.b)) (slotVal c.σ.mem (dv w ins))
       · exact h3 hS hA hf hop hstep ⟨hI, hy, hP, hQ⟩
       · exact h4 hS hA hf hop hstep ⟨hI, hy, hP, hQ⟩
-    · exact hfall hS hA hf hop hstep hI
+    · exact hfall hS hA hf hop hstep ⟨hI, hN⟩
 
 set_option hygiene false in
 /-- The value facts of a division arm's guards: the operands' payloads read
@@ -112,7 +114,9 @@ macro "kit_div_m1 " "(" st:tacticSeq ")" dv:term:max eq:ident : tactic => `(tact
   have hdvLd := fun {m : Mem} {a : Nat} => @ld_slot_gen m a $dv
   simp only [dvR, dvK] at hm
   ($st)
-  simp only [Opnd.fill, δ, BinOp.int, stackValueSize, hm, $eq:ident] at hk
+  simp only [Opnd.fill, δ, BinOp.int, fastArith_add, fastArith_sub, fastArith_mul, fastArith_mod,
+    fastArith_idiv, fastArith_band, fastArith_bor, fastArith_bxor, fastArith_shl, fastArith_shr,
+    Res.ofInt_some, Res.ofInt_none, Value.ofNum_int, stackValueSize, hm, $eq:ident] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   kit_run h0 acc
@@ -209,7 +213,9 @@ macro "kit_div_post " "(" st:tacticSeq ")" dv:term:max eq:term:max
   ($st)
   have hz := fun e => hy (Or.inl e)
   have heq := fun m => $eq m _ hz
-  simp only [Opnd.fill, δ, BinOp.int, heq] at hk
+  simp only [Opnd.fill, δ, BinOp.int, fastArith_add, fastArith_sub, fastArith_mul, fastArith_mod,
+    fastArith_idiv, fastArith_band, fastArith_bor, fastArith_bxor, fastArith_shl, fastArith_shr,
+    Res.ofInt_some, Res.ofInt_none, Value.ofNum_int, heq] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   clear h0 acc

@@ -16,12 +16,14 @@ namespace Lua.Vm.Sim
 open Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **GEI** (kind `cmpI`): from the fetch head, the dispatch and, per
-exit of the kernel, the arm's segments return to the head in a state related
-to the `Step`'s successor. -/
+/-- **GEI** (kind `cmpI`) off its float paths (`¬ FltA`; they are
+`FloatArms.GEI`): from the fetch head, the dispatch and, per exit of the
+kernel, the arm's segments return to the head in a state related to the
+`Step`'s successor. -/
 theorem sim_GEI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     (hR : VmRel p c s) {ins : Word} (hf : p.fetch s.pc = some ins)
-    (hop : ins.op? = some .GEI) (hstep : Step binaryHost p s s') :
+    (hop : ins.op? = some .GEI) (hstep : Step binaryHost p s s')
+    (hnf : ¬ FltA p s ins) :
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
@@ -59,6 +61,7 @@ theorem sim_GEI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
   have hlt := fetch_lt hni
   simp only [Word.a, Word.field] at htop
   have hva' := hc1.stack ins.a va (by simp only [Word.a, Word.field]; omega) hva
+  have hnfa := notFlt_of_reg hnf hva
   by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hva'.int_of_tag hTa
     simp only [δ, Option.some.injEq] at hcv
@@ -230,7 +233,7 @@ theorem sim_GEI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         hmE
       exact ⟨c6, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq5.pcAt⟩⟩
   · exfalso
-    cases va <;> simp [δ] at hcv
-    exact hva'.not_int hTa _ rfl
+    cases va <;> simp [δ, Value.toNum?] at hcv
+    all_goals first | exact hva'.not_int hTa _ rfl | exact hnfa _ _ rfl
 
 end Lua.Vm.Sim

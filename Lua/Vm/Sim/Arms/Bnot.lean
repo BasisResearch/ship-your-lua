@@ -15,12 +15,14 @@ namespace Lua.Vm.Sim
 open Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **BNOT** (kind `bnot`): from the fetch head, the dispatch and, per
-exit of the kernel, the arm's segments return to the head in a state related
-to the `Step`'s successor. -/
+/-- **BNOT** (kind `bnot`) off its float paths (`¬ FltB`; they are
+`FloatArms.BNOT`): from the fetch head, the dispatch and, per exit of the
+kernel, the arm's segments return to the head in a state related to the
+`Step`'s successor. -/
 theorem sim_BNOT {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     (hR : VmRel p c s) {ins : Word} (hf : p.fetch s.pc = some ins)
-    (hop : ins.op? = some .BNOT) (hstep : Step binaryHost p s s') :
+    (hop : ins.op? = some .BNOT) (hstep : Step binaryHost p s s')
+    (hnf : ¬ FltB p s ins) :
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
@@ -53,6 +55,7 @@ theorem sim_BNOT {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
   have hBt : ins.b < p.maxstacksize := by have := Nat.le_max_right ins.a ins.b; omega
   have hvb := hc1.stack ins.b vb hBt hb
   simp only [Word.a, Word.b, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt
+  have hnfb := notFlt_of_reg hnf hb
   by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hvb.int_of_tag hB
     simp only [δ, Option.some.injEq] at hv
@@ -112,6 +115,6 @@ theorem sim_BNOT {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     exact ⟨c4, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq3.pcAt⟩⟩
   · exfalso
     cases vb <;> simp [δ] at hv
-    exact hvb.not_int hB _ rfl
+    all_goals first | exact hvb.not_int hB _ rfl | exact hnfb _ _ rfl
 
 end Lua.Vm.Sim

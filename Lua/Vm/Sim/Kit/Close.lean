@@ -56,6 +56,19 @@ theorem sim_arm {o : OpCode} (ho : o.toNat < Arms.jtEntries)
   obtain ⟨c', hs, hR'⟩ := body hS hA hf hop hstep
   exact sim_of_run ⟨c', hs1.trans hs, Nat.lt_of_lt_of_le hlt1 hs.steps_le, hR'⟩
 
+/-- **The arm skeleton on a path family**: `SimArmOn o Q` from a run of the
+arm under `Q`. -/
+theorem sim_arm_on {o : OpCode} {Q : Proto → State → Word → Prop} (ho : o.toNat < Arms.jtEntries)
+    (body : ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State} {w : RelPtrs} {ins : Word},
+      ArmAt p c s w ins → p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
+      Q p s ins → ∃ c', Steps c c' ∧ VmRelAt p c' s' w) : SimArmOn o Q := by
+  intro p hS c s s' hR ins hf hop hstep hQ
+  obtain ⟨w, hR⟩ := hR
+  have hnum := opNum_of_op? hop
+  obtain ⟨c1, hs1, hlt1, hA⟩ := dispatch hR hf (by rw [hnum]; exact ho)
+  obtain ⟨c', hs, hR'⟩ := body hS hA hf hop hstep hQ
+  exact sim_of_run ⟨c', hs1.trans hs, Nat.lt_of_lt_of_le hlt1 hs.steps_le, hR'⟩
+
 /-- **An arm's run under a case condition `Q`** (one path family of an arm):
 `sim_arm`'s premise, split so that each path is its own declaration. -/
 def ArmBody (o : OpCode) (Q : Proto → Config → State → RelPtrs → Word → Prop) : Prop :=
@@ -68,12 +81,15 @@ def BothInt (_p : Proto) (c : Config) (_s : State) (w : RelPtrs) (ins : Word) : 
   slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt ∧
     slotTag c.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt
 
-/-- **An `op_arith` arm from its two paths** (both operands integers, or the
-fall-through to `MMBIN`). -/
-theorem sim_arith {o : OpCode} (ho : o.toNat < Arms.jtEntries) (hint : ArmBody o BothInt)
-    (hfall : ArmBody o fun p c s w ins => ¬ BothInt p c s w ins) : SimArm o :=
-  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep =>
-    (Classical.em (BothInt p c s w ins)).elim (hint hS hA hf hop hstep) (hfall hS hA hf hop hstep)
+/-- **An `op_arith` arm off its float paths `Q`, from its two paths** (both
+operands integers, or the fall-through to `MMBIN` of a non-number). -/
+theorem sim_arith {o : OpCode} {Q : Proto → State → Word → Prop} (ho : o.toNat < Arms.jtEntries)
+    (hint : ArmBody o BothInt)
+    (hfall : ArmBody o fun p c s w ins => ¬ BothInt p c s w ins ∧ ¬ Q p s ins) :
+    SimArmOn o fun p s ins => ¬ Q p s ins :=
+  sim_arm_on ho fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
+    (Classical.em (BothInt p c s w ins)).elim (hint hS hA hf hop hstep)
+      fun hI => hfall hS hA hf hop hstep ⟨hI, hN⟩
 
 /-! ## M1: the successor by forward evaluation -/
 
@@ -239,7 +255,9 @@ set_option hygiene false in
 /-- **`kit_next`**: the successor from the evaluated kernel (`hk`), then the
 run to the fetch head. -/
 macro "kit_next" : tactic => `(tactic| (
-  simp [Opnd.fill, δ, BinOp.int, VState.apply, writeDefs, KEdge.kills] at hk
+  simp [Opnd.fill, δ, BinOp.int, fastArith, Value.toNum?, Lua.Num.rawArith, BinOp.toOp, Lua.Num.intarith,
+    Lua.Num.Numeral.tointegerns, Lua.Num.Res.ofInt, Value.ofNum,
+    VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   kit_run h0 acc))
 
@@ -257,7 +275,9 @@ macro "kit_frame" : tactic => `(tactic| (
 set_option hygiene false in
 /-- **`kit_next_until [pcs]`**: `kit_next`, stopping at a call node. -/
 macro "kit_next_until " "[" ns:num,* "]" : tactic => `(tactic| (
-  simp [Opnd.fill, δ, BinOp.int, VState.apply, writeDefs, KEdge.kills] at hk
+  simp [Opnd.fill, δ, BinOp.int, fastArith, Value.toNum?, Lua.Num.rawArith, BinOp.toOp, Lua.Num.intarith,
+    Lua.Num.Numeral.tointegerns, Lua.Num.Res.ofInt, Value.ofNum,
+    VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   kit_run h0 acc until [$ns,*]))
 
@@ -269,16 +289,21 @@ macro "kit_same" : tactic => `(tactic|
 
 set_option hygiene false in
 /-- **`kit_arith_fall pc`**: the fall-through of an `op_arith` arm at `pc`
-(not both operands integers, `¬ BothInt` as `hI`): the kernel goes to
-`MMBIN` (`pc + 1`, nothing written), the machine to its `mv s11,s3` tail. -/
+(not both operands integers, `¬ BothInt`, and no float, `¬ FltBC`, as `hI`):
+the kernel goes to `MMBIN` (`pc + 1`, nothing written), the machine to its
+`mv s11,s3` tail. -/
 macro "kit_arith_fall " pc:num : tactic => `(tactic| (
+  obtain ⟨hI, hN⟩ := hI
   kit_setup $pc
   kit_bound hAt ins.a; kit_bound hBt ins.b; kit_bound hCt ins.c
   kit_reg hb vb hvb ins.b; kit_reg hcc vc hvc ins.c
-  simp [Opnd.fill] at hk; split at hk
-  · rename_i heq
-    obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
-    exact absurd ⟨hvb.tag_of_int.1, hvc.tag_of_int.1⟩ hI
+  have hnfb := notFlt_of_reg (fun h => hN (.inl h)) hb
+  have hnfc := notFlt_of_reg (fun h => hN (.inr h)) hcc
+  have hfail : ∀ o, fastArith o vb vc = .fail := fun _ =>
+    fastArith_fail hnfb hnfc fun _ _ heq => by
+        obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
+        exact hI ⟨hvb.tag_of_int.1, hvc.tag_of_int.1⟩
+  simp [Opnd.fill, hfail] at hk
   by_cases hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
   · have hC : ¬ slotTag c.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt := fun hC => hI ⟨hB, hC⟩
     kit_next; kit_same

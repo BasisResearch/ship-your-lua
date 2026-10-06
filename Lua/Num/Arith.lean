@@ -295,4 +295,21 @@ theorem rawArith_err {o : Op} {a b : Numeral} (h : rawArith o a b = .err) :
        · exact intarith_none (hi _ h)
        · cases h)
 
+/-- `luaO_rawarith`'s error: two integers, the divisor zero. -/
+theorem rawArith_err_int {o : Op} {a b : Numeral} (h : rawArith o a b = .err) :
+    ∃ i, a = .int i ∧ b = .int 0 := by
+  rcases rawArith_err h with rfl | rfl <;>
+  · simp only [rawArith] at h
+    split at h
+    · rename_i i j
+      refine ⟨i, rfl, ?_⟩
+      simp only [intarith, Res.ofInt, imod, idiv] at h
+      split at h
+      · cases h
+      · rename_i hj
+        by_cases h0 : j = 0
+        · rw [h0]
+        · simp at hj; exact absurd hj h0
+    · cases h
+
 end Lua.Num

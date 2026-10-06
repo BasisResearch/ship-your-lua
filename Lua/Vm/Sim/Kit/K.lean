@@ -28,11 +28,14 @@ def BothIntK (_p : Proto) (c : Config) (_s : State) (w : RelPtrs) (ins : Word) :
   slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt ∧
     slotTag c.σ.mem (w.k + stackValueSize * ins.c) = BitVec.ofNat 8 vNumInt
 
-/-- **An `op_arithK`/`op_bitwiseK` arm from its two paths.** -/
-theorem sim_arithK {o : OpCode} (ho : o.toNat < Arms.jtEntries) (hint : ArmBody o BothIntK)
-    (hfall : ArmBody o fun p c s w ins => ¬ BothIntK p c s w ins) : SimArm o :=
-  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep =>
-    (Classical.em (BothIntK p c s w ins)).elim (hint hS hA hf hop hstep) (hfall hS hA hf hop hstep)
+/-- **An `op_arithK` arm off its float paths `Q`, from its two paths.** -/
+theorem sim_arithK {o : OpCode} {Q : Proto → State → Word → Prop} (ho : o.toNat < Arms.jtEntries)
+    (hint : ArmBody o BothIntK)
+    (hfall : ArmBody o fun p c s w ins => ¬ BothIntK p c s w ins ∧ ¬ Q p s ins) :
+    SimArmOn o fun p s ins => ¬ Q p s ins :=
+  sim_arm_on ho fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
+    (Classical.em (BothIntK p c s w ins)).elim (hint hS hA hf hop hstep)
+      fun hI => hfall hS hA hf hop hstep ⟨hI, hN⟩
 
 /-- `ld a5,0(sp)`: the constant array `k`, read from any memory that agrees
 with the entry's on the eight bytes at `sp`. -/
@@ -132,17 +135,22 @@ macro "kitk_ints " pc:num : tactic => `(tactic| (
   obtain rfl := hvk.int_of_tag hI.2))
 
 set_option hygiene false in
-/-- **`kitk_fall pc`**: `kit_arith_fall` with `K[C]` (`¬ BothIntK` as `hI`). -/
+/-- **`kitk_fall pc`**: `kit_arith_fall` with `K[C]` (`¬ BothIntK` and
+`¬ FltBK` as `hI`). -/
 macro "kitk_fall " pc:num " with " "(" extra:tacticSeq ")" : tactic => `(tactic| (
+  obtain ⟨hI, hN⟩ := hI
   kit_setup $pc
   kitk_const
   ($extra)
   kit_bound hAt ins.a; kit_bound hBt ins.b
   kit_reg hb vb hvb ins.b
-  simp [Opnd.fill] at hk; split at hk
-  · rename_i heq
-    obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
-    exact absurd ⟨hvb.tag_of_int.1, hvk.tag_of_int.1⟩ hI
+  have hnfb := notFlt_of_reg (fun h => hN (.inl h)) hb
+  have hnfc := notFlt_of_k (fun h => hN (.inr h)) hkv
+  have hfail : ∀ o, fastArith o vb y = .fail := fun _ =>
+    fastArith_fail hnfb hnfc fun _ _ heq => by
+      obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
+      exact hI ⟨hvb.tag_of_int.1, hvk.tag_of_int.1⟩
+  simp [Opnd.fill, hfail] at hk
   by_cases hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
   · have hC : ¬ slotTag c.σ.mem (w.k + stackValueSize * ins.c) = BitVec.ofNat 8 vNumInt :=
       fun hC => hI ⟨hB, hC⟩

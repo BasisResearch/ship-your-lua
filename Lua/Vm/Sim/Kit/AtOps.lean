@@ -31,18 +31,22 @@ open Vsa.Machine (MState Config Steps StepsN)
 /-! ## `opArith`: the fall-through -/
 
 set_option hygiene false in
-/-- **`at_fall NS pc`**: an `op_arith` arm at `pc` with `¬ BothInt` (`hI`):
+/-- **`at_fall NS pc`**: an `op_arith` arm at `pc` with `¬ BothInt` (`hI`)
+and no float operand (`¬ FltBC`, `hN`):
 the kernel's exit to `MMBIN` (`pc + 1`), the machine's by the at-lemmas. -/
 macro "at_fall " ns:ident pc:num : tactic => `(tactic| (
-  rintro p hS c s s' w ins hA hf hop hstep hI
+  rintro p hS c s s' w ins hA hf hop hstep ⟨hI, hN⟩
   kit_setup $pc
   kit_bound hAt ins.a; kit_bound hBt ins.b; kit_bound hCt ins.c
   kit_reg hb vb hvb ins.b; kit_reg hcc vc hvc ins.c
-  have hfb := hvb.ne_float; have hfc := hvc.ne_float
-  simp [Opnd.fill] at hk; split at hk
-  · rename_i heq
-    obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
-    exact absurd ⟨hvb.tag_of_int.1, hvc.tag_of_int.1⟩ hI
+  have hnfb := notFlt_of_reg (fun h => hN (.inl h)) hb
+  have hnfc := notFlt_of_reg (fun h => hN (.inr h)) hcc
+  have hfb := hvb.ne_float hnfb; have hfc := hvc.ne_float hnfc
+  have hfail : ∀ o, fastArith o vb vc = .fail := fun _ =>
+    fastArith_fail hnfb hnfc fun _ _ heq => by
+      obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
+      exact hI ⟨hvb.tag_of_int.1, hvc.tag_of_int.1⟩
+  simp [Opnd.fill, hfail] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   by_cases hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
@@ -51,18 +55,21 @@ macro "at_fall " ns:ident pc:num : tactic => `(tactic| (
   · at_go $ns))
 
 set_option hygiene false in
-/-- **`at_fallK NS pc`**: `at_fall` with `K[C]` (`¬ BothIntK`). -/
+/-- **`at_fallK NS pc`**: `at_fall` with `K[C]` (`¬ BothIntK`, `¬ FltBK`). -/
 macro "at_fallK " ns:ident pc:num : tactic => `(tactic| (
-  rintro p hS c s s' w ins hA hf hop hstep hI
+  rintro p hS c s s' w ins hA hf hop hstep ⟨hI, hN⟩
   kit_setup $pc
   kitk_const
   kit_bound hAt ins.a; kit_bound hBt ins.b
   kit_reg hb vb hvb ins.b
-  have hfb := hvb.ne_float; have hfk := hvk.ne_float
-  simp [Opnd.fill] at hk; split at hk
-  · rename_i heq
-    obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
-    exact absurd ⟨hvb.tag_of_int.1, hvk.tag_of_int.1⟩ hI
+  have hnfb := notFlt_of_reg (fun h => hN (.inl h)) hb
+  have hnfk := notFlt_of_k (fun h => hN (.inr h)) hkv
+  have hfb := hvb.ne_float hnfb; have hfk := hvk.ne_float hnfk
+  have hfail : ∀ o, fastArith o vb y = .fail := fun _ =>
+    fastArith_fail hnfb hnfk fun _ _ heq => by
+      obtain ⟨e1, e2⟩ := pair_eq heq; subst e1 e2
+      exact hI ⟨hvb.tag_of_int.1, hvk.tag_of_int.1⟩
+  simp [Opnd.fill, hfail] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   by_cases hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
@@ -90,30 +97,35 @@ macro "at_int1 " pc:num : tactic => `(tactic| (
 
 set_option hygiene false in
 /-- **`at_fall1 NS pc`**: the fall-through of a one-register `opArith` arm
-(`¬ TagB`): the kernel's exit to `MMBIN*`. -/
+(`¬ TagB`, and `¬ FltB`): the kernel's exit to `MMBIN*`. -/
 macro "at_fall1 " ns:ident pc:num : tactic => `(tactic| (
-  rintro p hS c s s' w ins hA hf hop hstep hI
+  rintro p hS c s s' w ins hA hf hop hstep ⟨hI, hN⟩
   kit_setup $pc
   simp only [immC, Opnd.ports] at hk htop
   try simp [Opnd.ports] at htop
   kit_bound hAt ins.a; kit_bound hBt ins.b
   kit_reg hb vb hvb ins.b
-  have hfb := hvb.ne_float
+  have hnfb := notFlt_of_reg hN hb
+  have hfb := hvb.ne_float hnfb
   have hB : ¬ slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt := hI
-  simp [Opnd.fill] at hk; split at hk
-  · rename_i heq
-    obtain ⟨e1, e2⟩ := pair_eq heq
-    first | (subst e1; exact absurd hvb.tag_of_int.1 hB) | (subst e2; exact absurd hvb.tag_of_int.1 hB)
+  have hnI : ∀ i, vb ≠ .int i := fun i e => by subst e; exact hB hvb.tag_of_int.1
+  have hfail1 : ∀ o (i : BitVec 64), fastArith o vb (.int i) = .fail := fun _ i =>
+    fastArith_fail hnfb (notFlt_int i) fun a _ heq => hnI a (pair_eq heq).1
+  have hfail2 : ∀ o (i : BitVec 64), fastArith o (.int i) vb = .fail := fun _ i =>
+    fastArith_fail (notFlt_int i) hnfb fun _ b heq => hnI b (pair_eq heq).2
+  simp [Opnd.fill, hfail1, hfail2] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   at_go $ns))
 
-/-- **A one-register `opArith` arm from its two paths** (`R[B]` an integer,
-or the fall-through). -/
+/-- **A one-register `opArith` arm off its float paths, from its two paths**
+(`R[B]` an integer, or the fall-through of a non-number). -/
 theorem sim_tagB {o : OpCode} (ho : o.toNat < Arms.jtEntries) (hint : ArmBody o TagB)
-    (hfall : ArmBody o fun p c s w ins => ¬ TagB p c s w ins) : SimArm o :=
-  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep =>
-    (Classical.em (TagB p c s w ins)).elim (hint hS hA hf hop hstep) (hfall hS hA hf hop hstep)
+    (hfall : ArmBody o fun p c s w ins => ¬ TagB p c s w ins ∧ ¬ FltB p s ins) :
+    SimArmOn o fun p s ins => ¬ FltB p s ins :=
+  sim_arm_on ho fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
+    (Classical.em (TagB p c s w ins)).elim (hint hS hA hf hop hstep)
+      fun hI => hfall hS hA hf hop hstep ⟨hI, hN⟩
 
 set_option hygiene false in
 /-- `op_bitwiseK`'s `K[C]` (`bitwiseRK`): the kernel exists only for an
@@ -139,26 +151,29 @@ macro "at_bitk " ns:ident pc:num comm:ident : tactic => `(tactic| (
   kit_reg hb vb hvb ins.b
   have hB : slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt := hI
   obtain rfl := hvb.int_of_tag hB
-  simp only [Opnd.fill, δ, BinOp.int, $comm:ident (slotVal c.σ.mem (w.slot ins.b))] at hk
+  simp only [Opnd.fill, δ, BinOp.int, fastArith_add, fastArith_sub, fastArith_mul, fastArith_mod,
+    fastArith_idiv, fastArith_band, fastArith_bor, fastArith_bxor, fastArith_shl, fastArith_shr,
+    Res.ofInt_some, Res.ofInt_none, Value.ofNum_int, $comm:ident (slotVal c.σ.mem (w.slot ins.b))] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   at_go $ns))
 
 set_option hygiene false in
-/-- **`at_bitk_fall NS pc`**: `BANDK`/`BORK`/`BXORK` with `¬ TagB`: the
-fall-through to `MMBINK`. -/
+/-- **`at_bitk_fall NS pc`**: `BANDK`/`BORK`/`BXORK` with `¬ TagB` and
+`¬ FltB`: the fall-through to `MMBINK`. -/
 macro "at_bitk_fall " ns:ident pc:num : tactic => `(tactic| (
-  rintro p hS c s s' w ins hA hf hop hstep hI
+  rintro p hS c s s' w ins hA hf hop hstep ⟨hI, hN⟩
   kit_setup $pc
   kitb_const
   kit_bound hAt ins.a; kit_bound hBt ins.b
   kit_reg hb vb hvb ins.b
-  have hfb := hvb.ne_float
+  have hnfb := notFlt_of_reg hN hb
+  have hfb := hvb.ne_float hnfb
   have hB : ¬ slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt := hI
-  simp [Opnd.fill] at hk; split at hk
-  · rename_i heq
-    obtain ⟨e1, -⟩ := pair_eq heq
-    subst e1; exact absurd hvb.tag_of_int.1 hB
+  have hnI : ∀ i, vb ≠ .int i := fun i e => by subst e; exact hB hvb.tag_of_int.1
+  have hfail1 : ∀ o (i : BitVec 64), fastArith o vb (.int i) = .fail := fun _ i =>
+    fastArith_fail hnfb (notFlt_int i) fun a _ heq => hnI a (pair_eq heq).1
+  simp [Opnd.fill, hfail1] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   at_go $ns))
@@ -173,7 +188,9 @@ macro "at_div_m1 " "(" st:tacticSeq ")" ns:ident eq:ident : tactic => `(tactic| 
   rintro p hS c s s' w ins hA hf hop hstep ⟨hI, hm⟩
   simp only [dvR, dvK] at hm
   ($st)
-  simp only [Opnd.fill, δ, BinOp.int, stackValueSize, hm, $eq:ident] at hk
+  simp only [Opnd.fill, δ, BinOp.int, fastArith_add, fastArith_sub, fastArith_mul, fastArith_mod,
+    fastArith_idiv, fastArith_band, fastArith_bor, fastArith_bxor, fastArith_shl, fastArith_shr,
+    Res.ofInt_some, Res.ofInt_none, Value.ofNum_int, stackValueSize, hm, $eq:ident] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   at_go $ns))
@@ -188,7 +205,9 @@ macro "at_div_gen " "(" st:tacticSeq ")" ns:ident eq:ident : tactic => `(tactic|
   simp only [dvR, dvK] at hy hq
   ($st)
   have hz := fun e => hy (Or.inl e)
-  simp only [Opnd.fill, δ, BinOp.int, $eq:ident _ _ hz] at hk
+  simp only [Opnd.fill, δ, BinOp.int, fastArith_add, fastArith_sub, fastArith_mul, fastArith_mod,
+    fastArith_idiv, fastArith_band, fastArith_bor, fastArith_bxor, fastArith_shl, fastArith_shr,
+    Res.ofInt_some, Res.ofInt_none, Value.ofNum_int, $eq:ident _ _ hz] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk
   at_go $ns))
@@ -203,18 +222,19 @@ def RegInt (_p : Proto) (_c : Config) (s : State) (_w : RelPtrs) (ins : Word) : 
 def RegStr (_p : Proto) (_c : Config) (s : State) (_w : RelPtrs) (ins : Word) : Prop :=
   ∃ t, s.regs ins.b = some (.str t)
 
-/-- **A one-register `setR` arm from its paths**: an integer, a string, and
-the rest. -/
+/-- **A one-register `setR` arm off its float paths, from its paths**: an
+integer, a string, and the rest but a float. -/
 theorem sim_unary {o : OpCode} (ho : o.toNat < Arms.jtEntries) (hint : ArmBody o RegInt)
     (hstr : ArmBody o RegStr)
-    (hstuck : ArmBody o fun p c s w ins => ¬ RegInt p c s w ins ∧ ¬ RegStr p c s w ins) :
-    SimArm o :=
-  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep => by
+    (hstuck : ArmBody o fun p c s w ins => ¬ RegInt p c s w ins ∧ ¬ RegStr p c s w ins ∧
+      ¬ FltB p s ins) :
+    SimArmOn o fun p s ins => ¬ FltB p s ins :=
+  sim_arm_on ho fun {p} hS {c s s' w ins} hA hf hop hstep hN => by
     by_cases hi : RegInt p c s w ins
     · exact hint hS hA hf hop hstep hi
     by_cases ht : RegStr p c s w ins
     · exact hstr hS hA hf hop hstep ht
-    exact hstuck hS hA hf hop hstep ⟨hi, ht⟩
+    exact hstuck hS hA hf hop hstep ⟨hi, ht, hN⟩
 
 set_option hygiene false in
 /-- **`at_unary_int NS pc`**: the integer path of a one-register `setR` arm
@@ -232,12 +252,12 @@ macro "at_unary_int " ns:ident pc:num : tactic => `(tactic| (
   at_go $ns))
 
 set_option hygiene false in
-/-- **`at_unary_stuck pc`**: neither an integer nor a string: the kernel
-(`δ` on one register) has no `Step`. -/
+/-- **`at_unary_stuck pc`**: neither an integer nor a string nor a float: the
+kernel (`δ` on one register) has no `Step`. -/
 macro "at_unary_stuck " pc:num : tactic => `(tactic| (
-  rintro p hS c s s' w ins hA hf hop hstep ⟨hi, ht⟩
+  rintro p hS c s s' w ins hA hf hop hstep ⟨hi, ht, hN⟩
   kit_setup $pc
-  simp only [RegInt, RegStr, not_exists] at hi ht
+  simp only [RegInt, RegStr, FltB, FltReg, not_exists] at hi ht hN
   rcases hb : s.regs ins.b with _ | v
   · simp [setR, Opnd.ports, hb] at hk
   rcases v <;> simp_all [setR, Opnd.ports, Opnd.fill, δ]))

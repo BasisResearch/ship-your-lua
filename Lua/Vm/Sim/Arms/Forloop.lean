@@ -15,12 +15,14 @@ namespace Lua.Vm.Sim
 open Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **FORLOOP** (kind `forloop`): from the fetch head, the dispatch and, per
-exit of the kernel, the arm's segments return to the head in a state related
-to the `Step`'s successor. -/
+/-- **FORLOOP** (kind `forloop`) off its float paths (`¬ FltStep`; they are
+`FloatArms.FORLOOP`): from the fetch head, the dispatch and, per exit of the
+kernel, the arm's segments return to the head in a state related to the
+`Step`'s successor. -/
 theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     (hR : VmRel p c s) {ins : Word} (hf : p.fetch s.pc = some ins)
-    (hop : ins.op? = some .FORLOOP) (hstep : Step binaryHost p s s') :
+    (hop : ins.op? = some .FORLOOP) (hstep : Step binaryHost p s s')
+    (hnf : ¬ FltStep p s ins) :
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
@@ -31,7 +33,7 @@ theorem sim_FORLOOP {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
   | some t =>
   have hK : kernelAt p s.pc = some (forloopK s.pc ins t) := by
     simp [kernelAt, hf, kernel, hop, opKernel, ht]
-  obtain ⟨i, n, st, hi, hn, hst, hcase⟩ := step_forloop hstep hK
+  obtain ⟨i, n, st, hi, hn, hst, hcase⟩ := step_forloop hstep hK hnf
   have htop := supported_regTop hS hf
   simp [regTop, kernel, hop, opKernel, ht, forloopK, Kernel.regTop] at htop
   obtain ⟨hbx, rfl⟩ := jumpTo_neg ht

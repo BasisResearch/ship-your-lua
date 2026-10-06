@@ -37,11 +37,12 @@ theorem modk_corr : ArmBody .MODK (DivPath BothIntK dvK fun x y => DivGen y ∧ 
   at_div_gen (kitk_ints 0x8001dad0) Lua.Vm.At.MODK imodC_eq
 
 /-- Not both integers: the kernel's fall-through to `MMBINK`. -/
-theorem modk_fall : ArmBody .MODK fun p c s w ins => ¬ BothIntK p c s w ins := by
+theorem modk_fall : ArmBody .MODK fun p c s w ins =>
+    ¬ BothIntK p c s w ins ∧ ¬ FltBK p s ins := by
   at_fallK Lua.Vm.At.MODK 0x8001dad0
 
 /-- **`OP_MODK`** on the location-list route. -/
-theorem sim_MODK : SimArm .MODK := sim_div (by decide) _ _ modk_zero modk_m1 modk_rz modk_same
+theorem sim_MODK : SimArmOn .MODK fun p s ins => ¬ FltBK p s ins := sim_div (by decide) _ _ modk_zero modk_m1 modk_rz modk_same
   modk_corr modk_fall
 
 end Lua.Vm.Sim.At
