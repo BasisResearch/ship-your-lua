@@ -38,7 +38,7 @@ open Vsa.Machine (Config)
 
 namespace Lua.Vm.AtF.Fflush
 
-/-- The context's facts (`fflush`'s stack and arguments). -/
+/-- The context's facts at the root `Ok` stands for. -/
 structure Ok (X : FCx) : Prop where
   sp_lo : 0x8005e720 + 1024 + 2048 ≤ X.n 0
   sp_hi : X.n 0 ≤ 2 ^ 32

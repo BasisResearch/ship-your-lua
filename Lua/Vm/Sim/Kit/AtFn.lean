@@ -193,7 +193,7 @@ def rdOf (ty : Expr) : Option Name :=
 /-- **`fat_rd`**: every load of the goal forwarded through the path's stores
 to the root memory (`fw*`, the separations by `omega`), and rewritten by the
 root-memory facts in context; addresses normalised to `Nat` first. -/
-elab "fat_rd" : tactic => withMainContext do
+elab "fat_rd" loc:(Lean.Parser.Tactic.location)? : tactic => withMainContext do
   let mut facts : Array (TSyntax ``Lean.Parser.Tactic.simpLemma) := #[]
   for ld in (← getLCtx) do
     if ld.isImplementationDetail then continue
@@ -206,7 +206,7 @@ elab "fat_rd" : tactic => withMainContext do
       BitVec.toNat_ofNat, Nat.add_zero, Vsa.Sim.sext_zero, BitVec.add_zero, Nat.mod_eq_of_lt,
       sext64_id, fw8_same, fw4_same, fw2_same, fw1_same,
       fw1_wm8, fw1_wm4, fw1_wm2, fw1_ins, fw2_wm8, fw2_wm4, fw2_wm2, fw2_ins,
-      fw4_wm8, fw4_wm4, fw4_wm2, fw4_ins, fw8_wm8, fw8_wm4, fw8_wm2, fw8_ins, $facts,*])))
+      fw4_wm8, fw4_wm4, fw4_wm2, fw4_ins, fw8_wm8, fw8_wm4, fw8_wm2, fw8_ins, $facts,*] $[$loc]?)))
 
 /-- **The loads of the callee rows** (an `at_eq` extension, tried first):
 forwarded and rewritten by `fat_rd`, then closed. -/
@@ -220,26 +220,48 @@ theorem wm4_congr {m m' : Mem} {a a' : Nat} {d d' : BitVec (8 * 4)} (hm : m = m'
 theorem wm2_congr {m m' : Mem} {a a' : Nat} {d d' : BitVec (8 * 2)} (hm : m = m')
     (ha : a = a') (hd : d = d') : writeMap2 m a d = writeMap2 m' a' d' := by subst hm ha hd; rfl
 
-syntax "fat_mem" : tactic
-macro_rules
-  | `(tactic| fat_mem) => `(tactic| first
-    | with_reducible rfl
-    | (with_reducible refine At.writeMap8_congr ?_ ?_ ?_
-       · fat_mem
-       · kit_disch
-       · exact At.un_congr (by at_eq))
-    | (with_reducible refine wm4_congr ?_ ?_ ?_
-       · fat_mem
-       · kit_disch
-       · exact At.un_congr (by at_eq))
-    | (with_reducible refine wm2_congr ?_ ?_ ?_
-       · fat_mem
-       · kit_disch
-       · exact At.un_congr (by at_eq))
-    | (with_reducible refine At.insert_congr ?_ ?_ ?_
-       · fat_mem
-       · kit_disch
-       · exact At.un_congr (by at_eq)))
+open Lean Elab Tactic Meta in
+/-- The store at the head of a memory term (`writeMap8`/`4`/`2`, `insert`)
+and its congruence lemma. -/
+def storeCongr? (e : Expr) : Option Name :=
+  if e.isAppOfArity ``writeMap8 3 then some ``At.writeMap8_congr
+  else if e.isAppOfArity ``writeMap4 3 then some ``wm4_congr
+  else if e.isAppOfArity ``writeMap2 3 then some ``wm2_congr
+  else if e.isAppOf ``Std.ExtHashMap.insert then some ``At.insert_congr
+  else none
+
+open Lean Elab Tactic Meta in
+/-- **`fat_mem`**: a post-memory (the segment's store chain) equal to the
+row's memory (an abbreviation): store by store, the addresses by
+`kit_disch` and the data by `at_eq`, and the rest syntactically. Never a
+`rfl` across a store chain: the stored values hold loads through earlier
+stores, and unifying such terms unshared is exponential. -/
+partial def fatMem : TacticM Unit := withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  let some (_, l, r) := t.eq? | throwError "fat_mem: not an equation"
+  -- the row's memory abbreviation unfolded one step (never the stores, which
+  -- are themselves reducible)
+  let r' ← if (storeCongr? r).isSome then pure r else
+    match ← unfoldDefinition? r with
+    | some e => pure e.headBeta
+    | none => pure r
+  match storeCongr? l, storeCongr? r' with
+  | some c, some c' =>
+    unless c == c' do throwError "fat_mem: different stores"
+    if r' != r then
+      let g ← getMainGoal
+      replaceMainGoal [← g.replaceTargetDefEq (← mkEq l r')]
+    evalTactic (← `(tactic| refine $(mkIdent c) ?_ ?_ ?_))
+    let gs ← getUnsolvedGoals
+    match gs with
+    | [gm, ga, gd] =>
+      setGoals [gm]; fatMem
+      setGoals [ga]; evalTactic (← `(tactic| kit_disch))
+      setGoals [gd]; evalTactic (← `(tactic| exact At.un_congr (by at_eq)))
+    | _ => throwError "fat_mem: congruence"
+  | _, _ => evalTactic (← `(tactic| with_reducible rfl))
+
+elab "fat_mem" : tactic => fatMem
 
 /-- A return target `ra` (aligned) with its low bit cleared. -/
 theorem upd_ret0 (r : BitVec 64) (h : r.toNat % 4 = 0) :
@@ -251,8 +273,8 @@ from a slot the root facts fix). -/
 syntax "fat_ret" : tactic
 macro_rules
   | `(tactic| fat_ret) => `(tactic| first
-    | rfl
-    | decide
+    | with_reducible rfl
+    | ground_decide
     | ((try fat_rd)
        first
        | exact upd_ret0 _ (by assumption)
@@ -260,14 +282,18 @@ macro_rules
        | (rw [upd_ret0 _ (by assumption)] <;> assumption)
        | (rw [Lua.Vm.Sim.Kit.upd_ret _ (by assumption)] <;> assumption)))
 
-/-- A segment's side condition: an address (`kit_disch`), a return target
-(`fat_ret`), or a read the root facts fix. -/
-syntax "fat_side" : tactic
-macro_rules
-  | `(tactic| fat_side) => `(tactic| first
-    | kit_disch
-    | fat_ret
-    | (fat_rd; first | done | decide | omega))
+/-- A segment's side condition: a return target's alignment (`fat_ret`, only
+on a goal about `BitVec.update`: a `decide`/`rfl` on an address would unfold
+it past the recursion limit, an exception `first` does not catch), an address
+(`kit_disch`), or a read the root facts fix. -/
+elab "fat_side" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  if (t.find? fun e => e.isConstOf ``Sail.BitVec.update).isSome then
+    evalTactic (← `(tactic| fat_ret))
+  else
+    evalTactic (← `(tactic| first
+      | kit_disch
+      | (fat_rd; first | done | ground_decide | omega)))
 
 /-- A branch guard the generator decided: the loads by `fat_rd`, then ground. -/
 syntax "fat_gnd" : tactic
@@ -317,9 +343,51 @@ set_option hygiene false in
 /-- **`fat_close`**: the post-row (`at_pins`) and post-memory (`fat_mem`),
 the pc given by `fat_side` where it is a return target. -/
 macro "fat_close" : tactic => `(tactic| (
+  -- the post-state normalised once (its values share subterms: one `simp`
+  -- with one cache, not one per pin and per store)
+  try fat_rd at h
   refine ⟨_, acc, (Vsa.Sim.SegSt.repin (Vsa.Sim.SegSt.at h (by fat_ret)) ?_).mem_eq ?_⟩
   · at_pins h
   · fat_mem))
+
+set_option hygiene false in
+/-- **`fat_call sum`**: a call at-lemma's proof (after `intro c h` and the
+context's facts): the summary `sum`, which keeps the memory, at the row, the
+return row by `at_pins`. -/
+macro "fat_call " sum:term : tactic => `(tactic| (
+  have acc := Vsa.Machine.Steps.refl c
+  obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h) $sum
+  exact ⟨_, acc, Vsa.Sim.SegSt.repin h (by at_pins h)⟩))
+
+/-! ## Branch guards over `Nat` atoms -/
+
+theorem fult {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
+    zopz0zI_u (BitVec.ofNat 64 a) (BitVec.ofNat 64 b) = decide (a < b) := by
+  simp only [zopz0zI_u, BitVec.toNatInt, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+  simp
+
+theorem fuge {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
+    zopz0zKzJ_u (BitVec.ofNat 64 a) (BitVec.ofNat 64 b) = decide (b ≤ a) := by
+  simp only [zopz0zKzJ_u, BitVec.toNatInt, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+  simp
+
+theorem fbeq {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
+    (BitVec.ofNat 64 a == BitVec.ofNat 64 b) = decide (a = b) := by
+  by_cases e : a = b
+  · subst e; simp
+  · simp only [e, decide_false, beq_eq_false_iff_ne, ne_eq]
+    intro h; have := congrArg BitVec.toNat h
+    simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb] at this; exact e this
+
+theorem fbne {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
+    (BitVec.ofNat 64 a != BitVec.ofNat 64 b) = !decide (a = b) := by
+  rw [bne, fbeq ha hb]
+
+/-- A guard between two `Nat`-valued registers, as a fact about the `Nat`s. -/
+macro "fat_cmp" : tactic => `(tactic| (
+  simp (disch := omega) only [fult, fuge, fbeq, fbne, Bool.not_eq_true', decide_eq_true_eq,
+    decide_eq_false_iff_not, Bool.not_eq_false', Bool.not_eq_true]
+  try omega))
 
 /-! ## Chaining a callee's at-lemmas -/
 
@@ -330,6 +398,7 @@ macro_rules
   | `(tactic| fat_hyp) => `(tactic| first
     | assumption
     | omega
+    | (fat_cmp; done)
     | (fat_rd; first | done | decide | assumption))
 
 /-- The arguments of an at-lemma for `fat_run`. -/

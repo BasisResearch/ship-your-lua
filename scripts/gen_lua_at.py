@@ -1095,8 +1095,20 @@ def fsubst(text, env, mem):
     return re.sub(r"\bm0\b", mem, t)
 
 
-def nat_txt(terms, add):
-    parts = [f"X.n {i}" if c == 1 else f"{c} * X.n {i}" for i, c in terms]
+# the lower bound of a Nat atom in the root being walked (`Fn.lb`)
+FN_LB = [lambda i: 0]
+
+
+def nat_txt(terms, add, addr=False):
+    """`Σ cᵢ·X.n i + add`: a negative `add` is a Nat subtraction where the atoms'
+    lower bounds make it exact, else (a value, not an address) the modular
+    `+ (2^64 + add)`, which `BitVec.ofNat 64` reads the same."""
+    neg = any(c < 0 for _, c in terms)
+    if neg and addr:
+        raise Stop("an address with a negative coefficient")
+    parts = [(f"X.n {i}" if c == 1 else f"{c} * X.n {i}") if c > 0 else
+             (f"(18446744073709551616 - X.n {i})" if c == -1 else f"{-c} * (18446744073709551616 - X.n {i})")
+             for i, c in terms]
     if not parts:
         if add < 0:
             raise Stop("a negative address")
@@ -1105,7 +1117,12 @@ def nat_txt(terms, add):
     if add > 0:
         s += f" + {add}"
     elif add < 0:
-        s += f" - {-add}"
+        if not neg and sum(c * FN_LB[0](i) for i, c in terms) + add >= 0:
+            s += f" - {-add}"
+        elif addr:
+            raise Stop("an address below its atoms' bounds")
+        else:
+            s += f" + {2 ** 64 + add}"
     return s
 
 
@@ -1126,9 +1143,9 @@ def fv(v):
     if k == "ld":
         _, w, s, t, a = v
         if w == 8:
-            return f"bytesT8 X.m ({nat_txt(t, a)})"
+            return f"bytesT8 X.m ({nat_txt(t, a, True)})"
         ext = "sign_extend" if s else "zero_extend"
-        return f"{ext} (m := 64) (bytesT{w} X.m ({nat_txt(t, a)}) : BitVec (8 * {w}))"
+        return f"{ext} (m := 64) (bytesT{w} X.m ({nat_txt(t, a, True)}) : BitVec (8 * {w}))"
     if k == "txt":
         return v[1]
     raise Stop(f"no text for {v}")
@@ -1159,15 +1176,16 @@ def fnat(terms, add):
 
 
 class FState:
-    def __init__(self, regs, log=(), carried=(), facts=None):
+    def __init__(self, regs, log=(), carried=(), facts=None, root="Ok"):
         self.regs = dict(regs)
         self.log = list(log)          # newest first: (w, terms, add, value)
         self.carried = list(carried)  # stores before a call that the callee keeps
         self.facts = dict(facts or {})
         self.hyps = []                # the root-memory facts this segment reads
+        self.root = root              # the root's context facts (`Ok`, `Ok_<loop>`)
 
     def copy(self):
-        s = FState(self.regs, self.log, self.carried, self.facts)
+        s = FState(self.regs, self.log, self.carried, self.facts, self.root)
         s.hyps = list(self.hyps)
         return s
 
@@ -1225,6 +1243,23 @@ class Fn:
         self.lemmas, self.order, self.dropped = {}, [], []
         self.roots, self.ends, self.mods = [], [], set()
         self.root_seen = set()
+        # the roots' context facts: name -> (facts, Nat lower bounds of the atoms)
+        self.oks = {"Ok": (spec["ok"], spec.get("lb", {}))}
+        for pc, lp in spec.get("loops", {}).items():
+            self.oks[f"Ok_{lp['name']}"] = (lp["ok"], lp.get("lb", {}))
+        self.cur = "Ok"
+
+    def lb(self, i):
+        """A lower bound of atom `i` in the current root (`sp` is a RAM address)."""
+        d = self.oks[self.cur][1]
+        return d.get(i, 0x80000000 if i == self.sp else 0)
+
+    def fnat(self, terms, add):
+        """A Nat-affine value (printed by `nat_txt`: exact or modular), or
+        `opq` for a negative coefficient."""
+        if not terms:
+            return ("lit", add % 2 ** 64)
+        return ("nat", terms, add)
 
     # ---- names
     def row(self, regs):
@@ -1236,15 +1271,14 @@ class Fn:
     def mem(self, log):
         if not log:
             return "X.m"
-        key = tuple((w, t, a, fv(v)) for w, t, a, v in log)
+        key = tuple((w, nat_txt(t, a, True), fv(v)) for w, t, a, v in log)
         if key not in self.mems:
             self.mems[key] = f"m{len(self.mems)}"
         return f"({self.mems[key]} X)"
 
     def mem_text(self, key):
         txt = "X.m"
-        for w, t, a, v in reversed(key):
-            ad = nat_txt(t, a)
+        for w, ad, v in reversed(key):
             if w == 8:
                 txt = f"writeMap8 ({txt}) ({ad}) (sdData_val ({v}))"
             elif w == 4:
@@ -1290,7 +1324,7 @@ class Fn:
                     res = v
                 if src is st.carried:
                     st.hyps.append(self.fact(
-                        f"bytesT{w} X.m ({nat_txt(terms, add)}) = "
+                        f"bytesT{w} X.m ({nat_txt(terms, add, True)}) = "
                         + (fv(v) if w == 8 else f"0x{v[1] & ((1 << 8 * w) - 1):x}#{8 * w}")))
                 return res
         if not terms and (w, add) in self.spec.get("cells", {}):
@@ -1333,15 +1367,22 @@ class Fn:
                 setlit(R(o[0]), lit(x) + lit(y) if mnem != "sub" else lit(x) - lit(y))
             elif x[0] == "nat" and lit(y) is not None:
                 d = sgn(lit(y))
-                st.set(R(o[0]), fnat(x[1], x[2] + (d if mnem != "sub" else -d)))
+                st.set(R(o[0]), self.fnat(x[1], x[2] + (d if mnem != "sub" else -d)))
             elif mnem == "add" and lit(x) is not None and y[0] == "nat":
-                st.set(R(o[0]), fnat(y[1], y[2] + sgn(lit(x))))
+                st.set(R(o[0]), self.fnat(y[1], y[2] + sgn(lit(x))))
             elif mnem == "add" and x[0] == "nat" and y[0] == "nat":
-                st.set(R(o[0]), fnat(fadd(x[1], y[1]), x[2] + y[2]))
+                st.set(R(o[0]), self.fnat(fadd(x[1], y[1]), x[2] + y[2]))
             elif mnem == "sub" and x[0] == "nat" and y[0] == "nat" and x[1] == y[1]:
                 setlit(R(o[0]), x[2] - y[2])
+            elif mnem == "add" and x[0] == "nat" and lit(y) is None and y[0] == "nat":
+                st.set(R(o[0]), self.fnat(fadd(x[1], y[1]), x[2] + y[2]))
+            elif mnem == "sub" and x[0] == "nat" and y[0] == "nat":
+                st.set(R(o[0]), self.fnat(fadd(x[1], tuple((i, -c) for i, c in y[1])), x[2] - y[2]))
             else:
                 st.set(R(o[0]), ("opq",))
+        elif mnem == "slli" and st.get(R(o[1]))[0] == "nat":
+            x, k = st.get(R(o[1])), imm(o[2])
+            st.set(R(o[0]), self.fnat(tuple((i, c << k) for i, c in x[1]), x[2] << k))
         else:
             srcs = [st.get(R(x)) for x in o[1:] if x in ABI]
             vals = [lit(x) for x in srcs]
@@ -1374,6 +1415,8 @@ class Fn:
         hi = int(name[13:21], 16)
         suf = name[21:]
         sg = self.segs[name]
+        self.cur = st.root
+        FN_LB[0] = self.lb
         st2 = st.copy()
         st2.hyps = []
         env = {r: fv(st2.get(r)) for r, _ in sg["pre"]}
@@ -1449,6 +1492,14 @@ class Fn:
         if callee is not None and callee in self.spec.get("calls", {}):
             kind = "call"
         emit = (name, pc, st, st2, nxt, guard, kind)
+        if callee is not None and callee in self.spec.get("pure", {}):
+            # a call whose summary keeps the memory: one call at-lemma, then on
+            post = self.pure_call(callee, st2)
+            if not self.walk(st2.get(1)[1], post, depth + 1):
+                raise Stop("no path on")
+            self.emit(*emit)
+            self.emit_call(callee, st2, post)
+            return
         if kind == "exit":
             self.emit(*emit)
             self.ends.append(("return", self.row(st2.regs), self.mem(st2.log)))
@@ -1478,7 +1529,40 @@ class Fn:
             regs[r] = v
         carried = [(w, t, a, v) for w, t, a, v in st.log + st.carried
                    if self.region(t) == "sp" and t == sp[1] and a >= sp[2] and phase_free(v)]
-        self.root(ret, FState(regs, [], carried))
+        self.root(ret, FState(regs, [], carried, root=st.root))
+
+    def pure_call(self, callee, st):
+        """The state after a call to a summary that keeps the memory: the
+        caller's frame (`HFrame`: `sp`, `gp`, `s0`–`s11`), `ra`, the results."""
+        spec = self.spec["pure"][callee]
+        regs = {r: v for r, v in st.regs.items() if r in (1, 2, 3, 8, 9, *range(18, 28))}
+        for r, f in spec["ret"].items():
+            regs[r] = f(st)
+        post = FState(regs, st.log, st.carried, st.facts, st.root)
+        return post
+
+    def emit_call(self, callee, st, post):
+        spec = self.spec["pure"][callee]
+        ret = st.get(1)[1]
+        pre_row, pre_mem = self.row(st.regs), self.mem(st.log)
+        post_row = self.row(post.regs)
+        key = ("call", callee, pre_row, pre_mem, post_row)
+        if key in self.lemmas:
+            return
+        hyps = ["(X : FCx)", f"(hX : {st.root} X)"]
+        n, k = f"call_{ret:08x}", 0
+        while n in {v[0] for kk, v in self.lemmas.items() if kk != key}:
+            k += 1
+            n = f"call_{ret:08x}_{k}"
+        oks = [f"hx_{f.split(':')[0].strip()}" for f in self.oks[st.root][0]]
+        text = (f"theorem {n} {' '.join(hyps)} :\n"
+                f"    Triple (SegSt 0x{callee:08x}#64 ({pre_row} X) (ArmPay {pre_mem} X.o))\n"
+                f"      (SegSt (0x{ret:08x}#64) ({post_row} X) (ArmPay {pre_mem} X.o)) := by\n"
+                f"  intro c h\n"
+                f"  obtain ⟨{', '.join(oks)}⟩ := hX\n"
+                f"  fat_call ({spec['lemma']})\n")
+        self.lemmas[key] = (n, text)
+        self.order.append(key)
 
     def root(self, pc, st):
         key = (pc, self.row(st.regs), tuple(st.carried))
@@ -1495,7 +1579,7 @@ class Fn:
         if key in self.lemmas:
             return
         self.mods.add(self.segs[name]["mod"])
-        hyps = ["(X : FCx)", "(hX : Ok X)"]
+        hyps = ["(X : FCx)", f"(hX : {st.root} X)"]
         for h in st2.hyps + guard:
             if h not in hyps:
                 hyps.append(h)
@@ -1505,7 +1589,7 @@ class Fn:
             k += 1
             n = f"{base}_{k}"
         tgt = "X.b 0" if kind == "exit" else f"0x{nxt:08x}#64"
-        oks = [f"hx_{f.split(':')[0].strip()}" for f in self.spec["ok"]]
+        oks = [f"hx_{f.split(':')[0].strip()}" for f in self.oks[st.root][0]]
         text = (f"theorem {n} {' '.join(hyps)} :\n"
                 f"    Triple (SegSt 0x{pc:08x}#64 ({pre_row} X) (ArmPay {pre_mem} X.o))\n"
                 f"      (SegSt ({tgt}) ({post_row} X) (ArmPay {post_mem} X.o)) := by\n"
@@ -1519,8 +1603,8 @@ class Fn:
 
     def run(self):
         self.root(self.spec["entry"], FState(self.spec["row"]))
-        for pc, row in self.spec.get("loops", {}).items():
-            self.root(pc, FState(row))
+        for pc, lp in self.spec.get("loops", {}).items():
+            self.root(pc, FState(lp["row"], root=f"Ok_{lp['name']}"))
 
     def text(self):
         rows = "\n".join(
@@ -1530,11 +1614,14 @@ class Fn:
         mems = "\n".join(
             f"@[at_row] abbrev {n} (X : FCx) : Mem :=\n  {self.mem_text(key)}\n"
             for key, n in self.mems.items())
-        ok = "\n".join(f"  {f}" for f in self.spec["ok"])
-        body = "\n".join(self.lemmas[k][1] for k in self.order)
+        ok = "\n".join(
+            f"/-- The context's facts at the root `{nm}` stands for. -/\n"
+            f"structure {nm} (X : FCx) : Prop where\n" + "\n".join(f"  {f}" for f in fs) + "\n"
+            for nm, (fs, _) in self.oks.items())
+        body ="\n".join(self.lemmas[k][1] for k in self.order)
         dropped = "\n".join(f"* `{n}`: {why}" for n, why in sorted(set(self.dropped))) or "(none)"
         roots = "\n".join(f"* `0x{pc:08x}` from `{r}`" for pc, r in self.roots)
-        ends = "\n".join(f"* {k}: `{r}`, memory `{m}`" for k, r, m in self.ends)
+        ends = "\n".join(f"* {k}: `{r}`, memory `{m}`" for k, r, m in dict.fromkeys(self.ends))
         imports = "".join(f"import {m}\n" for m in sorted(self.mods))
         ns = f"Lua.Vm.AtF.{self.mod}"
         return f"""import Lua.Vm.Sim.Kit.AtFn
@@ -1565,10 +1652,7 @@ open Vsa.Machine (Config)
 
 namespace {ns}
 
-/-- The context's facts (`{self.name}`'s stack and arguments). -/
-structure Ok (X : FCx) : Prop where
 {ok}
-
 {rows}
 {mems}
 {body}
@@ -1588,6 +1672,30 @@ def abi_row(args, sp_atom=0, nb=0):
     return row
 
 
+def N(*ts, add=0):
+    """A Nat-affine value: `(atom, coefficient)` terms and a constant."""
+    return ("nat", tuple(sorted(ts)), add)
+
+
+def frame_row(nb=0, sp_atom=0):
+    """`ra`, `sp`, `gp` and the caller's `s0`-`s11` (`abi_row` without arguments)."""
+    return abi_row({}, sp_atom, nb)
+
+
+# `memmove(dst, src, n)` on disjoint ranges: X.n 1 = dst, X.n 2 = src (bases of
+# the current phase), the RAM and tohost bounds of a byte store
+MM_RAM = ["d_lo : 0x8005c6d0 ≤ X.n 1", "s_lo : 0x80000000 ≤ X.n 2",
+          "sp_hi : X.n 0 ≤ 2 ^ 32", "ra : (X.b 0).toNat % 4 = 0"]
+MM_LB = {1: 0x8005c6d0, 2: 0x80000000}
+
+
+def mm_span(k):
+    """The ranges `[dst, dst + k)`, `[src, src + k)`: disjoint, in RAM."""
+    return [f"disj : X.n 1 + {k} ≤ X.n 2 ∨ X.n 2 + {k} ≤ X.n 1",
+            f"d_hi : X.n 1 + {k} ≤ 2 ^ 32", f"s_hi : X.n 2 + {k} ≤ 2 ^ 32",
+            f"s_th : X.n 2 + {k} ≤ 0x8005c6c0 ∨ 0x8005c6c8 ≤ X.n 2"]
+
+
 STDOUT = 0x8005e668
 IMPURE_PTR, IMPURE_DATA = 0x8005d398, 0x8005d1b8
 CALLEE_OK = ["sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
@@ -1605,6 +1713,39 @@ FNS = {
         stops=[0x80032ed0],
         doc="`fflush(stdout)`: `_REENT`'s `CHECK_INIT`, the lock, `__sflush_r`, "
             "the unlock (`__sinit`, `0x80032ed0`, is a stop: `StdioUp.init`)."),
+    # `memmove(dst, src, n)` with `[dst, dst+n)`, `[src, src+n)` disjoint: the
+    # forward copies (bytes; or, both 8-aligned and `n > 31`, 32-byte blocks,
+    # then words, then bytes), each loop a root
+    "memmove": dict(
+        mod="Memmove", entry=0x8003b444,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=MM_RAM + mm_span("X.n 3"), lb=MM_LB,
+        stops=[0x8003b450],
+        loops={
+            # the byte loop: X.n 3 = k bytes, X.n 4 = i done, `a0` = X.b 13
+            0x8003b48c: dict(name="B", row={**frame_row(), 10: ("bv", 13), 11: N((2, 1), (4, 1)),
+                                             13: N((1, 1), (3, 1)), 15: N((1, 1), (4, 1))},
+                             ok=MM_RAM + mm_span("X.n 3") + ["i_lt : X.n 4 < X.n 3"], lb=MM_LB),
+            # the 32-byte blocks: X.n 3 = n, X.n 4 = j done, X.n 5 = q = n / 32
+            0x8003b4c8: dict(name="W32", row={**frame_row(), 10: N((1, 1)), 11: N((2, 1), (4, 32)),
+                                               14: N((1, 1), (4, 32)), 16: N((1, 1), (5, 32)),
+                                               15: N((5, 1), add=-1), 17: N((2, 1)), 12: N((3, 1))},
+                             ok=MM_RAM + mm_span("X.n 3") + [
+                                 "j_lt : X.n 4 < X.n 5", "q_le : 32 * X.n 5 ≤ X.n 3",
+                                 "d_al : X.n 1 % 8 = 0", "s_al : X.n 2 % 8 = 0"],
+                             lb={**MM_LB, 5: 1}),
+            # the words: X.n 1, X.n 2 the phase's bases, X.n 3 = w words,
+            # X.n 4 = i done, X.n 5 = n (`a2`), `a0` = X.b 13
+            0x8003b52c: dict(name="W8", row={**frame_row(), 10: ("bv", 13), 11: N((2, 1), (4, 8)),
+                                              16: N((1, 1), (2, -1)), 14: N((2, 1), (3, 8)),
+                                              28: N((2, 1)), 15: N((1, 1)), 13: N((3, 8), add=-8),
+                                              12: N((5, 1))},
+                             ok=MM_RAM + mm_span("8 * X.n 3") + [
+                                 "i_lt : X.n 4 < X.n 3", "d_al : X.n 1 % 8 = 0",
+                                 "s_al : X.n 2 % 8 = 0"],
+                             lb={**MM_LB, 3: 1})},
+        doc="`memmove(dst, src, n)` on disjoint ranges (the backward copy "
+            "`0x8003b450` is a stop)."),
 }
 
 

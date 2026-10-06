@@ -72,7 +72,7 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          # lane F1-6: htif.c's console write, the bottom of `print`'s stdio chain
          "_write", "_write_r", "__swrite", "__sflush_r",
          # lane F1-8: the stdio calls above it (the callee-context route)
-         "fflush"]
+         "fflush", "memmove"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")
