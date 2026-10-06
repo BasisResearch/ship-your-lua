@@ -196,6 +196,12 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
       (callers_congr hRt.cstack.callers fun a h1 h2 => hdirty a (by
         simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, RuntimeData.spEntry] at h1 ⊢
         omega))
+      (fun a ha => by
+        have := callerLSlots_above a ha
+        rw [bytesT8_congr fun i hi => hdirty _ (by
+          simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, RuntimeData.spEntry] at this ⊢
+          omega)]
+        exact bytesT8_of_rd64 (hRt.callerL a ha))
     exact ⟨ι', hP⟩
 
 /-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at

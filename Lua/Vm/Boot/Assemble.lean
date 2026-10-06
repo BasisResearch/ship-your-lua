@@ -124,7 +124,8 @@ theorem runtimeReadyAt_of_checks {σ : MState} {gprs : List (Nat × BitVec 64)} 
             error_jmp := errorJmpCheck_sound hp hrt.post.errorJmp
             regions := regionsCheck_sound hp hrt.post.regions
             interned := internedCheck_sound hp hrt.post.interned
-            kowned := kownedCheck_sound hp hrt.post.kowned } }
+            kowned := kownedCheck_sound hp hrt.post.kowned }
+        callerL := fun a ha => hv'.reads hrt.callerL (List.mem_map.mpr ⟨a, ha, rfl⟩) }
 
 /-- **The assembly.** The traced registers, an empty console, a tick below 2,
 memory agreeing with the view `bootView chunk runs`, and the passing checks at

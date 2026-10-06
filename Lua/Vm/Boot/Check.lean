@@ -729,6 +729,8 @@ structure RtChecks (v : View) (L ci : Nat) (w : RtPtrs) : Prop where
   kowned : kownedCheck v L ci w = true
   /-- the same structures after `OP_VARARGPREP`'s stores (`RuntimeReadyAt.vararg`) -/
   post : RtPostChecks v L ci w
+  /-- the caller frames' copies of `L` (`RuntimeReadyAt.callerL`) -/
+  callerL : readsOk v (RuntimeData.callerLSlots.map fun a => (a, 8, L)) = true
 
 /-! ## The chunked log check -/
 

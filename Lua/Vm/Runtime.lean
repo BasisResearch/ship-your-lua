@@ -413,6 +413,11 @@ structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
   `l_alloc` blocks of their own, so the stores miss every other object; the
   boot witness checks it at the stored bytes (`postView`). -/
   vararg : RtPostAt (varargMem c.σ.mem ci w) L ci w.vmoved
+  /-- The caller frames' copies of `L` (`RuntimeData.callerLSlots`: `ccall`'s
+  saved `s0`, `luaD_rawrunprotected`'s local): the return chain after
+  `luaV_execute` (`FinalSim`) stores `L->nCcalls`, `L->errorJmp` and
+  `L->errfunc` through them. -/
+  callerL : ∀ a ∈ RuntimeData.callerLSlots, rd64 c.σ.mem a = some L
 
 /-- **`luaRuntimeReady`**: some choice of the program-dependent pointers and
 heap shape makes the runtime ready. -/

@@ -326,7 +326,8 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
     (hrt : RtPostAt m L ci rt) (hfunc : rt.func = func) (hpa : rt.proto = pa)
     (hsp : sp = RuntimeData.spEntry - execFrame)
     (hfits : func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast)
-    (hcall : SegsAt m RuntimeData.callerFrames) :
+    (hcall : SegsAt m RuntimeData.callerFrames)
+    (hcL : ∀ a ∈ RuntimeData.callerLSlots, bytesT8 m a = BitVec.ofNat 64 L) :
     ∃ ι : Strs, RelParts p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩ := by
   have hrg := hrt.regions
   have hlua := hrt.lua
@@ -343,7 +344,7 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
   subst hsp
   refine ⟨⟨ι, KStrIn m rt.k p.k.length⟩, ⟨⟨htext, hro, hpr.proto, hpr.code, fun i ins hf => ?_,
     ?_, ?_, ⟨hfunc, hlua, hrt.heap, hrt.error_jmp⟩, hkι,
-    own_of_kowned hrt.kowned rfl esizek rfl hsle hfits, hcall⟩,
+    own_of_kowned hrt.kowned rfl esizek rfl hsle hfits, hcall, hcL⟩,
     Ranges.of_regions hrg rfl hfunc.symm ecode rfl esz esizek hlua.stack_le hfits⟩⟩
   · obtain ⟨hlt, hi⟩ := List.getElem?_eq_some_iff.1 hf
     rw [bytesT4_of_rd32 (hwords i hlt), hi, BitVec.ofNat_toNat, BitVec.setWidth_eq]
@@ -594,6 +595,7 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
     hM.text hM.rodata ⟨hE.proto, hE.proto_code⟩
     ⟨hRt.heap, hlua, hRt.error_jmp, hrg, hRt.interned, hRt.kowned⟩ efunc.symm epa.symm rfl
     (by rw [← esl]; exact hE.frame_fits) hRt.cstack.callers
+    (fun a ha => bytesT8_of_rd64 (hRt.callerL a ha))
   have hwo : ∀ {m : Mem} {a x : Nat} {d : BitVec (8 * 8)}, x + 8 ≤ a ∨ a + 8 ≤ x →
       bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
     fun h => bytesT8_congr fun _ _ => getElem?_writeMap8_out _ _ _ _ (by omega)

@@ -64,6 +64,8 @@ macro "ret_dirty" : tactic => `(tactic| first
     | exact RetDirty.func (by assumption) | exact RetDirty.savedpc (by assumption)
     | exact RetDirty.nres (by assumption) | exact RetDirty.top (by assumption)
     | exact RetDirty.lci (by assumption)
+    | exact RetDirty.nCcalls (by assumption) | exact RetDirty.errorJmp (by assumption)
+    | exact RetDirty.errfunc (by assumption)
     | (apply RetDirty.below <;> (try simp only [cStackBudget, RuntimeData.spEntry]) <;> omega))
 
 open Lean Elab Tactic Meta in

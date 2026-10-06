@@ -250,6 +250,11 @@ theorem callers_congr {m m' : Mem} (h : SegsAt m RuntimeData.callerFrames)
     SegsAt m' RuntimeData.callerFrames :=
   h.congr fun s hs i hi => have := callerFrames_above s hs; hm _ (by omega) (by omega)
 
+/-- The caller frames' copies of `L` lie in `[spEntry, __stack_top)`. -/
+theorem callerLSlots_above : ∀ a ∈ RuntimeData.callerLSlots,
+    RuntimeData.spEntry ≤ a ∧ a + 8 ≤ 0x88000000 := by
+  decide
+
 /-- **The complement**: what the relation knows about `w.mo`. -/
 structure Complement (p : Proto) (w : RelPtrs) : Prop where
   text : Arms.TextLoaded w.mo
@@ -274,6 +279,9 @@ structure Complement (p : Proto) (w : RelPtrs) : Prop where
   (`ccall`, `luaD_rawrunprotected`, `luaD_pcall`, `lua_pcallk`, `main`) reloads
   its saved registers and locals, and `lj.status`, from them -/
   callers : SegsAt w.mo RuntimeData.callerFrames
+  /-- the caller frames' copies of `L` (`RuntimeReadyAt.callerL`): the return
+  chain's stores to `L->nCcalls`, `L->errorJmp`, `L->errfunc` go through them -/
+  callerL : ∀ a ∈ RuntimeData.callerLSlots, bytesT8 w.mo a = BitVec.ofNat 64 w.L
 
 /-- **Where things are**: the address ranges the arms' side conditions need,
 and the window's separation from the code array and the `CallInfo`. -/

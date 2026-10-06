@@ -271,6 +271,11 @@ def evaluate(lay, M, regs, proto):
                 run = [a, [M.m[a]]]
                 segs.append(run)
     inv["callerFrames"] = [(a, bs) for a, bs in segs]
+    # the caller-frame dwords that hold `L` (`ccall`'s saved `s0`,
+    # `luaD_rawrunprotected`'s `L`): the return chain stores through them
+    inv["callerLSlots"] = [a for a in range(regs[2], stack_top - 7, 8)
+                           if all(M.present(a + i, 1) for i in range(8)) and rd(a, 8) == L]
+    need(len(inv["callerLSlots"]) > 0, "a caller frame holds L")
     # ---- ErrorJmpAt
     lj = rd(L + lay["stateErrorJmpOff"], 8)
     inv["ljAddr"] = lj
@@ -653,6 +658,12 @@ def render_data(lay, inv, names):
         "maximal runs. -/",
         "def callerFrames : List (Nat × List UInt8) :=",
         f"  [{segs}]",
+        "",
+        "/-- The caller-frame dwords that hold `L` (`ccall`'s saved `s0`,",
+        "`luaD_rawrunprotected`'s local `L`): the return chain's `L->nCcalls`,",
+        "`L->errorJmp` and `L->errfunc` stores go through them. -/",
+        "def callerLSlots : List Nat :=",
+        "  [" + ", ".join(f"{a:#x}" for a in inv["callerLSlots"]) + "]",
         "",
         "/-- The saved return addresses of the caller chain `(slot, return address)`,",
         "outermost first (each stored by its callee's prologue `sd ra`). -/",
