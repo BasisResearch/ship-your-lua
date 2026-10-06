@@ -281,4 +281,115 @@ theorem mc_words (sp s n : Nat) (r : BitVec 64) (f : AbiFrame) (M : Mem) (o : Ar
           (fun j hj => hc' j (by omega)) _ (by fcx_unfold; exact h.repin (by pins_of h))
         exact ⟨c2, acc.trans s2, .inr hp⟩
 
+/-! ## The alignment bytes (`0x800360e4`) -/
+
+theorem mc_align (sp s n : Nat) (r : BitVec 64) (f : AbiFrame) (M : Mem) (o : Array String) (hk : McSpan s n)
+    (hsp : sp ≤ 2 ^ 32) (hra : r.toNat % 4 = 0) :
+    ∀ p rem, s ≤ p → p + rem = s + n → NlClear M s (p - s) →
+      Triple (SegSt 0x800360e4#64 (Lua.Vm.AtF.Memchr.r9 (mcCx [sp, p, rem] r f M o))
+          (ArmPay (mcCx [sp, p, rem] r f M o).m (mcCx [sp, p, rem] r f M o).o))
+        (mcPost r sp f M o s n) := by
+  intro p₀ q₀ h1₀ h2₀ hc₀ c₀ h₀
+  have := hk.s_lo; have := hk.s_hi; have := hk.s_th
+  refine seg_loop (S := fun (pq : Nat × Nat) c => s ≤ pq.1 ∧ pq.1 + pq.2 = s + n ∧ NlClear M s (pq.1 - s) ∧
+      SegSt 0x800360e4#64 (Lua.Vm.AtF.Memchr.r9 (mcCx [sp, pq.1, pq.2] r f M o))
+        (ArmPay (mcCx [sp, pq.1, pq.2] r f M o).m (mcCx [sp, pq.1, pq.2] r f M o).o) c)
+    (fun pq => pq.2) (fun ⟨p, rem⟩ c ⟨h1, h2, hc, h⟩ => ?_) (p₀, q₀) c₀ ⟨h1₀, h2₀, hc₀, h₀⟩
+  simp only at h1 h2 hc ⊢
+  have hX : Lua.Vm.AtF.Memchr.Ok_A (mcCx [sp, p, rem] r f M o) := by fcx_ok
+  have acc := Steps.refl c
+  by_cases h0 : rem = 0
+  · fat_run Lua.Vm.AtF.Memchr h acc
+    fcx_unfold at h
+    exact ⟨_, acc, .inr ⟨_, h.repin (by pins_of h), .none (fun j hj => hc j (by omega))⟩⟩
+  have hg := zb_eq (bytesT1 M p)
+  by_cases hb : bytesT1 M p = 0x0a#8
+  · simp only [hb, decide_true] at hg
+    rw [← hb] at hg
+    fat_run Lua.Vm.AtF.Memchr h acc
+    fcx_unfold at h
+    refine ⟨_, acc, .inr ⟨_, h.repin (by pins_of h), ?_⟩⟩
+    have e : p = s + (p - s) := by omega
+    rw [e]; exact .found _ (by omega) (by rw [← e]; exact hb) hc
+  simp only [hb, decide_false] at hg
+  have hc' : NlClear M s (p - s + 1) := hc.snoc (by rwa [show s + (p - s) = p by omega])
+  have hal := al_next p (by omega)
+  have hdec := dec_mod rem (by omega) (by omega)
+  by_cases ha : (p + 1) % 8 = 0
+  · simp only [ha, decide_true, Bool.not_true] at hal
+    have hg2 : zopz0zKzJ_u 0x7#64 (BitVec.ofNat 64 (rem + 18446744073709551615)) = decide (rem - 1 ≤ 7) := by
+      rw [hdec, show (0x7#64 : BitVec 64) = BitVec.ofNat 64 7 from rfl, fuge (by omega) (by omega)]
+    have hg3 : (BitVec.ofNat 64 (rem + 18446744073709551615) == 0x0#64) = decide (rem - 1 = 0) := by
+      rw [hdec, show (0x0#64 : BitVec 64) = BitVec.ofNat 64 0 from rfl, fbeq (by omega) (by omega)]
+    by_cases hr : rem - 1 ≤ 7
+    · simp only [hr, decide_true] at hg2
+      by_cases h1' : rem - 1 = 0
+      · simp only [h1', decide_true] at hg3
+        fat_run Lua.Vm.AtF.Memchr h acc
+        fcx_unfold at h
+        exact ⟨_, acc, .inr ⟨_, h.repin (by pins_of h), .none (fun j hj => hc' j (by omega))⟩⟩
+      · simp only [h1', decide_false] at hg3
+        fat_run Lua.Vm.AtF.Memchr h acc until [0x80036184]
+        fcx_unfold at h
+        obtain ⟨c2, s2, hp⟩ := mc_bytes sp s n r f M o hk hsp hra (p + 1) (by omega) (by omega)
+          (fun j hj => hc' j (by omega)) _ (by fcx_unfold; exact h.repin (by at_pins h))
+        exact ⟨c2, acc.trans s2, .inr hp⟩
+    · simp only [hr, decide_false] at hg2
+      fat_run Lua.Vm.AtF.Memchr h acc until [0x80036148]
+      fcx_unfold at h
+      rw [hdec] at h
+      obtain ⟨c2, s2, hp⟩ := mc_words sp s n r f M o hk hsp hra (p + 1) (rem - 1) (by omega) (by omega)
+        (by omega) ha (fun j hj => hc' j (by omega)) _ (by fcx_unfold; exact h.repin (by pins_of h))
+      exact ⟨c2, acc.trans s2, .inr hp⟩
+  · simp only [ha, decide_false, Bool.not_false] at hal
+    fat_run Lua.Vm.AtF.Memchr h acc until [0x800360e4]
+    fcx_unfold at h
+    rw [hdec] at h
+    refine ⟨_, acc, .inl ⟨(p + 1, rem - 1), by simp only; omega, by simp only; omega, by simp only; omega,
+      fun j hj => hc' j (by simp only at hj; omega), ?_⟩⟩
+    fcx_unfold
+    exact h.repin (by pins_of h)
+
+/-! ## The entry -/
+
+/-- **`memchr(s, '\n', n)`** over a range in RAM off `tohost`: the first
+newline's address or `0`, the memory unchanged. -/
+theorem memchr_nl (sp s n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String) (hk : McSpan s n)
+    (hsp : sp ≤ 2 ^ 32) (hra : r.toNat % 4 = 0) :
+    Triple (SegSt 0x800360d8#64 (callPre [⟨Register.x10, BitVec.ofNat 64 s⟩, ⟨Register.x11, 0xa#64⟩,
+        ⟨Register.x12, BitVec.ofNat 64 n⟩] sp r f) (ArmPay m o))
+      (mcPost r sp f m o s n) := by
+  intro c h
+  have := hk.s_lo; have := hk.s_hi; have := hk.s_th
+  simp only [callPre, List.cons_append, List.nil_append] at h
+  have hX : Lua.Vm.AtF.Memchr.Ok (mcCx [sp, s, n] r f m o) := by fcx_ok
+  have h : SegSt 0x800360d8#64 (Lua.Vm.AtF.Memchr.r0 (mcCx [sp, s, n] r f m o))
+      (ArmPay (mcCx [sp, s, n] r f m o).m (mcCx [sp, s, n] r f m o).o) c := h.repin (by pins_of h)
+  have acc := Steps.refl c
+  have hal := al_at s (by omega)
+  have hc0 : NlClear m s 0 := fun j hj => absurd hj (Nat.not_lt_zero _)
+  by_cases ha : s % 8 = 0
+  · simp only [ha, decide_true] at hal
+    by_cases hn7 : n ≤ 7
+    · by_cases hn0 : n = 0
+      · fat_run Lua.Vm.AtF.Memchr h acc
+        fcx_unfold at h
+        exact ⟨_, acc, _, h.repin (by pins_of h), .none (fun j hj => absurd hj (by omega))⟩
+      · fat_run Lua.Vm.AtF.Memchr h acc until [0x80036184]
+        fcx_unfold at h
+        obtain ⟨c2, s2, hp⟩ := mc_bytes sp s n r f m o hk hsp hra s (Nat.le_refl _) (by omega)
+          (by rw [Nat.sub_self]; exact hc0) _ (by fcx_unfold; exact h.repin (by pins_of h))
+        exact ⟨c2, acc.trans s2, hp⟩
+    · fat_run Lua.Vm.AtF.Memchr h acc until [0x80036148]
+      fcx_unfold at h
+      obtain ⟨c2, s2, hp⟩ := mc_words sp s n r f m o hk hsp hra s n (Nat.le_refl _) rfl (by omega) ha
+        (by rw [Nat.sub_self]; exact hc0) _ (by fcx_unfold; exact h.repin (by pins_of h))
+      exact ⟨c2, acc.trans s2, hp⟩
+  · simp only [ha, decide_false] at hal
+    fat_run Lua.Vm.AtF.Memchr h acc until [0x800360e4]
+    fcx_unfold at h
+    obtain ⟨c2, s2, hp⟩ := mc_align sp s n r f m o hk hsp hra s n (Nat.le_refl _) rfl
+      (by rw [Nat.sub_self]; exact hc0) _ (by fcx_unfold; exact h.repin (by pins_of h))
+    exact ⟨c2, acc.trans s2, hp⟩
+
 end Lua.Vm.Sim.Kit
