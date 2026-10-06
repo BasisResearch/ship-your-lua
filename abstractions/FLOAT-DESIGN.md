@@ -120,90 +120,62 @@ closure `arith_add` (lstrlib) → `tonum` → `lua_stringtonumber` →
 
 ## 1. An IEEE binary64 model that is provable
 
-### Candidates
+This section was revised on 2026-10-06 after Kiran's note (`~/syi-briefs/FLOAT-MODEL-NOTE.md`). Lean v4.34 core ships a transparent IEEE binary64 model, so δ's spec is Lean's own model, not a hand-written rounding spec.
 
-| candidate | finding | verdict |
-|---|---|---|
-| Vendored `riscv-lean` (Sail RV64D → Lean) | `Lean_RV64D/LeanRV64D/RiscvExtras.lean`: `riscv_f64Add`, `riscv_f64Mul`, `riscv_f64Div`, `riscv_f64Lt`, `riscv_i64ToF64`, `riscv_f64ToI64`, … are all **`axiom`**. The executable model defines them as `panic "TODO"`. Sail RISC-V calls Berkeley SoftFloat in C through `extern`, so there is no float spec in Lean. The ELF never runs an F/D instruction, so these would never be used anyway. | no (Law 2: no axioms) |
-| Lean core `Float` | Opaque `extern` operations with no lemmas. Usable only as an `#eval` test oracle through `Float.ofBits`/`toBits` on the host's IEEE hardware. | oracle only |
-| Mathlib | Not a dependency (`lake-manifest.json`: iris, batteries, Qq, ELFSage, Sail, Cli). `Mathlib/Data/FP/Basic.lean` (`FP.Float`, `FP.RMode.NE`) is self-described as incomplete and is not a binary64 bit model [CHECK]. Adding Mathlib to a Lean v4.34 project is a heavy, version-pinned dependency. | no |
-| Lean 4 IEEE libraries (Flocq-style) | No complete Lean 4 port of Flocq that I know of. There are partial Mathlib-based rounding formalisations (I recall a "Flean" project) [CHECK]. The Sail stdlib may now ship Sail-native float operations (`lib/float/*.sail`) that the Lean backend could translate [CHECK]; that would be a bit-level executable spec, useful as a second oracle, not a proof-friendly one. | not now; revisit as oracles |
-| **Write a minimal spec**: round-to-nearest-even of exact dyadic values over `BitVec 64`, with `Nat`/`Int` arithmetic only | Batteries is already a dependency, but we do not need `Rat` at all. Every IEEE result is `round(exact)`, where the exact value is a dyadic `±n·2^e` (add, sub, mul), or a dyadic plus a sticky bit (div: `n₁·2^k / n₂` with remainder ≠ 0). Decimal↔binary is the same with `10^k`. All of it is `Nat.mul/div/mod/pow/shift`, which the kernel evaluates with GMP, so `decide +kernel` works on concrete programs (`bcSem_of_run`). | **recommended** |
+### What core provides
 
-### Recommendation: `Lua/Num/F64.lean`, an exact-rounding spec
+Checked in the pinned toolchain, `Init/Data/Float/Model/`:
 
-One module, ELF-independent, imported by both `Lua.Bytecode.Semantics` and
-`Lua.Ast.Semantics`.
+- **`Float.Model`.** A subtype of `UInt64`, with `unpack`/`pack` to `UnpackedFloat` (`Format.binary64`) and RNE rounding in `Unpacked/Round.lean`. It has:
+  - arithmetic: `add`, `sub`, `mul`, `div`, `sqrt`, `neg`, `abs`;
+  - comparison: `compare : Option Ordering`, `lt`, `le`, `beq`;
+  - construction: `ofBits`, `ofInt`/`ofNat`/`ofInt64`/…, and `ofScientific m e` (the RNE of `m·10^e`);
+  - conversion: `toInt64` (truncate, with NaN ↦ 0, clamped);
+  - classes: `isNaN`, `isInf`, `isFinite`.
+- **Native `Float` is equivalent to it** via `Float.toModel`/`Float.ofModel` (`Init/Data/Float/Float.lean`). So host `Float` is now a fast `#eval` oracle connected to the spec *by a theorem*, not an unconnected opaque.
+- **NaN is canonicalised.** `pack .notANumber = packedNaN` is positive, exponent all ones, quiet bit only: `0x7ff8000000000000`. Sign and payload are not modelled.
+- **No lemma library,** by design. The docstring recommends a separate development proved equal to the model, then transferring lemmas.
+- **Not modelled:** `floor`, `fmod`, `pow` (still `extern` opaques on `Float`), Lua's F2I modes, `%.14g`, and hex-float parsing.
 
-```lean
-namespace Lua.Num
-/-- A binary64 datum is its bits. -/
-abbrev F64 := BitVec 64
+The other candidates stay rejected:
+- the vendored Sail model's float functions are `axiom`s (Law 2);
+- Mathlib is not a dependency;
+- a hand-written spec would be a second, untrusted copy of what core already defines.
 
-/-- What the bits denote. -/
-inductive F64.Cls | nan | inf (neg : Bool) | fin (neg : Bool) (m : Nat) (e : Int)  -- (-1)^neg·m·2^e, m < 2^53
+### Decision
 
-def F64.cls : F64 → F64.Cls
-/-- RNE of (-1)^neg·(n + ε)·2^e, where `sticky` says ε ∈ (0,1). It handles
-subnormals (emin = -1074) and overflow to ±inf. The sign of an exact zero is
-a parameter (IEEE §6.3). -/
-def F64.round (neg : Bool) (n : Nat) (e : Int) (sticky : Bool) : F64
-def F64.add/sub/mul/div : F64 → F64 → F64     -- exact, then `round`; NaN in or invalid ⇒ `F64.qnan`
-def F64.neg (x : F64) : F64 := x ^^^ (1 <<< 63) -- sign flip (Lua's inline `-x`)
-def F64.lt/le/eq : F64 → F64 → Bool            -- IEEE ordered; NaN ⇒ false; -0 = +0
-def F64.ofInt (i : BitVec 64) : F64            -- __floatdidf: RNE of i.toInt
-def F64.truncInt? (x : F64) : Option (BitVec 64) -- __fixdfdi on the range Lua guards
-def F64.floor (x : F64) : F64                  -- exact (roundToIntegral toward −∞)
-def F64.fmod (x y : F64) : F64                 -- exact: x − trunc(x/y)·y computed exactly
-def F64.qnan : F64 := 0x7ff8000000000000#64     -- the ELF's canonical NaN [CHECK: §5 R1]
-```
+1. **δ's spec is `Float.Model`.** `Value.flt` holds a `Float.Model` together with its *sign bit for NaN* (see 4).
+   - `+ − × ÷`, `sqrt`, comparisons, `ofInt`, truncation and decimal rounding (`ofScientific`) are the model's operations, unchanged.
+   - `Lua/Num/Arith.lean` defines Lua's numeric functions on top of it, each a transcription of the cited C. These are the parts core lacks:
+     - `floor`/`ceil`: exact, defined via `unpack`;
+     - `fmod`: exact, as C's `fmod`;
+     - Lua's `luai_nummod`/`luai_numidiv`/`luaV_flttointns` (F2I floor/ceil/exact);
+     - `pow`: newlib's algorithm, transcribed; the only `Host`-like field.
+2. **`Lua/Num/F64.lean` becomes the proof library, not the spec.**
+   - It keeps the exact-dyadic development over `BitVec 64` and `Nat`/`Int`, with `round`, `cls` and the characterisation lemmas (`round_nearest`, `round_mono`, `ofInt_exact`, `lt_iff_exact`, `floor_spec`, `fmod_exact`).
+   - New obligation: **`F64.add_eq_model`** and its siblings, `F64.op x y = (Float.Model.op (ofBits x) (ofBits y)).toBits` on non-NaN inputs, and class-equal on NaN. This is proved once per operation, then lemmas transfer to the model.
+   - The machine proofs (§3, level 2) target F64, then the bridge.
+3. **Host `Float` is the fast oracle.** `#eval` tests compare `Float` (via `toModel`/`ofModel`) with `F64` on about 10⁶ vectors. Agreement is evidence for the bridge theorems before they are proved, and it is now *about the same definitions*.
+4. **NaN is class-only, with the sign stated explicitly in δ.**
+   - Comparisons and arithmetic treat NaN by class, as the model does.
+   - Lua observes a NaN's sign only when it is printed (newlib prints `-nan`/`nan` [CHECK on Sail]) and through `math` functions outside F1. So `Value.flt` carries `(m : Float.Model, nanNeg : Bool)`, and δ states:
+     - **arithmetic producing NaN** gives the canonical positive NaN. libgcc's RISC-V soft-fp returns a canonical NaN with no payload propagation [CHECK in the ELF: `0/0` on Sail], which matches the model's `packedNaN`;
+     - **`neg`/UNM is a raw sign flip** (Lua's `luai_numunm` is `-(a)`; check whether the ELF uses `xor` of bit 63 or `__negdf2`), so `-(0/0)` has `nanNeg = true`;
+     - **printing** uses `nanNeg` for `-nan`/`nan`.
 
-`Lua/Num/Decimal.lean` holds the decimal side:
+   This is the one place δ goes beyond the model, and it is stated as such.
+5. **Decimal side** (`Lua/Num/Decimal.lean`, unchanged in scope):
+   - `str2d` uses `Float.Model.ofScientific` for the decimal rounding, so `strtod`'s correct rounding is the model's;
+   - hex floats (`lua_strx2number`) need a separate exact rounding of `m·2^e`;
+   - `%.14g` (`dec14`, `fmtG14`) and `tostringbuff` are defined over the model's unpacked value.
 
-* `F64.ofDecimal (neg) (d : Nat) (e : Int)` and `F64.ofHex (neg) (m : Nat)
-  (e : Int)`: RNE of `d·10^e` and `m·2^e`. When `|e|` exceeds a bound
-  (`e + digits d > 310` → ±inf; `< −343` → ±0), the result saturates
-  without computing `10^|e|`, so that `decide +kernel` never builds
-  `10^999999999`.
-* `str2d : List UInt8 → Option F64`: the grammar `strtod` accepts (spaces,
-  sign, decimal or `0x` hex mantissa, optional `e`/`p` exponent), with the
-  `strpbrk(".xXnN")` mode rule of `l_str2d`, trailing spaces, and nothing
-  else.
-* `dec14 : F64 → (Bool × Nat × Int)`: the correctly rounded 14-significant-
-  digit decimal (RNE on exact ties) of a finite nonzero value. `fmtG14`
-  turns it into C99 `%.14g`: exponent `X`; `%e` style if `X < −4 ∨ X ≥ 14`,
-  else `%f`; trailing zeros and a bare `.` stripped; exponent sign always
-  printed, at least 2 digits. `inf`/`-inf`/`nan`, with NaN sign [CHECK
-  newlib].
-* `tostringbuff : F64 → List UInt8`: `fmtG14`, then `.0` appended when every
-  byte is in `-0123456789`.
+**Effort (revised estimate).**
+- The spec side shrinks: no rounding spec to write or validate. What is left is `Arith.lean` (floor, fmod, F2I, pow) and `Decimal.lean`, about 600–900 lines.
+- `F64.lean` becomes a proof library plus the bridge theorems, about 900–1,300 lines. It is needed by the machine proofs, not by δ, so it is off the semantics' critical path.
 
-**Characterisation lemmas.** These are written once and used by both the
-machine proofs and the metatheory:
-* `round_nearest`: `round` returns a representable value within half an
-  ulp, with ties to even;
-* `round_mono`;
-* `ofInt_exact` for `|i| ≤ 2^53`;
-* `floor_spec`, `fmod_exact`;
-* `lt_iff_exact`: on finite values, `lt` is the order on exact values.
-
-They need only `Nat`/`Int` and `omega`, never Mathlib.
-
-**Validation of the spec (evidence, not proof).** `scripts/test_f64.lean`
-(`#eval`, outside the proof build) compares
-`F64.add/sub/mul/div/ofInt/lt/le/eq/floor` against Lean's host `Float` via
-`Float.ofBits` on about 10⁶ random and edge vectors: classes, subnormal
-boundaries, ties, `±0`, overflow. NaN results are compared by class only.
-`fmtG14` and `str2d` are compared against host `lua` on the corpus
-generator's vectors, and against the ELF on the Sail emulator (§3, the
-validation harness), which is the only oracle for NaN sign.
-
-**Effort (estimate).**
-* `F64.lean` + `Decimal.lean`: about 900–1,300 lines; 2 lanes of about 3–5
-  agent-days, which can run in parallel (binary ops / decimal).
-* Characterisation lemmas: 1–2 lanes of about 5 days. Only the machine-proof
-  route (§3 level 2) needs them, so they are not on the semantics' critical
-  path.
+**Impact on the lanes in flight.**
+- S0a (`F64.lean`) is re-scoped to "proof library + bridge to `Float.Model`".
+- S0b (`Decimal.lean`) uses `ofScientific` for decimal rounding.
 
 ---
 
@@ -511,7 +483,7 @@ now.
 
 | # | risk | mitigation |
 |---|---|---|
-| R1 | **NaN bits and rounding mode.** Expected: RISC-V libgcc soft-fp without `__riscv_flen` uses a fixed round-to-nearest mode and a canonical NaN `0x7ff8000000000000` (sign 0, `_FP_KEEPNANFRACP 0`) [CHECK `libgcc/config/riscv/sfp-machine.h`]. A wrong `F64.qnan` makes every NaN-producing program's print wrong. | read the header; run `print(0/0, -(0/0), 1%0.0)` on the ELF (Sail); the host prints `-nan nan -nan` and is not an oracle |
+| R1 | **NaN bits and rounding mode.** Expected: RISC-V libgcc soft-fp without `__riscv_flen` uses a fixed round-to-nearest mode and a canonical NaN `0x7ff8000000000000` (sign 0, `_FP_KEEPNANFRACP 0`) [CHECK `libgcc/config/riscv/sfp-machine.h`]. It must equal `Float.Model`'s `packedNaN` (positive) for δ's "arithmetic NaN is canonical" rule; a mismatch makes every NaN-producing program's print wrong. | read the header; run `print(0/0, -(0/0), 1%0.0)` on the ELF (Sail); the host prints `-nan nan -nan` and is not an oracle |
 | R2 | newlib `%g` of NaN: whether `_svfprintf_r` prints a sign for a negative NaN (`-(0/0)`) [CHECK] | same ELF probe; `fmtG14` follows the ELF |
 | R3 | `_dtoa_r` mode 2: RNE on exact ties, and `try_quick` applying at `ndigits = 14` (`Quick_max = 14`) [CHECK newlib `mprec`/`dtoa.c` 4.5.0] | test vector `100000000000000.5` → `1e+14` |
 | R4 | newlib `_strtod_l` correctly rounded for every input (long mantissas, subnormals, hex with more than 53 bits) [CHECK; I recall historical newlib `strtod` rounding bugs] | harness: random 17–40-digit decimals vs `str2d`; any mismatch is a finding, and the spec follows the ELF only after review |
