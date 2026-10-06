@@ -33,6 +33,8 @@ import Lua.Vm.Sim.Kit.Sflush
 import Lua.Vm.Sim.Kit.CallSpec
 import Lua.Vm.Sim.Kit.AtGettabup
 import Lua.Vm.Sim.Kit.Fflush
+import Lua.Vm.Sim.Kit.Memmove
+import Lua.Vm.Sim.Kit.Memchr
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
