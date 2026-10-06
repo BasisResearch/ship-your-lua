@@ -16,11 +16,12 @@ Roots (a fresh context each):
 * `0x80033e4c` from `r5`
 * `0x80033e4c` from `r7`
 * `0x80033db0` from `r18`
-* `0x80033f94` from `r21`
-* `0x80033ea4` from `r24`
-* `0x80033df4` from `r37`
-* `0x80033e68` from `r49`
-* `0x80033e80` from `r51`
+* `0x80033dbc` from `r21`
+* `0x80033f94` from `r24`
+* `0x80033ea4` from `r27`
+* `0x80033df4` from `r40`
+* `0x80033e68` from `r51`
+* `0x80033e80` from `r53`
 
 Ends:
 
@@ -30,24 +31,23 @@ Ends:
 * loop 0x80033db0: `r8`, memory `X.m`
 * call 0x800360d8: `r17`, memory `X.m`
 * loop 0x80033db0: `r16`, memory `X.m`
-* call 0x8003b444: `r20`, memory `X.m`
-* call 0x80032954: `r23`, memory `(m3 X)`
+* loop 0x80033dbc: `r19`, memory `X.m`
+* loop 0x80033dbc: `r20`, memory `X.m`
+* call 0x8003b444: `r23`, memory `X.m`
+* call 0x80032954: `r26`, memory `(m3 X)`
 * return: `r2`, memory `(m4 X)`
-* loop 0x80033dac: `r28`, memory `(m4 X)`
+* loop 0x80033dac: `r31`, memory `(m4 X)`
 * return: `r2`, memory `(m5 X)`
-* loop 0x80033dac: `r33`, memory `(m5 X)`
-* call 0x80034f18: `r36`, memory `X.m`
-* call 0x80032954: `r39`, memory `X.m`
+* loop 0x80033dac: `r36`, memory `(m5 X)`
+* call 0x80034f18: `r39`, memory `X.m`
+* call 0x80032954: `r42`, memory `X.m`
 * return: `r2`, memory `(m6 X)`
-* loop 0x80033dac: `r44`, memory `(m6 X)`
-* call 0x8003b444: `r48`, memory `X.m`
-* call 0x80032954: `r50`, memory `(m7 X)`
+* loop 0x80033dac: `r47`, memory `(m6 X)`
+* call 0x8003b444: `r50`, memory `X.m`
+* call 0x80032954: `r52`, memory `(m7 X)`
 * return: `r2`, memory `(m8 X)`
-* loop 0x80033dac: `r56`, memory `(m8 X)`
-* call 0x80032954: `r57`, memory `X.m`
-* call 0x8003b444: `r59`, memory `X.m`
-* call 0x80034f18: `r62`, memory `X.m`
-* call 0x8003b444: `r65`, memory `X.m`
+* loop 0x80033dac: `r58`, memory `(m8 X)`
+* call 0x80032954: `r59`, memory `X.m`
 
 Paths not followed:
 
@@ -97,6 +97,18 @@ structure Ok_L (X : FCx) : Prop where
 
 /-- The context's facts at the root `Ok_D` stands for. -/
 structure Ok_D (X : FCx) : Prop where
+  sp_lo : 0x8005e720 + 96 ≤ X.n 0
+  sp_hi : X.n 0 ≤ 2 ^ 32
+  sp_al : X.n 0 % 16 = 0
+  ra : (X.b 0).toNat % 4 = 0
+  i_ge : X.n 0 ≤ X.n 2
+  i_u : X.n 2 + 16 ≤ X.n 1
+  u_hi : X.n 1 + 24 ≤ 2 ^ 32
+  u_al : X.n 1 % 8 = 0
+  i_al : X.n 2 % 8 = 0
+
+/-- The context's facts at the root `Ok_S` stands for. -/
+structure Ok_S (X : FCx) : Prop where
   sp_lo : 0x8005e720 + 96 ≤ X.n 0
   sp_hi : X.n 0 ≤ 2 ^ 32
   sp_al : X.n 0 % 16 = 0
@@ -485,13 +497,11 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
-   ⟨Register.x13, 0x400#64⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x18, X.b 15⟩,
    ⟨Register.x19, BitVec.ofNat 64 (X.n 8)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
+   ⟨Register.x22, X.b 17⟩,
    ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
    ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
    ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
@@ -499,16 +509,46 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x27, X.b 12⟩]
 
 @[at_row] abbrev r20 (X : FCx) : List Pin :=
-  [⟨Register.x1, 0x80033f94#64⟩,
-   ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x8, 0x8005e668#64⟩,
+   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
+   ⟨Register.x18, X.b 15⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
+   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
+   ⟨Register.x21, 0x8005d1b8#64⟩,
+   ⟨Register.x22, X.b 17⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
+   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
+   ⟨Register.x26, X.b 11⟩,
+   ⟨Register.x27, X.b 12⟩]
+
+@[at_row] abbrev r21 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x8, 0x8005e668#64⟩,
+   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
+   ⟨Register.x18, X.b 15⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
+   ⟨Register.x21, 0x8005d1b8#64⟩,
+   ⟨Register.x22, X.b 17⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
+   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
+   ⟨Register.x26, X.b 11⟩,
+   ⟨Register.x27, X.b 12⟩]
+
+@[at_row] abbrev r22 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
    ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
-   ⟨Register.x11, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x12, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x13, 0x400#64⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 10)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
    ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
@@ -518,7 +558,27 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r21 (X : FCx) : List Pin :=
+@[at_row] abbrev r23 (X : FCx) : List Pin :=
+  [⟨Register.x1, 0x80033f94#64⟩,
+   ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x8, 0x8005e668#64⟩,
+   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
+   ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
+   ⟨Register.x11, BitVec.ofNat 64 (X.n 9)⟩,
+   ⟨Register.x12, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
+   ⟨Register.x21, 0x8005d1b8#64⟩,
+   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
+   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
+   ⟨Register.x26, X.b 11⟩,
+   ⟨Register.x27, X.b 12⟩]
+
+@[at_row] abbrev r24 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -534,7 +594,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r22 (X : FCx) : List Pin :=
+@[at_row] abbrev r25 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -551,7 +611,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r23 (X : FCx) : List Pin :=
+@[at_row] abbrev r26 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80033ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -570,63 +630,12 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r24 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, 0x0#64⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 32)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 33)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, BitVec.ofNat 64 (X.n 34)⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 35)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 36)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 37)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r25 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 32)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 33)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, BitVec.ofNat 64 (X.n 34)⟩,
-   ⟨Register.x23, X.b 8⟩,
-   ⟨Register.x24, X.b 9⟩,
-   ⟨Register.x25, X.b 10⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r26 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x15, ((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 32)))⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 32)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 33)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, BitVec.ofNat 64 (X.n 34)⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 35)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 36)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 37)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
 @[at_row] abbrev r27 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
    ⟨Register.x10, 0x0#64⟩,
-   ⟨Register.x15, ((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 32)))⟩,
    ⟨Register.x18, BitVec.ofNat 64 (X.n 32)⟩,
    ⟨Register.x19, BitVec.ofNat 64 (X.n 33)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
@@ -643,6 +652,57 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 32)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 33)⟩,
+   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
+   ⟨Register.x21, 0x8005d1b8#64⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 34)⟩,
+   ⟨Register.x23, X.b 8⟩,
+   ⟨Register.x24, X.b 9⟩,
+   ⟨Register.x25, X.b 10⟩,
+   ⟨Register.x26, X.b 11⟩,
+   ⟨Register.x27, X.b 12⟩]
+
+@[at_row] abbrev r29 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x8, 0x8005e668#64⟩,
+   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
+   ⟨Register.x15, ((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 32)))⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 32)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 33)⟩,
+   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
+   ⟨Register.x21, 0x8005d1b8#64⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 34)⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 35)⟩,
+   ⟨Register.x24, BitVec.ofNat 64 (X.n 36)⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 37)⟩,
+   ⟨Register.x26, X.b 11⟩,
+   ⟨Register.x27, X.b 12⟩]
+
+@[at_row] abbrev r30 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x8, 0x8005e668#64⟩,
+   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
+   ⟨Register.x10, 0x0#64⟩,
+   ⟨Register.x15, ((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 32)))⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 32)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 33)⟩,
+   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
+   ⟨Register.x21, 0x8005d1b8#64⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 34)⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 35)⟩,
+   ⟨Register.x24, BitVec.ofNat 64 (X.n 36)⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 37)⟩,
+   ⟨Register.x26, X.b 11⟩,
+   ⟨Register.x27, X.b 12⟩]
+
+@[at_row] abbrev r31 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x8, 0x8005e668#64⟩,
+   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
    ⟨Register.x10, 0x0#64⟩,
    ⟨Register.x18, BitVec.ofNat 64 (X.n 32)⟩,
    ⟨Register.x19, BitVec.ofNat 64 (X.n 33)⟩,
@@ -655,7 +715,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r29 (X : FCx) : List Pin :=
+@[at_row] abbrev r32 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -673,7 +733,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r30 (X : FCx) : List Pin :=
+@[at_row] abbrev r33 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -689,7 +749,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r31 (X : FCx) : List Pin :=
+@[at_row] abbrev r34 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -706,7 +766,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r32 (X : FCx) : List Pin :=
+@[at_row] abbrev r35 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -724,7 +784,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r33 (X : FCx) : List Pin :=
+@[at_row] abbrev r36 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -741,7 +801,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r34 (X : FCx) : List Pin :=
+@[at_row] abbrev r37 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -749,8 +809,8 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
    ⟨Register.x13, 0x400#64⟩,
    ⟨Register.x15, bytesT8 X.m (0x8005e680)⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 10)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
    ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
@@ -760,14 +820,14 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r35 (X : FCx) : List Pin :=
+@[at_row] abbrev r38 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
    ⟨Register.x13, 0x400#64⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 10)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
    ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
@@ -777,7 +837,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r36 (X : FCx) : List Pin :=
+@[at_row] abbrev r39 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80033df4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -787,8 +847,8 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x11, 0x8005e668#64⟩,
    ⟨Register.x12, BitVec.ofNat 64 (X.n 9)⟩,
    ⟨Register.x15, 0x80034f18#64⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 10)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
    ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
@@ -798,7 +858,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r37 (X : FCx) : List Pin :=
+@[at_row] abbrev r40 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -815,7 +875,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r38 (X : FCx) : List Pin :=
+@[at_row] abbrev r41 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -832,7 +892,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r39 (X : FCx) : List Pin :=
+@[at_row] abbrev r42 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80033ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -851,7 +911,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r40 (X : FCx) : List Pin :=
+@[at_row] abbrev r43 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -868,7 +928,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r41 (X : FCx) : List Pin :=
+@[at_row] abbrev r44 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -884,7 +944,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r42 (X : FCx) : List Pin :=
+@[at_row] abbrev r45 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -901,7 +961,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r43 (X : FCx) : List Pin :=
+@[at_row] abbrev r46 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -919,7 +979,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r44 (X : FCx) : List Pin :=
+@[at_row] abbrev r47 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -936,7 +996,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r45 (X : FCx) : List Pin :=
+@[at_row] abbrev r48 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -953,30 +1013,14 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r46 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x18, X.b 15⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, X.b 17⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r47 (X : FCx) : List Pin :=
+@[at_row] abbrev r49 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
    ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 10)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
    ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
@@ -986,7 +1030,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r48 (X : FCx) : List Pin :=
+@[at_row] abbrev r50 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80033e68#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -995,8 +1039,8 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
    ⟨Register.x11, BitVec.ofNat 64 (X.n 9)⟩,
    ⟨Register.x12, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 8)⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 10)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 10)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
    ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
@@ -1006,7 +1050,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r49 (X : FCx) : List Pin :=
+@[at_row] abbrev r51 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -1022,7 +1066,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r50 (X : FCx) : List Pin :=
+@[at_row] abbrev r52 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80033e80#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -1042,7 +1086,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r51 (X : FCx) : List Pin :=
+@[at_row] abbrev r53 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -1059,7 +1103,7 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r52 (X : FCx) : List Pin :=
+@[at_row] abbrev r54 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
@@ -1075,46 +1119,11 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r53 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x15, ((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 52)))⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 52)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 52)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, BitVec.ofNat 64 (X.n 52)⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 53)⟩,
-   ⟨Register.x24, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0)))⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 55)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r54 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, 0x1#64⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 52)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 52)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, BitVec.ofNat 64 (X.n 52)⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 53)⟩,
-   ⟨Register.x24, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0)))⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 55)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
 @[at_row] abbrev r55 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, 0x1#64⟩,
    ⟨Register.x15, ((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 52)))⟩,
    ⟨Register.x18, BitVec.ofNat 64 (X.n 52)⟩,
    ⟨Register.x19, BitVec.ofNat 64 (X.n 52)⟩,
@@ -1138,20 +1147,19 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
    ⟨Register.x22, BitVec.ofNat 64 (X.n 52)⟩,
-   ⟨Register.x23, (BitVec.ofNat 64 (X.n 53) - BitVec.ofNat 64 (X.n 52))⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 53)⟩,
    ⟨Register.x24, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0)))⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 52 + X.n 55)⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 55)⟩,
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
 @[at_row] abbrev r57 (X : FCx) : List Pin :=
-  [⟨Register.x1, 0x80033ea4#64⟩,
-   ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, 0x8005d1b8#64⟩,
-   ⟨Register.x11, 0x8005e668#64⟩,
+   ⟨Register.x10, 0x1#64⟩,
+   ⟨Register.x15, ((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 52)))⟩,
    ⟨Register.x18, BitVec.ofNat 64 (X.n 52)⟩,
    ⟨Register.x19, BitVec.ofNat 64 (X.n 52)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
@@ -1168,146 +1176,34 @@ structure Ok_D (X : FCx) : Prop where
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
-   ⟨Register.x13, 0x400#64⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
+   ⟨Register.x10, 0x1#64⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 52)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 52)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 52)⟩,
+   ⟨Register.x23, (BitVec.ofNat 64 (X.n 53) - BitVec.ofNat 64 (X.n 52))⟩,
+   ⟨Register.x24, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0)))⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 52 + X.n 55)⟩,
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
 @[at_row] abbrev r59 (X : FCx) : List Pin :=
-  [⟨Register.x1, 0x80033f94#64⟩,
-   ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
-   ⟨Register.x11, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x12, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r60 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
-   ⟨Register.x13, 0x400#64⟩,
-   ⟨Register.x15, bytesT8 X.m (0x8005e680)⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r61 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x13, 0x400#64⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r62 (X : FCx) : List Pin :=
-  [⟨Register.x1, 0x80033df4#64⟩,
+  [⟨Register.x1, 0x80033ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005e668#64⟩,
    ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
    ⟨Register.x10, 0x8005d1b8#64⟩,
    ⟨Register.x11, 0x8005e668#64⟩,
-   ⟨Register.x12, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x15, 0x80034f18#64⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
+   ⟨Register.x18, BitVec.ofNat 64 (X.n 52)⟩,
+   ⟨Register.x19, BitVec.ofNat 64 (X.n 52)⟩,
    ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r63 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x18, X.b 15⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, X.b 17⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r64 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x26, X.b 11⟩,
-   ⟨Register.x27, X.b 12⟩]
-
-@[at_row] abbrev r65 (X : FCx) : List Pin :=
-  [⟨Register.x1, 0x80033e68#64⟩,
-   ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005e668#64⟩,
-   ⟨Register.x9, BitVec.ofNat 64 (X.n 2 + 16)⟩,
-   ⟨Register.x10, bytesT8 X.m (0x8005e668)⟩,
-   ⟨Register.x11, BitVec.ofNat 64 (X.n 9)⟩,
-   ⟨Register.x12, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x18, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x19, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x20, BitVec.ofNat 64 (X.n 1)⟩,
-   ⟨Register.x21, 0x8005d1b8#64⟩,
-   ⟨Register.x22, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 7)⟩,
-   ⟨Register.x24, BitVec.ofNat 64 (X.n 8)⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 9)⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 52)⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 53)⟩,
+   ⟨Register.x24, (sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0)))⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 55)⟩,
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
@@ -1491,531 +1387,18 @@ theorem at_80033dac_80033db0_n (X : FCx) (hX : Ok_L X) (hg_1 : (X.b 14 == 0x0#64
   fat_seg Lua.Vm.Arms.seg_80033dac_80033db0_n
   fat_close
 
-theorem at_80033f88_80033f94 (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) :
-    Triple (SegSt 0x80033f88#64 (r19 X) (ArmPay X.m X.o))
-      (SegSt (0x8003b444#64) (r20 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033f88_80033f94
-  fat_close
-
-theorem at_80033e98_80033ea4 (X : FCx) (hX : Ok_D X) :
-    Triple (SegSt 0x80033e98#64 (r22 X) (ArmPay (m3 X) X.o))
-      (SegSt (0x80032954#64) (r23 X) (ArmPay (m3 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e98_80033ea4
-  fat_close
-
-theorem at_80033c00_80033c2c (X : FCx) (hX : Ok_D X) (hc9 : bytesT8 X.m (X.n 0 - 24) = X.b 2) (hc10 : bytesT8 X.m (X.n 0 - 32) = X.b 3) (hc11 : bytesT8 X.m (X.n 0 - 40) = X.b 4) (hc12 : bytesT8 X.m (X.n 0 - 64) = X.b 7) (hc13 : bytesT8 X.m (X.n 0 - 8) = X.b 0) (hc14 : bytesT8 X.m (X.n 0 - 16) = X.b 1) (hc15 : bytesT8 X.m (X.n 0 - 48) = X.b 5) (hc16 : bytesT8 X.m (X.n 0 - 56) = X.b 6) :
-    Triple (SegSt 0x80033c00#64 (r25 X) (ArmPay (m4 X) X.o))
-      (SegSt (X.b 0) (r2 X) (ArmPay (m4 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033c00_80033c2c
-  fat_close
-
-theorem at_80033ff8_80034008 (X : FCx) (hX : Ok_D X) (hc6 : bytesT8 X.m (X.n 0 - 72) = X.b 8) (hc7 : bytesT8 X.m (X.n 0 - 80) = X.b 9) (hc8 : bytesT8 X.m (X.n 0 - 88) = X.b 10) :
-    Triple (SegSt 0x80033ff8#64 (r26 X) (ArmPay (m4 X) X.o))
-      (SegSt (0x80033c00#64) (r25 X) (ArmPay (m4 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ff8_80034008
-  fat_close
-
-theorem at_80033e0c_80033e1c_t (X : FCx) (hX : Ok_D X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 32))) == (0#64)) = true) :
-    Triple (SegSt 0x80033e0c#64 (r24 X) (ArmPay X.m X.o))
-      (SegSt (0x80033ff8#64) (r26 X) (ArmPay (m4 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_t
-  fat_close
-
-theorem at_80033e1c_80033e28_t (X : FCx) (hX : Ok_D X) (hg_3 : ((BitVec.ofNat 64 (X.n 35) - BitVec.ofNat 64 (X.n 32)) != 0x0#64) = true) :
-    Triple (SegSt 0x80033e1c#64 (r27 X) (ArmPay (m4 X) X.o))
-      (SegSt (0x80033dac#64) (r28 X) (ArmPay (m4 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e1c_80033e28_t
-  fat_close
-
-theorem at_80033e0c_80033e1c_n (X : FCx) (hX : Ok_D X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 32))) == (0#64)) = false) :
-    Triple (SegSt 0x80033e0c#64 (r24 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e1c#64) (r27 X) (ArmPay (m4 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_n
-  fat_close
-
-theorem at_80033ea4_80033ea8_t (X : FCx) (hX : Ok_D X) :
-    Triple (SegSt 0x80033ea4#64 (r24 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e0c#64) (r24 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ea4_80033ea8_t
-  fat_close
-
-theorem at_80033e00_80033e0c_t (X : FCx) (hX : Ok_D X) (hg_3 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 30)) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 27)) 31 0))) == (0#64)) = true) :
-    Triple (SegSt 0x80033e00#64 (r29 X) (ArmPay (m3 X) X.o))
-      (SegSt (0x80033e98#64) (r22 X) (ArmPay (m3 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e00_80033e0c_t
-  fat_close
-
-theorem at_80033c00_80033c2c_1 (X : FCx) (hX : Ok_D X) (hc9 : bytesT8 X.m (X.n 0 - 24) = X.b 2) (hc10 : bytesT8 X.m (X.n 0 - 32) = X.b 3) (hc11 : bytesT8 X.m (X.n 0 - 40) = X.b 4) (hc12 : bytesT8 X.m (X.n 0 - 64) = X.b 7) (hc13 : bytesT8 X.m (X.n 0 - 8) = X.b 0) (hc14 : bytesT8 X.m (X.n 0 - 16) = X.b 1) (hc15 : bytesT8 X.m (X.n 0 - 48) = X.b 5) (hc16 : bytesT8 X.m (X.n 0 - 56) = X.b 6) :
-    Triple (SegSt 0x80033c00#64 (r30 X) (ArmPay (m5 X) X.o))
-      (SegSt (X.b 0) (r2 X) (ArmPay (m5 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033c00_80033c2c
-  fat_close
-
-theorem at_80033ff8_80034008_1 (X : FCx) (hX : Ok_D X) (hc6 : bytesT8 X.m (X.n 0 - 72) = X.b 8) (hc7 : bytesT8 X.m (X.n 0 - 80) = X.b 9) (hc8 : bytesT8 X.m (X.n 0 - 88) = X.b 10) :
-    Triple (SegSt 0x80033ff8#64 (r31 X) (ArmPay (m5 X) X.o))
-      (SegSt (0x80033c00#64) (r30 X) (ArmPay (m5 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ff8_80034008
-  fat_close
-
-theorem at_80033e0c_80033e1c_t_1 (X : FCx) (hX : Ok_D X) (hg_4 : (((sign_extend (m := 64) (bytesT8 ((m3 X)) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 26))) == (0#64)) = true) :
-    Triple (SegSt 0x80033e0c#64 (r22 X) (ArmPay (m3 X) X.o))
-      (SegSt (0x80033ff8#64) (r31 X) (ArmPay (m5 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_t
-  fat_close
-
-theorem at_80033e1c_80033e28_t_1 (X : FCx) (hX : Ok_D X) (hg_3 : ((BitVec.ofNat 64 (X.n 29) - BitVec.ofNat 64 (X.n 26)) != 0x0#64) = true) :
-    Triple (SegSt 0x80033e1c#64 (r32 X) (ArmPay (m5 X) X.o))
-      (SegSt (0x80033dac#64) (r33 X) (ArmPay (m5 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e1c_80033e28_t
-  fat_close
-
-theorem at_80033e0c_80033e1c_n_1 (X : FCx) (hX : Ok_D X) (hg_4 : (((sign_extend (m := 64) (bytesT8 ((m3 X)) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 26))) == (0#64)) = false) :
-    Triple (SegSt 0x80033e0c#64 (r22 X) (ArmPay (m3 X) X.o))
-      (SegSt (0x80033e1c#64) (r32 X) (ArmPay (m5 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_n
-  fat_close
-
-theorem at_80033e00_80033e0c_n (X : FCx) (hX : Ok_D X) (hg_3 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 30)) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 27)) 31 0))) == (0#64)) = false) :
-    Triple (SegSt 0x80033e00#64 (r29 X) (ArmPay (m3 X) X.o))
-      (SegSt (0x80033e0c#64) (r22 X) (ArmPay (m3 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e00_80033e0c_n
-  fat_close
-
-theorem at_80033f94_80033fb0 (X : FCx) (hX : Ok_D X) :
-    Triple (SegSt 0x80033f94#64 (r21 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e00#64) (r29 X) (ArmPay (m3 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033f94_80033fb0
-  fat_close
-
-theorem at_80033ddc_80033de0_t (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 8)) (0x400#64) = true) :
-    Triple (SegSt 0x80033ddc#64 (r34 X) (ArmPay X.m X.o))
-      (SegSt (0x80033f88#64) (r19 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_t
-  fat_close
-
-theorem at_80033de0_80033df4 (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hc17 : bytesT8 X.m 0x8005e6a8 = 0x80034f18#64) (hc18 : bytesT8 X.m 0x8005e698 = 0x8005e668#64) :
-    Triple (SegSt 0x80033de0#64 (r35 X) (ArmPay X.m X.o))
-      (SegSt (0x80034f18#64) (r36 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033de0_80033df4
-  fat_close
-
-theorem at_80033e98_80033ea4_1 (X : FCx) (hX : Ok_D X) :
-    Triple (SegSt 0x80033e98#64 (r38 X) (ArmPay X.m X.o))
-      (SegSt (0x80032954#64) (r39 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e98_80033ea4
-  fat_close
-
-theorem at_80033e00_80033e0c_t_1 (X : FCx) (hX : Ok_D X) (hg_3 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 42)) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 5)) 31 0))) == (0#64)) = true) :
-    Triple (SegSt 0x80033e00#64 (r40 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e98#64) (r38 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e00_80033e0c_t
-  fat_close
-
-theorem at_80033c00_80033c2c_2 (X : FCx) (hX : Ok_D X) (hc9 : bytesT8 X.m (X.n 0 - 24) = X.b 2) (hc10 : bytesT8 X.m (X.n 0 - 32) = X.b 3) (hc11 : bytesT8 X.m (X.n 0 - 40) = X.b 4) (hc12 : bytesT8 X.m (X.n 0 - 64) = X.b 7) (hc13 : bytesT8 X.m (X.n 0 - 8) = X.b 0) (hc14 : bytesT8 X.m (X.n 0 - 16) = X.b 1) (hc15 : bytesT8 X.m (X.n 0 - 48) = X.b 5) (hc16 : bytesT8 X.m (X.n 0 - 56) = X.b 6) :
-    Triple (SegSt 0x80033c00#64 (r41 X) (ArmPay (m6 X) X.o))
-      (SegSt (X.b 0) (r2 X) (ArmPay (m6 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033c00_80033c2c
-  fat_close
-
-theorem at_80033ff8_80034008_2 (X : FCx) (hX : Ok_D X) (hc6 : bytesT8 X.m (X.n 0 - 72) = X.b 8) (hc7 : bytesT8 X.m (X.n 0 - 80) = X.b 9) (hc8 : bytesT8 X.m (X.n 0 - 88) = X.b 10) :
-    Triple (SegSt 0x80033ff8#64 (r42 X) (ArmPay (m6 X) X.o))
-      (SegSt (0x80033c00#64) (r41 X) (ArmPay (m6 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ff8_80034008
-  fat_close
-
-theorem at_80033e0c_80033e1c_t_2 (X : FCx) (hX : Ok_D X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 5))) == (0#64)) = true) :
-    Triple (SegSt 0x80033e0c#64 (r38 X) (ArmPay X.m X.o))
-      (SegSt (0x80033ff8#64) (r42 X) (ArmPay (m6 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_t
-  fat_close
-
-theorem at_80033e1c_80033e28_t_2 (X : FCx) (hX : Ok_D X) (hg_3 : ((BitVec.ofNat 64 (X.n 41) - BitVec.ofNat 64 (X.n 5)) != 0x0#64) = true) :
-    Triple (SegSt 0x80033e1c#64 (r43 X) (ArmPay (m6 X) X.o))
-      (SegSt (0x80033dac#64) (r44 X) (ArmPay (m6 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e1c_80033e28_t
-  fat_close
-
-theorem at_80033e0c_80033e1c_n_2 (X : FCx) (hX : Ok_D X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 5))) == (0#64)) = false) :
-    Triple (SegSt 0x80033e0c#64 (r38 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e1c#64) (r43 X) (ArmPay (m6 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_n
-  fat_close
-
-theorem at_80033e00_80033e0c_n_1 (X : FCx) (hX : Ok_D X) (hg_3 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 42)) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 5)) 31 0))) == (0#64)) = false) :
-    Triple (SegSt 0x80033e00#64 (r40 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e0c#64) (r38 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e00_80033e0c_n
-  fat_close
-
-theorem at_80033dfc_80033e00 (X : FCx) (hX : Ok_D X) :
-    Triple (SegSt 0x80033dfc#64 (r45 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e00#64) (r40 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dfc_80033e00
-  fat_close
-
-theorem at_80033df4_80033dfc_n (X : FCx) (hX : Ok_D X) (hg_2 : zopz0zKzJ_s (0x0#64) (BitVec.ofNat 64 (X.n 5)) = false) :
-    Triple (SegSt 0x80033df4#64 (r37 X) (ArmPay X.m X.o))
-      (SegSt (0x80033dfc#64) (r45 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033df4_80033dfc_n
-  fat_close
-
-theorem at_80033ddc_80033de0_n (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 8)) (0x400#64) = false) :
-    Triple (SegSt 0x80033ddc#64 (r34 X) (ArmPay X.m X.o))
-      (SegSt (0x80033de0#64) (r35 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_n
-  fat_close
-
-theorem at_80033dbc_80033dd8_t (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hc5 : bytesT4 X.m 0x8005e688 = 0x400#32) (hg_7 : zopz0zKzJ_u (bytesT8 X.m (0x8005e680)) (bytesT8 X.m (0x8005e668)) = true) :
-    Triple (SegSt 0x80033dbc#64 (r46 X) (ArmPay X.m X.o))
-      (SegSt (0x80033ddc#64) (r34 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dbc_80033dd8_t
-  fat_close
-
-theorem at_80033e5c_80033e68 (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) :
-    Triple (SegSt 0x80033e5c#64 (r47 X) (ArmPay X.m X.o))
-      (SegSt (0x8003b444#64) (r48 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e5c_80033e68
-  fat_close
-
-theorem at_80033e68_80033e80 (X : FCx) (hX : Ok_D X) :
-    Triple (SegSt 0x80033e68#64 (r49 X) (ArmPay X.m X.o))
-      (SegSt (0x80032954#64) (r50 X) (ArmPay (m7 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e68_80033e80
-  fat_close
-
-theorem at_80033c00_80033c2c_3 (X : FCx) (hX : Ok_D X) (hc9 : bytesT8 X.m (X.n 0 - 24) = X.b 2) (hc10 : bytesT8 X.m (X.n 0 - 32) = X.b 3) (hc11 : bytesT8 X.m (X.n 0 - 40) = X.b 4) (hc12 : bytesT8 X.m (X.n 0 - 64) = X.b 7) (hc13 : bytesT8 X.m (X.n 0 - 8) = X.b 0) (hc14 : bytesT8 X.m (X.n 0 - 16) = X.b 1) (hc15 : bytesT8 X.m (X.n 0 - 48) = X.b 5) (hc16 : bytesT8 X.m (X.n 0 - 56) = X.b 6) :
-    Triple (SegSt 0x80033c00#64 (r52 X) (ArmPay (m8 X) X.o))
-      (SegSt (X.b 0) (r2 X) (ArmPay (m8 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033c00_80033c2c
-  fat_close
-
-theorem at_80033ff8_80034008_3 (X : FCx) (hX : Ok_D X) (hc6 : bytesT8 X.m (X.n 0 - 72) = X.b 8) (hc7 : bytesT8 X.m (X.n 0 - 80) = X.b 9) (hc8 : bytesT8 X.m (X.n 0 - 88) = X.b 10) :
-    Triple (SegSt 0x80033ff8#64 (r53 X) (ArmPay (m8 X) X.o))
-      (SegSt (0x80033c00#64) (r52 X) (ArmPay (m8 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ff8_80034008
-  fat_close
-
-theorem at_80033e0c_80033e1c_t_3 (X : FCx) (hX : Ok_D X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 52))) == (0#64)) = true) :
-    Triple (SegSt 0x80033e0c#64 (r54 X) (ArmPay X.m X.o))
-      (SegSt (0x80033ff8#64) (r53 X) (ArmPay (m8 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_t
-  fat_close
-
-theorem at_80033e1c_80033e28_t_3 (X : FCx) (hX : Ok_D X) (hg_3 : ((BitVec.ofNat 64 (X.n 53) - BitVec.ofNat 64 (X.n 52)) != 0x0#64) = true) :
-    Triple (SegSt 0x80033e1c#64 (r55 X) (ArmPay (m8 X) X.o))
-      (SegSt (0x80033dac#64) (r56 X) (ArmPay (m8 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e1c_80033e28_t
-  fat_close
-
-theorem at_80033e0c_80033e1c_n_3 (X : FCx) (hX : Ok_D X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 52))) == (0#64)) = false) :
-    Triple (SegSt 0x80033e0c#64 (r54 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e1c#64) (r55 X) (ArmPay (m8 X) X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_n
-  fat_close
-
-theorem at_80033e84_80033e98_t (X : FCx) (hX : Ok_D X) (hg_5 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0))) != (0#64)) = true) :
-    Triple (SegSt 0x80033e84#64 (r51 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e0c#64) (r54 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e84_80033e98_t
-  fat_close
-
-theorem at_80033e98_80033ea4_2 (X : FCx) (hX : Ok_D X) :
-    Triple (SegSt 0x80033e98#64 (r54 X) (ArmPay X.m X.o))
-      (SegSt (0x80032954#64) (r57 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e98_80033ea4
-  fat_close
-
-theorem at_80033e84_80033e98_n (X : FCx) (hX : Ok_D X) (hg_5 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0))) != (0#64)) = false) :
-    Triple (SegSt 0x80033e84#64 (r51 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e98#64) (r54 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e84_80033e98_n
-  fat_close
-
-theorem at_80033e80_80033e84_n (X : FCx) (hX : Ok_D X) :
-    Triple (SegSt 0x80033e80#64 (r51 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e84#64) (r51 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e80_80033e84_n
-  fat_close
-
-theorem at_80033dd8_80033ddc_t (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hg_1 : zopz0zI_s ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))) (BitVec.ofNat 64 (X.n 8)) = true) :
-    Triple (SegSt 0x80033dd8#64 (r34 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e5c#64) (r47 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dd8_80033ddc_t
-  fat_close
-
-theorem at_80033ddc_80033de0_t_1 (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 8)) (0x400#64) = true) :
-    Triple (SegSt 0x80033ddc#64 (r19 X) (ArmPay X.m X.o))
-      (SegSt (0x80033f88#64) (r19 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_t
-  fat_close
-
-theorem at_80033ddc_80033de0_n_1 (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 8)) (0x400#64) = false) :
-    Triple (SegSt 0x80033ddc#64 (r19 X) (ArmPay X.m X.o))
-      (SegSt (0x80033de0#64) (r35 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_n
-  fat_close
-
-theorem at_80033dd8_80033ddc_n (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hg_1 : zopz0zI_s ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))) (BitVec.ofNat 64 (X.n 8)) = false) :
-    Triple (SegSt 0x80033dd8#64 (r34 X) (ArmPay X.m X.o))
-      (SegSt (0x80033ddc#64) (r19 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dd8_80033ddc_n
-  fat_close
-
-theorem at_80033dbc_80033dd8_n (X : FCx) (hX : Ok_D X) (hf4 : (X.n 8) ≤ (X.n 7)) (hc5 : bytesT4 X.m 0x8005e688 = 0x400#32) (hg_7 : zopz0zKzJ_u (bytesT8 X.m (0x8005e680)) (bytesT8 X.m (0x8005e668)) = false) :
-    Triple (SegSt 0x80033dbc#64 (r46 X) (ArmPay X.m X.o))
-      (SegSt (0x80033dd8#64) (r34 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dbc_80033dd8_n
-  fat_close
-
 theorem at_80033db0_80033db8_t (X : FCx) (hX : Ok_D X) (hg_2 : zopz0zKzJ_u (BitVec.ofNat 64 (X.n 7)) (BitVec.ofNat 64 (X.n 8)) = true) :
     Triple (SegSt 0x80033db0#64 (r18 X) (ArmPay X.m X.o))
-      (SegSt (0x80033dbc#64) (r46 X) (ArmPay X.m X.o)) := by
+      (SegSt (0x80033dbc#64) (r19 X) (ArmPay X.m X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_80033db0_80033db8_t
   fat_close
 
-theorem at_80033f88_80033f94_1 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) :
-    Triple (SegSt 0x80033f88#64 (r58 X) (ArmPay X.m X.o))
-      (SegSt (0x8003b444#64) (r59 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033f88_80033f94
-  fat_close
-
-theorem at_80033ddc_80033de0_t_2 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 7)) (0x400#64) = true) :
-    Triple (SegSt 0x80033ddc#64 (r60 X) (ArmPay X.m X.o))
-      (SegSt (0x80033f88#64) (r58 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_t
-  fat_close
-
-theorem at_80033de0_80033df4_1 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hc17 : bytesT8 X.m 0x8005e6a8 = 0x80034f18#64) (hc18 : bytesT8 X.m 0x8005e698 = 0x8005e668#64) :
-    Triple (SegSt 0x80033de0#64 (r61 X) (ArmPay X.m X.o))
-      (SegSt (0x80034f18#64) (r62 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033de0_80033df4
-  fat_close
-
-theorem at_80033ddc_80033de0_n_2 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 7)) (0x400#64) = false) :
-    Triple (SegSt 0x80033ddc#64 (r60 X) (ArmPay X.m X.o))
-      (SegSt (0x80033de0#64) (r61 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_n
-  fat_close
-
-theorem at_80033dbc_80033dd8_t_1 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hc5 : bytesT4 X.m 0x8005e688 = 0x400#32) (hg_7 : zopz0zKzJ_u (bytesT8 X.m (0x8005e680)) (bytesT8 X.m (0x8005e668)) = true) :
-    Triple (SegSt 0x80033dbc#64 (r63 X) (ArmPay X.m X.o))
-      (SegSt (0x80033ddc#64) (r60 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dbc_80033dd8_t
-  fat_close
-
-theorem at_80033e5c_80033e68_1 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) :
-    Triple (SegSt 0x80033e5c#64 (r64 X) (ArmPay X.m X.o))
-      (SegSt (0x8003b444#64) (r65 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033e5c_80033e68
-  fat_close
-
-theorem at_80033dd8_80033ddc_t_1 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hg_1 : zopz0zI_s ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))) (BitVec.ofNat 64 (X.n 7)) = true) :
-    Triple (SegSt 0x80033dd8#64 (r60 X) (ArmPay X.m X.o))
-      (SegSt (0x80033e5c#64) (r64 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dd8_80033ddc_t
-  fat_close
-
-theorem at_80033ddc_80033de0_t_3 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 7)) (0x400#64) = true) :
-    Triple (SegSt 0x80033ddc#64 (r58 X) (ArmPay X.m X.o))
-      (SegSt (0x80033f88#64) (r58 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_t
-  fat_close
-
-theorem at_80033ddc_80033de0_n_3 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 7)) (0x400#64) = false) :
-    Triple (SegSt 0x80033ddc#64 (r58 X) (ArmPay X.m X.o))
-      (SegSt (0x80033de0#64) (r61 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_n
-  fat_close
-
-theorem at_80033dd8_80033ddc_n_1 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hg_1 : zopz0zI_s ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))) (BitVec.ofNat 64 (X.n 7)) = false) :
-    Triple (SegSt 0x80033dd8#64 (r60 X) (ArmPay X.m X.o))
-      (SegSt (0x80033ddc#64) (r58 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dd8_80033ddc_n
-  fat_close
-
-theorem at_80033dbc_80033dd8_n_1 (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) (hc5 : bytesT4 X.m 0x8005e688 = 0x400#32) (hg_7 : zopz0zKzJ_u (bytesT8 X.m (0x8005e680)) (bytesT8 X.m (0x8005e668)) = false) :
-    Triple (SegSt 0x80033dbc#64 (r63 X) (ArmPay X.m X.o))
-      (SegSt (0x80033dd8#64) (r60 X) (ArmPay X.m X.o)) := by
-  intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
-  have hTH : tohostAddr = 0x8005c6c0 := rfl
-  fat_seg Lua.Vm.Arms.seg_80033dbc_80033dd8_n
-  fat_close
-
-theorem at_80033db8_80033dbc (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) :
-    Triple (SegSt 0x80033db8#64 (r46 X) (ArmPay X.m X.o))
-      (SegSt (0x80033dbc#64) (r63 X) (ArmPay X.m X.o)) := by
+theorem at_80033db8_80033dbc (X : FCx) (hX : Ok_D X) (hf4 : (X.n 7) < (X.n 8)) :
+    Triple (SegSt 0x80033db8#64 (r19 X) (ArmPay X.m X.o))
+      (SegSt (0x80033dbc#64) (r20 X) (ArmPay X.m X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -2024,11 +1407,425 @@ theorem at_80033db8_80033dbc (X : FCx) (hX : Ok_D X) (hf5 : (X.n 7) < (X.n 8)) :
 
 theorem at_80033db0_80033db8_n (X : FCx) (hX : Ok_D X) (hg_2 : zopz0zKzJ_u (BitVec.ofNat 64 (X.n 7)) (BitVec.ofNat 64 (X.n 8)) = false) :
     Triple (SegSt 0x80033db0#64 (r18 X) (ArmPay X.m X.o))
-      (SegSt (0x80033db8#64) (r46 X) (ArmPay X.m X.o)) := by
+      (SegSt (0x80033db8#64) (r19 X) (ArmPay X.m X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_80033db0_80033db8_n
+  fat_close
+
+theorem at_80033f88_80033f94 (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033f88#64 (r22 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b444#64) (r23 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033f88_80033f94
+  fat_close
+
+theorem at_80033e98_80033ea4 (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033e98#64 (r25 X) (ArmPay (m3 X) X.o))
+      (SegSt (0x80032954#64) (r26 X) (ArmPay (m3 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e98_80033ea4
+  fat_close
+
+theorem at_80033c00_80033c2c (X : FCx) (hX : Ok_S X) (hc9 : bytesT8 X.m (X.n 0 - 24) = X.b 2) (hc10 : bytesT8 X.m (X.n 0 - 32) = X.b 3) (hc11 : bytesT8 X.m (X.n 0 - 40) = X.b 4) (hc12 : bytesT8 X.m (X.n 0 - 64) = X.b 7) (hc13 : bytesT8 X.m (X.n 0 - 8) = X.b 0) (hc14 : bytesT8 X.m (X.n 0 - 16) = X.b 1) (hc15 : bytesT8 X.m (X.n 0 - 48) = X.b 5) (hc16 : bytesT8 X.m (X.n 0 - 56) = X.b 6) :
+    Triple (SegSt 0x80033c00#64 (r28 X) (ArmPay (m4 X) X.o))
+      (SegSt (X.b 0) (r2 X) (ArmPay (m4 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033c00_80033c2c
+  fat_close
+
+theorem at_80033ff8_80034008 (X : FCx) (hX : Ok_S X) (hc6 : bytesT8 X.m (X.n 0 - 72) = X.b 8) (hc7 : bytesT8 X.m (X.n 0 - 80) = X.b 9) (hc8 : bytesT8 X.m (X.n 0 - 88) = X.b 10) :
+    Triple (SegSt 0x80033ff8#64 (r29 X) (ArmPay (m4 X) X.o))
+      (SegSt (0x80033c00#64) (r28 X) (ArmPay (m4 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ff8_80034008
+  fat_close
+
+theorem at_80033e0c_80033e1c_t (X : FCx) (hX : Ok_S X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 32))) == (0#64)) = true) :
+    Triple (SegSt 0x80033e0c#64 (r27 X) (ArmPay X.m X.o))
+      (SegSt (0x80033ff8#64) (r29 X) (ArmPay (m4 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_t
+  fat_close
+
+theorem at_80033e1c_80033e28_t (X : FCx) (hX : Ok_S X) (hg_3 : ((BitVec.ofNat 64 (X.n 35) - BitVec.ofNat 64 (X.n 32)) != 0x0#64) = true) :
+    Triple (SegSt 0x80033e1c#64 (r30 X) (ArmPay (m4 X) X.o))
+      (SegSt (0x80033dac#64) (r31 X) (ArmPay (m4 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e1c_80033e28_t
+  fat_close
+
+theorem at_80033e0c_80033e1c_n (X : FCx) (hX : Ok_S X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 32))) == (0#64)) = false) :
+    Triple (SegSt 0x80033e0c#64 (r27 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e1c#64) (r30 X) (ArmPay (m4 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_n
+  fat_close
+
+theorem at_80033ea4_80033ea8_t (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033ea4#64 (r27 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e0c#64) (r27 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ea4_80033ea8_t
+  fat_close
+
+theorem at_80033e00_80033e0c_t (X : FCx) (hX : Ok_S X) (hg_3 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 30)) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 27)) 31 0))) == (0#64)) = true) :
+    Triple (SegSt 0x80033e00#64 (r32 X) (ArmPay (m3 X) X.o))
+      (SegSt (0x80033e98#64) (r25 X) (ArmPay (m3 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e00_80033e0c_t
+  fat_close
+
+theorem at_80033c00_80033c2c_1 (X : FCx) (hX : Ok_S X) (hc9 : bytesT8 X.m (X.n 0 - 24) = X.b 2) (hc10 : bytesT8 X.m (X.n 0 - 32) = X.b 3) (hc11 : bytesT8 X.m (X.n 0 - 40) = X.b 4) (hc12 : bytesT8 X.m (X.n 0 - 64) = X.b 7) (hc13 : bytesT8 X.m (X.n 0 - 8) = X.b 0) (hc14 : bytesT8 X.m (X.n 0 - 16) = X.b 1) (hc15 : bytesT8 X.m (X.n 0 - 48) = X.b 5) (hc16 : bytesT8 X.m (X.n 0 - 56) = X.b 6) :
+    Triple (SegSt 0x80033c00#64 (r33 X) (ArmPay (m5 X) X.o))
+      (SegSt (X.b 0) (r2 X) (ArmPay (m5 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033c00_80033c2c
+  fat_close
+
+theorem at_80033ff8_80034008_1 (X : FCx) (hX : Ok_S X) (hc6 : bytesT8 X.m (X.n 0 - 72) = X.b 8) (hc7 : bytesT8 X.m (X.n 0 - 80) = X.b 9) (hc8 : bytesT8 X.m (X.n 0 - 88) = X.b 10) :
+    Triple (SegSt 0x80033ff8#64 (r34 X) (ArmPay (m5 X) X.o))
+      (SegSt (0x80033c00#64) (r33 X) (ArmPay (m5 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ff8_80034008
+  fat_close
+
+theorem at_80033e0c_80033e1c_t_1 (X : FCx) (hX : Ok_S X) (hg_4 : (((sign_extend (m := 64) (bytesT8 ((m3 X)) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 26))) == (0#64)) = true) :
+    Triple (SegSt 0x80033e0c#64 (r25 X) (ArmPay (m3 X) X.o))
+      (SegSt (0x80033ff8#64) (r34 X) (ArmPay (m5 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_t
+  fat_close
+
+theorem at_80033e1c_80033e28_t_1 (X : FCx) (hX : Ok_S X) (hg_3 : ((BitVec.ofNat 64 (X.n 29) - BitVec.ofNat 64 (X.n 26)) != 0x0#64) = true) :
+    Triple (SegSt 0x80033e1c#64 (r35 X) (ArmPay (m5 X) X.o))
+      (SegSt (0x80033dac#64) (r36 X) (ArmPay (m5 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e1c_80033e28_t
+  fat_close
+
+theorem at_80033e0c_80033e1c_n_1 (X : FCx) (hX : Ok_S X) (hg_4 : (((sign_extend (m := 64) (bytesT8 ((m3 X)) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 26))) == (0#64)) = false) :
+    Triple (SegSt 0x80033e0c#64 (r25 X) (ArmPay (m3 X) X.o))
+      (SegSt (0x80033e1c#64) (r35 X) (ArmPay (m5 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_n
+  fat_close
+
+theorem at_80033e00_80033e0c_n (X : FCx) (hX : Ok_S X) (hg_3 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 30)) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 27)) 31 0))) == (0#64)) = false) :
+    Triple (SegSt 0x80033e00#64 (r32 X) (ArmPay (m3 X) X.o))
+      (SegSt (0x80033e0c#64) (r25 X) (ArmPay (m3 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e00_80033e0c_n
+  fat_close
+
+theorem at_80033f94_80033fb0 (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033f94#64 (r24 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e00#64) (r32 X) (ArmPay (m3 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033f94_80033fb0
+  fat_close
+
+theorem at_80033ddc_80033de0_t (X : FCx) (hX : Ok_S X) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 10)) (0x400#64) = true) :
+    Triple (SegSt 0x80033ddc#64 (r37 X) (ArmPay X.m X.o))
+      (SegSt (0x80033f88#64) (r22 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_t
+  fat_close
+
+theorem at_80033de0_80033df4 (X : FCx) (hX : Ok_S X) (hc17 : bytesT8 X.m 0x8005e6a8 = 0x80034f18#64) (hc18 : bytesT8 X.m 0x8005e698 = 0x8005e668#64) :
+    Triple (SegSt 0x80033de0#64 (r38 X) (ArmPay X.m X.o))
+      (SegSt (0x80034f18#64) (r39 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033de0_80033df4
+  fat_close
+
+theorem at_80033e98_80033ea4_1 (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033e98#64 (r41 X) (ArmPay X.m X.o))
+      (SegSt (0x80032954#64) (r42 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e98_80033ea4
+  fat_close
+
+theorem at_80033e00_80033e0c_t_1 (X : FCx) (hX : Ok_S X) (hg_3 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 42)) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 5)) 31 0))) == (0#64)) = true) :
+    Triple (SegSt 0x80033e00#64 (r43 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e98#64) (r41 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e00_80033e0c_t
+  fat_close
+
+theorem at_80033c00_80033c2c_2 (X : FCx) (hX : Ok_S X) (hc9 : bytesT8 X.m (X.n 0 - 24) = X.b 2) (hc10 : bytesT8 X.m (X.n 0 - 32) = X.b 3) (hc11 : bytesT8 X.m (X.n 0 - 40) = X.b 4) (hc12 : bytesT8 X.m (X.n 0 - 64) = X.b 7) (hc13 : bytesT8 X.m (X.n 0 - 8) = X.b 0) (hc14 : bytesT8 X.m (X.n 0 - 16) = X.b 1) (hc15 : bytesT8 X.m (X.n 0 - 48) = X.b 5) (hc16 : bytesT8 X.m (X.n 0 - 56) = X.b 6) :
+    Triple (SegSt 0x80033c00#64 (r44 X) (ArmPay (m6 X) X.o))
+      (SegSt (X.b 0) (r2 X) (ArmPay (m6 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033c00_80033c2c
+  fat_close
+
+theorem at_80033ff8_80034008_2 (X : FCx) (hX : Ok_S X) (hc6 : bytesT8 X.m (X.n 0 - 72) = X.b 8) (hc7 : bytesT8 X.m (X.n 0 - 80) = X.b 9) (hc8 : bytesT8 X.m (X.n 0 - 88) = X.b 10) :
+    Triple (SegSt 0x80033ff8#64 (r45 X) (ArmPay (m6 X) X.o))
+      (SegSt (0x80033c00#64) (r44 X) (ArmPay (m6 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ff8_80034008
+  fat_close
+
+theorem at_80033e0c_80033e1c_t_2 (X : FCx) (hX : Ok_S X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 5))) == (0#64)) = true) :
+    Triple (SegSt 0x80033e0c#64 (r41 X) (ArmPay X.m X.o))
+      (SegSt (0x80033ff8#64) (r45 X) (ArmPay (m6 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_t
+  fat_close
+
+theorem at_80033e1c_80033e28_t_2 (X : FCx) (hX : Ok_S X) (hg_3 : ((BitVec.ofNat 64 (X.n 41) - BitVec.ofNat 64 (X.n 5)) != 0x0#64) = true) :
+    Triple (SegSt 0x80033e1c#64 (r46 X) (ArmPay (m6 X) X.o))
+      (SegSt (0x80033dac#64) (r47 X) (ArmPay (m6 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e1c_80033e28_t
+  fat_close
+
+theorem at_80033e0c_80033e1c_n_2 (X : FCx) (hX : Ok_S X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 5))) == (0#64)) = false) :
+    Triple (SegSt 0x80033e0c#64 (r41 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e1c#64) (r46 X) (ArmPay (m6 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_n
+  fat_close
+
+theorem at_80033e00_80033e0c_n_1 (X : FCx) (hX : Ok_S X) (hg_3 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 42)) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 5)) 31 0))) == (0#64)) = false) :
+    Triple (SegSt 0x80033e00#64 (r43 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e0c#64) (r41 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e00_80033e0c_n
+  fat_close
+
+theorem at_80033dfc_80033e00 (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033dfc#64 (r48 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e00#64) (r43 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033dfc_80033e00
+  fat_close
+
+theorem at_80033df4_80033dfc_n (X : FCx) (hX : Ok_S X) (hg_2 : zopz0zKzJ_s (0x0#64) (BitVec.ofNat 64 (X.n 5)) = false) :
+    Triple (SegSt 0x80033df4#64 (r40 X) (ArmPay X.m X.o))
+      (SegSt (0x80033dfc#64) (r48 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033df4_80033dfc_n
+  fat_close
+
+theorem at_80033ddc_80033de0_n (X : FCx) (hX : Ok_S X) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 10)) (0x400#64) = false) :
+    Triple (SegSt 0x80033ddc#64 (r37 X) (ArmPay X.m X.o))
+      (SegSt (0x80033de0#64) (r38 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_n
+  fat_close
+
+theorem at_80033dbc_80033dd8_t (X : FCx) (hX : Ok_S X) (hc5 : bytesT4 X.m 0x8005e688 = 0x400#32) (hg_7 : zopz0zKzJ_u (bytesT8 X.m (0x8005e680)) (bytesT8 X.m (0x8005e668)) = true) :
+    Triple (SegSt 0x80033dbc#64 (r21 X) (ArmPay X.m X.o))
+      (SegSt (0x80033ddc#64) (r37 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033dbc_80033dd8_t
+  fat_close
+
+theorem at_80033e5c_80033e68 (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033e5c#64 (r49 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b444#64) (r50 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e5c_80033e68
+  fat_close
+
+theorem at_80033e68_80033e80 (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033e68#64 (r51 X) (ArmPay X.m X.o))
+      (SegSt (0x80032954#64) (r52 X) (ArmPay (m7 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e68_80033e80
+  fat_close
+
+theorem at_80033c00_80033c2c_3 (X : FCx) (hX : Ok_S X) (hc9 : bytesT8 X.m (X.n 0 - 24) = X.b 2) (hc10 : bytesT8 X.m (X.n 0 - 32) = X.b 3) (hc11 : bytesT8 X.m (X.n 0 - 40) = X.b 4) (hc12 : bytesT8 X.m (X.n 0 - 64) = X.b 7) (hc13 : bytesT8 X.m (X.n 0 - 8) = X.b 0) (hc14 : bytesT8 X.m (X.n 0 - 16) = X.b 1) (hc15 : bytesT8 X.m (X.n 0 - 48) = X.b 5) (hc16 : bytesT8 X.m (X.n 0 - 56) = X.b 6) :
+    Triple (SegSt 0x80033c00#64 (r54 X) (ArmPay (m8 X) X.o))
+      (SegSt (X.b 0) (r2 X) (ArmPay (m8 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033c00_80033c2c
+  fat_close
+
+theorem at_80033ff8_80034008_3 (X : FCx) (hX : Ok_S X) (hc6 : bytesT8 X.m (X.n 0 - 72) = X.b 8) (hc7 : bytesT8 X.m (X.n 0 - 80) = X.b 9) (hc8 : bytesT8 X.m (X.n 0 - 88) = X.b 10) :
+    Triple (SegSt 0x80033ff8#64 (r55 X) (ArmPay (m8 X) X.o))
+      (SegSt (0x80033c00#64) (r54 X) (ArmPay (m8 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ff8_80034008
+  fat_close
+
+theorem at_80033e0c_80033e1c_t_3 (X : FCx) (hX : Ok_S X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 52))) == (0#64)) = true) :
+    Triple (SegSt 0x80033e0c#64 (r56 X) (ArmPay X.m X.o))
+      (SegSt (0x80033ff8#64) (r55 X) (ArmPay (m8 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_t
+  fat_close
+
+theorem at_80033e1c_80033e28_t_3 (X : FCx) (hX : Ok_S X) (hg_3 : ((BitVec.ofNat 64 (X.n 53) - BitVec.ofNat 64 (X.n 52)) != 0x0#64) = true) :
+    Triple (SegSt 0x80033e1c#64 (r57 X) (ArmPay (m8 X) X.o))
+      (SegSt (0x80033dac#64) (r58 X) (ArmPay (m8 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e1c_80033e28_t
+  fat_close
+
+theorem at_80033e0c_80033e1c_n_3 (X : FCx) (hX : Ok_S X) (hg_4 : (((sign_extend (m := 64) (bytesT8 (X.m) ((BitVec.ofNat 64 (X.n 1)) + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8))) - (BitVec.ofNat 64 (X.n 52))) == (0#64)) = false) :
+    Triple (SegSt 0x80033e0c#64 (r56 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e1c#64) (r57 X) (ArmPay (m8 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e0c_80033e1c_n
+  fat_close
+
+theorem at_80033e84_80033e98_t (X : FCx) (hX : Ok_S X) (hg_5 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0))) != (0#64)) = true) :
+    Triple (SegSt 0x80033e84#64 (r53 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e0c#64) (r56 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e84_80033e98_t
+  fat_close
+
+theorem at_80033e98_80033ea4_2 (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033e98#64 (r56 X) (ArmPay X.m X.o))
+      (SegSt (0x80032954#64) (r59 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e98_80033ea4
+  fat_close
+
+theorem at_80033e84_80033e98_n (X : FCx) (hX : Ok_S X) (hg_5 : ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 (X.n 54)) 31 0) - (Sail.BitVec.extractLsb ((BitVec.ofNat 64 (X.n 52)) + sign_extend (m := 64) (0x000#12)) 31 0))) != (0#64)) = false) :
+    Triple (SegSt 0x80033e84#64 (r53 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e98#64) (r56 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e84_80033e98_n
+  fat_close
+
+theorem at_80033e80_80033e84_n (X : FCx) (hX : Ok_S X) :
+    Triple (SegSt 0x80033e80#64 (r53 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e84#64) (r53 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033e80_80033e84_n
+  fat_close
+
+theorem at_80033dd8_80033ddc_t (X : FCx) (hX : Ok_S X) (hg_1 : zopz0zI_s ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))) (BitVec.ofNat 64 (X.n 10)) = true) :
+    Triple (SegSt 0x80033dd8#64 (r37 X) (ArmPay X.m X.o))
+      (SegSt (0x80033e5c#64) (r49 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033dd8_80033ddc_t
+  fat_close
+
+theorem at_80033ddc_80033de0_t_1 (X : FCx) (hX : Ok_S X) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 10)) (0x400#64) = true) :
+    Triple (SegSt 0x80033ddc#64 (r22 X) (ArmPay X.m X.o))
+      (SegSt (0x80033f88#64) (r22 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_t
+  fat_close
+
+theorem at_80033ddc_80033de0_n_1 (X : FCx) (hX : Ok_S X) (hg_1 : zopz0zI_s (BitVec.ofNat 64 (X.n 10)) (0x400#64) = false) :
+    Triple (SegSt 0x80033ddc#64 (r22 X) (ArmPay X.m X.o))
+      (SegSt (0x80033de0#64) (r38 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033ddc_80033de0_n
+  fat_close
+
+theorem at_80033dd8_80033ddc_n (X : FCx) (hX : Ok_S X) (hg_1 : zopz0zI_s ((sign_extend (m := 64) ((Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0) + (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 (X.m) ((0x8005e668#64) + sign_extend (m := 64) (0x020#12)).toNat : BitVec (8 * 4))) 31 0)))) (BitVec.ofNat 64 (X.n 10)) = false) :
+    Triple (SegSt 0x80033dd8#64 (r37 X) (ArmPay X.m X.o))
+      (SegSt (0x80033ddc#64) (r22 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033dd8_80033ddc_n
+  fat_close
+
+theorem at_80033dbc_80033dd8_n (X : FCx) (hX : Ok_S X) (hc5 : bytesT4 X.m 0x8005e688 = 0x400#32) (hg_7 : zopz0zKzJ_u (bytesT8 X.m (0x8005e680)) (bytesT8 X.m (0x8005e668)) = false) :
+    Triple (SegSt 0x80033dbc#64 (r21 X) (ArmPay X.m X.o))
+      (SegSt (0x80033dd8#64) (r37 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_i_ge, hx_i_u, hx_u_hi, hx_u_al, hx_i_al⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80033dbc_80033dd8_n
   fat_close
 
 end Lua.Vm.AtF.Sfvwrite

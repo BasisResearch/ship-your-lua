@@ -1942,7 +1942,11 @@ FNS = {
         loops={0x80033dac: dict(name="L", row={**SFV_LOOP_ROW, 10: ("bv", 14)},
                                 ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 7: 1}),
                0x80033db0: dict(name="D", row=SFV_LOOP_ROW,
-                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 7: 1, 8: 1})},
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 7: 1, 8: 1}),
+               # the step size `s = min(len, nldist)` (`s3`, X.n 10) chosen: one root, so
+               # the copy, write and fill paths are generated once for both minima
+               0x80033dbc: dict(name="S", row={**SFV_LOOP_ROW, 19: N((10, 1))},
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 7: 1, 8: 1, 10: 1})},
         doc="`__sfvwrite_r` on the line-buffered `stdout` (the set-up, unbuffered and "
             "fully buffered paths and the error exits are stops)."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
