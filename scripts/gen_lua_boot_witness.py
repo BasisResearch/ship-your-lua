@@ -256,6 +256,11 @@ def evaluate(lay, M, regs, proto):
     inv = {}
     inv["spEntry"], inv["retCcall"] = regs[2], regs[1]
     need(regs[3] == lay["symGlobalPointer"], "gp")
+    # the callee-saved registers `luaV_execute`'s prologue saves and its
+    # epilogue restores for the return chain: s0 = L (`ccall`'s `mv s0,a0`),
+    # s1, s2 ... s11 the callers' values
+    need(regs[8] == L, "s0 = L")
+    inv["calleeSaved"] = [(r, regs[r]) for r in [9] + list(range(18, 28))]
     stack_top = lay["symStackTop"]
     segs, run = [], None
     for a in range(regs[2], stack_top):
@@ -266,6 +271,11 @@ def evaluate(lay, M, regs, proto):
                 run = [a, [M.m[a]]]
                 segs.append(run)
     inv["callerFrames"] = [(a, bs) for a, bs in segs]
+    # the caller-frame dwords that hold `L` (`ccall`'s saved `s0`,
+    # `luaD_rawrunprotected`'s `L`): the return chain stores through them
+    inv["callerLSlots"] = [a for a in range(regs[2], stack_top - 7, 8)
+                           if all(M.present(a + i, 1) for i in range(8)) and rd(a, 8) == L]
+    need(len(inv["callerLSlots"]) > 0, "a caller frame holds L")
     # ---- ErrorJmpAt
     lj = rd(L + lay["stateErrorJmpOff"], 8)
     inv["ljAddr"] = lj
@@ -288,6 +298,7 @@ def evaluate(lay, M, regs, proto):
     need(rd(lay["symSglue"] + lay["glueIobsOff"], 8) == sf, "glue iobs")
     need(lay["symSfSize"] == 3 * fs, "__sf is three FILEs")
     need(all(rd(sf + i, 1) == 0 for i in range(lay["symSfSize"])), "__sf zero")
+    need(rd(lay["symAtexit"], 8) == 0, "__atexit")
     # ---- MemfsBoot
     need(rd(lay["symFsReady"], 4) == 0, "fs_ready")
     need(all(rd(lay["symFds"] + i, 1) == 0 for i in range(lay["symFdsSize"])), "fds zero")
@@ -637,11 +648,22 @@ def render_data(lay, inv, names):
         f"def jbSp : Nat := {lay['jbSp']}",
         "/-- `L->nCcalls` at the entry (two non-yieldable C calls, one C level). -/",
         f"def nCcallsEntry : Nat := {inv['nCcallsEntry']:#x}",
+        "/-- `s1`, `s2 … s11` at the entry, as `(register, value)`: the callers' values,",
+        "which `luaV_execute`'s prologue saves (`sd s1,152(sp)` … `sd s11,72(sp)`) and its",
+        "epilogue restores for the return chain (`s0` is `L`). -/",
+        "def calleeSavedEntry : List (Nat × Nat) :=",
+        "  [" + ", ".join(f"({r}, {v:#x})" for r, v in inv["calleeSaved"]) + "]",
         "",
         "/-- The present bytes of the caller frames `[spEntry, __stack_top)`, as",
         "maximal runs. -/",
         "def callerFrames : List (Nat × List UInt8) :=",
         f"  [{segs}]",
+        "",
+        "/-- The caller-frame dwords that hold `L` (`ccall`'s saved `s0`,",
+        "`luaD_rawrunprotected`'s local `L`): the return chain's `L->nCcalls`,",
+        "`L->errorJmp` and `L->errfunc` stores go through them. -/",
+        "def callerLSlots : List Nat :=",
+        "  [" + ", ".join(f"{a:#x}" for a in inv["callerLSlots"]) + "]",
         "",
         "/-- The saved return addresses of the caller chain `(slot, return address)`,",
         "outermost first (each stored by its callee's prologue `sd ra`). -/",

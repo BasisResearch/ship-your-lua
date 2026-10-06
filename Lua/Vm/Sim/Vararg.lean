@@ -193,6 +193,24 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
         (by rw [hrf]; omega))
       (hE.vararg_proto _ hdirty) hRt.vararg (by simp only [RtPtrs.vmoved]; rw [hrf]) hrp rfl
       (by simp only [RtPtrs.vmoved, stackValueSize]; omega)
+      (callers_congr hRt.cstack.callers fun a h1 h2 => hdirty a (by
+        simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, RuntimeData.spEntry] at h1 ⊢
+        omega))
+      (fun a ha => by
+        have := callerLSlots_above a ha
+        rw [bytesT8_congr fun i hi => hdirty _ (by
+          simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, RuntimeData.spEntry] at this ⊢
+          omega)]
+        exact bytesT8_of_rd64 (hRt.callerL a ha))
+      ((rdLE_congr fun i hi => hdirty _ (by
+        have b1 := hrg.ci_lo; have b2 := hrg.stack_lo
+        simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, symAtexit, symEnd] at b1 b2 ⊢
+        omega)).trans hRt.stdio.atexit)
+      ((rdLE_congr fun i hi => hdirty _ (by
+        have b1 := hrg.ci_lo; have b2 := hrg.stack_lo
+        simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, symStdioExitHandler,
+          symEnd] at b1 b2 ⊢
+        omega)).trans hRt.stdio.exit_handler)
     exact ⟨ι', hP⟩
 
 /-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at

@@ -24,12 +24,23 @@ def jbS0 : Nat := 1
 def jbSp : Nat := 13
 /-- `L->nCcalls` at the entry (two non-yieldable C calls, one C level). -/
 def nCcallsEntry : Nat := 0x20001
+/-- `s1`, `s2 … s11` at the entry, as `(register, value)`: the callers' values,
+which `luaV_execute`'s prologue saves (`sd s1,152(sp)` … `sd s11,72(sp)`) and its
+epilogue restores for the return chain (`s0` is `L`). -/
+def calleeSavedEntry : List (Nat × Nat) :=
+  [(9, 0x0), (18, 0x10), (19, 0x8006ed48), (20, 0x1), (21, 0x0), (22, 0x0), (23, 0x0), (24, 0x0), (25, 0x0), (26, 0x0), (27, 0x0)]
 
 /-- The present bytes of the caller frames `[spEntry, __stack_top)`, as
 maximal runs. -/
 def callerFrames : List (Nat × List UInt8) :=
   [(0x87fffe20, [128, 243, 6, 128, 0, 0, 0, 0, 208, 7, 0, 0, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 56, 156, 0, 128, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 60, 26, 0, 128, 0, 0, 0, 0, 176, 255, 255, 135, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 36, 156, 0, 128, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 72, 237, 6, 128, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 254, 255, 135, 0, 0, 0, 0, 60, 182, 0, 128, 0, 0, 0, 0, 120, 255, 255, 135, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 208, 7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 178, 1, 128, 0, 0, 0, 0, 200, 236, 4, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 180, 0, 128, 0, 0, 0, 0, 208, 236, 4, 128, 0, 0, 0, 0, 40, 66, 0, 128, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 200, 236, 4, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 60, 65, 0, 128, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 80, 243, 6, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 216, 236, 5, 128, 0, 0, 0, 0, 232, 236, 6, 128, 0, 0, 0, 0, 40, 29, 5, 128, 0, 0, 0, 0, 8, 24, 0, 128, 0, 0, 0, 0]),
    (0x87ffffe8, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 56, 0, 0, 128, 0, 0, 0, 0])]
+
+/-- The caller-frame dwords that hold `L` (`ccall`'s saved `s0`,
+`luaD_rawrunprotected`'s local `L`): the return chain's `L->nCcalls`,
+`L->errorJmp` and `L->errfunc` stores go through them. -/
+def callerLSlots : List Nat :=
+  [0x87fffe30, 0x87fffe40, 0x87fffe70, 0x87fffef0, 0x87ffff08, 0x87ffff90, 0x87ffffa0, 0x87ffffa8, 0x87ffffc8]
 
 /-- The saved return addresses of the caller chain `(slot, return address)`,
 outermost first (each stored by its callee's prologue `sd ra`). -/

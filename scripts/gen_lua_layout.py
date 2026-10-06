@@ -52,6 +52,7 @@ FIELDS = [
     ("ciTrapOff", "offsetof(CallInfo, u.l.trap)", ""),
     ("ciNextraargsOff", "offsetof(CallInfo, u.l.nextraargs)", ""),
     ("ciNresultsOff", "offsetof(CallInfo, nresults)", ""),
+    ("ciNresOff", "offsetof(CallInfo, u2.nres)", "`OP_RETURN` with `k` stores the result count there"),
     ("ciCallstatusOff", "offsetof(CallInfo, callstatus)", ""),
     # closures, upvalues, protos
     ("lclosureProtoOff", "offsetof(LClosure, p)", ""),
@@ -275,6 +276,8 @@ RT_SYMS = [
     ("symMallocMallinfo", "__malloc_current_mallinfo", ""),
     ("symBrk", "brk.0", "htif.c `_sbrk`'s static break"),
     ("symStdioExitHandler", "__stdio_exit_handler", "non-NULL once `__sinit` ran"),
+    ("symAtexit", "__atexit", "newlib's `atexit` list, read by `exit` → `__call_exitprocs`"),
+    ("symCExit", "exit", "newlib's `exit`, `_start`'s tail after `main`"),
     ("symSglue", "__sglue", ""),
     ("symSf", "__sf", "the three standard `FILE`s"),
     ("symImpureData", "_impure_data", ""),

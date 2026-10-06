@@ -416,15 +416,15 @@ def stdioCheck (v : View) : Bool :=
     (symImpureData + reentStdinOff, 8, symSf), (symImpureData + reentStdoutOff, 8, symSf + fileSize),
     (symImpureData + reentStderrOff, 8, symSf + 2 * fileSize), (symSglue + glueNextOff, 8, 0),
     (symSglue + glueNiobsOff, 4, 3), (symSglue + glueIobsOff, 8, symSf)] &&
-  zeroOk v symSf symSfSize
+  zeroOk v symSf symSfSize && readsOk v [(symAtexit, 8, 0)]
 
 theorem stdioCheck_sound {m : Mem} {v : View} (h : PartialView m v)
     (hc : stdioCheck v = true) : StdioBoot m := by
   simp only [stdioCheck, Bool.and_eq_true] at hc
-  obtain ⟨hr, hz⟩ := hc
+  obtain ⟨⟨hr, hz⟩, ha⟩ := hc
   exact ⟨h.reads hr (by mem_tac), h.reads hr (by mem_tac), h.reads hr (by mem_tac),
     h.reads hr (by mem_tac), h.reads hr (by mem_tac), h.reads hr (by mem_tac),
-    h.reads hr (by mem_tac), h.reads hr (by mem_tac), h.zeroAt hz⟩
+    h.reads hr (by mem_tac), h.reads hr (by mem_tac), h.zeroAt hz, h.reads ha (by mem_tac)⟩
 
 def memfsCheck (v : View) : Bool :=
   readsOk v [(symFsReady, 4, 0)] && zeroOk v symFds symFdsSize && zeroOk v symFiles symFilesSize
@@ -729,6 +729,8 @@ structure RtChecks (v : View) (L ci : Nat) (w : RtPtrs) : Prop where
   kowned : kownedCheck v L ci w = true
   /-- the same structures after `OP_VARARGPREP`'s stores (`RuntimeReadyAt.vararg`) -/
   post : RtPostChecks v L ci w
+  /-- the caller frames' copies of `L` (`RuntimeReadyAt.callerL`) -/
+  callerL : readsOk v (RuntimeData.callerLSlots.map fun a => (a, 8, L)) = true
 
 /-! ## The chunked log check -/
 

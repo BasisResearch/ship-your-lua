@@ -72,6 +72,13 @@ structure CStackAt (σ : MState) : Prop where
   /-- Saved by `luaV_execute`'s prologue (`sd s0 … s11`), so they must be
   readable; their values are the callers', restored at the return. -/
   callee_saved : ∀ r ∈ calleeSavedRegs, (gprGet σ r).isSome = true
+  /-- `s0 = L` (`ccall`'s `mv s0,a0`): `ccall` reloads `L->nCcalls` through it
+  after `luaV_execute` returns. -/
+  s0 : gprGet σ 8 = gprGet σ 10
+  /-- `s1`, `s2 … s11` are the callers' values (`RuntimeData.calleeSavedEntry`),
+  which the return chain reads after `luaV_execute`'s epilogue restores them
+  (`luaD_pcall`'s `s1` = the old `errfunc`, …). -/
+  saved : ∀ rv ∈ RuntimeData.calleeSavedEntry, gprGet σ rv.1 = some (BitVec.ofNat 64 rv.2)
   /-- The caller frames above `sp`, byte for byte as the boot left them: the
   return path after `luaV_execute` returns (`ccall`'s `ld ra,24(sp)`, `f_call`,
   `luaD_rawrunprotected`, `luaD_pcall`, `lua_pcallk`, `main`, `_start`'s
@@ -120,6 +127,9 @@ structure StdioBoot (m : Mem) : Prop where
   /-- The three `FILE`s are still `.bss` zeros: `std()` writes most fields and
   relies on the others (`_ub`, `_lb`, `_nbuf`, `_offset`, `_mbstate`) being 0. -/
   files : ZeroAt m symSf symSfSize
+  /-- No `atexit` handler: `exit` → `__call_exitprocs` finds `__atexit = NULL`
+  (the `OP_RETURN*` chain's end, `FinalSim`). -/
+  atexit : rd64 m symAtexit = some 0
 
 /-- **htif.c's file system before `fs_init`.** `_write(1, …)` (from `__swrite`),
 and `_fstat(1)`/`_isatty(1)` (from `__smakebuf_r` at the first write) call
@@ -403,6 +413,11 @@ structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
   `l_alloc` blocks of their own, so the stores miss every other object; the
   boot witness checks it at the stored bytes (`postView`). -/
   vararg : RtPostAt (varargMem c.σ.mem ci w) L ci w.vmoved
+  /-- The caller frames' copies of `L` (`RuntimeData.callerLSlots`: `ccall`'s
+  saved `s0`, `luaD_rawrunprotected`'s local): the return chain after
+  `luaV_execute` (`FinalSim`) stores `L->nCcalls`, `L->errorJmp` and
+  `L->errfunc` through them. -/
+  callerL : ∀ a ∈ RuntimeData.callerLSlots, rd64 c.σ.mem a = some L
 
 /-- **`luaRuntimeReady`**: some choice of the program-dependent pointers and
 heap shape makes the runtime ready. -/

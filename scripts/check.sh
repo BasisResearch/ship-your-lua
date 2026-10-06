@@ -401,6 +401,26 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.varargSim
 #print axioms Lua.Vm.Sim.maxstack_not_dirty
 #print axioms Lua.Vm.Sim.dispatchM
+#print axioms Lua.Vm.Sim.SavedAt.congr
+#print axioms Lua.Vm.Sim.Core.saved_of
+#print axioms Lua.Vm.Sim.callers_congr
+#print axioms Lua.Vm.Sim.exitOk_entry
+#print axioms Lua.Vm.Sim.Ret.fclose_sum
+#print axioms Lua.Vm.Sim.Ret.poscall_sum
+#print axioms Lua.Vm.Sim.Ret.ret_fresh
+#print axioms Lua.Vm.Sim.Ret.ret_tail
+#print axioms Lua.Vm.Sim.Ret.ret_RETURN
+#print axioms Lua.Vm.Sim.Ret.ret_RETURN0
+#print axioms Lua.Vm.Sim.Ret.ret_RETURN1
+#print axioms Lua.Vm.Sim.Ret.chainMem
+#print axioms Lua.Vm.Sim.Ret.ret_chain
+#print axioms Lua.Vm.Sim.Ret.exit_halt
+#print axioms Lua.Vm.Sim.Ret.exit_run
+#print axioms Lua.Vm.Sim.Ret.exitOk_of_quiet
+#print axioms Lua.Vm.Sim.Ret.exit_agree
+#print axioms Lua.Vm.Sim.Ret.vmRel_final
+#print axioms Lua.Vm.Sim.finalSim
+#print axioms Lua.Vm.Sim.vm_refinement_of_open'
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

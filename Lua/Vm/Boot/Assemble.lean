@@ -47,7 +47,9 @@ def gprsCheck (gprs : List (Nat × BitVec 64)) (L ci : Nat) : Bool :=
   gprs.contains (10, BitVec.ofNat 64 L) && gprs.contains (11, BitVec.ofNat 64 ci) &&
   gprs.contains (2, BitVec.ofNat 64 RuntimeData.spEntry) &&
   gprs.contains (1, BitVec.ofNat 64 RuntimeData.retCcall) &&
-  gprs.contains (3, BitVec.ofNat 64 symGlobalPointer)
+  gprs.contains (3, BitVec.ofNat 64 symGlobalPointer) &&
+  gprs.contains (8, BitVec.ofNat 64 L) &&
+  RuntimeData.calleeSavedEntry.all (fun rv => gprs.contains (rv.1, BitVec.ofNat 64 rv.2))
 
 /-- What `gprsCheck` gives. -/
 structure GprFacts (σ : MState) (L ci : Nat) : Prop where
@@ -58,12 +60,14 @@ structure GprFacts (σ : MState) (L ci : Nat) : Prop where
   sp : gprGet σ 2 = some (BitVec.ofNat 64 RuntimeData.spEntry)
   ra : gprGet σ 1 = some (BitVec.ofNat 64 RuntimeData.retCcall)
   gp : gprGet σ 3 = some (BitVec.ofNat 64 symGlobalPointer)
+  s0 : gprGet σ 8 = some (BitVec.ofNat 64 L)
+  saved : ∀ rv ∈ RuntimeData.calleeSavedEntry, gprGet σ rv.1 = some (BitVec.ofNat 64 rv.2)
 
 theorem gprsCheck_sound {σ : MState} {gprs : List (Nat × BitVec 64)} {L ci : Nat}
     (E : EntryRegs σ gprs) (hc : gprsCheck gprs L ci = true) : GprFacts σ L ci := by
   simp only [gprsCheck, Bool.and_eq_true, List.all_eq_true, List.any_eq_true, List.mem_range,
     beq_iff_eq, List.contains_iff_mem] at hc
-  obtain ⟨⟨⟨⟨⟨⟨hall, hcs⟩, h10⟩, h11⟩, h2⟩, h1⟩, h3⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨hall, hcs⟩, h10⟩, h11⟩, h2⟩, h1⟩, h3⟩, h8⟩, hsv⟩ := hc
   have some_of : ∀ n, (∃ r, r ∈ gprs ∧ r.1 = n) → (gprGet σ n).isSome = true := by
     rintro n ⟨r, hr, rfl⟩
     rw [E.gpr r hr]; rfl
@@ -76,7 +80,9 @@ theorem gprsCheck_sound {σ : MState} {gprs : List (Nat × BitVec 64)} {L ci : N
       a1 := E.gpr _ h11
       sp := E.gpr _ h2
       ra := E.gpr _ h1
-      gp := E.gpr _ h3 }
+      gp := E.gpr _ h3
+      s0 := E.gpr _ h8
+      saved := fun rv hrv => E.gpr _ (hsv rv hrv) }
 
 /-- **The runtime at the entry** (`RuntimeReadyAt`, the witnessed
 `luaRuntimeReady`) from the traced registers, an empty console, a tick below
@@ -96,6 +102,8 @@ theorem runtimeReadyAt_of_checks {σ : MState} {gprs : List (Nat × BitVec 64)} 
             ra := hg.ra
             gp := hg.gp
             callee_saved := hg.callee_saved
+            s0 := hg.s0.trans hg.a0.symm
+            saved := hg.saved
             callers := hv'.segsAt hrt.callers
             dense := fun a h1 h2 => by
               show (Vsa.Densify.fillZeroMem σ.mem)[a]?.isSome = true
@@ -116,7 +124,8 @@ theorem runtimeReadyAt_of_checks {σ : MState} {gprs : List (Nat × BitVec 64)} 
             error_jmp := errorJmpCheck_sound hp hrt.post.errorJmp
             regions := regionsCheck_sound hp hrt.post.regions
             interned := internedCheck_sound hp hrt.post.interned
-            kowned := kownedCheck_sound hp hrt.post.kowned } }
+            kowned := kownedCheck_sound hp hrt.post.kowned }
+        callerL := fun a ha => hv'.reads hrt.callerL (List.mem_map.mpr ⟨a, ha, rfl⟩) }
 
 /-- **The assembly.** The traced registers, an empty console, a tick below 2,
 memory agreeing with the view `bootView chunk runs`, and the passing checks at

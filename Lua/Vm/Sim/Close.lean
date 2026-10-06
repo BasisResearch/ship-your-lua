@@ -215,7 +215,7 @@ theorem Core.update (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Lis
     Core p c' ⟨pc', regs', s.out⟩ w :=
   ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
     hseg.armOk, hc.text_of hframe, hc.frame_of hframe, hc.kptr_of hframe, hstack, hc.comp,
-    hc.ranges⟩
+    hc.ranges, hc.saved_of fun x hx _ => hframe x hx⟩
 
 end
 
