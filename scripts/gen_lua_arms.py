@@ -209,6 +209,12 @@ HELPERS += [("luaH_getshortstr", "LuaH_getshortstr", 0x8001808c, 0x800180f8, [22
              [0x800180ec])]
 SUMMARISED |= {"luaH_getshortstr"}
 SIM_OPS |= {"OP_GETTABUP"}
+# lane F1-8: `print`'s stdio calls on the callee-context route
+# (`scripts/gen_lua_at.py --fn`): `fflush(stdout)` (the `__sinit` call
+# `0x80032a98` and the `fflush(NULL)` walk `0x80032ae4` are stops: `stdout` is
+# set up, `StdioUp`)
+HELPERS += [("fflush", "Fflush", 0x80032a1c, 0x80032af8, [22, 26], [],
+             [0x80032a98, 0x80032ae4])]
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -224,7 +230,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__call_exitprocs": set(), "__retarget_lock_acquire_recursive": set(),
            "__retarget_lock_release_recursive": set(), "_exit": set(),
            "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
-           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}}
+           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}}
 
 
 def helper_cfg(lo, hi):
