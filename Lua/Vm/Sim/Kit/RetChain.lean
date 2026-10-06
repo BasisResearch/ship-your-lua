@@ -143,9 +143,24 @@ local macro_rules
           sext64_id, sext32_zero, hT.status, hT.pcall_s1, bytesT8_wm8_out', bytesT8_wm4_out',
           bytesT4_wm8_out'', bytesT4_wm4_out']; decide))
 
-/-- **The C return chain**: from the return into `ccall` to `exit(0)`. -/
-theorem ret_chain {p : Proto} {c0 : Config} {s : State} {w : RelPtrs} (hc : Core p c0 s w)
-    (o : Array String) : Triple (AtCcall w c0.σ.mem o) (AtExit w c0.σ.mem o) := by
+/-- The registers back in `luaD_pcall` (`0x8000b4c0`): `sp`, `gp`, `s0 = L`,
+the status `a0 = 0`, some callee-saved values. -/
+abbrev pcallRow (L : Nat) (q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27 : BitVec 64) : List Pin :=
+  [⟨Register.x2, 0x87ffff50#64⟩, ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩,
+   ⟨Register.x8, BitVec.ofNat 64 L⟩, ⟨Register.x10, 0#64⟩, ⟨Register.x9, q9⟩,
+   ⟨Register.x18, q18⟩, ⟨Register.x19, q19⟩, ⟨Register.x20, q20⟩, ⟨Register.x21, q21⟩,
+   ⟨Register.x22, q22⟩, ⟨Register.x23, q23⟩, ⟨Register.x24, q24⟩, ⟨Register.x25, q25⟩,
+   ⟨Register.x26, q26⟩, ⟨Register.x27, q27⟩]
+
+/-- **Back in `luaD_pcall`**, the memory in agreement with the head's. -/
+def AtPcall (w : RelPtrs) (m0 : Mem) (o : Array String) (c : Config) : Prop :=
+  ∃ M q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27, RAgree w m0 M ∧
+    SegSt 0x8000b4c0#64 (pcallRow w.L q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27) (ArmPay M o) c
+
+/-- **`ccall` and `luaD_rawrunprotected` return**: `L->nCcalls`, `L->errorJmp`
+restored, status 0. -/
+theorem ret_chain1 {p : Proto} {c0 : Config} {s : State} {w : RelPtrs} (hc : Core p c0 s w)
+    (o : Array String) : Triple (AtCcall w c0.σ.mem o) (AtPcall w c0.σ.mem o) := by
   rintro c ⟨M, hM, h⟩
   have acc := Steps.refl c
   have hT := chainMem hc hM
@@ -156,6 +171,18 @@ theorem ret_chain {p : Proto} {c0 : Config} {s : State} {w : RelPtrs} (hc : Core
   have h := h.at (rtgt _ (by decide))
   kit_run h acc
   have h := h.at (rtgt _ (by decide))
+  exact ⟨_, acc, _, _, _, _, _, _, _, _, _, _, _, _, hM.trans (by ret_agree),
+    h.repin (by pins_of h)⟩
+
+/-- **`luaD_pcall`, `lua_pcallk`, `main` return; `_start`'s `j exit`.** -/
+theorem ret_chain2 {p : Proto} {c0 : Config} {s : State} {w : RelPtrs} (hc : Core p c0 s w)
+    (o : Array String) : Triple (AtPcall w c0.σ.mem o) (AtExit w c0.σ.mem o) := by
+  rintro c ⟨M, q9, q18, q19, q20, q21, q22, q23, q24, q25, q26, q27, hM, h⟩
+  have acc := Steps.refl c
+  have hT := chainMem hc hM
+  have hr := hc.ranges
+  ret_facts hr
+  simp only [pcallRow] at h
   kit_run h acc
   have h := h.at (rtgt _ (by decide))
   kit_run h acc
@@ -165,5 +192,10 @@ theorem ret_chain {p : Proto} {c0 : Config} {s : State} {w : RelPtrs} (hc : Core
   kit_run h acc until [0x8002f85c]
   exact ⟨_, acc, _, _, _, _, _, _, _, _, _, _, _, _, _, hM.trans (by ret_agree),
     h.repin (by pins_of h)⟩
+
+/-- **The C return chain**: from the return into `ccall` to `exit(0)`. -/
+theorem ret_chain {p : Proto} {c0 : Config} {s : State} {w : RelPtrs} (hc : Core p c0 s w)
+    (o : Array String) : Triple (AtCcall w c0.σ.mem o) (AtExit w c0.σ.mem o) :=
+  (ret_chain1 hc o).seq (ret_chain2 hc o)
 
 end Lua.Vm.Sim.Ret

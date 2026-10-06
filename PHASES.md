@@ -25,8 +25,8 @@ Every row is currently unassigned.
 |---|---|---|---|
 | `VmLayout.runtimeReady` concrete instance `luaLayout` | `Lua/Vm/Runtime.lean` | A0 | **defined** (`luaRuntimeReady`); every field holds at both traced entries (checked natively by `gen_lua_boot_witness.py`) |
 | `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | `Lua/Vm/Boot/` | A0 | **proved** for `while.lua` and `f1_ops.lua` (`vmLoaded_while_entry`, `vmLoaded_f1Ops_entry`, `Lua/Vm/Boot/Witness/`), for every state with the traced registers (`EntryRegs`) and the boot memory; the register file itself is a hypothesis (A0.6) |
-| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open, **reduced to named premises**: `vm_refinement_of_open : OpenArms → FinalSim → StuckSim → vm_refinement_Statement luaLayout` (`Lua/Vm/Sim/Fold.lean`, lane F1-3). Discharged inside it: the entry (`entrySim`), `VARARGPREP` (`Kit.varargSim`) and the 34 proved arms (`armTable`: the 25 generated `sim_<OP>`, `Kit.sim_{MUL,MULK,MOD,LOADNIL,EQ,LT}`, `At.sim_{MODK,IDIV,FORPREP}`). Left: the 18 fields of `OpenArms` (GETTABUP, SHL, SHR, SHRI, SHLI, IDIVK, BANDK, BORK, BXORK, MMBIN, MMBINI, MMBINK, UNM, LEN, CONCAT, CALL, and the open paths of EQK (two long strings) and LE (two strings)), `FinalSim` and `StuckSim` (rows below) |
-| `vmRel_final_Statement` / `FinalSim` (the `RETURN*` arms: from `VmRel` at a reachable `Final` state the machine halts with code 0 and console `s.out`) | `Lua/Vm/Sim/Rel.lean`, `Lua/Vm/Sim/Fold.lean` | A1 | open, **not provable from `VmRel` as it stands**: the return runs `luaV_execute`'s epilogue (`ld ra,168(sp)`, `ld s0…s11`), but `VmRel` leaves its C frame free (it is in `Win`), and its `Complement` states nothing about the caller frames above `sp` (`CStackAt.callers` at the entry) that `ccall`, `luaD_rawrunprotected`, `lua_pcallk` and `main` return through; then newlib `exit` (`__call_exitprocs`, the stdio cleanup) and `_exit`'s `tohost` store. Needed first: `Core` keeping the 13 saved words of the C frame (no arm writes `72…175(sp)`; only the prologue does) and `Complement` keeping `RuntimeData.callerFrames`; then summaries of `luaF_close` (no open upvalues, `tbclist` below `base`), `luaD_poscall` (`wanted = 0`), the C returns and `exit` (A1 bullet) |
+| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open, **reduced to named premises**: `vm_refinement_of_open' : OpenArms → StuckSim → vm_refinement_Statement luaLayout` (`Lua/Vm/Sim/Fold.lean`; lane F1-3's fold, `FinalSim` discharged by lane F1-4's `finalSim`). Discharged inside it: the entry (`entrySim`), `VARARGPREP` (`Kit.varargSim`) and the 34 proved arms (`armTable`: the 25 generated `sim_<OP>`, `Kit.sim_{MUL,MULK,MOD,LOADNIL,EQ,LT}`, `At.sim_{MODK,IDIV,FORPREP}`). Left: the 18 fields of `OpenArms` (GETTABUP, SHL, SHR, SHRI, SHLI, IDIVK, BANDK, BORK, BXORK, MMBIN, MMBINI, MMBINK, UNM, LEN, CONCAT, CALL, and the open paths of EQK (two long strings) and LE (two strings)), and `StuckSim` (row below) |
+| `vmRel_final_Statement` / `FinalSim` (the `RETURN*` arms: from `VmRel` at a `Final` state the machine halts with code 0 and console `s.out`) | `Lua/Vm/Sim/Kit/Ret*.lean`, `Lua/Vm/Sim/Kit/Exit.lean`, `Lua/Vm/Sim/Fold.lean` | A1 | **proved** (lane F1-4): `Ret.vmRel_final` (no `Reach`, no `Supported` needed; every `RETURN`/`RETURN0`/`RETURN1`, any operands), `finalSim`. The `exit(0)` at its end is `Complement.exit` (`ExitOk`): proved at the entry and after `VARARGPREP` (`exitOk_entry`: no `atexit`, no stdio exit handler); **an arm that changes the complement must re-establish it** — after a `print`, newlib's `stdio_exit_handler` runs `_fwalk_sglue(_fclose_r)` over the standard streams (`__sflush_r`, htif `_close`, `_free_r` of the buffer), so `OpenArms.CALL` now carries the post-print `exit` |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
 | `StuckSim` (`stuck_sim`'s error paths: from `VmRel` at a reachable state that is neither final nor stepping, the machine diverges or halts nonzero) | `Lua/Vm/Sim/Fold.lean` | A1 | open: `luaG_opinterror`/`luaG_forerror`/`luaG_typeerror`/`luaG_ordererror`/the `MMBIN*` miss/a non-`print` call → `luaD_throw` → `longjmp` (`ErrorJmpAt`) → `lua_pcallk` → `main` returns 2 → `exit` |
 | `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | `sim_MOD_Statement` proved on the KIT branch (`Lua.Vm.Sim.Kit.sim_MOD`, with `sim_MUL`); `sim_MODK_Statement` proved (`Kit.sim_MODK`, with `Kit.sim_MULK`; kit lane 1, `abstractions/ledger/kit-arms-1.md`); `sim_EQ_Statement` proved (`Kit.sim_EQ`: `Kit.eq_long` closes `Kit.sim_EQ_of_long` through `luaS_eqlngstr`/`memcmp` summaries on BASE-S's owned strings; round-4 S-SCAN, `abstractions/bakeoff4/S-SCAN.md`); `sim_EQK_Statement` proved but for two long strings (`Kit.eqk_short`, `Kit.sim_EQK_of_long`; the same call node as `eq_long`, with `K[B]`); the others open |
@@ -510,7 +510,7 @@ covers the new stages.
     * the shifts (`SHL`/`SHR`/`SHLI`/`SHRI`): inline, but a new kind (the
       shift-amount branches against `shiftl`); (`LOADNIL` is proved on the
       kit: `Kit.sim_LOADNIL`, its loop by `Kit.loadnil_loop`);
-    * `RETURN*`: `vmRel_final_Statement` (above);
+    * `RETURN*`: proved (`finalSim`, below);
     * `CALL` (print): callee contracts `luaD_precall` → `luaB_print` →
       `luaL_tolstring` → `lua_writestring` = `fwrite` → newlib stdout → HTIF
       (the A0.2 stdio tables at Lua addresses), `checkstackGCp` (possible
@@ -519,6 +519,31 @@ covers the new stages.
       evolving in the complement, the `trap` reload; `GETTABUP` (the
       `_ENV.print` lookup) is its companion;
     * the error paths (`StuckSim`, Obligations).
+  * **`FinalSim` (proved, lane F1-4, `Lua/Vm/Sim/Kit/Ret*.lean`, `Kit/Exit.lean`).**
+    * The relation keeps what the return reads: `Core.saved` (`SavedAt`,
+      `luaV_execute`'s saved `ra`, `s0 = L`, `s1 … s11` at `72…175(sp)`; the
+      callers' values `RuntimeData.calleeSavedEntry`, pinned at the entry by
+      `CStackAt.saved`/`s0` and the witnesses' `gprsCheck`); every close keeps
+      it (`Core.saved_of`; `CFrame` narrowed to the locals `[sp+8, sp+72)`);
+      `Complement.callers` (the caller frames' boot bytes), `Complement.callerL`
+      (their copies of `L`, `RuntimeData.callerLSlots`, `RuntimeReadyAt.callerL`),
+      `Complement.exit` (`ExitOk`).
+    * The run, on the segment-local route (generated `SegSt` segments chained
+      by `kit_run`, one declaration per phase): every branch whose polarity the
+      relation does not fix is split on its guard (`kit_split`: `B = 0`, `k`,
+      `L->top < ci->top`, `C`), and both polarities are run. The memory along
+      the run is abstract: it agrees with the head memory off the words the
+      run writes (`RAgree`, `RetDirty`; `ret_agree` dispatches each store).
+      Pieces: `fclose_sum` (`luaF_close` with nothing open), `poscall_sum`
+      (`luaD_poscall`, no hooks, `wanted = 0`), `ret_RETURN` (phases
+      `ret_p1`–`ret_p4`), `ret_RETURN0`, `ret_RETURN1`, `ret_fresh`
+      (`CIST_FRESH`, the epilogue), `ret_chain` (`ccall` →
+      `luaD_rawrunprotected` → `luaD_pcall` → `lua_pcallk` → `main` →
+      `_start`, the frames' words by `framesRd` off `RuntimeData.callerFrames`),
+      `exit_run` (`__call_exitprocs` with `__atexit = NULL`, no stdio handler,
+      `_exit`) and `exit_halt` (the `tohost` store, `stepOnce_tohost_G`).
+    * Boot contract additions (checked by the witnesses): `StdioBoot.atexit`,
+      `RuntimeReadyAt.callerL`, `CStackAt.s0`/`saved`.
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
 
