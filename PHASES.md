@@ -28,8 +28,10 @@ Every row is currently unassigned.
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **proved**: the relation `VmRel`, `dispatch`, and 25 arms `sim_<OP>` (MOVE, LOADI, JMP, ADD, SUB, ADDI, ADDK, SUBK, BAND, BOR, BXOR, EQI, LTI, GTI, LEI, GEI, TEST, TESTSET, NOT, BNOT, LOADK, LOADTRUE, LOADFALSE, LFALSESKIP, FORLOOP) (A1 status) |
 | `vmRel_final_Statement` (the `RETURN*` arms: from `VmRel` at a `Final` state the machine halts with `s.out`) | `Lua/Vm/Sim/Rel.lean` | A1 | open: the `Final` clause of the fold, not a `sim_<OP>` (the return chain's callee contracts) |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
-| `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | `sim_MOD_Statement` proved on the KIT branch (`Lua.Vm.Sim.Kit.sim_MOD`, with `sim_MUL`); `sim_MODK_Statement` proved (`Kit.sim_MODK`, with `Kit.sim_MULK`; kit lane 1, `abstractions/ledger/kit-arms-1.md`); `sim_EQ_Statement` proved (`Kit.sim_EQ`: `Kit.eq_long` closes `Kit.sim_EQ_of_long` through `luaS_eqlngstr`/`memcmp` summaries on BASE-S's owned strings; round-4 S-SCAN, `abstractions/bakeoff4/S-SCAN.md`); `sim_EQK_Statement` proved but for two long strings (`Kit.eqk_short`, `Kit.sim_EQK_of_long`; the same call node as `eq_long`, with `K[B]`); the others open |
-| `SimArm .LT`, `SimArm .LE` on two strings (the premise of `Kit.sim_LT_of_str`, `Kit.sim_LE_of_str`; integers and the stuck cases proved: `lt_int`, `lt_stuck`, `le_int`, `le_stuck`) | `Lua/Vm/Sim/Kit/{Lt,Le,LtStr}.lean` | A1 | `SimArm .LT` proved (`Kit.sim_LT`: `Kit.lt_str` through `Kit.lstrcmp_sum`, `strcmp_sum`, `strlen_sum`; round-4 S-SCAN); `SimArm .LE` open: the same call node, observed by `slti a0, 1` (zero-ness and sign of `CmpObs`), so `lstrcmp_sum`'s answer must also state `a0 ≤ 0 ↔ ¬ lexLt b a` |
+| `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | `sim_MOD_Statement` proved on the KIT branch (`Lua.Vm.Sim.Kit.sim_MOD`, with `sim_MUL`); `sim_MODK_Statement` proved (`Kit.sim_MODK`, with `Kit.sim_MULK`; kit lane 1, `abstractions/ledger/kit-arms-1.md`); `sim_EQ_Statement` proved (`Kit.sim_EQ`: `Kit.eq_long` closes `Kit.sim_EQ_of_long` through `luaS_eqlngstr`/`memcmp` summaries on BASE-S's owned strings; round-4 S-SCAN, `abstractions/bakeoff4/S-SCAN.md`); `sim_EQK_Statement` proved (`At.sim_EQK`, `Lua/Vm/Sim/Kit/AtStr.lean`: `Kit.eqk_short`, and the two-long-string path on the location-list route through the call node `At.lngeq_sum` over `Kit.eqo_long_ex`, `luaV_equalobj`'s exact return memory; lane F1-2, `abstractions/ledger/f1-lane-2.md`); the others open |
+| `SimArm .LT`, `SimArm .LE` on two strings (the premise of `Kit.sim_LT_of_str`, `Kit.sim_LE_of_str`; integers and the stuck cases proved: `lt_int`, `lt_stuck`, `le_int`, `le_stuck`) | `Lua/Vm/Sim/Kit/{Lt,Le,AtStr}.lean` | A1 | **proved** on the location-list route (`At.sim_LT`, `At.sim_LE`; lane F1-2): the call node `At.lstr_sum` (`Kit.lstrcmp_sum`, now with the observation `Kit.LsObs`: zero iff equal, a sign-extended answer, `LsObs.le` for `slti 1`) fused with its observing instruction (`At.obs_lt`, `At.obs_le`), `docondjump` in the generated at-lemmas (`Lua/Vm/At/{Lt,Le}.lean`); `lt_str_take` costs 14k heartbeats (the kit's 200.3k; the kit's `LtStr` is retired) |
+| `SimArm .LEN` (a string `R[B]`; `δ .len` has no other F1 value) | `Lua/Vm/Sim/Kit/{Objlen,AtStr}.lean` | A1 | **proved** (`At.sim_LEN`; lane F1-2): `luaV_objlen`'s string summary `Kit.objlen_sum` (exact memory `olMem`), the call node `At.len_sum`, the arm's segments emitted apart (`gen_lua_arms.py` `EXTRA_ARMS`), `Lua/Vm/At/Len.lean` |
+| `SimArm .GETTABUP` (`_ENV.print` only) | — | A1 | open, **obstruction** (lane F1-2, `abstractions/ledger/f1-lane-2.md`): (1) `VmEntryData.env_print_ptr` gives `TableHasShortKeyPtr` (some node of `_ENV` holds the key pointer), not that `luaH_getshortstr`'s walk from the key's main position `hash & (2^lsizenode - 1)` along `gnext` reaches that node past nodes with other keys; the boot check (`printPtrCheck`) and `VmEntryData` need that walk; (2) the relation holds no closure: the arm reads `cl` at `8(sp)` (`RelPtrs` and `Core` have no `cl`), `cl->upvals[0]->v` and the table header and nodes (not in `Complement`); (3) a `luaH_getshortstr` summary (`seg_loop` over the chain) |
 | `SimArm .FORPREP` | — | A1 | open (lane KIT-2 stopped at the gate): `luaV_tointeger`'s integer summary `Kit.toint_sum` and the C-frame close `Core.bleachF` are proved; the arm's run (8 segments, two call nodes) exceeds the default heartbeat budget in one declaration and needs a split at the call with an abstract mid-state memory (`abstractions/ledger/kit-arms-2.md`) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
@@ -448,11 +450,14 @@ covers the new stages.
       `__umoddi3`'s symbol, and the unsigned case falls through into
       `__hidden___udivdi3`), the summary is open. `FORPREP` (`__udivdi3`
       whenever the step is not 1);
-    * callee contracts in `luaV_execute`'s callees: `EQ`/`EQK`
-      (`luaV_equalobj`), `LT`/`LE` (`lessthanothers` → `l_strcmp` on two
-      strings), `UNM` (a numeric string: `luaT_trybinTM` → the string
-      library's `__unm`), `VARARGPREP` (`luaT_adjustvarargs`, which moves
-      `ci->func`: `VmRel` is re-established with a new `func`);
+    * callee contracts in `luaV_execute`'s callees: `UNM` (a numeric
+      string: `luaT_trybinTM` → the string library's `__unm`), `VARARGPREP`
+      (`luaT_adjustvarargs`, which moves `ci->func`: `VmRel` is
+      re-established with a new `func`). (`EQ`, `EQK`, `LT`, `LE` on
+      strings and `LEN` are proved: `Kit.sim_EQ`, `At.sim_EQK`, `At.sim_LT`,
+      `At.sim_LE`, `At.sim_LEN`; lane F1-2 put `docondjump`, observed call
+      nodes and calls that store `R[A]` on the location-list route,
+      `Kit/AtCond.lean`);
     * `BANDK`/`BORK`/`BXORK`: the arm reads `K[C]`'s payload without a tag
       test (`lvm.c` `op_bitwiseK`: `ivalue(KC(i))`; `lcode.c` `codebitwise`
       emits a `K` operand only for a `VKINT` constant), so their kernel is
@@ -469,7 +474,8 @@ covers the new stages.
       stack reallocation at ≥ 15 locals: `VmRel` with a new `func`), the
       heap, string interning (`luaS_newlstr`) and `StdioBoot`/`MemfsBoot`
       evolving in the complement, the `trap` reload; `GETTABUP` (the
-      `_ENV.print` lookup) is its companion;
+      `_ENV.print` lookup) is its companion, blocked as its obligation row
+      says (the walk to the `print` node, the closure in the relation);
     * the error paths (`stuck_sim`) and the `term_sim`/`stuck_sim` fold.
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
