@@ -935,16 +935,18 @@ elab "at_run " ns:ident h:ident acc:ident : tactic => do
     for n in cands do
       unless (← lemmaKey n) == key do continue
       let s ← saveState
-      try
-        let args ← Tactic.runTermElab (atRunArgs n)
-        let lem ← `($(mkIdent n) $args*)
-        withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
-          obtain ⟨_, $acc, $h⟩ := At.run $acc $h $lem))
-        done := true
-        break
-      catch e =>
-        errs := errs.push m!"{n}: {e.toMessageData}"
-        s.restore
+      -- a candidate whose hypotheses `at_hyp` cannot close is rejected, also
+      -- when a closer runs into the recursion limit on an undecided guard
+      let ok ← tryCatchRuntimeEx (do
+          let args ← Tactic.runTermElab (atRunArgs n)
+          let lem ← `($(mkIdent n) $args*)
+          withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
+            obtain ⟨_, $acc, $h⟩ := At.run $acc $h $lem))
+          pure (none : Option MessageData))
+        (fun e => pure (some m!"{n}: {e.toMessageData}"))
+      match ok with
+      | none => done := true; break
+      | some m => errs := errs.push m; s.restore
     unless done do
       throwError "at_run: no at-lemma at 0x{hex8 pc} applies:{indentD (MessageData.joinSep errs.toList "\n")}"
   throwError "at_run: out of fuel"
