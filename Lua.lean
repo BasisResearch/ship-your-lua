@@ -1,3 +1,6 @@
+import Lua.Num.Decimal
+import Lua.Num.DecimalBridge
+import Lua.Num.DecimalFacts
 import Lua.Bytecode.OpCode
 import Lua.Bytecode.Syntax
 import Lua.Bytecode.Semantics

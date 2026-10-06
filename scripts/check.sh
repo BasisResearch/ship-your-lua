@@ -498,6 +498,11 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Num.F64.mul_comm
 #print axioms Lua.Num.F64.trichotomy
 #print axioms Lua.Num.F64.ofInt_exact
+#print axioms Lua.Num.str2int_bytecode
+#print axioms Lua.Num.str2int_ast
+#print axioms Lua.Num.str2number_1_5
+#print axioms Lua.Num.tostring_nan
+#print axioms Lua.Num.gethex_sticky
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
