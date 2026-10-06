@@ -262,6 +262,12 @@ def FinalSim : Prop :=
 theorem finalSim_of_statement (h : vmRel_final_Statement) : FinalSim :=
   fun p c s hS _ hR hf => h p c s hS hR hf
 
+/-- **The `Final` clause, proved** (lane F1-4, `Ret.vmRel_final`): every
+`RETURN*` returns out of `luaV_execute`, through `ccall` … `main` to
+`exit(0)`, which halts with code 0 from the relation's complement
+(`Complement.exit`). -/
+theorem finalSim : FinalSim := finalSim_of_statement Ret.vmRel_final
+
 /-- **The stuck clause**: at a reachable state that is not final and has no
 step (`δ` undefined: `luaG_opinterror`, `luaG_forerror`, `luaG_typeerror`,
 `luaG_ordererror`, the `MMBIN*` metamethod miss, a call of a non-`print`
@@ -395,5 +401,11 @@ theorem vmSim_of_open (arms : OpenArms) (final : FinalSim) (stuck : StuckSim) :
 theorem vm_refinement_of_open (arms : OpenArms) (final : FinalSim) (stuck : StuckSim) :
     vm_refinement_Statement luaLayout :=
   vm_refinement_of_sim (vmSim_of_open arms final stuck)
+
+/-- **Layer A from the open arms and the error paths**: `FinalSim` discharged
+(`finalSim`). -/
+theorem vm_refinement_of_open' (arms : OpenArms) (stuck : StuckSim) :
+    vm_refinement_Statement luaLayout :=
+  vm_refinement_of_open arms finalSim stuck
 
 end Lua.Vm.Sim

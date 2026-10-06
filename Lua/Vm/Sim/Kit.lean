@@ -25,6 +25,7 @@ import Lua.Vm.Sim.Kit.EqLong
 import Lua.Vm.Sim.Kit.LtStr
 import Lua.Vm.Sim.Kit.Adjvar
 import Lua.Vm.Sim.Kit.Varargprep
+import Lua.Vm.Sim.Kit.RetFinal
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

@@ -202,6 +202,15 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
           simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, RuntimeData.spEntry] at this ⊢
           omega)]
         exact bytesT8_of_rd64 (hRt.callerL a ha))
+      ((rdLE_congr fun i hi => hdirty _ (by
+        have b1 := hrg.ci_lo; have b2 := hrg.stack_lo
+        simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, symAtexit, symEnd] at b1 b2 ⊢
+        omega)).trans hRt.stdio.atexit)
+      ((rdLE_congr fun i hi => hdirty _ (by
+        have b1 := hrg.ci_lo; have b2 := hrg.stack_lo
+        simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, symStdioExitHandler,
+          symEnd] at b1 b2 ⊢
+        omega)).trans hRt.stdio.exit_handler)
     exact ⟨ι', hP⟩
 
 /-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at

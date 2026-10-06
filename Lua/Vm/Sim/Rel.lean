@@ -255,6 +255,38 @@ theorem callerLSlots_above : ∀ a ∈ RuntimeData.callerLSlots,
     RuntimeData.spEntry ≤ a ∧ a + 8 ≤ 0x88000000 := by
   decide
 
+/-- **The registers at `exit`'s entry** (`_start`'s `j exit` after `main`
+returns 0): `a0 = 0`, `sp = __stack_top`, `ra` after `_start`'s `jal main`,
+`gp`, and some callee-saved values. -/
+abbrev exitRow (q8 q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27 : BitVec 64) : List Pin :=
+  [⟨Register.x10, 0#64⟩, ⟨Register.x1, 0x80000038#64⟩, ⟨Register.x2, 0x88000000#64⟩,
+   ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩, ⟨Register.x8, q8⟩, ⟨Register.x9, q9⟩,
+   ⟨Register.x18, q18⟩, ⟨Register.x19, q19⟩, ⟨Register.x20, q20⟩, ⟨Register.x21, q21⟩,
+   ⟨Register.x22, q22⟩, ⟨Register.x23, q23⟩, ⟨Register.x24, q24⟩, ⟨Register.x25, q25⟩,
+   ⟨Register.x26, q26⟩, ⟨Register.x27, q27⟩]
+
+/-- **What `exit` may find changed from the complement**: the C stack, the
+`lua_State` and the `CallInfo` (the return chain's stores, `Scratch`), and the
+register slots. -/
+def ExitFree (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
+  (RuntimeData.spEntry - cStackBudget ≤ a ∧ a < 0x88000000) ∨ (w.L ≤ a ∧ a < w.L + stateSize) ∨
+    (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ Slots p w a
+
+/-- **`exit(0)` from the complement halts with code 0 and prints nothing**:
+from `exit`'s entry (`exitRow`) with any memory that reads (totally) as
+`w.mo` off `ExitFree`, the machine halts with the console it has. This is the
+end of every `RETURN*` (`FinalSim`): the return chain reaches `exit(0)` with
+such a memory. At the entry it holds by `exit_run` (`__atexit = NULL`, no
+`__stdio_exit_handler`); an arm that changes `w.mo` (`CALL print`: after a
+`print`, newlib's `stdio_exit_handler` closes the standard streams) must show
+it of its complement. -/
+def ExitOk (p : Proto) (w : RelPtrs) : Prop :=
+  ∀ (M : Mem) (o : Array String) (c : Config) (q8 q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27 : BitVec 64),
+    (∀ a, ¬ ExitFree p w a → bytesT1 M a = bytesT1 w.mo a) →
+    SegSt (BitVec.ofNat 64 symCExit) (exitRow q8 q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27)
+      (fun σ => Arms.TextLoaded σ.mem ∧ σ.mem = M ∧ σ.sailOutput = o ∧ RegsOk σ) c →
+    Vsa.Machine.Halts c (Vsa.Machine.output c.σ) 0
+
 /-- **The complement**: what the relation knows about `w.mo`. -/
 structure Complement (p : Proto) (w : RelPtrs) : Prop where
   text : Arms.TextLoaded w.mo
@@ -282,6 +314,8 @@ structure Complement (p : Proto) (w : RelPtrs) : Prop where
   /-- the caller frames' copies of `L` (`RuntimeReadyAt.callerL`): the return
   chain's stores to `L->nCcalls`, `L->errorJmp`, `L->errfunc` go through them -/
   callerL : ∀ a ∈ RuntimeData.callerLSlots, bytesT8 w.mo a = BitVec.ofNat 64 w.L
+  /-- `exit(0)` from this complement halts with code 0 (`ExitOk`) -/
+  exit : ExitOk p w
 
 /-- **Where things are**: the address ranges the arms' side conditions need,
 and the window's separation from the code array and the `CallInfo`. -/

@@ -111,10 +111,6 @@ theorem RAgree.trans {m1 : Mem} (h : RAgree w m0 m) (h' : RAgree w m m1) : RAgre
 
 end
 
-/-- A `ret`'s target: the saved `ra`, aligned. -/
-theorem rtgt (r : BitVec 64) (h : r.toNat % 4 = 0) : BitVec.update r 0 0#1 = r := by
-  have := Vsa.Sim.ret_tgt r h; rwa [Vsa.Sim.sext_zero, BitVec.add_zero] at this
-
 theorem sext32_zero : sign_extend (m := 64) (0#32 : BitVec (8 * 4)) = (0#64 : BitVec 64) := by decide
 theorem sext16_zero : sign_extend (m := 64) (0#16 : BitVec (8 * 2)) = (0#64 : BitVec 64) := by decide
 
@@ -129,10 +125,6 @@ theorem bytesT2_wm8_out' {m : Mem} {a x : Nat} {d : BitVec (8 * 8)} (h : x + 2 �
 theorem bytesT4_wm8_out'' {m : Mem} {a x : Nat} {d : BitVec (8 * 8)} (h : x + 4 ≤ a ∨ a + 8 ≤ x) :
     bytesT4 (writeMap8 m a d) x = bytesT4 m x :=
   bytesT4_congr fun i _ => getElem?_writeMap8_out m a d _ (by omega)
-
-theorem bytesT8_wm8_out' {m : Mem} {a x : Nat} {d : BitVec (8 * 8)} (h : x + 8 ≤ a ∨ a + 8 ≤ x) :
-    bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
-  bytesT8_congr fun i _ => getElem?_writeMap8_out m a d _ (by omega)
 
 theorem bytesT8_wm4_out' {m : Mem} {a x : Nat} {d : BitVec (8 * 4)} (h : x + 8 ≤ a ∨ a + 4 ≤ x) :
     bytesT8 (writeMap4 m a d) x = bytesT8 m x :=

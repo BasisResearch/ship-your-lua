@@ -1,4 +1,4 @@
-import Lua.Vm.Sim.Kit.RetChain
+import Lua.Vm.Sim.Kit.Run
 import Lua.Vm.Arms.Segs.Hexit
 import Lua.Vm.Arms.Segs.Hcall_exitprocs
 import Lua.Vm.Arms.Segs.Hretarget_lock_acquire_recursive
@@ -15,7 +15,8 @@ the lock; with `__stdio_exit_handler = NULL` (`beqz` taken) `exit` calls
 `_exit(0)`, which stores `(0 << 1) | 1` to `tohost` (`sd a5,120(a4)`): the
 HTIF exit with code 0, the console unchanged (`exit_halt`,
 `Vsa.Sim.stepOnce_tohost_G`, the step `Console.exit_haltFact` packages for
-the Iris route).
+the Iris route). `exitOk_of_quiet` gives `ExitOk` of a complement with no
+handler (the entry's, `StdioBoot`).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -23,8 +24,27 @@ open Vsa.Sim Vsa.Logic
 
 namespace Lua.Vm.Sim.Ret
 
-open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout
+open Lua.Vm.Sim Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps)
+
+/-- A `ret`'s target: the saved `ra`, aligned. -/
+theorem rtgt (r : BitVec 64) (h : r.toNat % 4 = 0) : BitVec.update r 0 0#1 = r := by
+  have := Vsa.Sim.ret_tgt r h; rwa [Vsa.Sim.sext_zero, BitVec.add_zero] at this
+
+theorem bytesT8_wm8_out' {m : Mem} {a x : Nat} {d : BitVec (8 * 8)} (h : x + 8 ≤ a ∨ a + 8 ≤ x) :
+    bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
+  bytesT8_congr fun i _ => getElem?_writeMap8_out m a d _ (by omega)
+
+/-- A read of a store chain at the stored address. -/
+theorem bytesT8_wm8_hitX {m : Mem} {a x : Nat} {d : BitVec 64} (h : a = x) :
+    bytesT8 (writeMap8 m a (sdData_val d)) x = d := by
+  subst h; rw [bytesT8_writeMap8, sdData_id]
+
+/-- `addi rd, rs, -k`, in range. -/
+theorem sl_negX {y k : Nat} (hk : 2048 ≤ k ∧ k < 4096) (hy : 4096 - k ≤ y) (hy2 : y < 2 ^ 64) :
+    BitVec.ofNat 64 y + sign_extend (m := 64) (BitVec.ofNat 12 k) = BitVec.ofNat 64 (y - (4096 - k)) := by
+  rw [imm_neg_add y k hk.1 hk.2]
+  apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_ofNat]; omega
 
 /-- **`_exit`'s store halts**: at `0x8000064c` with `a4` the `auipc` base of
 `tohost` and `a5 = (0 << 1) | 1`, the next step is the HTIF exit with code 0,
@@ -58,9 +78,9 @@ theorem exit_halt {m : Mem} {o : Array String} {c : Config} {L : List Pin}
 
 set_option hygiene false in
 local macro_rules | `(tactic| kit_norm $h) => `(tactic|
-  simp (disch := kit_disch) only [add_imm, sl_neg, BitVec.toNat_ofNat, Nat.mod_eq_of_lt,
+  simp (disch := kit_disch) only [add_imm, sl_negX, BitVec.toNat_ofNat, Nat.mod_eq_of_lt,
     Nat.add_zero, Vsa.Sim.sext_zero, BitVec.add_zero, BitVec.ofNat_add_ofNat, Nat.reduceSub,
-    Nat.reduceAdd, symGlobalPointer, bytesT8_wm8_hitE, bytesT8_wm8_out', sext64_id, hat,
+    Nat.reduceAdd, symGlobalPointer, bytesT8_wm8_hitX, bytesT8_wm8_out', sext64_id, hat,
     hsx] at $h:ident)
 
 set_option hygiene false in
@@ -69,7 +89,7 @@ local macro_rules
       | decide
       | (rw [rtgt _ (by decide)]; decide)
       | (simp (disch := kit_disch) only [add_imm, BitVec.toNat_ofNat, Nat.mod_eq_of_lt,
-          Nat.reduceAdd, symGlobalPointer, bytesT8_wm8_hitE, bytesT8_wm8_out', sext64_id, hat,
+          Nat.reduceAdd, symGlobalPointer, bytesT8_wm8_hitX, bytesT8_wm8_out', sext64_id, hat,
           hsx, Vsa.Sim.sext_zero, BitVec.add_zero]
          first | decide | (rw [rtgt _ (by decide)]; decide)))
 
@@ -93,5 +113,16 @@ theorem exit_run {M : Mem} {o : Array String} {c : Config}
   obtain ⟨σf, hh, ho⟩ := exit_halt (L := []) (h.repin (by pins_of h))
   refine ⟨_, σf, acc, hh, ho.trans ?_⟩
   exact (output_congr (h.armOut.trans hout.symm))
+
+
+/-- **`ExitOk` of a complement with no `atexit` and no stdio exit handler**,
+the two words off `ExitFree`. -/
+theorem exitOk_of_quiet {p : Proto} {w : RelPtrs} (hat : bytesT8 w.mo symAtexit = 0#64)
+    (hsx : bytesT8 w.mo symStdioExitHandler = 0#64)
+    (hout : ∀ i, i < 8 → ¬ ExitFree p w (symAtexit + i) ∧ ¬ ExitFree p w (symStdioExitHandler + i)) :
+    ExitOk p w := by
+  intro M o c q8 q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27 hM h
+  exact exit_run h ((bytesT8_congrT fun i hi => hM _ (hout i hi).1).trans hat)
+    ((bytesT8_congrT fun i hi => hM _ (hout i hi).2).trans hsx)
 
 end Lua.Vm.Sim.Ret

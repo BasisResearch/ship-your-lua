@@ -112,15 +112,6 @@ theorem chainMem {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hc : Core p
     e8 _ _ (by decide +kernel) (by decide) (by decide), e8 _ _ (by decide +kernel) (by decide) (by decide),
     e8 _ _ (by decide +kernel) (by decide) (by decide)⟩
 
-/-- The registers at `exit`'s entry: `a0 = 0`, `sp = __stack_top`, `ra` after
-`_start`'s `jal main`, `gp`, and some callee-saved values. -/
-abbrev exitRow (q8 q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27 : BitVec 64) : List Pin :=
-  [⟨Register.x10, 0#64⟩, ⟨Register.x1, 0x80000038#64⟩, ⟨Register.x2, 0x88000000#64⟩,
-   ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩, ⟨Register.x8, q8⟩, ⟨Register.x9, q9⟩,
-   ⟨Register.x18, q18⟩, ⟨Register.x19, q19⟩, ⟨Register.x20, q20⟩, ⟨Register.x21, q21⟩,
-   ⟨Register.x22, q22⟩, ⟨Register.x23, q23⟩, ⟨Register.x24, q24⟩, ⟨Register.x25, q25⟩,
-   ⟨Register.x26, q26⟩, ⟨Register.x27, q27⟩]
-
 /-- **At `exit(0)`**: the memory in agreement with the head's. -/
 def AtExit (w : RelPtrs) (m0 : Mem) (o : Array String) (c : Config) : Prop :=
   ∃ M q8 q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27, RAgree w m0 M ∧

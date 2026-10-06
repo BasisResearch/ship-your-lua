@@ -1,5 +1,6 @@
 import Lua.Vm.Sim.Dispatch
 import Lua.Vm.Arms.Prologue
+import Lua.Vm.Sim.Kit.Exit
 
 /-!
 # The entry lemma: from `luaV_execute`'s entry to the fetch head in `VmRel` (A1)
@@ -314,6 +315,33 @@ structure RelParts (p : Proto) (w : RelPtrs) : Prop where
   comp : Complement p w
   ranges : Ranges p w
 
+/-- A little-endian read depends only on its bytes. -/
+theorem rdLE_congr {m m' : Mem} {a n : Nat} (h : ∀ i, i < n → m'[a + i]? = m[a + i]?) :
+    rdLE m' a n = rdLE m a n := by
+  unfold rdLE
+  have : ∀ l : List Nat, (∀ i ∈ l, i < n) →
+      l.foldr (fun i acc => do let b ← m'[a + i]?; let r ← acc; pure (b.toNat + 256 * r)) (some 0) =
+        l.foldr (fun i acc => do let b ← m[a + i]?; let r ← acc; pure (b.toNat + 256 * r)) (some 0) := by
+    intro l hl
+    induction l with
+    | nil => rfl
+    | cons x t ih =>
+      simp only [List.foldr_cons]
+      rw [h x (hl x (List.mem_cons_self ..)), ih fun i hi => hl i (List.mem_cons_of_mem _ hi)]
+  exact this _ fun i hi => List.mem_range.mp hi
+
+/-- **`exit(0)` from a quiet complement** (no `atexit`, no stdio exit
+handler): the two words lie in `.bss`, below every heap object. -/
+theorem exitOk_entry {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs} {ι : Strs}
+    (hat : rd64 m symAtexit = some 0) (hsx : rd64 m symStdioExitHandler = some 0)
+    (hrg : VmRegionsAt m L ci rt) (hfunc : rt.func = func) (hle : rt.stack ≤ rt.func) :
+    ExitOk p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩ := by
+  refine Ret.exitOk_of_quiet (bytesT8_of_rd64 hat) (bytesT8_of_rd64 hsx) fun i hi => ?_
+  have a1 := hrg.L_lo; have a2 := hrg.ci_lo; have a3 := hrg.stack_lo
+  simp only [ExitFree, Slots, RelPtrs.base, stackValueSize, symEnd, symAtexit, symStdioExitHandler,
+    RuntimeData.spEntry, cStackBudget, stateSize, ciSize] at a1 a2 a3 ⊢
+  omega
+
 /-- **The complement and the ranges from the runtime's memory structures**: a
 memory `m` holding the image, the prototype (`ProtoAt`) and the structures of
 `RtPostAt` (the heap, the Lua state with `ci->func = func`, the error handler,
@@ -327,7 +355,8 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
     (hsp : sp = RuntimeData.spEntry - execFrame)
     (hfits : func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast)
     (hcall : SegsAt m RuntimeData.callerFrames)
-    (hcL : ∀ a ∈ RuntimeData.callerLSlots, bytesT8 m a = BitVec.ofNat 64 L) :
+    (hcL : ∀ a ∈ RuntimeData.callerLSlots, bytesT8 m a = BitVec.ofNat 64 L)
+    (hat : rd64 m symAtexit = some 0) (hsx : rd64 m symStdioExitHandler = some 0) :
     ∃ ι : Strs, RelParts p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩ := by
   have hrg := hrt.regions
   have hlua := hrt.lua
@@ -344,7 +373,8 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
   subst hsp
   refine ⟨⟨ι, KStrIn m rt.k p.k.length⟩, ⟨⟨htext, hro, hpr.proto, hpr.code, fun i ins hf => ?_,
     ?_, ?_, ⟨hfunc, hlua, hrt.heap, hrt.error_jmp⟩, hkι,
-    own_of_kowned hrt.kowned rfl esizek rfl hsle hfits, hcall, hcL⟩,
+    own_of_kowned hrt.kowned rfl esizek rfl hsle hfits, hcall, hcL,
+    exitOk_entry hat hsx hrg hfunc hlua.stack_le⟩,
     Ranges.of_regions hrg rfl hfunc.symm ecode rfl esz esizek hlua.stack_le hfits⟩⟩
   · obtain ⟨hlt, hi⟩ := List.getElem?_eq_some_iff.1 hf
     rw [bytesT4_of_rd32 (hwords i hlt), hi, BitVec.ofNat_toNat, BitVec.setWidth_eq]
@@ -595,7 +625,7 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
     hM.text hM.rodata ⟨hE.proto, hE.proto_code⟩
     ⟨hRt.heap, hlua, hRt.error_jmp, hrg, hRt.interned, hRt.kowned⟩ efunc.symm epa.symm rfl
     (by rw [← esl]; exact hE.frame_fits) hRt.cstack.callers
-    (fun a ha => bytesT8_of_rd64 (hRt.callerL a ha))
+    (fun a ha => bytesT8_of_rd64 (hRt.callerL a ha)) hRt.stdio.atexit hRt.stdio.exit_handler
   have hwo : ∀ {m : Mem} {a x : Nat} {d : BitVec (8 * 8)}, x + 8 ≤ a ∨ a + 8 ≤ x →
       bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
     fun h => bytesT8_congr fun _ _ => getElem?_writeMap8_out _ _ _ _ (by omega)
