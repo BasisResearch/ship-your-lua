@@ -145,6 +145,16 @@ theorem sbx_fsi (bx : Nat) (h : bx < 2 ^ 17) :
   simp only [BitVec.toNat_add, BitVec.toNat_ofNat]
   split <;> omega
 
+/-- `0.0`'s bits. -/
+theorem toModel_zero : F64.toModel 0#64 = Lua.Num.zero := by decide +kernel
+
+/-- `luai_numadd` commutes (`F64.add_comm` through the round trip). -/
+theorem model_add_comm (a b : Float.Model) : Float.Model.add a b = Float.Model.add b a := by
+  have h := F64.add_comm a.toBits.toBitVec b.toBits.toBitVec
+  rw [F64.add_eq_model, F64.add_eq_model, toModel_toBits, toModel_toBits] at h
+  have := congrArg F64.toModel h
+  rwa [toModel_toBits, toModel_toBits] at this
+
 /-- `GETARG_Bx` has 17 bits. -/
 theorem Word.bx_lt (w : Word) : w.bx < 2 ^ 17 := by
   simp only [Word.bx, Word.field]; exact Nat.mod_lt _ (by decide)

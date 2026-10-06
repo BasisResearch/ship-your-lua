@@ -17,7 +17,7 @@ open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
 /-- **`OP_LOADF`** (`FloatArms.LOADF`). -/
-theorem sim_LOADF (hsf : SoftFloatSpec) : SimArm .LOADF :=
+theorem sim_LOADF_flt (hsf : SoftFloatSpec) : SimArm .LOADF :=
   sim_arm (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep => by
   kit_setup 0x8001d400
   have hbx := Word.bx_lt ins

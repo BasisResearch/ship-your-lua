@@ -55,6 +55,14 @@ theorem bne_ite' (k c : Bool) :
     ((if k then 1#64 else 0#64) != (if c then 1#64 else 0#64)) = (k != c) := by
   cases k <;> cases c <;> decide
 
+/-- `decide` on a closed goal only: a guard left open over the payloads (an
+at-lemma of the other exit, whose test the path does not know) fails here
+instead of evaluating the soft-float model on free variables. -/
+elab "at_dec_closed" : tactic => do
+  let t ← Lean.Elab.Tactic.getMainTarget
+  if (← Lean.instantiateMVars t).hasFVar then throwError "at_dec_closed: open goal"
+  Lean.Elab.Tactic.evalTactic (← `(tactic| decide))
+
 set_option hygiene false in
 /-- The float paths' guards: the operand's tag is the float tag (`hta`), the
 answer of the soft-float call (the sites' `at_fspec` equations, the
@@ -63,11 +71,11 @@ the kernel's test, against `k` (`e`). -/
 macro_rules
   | `(tactic| at_hyp) => `(tactic| (
       simp (disch := assumption) only [Loc.den, Fld.den, Aff.den, Aff.sum, Atom.den, Nat.add_zero, Nat.one_mul, Nat.zero_add,
-        Nat.sub_zero, at_fspec, Lua.Vm.Fn.Floatsidf.S, sb_fsi _ hbb, slt_ledf2, slt1_ledf2, seqz_eqdf2, ge_gedf2, blez_gedf2,
-        F64.lt_eq_model, F64.le_eq_model, F64.eq_eq_model, toModel_ofInt, toInt_imm _ hbb, hxm, zext_bit,
+        Nat.sub_zero, at_fspec, Lua.Vm.Fn.Floatsidf.S, Lua.Vm.Fn.Adddf3.S, F64.add_eq_model, toModel_toBits, sb_fsi, slt_ledf2, slt1_ledf2, seqz_eqdf2, ge_gedf2, blez_gedf2,
+        F64.lt_eq_model, F64.le_eq_model, F64.eq_eq_model, toModel_ofInt, toInt_imm, hxm, zext_bit,
         bne_ite', e, hta, hnj, Option.isSome_some, bne_self_eq_false, fnot_bne_self, zext_beq_lit _ 19 (by decide),
         zext_bne_lit _ 19 (by decide), zext_bne_lit _ vNumInt (by decide), zext_beq_lit _ vNumInt (by decide)]
-      first | done | decide))
+      first | done | at_dec_closed))
 
 set_option hygiene false in
 /-- A stored float result (`setfltvalue`, or `chgfltvalue`'s payload under the
@@ -75,10 +83,10 @@ entry's float tag): its payload, read off the call sites' specifications
 (`at_fspec`) and `F64`'s bridges, is the kernel's value's bits. -/
 macro_rules
   | `(tactic| at_new_ext) => `(tactic| (
-      refine ValRepr.ofFloat_of (by first | decide | (simp only [stData_zext, Nat.add_zero]; exact hta)) ?_
+      refine ValRepr.ofFloat_of (by first | decide | (simp only [stData_zext, Nat.add_zero]; exact hta) | (simp only [Loc.den, stData_zext, Nat.add_zero, hta]; done)) ?_
       simp (disch := assumption) only [Loc.den, Fld.den, Aff.den, Aff.sum, Atom.den, Nat.add_zero,
         Nat.one_mul, Nat.sub_zero, at_fspec, Lua.Vm.Fn.Floatsidf.S, Lua.Vm.Fn.Adddf3.S, sb_fsi, sbx_fsi,
-        F64.ofInt_eq_model, F64.add_eq_model, toModel_ofInt, toInt_imm, ofI, Word.sbx, Word.offsetSBx,
+        F64.ofInt_eq_model, F64.add_eq_model, toModel_ofInt, toModel_toBits, toInt_imm, ofI, Word.sbx, Word.offsetSBx,
         Word.sc, Word.offsetSC, Int.cast_ofNat_Int]
       first | done | (simp only [hxm]; done) | (simp only [hxm, hxm2]; done)))
 
@@ -101,6 +109,30 @@ macro "at_fcond " pc:num ns:ident dlem:term "," e:term : tactic => `(tactic| (
   obtain ⟨hta, hxm, -⟩ := hva.flt_parts
   simp [Opnd.fill, Opnd.ports, immB, Word.sb, Word.offsetSC, $dlem:term, ofI_imm _ hbb, VState.apply, writeDefs,
     KEdge.kills, Value.isFalse, e] at hk
+  subst hk
+  at_go $ns))
+
+set_option hygiene false in
+/-- **`at_farith pc NS`**: `op_arithI`'s float case (`hT : FltB`): `R[B]` a
+float and the immediate `sC`; the kernel's sum (`rawArith` on a float and an
+integer, `numarith`), the run by `at_go NS`, the stored payload by the float
+rule of `at_new_ext`. -/
+macro "at_farith " pc:num ns:ident : tactic => `(tactic| (
+  kit_setup $pc
+  try simp [immC, Opnd.ports] at htop
+  try simp only [immC, Opnd.ports] at hk
+  kit_bound hAt ins.a
+  kit_bound hBt ins.b
+  kit_reg hbr vb hvb ins.b
+  obtain ⟨x, n, hx⟩ := hT
+  rw [hx] at hbr; cases hbr
+  have hbb := Word.c_lt ins
+  have e := Word.c_lt ins
+  have hnj := Word.b_lt ins
+  obtain ⟨hta, hxm, -⟩ := hvb.flt_parts
+  simp [Opnd.fill, immC, Word.sc, Word.offsetSC, ofI_imm _ hbb, fastArith, Value.toNum?, Lua.Num.rawArith,
+    BinOp.toOp, Lua.Num.numarith, Lua.Num.Numeral.toFloat, Value.ofNum, VState.apply, writeDefs,
+    KEdge.kills] at hk
   subst hk
   at_go $ns))
 
