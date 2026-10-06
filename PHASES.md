@@ -37,6 +37,11 @@ Every row is currently unassigned.
 | `SimArm .IDIVK` (`sim_IDIVK_Statement`) | `Lua/Vm/Sim/Kit/AtIdivk.lean` | A1 | **proved** (`At.sim_IDIVK`, the at-lemma route; lane F1-1, `abstractions/ledger/f1-lane-1.md`) |
 | `SimArm` of SHL, SHR, SHLI, SHRI, BANDK, BORK, BXORK | `Lua/Vm/Sim/Kit/At{Shl,Shr,Shli,Shri,Bandk,Bork,Bxork}.lean` | A1 | **proved** (`At.sim_SHL`, …, `At.sim_BXORK`; `luaV_shiftl` per machine branch in `Kit/Shift.lean`; lane F1-1) |
 | `UnmStr_Statement` (`OP_UNM` on a string: `luaT_trybinTM` and the string library's `__unm`; the premise of `At.sim_UNM_of_str`) | `Lua/Vm/Sim/Kit/AtUnm.lean` | A1 (with the `MMBIN`/`CALL` runtime summaries) | open; the integer path (`At.unm_int`) and the stuck values (`At.unm_stuck`) proved |
+| the console end of `print`'s stdio chain (toward `SimArm .CALL`, still an `OpenArms` field) | `Lua/Vm/Sim/Kit/{Console,Write,Swrite,Sflush}.lean` | A0.2 | **proved** (lane F1-6, `abstractions/ledger/f1-lane-6.md`): the `tohost` seam `segSt_putc` (the `SegSt` face of `Console.putc_runFact`), htif.c's `_write` on the console (`write_sum`: `seg_loop` over the `htif_putc` loop), `_write_r` (`write_r_sum`), `__swrite` (`swrite_sum`, an `sh`), and `__sflush_r` on the line-buffered `stdout` (`sflush_sum`: the pending bytes through the `FILE`'s hook, an indirect `jalr`); `StdoutAt` is `stdout`'s state as the emulator trace shows it after the first `print` (`_flags = 0x2889`, a 1024-byte heap buffer, `_w = -|pend|`) |
+| `FwriteStdout_Statement` (`fwrite(src, 1, n, stdout)` on `StdoutAt`: `__sfvwrite_r`'s line-buffered branch, `memchr`, `memmove`, `_fflush_r`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A0.2 | open (stated; `sflush_sum` is its flush) |
+| `FflushStdout_Statement` (`fflush(stdout)`: the lock no-ops around `__sflush_r`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A0.2 | open (stated; `sflush_sum` is its body; `SflOut.keep_file` keeps `_lock`, `_flags2`) |
+| `StdoutSetup_Statement` (the first `fwrite` from `StdioBoot`/`MemfsBoot`: `__sinit`, `__swsetup_r`, `__smakebuf_r` → `_fstat` (`fs_init`), `_malloc_r`, `_isatty`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A0.2 | open (stated) |
+| `IntegerToStr_Statement` (`lua_integer2str` = `snprintf(buf, 44, "%lld", i)`, `_svfprintf_r`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A1 | open (stated) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
 | `CompileTV (fun s p => compile s = some p)` for a Lean `compile` | new `Lua/Compile/` | B2 | open |
@@ -163,6 +168,19 @@ instances, however, are at the WHILE ELF's addresses.
      one instruction outside `MKind`, `_realloc_r`'s `sltu a4,a5,a4`
      (`0x80030360`), goes through `AllocSltu.sltuAluStepAt` (any address).
      `check.sh` stage 1 checks drift (`--check`).
+   * **The console end of the stdio chain (done, lane F1-6),** on the
+     `SegSt` route the arms use, not `SWPO`: the helper segments of `_write`,
+     `_write_r`, `__swrite`, `__sflush_r` are `gen_lua_arms.py` `HELPERS`
+     (code pins `gen_lua_code.py` `EXTRA`). The generators gained `sh`
+     (`writeMap2`, `Vsa/Sim/StoreHalf.lean`, `TextLoaded.writeMap2` in
+     `Lua/Vm/Arms/TextHalf.lean`), a linking `jalr` (an indirect call:
+     `gen_sites.py` `emit_jalr`, `RegsOk.jalr` in `Lua/Vm/Arms/RegsOkJalr.lean`)
+     and `tohost` seams (`TOHOST_SEAMS`: the console store is a stop, the
+     liveness flows through it). The summaries are in `Kit/{Console,Write,
+     Swrite,Sflush}.lean`; the `FILE` field offsets, `__swrite`, `_lock`,
+     `_flags2` and `_reent.__cleanup` are in `Lua/Vm/LayoutRt.lean`. Open:
+     `fwrite`'s `__sfvwrite_r`, `fflush`, the first write's set-up
+     (`Kit/CallSpec.lean`).
    * Regenerate the other reused functions' step tables and specs with the
      generators (`gen_str_steps.py`, `gen_memcpy_steps.py`, `gen_fn.py`).
    * They are identical code at new addresses: `__udivdi3` (`FORPREP`),
@@ -524,7 +542,33 @@ covers the new stages.
       heap, string interning (`luaS_newlstr`) and `StdioBoot`/`MemfsBoot`
       evolving in the complement, the `trap` reload; `GETTABUP` (the
       `_ENV.print` lookup) is its companion, blocked as its obligation row
-      says (the walk to the `print` node, the closure in the relation);
+      says (the walk to the `print` node, the closure in the relation).
+      Lane F1-6 proved the console end (`sflush_sum` and below) and stated
+      `fwrite`, `fflush`, the set-up and `lua_integer2str`
+      (`Kit/CallSpec.lean`). The traced path of `print(i)` (an integer,
+      `c/tests/while.lua`): `luaD_precall` → `luaB_print` → `lua_gettop`,
+      `luaL_tolstring` (`luaL_callmeta` → `lua_getmetatable`, `lua_type`,
+      `lua_isinteger`, `lua_tointegerx`) → `lua_pushfstring` →
+      `luaO_pushvfstring` (`strchr`, `addstr2buff`/`memcpy`, `addnum2buff` →
+      `snprintf` → `_svfprintf_r` with `__udivdi3`/`__umoddi3`, `__ssprint_r`
+      → `__ssputs_r` → `memmove`) → `luaS_newlstr` → `internshrstr` →
+      `luaC_newobj` → `luaM_malloc_` → `l_alloc` → `realloc` → `_realloc_r` →
+      `_malloc_r` (and `memcpy`); `fwrite` → `_fwrite_r` (`__muldi3`, the lock
+      no-ops) → `__sfvwrite_r` (`memchr`, `memmove`); `lua_settop`; the
+      `"\n"` `fwrite` reaching `_fflush_r` → `__sflush_r` → `__swrite` →
+      `_write_r` → `_write`; `fflush` → `__sflush_r` (empty); then
+      `luaD_poscall`. The first `print` also runs `__sinit`
+      (`global_stdio_init`, the Duff's-device `memset`), `__swsetup_r`,
+      `__smakebuf_r` (`_fstat` → `fs_init`, `_malloc_r`/`_sbrk`, `_isatty`).
+      The relation facts `SimArm .CALL` needs and `VmRel` lacks: (1) the stdio
+      state in the complement (`StdioBoot ∧ MemfsBoot` before the first
+      `print`, `StdoutAt m buf [] ∧ StdioUp m` after; neither is in
+      `RuntimeMem`); (2) `LuaStateAt.next` (`ci->next = 0` holds only before
+      the first `CALL`); (3) `DlHeap.HeapAt` with the chunks `print` allocates
+      (the `stdout` buffer, the interned result strings, the `CallInfo`), and
+      the intern map `w.ι` and `Complement.own` growing with them; (4) the
+      `L->top`/`ci->top` words `luaD_precall`/`luaD_poscall` write (`Scratch`
+      has `L->top`; the C `CallInfo` is new);
     * the error paths (`StuckSim`, Obligations).
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
