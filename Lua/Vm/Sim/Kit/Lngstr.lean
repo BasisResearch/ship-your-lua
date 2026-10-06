@@ -28,6 +28,33 @@ structure RetOut (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (l
   intro ::
   out : ∃ m', AgreeOut m' m lo hi ∧ RetAt r sp f m' o v c
 
+/-- **A return whose memory is the entry's, or the entry's with `r` saved at
+`sp - 8`** (`luaS_eqlngstr`'s frame for its `memcmp` call): exact, as the
+location-list route's logs need. -/
+structure RetSave (r : BitVec 64) (sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
+    (v : BitVec 64) (c : Config) : Prop where
+  intro ::
+  out : ∃ m', (m' = m ∨ m' = writeMap8 m (sp - 8) (sdData_val r)) ∧ RetAt r (BitVec.ofNat 64 sp) f m' o v c
+
+/-- Writing a word twice is writing it once. -/
+theorem writeMap8_idem (m : Mem) (a : Nat) (d : BitVec (8 * 8)) :
+    writeMap8 (writeMap8 m a d) a d = writeMap8 m a d := by
+  apply Std.ExtHashMap.ext_getElem?
+  intro x
+  by_cases h : x < a ∨ a + 8 ≤ x
+  · rw [getElem?_writeMap8_out _ _ _ _ h, getElem?_writeMap8_out _ _ _ _ h]
+  · obtain ⟨i, hi, rfl⟩ : ∃ i, i < 8 ∧ x = a + i := ⟨x - a, by omega, by omega⟩
+    rcases (by omega : i = 0 ∨ i = 1 ∨ i = 2 ∨ i = 3 ∨ i = 4 ∨ i = 5 ∨ i = 6 ∨ i = 7) with
+      rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+    · simp only [Nat.add_zero, getElem_writeMap8_0]
+    · simp only [getElem_writeMap8_1]
+    · simp only [getElem_writeMap8_2]
+    · simp only [getElem_writeMap8_3]
+    · simp only [getElem_writeMap8_4]
+    · simp only [getElem_writeMap8_5]
+    · simp only [getElem_writeMap8_6]
+    · simp only [getElem_writeMap8_7]
+
 /-- What `luaS_eqlngstr` needs: two viewed long strings apart from the
 callee frames below `sp`, the same object only for one content. -/
 structure LngCtx (m : Mem) (sp : Nat) (r : BitVec 64) (t1 t2 : Nat) (s1 s2 : List UInt8) : Prop where
@@ -90,7 +117,7 @@ local macro_rules
 theorem eqlngstr_sum (t1 t2 : Nat) (s1 s2 : List UInt8) (r : BitVec 64) (sp : Nat) (f : KFrame)
     (m : Mem) (o : Array String) (hx : LngCtx m sp r t1 t2 s1 s2) :
     Triple (SegSt 0x80017184#64 (lsPre t1 t2 r sp f) (ArmPay m o))
-      (RetOut r (BitVec.ofNat 64 sp) f m o (sp - 16) sp (if s1 = s2 then 1#64 else 0#64)) := by
+      (RetSave r sp f m o (if s1 = s2 then 1#64 else 0#64)) := by
   intro c h
   have acc := Steps.refl c
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -105,7 +132,7 @@ theorem eqlngstr_sum (t1 t2 : Nat) (s1 s2 : List UInt8) (r : BitVec 64) (sp : Na
     kit_run h acc
     have h := h.at (Vsa.Sim.ret_tgt r hra)
     rw [ite_eq_left_iff.2 (fun e => absurd (hx.inj rfl) e)]
-    exact ⟨_, acc, ⟨⟨_, AgreeOut.refl _ _ _, h.repin (by pins_of h)⟩⟩⟩
+    exact ⟨_, acc, ⟨⟨_, .inl rfl, h.repin (by pins_of h)⟩⟩⟩
   · simp only [he, decide_false] at hg
     have hl := (h2.lnglen_eq h1 hx.long2 hx.long1)
     have hl' : (sign_extend (m := 64) (bytesT8 m (BitVec.ofNat 64 t2 + sign_extend (m := 64) (0x010#12)).toNat :
@@ -141,13 +168,11 @@ theorem eqlngstr_sum (t1 t2 : Nat) (s1 s2 : List UInt8) (r : BitVec 64) (sp : Na
       kit_run h acc
       have h := h.at (by rw [ld_ra, Vsa.Sim.ret_tgt r hra])
       rw [sp_back16, seqz_ite v (s1 = s2) (hv.trans (w1.eq_iff w2 hlen.symm).symm)] at h
-      exact ⟨_, acc, ⟨⟨_, AgreeOut.writeMap8 (AgreeOut.refl m (sp - 16) sp) (sdData_val r)
-        (k := ((BitVec.ofNat 64 sp + sign_extend (m := 64) (0xff0#12)) + sign_extend (m := 64) (0x008#12)).toNat)
-        (by rw [hk]; omega) (by rw [hk]; omega), h.repin (by pins_of h)⟩⟩⟩
+      exact ⟨_, acc, ⟨⟨_, .inr (by rw [hk]), h.repin (by pins_of h)⟩⟩⟩
     · simp only [hlen, decide_false] at hl'
       kit_run h acc
       have h := h.at (Vsa.Sim.ret_tgt r hra)
       rw [ite_eq_right_iff.2 (fun e => absurd (by rw [e]) hlen)]
-      exact ⟨_, acc, ⟨⟨_, AgreeOut.refl _ _ _, h.repin (by pins_of h)⟩⟩⟩
+      exact ⟨_, acc, ⟨⟨_, .inl rfl, h.repin (by pins_of h)⟩⟩⟩
 
 end Lua.Vm.Sim.Kit

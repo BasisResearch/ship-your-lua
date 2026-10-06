@@ -1,6 +1,7 @@
 import Lua.Vm.Sim.Kit.AtArm
 import Lua.Vm.Sim.Kit.Cond
 import Lua.Vm.Sim.Kit.LstrcmpPro
+import Lua.Vm.Sim.Kit.EqLong
 
 /-!
 # `docondjump` and the string call node on the location-list route (lane F1-2)
@@ -184,6 +185,58 @@ elab "at_lstr " seg:ident obs:ident : tactic => do
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h) $segT
     exact ⟨_, acc, (Vsa.Sim.SegSt.repin h (by at_pins h)).mem_eq (by simp only [Lua.Vm.Sim.Kit.lsMem]; at_mem)⟩)))
 
+/-! ## `luaV_equalobj`'s long-string call node at a row (`OP_EQK`) -/
+
+/-- The string constant `K[B]` (`[]` when it is none). -/
+def kOf (X : Cx) : List UInt8 :=
+  match kval X.p X.ins.b with
+  | some (.str s) => s
+  | _ => []
+
+theorem kOf_eq {X : Cx} {y : List UInt8} (h : kval X.p X.ins.b = some (.str y)) : kOf X = y := by
+  simp [kOf, h]
+
+/-- **`luaV_equalobj(NULL, R[A], K[B])` on two long strings at a row**: the
+answer `δ .eq`'s as 0/1, the memory the entry's with `ra` saved below `sp`
+(`eqo_long_ex`). -/
+theorem eqk_sum {X : Cx} (hX : X.Ok) {ja jb : Nat} (hja : ja < X.p.maxstacksize) {x y : List UInt8}
+    (hx : X.s.regs ja = some (.str x)) (hky : kval X.p jb = some (.str y))
+    (hta : slotTag X.c.σ.mem (X.w.slot ja) = 84#8)
+    (htk : slotTag X.c.σ.mem (X.w.k + stackValueSize * jb) = 84#8)
+    (L r : BitVec 64) (hra : r.toNat % 4 = 0) (f : KFrame) (o : Array String) :
+    Triple (SegSt 0x8001b780#64 (eqPre L r (X.w.slot ja) (X.w.k + stackValueSize * jb) X.w.sp f)
+        (ArmPay X.c.σ.mem o))
+      (RetAt r (BitVec.ofNat 64 X.w.sp) f (writeMap8 X.c.σ.mem (X.w.sp - 8) (sdData_val r)) o
+        (if x = y then 1#64 else 0#64)) := by
+  have hc := hX.core
+  have hr := hc.ranges
+  have hva := hc.stack ja _ hja hx
+  have hvk := hc.kconst hky
+  have hkb := kval_lt hky
+  have hsp := hr.sp_eq; have := hr.slots_top; have := hr.k_top; have := hr.base_lo; have := hr.k_lo
+  simp only [RuntimeData.spEntry, cStackBudget, execFrame, stackValueSize, RelPtrs.slot] at *
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  obtain ⟨_, e1, hl1⟩ := (hta ▸ hva).long_of_tag
+  obtain ⟨_, e2, hl2⟩ := (htk ▸ hvk).long_of_tag
+  cases e1; cases e2
+  exact eqo_long_ex L r _ _ X.w.sp f _ o
+    ⟨hc.rodata, hra, by omega, by omega, by omega, by omega, by omega, by omega, by omega⟩
+    hta htk hl1 hl2 (hc.lng_pair hva hvk fun _ _ => rfl)
+
+set_option hygiene false in
+/-- **`at_eqk`**: the `OP_EQK` call lemma's proof (after `at_open`): the call
+node `eqk_sum` at the row, the answer as the location over `sOf`/`kOf`, the
+return row and memory (`ra`'s save) by `at_pins`/`at_mem`. -/
+macro "at_eqk" : tactic => `(tactic| (
+  obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)
+    (eqk_sum hX (by omega) hsa hky hta htk _ _ (by decide) (Lua.Vm.Sim.KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _)
+  have e : (if x = y then 1#64 else 0#64) = if sOf X .a = kOf X then 1#64 else 0#64 := by
+    rw [sOf_eq hsa (by fld_eq), kOf_eq (by simpa only [Word.b, Word.field, Nat.shiftRight_eq_div_pow] using hky)]
+  dsimp only [Lua.Vm.Sim.Kit.RetAt] at h
+  refine ⟨_, acc, (Vsa.Sim.SegSt.repin h ?_).mem_eq ?_⟩
+  · at_pins h
+  · at_mem))
+
 /-! ## The rules -/
 
 open Lean Elab Tactic Meta in
@@ -194,7 +247,7 @@ elab "at_eq_cond" : tactic => withMainContext do
   let some (_, l, r) := t.eq? | throwError "at_eq_cond: not an equation"
   let has (e : Expr) (n : Name) : Bool := (e.find? fun x => x.isConstOf n).isSome
   let tacs : Array (TSyntax `tactic) ←
-    if has r ``lexLt then pure #[← `(tactic| with_reducible assumption)]
+    if has r ``lexLt || has r ``kOf then pure #[← `(tactic| with_reducible assumption)]
     else if l.isAppOf ``HAnd.hAnd && r.isAppOf ``ite then pure #[← `(tactic| exact kraw_eq _)]
     else if has r ``jmpPc then
       pure #[← `(tactic| exact jmp_at $(mkIdent `hX) (by assumption) (by at_scr) (by kit_disch))]
