@@ -276,15 +276,17 @@ theorem vclose {p : Proto} {c : Config} {w : RelPtrs} {ι : Strs} {c' : Config} 
     (hseg : SegSt Arms.headPc L (ArmPay M c.σ.sailOutput) c') (hpins : Pins c'.σ (w.vmoved ι) 1)
     (hM : ∀ a, ¬ Win p (w.vmoved ι) a → bytesT1 M a = bytesT1 (w.vmoved ι).mo a)
     (hk : bytesT8 M w.sp = BitVec.ofNat 64 w.k)
+    (hcl : bytesT8 M (w.sp + 8) = BitVec.ofNat 64 w.rt.cl)
     (hsv : ∀ x, w.sp + 72 ≤ x → x < w.sp + execFrame → M[x]? = c.σ.mem[x]?) :
     VmRelAt p c' ⟨1, State.init.regs, State.init.out⟩ (w.vmoved ι) := by
   have hm := hseg.armMem
   have hsv' : SavedAt M w := hc.saved.congr hsv
   refine ⟨⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hseg.armText, fun a ha => ?_, ?_, fun j v _ h => ?_, hP.comp, hP.ranges,
+    hseg.armOk, hseg.armText, fun a ha => ?_, ?_, ?_, fun j v _ h => ?_, hP.comp, hP.ranges,
     hm ▸ ⟨hsv'.ra, hsv'.s0, hsv'.s⟩⟩, hseg.pcAt⟩
   · rw [hm]; exact hM a ha
   · rw [hm]; exact hk
+  · rw [hm]; exact hcl
   · simp [State.init] at h
 
 theorem vbytesT4_wm8_out {m : Mem} {b x : Nat} {d : BitVec (8 * 8)} (h : x + 4 ≤ b ∨ b + 8 ≤ x) :
@@ -412,6 +414,13 @@ theorem varargSim : VarargSim := by
       bytesT8_wm8_out (by omega), bytesT8_wm8_out (by omega), bytesT8_wm4_out (by omega),
       bytesT8_wm8_out (by omega), bytesT8_wm8_out (by omega)]
     exact hc1.kptr
+  have hcl : bytesT8 (avMem (vpM0 c1.σ.mem w) w.L w.ci w.sp w.func w.rt.ciTop 0x8001cce8#64)
+      (w.sp + 8) = BitVec.ofNat 64 w.rt.cl := by
+    simp only [avMem, avM2, avM1, vpM0]
+    rw [bytesT8_wm8_out (by omega), bytesT8_wm8_out (by omega), bytesT8_ins_out (by omega),
+      bytesT8_wm8_out (by omega), bytesT8_wm8_out (by omega), bytesT8_wm4_out (by omega),
+      bytesT8_wm8_out (by omega), bytesT8_wm8_out (by omega)]
+    exact hc1.clptr
   have hsv : ∀ x, w.sp + 72 ≤ x → x < w.sp + execFrame →
       (avMem (vpM0 c1.σ.mem w) w.L w.ci w.sp w.func w.rt.ciTop 0x8001cce8#64)[x]? =
         c1.σ.mem[x]? := fun x h1 h2 => by
@@ -425,6 +434,6 @@ theorem varargSim : VarargSim := by
       pinsHold_get hP5 4 (by simp), pinsHold_get hP5 5 (by simp), pinsHold_get hP5 6 (by simp),
       pinsHold_get hP5 7 (by simp), pinsHold_get hP5 8 (by simp), pinsHold_get hP5 9 (by simp),
       pinsHold_get hP5 0 (by simp), pinsHold_get hP5 1 (by simp)⟩
-      (fun a ha' => vmem_frame hc1 hF1 a ha') hk hsv⟩
+      (fun a ha' => vmem_frame hc1 hF1 a ha') hk hcl hsv⟩
 
 end Lua.Vm.Sim.Kit

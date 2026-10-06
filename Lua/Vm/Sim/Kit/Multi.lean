@@ -8,11 +8,12 @@ Two generalisations of `Core.bleach` (M3) that the control arms need:
 * **C-frame writes** (`Core.bleachF`): `FORPREP` spills `ra` (`sd a5,16(sp)`)
   and passes `&limit` (`sp+40`) to `luaV_tointeger`, both in
   `luaV_execute`'s own frame `[sp, sp + 176)`, which is in the window `Win`
-  (no head invariant) but for `0(sp)`, which holds `k` (`Core.kptr`), and the
-  saved registers `72…175(sp)` (`Core.saved`). The close asks agreement
-  outside slots, `Scratch` and the locals `[sp + 8, sp + 72)` (every store of
-  `luaV_execute` to its frame above `0(sp)` is below `64(sp)` but the
-  prologue's).
+  (no head invariant) but for `0(sp)`, which holds `k` (`Core.kptr`), `8(sp)`,
+  which holds the closure (`Core.clptr`), and the saved registers
+  `72…175(sp)` (`Core.saved`). The close asks agreement outside slots,
+  `Scratch` and the locals `[sp + 16, sp + 72)` (every store of an F1 arm to
+  `luaV_execute`'s frame is in `[16(sp), 64(sp))`; only the prologue and the
+  `OP_CALL`/`OP_RETURN` re-entries write `8(sp)`).
 * **Several registers written** (`Core.stack_of`): the defined registers of
   the successor are represented if every written register `j` (`D j`) is
   represented in the new memory, every other register is the old one, and
@@ -30,9 +31,10 @@ open Vsa.Machine (MState Config Steps StepsN)
 section
 variable {p : Proto} {c : Config} {s : State} {w : RelPtrs}
 
-/-- `luaV_execute`'s locals: its C frame above the `k` word `0(sp)` and below
-the saved registers `72…175(sp)` (`SavedAt`). -/
-def CFrame (w : RelPtrs) (x : Nat) : Prop := w.sp + 8 ≤ x ∧ x < w.sp + 72
+/-- `luaV_execute`'s locals: its C frame above the `k` word `0(sp)` and the
+closure word `8(sp)` (`Core.clptr`), and below the saved registers
+`72…175(sp)` (`SavedAt`). -/
+def CFrame (w : RelPtrs) (x : Nat) : Prop := w.sp + 16 ≤ x ∧ x < w.sp + 72
 
 /-- **The close with C-frame writes**: as `Core.bleach`, with the final
 memory free in `CFrame` too. -/
@@ -48,7 +50,7 @@ theorem Core.bleachF (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Li
   subst hm
   have hr := hc.ranges
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hseg.armText, fun x hx => ?_, ?_, hst, hc.comp, hr,
+    hseg.armOk, hseg.armText, fun x hx => ?_, ?_, ?_, hst, hc.comp, hr,
     hc.saved.congr fun x h1 _ => hfr x
       (fun hs => by have := hr.frame_sep; simp only [Slots] at hs; omega)
       (fun hs => by have := (hr.scratch_out _ hs).2; omega)
@@ -58,6 +60,10 @@ theorem Core.bleachF (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Li
         by simp only [CFrame] at h; simp only [execFrame]; omega⟩)))]
     exact hc.frame x hx
   · refine (bytesT8_congr fun i hi => hfr _ (fun hs => ?_) (fun hs => ?_) (fun hs => ?_)).trans hc.kptr
+    · have := hr.frame_sep; simp only [Slots] at hs; omega
+    · have := (hr.scratch_out _ hs).2; omega
+    · simp only [CFrame] at hs; omega
+  · refine (bytesT8_congr fun i hi => hfr _ (fun hs => ?_) (fun hs => ?_) (fun hs => ?_)).trans hc.clptr
     · have := hr.frame_sep; simp only [Slots] at hs; omega
     · have := (hr.scratch_out _ hs).2; omega
     · simp only [CFrame] at hs; omega

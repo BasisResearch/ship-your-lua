@@ -324,8 +324,6 @@ theorem vmSim_of_arms (arms : ∀ o ∈ armOps, SimArm o) (entry : EntrySim) (va
 proof. `EQK` and `LE` are open only on the path their partial proofs leave
 (`Kit.sim_EQK_of_long`: two long strings; `Kit.sim_LE_of_str`: two strings). -/
 structure OpenArms : Prop where
-  /-- `_ENV.print` (`luaV_fastget` on the `_ENV` table, `luaH_getshortstr`) -/
-  GETTABUP : SimArm .GETTABUP
   /-- `luaT_trybinTM`: the string coercions of `δ (.tm o)` -/
   MMBIN : SimArm .MMBIN
   MMBINI : SimArm .MMBINI
@@ -349,7 +347,7 @@ theorem armTable (h : OpenArms) : ∀ o ∈ armOps, SimArm o := by
   case LFALSESKIP => exact @sim_LFALSESKIP
   case LOADTRUE => exact @sim_LOADTRUE
   case LOADNIL => exact Kit.sim_LOADNIL
-  case GETTABUP => exact h.GETTABUP
+  case GETTABUP => exact At.sim_GETTABUP
   case ADD => exact @sim_ADD
   case SUB => exact @sim_SUB
   case MUL => exact Kit.sim_MUL
