@@ -918,4 +918,56 @@ theorem sfv_fillp {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0
     (by sfv_set; have hm := S.mu; split at hm <;> simp <;> omega) _ (h.repin (by pins_of h))
   exact ⟨c4, acc.trans s4, h4⟩
 
+/-! ## The step: size, body, head -/
+
+/-- **The step size chosen** (`0x80033dbc`, the root `S`): with the buffer
+empty, a copy (`s < 1024`) or the direct write; with bytes pending, a fill
+(`s` past the room) or a copy. -/
+theorem sfv_size {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0 : Nat} (S : SfvStep G X pend μ0) :
+    Triple (SegSt 0x80033dbc#64 (Lua.Vm.AtF.Sfvwrite.r21 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+  intro c h
+  have hX := S.cx
+  sfv_nums hG
+  sfv_cx hX
+  sfv_step S
+  have hb := S.st.stdout.buf_lo; have hr := S.st.stdout.room
+  have hX' : Lua.Vm.AtF.Sfvwrite.Ok_S X := by sfv_ok hX
+  have acc := Steps.refl c
+  have hc5 : bytesT4 X.m 0x8005e688 = 0x400#32 := S.st.stdout.size
+  have hc6 : bytesT8 X.m 0x8005e6a8 = 0x80034f18#64 := S.st.stdout.write
+  have hc7 : bytesT8 X.m 0x8005e698 = 0x8005e668#64 := S.st.stdout.cookie
+  have hg7 : zopz0zKzJ_u (bytesT8 X.m (0x8005e680)) (bytesT8 X.m (0x8005e668)) = decide (pend.length = 0) := by
+    rw [show bytesT8 X.m 0x8005e680 = BitVec.ofNat 64 G.buf from S.st.stdout.base,
+      show bytesT8 X.m 0x8005e668 = BitVec.ofNat 64 (G.buf + pend.length) from S.st.stdout.p,
+      fuge (by omega) (by omega)]
+    rw [decide_eq_decide]; constructor <;> intro <;> omega
+  have hg1 : zopz0zI_s (BitVec.ofNat 64 (X.n 21)) (0x400#64) = decide (X.n 21 < 1024) :=
+    slt_nat (by omega) (by decide)
+  have hgw : zopz0zI_s (sfvW X.m) (BitVec.ofNat 64 (X.n 21)) = decide (1024 - pend.length < X.n 21) := by
+    rw [sfvW_eq S.st.stdout]; exact slt_nat (by omega) (by omega)
+  by_cases hpe : pend.length = 0
+  · rw [decide_eq_true hpe] at hg7
+    have hp : pend = [] := List.eq_nil_of_length_eq_zero hpe
+    by_cases hs : X.n 21 < 1024
+    · rw [decide_eq_true hs] at hg1
+      fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x8003b444, 0x80034f18]
+      obtain ⟨c2, s2, h2⟩ := sfv_copy hG S (by omega) _ h
+      exact ⟨c2, acc.trans s2, h2⟩
+    · rw [decide_eq_false hs] at hg1
+      fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x8003b444, 0x80034f18]
+      subst hp
+      obtain ⟨c2, s2, h2⟩ := sfv_write hG S (by omega) _ h
+      exact ⟨c2, acc.trans s2, h2⟩
+  · rw [decide_eq_false hpe] at hg7
+    by_cases hw : 1024 - pend.length < X.n 21
+    · rw [decide_eq_true hw] at hgw
+      fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x8003b444, 0x80034f18]
+      obtain ⟨c2, s2, h2⟩ := sfv_fillp hG S hw _ h
+      exact ⟨c2, acc.trans s2, h2⟩
+    · rw [decide_eq_false hw] at hgw
+      rw [decide_eq_true (by omega : X.n 21 < 1024)] at hg1
+      fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x8003b444, 0x80034f18]
+      obtain ⟨c2, s2, h2⟩ := sfv_copy hG S (by omega) _ h
+      exact ⟨c2, acc.trans s2, h2⟩
+
 end Lua.Vm.Sim.Kit
