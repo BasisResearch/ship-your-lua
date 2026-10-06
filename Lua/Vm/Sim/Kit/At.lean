@@ -67,6 +67,10 @@ def Fld.den (X : Cx) : Fld → Nat
 
 /-- An atom of an affine address. -/
 inductive Atom | base | k | sp | L | ci | code | pc | a | b | c | bx
+  /-- lane F1-7: `_ENV`'s objects through the closure (`Lua/Vm/Sim/Env.lean`),
+  read off the complement: `cl`, `cl->upvals[0]`, `uv->v`, the table, the
+  node `luaH_getshortstr` finds for the print key -/
+  | cl | uv | tv | tab | pn
   deriving DecidableEq
 
 def Atom.den (X : Cx) : Atom → Nat
@@ -81,6 +85,11 @@ def Atom.den (X : Cx) : Atom → Nat
   | .b => X.ins.b
   | .c => X.ins.c
   | .bx => X.ins.bx
+  | .cl => X.w.rt.cl
+  | .uv => Env.uv X.w.mo X.w.rt.cl
+  | .tv => Env.tv X.w.mo X.w.rt.cl
+  | .tab => Env.tab X.w.mo X.w.rt.cl
+  | .pn => Env.pnode X.w.mo X.w.rt.cl (X.w.ι.ptr printKey)
 
 /-- An affine address `Σ cᵢ·atomᵢ + add - sub`. -/
 structure Aff where
@@ -114,6 +123,9 @@ inductive Loc
   /-- a value stated over the context (`Kit/AtCond.lean`: a call's answer,
   such as a string register's length), closed so a log may hold it -/
   | fn (f : Cx → BitVec 64)
+  /-- an entry-memory byte at an affine address (lane F1-7: a tag through a
+  pointer, `lbu 8(s6)`) -/
+  | cell1 (e : Aff)
 
 /-- The value of a location. -/
 def Loc.den (X : Cx) : Loc → BitVec 64
@@ -146,6 +158,7 @@ def Loc.den (X : Cx) : Loc → BitVec 64
   | .subw x y => sign_extend (m := 64)
       ((Sail.BitVec.extractLsb (x.den X) 31 0) - (Sail.BitVec.extractLsb (y.den X) 31 0))
   | .fn f => f X
+  | .cell1 e => zero_extend (m := 64) (bytesT1 X.c.σ.mem (e.den X) : BitVec (8 * 1))
 
 /-- `snez`'s value. -/
 theorem snez_eq (x : BitVec 64) :
@@ -445,6 +458,12 @@ states once (`Kit/AtCond.lean`: `docondjump`'s `k` bit, the `trap` reload,
 syntax "at_eq_ext" : tactic
 macro_rules | `(tactic| at_eq_ext) => `(tactic| fail "at_eq_ext")
 
+/-- **An extension point of `at_seg`'s address side conditions** (tried first):
+a family of arms whose addresses go through pointer loads (`Kit/AtEnv.lean`,
+`_ENV`'s objects). Fails by default. -/
+syntax "at_side_ext" : tactic
+macro_rules | `(tactic| at_side_ext) => `(tactic| fail "at_side_ext")
+
 /-- **`at_eq`**: a machine value equal to a location's (after `at_unfold`):
 by the goal's shape, a load forwarded through the path's stores
 (`ld*_wm8`/`ld*_ins` by `at_sep`, a hit by `*_same`), the constant array
@@ -620,11 +639,14 @@ def atSegArgs (n : Name) : TermElabM (Array Term) := do
           else
             args := args.push (← `((by first | decide | (simp; done))))
         else if (t.find? fun e => e.isConstOf ``bytesT8).isSome then
-          -- an address through a load in the segment (`ld a4,0(sp)`: `k`)
+          -- an address through a load in the segment (`ld a4,0(sp)`: `k`;
+          -- a family's pointer loads by the hook `at_side_ext`)
           args := args.push (← `((by
-            (try simp (disch := kit_disch) only [kptr_at $(mkIdent `hc)])
-            (try simp only [sext64_id])
-            kit_disch)))
+            first
+            | at_side_ext
+            | ((try simp (disch := kit_disch) only [kptr_at $(mkIdent `hc)])
+               (try simp only [sext64_id])
+               kit_disch))))
         else args := args.push (← `((by kit_disch)))
       else args := args.push (← `(_))
     return args

@@ -59,11 +59,25 @@ ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
         "OP_SHRI": ("Shri", 0x8001dd8c), "OP_BANDK": ("Bandk", 0x8001d710),
         "OP_BORK": ("Bork", 0x8001d6b8), "OP_BXORK": ("Bxork", 0x8001d660), "OP_LE": ("Le", 0x8001c60c), "OP_LT": ("Lt", 0x8001c894),
         "OP_EQK": ("Eqk", 0x8001c850), "OP_LEN": ("Len", 0x8001dc14),
-        "OP_MOD": ("Mod", 0x8001dc58)}
+        "OP_MOD": ("Mod", 0x8001dc58), "OP_GETTABUP": ("Gettabup", 0x8001cf84)}
 
 # the library modules an arm's at-lemmas need beyond `At`/`Summaries`
 IMPORTS = {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
-           "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"]}
+           "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"],
+           "OP_GETTABUP": ["Lua.Vm.Sim.Kit.AtEnv"]}
+
+# lane F1-7: arms that read `_ENV` through the closure at `8(sp)` (`Kit/AtEnv.lean`):
+# the kernel's `B = 0` (upvalue 0) and `EnvMem` are hypotheses of every
+# at-lemma, `at_env` puts their numeric facts in context, and the pointer
+# loads resolve to the atoms `cl`, `uv`, `tv`, `tab`, `pn`
+ENV_ARMS = {"OP_GETTABUP"}
+ENV = [False]
+ENV_HYPS = ["(hb0 : X.ins.b = 0)",
+            "(hE : EnvMem X.w.mo X.w.rt.cl (X.w.ι.ptr printKey) (HeapRead X.p X.w))"]
+# the entry-memory loads through `_ENV`'s pointers: (base atom, offset, size) -> location
+ENV_LOADS = {("sp", 8, 8): ("aff", (("cl", 1),), 0), ("cl", 32, 8): ("aff", (("uv", 1),), 0),
+             ("uv", 16, 8): ("aff", (("tv", 1),), 0), ("tv", 0, 8): ("aff", (("tab", 1),), 0),
+             ("tv", 8, 1): ("cell1", (("tv", 1),), 8), ("pn", 8, 1): ("cell1", (("pn", 1),), 8)}
 
 # the error exits (`l_noret`, `Lua/Vm/Layout.lean`): a path that calls one
 # ends at its entry (`Lua.Vm.Sim.At.ArmErr`, `at_err`)
@@ -85,7 +99,7 @@ HEADROW = {2: ("sp",), 3: ("litn", "symGlobalPointer", None), 8: ("L",),
            24: ("litn", "Arms.jtBase", None), 25: ("base",), 27: ("pc", 0)}
 FRAME = [2, 3, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]   # HFrame
 
-ATOMS = ["base", "k", "sp", "L", "ci", "code", "pc", "a", "b", "c", "bx"]
+ATOMS = ["base", "k", "sp", "L", "ci", "code", "pc", "a", "b", "c", "bx", "cl", "uv", "tv", "tab", "pn"]
 
 
 class Stop(Exception):
@@ -187,6 +201,8 @@ def lean_loc(x):
         return f"(.{k} .{x[1]} {x[2]})"
     if k == "cell":
         return f"(.cell {lean_aff(x[1], x[2])})"
+    if k == "cell1":
+        return f"(.cell1 {lean_aff(x[1], x[2])})"
     if k in ("add", "sub", "xor", "srem", "sdiv", "udiv", "umod", "and", "or", "sll", "srl",
              "addw", "subw"):
         return f"(.{k} {lean_loc(x[1])} {lean_loc(x[2])})"
@@ -295,6 +311,10 @@ class State:
         if s and size == 8 and s[2] == 0:
             return ("val", s[0], s[1])
         t = dict(terms)
+        if ENV[0] and len(t) == 1 and list(t.values()) == [1]:
+            a = list(t)[0]
+            if (a, add, size) in ENV_LOADS:
+                return ENV_LOADS[(a, add, size)]
         if t == {"k": 1, "c": 16} and size == 1 and add == 8:
             return ("ktag",)
         if t == {"k": 1, "c": 16} and size == 8 and add == 0:
@@ -436,7 +456,9 @@ def step(st, raw):
         st.set(R(o[0]), {24: aff({"c": 1}), 15: aff({"bx": 1})}.get(k, ("shr", k)))
     elif mnem == "zext.b":
         x = st.get(R(o[1]))
-        if x == ("shr", 7):
+        if x == ("shr", 16) and ENV[0]:
+            st.set(R(o[0]), ("lit", 0))      # `B = 0` (`hb0`): upvalue 0
+        elif x == ("shr", 7):
             st.set(R(o[0]), aff({"a": 1}))
         elif x == ("shr", 16):
             st.set(R(o[0]), aff({"b": 1}))
@@ -557,7 +579,7 @@ def code(lo, hi):
 CALLS = {
     0x8002f7b0: "__moddi3", 0x8002f72c: "__divdi3", 0x8002f734: "__hidden___udivdi3",
     0x8001ade8: "luaV_tointeger", 0x8001a704: "l_strcmp", 0x8001b780: "luaV_equalobj",
-    0x8001bae0: "luaV_objlen"}
+    0x8001bae0: "luaV_objlen", 0x8001808c: "luaH_getshortstr"}
 
 # a call node observed by the instruction after it (`l_strcmp`'s answer is
 # only known up to `LsObs`): the call lemma runs on through that observing
@@ -642,6 +664,14 @@ def call_effect(st, callee, ret):
         post.store("sd", sa[1], 0, ("slen", "b"))
         hyps += ["(y : List UInt8)", "(hsb : X.s.regs (X.ins.b + 0) = some (.str y))"]
         return post, hyps, "at_open\n  at_objlen", pre_regs
+    elif callee == "luaH_getshortstr":
+        # `gss_at`: `luaH_getshortstr(_ENV's table, K[C])` finds `print`'s
+        # node; the memory is unchanged
+        if a0 != aff({"tab": 1}) or a1 != ("kval",):
+            raise Stop(f"luaH_getshortstr of {a0}, {a1}")
+        post.set(10, aff({"pn": 1}))
+        hyps.append("(hkc : kval X.p X.ins.c = some (.str printKey))")
+        proof = ("at_call [{pins}] (Lua.Vm.Sim.At.gss_at hX hE (by simpa only [Word.c, Word.field, Nat.shiftRight_eq_div_pow] using hkc) (by at_logwin) _ (by decide) hframe?)")
     elif callee == "luaV_tointeger":
         s = to_aff(a0)
         if s is None or not slot_of(tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))), s[1]):
@@ -726,11 +756,15 @@ class Arm:
         if key in self.lemmas:
             return
         hyps = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(st2) + guards
+        if ENV[0]:
+            hyps += ENV_HYPS
         if st2.regs.get(27) == ("jmp",) and st.regs.get(27) != ("jmp",):
             hyps.append("(hj : (nextJump X.p X.s.pc).isSome = true)")   # `jmp_at`
         base = "at" + name[3:]
         lname = self.name(base, key)
         pre = "  have := jmp_lt hj\n" if any(h.startswith("(hj :") for h in hyps) else ""
+        if ENV[0]:
+            pre += "  at_env hE hb0\n"
         text = (f"theorem {lname} {' '.join(hyps)} :\n"
                 f"    AtStep X 0x{lo:08x}#64 ({pre_row}) {pre_log} 0x{hi:08x}#64 ({post_row}) {post_log} := by\n"
                 f"{pre}  at_seg Lua.Vm.Arms.{name}\n")
@@ -845,6 +879,8 @@ class Arm:
         if key not in self.lemmas:
             hyps = [h.replace("{log}", pre_log) for h in hyps]
             hs = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(post) + hyps
+            if ENV[0]:
+                hs += ENV_HYPS
             lname = self.name(f"call_{ret:08x}", key)
             text = (f"theorem {lname} {' '.join(hs)} :\n"
                     f"    AtStep X 0x{entry:08x}#64 ({pre_row}) {pre_log} 0x{nxt:08x}#64 ({post_row}) {post_log} := by\n"
@@ -901,6 +937,7 @@ class Arm:
 
     def run(self):
         PRUNE_FLOAT[0] = self.op in PRUNE_ARMS
+        ENV[0] = self.op in ENV_ARMS
         self.dropped = []
         st = State(HEADROW, [], {})
         for f in self.walk(self.target, st) or []:

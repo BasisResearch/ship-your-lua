@@ -172,10 +172,21 @@ theorem pnode_mem (h : EnvMem m cl ts R) :
     Env.node m cl ≤ Env.pnode m cl ts ∧ Env.pnode m cl ts + nodeSize ≤ Env.node m cl + Env.size m cl :=
   shrWalk_mem h.found
 
-/-- **The facts survive a memory that agrees on the objects.** -/
-theorem congr (h : EnvMem m cl ts R) {m' : Mem}
+/-- **Two memories that agree on the objects read alike**: the values `EnvMem`
+names, in `m'` and in `m`. -/
+structure EnvAgree (m m' : Mem) (cl ts : Nat) : Prop where
+  uv : Env.uv m' cl = Env.uv m cl
+  tv : Env.tv m' cl = Env.tv m cl
+  tab : Env.tab m' cl = Env.tab m cl
+  lsz : Env.lsz m' cl = Env.lsz m cl
+  node : Env.node m' cl = Env.node m cl
+  size : Env.size m' cl = Env.size m cl
+  find : Env.find m' cl ts = Env.find m cl ts
+  pnode : Env.pnode m' cl ts = Env.pnode m cl ts
+
+theorem agree (h : EnvMem m cl ts R) {m' : Mem}
     (hag : ∀ lo n, R lo n → ∀ a, lo ≤ a → a < lo + n → bytesT1 m' a = bytesT1 m a) :
-    EnvMem m' cl ts R := by
+    EnvAgree m m' cl ts := by
   have r8 : ∀ {lo n a}, R lo n → lo ≤ a → a + 8 ≤ lo + n → bytesT8 m' a = bytesT8 m a :=
     fun hR h1 h2 => bytesT8_congrT fun i hi => hag _ _ hR _ (by omega) (by omega)
   have r1 : ∀ {lo n a}, R lo n → lo ≤ a → a < lo + n → bytesT1 m' a = bytesT1 m a :=
@@ -204,6 +215,17 @@ theorem congr (h : EnvMem m cl ts R) {m' : Mem}
       simp only [totR]
       rw [bytesT_congrT fun i hi => hag _ _ h.nodes_at _ (by omega) (by omega)]
   have epn : Env.pnode m' cl ts = Env.pnode m cl ts := by simp only [Env.pnode, efind]
+  exact ⟨euv, etv, etab, elsz, enode, esize, efind, epn⟩
+
+/-- **The facts survive a memory that agrees on the objects.** -/
+theorem congr (h : EnvMem m cl ts R) {m' : Mem}
+    (hag : ∀ lo n, R lo n → ∀ a, lo ≤ a → a < lo + n → bytesT1 m' a = bytesT1 m a) :
+    EnvMem m' cl ts R := by
+  have r8 : ∀ {lo n a}, R lo n → lo ≤ a → a + 8 ≤ lo + n → bytesT8 m' a = bytesT8 m a :=
+    fun hR h1 h2 => bytesT8_congrT fun i hi => hag _ _ hR _ (by omega) (by omega)
+  have r1 : ∀ {lo n a}, R lo n → lo ≤ a → a < lo + n → bytesT1 m' a = bytesT1 m a :=
+    fun hR h1 h2 => hag _ _ hR _ h1 h2
+  obtain ⟨euv, etv, etab, elsz, enode, esize, efind, epn⟩ := h.agree hag
   have hpm := h.pnode_mem
   refine ⟨?_, ?_, ?_, ?_, ?_, h.key_at, ?_, ?_, ?_, ?_, ?_⟩
   · exact h.cl_at

@@ -101,6 +101,12 @@ macro "at_hold" : tactic => `(tactic| (
     SlotW.j, Fld.den, Nat.add_zero, ne_eq] at hj
   simp_all))
 
+/-- An extension point of `at_new`: a stored value's representation the
+generic closers do not reach (`Kit/AtEnv.lean`: `print` from `_ENV`'s node).
+Fails by default. -/
+syntax "at_new_ext" : tactic
+macro_rules | `(tactic| at_new_ext) => `(tactic| fail "at_new_ext")
+
 set_option hygiene false in
 /-- The stored slots represent the successor's values. -/
 macro "at_new" : tactic => `(tactic| (
@@ -113,7 +119,7 @@ macro "at_new" : tactic => `(tactic| (
     try simp at hv
     try subst hv
     try simp only [stData_three_lit, stData_three_n]
-    first | exact .int | (simp_all [snez_eq, BitVec.msb_xor]; done) |
+    first | exact .int | at_new_ext | (simp_all [snez_eq, BitVec.msb_xor]; done) |
       (simp_all [snez_eq, BitVec.msb_xor]; exact .int))))
 
 /-- An extension point of `at_close`'s successor pc (`Kit/AtCond.lean`:
