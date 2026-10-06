@@ -240,16 +240,12 @@ theorem strTag_lit (s : List UInt8) :
     BitVec.ofNat 8 (strTag s) = 68#8 ∨ BitVec.ofNat 8 (strTag s) = 84#8 := by
   rcases strTag_cases s with e | e <;> rw [e] <;> decide
 
-theorem _root_.Lua.Vm.Sim.ValRepr.tag_mem {t : BitVec 8} {x : BitVec 64} {v : Value} (h : ValRepr mo ι t x v) :
-    t ∈ f1Tags := by
+theorem _root_.Lua.Vm.Sim.ValRepr.tag_mem {t : BitVec 8} {x : BitVec 64} {v : Value} (h : ValRepr mo ι t x v)
+    (hv : v.NotFlt) : t ∈ f1Tags := by
   cases h with
   | str => rcases strTag_lit _ with e | e <;> rw [e] <;> decide
+  | flt => exact absurd rfl (hv _ _)
   | _ => decide
-
-/-- A value has one tag. -/
-theorem _root_.Lua.Vm.Sim.ValRepr.tag_det {t1 t2 : BitVec 8} {x1 x2 : BitVec 64} {v : Value}
-    (h1 : ValRepr mo ι t1 x1 v) (h2 : ValRepr mo ι t2 x2 v) : t1 = t2 := by
-  cases h1 <;> cases h2 <;> rfl
 
 /-- The tag of a value (`ValRepr`). -/
 def tagOf : Value → BitVec 8
@@ -257,6 +253,7 @@ def tagOf : Value → BitVec 8
   | .bool false => 1#8
   | .bool true => 17#8
   | .int _ => 3#8
+  | .flt _ _ => 19#8
   | .str s => BitVec.ofNat 8 (strTag s)
   | .builtin _ => 22#8
 
@@ -266,6 +263,11 @@ theorem _root_.Lua.Vm.Sim.ValRepr.tag_eq {t : BitVec 8} {x : BitVec 64} {v : Val
     t = tagOf v := by
   cases h <;> rfl
 
+/-- A value has one tag. -/
+theorem _root_.Lua.Vm.Sim.ValRepr.tag_det {t1 t2 : BitVec 8} {x1 x2 : BitVec 64} {v : Value}
+    (h1 : ValRepr mo ι t1 x1 v) (h2 : ValRepr mo ι t2 x2 v) : t1 = t2 :=
+  h1.tag_eq.trans h2.tag_eq.symm
+
 /-- Nil and the booleans: the tag is the value. -/
 theorem _root_.Lua.Vm.Sim.ValRepr.eq_of_tag {t : BitVec 8} {x1 x2 : BitVec 64} {v1 v2 : Value}
     (h1 : ValRepr mo ι t x1 v1) (h2 : ValRepr mo ι t x2 v2) (ht : t = 0#8 ∨ t = 1#8 ∨ t = 17#8) :
@@ -273,7 +275,7 @@ theorem _root_.Lua.Vm.Sim.ValRepr.eq_of_tag {t : BitVec 8} {x1 x2 : BitVec 64} {
   have e1 := h1.tag_eq; have e2 := h2.tag_eq
   have hns : ∀ s, t ≠ tagOf (.str s) := fun s e => by
     rcases str_tag s with e' | e' <;> rw [e'] at e <;> subst e <;> revert ht <;> decide
-  rcases v1 with _ | b1 | i1 | s1 | f1 <;> rcases v2 with _ | b2 | i2 | s2 | f2
+  rcases v1 with _ | b1 | i1 | ⟨x1, n1⟩ | s1 | f1 <;> rcases v2 with _ | b2 | i2 | ⟨x2, n2⟩ | s2 | f2
   all_goals (try cases b1) <;> (try cases b2) <;> (try cases f1) <;> (try cases f2)
   all_goals first
     | rfl
@@ -313,19 +315,19 @@ theorem _root_.Lua.Vm.Sim.ValRepr.eq_iff_payload {t1 t2 : BitVec 8} {x1 x2 : Bit
   · intro e; subst e; rw [TStringRepr.inj r1 r2]
 end
 
-/-- **`luaV_equalobj`, the call-node summary**: on two represented F1
-values, not both long strings, `a0` is `δ .eq`'s answer as 0/1; `ra` is saved
-below `sp`. -/
+/-- **`luaV_equalobj`, the call-node summary**: on two represented values,
+neither a float (`FloatArms`) and not both long strings, `a0` is `δ .eq`'s
+answer as 0/1; `ra` is saved below `sp`. -/
 theorem equalobj_sum (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
     (hx : EqCtx m n1 n2 sp r) {mo : Mem} {ι : Strs} {v1 v2 : Value}
     (hv1 : ValRepr mo ι (slotTag m n1) (slotVal m n1) v1)
-    (hv2 : ValRepr mo ι (slotTag m n2) (slotVal m n2) v2)
+    (hv2 : ValRepr mo ι (slotTag m n2) (slotVal m n2) v2) (hf1 : v1.NotFlt) (hf2 : v2.NotFlt)
     (hl : ¬ (slotTag m n1 = 84#8 ∧ slotTag m n2 = 84#8)) :
     Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
       (SegSt r (⟨Register.x10, if v1 = v2 then 1#64 else 0#64⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ ::
         f.pins) (ArmPay (eqMem(m, sp, r)) o)) := by
   by_cases he : slotTag m n1 = slotTag m n2
-  · have ht := hv1.tag_mem
+  · have ht := hv1.tag_mem hf1
     simp only [f1Tags, List.mem_cons, List.not_mem_nil, or_false] at ht
     have hv2' := he ▸ hv2
     rcases ht with e | e | e | e | e | e | e
@@ -342,6 +344,6 @@ theorem equalobj_sum (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (
     · simp only [hv1.eq_iff_payload hv2 he (.inr (.inr e))]
       exact eqo_pay L r n1 n2 sp f m o hx 22 (.inr (.inr rfl)) e (he ▸ e)
   · rw [if_neg (fun e => he (by subst e; exact hv1.tag_det hv2))]
-    exact eqo_diff L r n1 n2 sp f m o hx hv1.tag_mem hv2.tag_mem he
+    exact eqo_diff L r n1 n2 sp f m o hx (hv1.tag_mem hf1) (hv2.tag_mem hf2) he
 
 end Lua.Vm.Sim.Kit

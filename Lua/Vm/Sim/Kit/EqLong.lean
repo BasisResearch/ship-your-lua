@@ -180,7 +180,8 @@ theorem eq_long : ArmBody .EQ fun p c s w ins => ¬ EqShort p c s w ins :=
   have hLci := hr.L_sep_ci; simp only [stateSize, ciSize] at hLci
   kit_cond (decide (s1 = s2))
 
-/-- **`sim_EQ`**: `OP_EQ` simulates its kernel, every path proved. -/
-theorem sim_EQ : SimArm .EQ := sim_EQ_of_long eq_long
+/-- **`sim_EQ`**: `OP_EQ` simulates its kernel off its float paths
+(`FloatArms.EQ`), every such path proved. -/
+theorem sim_EQ : SimArmOn .EQ (Off FltAB) := sim_EQ_of_long eq_long
 
 end Lua.Vm.Sim.Kit

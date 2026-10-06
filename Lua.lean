@@ -53,12 +53,17 @@ import Lua.Programs.EscStrflt
 import Lua.Programs.EscForstr
 import Lua.Programs.EscUnmflt
 import Lua.Programs.Escape
+import Lua.Programs.EscStrfltAst
+import Lua.Programs.EscForstrAst
+import Lua.Programs.EscUnmfltAst
 import Lua.Compile.TV
 import Lua.Compile.Corpus
 import Lua.Os.HtifFs
 import Lua.Os.Htif
 import Lua.Os.HtifTraces
 import Lua.Num.F64
+import Lua.Num.Pow
+import Lua.Num.PowFacts
 import Lua.Num.Arith
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and

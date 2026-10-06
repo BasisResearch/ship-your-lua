@@ -4,7 +4,7 @@ import Lua.Bytecode.Semantics
 # Fragments: which programs Layer A covers, and the ledger of the rest
 
 `Supported p` is the hypothesis of `vm_refinement` (Layer A). It is a
-decidable check on a `Proto` with three parts:
+decidable check on a `Proto` with four parts:
 
 1. **Opcodes.** Every instruction has a kernel (`kernel`, the opcode table
    of `Lua/Bytecode/Semantics.lean`), whose existence carries the operand
@@ -30,6 +30,11 @@ decidable check on a `Proto` with three parts:
    certain-answers theorem: `bcSemFrom_iff` (entry registers are
    unobservable) and `cbcSem_iff` (so are all kill ports).
 
+4. **Loop registers** (`loopsOk`). `lvm.c` reads a numeric `for`'s
+   internal registers without a tag test, so every `FORLOOP` must have its
+   `FORPREP` (`loopHead`), and no instruction inside the loop may write
+   `R[A..A+2]` or be jumped into from outside (`loopOk`).
+
 `reads`, `regTop` and `edges` are folds of the kernel, not tables.
 
 `Supported whileProto` is checked by the kernel in `Lua/Programs/Supported.lean`.
@@ -39,9 +44,11 @@ namespace Lua.Bytecode
 
 /-- Fragments, in the planned order (README.md, PHASES.md). -/
 inductive Fragment where
-  /-- integers, moves, constants, integer arithmetic, integer bitwise
-  operators (the former F1b, phase A2), compare+jump, numeric for, return,
-  `print` -/
+  /-- integers and floats (the former `Float` fragment, FLOAT-DESIGN.md S1:
+  float constants and `LOADF`, `/` and `^`, the float paths of every
+  arithmetic, bitwise and order opcode, float `for` loops, `%.14g`), string
+  coercion of numerals, moves, constants, arithmetic, bitwise operators (the
+  former F1b, phase A2), compare+jump, numeric for, return, `print` -/
   | F1
   /-- tables, `next` order, global writes, generic `for` over `pairs` -/
   | F2
@@ -49,8 +56,6 @@ inductive Fragment where
   | F3
   /-- strings, `..`, metatables and metamethods, to-be-closed variables -/
   | F4
-  /-- floats and `%.14g` -/
-  | Float
   /-- coroutines (and `longjmp` across `lua_resume`) -/
   | Coroutine
   deriving DecidableEq, Repr
@@ -66,15 +71,18 @@ def OpCode.fragment : OpCode → Fragment
   | .EQ | .LT | .LE | .EQK | .EQI | .LTI | .LEI | .GTI | .GEI | .TEST | .TESTSET
   | .CALL | .RETURN | .RETURN0 | .RETURN1 | .FORLOOP | .FORPREP | .VARARGPREP
   | .BANDK | .BORK | .BXORK | .SHRI | .SHLI | .BAND | .BOR | .BXOR | .SHL | .SHR
-  | .BNOT => .F1
+  | .BNOT
+  | .LOADF | .POWK | .DIVK | .POW | .DIV => .F1
   | .LOADKX | .EXTRAARG | .GETTABLE | .GETI | .GETFIELD | .SETTABUP | .SETTABLE | .SETI
   | .SETFIELD | .NEWTABLE | .SETLIST | .LEN | .TFORPREP | .TFORCALL | .TFORLOOP => .F2
   | .GETUPVAL | .SETUPVAL | .CLOSE | .CLOSURE | .TAILCALL | .VARARG | .SELF => .F3
   | .CONCAT | .TBC => .F4
-  | .LOADF | .POWK | .DIVK | .POW | .DIV => .Float
 
 /-- **The ledger of opcodes outside F1**, each with its fragment and what it
-needs. (F1b, integer bitwise, is merged into F1: phase A2.) (`Coroutine` brings in no opcode: coroutines are library calls.) -/
+needs. (F1b, integer bitwise, is merged into F1: phase A2; so are floats,
+FLOAT-DESIGN.md S1, whose fragment brought in `LOADF`, `DIV`, `DIVK`, `POW`,
+`POWK` and now has no opcode left, the `math` library not being linked into
+the ELF.) (`Coroutine` brings in no opcode: coroutines are library calls.) -/
 def ledger : List (OpCode × Fragment × String) :=
   [ (.LOADKX, .F2, "constant tables above 2^17 entries (with EXTRAARG)"),
     (.EXTRAARG, .F2, "operand extension for LOADKX/NEWTABLE/SETLIST"),
@@ -90,10 +98,7 @@ def ledger : List (OpCode × Fragment × String) :=
     (.TAILCALL, .F3, "tail call (luaD_pretailcall)"), (.VARARG, .F3, "varargs"),
     (.SELF, .F3, "method call"),
     (.CONCAT, .F4, "string concatenation (luaV_concat, string interning)"),
-    (.TBC, .F4, "to-be-closed variable (__close)"),
-    (.LOADF, .Float, "float literal"), (.POWK, .Float, "pow (always float)"),
-    (.DIVK, .Float, "float division"), (.POW, .Float, "pow (always float)"),
-    (.DIV, .Float, "float division") ]
+    (.TBC, .F4, "to-be-closed variable (__close)") ]
 
 /-- The ledger lists exactly the non-F1 opcodes. -/
 theorem ledger_exact :
@@ -102,7 +107,7 @@ theorem ledger_exact :
 /-- Every ledger entry's fragment is its opcode's fragment. -/
 theorem ledger_fragment : ∀ e ∈ ledger, e.1.fragment = e.2.1 := by decide
 
-theorem ledger_length : ledger.length = 29 := rfl
+theorem ledger_length : ledger.length = 24 := rfl
 
 /-! ## Register sets as bit masks -/
 
@@ -199,12 +204,60 @@ def supportedB : Bool :=
         | some w => msub (reads p pc w) (st.getD pc 0)
         | none => false
 
+/-! ## Numeric `for`: the loop's internal registers -/
+
+/-- The `FORPREP` of the `FORLOOP` `w` at `f`: at `q = f - Bx` (`lparser.c`
+`forbody`/`fixforjump`: `FORLOOP` jumps back to `q + 1`), with the same `A`,
+skipping to `f + 1` (its `Bx` is one less). -/
+def loopHead (f : Nat) (w : Word) : Option Nat :=
+  if 1 ≤ w.bx ∧ w.bx ≤ f then
+    match p.fetch (f - w.bx) with
+    | some w' =>
+      if w'.op? = some .FORPREP ∧ w'.a = w.a ∧ w'.bx + 1 = w.bx then some (f - w.bx) else none
+    | none => none
+  else none
+
+/-- `e` neither defines nor kills a register of `[a, a+3)`. -/
+def KEdge.avoids (e : KEdge) (a : Nat) : Bool :=
+  e.defs.all (fun d => decide (d < a ∨ a + 3 ≤ d)) &&
+    decide (e.killN = 0 ∨ e.killLo + e.killN ≤ a ∨ a + 3 ≤ e.killLo)
+
+/-- **The loop check** for the `FORLOOP` `w` at `f`, whose `FORPREP` is at
+`q`: no instruction strictly inside `(q, f)` defines or kills an internal
+register `R[A..A+2]`, and no instruction outside `[q, f]` jumps into
+`(q, f]`. -/
+def loopOk (f : Nat) (w : Word) : Bool :=
+  match loopHead p f w with
+  | none => false
+  | some q =>
+    (List.range p.code.length).all fun pc =>
+      match p.fetch pc with
+      | none => true
+      | some w' =>
+        match kernel p pc w' with
+        | none => true
+        | some K =>
+          (!(decide (q < pc ∧ pc < f)) || K.edges.all (·.avoids w.a)) &&
+          (!(decide (pc < q ∨ f < pc)) || K.edges.all fun e => !(decide (q < e.tgt ∧ e.tgt ≤ f)))
+
+/-- **Every `FORLOOP` passes the loop check.** `lvm.c` reads a loop's count,
+limit and index with `ivalue`/`fltvalue` and no tag test (`OP_FORLOOP`,
+`floatforloop`), so they must be what `FORPREP`/`FORLOOP` stored. `luac`
+output passes: the `(for state)` locals are never assigned and `goto` cannot
+enter a block. -/
+def loopsOk : Bool :=
+  (List.range p.code.length).all fun f =>
+    match p.fetch f with
+    | some w => !(decide (w.op? = some .FORLOOP)) || loopOk p f w
+    | none => true
+
 end
 
 /-- **`Supported p`**: `p` is a well-formed, definitely-initialising F1
-main chunk (see the module docstring). -/
-def Supported (p : Proto) : Prop := supportedB p = true
+main chunk whose numeric `for` loops keep their internal registers (see the
+module docstring). -/
+def Supported (p : Proto) : Prop := supportedB p = true ∧ loopsOk p = true
 
-instance (p : Proto) : Decidable (Supported p) := inferInstanceAs (Decidable (_ = true))
+instance (p : Proto) : Decidable (Supported p) := inferInstanceAs (Decidable (_ ∧ _))
 
 end Lua.Bytecode

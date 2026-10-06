@@ -68,7 +68,7 @@ set_option hygiene false in
 macro "kit_cond " c:term : tactic => `(tactic| (
   by_cases hkk : $c = ins.k
   · have hg : (ins.k != $c) = false := by rw [hkk]; exact bne_self_eq_false _
-    simp [Opnd.fill, δ, VState.apply, writeDefs, KEdge.kills, Value.isFalse, hkk] at hk
+    simp [Opnd.fill, δ, Value.rawEq, VState.apply, writeDefs, KEdge.kills, Value.isFalse, hkk] at hk
     subst hk
     obtain ⟨ni, hni, hjt⟩ : ∃ ni, p.fetch (s.pc + 1) = some ni ∧ jumpTo (s.pc + 2) ni.sj = some t := by
       simp only [nextJump, Option.bind_eq_some_iff] at hnj; exact hnj
@@ -84,7 +84,7 @@ macro "kit_cond " c:term : tactic => `(tactic| (
     · kit_disch
   · have hg : (ins.k != $c) = true := by
       simpa only [bne_iff_ne, ne_eq, eq_comm (a := ins.k)] using hkk
-    simp [Opnd.fill, δ, VState.apply, writeDefs, KEdge.kills, Value.isFalse, hkk] at hk
+    simp [Opnd.fill, δ, Value.rawEq, VState.apply, writeDefs, KEdge.kills, Value.isFalse, hkk] at hk
     subst hk
     kit_run h0 acc
     kit_trap
@@ -114,27 +114,38 @@ macro "kit_order_int " pc:num c:term : tactic => `(tactic| (
 
 set_option hygiene false in
 /-- **`kit_order_stuck pc`**: an order arm at `pc` on anything but two
-integers (`hI`) or two strings (`hT`): `δ` is `none`, no step. -/
+integers (`hI`), two strings (`hT`) or a float (`hN`): `δ` is `none`, no
+step. -/
 macro "kit_order_stuck " pc:num : tactic => `(tactic| (
   kit_setup $pc
   kit_nj
   kit_reg hba va hva ins.a; kit_reg hbb vb hvb ins.b
   exfalso
-  rcases va with _ | _ | x | x | _ <;> rcases vb with _ | _ | y | y | _ <;>
-    simp [Opnd.fill, δ] at hk
-  · exact hI ⟨hva.tag_of_int.1, hvb.tag_of_int.1⟩
-  · exact hT ⟨_, _, hba, hbb⟩))
+  rcases va with _ | _ | x | ⟨x, nx⟩ | x | _ <;> rcases vb with _ | _ | y | ⟨y, ny⟩ | y | _ <;>
+    simp [Opnd.fill, δ, Value.toNum?] at hk
+  all_goals first
+    | exact hI ⟨hva.tag_of_int.1, hvb.tag_of_int.1⟩
+    | exact hT ⟨_, _, hba, hbb⟩
+    | exact hN (.inl ⟨_, _, hba⟩)
+    | exact hN (.inr ⟨_, _, hbb⟩)))
 
-/-- **An order arm from its paths**: two integers (`int`), two strings
-(`str`); anything else is stuck (`stuck`). -/
+/-- An order arm's other values: neither two integers nor two strings nor a
+float. -/
+abbrev OrderOther (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  ¬ BothIntAB p c s w ins ∧ ¬ BothStrAB p c s w ins ∧ ¬ FltAB p s ins
+
+/-- **An order arm off its float paths, from its paths**: two integers
+(`int`), two strings (`str`); anything else but a float is stuck
+(`stuck`). -/
 theorem sim_order {o : OpCode} (ho : o.toNat < Arms.jtEntries) (int : ArmBody o BothIntAB)
     (str : ArmBody o BothStrAB)
-    (stuck : ArmBody o fun p c s w ins => ¬ BothIntAB p c s w ins ∧ ¬ BothStrAB p c s w ins) :
-    SimArm o :=
-  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep =>
+    (stuck : ArmBody o fun p c s w ins =>
+      ¬ BothIntAB p c s w ins ∧ ¬ BothStrAB p c s w ins ∧ ¬ FltAB p s ins) :
+    SimArmOn o fun p s ins => ¬ FltAB p s ins :=
+  sim_arm_on ho fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
     open Classical in
     if hI : BothIntAB p c s w ins then int hS hA hf hop hstep hI
     else if hT : BothStrAB p c s w ins then str hS hA hf hop hstep hT
-    else stuck hS hA hf hop hstep ⟨hI, hT⟩
+    else stuck hS hA hf hop hstep ⟨hI, hT, hN⟩
 
 end Lua.Vm.Sim

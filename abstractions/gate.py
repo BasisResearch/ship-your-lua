@@ -3,7 +3,9 @@
 
 For each cluster in abstractions/clusters.tsv, collect its hand-proved
 cases, order them by the time they were introduced (git blame of the
-case's first line; uncommitted = now), and measure cost = non-blank,
+case's first line, or the first commit adding `theorem <name>` to its file
+if earlier: restating an existing case is not a new case; uncommitted =
+now), and measure cost = non-blank,
 non-comment proof lines. FAIL when a cluster has reached N cases
 (default 8) and the mean cost of its last quarter is not at least a
 third below the mean of its first quarter:
@@ -52,6 +54,16 @@ def blame_time(path, line):
         return int(time.time()), "uncommitted"
     return int(m.group(1)), r.stdout.split()[0][:8]
 
+def intro_time(path, line, name):
+    """When a case was introduced: the blame time of its first line, or, if
+    earlier, the first commit that added `theorem <name>` to its file (a
+    change to an existing case's statement does not make it a new case)."""
+    t, c = blame_time(path, line)
+    r = subprocess.run(["git", "log", "--format=%ct", "-S", f"theorem {name} ", "--", path],
+                       capture_output=True, text=True)
+    ts = [int(x) for x in r.stdout.split()]
+    return (min(ts), c) if ts and min(ts) < t else (t, c)
+
 def commit_time(c):
     r = subprocess.run(["git", "show", "-s", "--format=%ct", c], capture_output=True, text=True)
     return int(r.stdout.strip() or 0)
@@ -95,7 +107,7 @@ for row in open("abstractions/clusters.tsv"):
             for d in decls(p):
                 if not rx.search(d["name"]): continue
                 if kind == "theorems":
-                    t, c = blame_time(p, d["line"]); cases.append((t, d["lines"], f"{p}:{d['line']} {d['name']}"))
+                    t, c = intro_time(p, d["line"], d["name"]); cases.append((t, d["lines"], f"{p}:{d['line']} {d['name']}"))
                 else:
                     # locate each arm's first line inside the declaration
                     k = d["line"]

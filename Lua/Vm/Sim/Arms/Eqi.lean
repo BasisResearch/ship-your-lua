@@ -16,12 +16,14 @@ namespace Lua.Vm.Sim
 open Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **EQI** (kind `condjump`): from the fetch head, the dispatch and, per
-exit of the kernel, the arm's segments return to the head in a state related
-to the `Step`'s successor. -/
+/-- **EQI** (kind `condjump`) off its float paths (`¬ FltA`; they are
+`FloatArms.EQI`): from the fetch head, the dispatch and, per exit of the
+kernel, the arm's segments return to the head in a state related to the
+`Step`'s successor. -/
 theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     (hR : VmRel p c s) {ins : Word} (hf : p.fetch s.pc = some ins)
-    (hop : ins.op? = some .EQI) (hstep : Step binaryHost p s s') :
+    (hop : ins.op? = some .EQI) (hstep : Step binaryHost p s s')
+    (hnf : ¬ FltA p s ins) :
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
@@ -59,6 +61,7 @@ theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
   have hlt := fetch_lt hni
   simp only [Word.a, Word.field] at htop
   have hva' := hc1.stack ins.a va (by simp only [Word.a, Word.field]; omega) hva
+  have hnfa := notFlt_of_reg hnf hva
   by_cases hTa : slotTag c1.σ.mem (w.slot ins.a) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hva'.int_of_tag hTa
     rw [cond_int]
@@ -203,7 +206,7 @@ theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         ⟨pinsHold_get hq5.pins 1 (by len_arith), pinsHold_get hq5.pins 2 (by len_arith), pinsHold_get hq5.pins 3 (by len_arith), pinsHold_get hq5.pins 4 (by len_arith), pinsHold_get hq5.pins 5 (by len_arith), pinsHold_get hq5.pins 8 (by len_arith), pinsHold_get hq5.pins 9 (by len_arith), pinsHold_get hq5.pins 10 (by len_arith), pinsHold_get hq5.pins 11 (by len_arith), hx27⟩
         hmE
       exact ⟨c6, hs1.trans hsteps, by have := hsteps.steps_le; omega, ⟨hcore, hq5.pcAt⟩⟩
-  · rw [cond_nonint (hva'.not_int hTa)]
+  · rw [cond_nonint (hva'.not_int hTa) hnfa]
     cases hk : ins.k
     · rw [if_pos rfl]
       obtain ⟨c2, hs2, hq1⟩ := Arms.seg_8001c7f0_8001c814_t
@@ -225,7 +228,7 @@ theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (BitVec.ofNat 64 w.ci) (BitVec.ofNat 64 Arms.jtBase) (BitVec.ofNat 64 w.base)
         (BitVec.ofNat 64 (w.code + 4 * s.pc))
         c1.σ.mem c1.σ.sailOutput
-        (by refine guard_not_float (n := w.slot ins.a) ?_ hva'; slot_arith)
+        (by refine guard_not_float (n := w.slot ins.a) ?_ hva' hnfa; slot_arith)
         c2 ⟨hq1.good, hq1.pcAt,
           ⟨pinsHold_get hq1.pins 2 (by len_arith), pinsHold_get hq1.pins 7 (by len_arith), pinsHold_get hq1.pins 8 (by len_arith), pinsHold_get hq1.pins 9 (by len_arith), pinsHold_get hq1.pins 10 (by len_arith), pinsHold_get hq1.pins 6 (by len_arith), pinsHold_get hq1.pins 11 (by len_arith), pinsHold_get hq1.pins 4 (by len_arith), pinsHold_get hq1.pins 12 (by len_arith), pinsHold_get hq1.pins 13 (by len_arith), pinsHold_get hq1.pins 14 (by len_arith), pinsHold_get hq1.pins 5 (by len_arith), pinsHold_get hq1.pins 15 (by len_arith), trivial⟩,
           hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩
@@ -303,7 +306,7 @@ theorem sim_EQI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (BitVec.ofNat 64 w.ci) (BitVec.ofNat 64 Arms.jtBase) (BitVec.ofNat 64 w.base)
         (BitVec.ofNat 64 (w.code + 4 * s.pc))
         c1.σ.mem c1.σ.sailOutput
-        (by refine guard_not_float (n := w.slot ins.a) ?_ hva'; slot_arith)
+        (by refine guard_not_float (n := w.slot ins.a) ?_ hva' hnfa; slot_arith)
         c2 ⟨hq1.good, hq1.pcAt,
           ⟨pinsHold_get hq1.pins 2 (by len_arith), pinsHold_get hq1.pins 7 (by len_arith), pinsHold_get hq1.pins 8 (by len_arith), pinsHold_get hq1.pins 9 (by len_arith), pinsHold_get hq1.pins 10 (by len_arith), pinsHold_get hq1.pins 6 (by len_arith), pinsHold_get hq1.pins 11 (by len_arith), pinsHold_get hq1.pins 4 (by len_arith), pinsHold_get hq1.pins 12 (by len_arith), pinsHold_get hq1.pins 13 (by len_arith), pinsHold_get hq1.pins 14 (by len_arith), pinsHold_get hq1.pins 5 (by len_arith), pinsHold_get hq1.pins 15 (by len_arith), trivial⟩,
           hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩

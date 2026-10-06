@@ -26,10 +26,10 @@ theorem shli_p3 : ArmBody .SHLI (Sh3 TagB amtB BitVec.msb rL) := by
   at_shift (at_int1 0x8001dd30) Lua.Vm.At.SHLI shiftlC_neg_big
 theorem shli_p4 : ArmBody .SHLI (Sh4 TagB amtB BitVec.msb rL) := by
   at_shift (at_int1 0x8001dd30) Lua.Vm.At.SHLI shiftlC_neg_run
-theorem shli_fall : ArmBody .SHLI fun p c s w ins => ¬ TagB p c s w ins := by
+theorem shli_fall : ArmBody .SHLI FallB := by
   at_fall1 Lua.Vm.At.SHLI 0x8001dd30
 
 /-- **`OP_SHLI`** on the location-list route. -/
-theorem sim_SHLI : SimArm .SHLI := sim_shift (by decide) _ _ _ shli_p1 shli_p2 shli_p3 shli_p4 shli_fall
+theorem sim_SHLI : SimArmOn .SHLI (Off FltB) := sim_shift (by decide) _ _ _ shli_p1 shli_p2 shli_p3 shli_p4 shli_fall
 
 end Lua.Vm.Sim.At

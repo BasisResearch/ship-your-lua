@@ -52,10 +52,13 @@ theorem opArith_zero {pc a : Nat} {b : BinOp} {x y : Opnd} {vs : List Value}
     ∃ i, Opnd.fill [x, y] vs = [.int i, .int 0] := by
   simp only [opArith] at h
   split at h
-  · rename_i i j hf
-    refine ⟨i, ?_⟩
-    rw [hf]
-    cases b <;> simp_all [δ, BinOp.int, imod, idiv]
+  · rename_i x y hf
+    split at h
+    · cases h
+    · cases h
+    · rename_i he
+      obtain ⟨i, rfl, rfl⟩ := fastArith_err he
+      exact ⟨i, hf⟩
   · cases h
 
 /-- A register the kernel reads is in the frame (`Supported`'s `regTop`). -/
@@ -215,15 +218,22 @@ theorem errorSim_of_rest (h : ErrorSimRest) : ErrorSim :=
     h.concaterror, h.forerror, h.callerror⟩
 
 /-- **Layer A without escapes, from what is open**: the open arms, the
-return chain, and `ErrorSimRest`. -/
-theorem vm_refinement_ne_of_rest (arms : OpenArms) (final : FinalSim) (err : ErrorSimRest) :
-    vm_refinement_ne_Statement :=
-  vm_refinement_ne_of_open arms final (errorSim_of_rest err)
+float paths, the return chain, and `ErrorSimRest`. -/
+theorem vm_refinement_ne_of_rest (arms : OpenArms) (farms : FloatArms) (final : FinalSim)
+    (err : ErrorSimRest) : vm_refinement_ne_Statement :=
+  vm_refinement_ne_of_open arms farms final (errorSim_of_rest err)
 
 /-- **Layer A without escapes, from what is open**, `FinalSim` discharged
-(`finalSim`, lane F1-4): the open arms and `ErrorSimRest`. -/
-theorem vm_refinement_ne_of_rest' (arms : OpenArms) (err : ErrorSimRest) :
+(`finalSim`, lane F1-4): the open arms, the float paths and `ErrorSimRest`. -/
+theorem vm_refinement_ne_of_rest' (arms : OpenArms) (farms : FloatArms) (err : ErrorSimRest) :
     vm_refinement_ne_Statement :=
-  vm_refinement_ne_of_rest arms finalSim err
+  vm_refinement_ne_of_rest arms farms finalSim err
+
+/-- **Layer A from what is open** (FLOAT-DESIGN.md S2: no `NoEscape`): the
+open arms, the float paths and `ErrorSimRest`; the entry, `VARARGPREP`,
+`FinalSim`, the proved arms and `luaG_runerror`'s arm paths are discharged. -/
+theorem vm_refinement_of_open' (arms : OpenArms) (farms : FloatArms) (err : ErrorSimRest) :
+    vm_refinement_Statement luaLayout :=
+  vm_refinement_of_error arms farms (errorSim_of_rest err)
 
 end Lua.Vm.Sim

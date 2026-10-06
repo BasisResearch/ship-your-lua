@@ -1,3 +1,6 @@
+import Lua.Num.Decimal
+import Lua.Num.Pow
+
 /-!
 # Lua's numeric functions that `Float.Model` lacks
 
@@ -20,6 +23,9 @@ Every NaN the ELF's soft-float produces is the canonical `0x7ff8000000000000`
 -/
 
 namespace Lua.Num
+
+/-- Floats are shown by their bit pattern. -/
+instance : Repr Float.Model := ⟨fun x n => reprPrec x.toBits n⟩
 
 open Float.Model (UnpackedFloat)
 open Float.Model.UnpackedFloat (Sign)
@@ -99,5 +105,211 @@ def nummod (a b : Float.Model) : Float.Model :=
   let m := fmod a b
   if (if Float.Model.lt z m then Float.Model.lt b z else Float.Model.lt m z && Float.Model.lt z b)
   then Float.Model.add m b else m
+
+/-! ## Integer operations (`lvm.c`, `lvm.h`) -/
+
+/-- `luaV_idiv` (`lvm.c:725`): floor division; `none` is the division-by-zero
+error (`luaG_runerror`). For `n = -1` this is `0 - m` (wrapping), which
+`Int.fdiv` + wrap agrees with. -/
+def idiv (m n : BitVec 64) : Option (BitVec 64) :=
+  if n = 0 then none else some (BitVec.ofInt 64 (Int.fdiv m.toInt n.toInt))
+
+/-- `luaV_mod` (`lvm.c:745`): floor modulo; `none` is the `n%0` error. -/
+def imod (m n : BitVec 64) : Option (BitVec 64) :=
+  if n = 0 then none else some (BitVec.ofInt 64 (Int.fmod m.toInt n.toInt))
+
+/-- `luaV_shiftl` (`lvm.c:777`): a negative `y` shifts right (logically: `intop`
+works on `lua_Unsigned`), and a shift by 64 or more bits in either direction
+gives 0. -/
+def shiftl (x y : BitVec 64) : BitVec 64 :=
+  if y.toInt < 0 then (if y.toInt ≤ -64 then 0 else x >>> (-y.toInt).toNat)
+  else (if 64 ≤ y.toInt then 0 else x <<< y.toNat)
+
+/-- `luaV_shiftr(x,y)` is `luaV_shiftl(x, intop(-, 0, y))` (`lvm.h:116`): the
+negation wraps, so `y = minint` shifts left by `minint`, giving 0. -/
+def shiftr (x y : BitVec 64) : BitVec 64 := shiftl x (0 - y)
+
+/-! ## Mixed integer/float numbers -/
+
+/-- `cast_num` of an integer (`(lua_Number)i`; `__floatdidf` on the ELF). -/
+def ofI (i : BitVec 64) : Float.Model := Float.Model.ofInt i.toInt
+
+/-- `nvalue`/`tonumberns` (`lobject.h`, `lvm.h:56`): a number as a float. -/
+def Numeral.toFloat : Numeral → Float.Model
+  | .int i => ofI i
+  | .flt x => x
+
+/-- `luaV_tointegerns` (`lvm.c:138`) on a number. -/
+def Numeral.tointegerns (m : F2Imod) : Numeral → Option (BitVec 64)
+  | .int i => some i
+  | .flt x => flttointeger x m
+
+/-- `l_intfitsf` (`lvm.c:72`, `NBM = 53`): `(MAXINTFITSF + l_castS2U(i)) <=
+2 * MAXINTFITSF` in unsigned (wrapping) arithmetic. -/
+def intfitsf (i : BitVec 64) : Bool := (BitVec.ofNat 64 (2 ^ 53) + i).toNat ≤ 2 ^ 54
+
+/-- `LTintfloat` (`lvm.c:411`): `i < f`. -/
+def ltIntFloat (i : BitVec 64) (f : Float.Model) : Bool :=
+  if intfitsf i then Float.Model.lt (ofI i) f
+  else match flttointeger f .ceil with
+    | some fi => decide (i.toInt < fi.toInt)
+    | none => Float.Model.lt zero f
+
+/-- `LEintfloat` (`lvm.c:428`): `i <= f`. -/
+def leIntFloat (i : BitVec 64) (f : Float.Model) : Bool :=
+  if intfitsf i then Float.Model.le (ofI i) f
+  else match flttointeger f .floor with
+    | some fi => decide (i.toInt ≤ fi.toInt)
+    | none => Float.Model.lt zero f
+
+/-- `LTfloatint` (`lvm.c:445`): `f < i`. -/
+def ltFloatInt (f : Float.Model) (i : BitVec 64) : Bool :=
+  if intfitsf i then Float.Model.lt f (ofI i)
+  else match flttointeger f .floor with
+    | some fi => decide (fi.toInt < i.toInt)
+    | none => Float.Model.lt f zero
+
+/-- `LEfloatint` (`lvm.c:462`): `f <= i`. -/
+def leFloatInt (f : Float.Model) (i : BitVec 64) : Bool :=
+  if intfitsf i then Float.Model.le f (ofI i)
+  else match flttointeger f .ceil with
+    | some fi => decide (fi.toInt ≤ i.toInt)
+    | none => Float.Model.lt f zero
+
+/-- `LTnum` (`lvm.c:480`): `l < r` on numbers. -/
+def ltNum : Numeral → Numeral → Bool
+  | .int a, .int b => decide (a.toInt < b.toInt)
+  | .int a, .flt b => ltIntFloat a b
+  | .flt a, .flt b => Float.Model.lt a b
+  | .flt a, .int b => ltFloatInt a b
+
+/-- `LEnum` (`lvm.c:502`): `l <= r` on numbers. -/
+def leNum : Numeral → Numeral → Bool
+  | .int a, .int b => decide (a.toInt ≤ b.toInt)
+  | .int a, .flt b => leIntFloat a b
+  | .flt a, .flt b => Float.Model.le a b
+  | .flt a, .int b => leFloatInt a b
+
+/-- `luaV_equalobj` (`lvm.c:569`) on two numbers: the same variant compares
+by `==` (`luai_numeq`: `-0 == 0`, NaN unequal to everything); an integer
+and a float compare as integers, through `luaV_tointegerns(F2Ieq)` on both
+(`lvm.c:573-581`). -/
+def eqNum : Numeral → Numeral → Bool
+  | .int a, .int b => decide (a = b)
+  | .flt a, .flt b => Float.Model.beq a b
+  | a, b =>
+    match a.tointegerns .eq, b.tointegerns .eq with
+    | some i, some j => decide (i = j)
+    | _, _ => false
+
+/-! ## `luaO_rawarith` -/
+
+/-- The arithmetic operators of `lua_arith`, in `lua.h`'s order
+(`LUA_OPADD` … `LUA_OPBNOT`, lua.h:216-229). -/
+inductive Op where
+  | add | sub | mul | mod | pow | div | idiv | band | bor | bxor | shl | shr | unm | bnot
+  deriving DecidableEq, Repr
+
+/-- `numarith` (`lobject.c:73`); the default arm is `lua_assert(0); return 0`. -/
+def numarith : Op → Float.Model → Float.Model → Float.Model
+  | .add, a, b => Float.Model.add a b
+  | .sub, a, b => Float.Model.sub a b
+  | .mul, a, b => Float.Model.mul a b
+  | .div, a, b => Float.Model.div a b
+  | .pow, a, b => numpow a b      -- `luai_numpow` (`Lua/Num/Pow.lean`)
+  | .idiv, a, b => numidiv a b
+  | .unm, a, _ => Float.Model.neg a
+  | .mod, a, b => nummod a b
+  | _, _, _ => zero
+
+/-- `intarith` (`lobject.c:53`); `none` is the error of `luaV_mod`/`luaV_idiv`
+by zero. The default arm (`/` and `^`, never called with them) is
+`lua_assert(0); return 0`. -/
+def intarith : Op → BitVec 64 → BitVec 64 → Option (BitVec 64)
+  | .add, a, b => some (a + b)
+  | .sub, a, b => some (a - b)
+  | .mul, a, b => some (a * b)
+  | .mod, a, b => imod a b
+  | .idiv, a, b => idiv a b
+  | .band, a, b => some (a &&& b)
+  | .bor, a, b => some (a ||| b)
+  | .bxor, a, b => some (a ^^^ b)
+  | .shl, a, b => some (shiftl a b)
+  | .shr, a, b => some (shiftr a b)
+  | .unm, a, _ => some (0 - a)
+  | .bnot, a, _ => some (~~~a)
+  | _, _, _ => some 0
+
+/-- What `luaO_rawarith` does: a result, `fail` (it returns 0: the caller
+tries a metamethod; `luaV_execute`'s fast paths fall through to `MMBIN*`), or
+a Lua error raised inside (`luaV_mod`/`luaV_idiv` by zero). -/
+inductive Res where
+  | val (n : Numeral)
+  | fail
+  | err
+  deriving DecidableEq
+
+/-- An integer result of `intarith`. -/
+def Res.ofInt (r : Option (BitVec 64)) : Res :=
+  match r with
+  | some i => .val (.int i)
+  | none => .err
+
+/-- `luaO_rawarith` (`lobject.c:89`) on two numbers: bitwise operators on
+`tointegerns` (`F2Ieq`) of both, `/` and `^` on floats, the others on two
+integers or else on floats. It is also `luaV_execute`'s fast path of every
+arithmetic and bitwise opcode (`op_arith`, `op_arithK`, `op_arithI`,
+`op_arithf`, `op_arithfK`, `op_bitwise`, `op_bitwiseK`, `OP_SHRI`, `OP_SHLI`,
+`lvm.c:905-1011, 1440-1459`), whose non-number operands fall through to
+`MMBIN*` (`tonumberns` fails). -/
+def rawArith (o : Op) (a b : Numeral) : Res :=
+  match o with
+  | .band | .bor | .bxor | .shl | .shr | .bnot =>
+    match a.tointegerns .eq, b.tointegerns .eq with
+    | some i, some j => .ofInt (intarith o i j)
+    | _, _ => .fail
+  | .div | .pow => .val (.flt (numarith o a.toFloat b.toFloat))
+  | _ =>
+    match a, b with
+    | .int i, .int j => .ofInt (intarith o i j)
+    | _, _ => .val (.flt (numarith o a.toFloat b.toFloat))
+
+/-- `intarith` fails only in `luaV_mod`/`luaV_idiv`. -/
+theorem intarith_none {o : Op} {a b : BitVec 64} (h : intarith o a b = none) :
+    o = .mod ∨ o = .idiv := by
+  cases o <;> simp_all [intarith]
+
+/-- `luaO_rawarith` raises an error only in `luaV_mod`/`luaV_idiv`. -/
+theorem rawArith_err {o : Op} {a b : Numeral} (h : rawArith o a b = .err) :
+    o = .mod ∨ o = .idiv := by
+  have hi : ∀ r : Option (BitVec 64), Res.ofInt r = .err → r = none := fun r hr => by
+    cases r <;> simp_all [Res.ofInt]
+  unfold rawArith at h
+  split at h
+  all_goals first
+    | (split at h
+       · exact intarith_none (hi _ h)
+       · cases h)
+    | cases h
+    | (split at h
+       · exact intarith_none (hi _ h)
+       · cases h)
+
+/-- `luaO_rawarith`'s error: two integers, the divisor zero. -/
+theorem rawArith_err_int {o : Op} {a b : Numeral} (h : rawArith o a b = .err) :
+    ∃ i, a = .int i ∧ b = .int 0 := by
+  rcases rawArith_err h with rfl | rfl <;>
+  · simp only [rawArith] at h
+    split at h
+    · rename_i i j
+      refine ⟨i, rfl, ?_⟩
+      simp only [intarith, Res.ofInt, imod, idiv] at h
+      split at h
+      · cases h
+      · rename_i hj
+        by_cases h0 : j = 0
+        · rw [h0]
+        · simp at hj; exact absurd hj h0
+    · cases h
 
 end Lua.Num

@@ -225,7 +225,8 @@ macro_rules | `(tactic| kit_guard_ext) => `(tactic| fail "no extension")
 open Lean Elab Tactic Meta in
 /-- The guard lemmas that apply to a hypothesis, by its shape: a slot's tag
 equal to, or different from, a constant, or a register's representation
-(never a float tag). -/
+(never a float tag off the float paths: its `NotFlt` fact is in context as
+`hnfb`, `hnfc`, `hnfk` or `hnfa`). -/
 def guardLemmas (t : Expr) : MetaM (List Name) := do
   let t ← instantiateMVars t
   if t.isAppOf ``Lua.Vm.Sim.ValRepr then return [``guard_not_float, ``guard_not_float_f]
@@ -252,7 +253,7 @@ elab "kit_guard" : tactic => withMainContext do
       let s ← saveState
       try
         withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
-          (apply $(mkIdent l) (h := $hyp) <;> first | decide | kit_disch)))
+          (apply $(mkIdent l) (h := $hyp) <;> first | decide | kit_disch | exact $(mkIdent `hnfb) | exact $(mkIdent `hnfc) | exact $(mkIdent `hnfk) | exact $(mkIdent `hnfa))))
         if (← getUnsolvedGoals).isEmpty then return
         s.restore
       catch _ => s.restore

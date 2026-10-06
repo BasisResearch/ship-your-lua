@@ -44,7 +44,8 @@ set_option hygiene false in
 local macro_rules
   | `(tactic| kit_bv_norm) => `(tactic| try simp only [kraw_eq, bne_ite_prop])
 
-theorem eqk_short : ArmBody .EQK EqkShort := fun {p} hS {c s s' w ins} hA hf hop hstep hl => by
+theorem eqk_short : ArmBody .EQK fun p c s w ins => EqkShort p c s w ins ∧ ¬ FltAKb p s ins :=
+    fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hl, hN⟩ => by
   kit_setup 0x8001c850
   rcases hkv : kval p ins.b with _ | vk <;> simp [hkv] at hk htop
   kit_nj
@@ -54,19 +55,22 @@ theorem eqk_short : ArmBody .EQK EqkShort := fun {p} hS {c s s' w ins} hA hf hop
   simp only [stackValueSize, cStackBudget, RuntimeData.spEntry] at hk_top
   kit_reg hba va hva ins.a
   have hvk := hc.kconst hkv
+  have hnfa := notFlt_of_reg (fun h => hN (.inl h)) hba
+  have hnfk := notFlt_of_k (fun h => hN (.inr h)) hkv
+  simp only [Opnd.fill, δ, Value.rawEq_of_notFlt hnfa hnfk] at hk
   kit_run h0 acc until [0x8001b780]
   obtain ⟨_, acc, h0⟩ := h0.call acc (by pins_of h0)
     (equalobj_sum _ _ (w.slot ins.a) (w.k + stackValueSize * ins.b) w.sp ⟨_, _, _, _, _, _, _, _, _, _, _⟩ _ _
       ⟨hc.rodata, by decide, by kit_disch, by kit_disch, by kit_disch, by kit_disch, by kit_disch,
-        by kit_disch, by kit_disch⟩ hva hvk hl)
+        by kit_disch, by kit_disch⟩ hva hvk hnfa hnfk hl)
   kit_cond decide (va = vk)
 
 /-- **`sim_EQK` from the long-string path** (`R[A]` and `K[B]` both long
 strings: `luaS_eqlngstr` → `memcmp`), as `sim_EQ_of_long`. -/
 theorem sim_EQK_of_long (hlong : ArmBody .EQK fun p c s w ins => ¬ EqkShort p c s w ins) :
-    SimArm .EQK :=
-  sim_arm (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep =>
-    (Classical.em (EqkShort p c s w ins)).elim (eqk_short hS hA hf hop hstep)
+    SimArmOn .EQK (Off FltAKb) :=
+  sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
+    (Classical.em (EqkShort p c s w ins)).elim (fun hl => eqk_short hS hA hf hop hstep ⟨hl, hN⟩)
       (hlong hS hA hf hop hstep)
 
 end Lua.Vm.Sim.Kit

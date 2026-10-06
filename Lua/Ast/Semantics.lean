@@ -49,23 +49,28 @@ Meanings, each Lua 5.4's (manual §3, `lparser.c`):
   rules (a label is visible in its block and nested blocks, a `goto` may
   not jump into the scope of a local unless the label is the block's last
   statement) are static, in `AstSupported`.
-* **Numeric `for`** (§3.3.5): start, limit and step (default the integer
-  1) are evaluated once; on integers the iteration count is `forprep`'s
-  (`forCount`), and the control variable is a fresh local of each
-  iteration. A zero step is an error: no rule.
-* **Operators** (§3.4): integer `+ - * // %` (wrapping; `//`, `%` floor,
-  by zero an error), bitwise `& | ~ << >> ~` (`luaV_shiftl`), order
-  comparisons on integers, `==`/`~=` raw equality, short-circuit
-  `and`/`or`, `not`. Strings (F4-lite, `abstractions/pilot/SUITE.md`
-  H1–H5): literals, `..` of strings and integers (`tostring`), `#`, order
-  by bytes (`l_strcmp` in the C locale), and `+ - * // %` and unary `-` on
-  strings that convert to integers (the string metatable's `tonum`).
-  Floats, tables and other metamethods have no rule.
+* **Numeric `for`** (§3.3.5, `forprep`): start, limit and step (default
+  the integer 1) are evaluated once; with an integer start and step the
+  limit is `forlimit`'s (`forLimit`: a numeral string is coerced, a float
+  floored or ceiled, out of range clipped) and the iteration count is
+  `forCount`; otherwise all three are converted to floats (`tonumber`) and
+  the loop runs `floatforloop`'s float steps (`forIterF`). The control
+  variable is a fresh local of each iteration. A zero step is an error: no
+  rule.
+* **Operators** (§3.4): Lua's operations on values, shared with the
+  bytecode semantics: arithmetic on integers and floats (`luaO_rawarith`;
+  `//`, `%` floor, integer division by zero an error), bitwise operators on
+  integral numbers, order on numbers (`LTnum`) and strings (`l_strcmp` in
+  the C locale), `==`/`~=` raw equality (`1 == 1.0`), `..` of strings and
+  numbers (`tostring`), `#` of strings, short-circuit `and`/`or`, `not`, and
+  the string library's arithmetic metamethods (`"1.5" + 1` is `2.5`). Float
+  numerals, `/`, `^`, tables and other metamethods have no rule (or are not
+  in `AstSupported`).
 -/
 
 namespace Lua.Ast
 
-open Lua.Bytecode (Value Host Builtin printLine idiv imod shiftl shiftr forCount)
+open Lua.Bytecode (Value Host Builtin printLine forCount forLimit δ)
 open Lua.Rulebook (Rulebook Prog Sem)
 
 abbrev Env := List (Name × Value)
@@ -101,29 +106,6 @@ def assignLocals : Env → List Var → List Value → Option Env
 locals. -/
 def scope (outer inner : Env) : Env := inner.drop (inner.length - outer.length)
 
-/-- Integer binary operators (`luaV_arith`/`luaV_bitwise` on integers); the
-inner `none` is a runtime error. -/
-def BinOp.arith : BinOp → Option (BitVec 64 → BitVec 64 → Option (BitVec 64))
-  | .add => some fun x y => some (x + y)
-  | .sub => some fun x y => some (x - y)
-  | .mul => some fun x y => some (x * y)
-  | .idiv => some Lua.Bytecode.idiv
-  | .mod => some Lua.Bytecode.imod
-  | .band => some fun x y => some (x &&& y)
-  | .bor => some fun x y => some (x ||| y)
-  | .bxor => some fun x y => some (x ^^^ y)
-  | .shl => some fun x y => some (shiftl x y)
-  | .shr => some fun x y => some (shiftr x y)
-  | _ => none
-
-/-- Integer order comparisons. -/
-def BinOp.cmp : BinOp → Option (BitVec 64 → BitVec 64 → Bool)
-  | .lt => some fun x y => decide (x.toInt < y.toInt)
-  | .le => some fun x y => decide (x.toInt ≤ y.toInt)
-  | .gt => some fun x y => decide (x.toInt > y.toInt)
-  | .ge => some fun x y => decide (x.toInt ≥ y.toInt)
-  | _ => none
-
 /-- A name: the innermost local, else the global `_ENV.x` (with `_ENV` the
 main chunk's upvalue, i.e. no local `_ENV` in scope). -/
 def evalName (ρ : Env) (x : Name) : Option Value :=
@@ -131,102 +113,45 @@ def evalName (ρ : Env) (x : Name) : Option Value :=
   | some v => some v
   | none => if ρ.lookup "_ENV" = none then initGlobal x else none
 
-/-! ### Strings (F4-lite: `abstractions/pilot/SUITE.md` H1–H5) -/
+/-! ### Operators: Lua's operations on values
 
-/-- `lisspace` in the C locale. -/
-def isSpace (c : UInt8) : Bool := c = 32 || (9 ≤ c && c ≤ 13)
+The operators are Lua's operations on values, shared with the bytecode
+semantics (`Lua/Bytecode/Semantics.lean`, over the number layer `Lua.Num`):
+arithmetic and bitwise operators are `Value.arith` (`lua_arith`: the fast
+path on numbers, then the string library's metamethods), order is `δ .lt`/
+`δ .le` (`LTnum`/`LEnum`, `l_strcmp`), equality is `Value.rawEq`
+(`luaV_equalobj`), `..` is `δ .concat` (`luaV_concat`, `tostring` of
+numbers), and the unary operators are `δ .unm`, `δ .bnot`, `δ .len`. -/
 
-/-- A digit's value in base 10 or 16. -/
-def digitVal (base : Nat) (c : UInt8) : Option Nat :=
-  if 48 ≤ c ∧ c ≤ 57 then some (c.toNat - 48)
-  else if base = 16 ∧ 97 ≤ c ∧ c ≤ 102 then some (c.toNat - 87)
-  else if base = 16 ∧ 65 ≤ c ∧ c ≤ 70 then some (c.toNat - 55)
-  else none
+-- `l_str2int` is the shared layer's (`Lua/Num/Decimal.lean`).
+export Lua.Num (str2int)
 
-/-- `l_str2int` (`lobject.c`) on the whole string, as `lstrlib.c`'s
-`tonum` requires: spaces, a sign, decimal digits (rejected on overflow:
-then the string is a float) or `0x` hex digits (wrapping), spaces. -/
-def str2int (s : List UInt8) : Option (BitVec 64) :=
-  let s := s.dropWhile isSpace
-  let (neg, s) : Bool × List UInt8 := match s with
-    | 45 :: r => (true, r)
-    | 43 :: r => (false, r)
-    | r => (false, r)
-  let (base, s) : Nat × List UInt8 := match s with
-    | 48 :: x :: r => if x = 120 ∨ x = 88 then (16, r) else (10, s)
-    | r => (10, r)
-  let ds := s.takeWhile fun c => (digitVal base c).isSome
-  let n := ds.foldl (fun a c => a * base + (digitVal base c).getD 0) 0
-  if ds = [] ∨ !(s.drop ds.length).all isSpace ∨
-      (base = 10 ∧ n > 2 ^ 63 - 1 + (if neg then 1 else 0)) then none
-  else some (if neg then 0 - BitVec.ofNat 64 n else BitVec.ofNat 64 n)
-
-/-- `luaV_concat`'s operands: a string, or an integer by `tostring`
-(`%d`). -/
-def concatBytes : Value → Option (List UInt8)
-  | .str s => some s
-  | .int i => some ((toString i.toInt).toList.map fun c => c.toNat.toUInt8)
+/-- The arithmetic and bitwise operators (`lua_arith`'s `LUA_OP*`). -/
+def BinOp.toBc : BinOp → Option Lua.Bytecode.BinOp
+  | .add => some .add | .sub => some .sub | .mul => some .mul | .div => some .div
+  | .idiv => some .idiv | .pow => some .pow | .mod => some .mod
+  | .band => some .band | .bxor => some .bxor | .bor => some .bor
+  | .shr => some .shr | .shl => some .shl
   | _ => none
 
-/-- An arithmetic operand: an integer, or a string the string metatable's
-`__add`/… converts to one (`tonum`; a float-valued string is out of
-scope: no rule). -/
-def arithInt : Value → Option (BitVec 64)
-  | .int i => some i
-  | .str s => str2int s
-  | _ => none
-
-/-- `l_strcmp` in the C locale: byte-lexicographic order. -/
-def bytesLt : List UInt8 → List UInt8 → Bool
-  | [], [] => false
-  | [], _ :: _ => true
-  | _ :: _, [] => false
-  | a :: as, b :: bs => a < b || (a = b && bytesLt as bs)
-
-/-- String order comparisons. -/
-def BinOp.strCmp : BinOp → Option (List UInt8 → List UInt8 → Bool)
-  | .lt => some bytesLt
-  | .le => some fun a b => !bytesLt b a
-  | .gt => some fun a b => bytesLt b a
-  | .ge => some fun a b => !bytesLt a b
-  | _ => none
-
-/-- The arithmetic operators the string metatable implements. -/
-def BinOp.coerces : BinOp → Bool
-  | .add | .sub | .mul | .idiv | .mod => true
-  | _ => false
-
-/-- The strict binary operators on values (`none`: no rule). -/
+/-- The strict binary operators on values (`none`: no rule). `a > b` is
+`b < a` and `a >= b` is `b <= a` (manual §3.4.4; `lcode.c` swaps them). -/
 def binOp : BinOp → Value → Value → Option Value
-  | .eq, va, vb => some (.bool (decide (va = vb)))
-  | .ne, va, vb => some (.bool (decide (va ≠ vb)))
-  | .concat, va, vb => do
-    let a ← concatBytes va
-    let b ← concatBytes vb
-    pure (.str (a ++ b))
-  | op, .int x, .int y =>
-    match op.arith, op.cmp with
-    | some f, _ => (f x y).map .int
-    | none, some g => some (.bool (g x y))
-    | none, none => none
-  | op, va, vb =>
-    match va, vb, op.strCmp with
-    | .str a, .str b, some f => some (.bool (f a b))
-    | _, _, _ =>
-      if op.coerces then do
-        let f ← op.arith
-        let x ← arithInt va
-        let y ← arithInt vb
-        (f x y).map .int
-      else none
+  | .eq, va, vb => some (.bool (va.rawEq vb))
+  | .ne, va, vb => some (.bool !(va.rawEq vb))
+  | .concat, va, vb => δ .concat [va, vb]
+  | .lt, va, vb => δ .lt [va, vb]
+  | .le, va, vb => δ .le [va, vb]
+  | .gt, va, vb => δ .lt [vb, va]
+  | .ge, va, vb => δ .le [vb, va]
+  | op, va, vb => op.toBc.bind fun o => Value.arith o va vb
 
 /-- The unary operators on values (`none`: no rule). -/
 def unOp : UnOp → Value → Option Value
-  | .neg, v => (arithInt v).map fun x => .int (0 - x)
-  | .bnot, .int x => some (.int (~~~x))
+  | .neg, v => δ .unm [v]
+  | .bnot, v => δ .bnot [v]
   | .not, v => some (.bool v.isFalse)
-  | .len, .str s => some (.int (BitVec.ofNat 64 s.length))
-  | _, _ => none
+  | .len, v => δ .len [v]
 
 /-- How a statement completes. -/
 inductive Sig where
@@ -280,7 +205,10 @@ def Stat.forStep : Option Exp → Exp
   the block's locals (the enclosing statement drops them, `scope`);
 * `forIter ρ o x i st n b`: the iterations of a numeric `for` from control
   value `i` with `n` further iterations after this one (the bytecode's
-  count); the control variable is a fresh local of each iteration. -/
+  count); the control variable is a fresh local of each iteration;
+* `forIterF ρ o x v i l st b`: the iterations of a float numeric `for`
+  (`forprep`'s float loop, `floatforloop`) with control value `v`, index
+  `i`, limit `l` and step `st`. -/
 inductive Call where
   | eval (ρ : Env) (e : Exp)
   | stat (ρ : Env) (o : String) (st : Stat)
@@ -288,6 +216,7 @@ inductive Call where
   | blockFrom (base : Env) (all : List Stat) (ρ : Env) (o : String) (ss : List Stat)
   | block (ρ : Env) (o : String) (b : Block)
   | forIter (ρ : Env) (o : String) (x : Name) (i st n : BitVec 64) (b : Block)
+  | forIterF (ρ : Env) (o : String) (x : Name) (v : Value) (i l st : Float.Model) (b : Block)
 
 /-- A statement-level outcome: environment, output, completion. -/
 abbrev Outcome := Env × String × Sig
@@ -309,6 +238,9 @@ def blockFrom (base : Env) (all : List Stat) (ρ : Env) (o : String) (ss : List 
 def block (ρ : Env) (o : String) (b : Block) : Rule Outcome := .call (.block ρ o b) .ret
 def forIter (ρ : Env) (o : String) (x : Name) (i st n : BitVec 64) (b : Block) : Rule Outcome :=
   .call (.forIter ρ o x i st n b) .ret
+def forIterF (ρ : Env) (o : String) (x : Name) (v : Value) (i l st : Float.Model) (b : Block) :
+    Rule Outcome :=
+  .call (.forIterF ρ o x v i l st b) .ret
 
 /-- An `explist`, left to right. -/
 def evalList (ρ : Env) : List Exp → Rule (List Value)
@@ -388,12 +320,23 @@ def rules (H : Host) : Rulebook Call Call.Res
     let v₂ ← eval ρ e₂
     let v₃ ← eval ρ (Stat.forStep e₃)
     match v₁, v₂, v₃ with
-    | .int i, .int l, .int st =>
+    | .int i, l, .int st =>
       if st = 0 then .fail else
-      match forCount i l st with
-      | none => pure (ρ, o, .normal)
-      | some n => forIter ρ o x i st n b
-    | _, _, _ => .fail
+      match forLimit l st with
+      | none => .fail
+      | some none => pure (ρ, o, .normal)
+      | some (some lim) =>
+        match forCount i lim st with
+        | none => pure (ρ, o, .normal)
+        | some n => forIter ρ o x i st n b
+    | i, l, st =>
+      match l.tonumber?, st.tonumber?, i.tonumber? with
+      | some (.flt fl _), some (.flt fs _), some (.flt fi ni) =>
+        if Float.Model.beq fs Lua.Num.zero then .fail
+        else if (if Float.Model.lt Lua.Num.zero fs then Float.Model.lt fl fi
+                 else Float.Model.lt fi fl) then pure (ρ, o, .normal)
+        else forIterF ρ o x (.flt fi ni) fi fl fs b
+      | _, _, _ => .fail
   | .stat _ _ _ => .fail
   -- statement lists, blocks, `goto`, `for` iterations
   | .list ρ o [] => pure (ρ, o, .normal)
@@ -411,6 +354,13 @@ def rules (H : Host) : Rulebook Call Call.Res
     let (ρ₁, o₁, sg) ← block ((x, .int i) :: ρ) o b
     if sg ≠ .normal ∨ n = 0 then pure (scope ρ ρ₁, o₁, sg.exitLoop)
     else forIter (scope ρ ρ₁) o₁ x (i + st) st (n - 1) b
+  | .forIterF ρ o x v i l st b => do
+    let (ρ₁, o₁, sg) ← block ((x, v) :: ρ) o b
+    let idx := Float.Model.add i st
+    if sg ≠ .normal ∨ (if Float.Model.lt Lua.Num.zero st then Float.Model.le idx l
+                         else Float.Model.le l idx) = false
+    then pure (scope ρ ρ₁, o₁, sg.exitLoop)
+    else forIterF (scope ρ ρ₁) o₁ x (.ofFloat idx) idx l st b
 
 /-- **`LuaSem H c out`**: the chunk `c` runs to completion printing `out`. -/
 def LuaSem (H : Host) (c : Chunk) (out : String) : Prop :=
@@ -483,10 +433,11 @@ def isBound (bound : List (Name × Attrib)) (x : Name) : Bool := bound.any (·.1
 def isAssignable (bound : List (Name × Attrib)) (x : Name) : Bool :=
   (bound.find? (·.1 = x)).any (·.2 = .reg)
 
-/-- F1's operators, with F4-lite's `..` and `#`. -/
-def BinOp.inF1 (op : BinOp) : Bool :=
-  op.arith.isSome || op.cmp.isSome || op = .eq || op = .ne || op = .and || op = .or ||
-    op = .concat
+/-- F1's operators, with F4-lite's `..` and `#` (not yet `/` and `^`:
+FLOAT-DESIGN.md S3, `luac` folds `^` with the host's `pow`). -/
+def BinOp.inF1 : BinOp → Bool
+  | .div | .pow => false
+  | _ => true
 
 def UnOp.inF1 : UnOp → Bool
   | .neg | .not | .bnot | .len => true

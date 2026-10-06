@@ -201,9 +201,9 @@ theorem fold_sim {Loaded : Proto → Config → Prop} {R : Proto → Config → 
 
 /-- **Every opcode `opKernel` gives a kernel** (the F1 rules). -/
 def kernelOps : List OpCode :=
-  [.MOVE, .LOADI, .LOADK, .LOADFALSE, .LFALSESKIP, .LOADTRUE, .LOADNIL, .GETTABUP,
-   .ADD, .SUB, .MUL, .MOD, .IDIV, .BAND, .BOR, .BXOR, .SHL, .SHR,
-   .ADDK, .SUBK, .MULK, .MODK, .IDIVK, .BANDK, .BORK, .BXORK, .ADDI, .SHRI, .SHLI,
+  [.MOVE, .LOADI, .LOADK, .LOADF, .LOADFALSE, .LFALSESKIP, .LOADTRUE, .LOADNIL, .GETTABUP,
+   .ADD, .SUB, .MUL, .MOD, .IDIV, .BAND, .BOR, .BXOR, .SHL, .SHR, .DIV, .POW,
+   .ADDK, .SUBK, .MULK, .MODK, .IDIVK, .DIVK, .POWK, .BANDK, .BORK, .BXORK, .ADDI, .SHRI, .SHLI,
    .MMBIN, .MMBINI, .MMBINK, .UNM, .BNOT, .NOT, .LEN, .CONCAT, .JMP,
    .EQ, .EQK, .EQI, .LT, .LE, .LTI, .LEI, .GTI, .GEI, .TEST, .TESTSET,
    .FORPREP, .FORLOOP, .CALL, .VARARGPREP]
@@ -336,81 +336,173 @@ structure OpenArms : Prop where
   /-- `print`: `luaD_precall` → `luaB_print` → … → HTIF (stack reallocation) -/
   CALL : SimArm .CALL
 
-/-- **The arm table**: the proved arms and the open premises cover `armOps`. -/
-theorem armTable (h : OpenArms) : ∀ o ∈ armOps, SimArm o := by
+/-- **The float paths** (FLOAT-DESIGN.md §3, tiers T1–T4), one named premise
+per arm: the arms with no proof whose kernels compute floats, and, for each
+arm proved before floats were in `δ`, the states where an operand is a float
+(`FltBC`, `FltBK`, `FltB`, `FltA`, `FltAB`, `FltAKb`, `FltStep`), or, for
+`FORPREP`, where its operands are not three integers (`ForCoerce`: the
+coerced limit and the float loop). The machine side of each is the arm's
+float path through libgcc's soft-float (`__adddf3`, `__muldf3`, `__divdf3`,
+`__floatdidf`, `__ledf2`, …) and libm (`floor`, `fmod`, `pow`), summarised by
+`SoftFloatSpec`-style premises (FLOAT-DESIGN.md §3) and evidenced by the
+Sail vectors of `c/tests/float/` (`abstractions/ledger/float-s0a.md`,
+`float-s1.md`). -/
+structure FloatArms : Prop where
+  /-- `OP_LOADF` (`__floatsidf`; T1) -/
+  LOADF : SimArm .LOADF
+  /-- `OP_DIV` (`op_arithf`: `__floatdidf`, `__divdf3`; T3) -/
+  DIV : SimArm .DIV
+  /-- `OP_DIVK` (`op_arithfK`; T3) -/
+  DIVK : SimArm .DIVK
+  /-- `OP_POW` (`luai_numpow`: `__muldf3`, newlib `pow`; T4) -/
+  POW : SimArm .POW
+  /-- `OP_POWK` (T4) -/
+  POWK : SimArm .POWK
+  /-- `OP_ADD` with a float operand (`luai_numadd`, `__adddf3`; T2) -/
+  ADD : SimArmOn .ADD FltBC
+  /-- `OP_SUB` with a float operand (`__subdf3`; T2) -/
+  SUB : SimArmOn .SUB FltBC
+  /-- `OP_MUL` with a float operand (`__muldf3`; T3) -/
+  MUL : SimArmOn .MUL FltBC
+  /-- `OP_MOD` with a float operand (`luaV_modf`: `fmod`; T4) -/
+  MOD : SimArmOn .MOD FltBC
+  /-- `OP_IDIV` with a float operand (`luai_numidiv`: `__divdf3`, `floor`; T4) -/
+  IDIV : SimArmOn .IDIV FltBC
+  /-- `OP_BAND` with a float operand (`tointegerns`: `luaV_flttointeger`; T3) -/
+  BAND : SimArmOn .BAND FltBC
+  /-- `OP_BOR` with a float operand (T3) -/
+  BOR : SimArmOn .BOR FltBC
+  /-- `OP_BXOR` with a float operand (T3) -/
+  BXOR : SimArmOn .BXOR FltBC
+  /-- `OP_SHL` with a float operand (T3) -/
+  SHL : SimArmOn .SHL FltBC
+  /-- `OP_SHR` with a float operand (T3) -/
+  SHR : SimArmOn .SHR FltBC
+  /-- `OP_ADDK` with a float operand (T2) -/
+  ADDK : SimArmOn .ADDK FltBK
+  /-- `OP_SUBK` with a float operand (T2) -/
+  SUBK : SimArmOn .SUBK FltBK
+  /-- `OP_MULK` with a float operand (T3) -/
+  MULK : SimArmOn .MULK FltBK
+  /-- `OP_MODK` with a float operand (T4) -/
+  MODK : SimArmOn .MODK FltBK
+  /-- `OP_IDIVK` with a float operand (T4) -/
+  IDIVK : SimArmOn .IDIVK FltBK
+  /-- `OP_BANDK` with a float `R[B]` (`op_bitwiseK`: `tointegerns`; T3) -/
+  BANDK : SimArmOn .BANDK FltB
+  /-- `OP_BORK` with a float `R[B]` (T3) -/
+  BORK : SimArmOn .BORK FltB
+  /-- `OP_BXORK` with a float `R[B]` (T3) -/
+  BXORK : SimArmOn .BXORK FltB
+  /-- `OP_ADDI` with a float `R[B]` (`op_arithI`: `__floatsidf`, `__adddf3`; T2) -/
+  ADDI : SimArmOn .ADDI FltB
+  /-- `OP_SHRI` with a float `R[B]` (T3) -/
+  SHRI : SimArmOn .SHRI FltB
+  /-- `OP_SHLI` with a float `R[B]` (T3) -/
+  SHLI : SimArmOn .SHLI FltB
+  /-- `OP_UNM` of a float (`luai_numunm`: the sign bit flipped inline; T0) -/
+  UNM : SimArmOn .UNM FltB
+  /-- `OP_BNOT` of a float (`tointegerns`; T3) -/
+  BNOT : SimArmOn .BNOT FltB
+  /-- `OP_EQ` with a float operand (`luaV_equalobj`: `__eqdf2`, F2Ieq; T3) -/
+  EQ : SimArmOn .EQ FltAB
+  /-- `OP_LT` with a float operand (`LTnum`; T3) -/
+  LT : SimArmOn .LT FltAB
+  /-- `OP_LE` with a float operand (`LEnum`; T3) -/
+  LE : SimArmOn .LE FltAB
+  /-- `OP_EQK` with a float `R[A]` or `K[B]` (`luaV_rawequalobj`; T3) -/
+  EQK : SimArmOn .EQK FltAKb
+  /-- `OP_EQI` with a float `R[A]` (`luai_numeq`, `__eqdf2`; T1) -/
+  EQI : SimArmOn .EQI FltA
+  /-- `OP_LTI` with a float `R[A]` (`op_orderI`: `__ltdf2`; T1) -/
+  LTI : SimArmOn .LTI FltA
+  /-- `OP_LEI` with a float `R[A]` (T1) -/
+  LEI : SimArmOn .LEI FltA
+  /-- `OP_GTI` with a float `R[A]` (T1) -/
+  GTI : SimArmOn .GTI FltA
+  /-- `OP_GEI` with a float `R[A]` (T1) -/
+  GEI : SimArmOn .GEI FltA
+  /-- `OP_FORPREP` on anything but three integers (`forlimit`'s
+  `luaV_tointeger`/`luaV_tonumber_` → `strtod`; the float loop; T4) -/
+  FORPREP : SimArmOn .FORPREP ForCoerce
+  /-- `OP_FORLOOP`'s float loop (`floatforloop`: `__adddf3`, `__ledf2`/`__gedf2`; T2) -/
+  FORLOOP : SimArmOn .FORLOOP FltStep
+
+/-- **The arm table**: the proved arms (off their float paths) and the open
+premises cover `armOps`. -/
+theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o := by
   intro o ho
   cases o
   case MOVE => exact @sim_MOVE
   case LOADI => exact @sim_LOADI
   case LOADK => exact @sim_LOADK
+  case LOADF => exact hF.LOADF
   case LOADFALSE => exact @sim_LOADFALSE
   case LFALSESKIP => exact @sim_LFALSESKIP
   case LOADTRUE => exact @sim_LOADTRUE
   case LOADNIL => exact Kit.sim_LOADNIL
   case GETTABUP => exact At.sim_GETTABUP
-  case ADD => exact @sim_ADD
-  case SUB => exact @sim_SUB
-  case MUL => exact Kit.sim_MUL
-  case MOD => exact Kit.sim_MOD
-  case IDIV => exact At.sim_IDIV
-  case BAND => exact @sim_BAND
-  case BOR => exact @sim_BOR
-  case BXOR => exact @sim_BXOR
-  case SHL => exact At.sim_SHL
-  case SHR => exact At.sim_SHR
-  case ADDK => exact @sim_ADDK
-  case SUBK => exact @sim_SUBK
-  case MULK => exact Kit.sim_MULK
-  case MODK => exact At.sim_MODK
-  case IDIVK => exact At.sim_IDIVK
-  case BANDK => exact At.sim_BANDK
-  case BORK => exact At.sim_BORK
-  case BXORK => exact At.sim_BXORK
-  case ADDI => exact @sim_ADDI
-  case SHRI => exact At.sim_SHRI
-  case SHLI => exact At.sim_SHLI
+  case ADD => exact SimArm.split @sim_ADD hF.ADD
+  case SUB => exact SimArm.split @sim_SUB hF.SUB
+  case MUL => exact SimArm.split Kit.sim_MUL hF.MUL
+  case MOD => exact SimArm.split Kit.sim_MOD hF.MOD
+  case IDIV => exact SimArm.split At.sim_IDIV hF.IDIV
+  case BAND => exact SimArm.split @sim_BAND hF.BAND
+  case BOR => exact SimArm.split @sim_BOR hF.BOR
+  case BXOR => exact SimArm.split @sim_BXOR hF.BXOR
+  case SHL => exact SimArm.split At.sim_SHL hF.SHL
+  case SHR => exact SimArm.split At.sim_SHR hF.SHR
+  case DIV => exact hF.DIV
+  case POW => exact hF.POW
+  case ADDK => exact SimArm.split @sim_ADDK hF.ADDK
+  case SUBK => exact SimArm.split @sim_SUBK hF.SUBK
+  case MULK => exact SimArm.split Kit.sim_MULK hF.MULK
+  case MODK => exact SimArm.split At.sim_MODK hF.MODK
+  case IDIVK => exact SimArm.split At.sim_IDIVK hF.IDIVK
+  case DIVK => exact hF.DIVK
+  case POWK => exact hF.POWK
+  case BANDK => exact SimArm.split At.sim_BANDK hF.BANDK
+  case BORK => exact SimArm.split At.sim_BORK hF.BORK
+  case BXORK => exact SimArm.split At.sim_BXORK hF.BXORK
+  case ADDI => exact SimArm.split @sim_ADDI hF.ADDI
+  case SHRI => exact SimArm.split At.sim_SHRI hF.SHRI
+  case SHLI => exact SimArm.split At.sim_SHLI hF.SHLI
   case MMBIN => exact h.MMBIN
   case MMBINI => exact h.MMBINI
   case MMBINK => exact h.MMBINK
-  case UNM => exact At.sim_UNM_of_str h.UNM_str
-  case BNOT => exact @sim_BNOT
+  case UNM => exact SimArm.split (At.sim_UNM_of_str h.UNM_str) hF.UNM
+  case BNOT => exact SimArm.split @sim_BNOT hF.BNOT
   case NOT => exact @sim_NOT
   case LEN => exact At.sim_LEN
   case CONCAT => exact h.CONCAT
   case JMP => exact @sim_JMP
-  case EQ => exact Kit.sim_EQ
-  case EQK => exact At.sim_EQK
-  case EQI => exact @sim_EQI
-  case LT => exact At.sim_LT
-  case LE => exact At.sim_LE
-  case LTI => exact @sim_LTI
-  case LEI => exact @sim_LEI
-  case GTI => exact @sim_GTI
-  case GEI => exact @sim_GEI
+  case EQ => exact SimArm.split Kit.sim_EQ hF.EQ
+  case EQK => exact SimArm.split At.sim_EQK hF.EQK
+  case EQI => exact SimArm.split @sim_EQI hF.EQI
+  case LT => exact SimArm.split At.sim_LT hF.LT
+  case LE => exact SimArm.split At.sim_LE hF.LE
+  case LTI => exact SimArm.split @sim_LTI hF.LTI
+  case LEI => exact SimArm.split @sim_LEI hF.LEI
+  case GTI => exact SimArm.split @sim_GTI hF.GTI
+  case GEI => exact SimArm.split @sim_GEI hF.GEI
   case TEST => exact @sim_TEST
   case TESTSET => exact @sim_TESTSET
-  case FORPREP => exact At.sim_FORPREP
-  case FORLOOP => exact @sim_FORLOOP
+  case FORPREP => exact SimArm.split At.sim_FORPREP hF.FORPREP
+  case FORLOOP => exact SimArm.split @sim_FORLOOP hF.FORLOOP
   case CALL => exact h.CALL
   all_goals simp [armOps, kernelOps] at ho
 
 /-- **`VmSim luaLayout` from the open premises**: the proved arms, the entry
 (`entrySim`) and `VARARGPREP` (`Kit.varargSim`) are discharged; what is left is
-exactly the open arms (`OpenArms`), the return chain (`FinalSim`) and the
-error paths (`StuckSim`). -/
-theorem vmSim_of_open (arms : OpenArms) (final : FinalSim) (stuck : StuckSim) :
+exactly the open arms (`OpenArms`), the float paths (`FloatArms`), the return
+chain (`FinalSim`) and the error paths (`StuckSim`). -/
+theorem vmSim_of_open (arms : OpenArms) (farms : FloatArms) (final : FinalSim) (stuck : StuckSim) :
     VmSim luaLayout :=
-  vmSim_of_arms (armTable arms) entrySim Kit.varargSim final stuck
+  vmSim_of_arms (armTable arms farms) entrySim Kit.varargSim final stuck
 
 /-- **Layer A from the open premises** (`vm_refinement_of_sim`). -/
-theorem vm_refinement_of_open (arms : OpenArms) (final : FinalSim) (stuck : StuckSim) :
-    vm_refinement_Statement luaLayout :=
-  vm_refinement_of_sim (vmSim_of_open arms final stuck)
-
-/-- **Layer A from the open arms and the error paths**: `FinalSim` discharged
-(`finalSim`). -/
-theorem vm_refinement_of_open' (arms : OpenArms) (stuck : StuckSim) :
-    vm_refinement_Statement luaLayout :=
-  vm_refinement_of_open arms finalSim stuck
+theorem vm_refinement_of_open (arms : OpenArms) (farms : FloatArms) (final : FinalSim)
+    (stuck : StuckSim) : vm_refinement_Statement luaLayout :=
+  vm_refinement_of_sim (vmSim_of_open arms farms final stuck)
 
 end Lua.Vm.Sim

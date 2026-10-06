@@ -16,18 +16,20 @@ namespace Lua.Vm.Sim
 open Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **ADDI** (kind `arith`): from the fetch head, the dispatch and, per
-exit of the kernel, the arm's segments return to the head in a state related
-to the `Step`'s successor. -/
+/-- **ADDI** (kind `arith`) off its float paths (`¬ FltB`; they are
+`FloatArms.ADDI`): from the fetch head, the dispatch and, per exit of the
+kernel, the arm's segments return to the head in a state related to the
+`Step`'s successor. -/
 theorem sim_ADDI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     (hR : VmRel p c s) {ins : Word} (hf : p.fetch s.pc = some ins)
-    (hop : ins.op? = some .ADDI) (hstep : Step binaryHost p s s') :
+    (hop : ins.op? = some .ADDI) (hstep : Step binaryHost p s s')
+    (hnf : ¬ FltB p s ins) :
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
   have hK : kernelAt p s.pc = some (opArith s.pc ins.a .add [.reg ins.b, immC ins]) := by
     simp [kernelAt, hf, kernel, hop, opKernel, immC]
-  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK
+  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK (noFlt_ri hnf (notFlt_int _))
   have htop := supported_regTop hS hf
   simp [regTop, kernel, hop, opKernel, immC, opArith, Kernel.regTop, Opnd.ports] at htop
   simp only [Opnd.ports, immC] at hvs
@@ -55,6 +57,7 @@ theorem sim_ADDI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
   have hBt : ins.b < p.maxstacksize := by have := Nat.le_max_right ins.a ins.b; omega
   have hvb := hc1.stack ins.b vb hBt hb
   simp only [Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt
+  have hnfb := notFlt_of_reg hnf hb
   by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hvb.int_of_tag hB
     obtain ⟨x, y, v, hxy, hv, rfl⟩ | ⟨hno, -⟩ := hcase
@@ -143,7 +146,7 @@ theorem sim_ADDI {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (BitVec.ofNat 64 w.ci) (BitVec.ofNat 64 Arms.jtBase) (BitVec.ofNat 64 w.base)
       (BitVec.ofNat 64 (w.code + 4 * s.pc))
       c1.σ.mem c1.σ.sailOutput
-      (by refine guard_not_float (n := w.slot ins.b) ?_ hvb; slot_arith)
+      (by refine guard_not_float (n := w.slot ins.b) ?_ hvb hnfb; slot_arith)
       c2 ⟨hq1.good, hq1.pcAt,
         ⟨pinsHold_get hq1.pins 3 (by len_arith), pinsHold_get hq1.pins 8 (by len_arith), pinsHold_get hq1.pins 9 (by len_arith), pinsHold_get hq1.pins 10 (by len_arith), pinsHold_get hq1.pins 11 (by len_arith), pinsHold_get hq1.pins 7 (by len_arith), pinsHold_get hq1.pins 12 (by len_arith), pinsHold_get hq1.pins 5 (by len_arith), pinsHold_get hq1.pins 13 (by len_arith), pinsHold_get hq1.pins 14 (by len_arith), pinsHold_get hq1.pins 15 (by len_arith), pinsHold_get hq1.pins 6 (by len_arith), pinsHold_get hq1.pins 16 (by len_arith), trivial⟩,
         hq1.minstret, hq1.tick, ⟨hq1.armText, hq1.armMem, hq1.armOut, hq1.armOk⟩⟩

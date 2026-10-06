@@ -91,6 +91,8 @@ memory `mo`. Tight enough that `luaV_equalobj` (which compares `ttypetag`,
   `TString` per short content), so pointer equality (`eqshrstr`) is content
   equality; distinct contents have distinct pointers because `TStringRepr` is
   functional (`TStringRepr.inj`);
+* a float's payload is the double: the value is its model and its sign bit
+  (`Value.flt`), so a NaN payload is free but its sign is not;
 * a string's object is one the relation owns (`Strs.own`): `Complement.own`
   puts it in an in-use allocator chunk apart from the window (`StrOwned`).
   Copying a register copies its `ValRepr`, so ownership travels with the
@@ -100,6 +102,11 @@ inductive ValRepr (mo : Mem) (ι : Strs) : BitVec 8 → BitVec 64 → Value → 
   | false_ {x} : ValRepr mo ι (BitVec.ofNat 8 vFalse) x (.bool false)
   | true_ {x} : ValRepr mo ι (BitVec.ofNat 8 vTrue) x (.bool true)
   | int {i} : ValRepr mo ι (BitVec.ofNat 8 vNumInt) i (.int i)
+  /-- a float (`LUA_VNUMFLT`): the payload is the double; the value is its
+  model (`Float.Model.ofBits`, which canonicalises NaN payloads) and its sign
+  bit -/
+  | flt {x} : ValRepr mo ι (BitVec.ofNat 8 vNumFlt) x
+      (.flt (Float.Model.ofBits (UInt64.ofBitVec x)) x.msb)
   | str {x s} : TStringRepr mo x.toNat s → (s.length ≤ maxShortLen → x.toNat = ι.ptr s) →
       ι.own x.toNat s → ValRepr mo ι (BitVec.ofNat 8 (strTag s)) x (.str s)
   | print {x} : x = BitVec.ofNat 64 symLuaBPrint →
@@ -492,6 +499,25 @@ def SimArm (o : OpCode) : Prop :=
   ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State}, VmRel p c s →
     ∀ {ins : Word}, p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
       ∃ c' n, 0 < n ∧ Vsa.Machine.StepsN n c c' ∧ VmRel p c' s'
+
+/-- **An arm's simulation on the states where `Q` holds** (`Q` over the
+program, the bytecode state and the instruction): one family of an arm's
+paths. The arms proved before floats were in `δ` hold off their float paths,
+which are the premises `FloatArms` (`Lua/Vm/Sim/Fold.lean`). -/
+def SimArmOn (o : OpCode) (Q : Proto → State → Word → Prop) : Prop :=
+  ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State}, VmRel p c s →
+    ∀ {ins : Word}, p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
+      Q p s ins → ∃ c' n, 0 < n ∧ Vsa.Machine.StepsN n c c' ∧ VmRel p c' s'
+
+/-- The states off a path family `Q`. -/
+abbrev Off (Q : Proto → State → Word → Prop) : Proto → State → Word → Prop :=
+  fun p s ins => ¬ Q p s ins
+
+/-- **An arm from its two path families**: off `Q`, and on `Q`. -/
+theorem SimArm.split {o : OpCode} {Q : Proto → State → Word → Prop}
+    (h₁ : SimArmOn o fun p s ins => ¬ Q p s ins) (h₂ : SimArmOn o Q) : SimArm o :=
+  fun {p} hS {_ s _} hR {ins} hf hop hstep =>
+    (Classical.em (Q p s ins)).elim (h₂ hS hR hf hop hstep) (h₁ hS hR hf hop hstep)
 
 /-- **Open (A1, round-3 bake-off target): `OP_MOD`.** The arm at `0x8001dc58`
 is `savestate` then `op_arith(luaV_mod)`:

@@ -61,15 +61,18 @@ abbrev amtNC (c : Config) (w : RelPtrs) (ins : Word) : BitVec 64 :=
 abbrev amtB (c : Config) (w : RelPtrs) (ins : Word) : BitVec 64 := slotVal c.σ.mem (w.slot ins.b)
 abbrev amtF (_c : Config) (_w : RelPtrs) (ins : Word) : BitVec 64 := BitVec.ofNat 64 ins.c
 
-/-- **A shift arm from its paths**: `P` (`bltz`, or `C > 127`), then `Q`
-(the left shift's bound) or `R` (the right shift's), and the fall-through. -/
+/-- **A shift arm off its float paths `F`, from its paths**: `P` (`bltz`, or
+`C > 127`), then `Q` (the left shift's bound) or `R` (the right shift's),
+and the fall-through of a non-number. -/
 theorem sim_shift {o : OpCode} (ho : o.toNat < Arms.jtEntries)
     {B : Proto → Config → State → RelPtrs → Word → Prop} {v : Config → RelPtrs → Word → BitVec 64}
+    {F : Proto → State → Word → Prop}
     (P Q R : BitVec 64 → Bool)
     (h1 : ArmBody o (Sh1 B v P Q)) (h2 : ArmBody o (Sh2 B v P Q))
     (h3 : ArmBody o (Sh3 B v P R)) (h4 : ArmBody o (Sh4 B v P R))
-    (hfall : ArmBody o fun p c s w ins => ¬ B p c s w ins) : SimArm o :=
-  sim_arm ho fun {p} hS {c s s' w ins} hA hf hop hstep => by
+    (hfall : ArmBody o fun p c s w ins => ¬ B p c s w ins ∧ ¬ F p s ins) :
+    SimArmOn o fun p s ins => ¬ F p s ins :=
+  sim_arm_on ho fun {p} hS {c s s' w ins} hA hf hop hstep hN => by
     by_cases hI : B p c s w ins
     · cases hp : P (v c w ins)
       · cases hq : Q (v c w ins)
@@ -78,7 +81,7 @@ theorem sim_shift {o : OpCode} (ho : o.toNat < Arms.jtEntries)
       · cases hr : R (v c w ins)
         · exact h4 hS hA hf hop hstep ⟨hI, hp, hr⟩
         · exact h3 hS hA hf hop hstep ⟨hI, hp, hr⟩
-    · exact hfall hS hA hf hop hstep hI
+    · exact hfall hS hA hf hop hstep ⟨hI, hN⟩
 
 set_option hygiene false in
 /-- **`at_shift (st) NS eq`**: a shift path: the setup `st`, the kernel's
@@ -89,7 +92,9 @@ macro "at_shift " "(" st:tacticSeq ")" ns:ident eq:ident : tactic => `(tactic| (
   dsimp only [Sh1, Sh2, Sh3, Sh4, ShPath, qL, rL, pU, qU, rU, amtC, amtNC, amtB, amtF] at hq
   obtain ⟨hI, h1, h2⟩ := hq
   ($st)
-  simp only [Opnd.fill, δ, BinOp.int, $eq:ident h1 h2] at hk
+  simp only [Opnd.fill, δ, BinOp.int, fastArith_add, fastArith_sub, fastArith_mul, fastArith_mod,
+    fastArith_idiv, fastArith_band, fastArith_bor, fastArith_bxor, fastArith_shl, fastArith_shr,
+    Res.ofInt_some, Res.ofInt_none, Value.ofNum_int, $eq:ident h1 h2] at hk
   try simp only [sc_eq] at hk
   simp [VState.apply, writeDefs, KEdge.kills] at hk
   subst hk

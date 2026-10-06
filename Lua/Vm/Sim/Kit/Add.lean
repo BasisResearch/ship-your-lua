@@ -25,7 +25,7 @@ theorem add_int : ArmBody .ADD BothInt := fun {p} hS {c s s' w ins} hA hf hop hs
     (by rw [stData_int, alu_val HAdd.hAdd (n1 := w.slot ins.b) ?_ (ld_slot (n := w.slot ins.c) ?_)]
         exact .int; all_goals slot_arith), h0.pcAt⟩
 
-theorem sim_ADD : SimArm .ADD := sim_arith (by decide) add_int
+theorem sim_ADD : SimArmOn .ADD (Off FltBC) := sim_arith (by decide) add_int
   fun {p} hS {c s s' w ins} hA hf hop hstep hI => by kit_arith_fall 0x8001d9c8
 
 end Lua.Vm.Sim.Kit

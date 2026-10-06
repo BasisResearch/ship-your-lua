@@ -9,9 +9,10 @@ What the generated simulations of the branching arms (`scripts/gen_lua_arm.py`
 kinds `arith`, `condjump`, `forloop`) consume beyond `Core.write`/`Core.jump`:
 
 * **tags decide the path** (`ValRepr.int_of_tag`, `ValRepr.tag_of_int`,
-  `ValRepr.ne_float`): a register's tag byte is `LUA_VNUMINT` exactly when it
-  holds an integer, and never `LUA_VNUMFLT` (F1 has no floats), so the
-  float paths of an arm are discharged at their first branch;
+  `ValRepr.ne_float`, `ValRepr.flt_of_tag`): a register's tag byte is
+  `LUA_VNUMINT` exactly when it holds an integer, and `LUA_VNUMFLT` exactly
+  when it holds a float; off an arm's float paths (`FloatArms`) the float
+  tests are discharged at their first branch;
 * **guards** (`guard_*`): the branch conditions of the generated segments,
   over a raw address `a` with `a = n + off` (discharged by `slot_arith`);
 * **field terms** the two-exit arms decode (`sext_shr`, `field1`,
@@ -37,10 +38,20 @@ variable {mo : Mem} {ι : Strs} {t : BitVec 8} {x : BitVec 64} {v : Value}
 theorem strTag_cases (s : List UInt8) : strTag s = vShrStr ∨ strTag s = vLngStr := by
   unfold strTag; split <;> simp
 
-theorem ValRepr.ne_float (h : ValRepr mo ι t x v) : t ≠ BitVec.ofNat 8 19 := by
+/-- A register that is not a float does not have the float tag. -/
+theorem ValRepr.ne_float (h : ValRepr mo ι t x v) (hv : v.NotFlt) : t ≠ BitVec.ofNat 8 19 := by
   cases h with
   | str => rcases strTag_cases _ with e | e <;> rw [e] <;> decide
+  | flt => exact absurd rfl (hv _ _)
   | _ => decide
+
+/-- The float tag is a float's. -/
+theorem ValRepr.flt_of_tag (h : ValRepr mo ι t x v) (ht : t = BitVec.ofNat 8 vNumFlt) :
+    v = .flt (Float.Model.ofBits (UInt64.ofBitVec x)) x.msb := by
+  cases h with
+  | str => rcases strTag_cases _ with e | e <;> rw [e] at ht <;> exact absurd ht (by decide)
+  | flt => rfl
+  | _ => exact absurd ht (by decide)
 
 theorem ValRepr.int_of_tag (h : ValRepr mo ι t x v) (ht : t = BitVec.ofNat 8 vNumInt) :
     v = .int x := by
@@ -92,17 +103,18 @@ theorem guard_tag_bne_f (ha : a = n + 8) (h : slotTag m n = BitVec.ofNat 8 t) (h
     (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) != BitVec.ofNat 64 t) = false := by
   simp only [bne, guard_tag_eq ha h ht, Bool.not_true]
 
-/-- The float test (`li 19; bne`), never taken on an F1 value. -/
+/-- The float test (`li 19; bne`), never taken on a value that is not a float. -/
 theorem guard_not_float {mo : Mem} {ι : Strs} {x : BitVec 64} {v : Value} (ha : a = n + 8)
-    (h : ValRepr mo ι (slotTag m n) x v) :
+    (h : ValRepr mo ι (slotTag m n) x v) (hv : v.NotFlt) :
     (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) != ((0#64) + sign_extend (m := 64) (0x013#12))) = true := by
-  rw [const_19]; exact guard_tag_bne_t ha h.ne_float (by decide)
+  rw [const_19]; exact guard_tag_bne_t ha (h.ne_float hv) (by decide)
 
-/-- The float test laid out as `li 19; beq` (not taken on an F1 value). -/
+/-- The float test laid out as `li 19; beq` (not taken on a value that is not
+a float). -/
 theorem guard_not_float_f {mo : Mem} {ι : Strs} {x : BitVec 64} {v : Value} (ha : a = n + 8)
-    (h : ValRepr mo ι (slotTag m n) x v) :
+    (h : ValRepr mo ι (slotTag m n) x v) (hv : v.NotFlt) :
     (zero_extend (m := 64) (bytesT1 m a : BitVec (8 * 1)) == ((0#64) + sign_extend (m := 64) (0x013#12))) = false := by
-  rw [const_19]; exact guard_tag_ne ha h.ne_float (by decide)
+  rw [const_19]; exact guard_tag_ne ha (h.ne_float hv) (by decide)
 
 end
 
@@ -495,6 +507,7 @@ theorem ValRepr.isFalse_of_ne (h : ValRepr mo ι t x v) (ht : t ≠ BitVec.ofNat
   | str => rcases strTag_cases _ with e | e <;> rw [e] <;> rfl
   | true_ => decide
   | int => simp [Value.isFalse, vNumInt]
+  | flt => simp [Value.isFalse, vNumFlt]
   | print => decide
 
 end

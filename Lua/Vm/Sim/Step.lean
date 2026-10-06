@@ -66,7 +66,8 @@ theorem opNum_of_op? {w : Word} {o : OpCode} (h : w.op? = some o) : w.opNum = o.
 /-- `Supported`: every instruction's registers fit the frame. -/
 theorem supported_regTop (hS : Supported p) {pc : Nat} {w : Word} (hf : p.fetch pc = some w) :
     regTop p pc w ≤ p.maxstacksize := by
-  unfold Supported supportedB at hS
+  replace hS := hS.1
+  unfold supportedB at hS
   simp only [Bool.and_eq_true, decide_eq_true_eq] at hS
   obtain ⟨_, h⟩ := hS
   split at h

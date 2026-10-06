@@ -32,11 +32,11 @@ theorem idiv_diff : ArmBody .IDIV (DivPath BothInt dvR fun x y => DivGen y ∧ �
   at_div_gen (kit_arith_ints 0x8001deac) Lua.Vm.At.IDIV idivC_eq
 
 /-- Not both integers: the kernel's fall-through to `MMBIN`. -/
-theorem idiv_fall : ArmBody .IDIV fun p c s w ins => ¬ BothInt p c s w ins := by
+theorem idiv_fall : ArmBody .IDIV FallBC := by
   at_fall Lua.Vm.At.IDIV 0x8001deac
 
 /-- **`OP_IDIV`** on the location-list route. -/
-theorem sim_IDIV : SimArm .IDIV := sim_div (by decide) (fun x y => x.msb = y.msb) (fun _ _ => True)
+theorem sim_IDIV : SimArmOn .IDIV (Off FltBC) := sim_div (by decide) (fun x y => x.msb = y.msb) (fun _ _ => True)
   idiv_zero idiv_m1 idiv_same idiv_diff (fun {_} _ {_ _ _ _ _} _ _ _ _ hq => absurd trivial hq.2.2.2)
   idiv_fall
 

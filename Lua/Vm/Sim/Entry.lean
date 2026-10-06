@@ -140,7 +140,13 @@ theorem _root_.Lua.Vm.ConstRepr.valRepr {m : Mem} {a : Nat} {c : Const} {v : Val
   | int h =>
     simp only [Const.toValue?, Option.some.injEq] at hv; subst hv
     exact h.valRepr (by simp) (by simp) (by simp)
-  | float => simp [Const.toValue?] at hv
+  | float ht hb =>
+    simp only [Const.toValue?] at hv
+    split at hv
+    · cases hv
+    · simp only [Option.some.injEq] at hv; subst hv
+      rw [slotTag_of_tagAt ht, slotVal_of_rd64 hb, BitVec.ofNat_toNat, BitVec.setWidth_eq]
+      exact .flt
   | str h =>
     simp only [Const.toValue?, Option.some.injEq] at hv; subst hv
     exact h.valRepr (by simp) (fun s ts e => hι s ts (by cases e; rfl))

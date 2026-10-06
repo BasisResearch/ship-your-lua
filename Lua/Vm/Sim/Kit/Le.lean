@@ -5,8 +5,8 @@ import Lua.Vm.Arms
 # `OP_LE` by the direct kit (lane KIT-2)
 
 `op_order(L, l_lei, LEnum, lessequalothers)`: two integers compare by `slt` then `seqz`
-(`0x8001efd8`), then `docondjump` (`kit_cond`). Floats are not F1 values
-(`ValRepr.ne_float`); an integer against a non-number, or two non-numbers
+(`0x8001efd8`), then `docondjump` (`kit_cond`). Off the float paths
+(`FloatArms`); an integer against a non-number, or two non-numbers
 other than two strings, go to `luaT_callorderTM`, where `δ .le` is `none`
 (the kernel is stuck). Two strings go to `l_strcmp` (`strcoll` → `strcmp`
 over the string bytes): `sim_LE_of_str` takes that path as its premise.
@@ -30,8 +30,8 @@ theorem le_int : ArmBody .LE BothIntAB := fun {p} hS {c s s' w ins} hA hf hop hs
   kit_order_int 0x8001c60c
     decide ((slotVal c.σ.mem (w.slot ins.a)).toInt ≤ (slotVal c.σ.mem (w.slot ins.b)).toInt)
 
-theorem le_stuck : ArmBody .LE fun p c s w ins => ¬ BothIntAB p c s w ins ∧ ¬ BothStrAB p c s w ins :=
-  fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hI, hT⟩ => by kit_order_stuck 0x8001c60c
+theorem le_stuck : ArmBody .LE OrderOther :=
+  fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hI, hT, hN⟩ => by kit_order_stuck 0x8001c60c
 
 /-- **`sim_LE` from the string path**: `SimArm .LE` holds as soon as the
 run with two strings in `R[A]`, `R[B]` (`l_strcmp` → `strcoll`/`strcmp`
@@ -39,7 +39,8 @@ over the string bytes) is supplied. The bytes are described in the
 complement `w.mo` only (`ValRepr.str`), while `strcmp` reads the live memory
 and needs the `'\0'` after each string, which `TStringRepr` does not state:
 a relation widening plus a `strcmp`/`strlen` summary (PHASES A1). -/
-theorem sim_LE_of_str (hstr : ArmBody .LE BothStrAB) : SimArm .LE :=
+theorem sim_LE_of_str (hstr : ArmBody .LE BothStrAB) :
+    SimArmOn .LE (Off FltAB) :=
   sim_order (by decide) le_int hstr le_stuck
 
 end Lua.Vm.Sim.Kit

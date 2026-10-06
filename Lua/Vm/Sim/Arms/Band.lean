@@ -18,18 +18,20 @@ namespace Lua.Vm.Sim
 open Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **BAND** (kind `arith`): from the fetch head, the dispatch and, per
-exit of the kernel, the arm's segments return to the head in a state related
-to the `Step`'s successor. -/
+/-- **BAND** (kind `arith`) off its float paths (`¬ FltBC`; they are
+`FloatArms.BAND`): from the fetch head, the dispatch and, per exit of the
+kernel, the arm's segments return to the head in a state related to the
+`Step`'s successor. -/
 theorem sim_BAND {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
     (hR : VmRel p c s) {ins : Word} (hf : p.fetch s.pc = some ins)
-    (hop : ins.op? = some .BAND) (hstep : Step binaryHost p s s') :
+    (hop : ins.op? = some .BAND) (hstep : Step binaryHost p s s')
+    (hnf : ¬ FltBC p s ins) :
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
   have hK : kernelAt p s.pc = some (opArith s.pc ins.a .band [.reg ins.b, .reg ins.c]) := by
     simp [kernelAt, hf, kernel, hop, opKernel, arithRR]
-  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK
+  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK (noFlt_rr (fun h => hnf (.inl h)) (fun h => hnf (.inr h)))
   have htop := supported_regTop hS hf
   simp [regTop, kernel, hop, opKernel, arithRR, opArith, Kernel.regTop, Opnd.ports] at htop
   obtain ⟨vb, vc, hb, hc, rfl⟩ := mapM2 hvs
@@ -60,6 +62,8 @@ theorem sim_BAND {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
   have hvc := hc1.stack ins.c vc hCt hc
   have hvb := hc1.stack ins.b vb hBt hb
   simp only [Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow] at hAt hBt hCt
+  have hnfb := notFlt_of_reg (fun h => hnf (.inl h)) hb
+  have hnfc := notFlt_of_reg (fun h => hnf (.inr h)) hc
   by_cases hB : slotTag c1.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
   · obtain rfl := hvb.int_of_tag hB
     by_cases hC : slotTag c1.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt
@@ -207,7 +211,7 @@ theorem sim_BAND {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
         (BitVec.ofNat 64 w.ci) (BitVec.ofNat 64 Arms.jtBase) (BitVec.ofNat 64 w.base)
         (BitVec.ofNat 64 (w.code + 4 * s.pc))
         c1.σ.mem c1.σ.sailOutput
-        (by refine guard_not_float_f (n := (w.slot ins.c)) ?_ hvc; slot_arith)
+        (by refine guard_not_float_f (n := (w.slot ins.c)) ?_ hvc hnfc; slot_arith)
         c5 ⟨hq4.good, hq4.pcAt,
           ⟨pinsHold_get hq4.pins 12 (by len_arith), pinsHold_get hq4.pins 0 (by len_arith), pinsHold_get hq4.pins 1 (by len_arith), pinsHold_get hq4.pins 2 (by len_arith), pinsHold_get hq4.pins 3 (by len_arith), pinsHold_get hq4.pins 4 (by len_arith), pinsHold_get hq4.pins 5 (by len_arith), pinsHold_get hq4.pins 6 (by len_arith), pinsHold_get hq4.pins 7 (by len_arith), pinsHold_get hq4.pins 8 (by len_arith), pinsHold_get hq4.pins 9 (by len_arith), pinsHold_get hq4.pins 10 (by len_arith), pinsHold_get hq4.pins 11 (by len_arith), trivial⟩,
           hq4.minstret, hq4.tick, ⟨hq4.armText, hq4.armMem, hq4.armOut, hq4.armOk⟩⟩
@@ -277,7 +281,7 @@ theorem sim_BAND {p : Proto} (hS : Supported p) {c : Config} {s s' : State}
       (BitVec.ofNat 64 w.ci) (BitVec.ofNat 64 Arms.jtBase) (BitVec.ofNat 64 w.base)
       (BitVec.ofNat 64 (w.code + 4 * s.pc))
       c1.σ.mem c1.σ.sailOutput
-      (by refine guard_not_float_f (n := w.slot ins.b) ?_ hvb; slot_arith)
+      (by refine guard_not_float_f (n := w.slot ins.b) ?_ hvb hnfb; slot_arith)
       c3 ⟨hq2.good, hq2.pcAt,
         ⟨pinsHold_get hq2.pins 12 (by len_arith), pinsHold_get hq2.pins 0 (by len_arith), pinsHold_get hq2.pins 1 (by len_arith), pinsHold_get hq2.pins 2 (by len_arith), pinsHold_get hq2.pins 3 (by len_arith), pinsHold_get hq2.pins 4 (by len_arith), pinsHold_get hq2.pins 5 (by len_arith), pinsHold_get hq2.pins 6 (by len_arith), pinsHold_get hq2.pins 7 (by len_arith), pinsHold_get hq2.pins 8 (by len_arith), pinsHold_get hq2.pins 9 (by len_arith), pinsHold_get hq2.pins 10 (by len_arith), pinsHold_get hq2.pins 11 (by len_arith), trivial⟩,
         hq2.minstret, hq2.tick, ⟨hq2.armText, hq2.armMem, hq2.armOut, hq2.armOk⟩⟩

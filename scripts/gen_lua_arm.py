@@ -430,9 +430,35 @@ def tag_guard(layout, holds, j, h, slot=None):
     return pol, gtag(lemma, j, h, slot)
 
 
+# the non-float fact of an operand's representation (`FLT_Q`'s premise)
+NF_OF = {"hvb": "hnfb", "hvc": "hnfc", "hva'": "hnfa"}
+
+
 def float_guard(layout, j, hv, slot=None):
     pol, lemma = FLOAT_TEST[layout]
-    return pol, f"(by refine {lemma} (n := {slot or f'w.slot {j}'}) ?_ {hv}; slot_arith)"
+    return pol, f"(by refine {lemma} (n := {slot or f'w.slot {j}'}) ?_ {hv} {NF_OF[hv]}; slot_arith)"
+
+
+# The arms whose kernel has float paths since floats are in `δ`
+# (FLOAT-DESIGN.md S1): each is proved on the states where no operand is a
+# float (`hnf : ¬ Q p s ins`); the float paths are the premise `FloatArms`
+# (`Lua/Vm/Sim/Fold.lean`). op -> (the float predicate `Q`, the operands'
+# non-float facts, after the operand facts).
+NF_B = "  have hnfb := notFlt_of_reg {nb} hb\n"
+FLT_RR = ("FltBC", NF_B.format(nb="(fun h => hnf (.inl h))")
+          + "  have hnfc := notFlt_of_reg (fun h => hnf (.inr h)) hc\n")
+FLT_RK = ("FltBK", NF_B.format(nb="(fun h => hnf (.inl h))")
+          + "  have hnfc := notFlt_of_k (fun h => hnf (.inr h)) hkv\n")
+FLT_A = ("FltA", "  have hnfa := notFlt_of_reg hnf hva\n")
+FLT_Q = {"ADD": FLT_RR, "SUB": FLT_RR, "BAND": FLT_RR, "BOR": FLT_RR, "BXOR": FLT_RR,
+         "ADDK": FLT_RK, "SUBK": FLT_RK,
+         "ADDI": ("FltB", NF_B.format(nb="hnf")), "BNOT": ("FltB", NF_B.format(nb="hnf")),
+         "EQI": FLT_A, "LTI": FLT_A, "GTI": FLT_A, "LEI": FLT_A, "GEI": FLT_A,
+         "FORLOOP": ("FltStep", "")}
+# `step_opArith`'s `NoFlt` premise, per C operand form
+NF_ARITH = {"reg": "(noFlt_rr (fun h => hnf (.inl h)) (fun h => hnf (.inr h)))",
+            "imm": "(noFlt_ri hnf (notFlt_int _))",
+            "k": "(noFlt_ri (fun h => hnf (.inl h)) (notFlt_of_k (fun h => hnf (.inr h)) hkv))"}
 
 _VAR = re.compile(r"\bv(\d+)\b")
 
@@ -582,7 +608,7 @@ PRE2 = {
   | some t =>
   have hK : kernelAt p s.pc = some (forloopK s.pc ins t) := by
     simp [kernelAt, hf, kernel, hop, opKernel, ht]
-  obtain ⟨i, n, st, hi, hn, hst, hcase⟩ := step_forloop hstep hK
+  obtain ⟨i, n, st, hi, hn, hst, hcase⟩ := step_forloop hstep hK hnf
   have htop := supported_regTop hS hf
   simp [regTop, kernel, hop, opKernel, ht, forloopK, Kernel.regTop] at htop
   obtain ⟨hbx, rfl⟩ := jumpTo_neg ht
@@ -640,7 +666,7 @@ def arith_pre(cfg):
 """ if cfg["c"] == "k" else ""
     return kcase + f"""  have hK : kernelAt p s.pc = some (opArith s.pc ins.a .{cfg["binop"]} {ops}) := by
     simp [kernelAt, hf, kernel, hop, opKernel, {unf}]
-  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK
+  obtain ⟨vs, hvs, hcase⟩ := step_opArith hstep hK {NF_ARITH[cfg["c"]]}
   have htop := supported_regTop hS hf
   simp [regTop, kernel, hop, opKernel, {unf}, opArith, Kernel.regTop, Opnd.ports] at htop
 {get}  simp only [Opnd.fill{", immC" if cfg["c"] == "imm" else ""}] at hcase
@@ -854,7 +880,7 @@ def bnot_paths(_cfg):
     {int}
   · exfalso
     cases vb <;> simp [δ] at hv
-    exact hvb.not_int hB _ rfl"""
+    all_goals first | exact hvb.not_int hB _ rfl | exact hnfb _ _ rfl"""
 
     def close(post, k):
         return (f"""  have hst := slotStore_sd_sb (A := w.slot ins.a) hW (by slot_arith) (by slot_arith)
@@ -920,8 +946,8 @@ def cmpI_paths(cfg):
     · rw [if_neg (fun h => hJ h.symm)]
       {{sint}}
   · exfalso
-    cases va <;> simp [δ] at hcv
-    exact hva'.not_int hTa _ rfl"""
+    cases va <;> simp [δ, Value.toNum?] at hcv
+    all_goals first | exact hva'.not_int hTa _ rfl | exact hnfa _ _ rfl"""
     gi = gtag("guard_tag_bne_f", "ins.a", "hTa")
     beq = cfg["final"] == "beq"
 
@@ -958,7 +984,7 @@ def paths2(kind, cfg):
       {jint}
     · rw [if_neg (fun h => hJ h.symm)]
       {sint}
-  · rw [cond_nonint (hva'.not_int hTa)]
+  · rw [cond_nonint (hva'.not_int hTa) hnfa]
     cases hk : ins.k
     · rw [if_pos rfl]
       {jni}
@@ -966,7 +992,7 @@ def paths2(kind, cfg):
       {sni}"""
         gi = gtag("guard_tag_bne_f", "ins.a", "hTa")
         gn = [gtag("guard_tag_bne_t", "ins.a", "hTa"),
-              "(by refine guard_not_float (n := w.slot ins.a) ?_ hva'; slot_arith)",
+              "(by refine guard_not_float (n := w.slot ins.a) ?_ hva' hnfa; slot_arith)",
               "(by rw [guard_k]; exact hk)"]
 
         return split, {
@@ -1218,12 +1244,22 @@ def render_arm2(op, specs, arms):
     for pname in paths:
         m = re.search(r"^( *)\{" + pname + r"\}$", split, re.M)
         split = split.replace(m.group(0), indent(body[pname], len(m.group(1)) - 2))
-    text = f"""/-- **{lean_op}** (kind `{kind}`): from the fetch head, the dispatch and, per
+    q, nf = FLT_Q.get(lean_op, (None, ""))
+    if q:
+        doc = (f"""/-- **{lean_op}** (kind `{kind}`) off its float paths (`¬ {q}`; they are
+`FloatArms.{lean_op}`): from the fetch head, the dispatch and, per exit of the
+kernel, the arm's segments return to the head in a state related to the
+`Step`'s successor. -/""")
+        hyp = f"\n    (hnf : ¬ {q} p s ins)"
+    else:
+        doc = f"""/-- **{lean_op}** (kind `{kind}`): from the fetch head, the dispatch and, per
 exit of the kernel, the arm's segments return to the head in a state related
-to the `Step`'s successor. -/
+to the `Step`'s successor. -/"""
+        hyp = ""
+    text = f"""{doc}
 theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : State}}
     (hR : VmRel p c s) {{ins : Word}} (hf : p.fetch s.pc = some ins)
-    (hop : ins.op? = some .{lean_op}) (hstep : Step binaryHost p s s') :
+    (hop : ins.op? = some .{lean_op}) (hstep : Step binaryHost p s s'){hyp} :
     ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s' := by
   obtain ⟨w, hR⟩ := hR
   refine sim_of_run (w := w) ?_
@@ -1241,7 +1277,7 @@ theorem sim_{lean_op} {{p : Proto}} (hS : Supported p) {{c : Config}} {{s s' : S
   have hch := hr.ci_hi
   have hins := ins.isLt
   simp only [stackValueSize, ciSize] at hbh hch
-{facts2(kind, cfg)}{split}"""
+{facts2(kind, cfg)}{nf}{split}"""
     imports = ["Lua.Vm.Sim.Dispatch", "Lua.Vm.Sim.Close"] + sorted(mods)
     return fname, "\n".join(f"import {m}" for m in imports) + f"""
 
