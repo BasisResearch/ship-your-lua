@@ -424,6 +424,13 @@ partial def atFwd : TacticM Unit := do
     fuel := fuel - 1
     unless ← atFwd1 do return
 
+/-- **An extension point of `at_eq`** (tried first, before `rfl`): the rules
+of a family of arms whose machine values have a closed form a library lemma
+states once (`Kit/AtCond.lean`: `docondjump`'s `k` bit, the `trap` reload,
+`donextjump`'s target, a call's observed answer). Fails by default. -/
+syntax "at_eq_ext" : tactic
+macro_rules | `(tactic| at_eq_ext) => `(tactic| fail "at_eq_ext")
+
 /-- **`at_eq`**: a machine value equal to a location's (after `at_unfold`):
 by the goal's shape, a load forwarded through the path's stores
 (`ld*_wm8`/`ld*_ins` by `at_sep`, a hit by `*_same`), the constant array
@@ -433,6 +440,11 @@ partial def atEq : TacticM Unit := withMainContext do
   let t ← instantiateMVars (← getMainTarget)
   let some (_, _, _) := t.eq? | throwError "at_eq: not an equation"
   let s0 ← saveState
+  try
+    evalTactic (← `(tactic| at_eq_ext))
+    if (← getUnsolvedGoals).isEmpty then return
+    s0.restore
+  catch _ => s0.restore
   try
     evalTactic (← `(tactic| with_reducible rfl)); return
   catch _ => s0.restore
@@ -535,13 +547,26 @@ elab "at_pins " h:ident : tactic => withMainContext do
       | throwError "at_pins: register {reg q} not pinned in {h}"
     let qv ← whnfR q.getAppArgs[3]!
     let pv ← whnfR src[i]!.getAppArgs[3]!
-    if ← withReducible (isDefEq qv pv) then
+    -- a failed check (e.g. `maxRecDepth` unfolding a large value) is a mismatch
+    let st ← saveState
+    let same ← tryCatchRuntimeEx (withReducible (isDefEq qv pv)) fun _ => do st.restore; pure false
+    if same then
       parts := parts.push (← `(pinsHold_get ($h).pins $(quote i) (by pin_len)))
     else
       parts := parts.push (← `(pin_eq (pinsHold_get ($h).pins $(quote i) (by pin_len))
         (by simp only [List.getElem_cons_succ, List.getElem_cons_zero, HFrame.pins]; at_eq)))
-  parts := parts.push (← `(trivial))
-  evalTactic (← `(tactic| exact ⟨$parts,*⟩))
+  -- the goal's pins as `get? r = some v`, one goal each (a projection
+  -- `⟨r, v⟩.1`, or one term for all pins, lets the elaborator unify the pins'
+  -- values structurally, at default transparency)
+  evalTactic (← `(tactic| dsimp only [PinsHold]))
+  let holes : Array Term ← parts.mapM fun _ => `(?_)
+  let holes := holes.push (← `(trivial))
+  evalTactic (← `(tactic| refine ⟨$holes,*⟩))
+  let gs ← getUnsolvedGoals
+  unless gs.length == parts.size do throwError "at_pins: {gs.length} goals for {parts.size} pins"
+  for (g, part) in gs.zip parts.toList do
+    setGoals [g]
+    evalTactic (← `(tactic| exact $part))
 
 /-- The argument syntax of a segment theorem for `at_seg`: `_` for values,
 `(by at_guard hg_k)` for a guard `hg_k`, `(by kit_disch)` for the rest. -/
@@ -582,7 +607,11 @@ elab "at_seg " n:ident : tactic => do
   let h := mkIdent `h; let acc := mkIdent `acc
   evalTactic (← `(tactic|
     obtain ⟨_, $acc, $h⟩ := Vsa.Sim.SegSt.run $acc $h (by pins_of $h) $seg))
-  evalTactic (← `(tactic| exact ⟨_, $acc, (Vsa.Sim.SegSt.repin $h (by at_pins $h)).mem_eq (by at_mem)⟩))
+  -- the pins and the memory as goals of their own (inside one `exact` the
+  -- pins' terms elaborate against the outer term's pending unification)
+  evalTactic (← `(tactic| refine ⟨_, $acc, (Vsa.Sim.SegSt.repin $h ?_).mem_eq ?_⟩))
+  evalTactic (← `(tactic| · at_pins $h))
+  evalTactic (← `(tactic| · at_mem))
 
 /-- A dead callee-saved register's pin (every GPR holds a value, `RegsOk`):
 `s6`/`s10` in a helper's frame where the row has no location for them. -/

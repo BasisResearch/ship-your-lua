@@ -70,6 +70,21 @@ theorem LsObs.le {v : BitVec 64} {s1 s2 : List UInt8} (h : LsObs v s1 s2) :
     have := v.isLt
     simp [e]; split <;> omega
 
+/-- `srliw a0, a0, 31`: bit 31 as 0/1. -/
+theorem srliw31 (v : BitVec 64) :
+    sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v 31 0) (0x1f#5)) =
+      if v.getLsbD 31 then 1#64 else 0#64 := by
+  have e : (shift_bits_right (Sail.BitVec.extractLsb v 31 0) (0x1f#5)).toNat = v.toNat / 2 ^ 31 % 2 := by
+    simp only [shift_bits_right, Sail.BitVec.extractLsb, BitVec.toNat_ushiftRight, BitVec.extractLsb_toNat,
+      Nat.shiftRight_eq_div_pow]
+    simp; omega
+  have hb : v.getLsbD 31 = decide (v.toNat / 2 ^ 31 % 2 = 1) := by
+    rw [BitVec.getLsbD_eq_getElem (by omega), BitVec.getElem_eq_testBit_toNat, Nat.testBit_eq_decide_div_mod_eq]
+  apply BitVec.eq_of_toNat_eq
+  rw [hb, sign_extend, Sail.BitVec.signExtend, BitVec.toNat_signExtend, BitVec.msb_eq_decide]
+  by_cases h : v.toNat / 2 ^ 31 % 2 = 1 <;> simp only [h, decide_true, decide_false, ite_true, ite_false] <;>
+    simp [e, h] <;> omega
+
 theorem zext_bit_toNat (b : Bool) : (zero_extend (m := 64) (bool_to_bit b)).toNat < 2 := by
   cases b <;> decide
 
