@@ -12,7 +12,7 @@ import Lua.Vm.At.Eqk
 `lessequalothers`/`lessthanothers` inlined in the arm: the string tags
 (`tt & 15 = 4`, the guards of the generated at-lemmas closed from the
 registers' strings), `savestate`, the call node `l_strcmp` with its
-observation (`slti 1`, `srliw 31`: `le_obs`, `lt_obs`), then `docondjump`
+observation (`slti 1`, `srliw 31`: `obs_le`, `obs_lt`), then `docondjump`
 (`trap_ld`, `kraw_eq`, `jmp_at`), all in the generated at-lemmas
 `Lua/Vm/At/{Le,Lt}.lean`. Each exit of `docondjump` is one declaration and
 one `at_go`. With the kit's integer and stuck paths (`le_int`, `le_stuck`,
@@ -82,16 +82,22 @@ def StrTest (t : List UInt8 → List UInt8 → Bool) (take : Bool) (p : Proto) (
   BothStrAB p c s w ins ∧
     ∀ x y, s.regs ins.a = some (.str x) → s.regs ins.b = some (.str y) → (t x y = ins.k ↔ take = true)
 
-/-- An order arm on two strings from its two exits. -/
-theorem str_cond {o : OpCode} {t : List UInt8 → List UInt8 → Bool} (take : ArmBody o (StrTest t true))
-    (skip : ArmBody o (StrTest t false)) : ArmBody o BothStrAB :=
-  fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
+/-- **An arm from its two exits**: every entry state satisfying `P` takes
+one of them (`Q true` or `Q false`). A case split on the kernel's test, not
+on the machine run. -/
+theorem ArmBody.byTest {o : OpCode} {P : Proto → Config → State → RelPtrs → Word → Prop}
+    (Q : Bool → Proto → Config → State → RelPtrs → Word → Prop)
+    (hQ : ∀ {p c s w ins}, P p c s w ins → Q true p c s w ins ∨ Q false p c s w ins)
+    (take : ArmBody o (Q true)) (skip : ArmBody o (Q false)) : ArmBody o P :=
+  fun {_} hS {_ _ _ _ _} hA hf hop hstep hP => (hQ hP).elim (take hS hA hf hop hstep) (skip hS hA hf hop hstep)
+
+/-- Two strings take one exit of `StrTest`. -/
+theorem StrTest.cases (t : List UInt8 → List UInt8 → Bool) {p : Proto} {c : Config} {s : State} {w : RelPtrs}
+    {ins : Word} (hT : BothStrAB p c s w ins) : StrTest t true p c s w ins ∨ StrTest t false p c s w ins := by
   obtain ⟨x, y, hx, hy⟩ := hT
   by_cases hk : t x y = ins.k
-  · exact take hS hA hf hop hstep ⟨⟨x, y, hx, hy⟩, fun x' y' hx' hy' => by
-      rw [hx] at hx'; rw [hy] at hy'; cases hx'; cases hy'; simp [hk]⟩
-  · exact skip hS hA hf hop hstep ⟨⟨x, y, hx, hy⟩, fun x' y' hx' hy' => by
-      rw [hx] at hx'; rw [hy] at hy'; cases hx'; cases hy'; simp [hk]⟩
+  · exact .inl ⟨⟨x, y, hx, hy⟩, fun x' y' hx' hy' => by rw [hx] at hx'; rw [hy] at hy'; cases hx'; cases hy'; simp [hk]⟩
+  · exact .inr ⟨⟨x, y, hx, hy⟩, fun x' y' hx' hy' => by rw [hx] at hx'; rw [hy] at hy'; cases hx'; cases hy'; simp [hk]⟩
 
 /-- `OP_LE` on two strings, the jump taken. -/
 theorem le_str_take : ArmBody .LE (StrTest (fun x y => !lexLt y x) true) :=
@@ -104,7 +110,7 @@ theorem le_str_skip : ArmBody .LE (StrTest (fun x y => !lexLt y x) false) :=
   at_str_path 0x8001c60c Lua.Vm.At.LE (bool_ne_not fun h => absurd (hkk.1 h) (by decide))
 
 /-- **`sim_LE`**: `OP_LE` simulates its kernel, every path proved. -/
-theorem sim_LE : SimArm .LE := sim_LE_of_str (str_cond le_str_take le_str_skip)
+theorem sim_LE : SimArm .LE := sim_LE_of_str (ArmBody.byTest _ (StrTest.cases _) le_str_take le_str_skip)
 
 /-- `OP_LT` on two strings, the jump taken. -/
 theorem lt_str_take : ArmBody .LT (StrTest (fun x y => lexLt x y) true) :=
@@ -117,7 +123,7 @@ theorem lt_str_skip : ArmBody .LT (StrTest (fun x y => lexLt x y) false) :=
   at_str_path 0x8001c894 Lua.Vm.At.LT (bool_ne_not fun h => absurd (hkk.1 h) (by decide))
 
 /-- **`sim_LT`** on the location-list route. -/
-theorem sim_LT : SimArm .LT := sim_LT_of_str (str_cond lt_str_take lt_str_skip)
+theorem sim_LT : SimArm .LT := sim_LT_of_str (ArmBody.byTest _ (StrTest.cases _) lt_str_take lt_str_skip)
 
 
 /-! ## `OP_EQK` on two long strings -/
@@ -169,15 +175,15 @@ theorem eqk_long_take : ArmBody .EQK (EqkTest true) := fun {p} hS {c s s' w ins}
 theorem eqk_long_skip : ArmBody .EQK (EqkTest false) := fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
   at_eqk_path (bool_ne_not fun h => absurd (hkk.1 h) (by decide))
 
-/-- `OP_EQK` on two long strings: both exits. -/
-theorem eqk_long : ArmBody .EQK fun p c s w ins => ¬ EqkShort p c s w ins :=
-  fun {p} hS {c s s' w ins} hA hf hop hstep hl => by
+/-- Two long strings take one exit of `EqkTest`. -/
+theorem EqkTest.cases {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
+    (hl : ¬ EqkShort p c s w ins) : EqkTest true p c s w ins ∨ EqkTest false p c s w ins := by
   by_cases hk : ∀ x y, s.regs ins.a = some (.str x) → kval p ins.b = some (.str y) → decide (x = y) = ins.k
-  · exact eqk_long_take hS hA hf hop hstep ⟨hl, fun x y hx hy => by simp [hk x y hx hy]⟩
-  · refine eqk_long_skip hS hA hf hop hstep ⟨hl, fun x y hx hy => ⟨fun e => (hk fun x' y' hx' hy' => ?_).elim, by simp⟩⟩
+  · exact .inl ⟨hl, fun x y hx hy => by simp [hk x y hx hy]⟩
+  · refine .inr ⟨hl, fun x y hx hy => ⟨fun e => (hk fun x' y' hx' hy' => ?_).elim, by simp⟩⟩
     rw [hx] at hx'; rw [hy] at hy'; cases hx'; cases hy'; exact e
 
 /-- **`sim_EQK`**: `OP_EQK` simulates its kernel, every path proved. -/
-theorem sim_EQK : SimArm .EQK := sim_EQK_of_long eqk_long
+theorem sim_EQK : SimArm .EQK := sim_EQK_of_long (ArmBody.byTest _ EqkTest.cases eqk_long_take eqk_long_skip)
 
 end Lua.Vm.Sim.At

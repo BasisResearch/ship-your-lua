@@ -526,7 +526,7 @@ CALLS = {
 # only known up to `LsObs`): the call lemma runs on through that observing
 # segment, whose result is a location (mnemonic -> the location's kind, the
 # observation lemma of `Kit/AtCond.lean`)
-OBSERVED = {"l_strcmp": {"slti": ("strle", "le_obs"), "srliw": ("strlt", "lt_obs")}}
+OBSERVED = {"l_strcmp": {"slti": ("strle", "obs_le"), "srliw": ("strlt", "obs_lt")}}
 
 
 def call_effect(st, callee, ret):
@@ -575,7 +575,7 @@ def call_effect(st, callee, ret):
         proof = "at_lstr {obs_seg} {obs_lemma}"
         return post, hyps, "at_open\n  " + proof, pre_regs
     elif callee == "luaV_equalobj":
-        # `eqk_sum`: `luaV_equalobj(NULL, R[A], K[B])` on two long strings;
+        # `lngeq_sum`: `luaV_equalobj(NULL, R[A], K[B])` on two long strings;
         # the return memory is the entry's with `ra` saved at `sp - 8`
         a2 = st.get(12)
         if a0 != ("lit", 0) or a1 != aff({"base": 1, "a": 16}) or a2 != aff({"k": 1, "b": 16}):

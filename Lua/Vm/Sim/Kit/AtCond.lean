@@ -19,7 +19,7 @@ locations over the context (`.lit <term over X>`):
 * `donextjump`'s target: `code + 4 * jmpPc X` (`jmp_at`, `nextjump_pc`);
 * `l_strcmp`'s answer, observed by the instruction after the call (`slti 1`
   for `OP_LE`, `srliw 31` for `OP_LT`): `if ¬ lexLt b a then 1 else 0`
-  (`le_obs`), `if lexLt a b then 1 else 0` (`lt_obs`), over the strings the
+  (`obs_le`), `if lexLt a b then 1 else 0` (`obs_lt`), over the strings the
   registers hold (`sOf`). The call node is `lstr_sum` (`lstrcmp_sum` at the
   row, the strings live by `Core.str_at`) and the generated call lemma runs
   on through the observing segment (`at_lstr`); the return memory is
@@ -153,14 +153,14 @@ theorem lstr_sum {X : Cx} (hX : X.Ok) {m : Mem} (hm : ScrFrame X m) {ja jb : Nat
   exact h
 
 /-- **`OP_LE`'s observation** (`slti a0, a0, 1`): `¬ (b < a)`. -/
-theorem le_obs {X : Cx} {v : BitVec 64} {x y : List UInt8} (hv : LsObs v x y) (hx : sOf X .a = x)
+theorem obs_le {X : Cx} {v : BitVec 64} {x y : List UInt8} (hv : LsObs v x y) (hx : sOf X .a = x)
     (hy : sOf X .b = y) :
     zero_extend (m := 64) (bool_to_bit (zopz0zI_s v (sign_extend (m := 64) (0x001#12)))) =
       if !lexLt (sOf X .b) (sOf X .a) then 1#64 else 0#64 := by
   rw [hv.le, hx, hy]; cases lexLt y x <;> decide
 
 /-- **`OP_LT`'s observation** (`srliw a0, a0, 31`): `a < b`. -/
-theorem lt_obs {X : Cx} {v : BitVec 64} {x y : List UInt8} (hv : LsObs v x y) (hx : sOf X .a = x)
+theorem obs_lt {X : Cx} {v : BitVec 64} {x y : List UInt8} (hv : LsObs v x y) (hx : sOf X .a = x)
     (hy : sOf X .b = y) :
     sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v 31 0) (0x1f#5)) =
       if lexLt (sOf X .a) (sOf X .b) then 1#64 else 0#64 := by
@@ -199,7 +199,7 @@ theorem kOf_eq {X : Cx} {y : List UInt8} (h : kval X.p X.ins.b = some (.str y)) 
 /-- **`luaV_equalobj(NULL, R[A], K[B])` on two long strings at a row**: the
 answer `δ .eq`'s as 0/1, the memory the entry's with `ra` saved below `sp`
 (`eqo_long_ex`). -/
-theorem eqk_sum {X : Cx} (hX : X.Ok) {ja jb : Nat} (hja : ja < X.p.maxstacksize) {x y : List UInt8}
+theorem lngeq_sum {X : Cx} (hX : X.Ok) {ja jb : Nat} (hja : ja < X.p.maxstacksize) {x y : List UInt8}
     (hx : X.s.regs ja = some (.str x)) (hky : kval X.p jb = some (.str y))
     (hta : slotTag X.c.σ.mem (X.w.slot ja) = 84#8)
     (htk : slotTag X.c.σ.mem (X.w.k + stackValueSize * jb) = 84#8)
@@ -225,11 +225,11 @@ theorem eqk_sum {X : Cx} (hX : X.Ok) {ja jb : Nat} (hja : ja < X.p.maxstacksize)
 
 set_option hygiene false in
 /-- **`at_eqk`**: the `OP_EQK` call lemma's proof (after `at_open`): the call
-node `eqk_sum` at the row, the answer as the location over `sOf`/`kOf`, the
+node `lngeq_sum` at the row, the answer as the location over `sOf`/`kOf`, the
 return row and memory (`ra`'s save) by `at_pins`/`at_mem`. -/
 macro "at_eqk" : tactic => `(tactic| (
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)
-    (eqk_sum hX (by omega) hsa hky hta htk _ _ (by decide) (Lua.Vm.Sim.KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _)
+    (lngeq_sum hX (by omega) hsa hky hta htk _ _ (by decide) (Lua.Vm.Sim.KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _)
   have e : (if x = y then 1#64 else 0#64) = if sOf X .a = kOf X then 1#64 else 0#64 := by
     rw [sOf_eq hsa (by fld_eq), kOf_eq (by simpa only [Word.b, Word.field, Nat.shiftRight_eq_div_pow] using hky)]
   dsimp only [Lua.Vm.Sim.Kit.RetAt] at h

@@ -234,7 +234,7 @@ theorem at_8001e290_8001e29c (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.max
 theorem call_8001e29c (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (x y : List UInt8) (hsa : X.s.regs (X.ins.a + 0) = some (.str x)) (hsb : X.s.regs (X.ins.b + 0) = some (.str y)) :
     AtStep X 0x8001a704#64 (r4 X) m0 0x8001c670#64 (r5 X) m1 := by
   at_open
-  at_lstr Lua.Vm.Arms.seg_8001e29c_8001e2a4 Lua.Vm.Sim.At.le_obs
+  at_lstr Lua.Vm.Arms.seg_8001e29c_8001e2a4 Lua.Vm.Sim.At.obs_le
 
 theorem at_8001c670_8001c678 (X : Cx) (hX : X.Ok) :
     AtStep X 0x8001c670#64 (r5 X) m1 0x8001c678#64 (r6 X) m1 := by
