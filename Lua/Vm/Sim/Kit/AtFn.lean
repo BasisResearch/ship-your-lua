@@ -68,6 +68,11 @@ abbrev abiCx (sp : Nat) (r : BitVec 64) (f : Kit.AbiFrame) (m : Mem) (o : Array 
 macro "fcx_unfold" loc:(Lean.Parser.Tactic.location)? : tactic => `(tactic|
   simp only [at_row, abiCx, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] $[$loc]?)
 
+/-- A root's context facts (a generated `Ok` structure) from the summary's
+facts in context: each field by `assumption` or `omega` on the unfolded atoms. -/
+macro "fcx_ok" : tactic => `(tactic| (
+  constructor <;> (try fcx_unfold) <;> first | assumption | omega))
+
 /-- **The row of a callee**: at `pc`, pins `L`, memory `M`, the root's console. -/
 abbrev FAt (X : FCx) (pc : BitVec 64) (L : List Pin) (M : Mem) : Config → Prop :=
   SegSt pc L (ArmPay M X.o)
@@ -397,10 +402,12 @@ an address bound, or a guard the facts decide. -/
 syntax "fat_hyp" : tactic
 macro_rules
   | `(tactic| fat_hyp) => `(tactic| first
-    | assumption
+    | with_reducible assumption
     | omega
+    | ((try simp only [at_row, abiCx, FCx.mk', List.getD_cons_zero, List.getD_cons_succ])
+       with_reducible assumption)
     | (fat_cmp; done)
-    | (fat_rd; first | done | decide | assumption))
+    | (fat_rd; first | done | ground_decide | with_reducible assumption))
 
 /-- The arguments of an at-lemma for `fat_run`. -/
 def fatRunArgs (n : Name) : TermElabM (Array Term) := do
