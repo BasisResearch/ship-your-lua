@@ -1,6 +1,7 @@
 import Lua.Vm.Image
 import Vsa.Sim.CodeRangeInsert
 import Vsa.Sim.Code.FixedImage
+import Vsa.Sim.StoreHalf
 
 /-!
 # The Lua ELF's `.text` as the code predicate of the generated arm segments
@@ -11,7 +12,7 @@ import Vsa.Sim.Code.FixedImage
 generated pins (`Lua.Vm.Code.luaV_execute_at_<addr>` of the part
 `textLoaded_LuaV_execute_p<k>Loaded`), and the segment theorems of
 `Lua/Vm/Arms/Segs/*` carry it across every store with the three survival
-lemmas below: a store the site lemmas accept lies at or above
+lemmas below (`writeMap2`: `sh`, `Vsa/Sim/StoreHalf.lean`): a store the site lemmas accept lies at or above
 `tohostAddr + 16`, above the whole of `.text`.
 -/
 
@@ -46,5 +47,10 @@ theorem TextLoaded.insert {m : Std.ExtHashMap Nat (BitVec 8)} (h : TextLoaded m)
   Vsa.Sim.Code.FixedBytesLoaded.transport h fun a h1 h2 =>
     getElem?_insert_outside Image.textBase (Image.textBase + Image.textSize) m k v
       (Or.inr (by have := text_below_tohost; omega)) a h1 h2
+
+theorem TextLoaded.writeMap2 {m : Std.ExtHashMap Nat (BitVec 8)} (h : TextLoaded m)
+    {k : Nat} (d : BitVec (8 * 2)) (hk : tohostAddr + 16 ≤ k) :
+    TextLoaded (Vsa.Sim.writeMap2 m k d) :=
+  (h.insert _ hk).insert _ (by omega)
 
 end Lua.Vm.Arms

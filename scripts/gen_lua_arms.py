@@ -51,6 +51,7 @@ TEMPLATE = ("Lua.Vm.Code.luaV_execute_at_{addr} "
 CODE_IMPORTS = ["Lua.Vm.Code.FixedImage_LuaV_execute", "Lua.Vm.Arms.Text"]
 SURVIVAL = {"sd": "Lua.Vm.Arms.TextLoaded.writeMap8 $prev _ {hwin}",
             "sw": "Lua.Vm.Arms.TextLoaded.writeMap4 $prev _ {hwin}",
+            "sh": "Lua.Vm.Arms.TextLoaded.writeMap2 $prev _ {hwin}",
             "sb": "Lua.Vm.Arms.TextLoaded.insert $prev _ {hwin}"}
 JT = json.load(open(dfa.ARMS_JSON))["summary"]["jump_table"]
 # The arms with an A1 simulation proof (Lua/Vm/Sim/Arms, scripts/gen_lua_arm.py).
@@ -153,6 +154,12 @@ SUMMARISED |= {"luaV_objlen"}
 # stops: a console descriptor of an initialised table reaches none of them.
 HELPERS += [("_write", "_write", 0x80000ae8, 0x80000d80, [22, 26], [0x80000d40],
              [0x80000b04, 0x80000d3c, 0x80000b5c, 0x80000d58])]
+# lane F1-6: newlib's write path above it: `__swrite` (the `FILE`'s write
+# hook: clear `__SOFF`, tail-call `_write_r`; the `__SAPP` seek `0x80034f68` is a
+# stop: stdout is not opened for append) and `_write_r` (`errno = 0`, `_write`;
+# the `-1` path `0x8003b3f0` is a stop: the console write returns `n`).
+HELPERS += [("__swrite", "__swrite", 0x80034f18, 0x80034fa0, [22, 26], [], [0x80034f68]),
+            ("_write_r", "_write_r", 0x8003b3b0, 0x8003b40c, [22, 26], [], [0x8003b3f0])]
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -162,7 +169,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
            "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaT_adjustvarargs": set(), "luaV_objlen": set(),
-           "_write": {"x10"}}
+           "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"}}
 
 
 def helper_cfg(lo, hi):

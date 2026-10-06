@@ -177,13 +177,14 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # small helpers
 
-PIN_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sb": "store",
+PIN_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sh": "store", "sb": "store",
            "btaken": "btaken", "bnottaken": "bnottaken",
            "jal": "jal", "jr": "jr", "j": "jr"}
-OBS_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sb": "store",
+OBS_FAM = {"alu": "alu", "sd": "store", "sw": "store", "sh": "store", "sb": "store",
            "btaken": "btaken", "bnottaken": "bnottaken",
            "jal": "jal", "jr": "jr", "j": "jr"}
 STORE_FN = {"sd": ("writeMap8", "sdData_val"), "sw": ("writeMap4", "swData"),
+            "sh": ("writeMap2", "shData"),
             "sb": (None, None)}  # sb handled specially (insert)
 SEXT_K = {8: "sext_ff8_toNat", 16: "sext_ff0_toNat", 32: "sext_fe0_toNat",
           48: "sext_fd0_toNat", 64: "sext_fc0_toNat"}
@@ -404,7 +405,7 @@ class SegmentEmitter:
             f"{bv64(addr)}\n      {call}")
         obs = OBS_FAM[cls]
         # PC
-        if cls in ("alu", "sd", "sw", "sb", "bnottaken"):
+        if cls in ("alu", "sd", "sw", "sh", "sb", "bnottaken"):
             nxt = addr + 4
             self.lines.append(
                 f"  have hpc{k} : σ{k}.regs.get? Register.PC = some "
@@ -466,7 +467,7 @@ class SegmentEmitter:
             f"  obtain ⟨vmi{k}, hmi{k}⟩ := obs_{obs}_minstret hobs{k}")
         # memory threading
         pred = self.spec["loaded_pred"]
-        if cls in ("sd", "sw", "sb"):
+        if cls in ("sd", "sw", "sh", "sb"):
             prev = self.mem_expr if self.mem_expr is not None else \
                 self.spec["pre_bind"]["mem0"]
             key = self.subst(st["key"], k)

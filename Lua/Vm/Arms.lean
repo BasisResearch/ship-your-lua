@@ -116,6 +116,8 @@ import Lua.Vm.Arms.Segs.Hstrlen
 import Lua.Vm.Arms.Segs.HluaT_adjustvarargs
 import Lua.Vm.Arms.Segs.HluaV_objlen
 import Lua.Vm.Arms.Segs.Hwrite
+import Lua.Vm.Arms.Segs.Hswrite
+import Lua.Vm.Arms.Segs.Hwrite_r
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

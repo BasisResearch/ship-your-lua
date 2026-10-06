@@ -606,7 +606,7 @@ class Emitter:
         rs2, rs1, imm = int(s.fields[0]), int(s.fields[1]), int(s.fields[2], 16)
         if rs1 == 0:
             raise ValueError(f"line {s.lineno}: store with rs1=x0 unsupported")
-        mn = {8: "sd", 4: "sw", 1: "sb"}[nbytes]
+        mn = {8: "sd", 4: "sw", 2: "sh", 1: "sb"}[nbytes]
         ea = f"(v{rs1} + sign_extend (m := 64) (0x{imm:03x}#12))"
         v2 = vname(rs2)
         if nbytes == 8:
@@ -619,6 +619,11 @@ class Emitter:
                        f"(0x{s.addr:08x}#64)).mem\n"
                        f"        {ea}.toNat (swData {v2})")
             helper, hkind = "exec_sw", "map"
+        elif nbytes == 2:
+            mem_val = (f"writeMap2 (afterNextPC (afterPrelude σ) "
+                       f"(0x{s.addr:08x}#64)).mem\n"
+                       f"        {ea}.toNat (shData {v2})")
+            helper, hkind = "exec_sh", "map"
         else:
             mem_val = (f"((afterNextPC (afterPrelude σ) (0x{s.addr:08x}#64)).mem.insert\n"
                        f"        {ea}.toNat (stData 1 {v2}))")
@@ -671,6 +676,9 @@ class Emitter:
 
     def emit_sw(self, s: Site) -> str:
         return self._store(s, 4)
+
+    def emit_sh(self, s: Site) -> str:
+        return self._store(s, 2)
 
     def emit_sb(self, s: Site) -> str:
         return self._store(s, 1)
@@ -948,6 +956,7 @@ CLASS_EMITTERS = {
     "sd": "emit_sd",
     "sw": "emit_sw",
     "sb": "emit_sb",
+    "sh": "emit_sh",
     "jal": "emit_jal",
     "j": "emit_j",
     "jr": "emit_jr",
@@ -1049,6 +1058,8 @@ def emit_battery(sites: list, pred: str, accessor: str, imports_extra: list[str]
         imports.append("Vsa.Sim.RamReadPins")
     if any(s.cls.endswith("_tot") or s.cls.endswith("_totb") for s in sites):
         imports.append("Vsa.Sim.ExecLoadTotal")
+    if any(s.cls == "sh" for s in sites):
+        imports.append("Vsa.Sim.StoreHalf")
     if any(s.cls in NEEDS_STRCPY_SITES for s in sites):
         imports.append("Vsa.Sim.StrcpySites")
     imports.extend(m for m in imports_extra if m not in imports)
