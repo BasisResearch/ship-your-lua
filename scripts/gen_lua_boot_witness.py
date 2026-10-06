@@ -293,6 +293,7 @@ def evaluate(lay, M, regs, proto):
     need(rd(lay["symSglue"] + lay["glueIobsOff"], 8) == sf, "glue iobs")
     need(lay["symSfSize"] == 3 * fs, "__sf is three FILEs")
     need(all(rd(sf + i, 1) == 0 for i in range(lay["symSfSize"])), "__sf zero")
+    need(rd(lay["symAtexit"], 8) == 0, "__atexit")
     # ---- MemfsBoot
     need(rd(lay["symFsReady"], 4) == 0, "fs_ready")
     need(all(rd(lay["symFds"] + i, 1) == 0 for i in range(lay["symFdsSize"])), "fds zero")

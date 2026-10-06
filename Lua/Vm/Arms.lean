@@ -113,6 +113,20 @@ import Lua.Vm.Arms.Segs.Hstrcoll
 import Lua.Vm.Arms.Segs.Hstrcmp
 import Lua.Vm.Arms.Segs.Hstrlen
 import Lua.Vm.Arms.Segs.HluaT_adjustvarargs
+import Lua.Vm.Arms.Segs.HluaF_close
+import Lua.Vm.Arms.Segs.HluaF_closeupval
+import Lua.Vm.Arms.Segs.HluaD_poscall
+import Lua.Vm.Arms.Segs.HluaD_callnoyield
+import Lua.Vm.Arms.Segs.HluaD_rawrunprotected
+import Lua.Vm.Arms.Segs.HluaD_pcall
+import Lua.Vm.Arms.Segs.Hlua_pcallk
+import Lua.Vm.Arms.Segs.Hmain
+import Lua.Vm.Arms.Segs.Hstart
+import Lua.Vm.Arms.Segs.Hexit
+import Lua.Vm.Arms.Segs.Hcall_exitprocs
+import Lua.Vm.Arms.Segs.Hretarget_lock_acquire_recursive
+import Lua.Vm.Arms.Segs.Hretarget_lock_release_recursive
+import Lua.Vm.Arms.Segs.HUexit
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

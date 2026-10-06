@@ -99,6 +99,10 @@ def symMallocMallinfo : Nat := 0x8005e560
 def symBrk : Nat := 0x8005d3b8
 /-- `__stdio_exit_handler` — non-NULL once `__sinit` ran -/
 def symStdioExitHandler : Nat := 0x8005d3e0
+/-- `__atexit` — newlib's `atexit` list, read by `exit` → `__call_exitprocs` -/
+def symAtexit : Nat := 0x8005d450
+/-- `exit` — newlib's `exit`, `_start`'s tail after `main` -/
+def symCExit : Nat := 0x8002f85c
 /-- `__sglue` -/
 def symSglue : Nat := 0x8005cee0
 /-- `sizeof` of `__sglue` (`nm -S`) -/

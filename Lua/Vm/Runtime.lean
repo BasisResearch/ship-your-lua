@@ -127,6 +127,9 @@ structure StdioBoot (m : Mem) : Prop where
   /-- The three `FILE`s are still `.bss` zeros: `std()` writes most fields and
   relies on the others (`_ub`, `_lb`, `_nbuf`, `_offset`, `_mbstate`) being 0. -/
   files : ZeroAt m symSf symSfSize
+  /-- No `atexit` handler: `exit` → `__call_exitprocs` finds `__atexit = NULL`
+  (the `OP_RETURN*` chain's end, `FinalSim`). -/
+  atexit : rd64 m symAtexit = some 0
 
 /-- **htif.c's file system before `fs_init`.** `_write(1, …)` (from `__swrite`),
 and `_fstat(1)`/`_isatty(1)` (from `__smakebuf_r` at the first write) call

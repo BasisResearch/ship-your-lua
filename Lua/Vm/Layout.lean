@@ -58,6 +58,8 @@ def ciTrapOff : Nat := 40
 def ciNextraargsOff : Nat := 44
 /-- `offsetof(CallInfo, nresults)` -/
 def ciNresultsOff : Nat := 60
+/-- `offsetof(CallInfo, u2.nres)` — `OP_RETURN` with `k` stores the result count there -/
+def ciNresOff : Nat := 56
 /-- `offsetof(CallInfo, callstatus)` -/
 def ciCallstatusOff : Nat := 62
 /-- `offsetof(LClosure, p)` -/

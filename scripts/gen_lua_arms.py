@@ -133,11 +133,50 @@ HELPERS += [("luaS_eqlngstr", "LuaS_eqlngstr", 0x80017184, 0x800171d4, [], [], [
 SUMMARISED |= {"luaT_adjustvarargs"}
 HELPERS += [("luaT_adjustvarargs", "LuaT_adjustvarargs", 0x800197f0, 0x800198f0, [], [],
              [0x80019858, 0x800198bc])]
+# lane F1-4: the `OP_RETURN*` family (`FinalSim`: the return out of
+# `luaV_execute`, `CIST_FRESH`), its callees with nothing open
+# (`luaF_close`: `L->openupval = NULL`, the `bnez` to `0x8000c11c` a stop;
+# `L->tbclist < base`, the `bltu` not taken at `0x8000c264` a stop) and
+# `luaD_poscall` with no hooks and `wanted = 0` (`0x8000a3bc`, `0x8000a4d8`
+# stops), and the C return chain after `luaV_execute`'s `ret`: `ccall`'s tail,
+# `luaD_rawrunprotected`'s, `luaD_pcall`'s and `lua_pcallk`'s (status 0),
+# `main`'s, `_start`'s `j exit`, `exit` (`__call_exitprocs` with `__atexit =
+# NULL`, the `0x8003bb3c` loop a stop; no `__stdio_exit_handler`, its `jalr` a
+# stop), and `_exit` up to its `tohost` store
+SIM_OPS |= {"OP_RETURN", "OP_RETURN0", "OP_RETURN1"}
+SUMMARISED |= {"luaF_close", "luaF_closeupval", "luaD_poscall"}
+HELPERS += [("luaF_close", "LuaF_close", 0x8000c224, 0x8000c380, [22, 26], [], [0x8000c264]),
+            ("luaF_closeupval", "LuaF_closeupval", 0x8000c114, 0x8000c224, [22, 26], [],
+             [0x8000c11c]),
+            ("luaD_poscall", "LuaD_poscall", 0x8000a39c, 0x8000a5e8, [22, 26], [],
+             [0x8000a3bc, 0x8000a4d8]),
+            ("luaD_callnoyield", "LuaD_callnoyield", 0x8000b0bc, 0x8000b0e0, [22, 26], [], []),
+            ("luaD_rawrunprotected", "LuaD_rawrunprotected", 0x80009c38, 0x80009c60, [22, 26],
+             [], []),
+            ("luaD_pcall", "LuaD_pcall", 0x8000b4c0, 0x8000b4f0, [22, 26], [], []),
+            ("lua_pcallk", "Lua_pcallk", 0x8000413c, 0x80004154, [22, 26], [], []),
+            ("main", "Main", 0x80001808, 0x80001820, [22, 26], [], []),
+            ("_start", "_start", 0x80000038, 0x8000003c, [22, 26], [], []),
+            ("exit", "Exit", 0x8002f85c, 0x8002f888, [22, 26], [], [0x8002f87c]),
+            ("__call_exitprocs", "__call_exitprocs", 0x8003bb00, 0x8003bc70, [22, 26], [],
+             [0x8003bb3c]),
+            ("__retarget_lock_acquire_recursive", "__retarget_lock_acquire_recursive",
+             0x8003b428, 0x8003b42c, [22, 26], [], []),
+            ("__retarget_lock_release_recursive", "__retarget_lock_release_recursive",
+             0x8003b440, 0x8003b444, [22, 26], [], []),
+            ("_exit", "_exit", 0x8000063c, 0x8000064c, [22, 26], [], [])]
+# helper modules whose `H<name>` would collide (`exit`, `_exit`)
+HMOD = {"_exit": "HUexit"}
 # the registers a helper returns (live at its `ret`)
 RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
-           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaT_adjustvarargs": set()}
+           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaT_adjustvarargs": set(),
+           "luaF_close": set(), "luaF_closeupval": set(), "luaD_poscall": set(),
+           "luaD_callnoyield": set(), "luaD_rawrunprotected": {"x10"}, "luaD_pcall": {"x10"},
+           "lua_pcallk": {"x10"}, "main": {"x10"}, "_start": set(), "exit": set(),
+           "__call_exitprocs": set(), "__retarget_lock_acquire_recursive": set(),
+           "__retarget_lock_release_recursive": set(), "_exit": set()}
 
 
 def helper_cfg(lo, hi):
@@ -259,7 +298,7 @@ def helper_emit(fn, cap, lo, hi, specs, sites):
     for n, key in enumerate(sorted(sites), 1):
         p = sites[key].split("\t")
         objs.append(gen_sites.Site(int(p[0], 16), int(p[1], 16), p[2], p[3:], n))
-    mod = "H" + fn.lstrip("_")
+    mod = HMOD.get(fn, "H" + fn.lstrip("_"))
     battery = gen_sites.emit_battery(
         objs, PRED, "", [f"Lua.Vm.Code.FixedImage_{cap}", "Lua.Vm.Arms.Text"], "", NS,
         f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}Loaded hmem)",
@@ -382,7 +421,8 @@ def live_keep(arms, specs, sim, jal_end=frozenset()):
     for n in sim:
         em = gen_segment.SegmentEmitter(specs[n][1])
         em.emit()
-        end = int(re.match(r"\(?(0x[0-9a-f]+)#64", em.end_pc).group(1), 16)
+        m = re.match(r"\(?(0x[0-9a-f]+)#64", em.end_pc)
+        end = int(m.group(1), 16) if m else None    # a return (`OP_RETURN*`'s `ret`)
         if n in jal_end:
             end = int(n.split("_")[2], 16)
         info[n] = ({p["reg"] for p in specs[n][1]["pins"]}, {r for r, _ in em.pins}, end)
