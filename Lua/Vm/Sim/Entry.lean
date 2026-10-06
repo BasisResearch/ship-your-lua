@@ -421,6 +421,8 @@ structure EntryHead (c c1 : Vsa.Machine.Config) (L ci : Nat) : Prop where
   saved : ∀ (r v : Nat), (r, v) ∈ RuntimeData.calleeSavedEntry →
     bytesT8 c1.σ.mem (RuntimeData.spEntry - execFrame + savedOff r) = BitVec.ofNat 64 v
 
+-- discipline: allow(R7-conj-tower-def) the one existential is the run's end
+-- state, its facts the named-field structure `EntryHead`
 /-- **The first segment of the prologue runs** (`EntryHead`). -/
 theorem entry_head {c : Vsa.Machine.Config} {L ci : Nat} (hM : MachineAt c L ci)
     (hcs : CStackAt c.σ) (htick : c.tick < 2) : ∃ c1, EntryHead c c1 L ci := by
