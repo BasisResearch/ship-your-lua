@@ -66,7 +66,7 @@ abbrev abiCx (sp : Nat) (r : BitVec 64) (f : Kit.AbiFrame) (m : Mem) (o : Array 
 
 /-- The rows, memories and contexts unfolded to the summary's own terms. -/
 macro "fcx_unfold" loc:(Lean.Parser.Tactic.location)? : tactic => `(tactic|
-  simp only [at_row, abiCx, List.getD_cons_zero, List.getD_cons_succ] $[$loc]?)
+  simp only [at_row, abiCx, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] $[$loc]?)
 
 /-- **The row of a callee**: at `pc`, pins `L`, memory `M`, the root's console. -/
 abbrev FAt (X : FCx) (pc : BitVec 64) (L : List Pin) (M : Mem) : Config → Prop :=
@@ -385,6 +385,7 @@ theorem fbne {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
 
 /-- A guard between two `Nat`-valued registers, as a fact about the `Nat`s. -/
 macro "fat_cmp" : tactic => `(tactic| (
+  try simp only [at_row, abiCx, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
   simp (disch := omega) only [fult, fuge, fbeq, fbne, Bool.not_eq_true', decide_eq_true_eq,
     decide_eq_false_iff_not, Bool.not_eq_false', Bool.not_eq_true]
   try omega))
