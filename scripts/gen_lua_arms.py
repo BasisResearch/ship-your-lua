@@ -144,11 +144,25 @@ HELPERS += [("luaT_adjustvarargs", "LuaT_adjustvarargs", 0x800197f0, 0x800198f0,
 # stops: `δ .len` has no other F1 value
 HELPERS += [("luaV_objlen", "LuaV_objlen", 0x8001bae0, 0x8001bc28, [], [], [0x8001bb14, 0x8001bb78])]
 SUMMARISED |= {"luaV_objlen"}
+# lane F1-6: htif.c's `_write` on a console descriptor (`getfd`, the
+# `htif_putc` loop). The `tohost` store `0x80000d3c` is MMIO, not a memory
+# store: it is a stop, and the loop resumes at the root `0x80000d40` after the
+# console step (`Kit/Console.lean`). The lazy `fs_init` (`0x80000b04`: on
+# `print`'s path `__smakebuf_r`'s `_fstat` ran it first), the file path
+# (`0x80000b5c`, `kind == FD_FILE`) and the `EBADF` exit (`0x80000d58`) are
+# stops: a console descriptor of an initialised table reaches none of them.
+HELPERS += [("_write", "_write", 0x80000ae8, 0x80000d80, [22, 26], [0x80000d40],
+             [0x80000b04, 0x80000d3c, 0x80000b5c, 0x80000d58])]
+# `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
+# `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
+# liveness flows through it to the root after it.
+TOHOST_SEAMS = {0x80000d3c: {"x12", "x15"}}
 # the registers a helper returns (live at its `ret`)
 RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
-           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaT_adjustvarargs": set(), "luaV_objlen": set()}
+           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaT_adjustvarargs": set(), "luaV_objlen": set(),
+           "_write": {"x10"}}
 
 
 def helper_cfg(lo, hi):
@@ -225,7 +239,10 @@ def helper_live(cuts, owner):
             # a computed jump (a jump table): its targets are the helper's roots
             return set().union(*[live[m] for m in cuts
                                  if owner[m] == owner[n] and cuts[m][0] in roots[owner[n]]])
-        return set().union(*[live[m] for m in cuts if cuts[m][0] == info[n][2]])
+        end = info[n][2]
+        if end in TOHOST_SEAMS:     # the console store, then the code after it
+            return TOHOST_SEAMS[end] | set().union(*[live[m] for m in cuts if cuts[m][0] == end + 4])
+        return set().union(*[live[m] for m in cuts if cuts[m][0] == end])
     changed = True
     while changed:
         changed = False
