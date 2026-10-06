@@ -118,6 +118,47 @@ theorem PartialView.segsAt {m : Mem} {v : View} (h : PartialView m v)
     {segs : List (Nat × List UInt8)} (hc : segsOk v segs = true) : SegsAt m segs :=
   fun s hs => h.bytesAt (List.all_eq_true.mp hc s hs)
 
+/-! ## Views of a memory after stores, and away from a set -/
+
+/-- `v` with `n` little-endian bytes of `x` at `a` (`writeLE`). -/
+def View.writeLE (v : View) (a n x : Nat) : View := fun k =>
+  if a ≤ k ∧ k < a + n then some (BitVec.ofNat 8 (x / 256 ^ (k - a))) else v k
+
+theorem PartialView.writeLE {m : Mem} {v : View} (h : PartialView m v) (a n x : Nat) :
+    PartialView (Lua.Vm.writeLE m a n x) (v.writeLE a n x) := by
+  intro k b hk
+  simp only [View.writeLE] at hk
+  rw [getElem?_writeLE]
+  split at hk
+  · rw [if_pos ‹_›]; exact hk
+  · rw [if_neg ‹_›]; exact h k b hk
+
+/-- `v` without the bytes of `D`. -/
+def View.minus (v : View) (D : Nat → Prop) [DecidablePred D] : View := fun k =>
+  if D k then none else v k
+
+/-- **A view away from `D`** is a partial view of every memory that agrees with
+`m` outside `D`. -/
+theorem PartialView.minus {m : Mem} {v : View} (h : PartialView m v) (D : Nat → Prop)
+    [DecidablePred D] {m' : Mem} (hm : ∀ a, ¬ D a → m'[a]? = m[a]?) :
+    PartialView m' (v.minus D) := by
+  intro k b hk
+  simp only [View.minus] at hk
+  split at hk
+  · cases hk
+  · rw [hm k ‹_›]; exact h k b hk
+
+open Lua.Vm.Layout in
+/-- **The view after `OP_VARARGPREP`'s stores** (`varargMemV`). -/
+def postView (v : View) (ci func cl top : Nat) : View :=
+  ((((v.writeLE (ci + ciNextraargsOff) 4 0).writeLE (func + stackValueSize) 8 cl).writeLE
+    (func + stackValueSize + tvalueTagOff) 1 vLcl).writeLE (ci + ciFuncOff) 8
+    (func + stackValueSize)).writeLE (ci + ciTopOff) 8 (top + stackValueSize)
+
+theorem PartialView.varargMemV {m : Mem} {v : View} (h : PartialView m v) (ci func cl top : Nat) :
+    PartialView (Lua.Vm.varargMemV m ci func cl top) (postView v ci func cl top) :=
+  ((((h.writeLE _ _ _).writeLE _ _ _).writeLE _ _ _).writeLE _ _ _).writeLE _ _ _
+
 /-- Reading a whole segment's word back: a read inside a pinned segment. -/
 theorem BytesAt.rdLE {m : Mem} {a : Nat} {bs : List UInt8} (h : BytesAt m a bs) {o n x : Nat}
     (hc : rdLEf (fun k => if a ≤ k ∧ k < a + bs.length then

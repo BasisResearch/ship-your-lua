@@ -71,6 +71,8 @@ SIM_OPS = {"OP_MOVE", "OP_LOADI", "OP_JMP", "OP_ADD", "OP_EQI", "OP_FORLOOP", "O
            "OP_SHLI", "OP_SHRI", "OP_BANDK", "OP_BORK", "OP_BXORK"}
 # lane KIT-2: the control and compare family
 SIM_OPS |= {"OP_FORPREP", "OP_LOADNIL", "OP_EQK", "OP_LT", "OP_LE"}
+# lane F1-3: `OP_VARARGPREP` at the entry (`luaT_adjustvarargs` a summarised call)
+SIM_OPS |= {"OP_VARARGPREP"}
 KEEP = [2, 3, 8, 9, 18, 19, 20, 21, 23, 24, 25, 27]
 # The register invariant a `sim` segment threads (every GPR present, the HTIF
 # mailbox idle: `VmRel`'s `Core.ok`), one step lemma per step class.
@@ -125,11 +127,17 @@ HELPERS += [("luaS_eqlngstr", "LuaS_eqlngstr", 0x80017184, 0x800171d4, [], [], [
             ("strcoll", "Strcoll", 0x80036374, 0x80036378, [], [], []),
             ("strcmp", "Strcmp", 0x8003b920, 0x8003ba4c, [], [], []),
             ("strlen", "Strlen", 0x8003b770, 0x8003b844, [], [], [])]
+# lane F1-3: `luaT_adjustvarargs(L, 0, ci, p)` at the entry: no fixed
+# parameters (the copy loop `0x80019858` is a stop: `A = 0`, `blez` taken) and
+# room on the stack (the `luaD_growstack` call `0x800198bc` is a stop)
+SUMMARISED |= {"luaT_adjustvarargs"}
+HELPERS += [("luaT_adjustvarargs", "LuaT_adjustvarargs", 0x800197f0, 0x800198f0, [], [],
+             [0x80019858, 0x800198bc])]
 # the registers a helper returns (live at its `ret`)
 RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
-           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}}
+           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaT_adjustvarargs": set()}
 
 
 def helper_cfg(lo, hi):

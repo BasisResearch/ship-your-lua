@@ -37,10 +37,10 @@ theorem steps_lt {a b : Config} (h : Steps a b) (hne : a ≠ b) : a.steps < b.st
   | refl => exact absurd rfl hne
   | head s r => have := s.steps_succ; have := r.steps_le; omega
 
-/-- **The dispatch lemma.** -/
-theorem dispatch {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelAt p c s w)
+/-- **The dispatch lemma**, with the memory unchanged (`dispatch`). -/
+theorem dispatchM {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelAt p c s w)
     {ins : Word} (hf : p.fetch s.pc = some ins) (hop : ins.opNum < Arms.jtEntries) :
-    ∃ c', Steps c c' ∧ c.steps < c'.steps ∧ ArmAt p c' s w ins := by
+    ∃ c', Steps c c' ∧ c.steps < c'.steps ∧ ArmAt p c' s w ins ∧ c'.σ.mem = c.σ.mem := by
   have hc := hR.core
   have hr := hc.ranges
   have hlt := fetch_lt hf
@@ -123,7 +123,14 @@ theorem dispatch {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelA
     rw [h, hpc', Option.some.injEq] at h1
     exact armTarget_ne_head _ hop h1
   exact ⟨c', hs, steps_lt hs hne,
-    ⟨hc.jump hpost hpins hpost.armMem, hpc', hs3, hs4⟩⟩
+    ⟨hc.jump hpost hpins hpost.armMem, hpc', hs3, hs4⟩, hpost.armMem⟩
+
+/-- **The dispatch lemma.** -/
+theorem dispatch {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hR : VmRelAt p c s w)
+    {ins : Word} (hf : p.fetch s.pc = some ins) (hop : ins.opNum < Arms.jtEntries) :
+    ∃ c', Steps c c' ∧ c.steps < c'.steps ∧ ArmAt p c' s w ins :=
+  let ⟨c', h1, h2, h3, _⟩ := dispatchM hR hf hop
+  ⟨c', h1, h2, h3⟩
 
 /-- A non-empty run to the head is a positive `StepsN` run to `VmRel`. -/
 theorem sim_of_run {p : Proto} {c : Config} {s' : State} {w : RelPtrs}

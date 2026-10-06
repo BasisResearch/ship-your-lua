@@ -297,10 +297,11 @@ theorem Supported.defInit {p : Proto} (h : Supported p) : DefInit p (defMask p) 
 /-! ## The certificate is the kernels' generic `Cert` -/
 
 /-- The edges of an instruction that has a kernel are its kernel's edges,
-all in range. -/
-theorem edges_of_kernel {p : Proto} {pc : Nat} {K : Kernel Value} (hK : kernelAt p pc = some K)
-    (hne : edges p pc ≠ none) :
-    edges p pc = some (K.edges.map KEdge.toEdge) ∧ ∀ e ∈ K.edges, e.tgt < p.code.length := by
+all in range and none into the entry pc 0. -/
+theorem edges_of_kernel_pos {p : Proto} {pc : Nat} {K : Kernel Value}
+    (hK : kernelAt p pc = some K) (hne : edges p pc ≠ none) :
+    edges p pc = some (K.edges.map KEdge.toEdge) ∧
+      ∀ e ∈ K.edges, 0 < e.tgt ∧ e.tgt < p.code.length := by
   obtain ⟨w, hw, hK⟩ := Option.bind_eq_some_iff.1 hK
   unfold edges at hne ⊢
   simp only [hw, hK] at hne ⊢
@@ -309,6 +310,13 @@ theorem edges_of_kernel {p : Proto} {pc : Nat} {K : Kernel Value} (hK : kernelAt
     exact ⟨by simp only [hall, ↓reduceIte],
       fun e he => of_decide_eq_true (List.all_eq_true.1 hall e he)⟩
   · exact absurd rfl hne
+
+/-- The edges of an instruction that has a kernel are its kernel's edges,
+all in range. -/
+theorem edges_of_kernel {p : Proto} {pc : Nat} {K : Kernel Value} (hK : kernelAt p pc = some K)
+    (hne : edges p pc ≠ none) :
+    edges p pc = some (K.edges.map KEdge.toEdge) ∧ ∀ e ∈ K.edges, e.tgt < p.code.length :=
+  ⟨(edges_of_kernel_pos hK hne).1, fun e he => ((edges_of_kernel_pos hK hne).2 e he).2⟩
 
 theorem DefInit.total' {p : Proto} {M : Nat → Nat} (hD : DefInit p M) {pc : Nat}
     {K : Kernel Value} (hK : kernelAt p pc = some K) : edges p pc ≠ none :=
@@ -339,6 +347,12 @@ theorem DefInit.pc_lt (hD : DefInit p M) {s s' : State} (h : Step H p s s') :
     s'.pc < p.code.length := by
   obtain ⟨hK, -, -, he⟩ := h
   exact (edges_of_kernel hK (hD.total' hK)).2 _ (List.mem_of_getElem? he)
+
+/-- Every step of a supported program leaves the entry pc 0 for good: no
+edge targets it (`edges`). -/
+theorem DefInit.pc_pos (hD : DefInit p M) {s s' : State} (h : Step H p s s') : 0 < s'.pc := by
+  obtain ⟨hK, -, -, he⟩ := h
+  exact ((edges_of_kernel_pos hK (hD.total' hK)).2 _ (List.mem_of_getElem? he)).1
 
 /-- **The invariant, one step.** Two states at the same pc that agree on
 that pc's mask step (in lockstep) to states that agree on the successor's

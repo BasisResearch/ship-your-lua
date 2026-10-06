@@ -357,6 +357,25 @@ string's header, so the fact is keyed to the in-use chunks. -/
 def KOwned (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop :=
   ∀ i ts s, KStrAt m w.k w.sizek i ts s → ∃ c, StrChunkAt L ci w c ts s.length
 
+/-- The witness after `OP_VARARGPREP` at the entry: `ci->func` and `ci->top` one
+slot up (`luaT_adjustvarargs` with no arguments). -/
+def RtPtrs.vmoved (w : RtPtrs) : RtPtrs :=
+  { w with func := w.func + stackValueSize, ciTop := w.ciTop + stackValueSize }
+
+/-- The memory after `OP_VARARGPREP` at the entry (`varargMemV`), for the
+witness `w`. -/
+abbrev varargMem (m : Mem) (ci : Nat) (w : RtPtrs) : Mem := varargMemV m ci w.func w.cl w.ciTop
+
+/-- **The memory structures A1's relation keeps**, at a memory `m`: the heap,
+the Lua state, the error handler, the regions and the string constants. -/
+structure RtPostAt (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
+  heap : DlHeap.HeapAt m w.top w.brkv w.chunks (fun i => w.bins.getD i [])
+  lua : LuaStateAt m L ci w
+  error_jmp : ErrorJmpAt m L
+  regions : VmRegionsAt m L ci w
+  interned : KInterned m w.k w.sizek
+  kowned : KOwned m L ci w
+
 /-- **The runtime at `luaV_execute`'s entry**, for the witness `w`. -/
 structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
   harness : HarnessAt c
@@ -378,6 +397,12 @@ structure RuntimeReadyAt (c : Config) (L ci : Nat) (w : RtPtrs) : Prop where
   regions : VmRegionsAt c.σ.mem L ci w
   interned : KInterned c.σ.mem w.k w.sizek
   kowned : KOwned c.σ.mem L ci w
+  /-- **After `OP_VARARGPREP`** (pc 0 of every main chunk): the same structures
+  hold at the memory `luaT_adjustvarargs` leaves (`varargMem`), for the moved
+  `ci->func` and `ci->top` (`RtPtrs.vmoved`). The CallInfo and the Lua stack are
+  `l_alloc` blocks of their own, so the stores miss every other object; the
+  boot witness checks it at the stored bytes (`postView`). -/
+  vararg : RtPostAt (varargMem c.σ.mem ci w) L ci w.vmoved
 
 /-- **`luaRuntimeReady`**: some choice of the program-dependent pointers and
 heap shape makes the runtime ready. -/

@@ -151,14 +151,17 @@ def noSucc (w : Word) : Bool :=
 
 /-- Outgoing edges of the instruction at `pc` (its kernel's edges), `none`
 if it has no kernel (outside the fragment, or a side condition fails) or a
-target is out of range. -/
+target is out of range. No target is pc 0: the entry instruction
+(`OP_VARARGPREP` in every main chunk `luac` emits) runs once, at the entry
+state (`DefInit.pc_pos`). -/
 def edges (pc : Nat) : Option (List Edge) :=
   match p.fetch pc with
   | none => none
   | some w =>
     match kernel p pc w with
     | some K =>
-      if K.edges.all (fun e => decide (e.tgt < p.code.length)) then some (K.edges.map KEdge.toEdge)
+      if K.edges.all (fun e => decide (0 < e.tgt ∧ e.tgt < p.code.length)) then
+        some (K.edges.map KEdge.toEdge)
       else none
     | none => if noSucc w then some [] else none
 

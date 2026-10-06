@@ -25,9 +25,10 @@ Every row is currently unassigned.
 |---|---|---|---|
 | `VmLayout.runtimeReady` concrete instance `luaLayout` | `Lua/Vm/Runtime.lean` | A0 | **defined** (`luaRuntimeReady`); every field holds at both traced entries (checked natively by `gen_lua_boot_witness.py`) |
 | `VmLoaded luaLayout p (fillZero c)` at real entry states (boot witness) | `Lua/Vm/Boot/` | A0 | **proved** for `while.lua` and `f1_ops.lua` (`vmLoaded_while_entry`, `vmLoaded_f1Ops_entry`, `Lua/Vm/Boot/Witness/`), for every state with the traced registers (`EntryRegs`) and the boot memory; the register file itself is a hypothesis (A0.6) |
-| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open; **proved**: the relation `VmRel`, `dispatch`, and 25 arms `sim_<OP>` (MOVE, LOADI, JMP, ADD, SUB, ADDI, ADDK, SUBK, BAND, BOR, BXOR, EQI, LTI, GTI, LEI, GEI, TEST, TESTSET, NOT, BNOT, LOADK, LOADTRUE, LOADFALSE, LFALSESKIP, FORLOOP) (A1 status) |
-| `vmRel_final_Statement` (the `RETURN*` arms: from `VmRel` at a `Final` state the machine halts with `s.out`) | `Lua/Vm/Sim/Rel.lean` | A1 | open: the `Final` clause of the fold, not a `sim_<OP>` (the return chain's callee contracts) |
+| `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open, **reduced to named premises**: `vm_refinement_of_open : OpenArms → FinalSim → StuckSim → vm_refinement_Statement luaLayout` (`Lua/Vm/Sim/Fold.lean`, lane F1-3). Discharged inside it: the entry (`entrySim`), `VARARGPREP` (`Kit.varargSim`) and the 34 proved arms (`armTable`: the 25 generated `sim_<OP>`, `Kit.sim_{MUL,MULK,MOD,LOADNIL,EQ,LT}`, `At.sim_{MODK,IDIV,FORPREP}`). Left: the 18 fields of `OpenArms` (GETTABUP, SHL, SHR, SHRI, SHLI, IDIVK, BANDK, BORK, BXORK, MMBIN, MMBINI, MMBINK, UNM, LEN, CONCAT, CALL, and the open paths of EQK (two long strings) and LE (two strings)), `FinalSim` and `StuckSim` (rows below) |
+| `vmRel_final_Statement` / `FinalSim` (the `RETURN*` arms: from `VmRel` at a reachable `Final` state the machine halts with code 0 and console `s.out`) | `Lua/Vm/Sim/Rel.lean`, `Lua/Vm/Sim/Fold.lean` | A1 | open, **not provable from `VmRel` as it stands**: the return runs `luaV_execute`'s epilogue (`ld ra,168(sp)`, `ld s0…s11`), but `VmRel` leaves its C frame free (it is in `Win`), and its `Complement` states nothing about the caller frames above `sp` (`CStackAt.callers` at the entry) that `ccall`, `luaD_rawrunprotected`, `lua_pcallk` and `main` return through; then newlib `exit` (`__call_exitprocs`, the stdio cleanup) and `_exit`'s `tohost` store. Needed first: `Core` keeping the 13 saved words of the C frame (no arm writes `72…175(sp)`; only the prologue does) and `Complement` keeping `RuntimeData.callerFrames`; then summaries of `luaF_close` (no open upvalues, `tbclist` below `base`), `luaD_poscall` (`wanted = 0`), the C returns and `exit` (A1 bullet) |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
+| `StuckSim` (`stuck_sim`'s error paths: from `VmRel` at a reachable state that is neither final nor stepping, the machine diverges or halts nonzero) | `Lua/Vm/Sim/Fold.lean` | A1 | open: `luaG_opinterror`/`luaG_forerror`/`luaG_typeerror`/`luaG_ordererror`/the `MMBIN*` miss/a non-`print` call → `luaD_throw` → `longjmp` (`ErrorJmpAt`) → `lua_pcallk` → `main` returns 2 → `exit` |
 | `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | `sim_MOD_Statement` proved on the KIT branch (`Lua.Vm.Sim.Kit.sim_MOD`, with `sim_MUL`); `sim_MODK_Statement` proved (`Kit.sim_MODK`, with `Kit.sim_MULK`; kit lane 1, `abstractions/ledger/kit-arms-1.md`); `sim_EQ_Statement` proved (`Kit.sim_EQ`: `Kit.eq_long` closes `Kit.sim_EQ_of_long` through `luaS_eqlngstr`/`memcmp` summaries on BASE-S's owned strings; round-4 S-SCAN, `abstractions/bakeoff4/S-SCAN.md`); `sim_EQK_Statement` proved but for two long strings (`Kit.eqk_short`, `Kit.sim_EQK_of_long`; the same call node as `eq_long`, with `K[B]`); the others open |
 | `SimArm .LT`, `SimArm .LE` on two strings (the premise of `Kit.sim_LT_of_str`, `Kit.sim_LE_of_str`; integers and the stuck cases proved: `lt_int`, `lt_stuck`, `le_int`, `le_stuck`) | `Lua/Vm/Sim/Kit/{Lt,Le,LtStr}.lean` | A1 | `SimArm .LT` proved (`Kit.sim_LT`: `Kit.lt_str` through `Kit.lstrcmp_sum`, `strcmp_sum`, `strlen_sum`; round-4 S-SCAN); `SimArm .LE` open: the same call node, observed by `slti a0, 1` (zero-ness and sign of `CmpObs`), so `lstrcmp_sum`'s answer must also state `a0 ≤ 0 ↔ ¬ lexLt b a` |
 | `SimArm .FORPREP` | — | A1 | open (lane KIT-2 stopped at the gate): `luaV_tointeger`'s integer summary `Kit.toint_sum` and the C-frame close `Core.bleachF` are proved; the arm's run (8 segments, two call nodes) exceeds the default heartbeat budget in one declaration and needs a split at the call with an abstract mid-state memory (`abstractions/ledger/kit-arms-2.md`) |
@@ -212,6 +213,13 @@ instances, however, are at the WHILE ELF's addresses.
      * `TStringRepr.long` (round-4 BASE-S) carries `shrlen = 0xFF` (`+11`,
        `luaS_createlngstrobj`; `l_strcmp` branches on it at `0x8001a720`),
        checked by `tstrCheck` and the generator's `check_tstring`.
+     * `RuntimeReadyAt.vararg` and `VmEntryData.vararg_room`/`vararg_proto`
+       (lane F1-3): the runtime after `OP_VARARGPREP`'s stores
+       (`varargMem`, `RtPtrs.vmoved`), the stack room `luaD_checkstack` needs,
+       and the prototype apart from the `CallInfo` and the copied slot
+       (`VarargDirty`); checked in the kernel only (`RtPostChecks` over
+       `postView`, `entryCheck` over `View.minus`), not by the generator's
+       native evaluation.
    * `luaLayout : VmLayout := ⟨luaRuntimeReady⟩`. The boot-invariant values it
      pins (entry `sp`/`ra`, the `jmp_buf`, the caller frames, the return
      chain, `nCcalls`) are `Lua/Vm/RuntimeData.lean`. The offsets are
@@ -443,6 +451,44 @@ covers the new stages.
       segment through `gen_segment.py`'s `"ok"` option);
     * the constant array: `Core.kptr` (`0(sp) = k`), `Complement.kconst`,
       `Ranges.k_*`/`frame_sep` (`VmRegionsAt.k*`, checked natively).
+  * **The fold (lane F1-3, `Lua/Vm/Sim/Fold.lean`).** `fold_sim` is `Refine.Sim`
+    from a relation and four clauses at reachable states (`FoldSim`: a step is a
+    non-empty run, a final state halts with 0, a stuck state diverges or halts
+    nonzero), by induction on the bytecode run; divergence of an unending run is
+    by strong induction on the step count. Its instance `vmSim_of_arms` takes the
+    arm table `∀ o ∈ armOps, SimArm o` (`armOps` = every opcode `opKernel` gives a
+    kernel, `kernelOps`, but `VARARGPREP`), `EntrySim`, `VarargSim`, `FinalSim`,
+    `StuckSim`; `armTable` discharges the 34 proved arms from `OpenArms`, so
+    `vm_refinement_of_open : OpenArms → FinalSim → StuckSim →
+    vm_refinement_Statement luaLayout`. `fillZero` enters only in
+    `vm_refinement_of_sim`; `Supported` through `VmLoadedSupported`.
+  * **`VARARGPREP` (proved, `Kit.varargSim`).** `SimArm .VARARGPREP` is not the
+    obligation: `luaT_adjustvarargs` reads `L->top`, which `VmRel` leaves free
+    (`Scratch`), so from a general `VmRel` state the move of `ci->func` is
+    unknown, and an `A > 0` copies uninitialised parameters. So:
+    * the kernel admits `VARARGPREP` only at pc 0 with `A = 0` (`lparser.c`
+      `mainfunc`: `setvararg(fs, 0)`), and `supportedB` rejects every edge into
+      pc 0 (`edges`; `DefInit.pc_pos`), so the one reachable state at a
+      `VARARGPREP` is the entry state (`reach_pc_zero`); the corpus stays
+      `Supported`;
+    * the entry-only facts are `FreshAt` (`Lua/Vm/Sim/Vararg.lean`), proved at the
+      fetch head by `entry_fresh` (from `entry_at`, `vmRel_entry` factored, and
+      `relParts`, the complement and ranges from `ProtoAt` and `RtPostAt`);
+    * the relation after the move: the entry contract now says the runtime is
+      ready also at the memory the stores leave (`RuntimeReadyAt.vararg` at
+      `varargMem`, for `RtPtrs.vmoved`; `VmEntryData.vararg_room` (no
+      `luaD_growstack`) and `vararg_proto` (the prototype framed away from the
+      `CallInfo` and the copied slot, `VarargDirty`)). The boot witness checks
+      both at `postView`/`View.minus` (`RtPostChecks`, `entryCheck`); the two
+      traced entries pass (each witness ≈ 5 min, 3.3 GB);
+    * the run: `dispatchM` (dispatch, memory unchanged), the segment-local
+      lemmas `vp1` (to the call), the call node `Kit.adjvar_sum` (three
+      segment-local lemmas over the generated `HluaT_adjustvarargs` segments,
+      `av_guard` for `luaD_checkstack`), `vp2` (`trap`), `vp3` (`updatebase`),
+      and the close `vclose` at `w.vmoved ι`, its memory frame `vmem_frame`.
+    The at-lemma generator does not express this arm: its close `AtFin.close`
+    keeps `w`, `ld a3,24(a5)` loads through a loaded pointer (`gen_lua_at.py`
+    `addr_of` stops), and `lw`/`sw` have no `Loc`/`Ent`.
   * **Open, with what each needs:**
     * callee contracts at Lua addresses: `MUL`/`MULK`/`MOD`/`MODK` are
       proved on the kit (`Kit/{Mul,Mulk,Mod,Modk}.lean`). `IDIV`/`IDIVK`
@@ -454,8 +500,7 @@ covers the new stages.
     * callee contracts in `luaV_execute`'s callees: `EQ`/`EQK`
       (`luaV_equalobj`), `LT`/`LE` (`lessthanothers` → `l_strcmp` on two
       strings), `UNM` (a numeric string: `luaT_trybinTM` → the string
-      library's `__unm`), `VARARGPREP` (`luaT_adjustvarargs`, which moves
-      `ci->func`: `VmRel` is re-established with a new `func`);
+      library's `__unm`) (`VARARGPREP` is proved: `Kit.varargSim`, above);
     * `BANDK`/`BORK`/`BXORK`: the arm reads `K[C]`'s payload without a tag
       test (`lvm.c` `op_bitwiseK`: `ivalue(KC(i))`; `lcode.c` `codebitwise`
       emits a `K` operand only for a `VKINT` constant), so their kernel is
@@ -473,7 +518,7 @@ covers the new stages.
       heap, string interning (`luaS_newlstr`) and `StdioBoot`/`MemfsBoot`
       evolving in the complement, the `trap` reload; `GETTABUP` (the
       `_ENV.print` lookup) is its companion;
-    * the error paths (`stuck_sim`) and the `term_sim`/`stuck_sim` fold.
+    * the error paths (`StuckSim`, Obligations).
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
 

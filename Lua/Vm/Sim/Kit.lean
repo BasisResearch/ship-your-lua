@@ -23,6 +23,8 @@ import Lua.Vm.Sim.Kit.AtBork
 import Lua.Vm.Sim.Kit.AtBxork
 import Lua.Vm.Sim.Kit.EqLong
 import Lua.Vm.Sim.Kit.LtStr
+import Lua.Vm.Sim.Kit.Adjvar
+import Lua.Vm.Sim.Kit.Varargprep
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

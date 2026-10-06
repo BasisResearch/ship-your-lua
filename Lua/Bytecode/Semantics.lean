@@ -496,8 +496,13 @@ def opKernel : OpCode → Option (Kernel Value)
   | .FORPREP => some (forprepK pc w)
   | .FORLOOP => (jumpTo (pc + 1) (-(w.bx : Int))).map (forloopK pc w)
   | .CALL => if w.b ≠ 0 ∧ w.c ≠ 0 then some (callK p pc w) else none
-  -- the main chunk receives no arguments: no-op on the register window
-  | .VARARGPREP => some (jump (pc + 1))
+  -- the main chunk receives no arguments: no-op on the register window.
+  -- Only as the main chunk's first instruction, with no fixed parameters
+  -- (`lparser.c` `mainfunc`: `setvararg(fs, 0)`). `luaT_adjustvarargs` counts
+  -- `L->top - ci->func - 1` actual arguments and moves `ci->func` past them;
+  -- that is a no-op on the window only at the entry (`L->top = func + 1`),
+  -- and `supportedB` rejects every edge into pc 0 (`edges`), so it runs once.
+  | .VARARGPREP => if pc = 0 ∧ w.a = 0 then some (jump (pc + 1)) else none
   | _ => none
 
 /-- The kernel of the instruction word `w` at `pc`. -/
