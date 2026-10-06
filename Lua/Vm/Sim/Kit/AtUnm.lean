@@ -36,13 +36,12 @@ def UnmStr_Statement : Prop := ArmBody .UNM RegStr
 theorem unm_int : ArmBody .UNM RegInt := by at_unary_int Lua.Vm.At.UNM 0x8001d8a4
 
 /-- Neither an integer nor a string: no `Step` (`δ .unm` is `none`). -/
-theorem unm_stuck : ArmBody .UNM fun p c s w ins =>
-    ¬ RegInt p c s w ins ∧ ¬ RegStr p c s w ins ∧ ¬ FltB p s ins := by
+theorem unm_stuck : ArmBody .UNM UnaryOther := by
   at_unary_stuck 0x8001d8a4
 
 /-- **`OP_UNM`** on the location-list route, given the string path. -/
 theorem sim_UNM_of_str (hstr : UnmStr_Statement) :
-    SimArmOn .UNM fun p s ins => ¬ FltB p s ins :=
+    SimArmOn .UNM (Off FltB) :=
   sim_unary (by decide) unm_int hstr unm_stuck
 
 end Lua.Vm.Sim.At

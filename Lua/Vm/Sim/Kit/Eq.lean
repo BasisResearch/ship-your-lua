@@ -43,7 +43,8 @@ set_option hygiene false in
 local macro_rules
   | `(tactic| kit_bv_norm) => `(tactic| try simp only [kraw_eq])
 
-theorem eq_skip : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧ ¬ FltAB p s ins ∧
+theorem eq_skip : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
+    ¬ FltAB p s ins ∧
     ∀ va vb, s.regs ins.a = some va → s.regs ins.b = some vb → ins.k ≠ decide (va = vb) :=
   fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hl, hN, hkk⟩ => by
   kit_setup 0x8001c690
@@ -76,7 +77,8 @@ theorem eq_skip : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧ ¬ FltA
   simp only [trap_zero] at h0
   exact ⟨_, acc, hc.bleach_same h0 (by kit_pins h0) (by kit_frame), h0.pcAt⟩
 
-theorem eq_take : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧ ¬ FltAB p s ins ∧
+theorem eq_take : ArmBody .EQ fun p c s w ins => EqShort p c s w ins ∧
+    ¬ FltAB p s ins ∧
     ∀ va vb, s.regs ins.a = some va → s.regs ins.b = some vb → ins.k = decide (va = vb) :=
   fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hl, hN, hkk⟩ => by
   kit_setup 0x8001c690
@@ -132,7 +134,7 @@ supplied; `abstractions/bakeoff3/KIT.md` records why `VmRel` cannot supply it
 (a string's bytes are described in the complement `w.mo` only, and nothing
 places them outside the window, where the machine's `memcmp` reads them). -/
 theorem sim_EQ_of_long (hlong : ArmBody .EQ fun p c s w ins => ¬ EqShort p c s w ins) :
-    SimArmOn .EQ fun p s ins => ¬ FltAB p s ins :=
+    SimArmOn .EQ (Off FltAB) :=
   sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
     (Classical.em (EqShort p c s w ins)).elim (fun hl => eq_short hS hA hf hop hstep ⟨hl, hN⟩)
       (hlong hS hA hf hop hstep)

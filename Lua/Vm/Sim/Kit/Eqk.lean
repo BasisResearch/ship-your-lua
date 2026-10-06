@@ -68,7 +68,7 @@ theorem eqk_short : ArmBody .EQK fun p c s w ins => EqkShort p c s w ins ∧ ¬ 
 /-- **`sim_EQK` from the long-string path** (`R[A]` and `K[B]` both long
 strings: `luaS_eqlngstr` → `memcmp`), as `sim_EQ_of_long`. -/
 theorem sim_EQK_of_long (hlong : ArmBody .EQK fun p c s w ins => ¬ EqkShort p c s w ins) :
-    SimArmOn .EQK fun p s ins => ¬ FltAKb p s ins :=
+    SimArmOn .EQK (Off FltAKb) :=
   sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
     (Classical.em (EqkShort p c s w ins)).elim (fun hl => eqk_short hS hA hf hop hstep ⟨hl, hN⟩)
       (hlong hS hA hf hop hstep)

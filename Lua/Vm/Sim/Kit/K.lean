@@ -28,6 +28,10 @@ def BothIntK (_p : Proto) (c : Config) (_s : State) (w : RelPtrs) (ins : Word) :
   slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt ∧
     slotTag c.σ.mem (w.k + stackValueSize * ins.c) = BitVec.ofNat 8 vNumInt
 
+/-- The fall-through of an `op_arithK` arm off its float paths. -/
+abbrev FallBK (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  ¬ BothIntK p c s w ins ∧ ¬ FltBK p s ins
+
 /-- **An `op_arithK` arm off its float paths `Q`, from its two paths.** -/
 theorem sim_arithK {o : OpCode} {Q : Proto → State → Word → Prop} (ho : o.toNat < Arms.jtEntries)
     (hint : ArmBody o BothIntK)

@@ -29,8 +29,7 @@ theorem lt_int : ArmBody .LT BothIntAB := fun {p} hS {c s s' w ins} hA hf hop hs
   kit_order_int 0x8001c894
     decide ((slotVal c.σ.mem (w.slot ins.a)).toInt < (slotVal c.σ.mem (w.slot ins.b)).toInt)
 
-theorem lt_stuck : ArmBody .LT fun p c s w ins =>
-    ¬ BothIntAB p c s w ins ∧ ¬ BothStrAB p c s w ins ∧ ¬ FltAB p s ins :=
+theorem lt_stuck : ArmBody .LT OrderOther :=
   fun {p} hS {c s s' w ins} hA hf hop hstep ⟨hI, hT, hN⟩ => by kit_order_stuck 0x8001c894
 
 /-- **`sim_LT` from the string path**: `SimArm .LT` holds as soon as the
@@ -40,7 +39,7 @@ complement `w.mo` only (`ValRepr.str`), while `strcmp` reads the live memory
 and needs the `'\0'` after each string, which `TStringRepr` does not state:
 a relation widening plus a `strcmp`/`strlen` summary (PHASES A1). -/
 theorem sim_LT_of_str (hstr : ArmBody .LT BothStrAB) :
-    SimArmOn .LT fun p s ins => ¬ FltAB p s ins :=
+    SimArmOn .LT (Off FltAB) :=
   sim_order (by decide) lt_int hstr lt_stuck
 
 end Lua.Vm.Sim.Kit

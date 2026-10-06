@@ -83,6 +83,10 @@ macro "at_fallK " ns:ident pc:num : tactic => `(tactic| (
 def TagB (_p : Proto) (c : Config) (_s : State) (w : RelPtrs) (ins : Word) : Prop :=
   slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt
 
+/-- The fall-through of a one-register `opArith` arm off its float paths. -/
+abbrev FallB (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  ¬ TagB p c s w ins ∧ ¬ FltB p s ins
+
 set_option hygiene false in
 /-- **`at_int1 pc`**: the setup of a one-register `opArith` arm at `pc` with
 `TagB` (`hI`): the immediate unfolded, `R[B]`'s value its payload. -/
@@ -221,6 +225,11 @@ def RegInt (_p : Proto) (_c : Config) (s : State) (_w : RelPtrs) (ins : Word) : 
 /-- `R[B]` holds a string. -/
 def RegStr (_p : Proto) (_c : Config) (s : State) (_w : RelPtrs) (ins : Word) : Prop :=
   ∃ t, s.regs ins.b = some (.str t)
+
+/-- A one-register `setR` arm's other values: neither an integer nor a string
+nor a float. -/
+abbrev UnaryOther (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  ¬ RegInt p c s w ins ∧ ¬ RegStr p c s w ins ∧ ¬ FltB p s ins
 
 /-- **A one-register `setR` arm off its float paths, from its paths**: an
 integer, a string, and the rest but a float. -/

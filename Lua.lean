@@ -53,6 +53,9 @@ import Lua.Programs.EscStrflt
 import Lua.Programs.EscForstr
 import Lua.Programs.EscUnmflt
 import Lua.Programs.Escape
+import Lua.Programs.EscStrfltAst
+import Lua.Programs.EscForstrAst
+import Lua.Programs.EscUnmfltAst
 import Lua.Compile.TV
 import Lua.Compile.Corpus
 import Lua.Os.HtifFs

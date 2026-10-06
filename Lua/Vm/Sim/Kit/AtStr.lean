@@ -112,7 +112,7 @@ theorem le_str_skip : ArmBody .LE (StrTest (fun x y => !lexLt y x) false) :=
 
 /-- **`sim_LE`**: `OP_LE` simulates its kernel off its float paths
 (`FloatArms.LE`), every such path proved. -/
-theorem sim_LE : SimArmOn .LE fun p s ins => ¬ FltAB p s ins := sim_LE_of_str (ArmBody.byTest _ (StrTest.cases _) le_str_take le_str_skip)
+theorem sim_LE : SimArmOn .LE (Off FltAB) := sim_LE_of_str (ArmBody.byTest _ (StrTest.cases _) le_str_take le_str_skip)
 
 /-- `OP_LT` on two strings, the jump taken. -/
 theorem lt_str_take : ArmBody .LT (StrTest (fun x y => lexLt x y) true) :=
@@ -125,7 +125,7 @@ theorem lt_str_skip : ArmBody .LT (StrTest (fun x y => lexLt x y) false) :=
   at_str_path 0x8001c894 Lua.Vm.At.LT (bool_ne_not fun h => absurd (hkk.1 h) (by decide))
 
 /-- **`sim_LT`** on the location-list route, off its float paths (`FloatArms.LT`). -/
-theorem sim_LT : SimArmOn .LT fun p s ins => ¬ FltAB p s ins := sim_LT_of_str (ArmBody.byTest _ (StrTest.cases _) lt_str_take lt_str_skip)
+theorem sim_LT : SimArmOn .LT (Off FltAB) := sim_LT_of_str (ArmBody.byTest _ (StrTest.cases _) lt_str_take lt_str_skip)
 
 
 /-! ## `OP_EQK` on two long strings -/
@@ -187,7 +187,7 @@ theorem EqkTest.cases {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : 
 
 /-- **`sim_EQK`**: `OP_EQK` simulates its kernel off its float paths
 (`FloatArms.EQK`), every such path proved. -/
-theorem sim_EQK : SimArmOn .EQK fun p s ins => ¬ FltAKb p s ins := sim_EQK_of_long (ArmBody.byTest _ EqkTest.cases eqk_long_take eqk_long_skip)
+theorem sim_EQK : SimArmOn .EQK (Off FltAKb) := sim_EQK_of_long (ArmBody.byTest _ EqkTest.cases eqk_long_take eqk_long_skip)
 
 /-! ## `OP_LEN` on a string -/
 

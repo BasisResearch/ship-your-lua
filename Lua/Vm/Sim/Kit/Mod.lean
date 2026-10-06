@@ -114,7 +114,7 @@ theorem mod_corr : ArmBody .MOD (ModGen fun c w ins => crem c w ins ≠ 0#64 ∧
     (by mod_vals; simp only [hr0, hms, not_false_eq_true, and_self, ite_true, stData_three, sdData_id]
         exact .int), h0.pcAt⟩
 
-theorem sim_MOD : SimArmOn .MOD fun p s ins => ¬ FltBC p s ins := sim_arith (by decide)
+theorem sim_MOD : SimArmOn .MOD (Off FltBC) := sim_arith (by decide)
   (fun {p} hS {c s s' w ins} hA hf hop hstep hI => by
     by_cases hz : divisor c w ins = 0#64
     · exact mod_zero hS hA hf hop hstep ⟨hI, hz⟩

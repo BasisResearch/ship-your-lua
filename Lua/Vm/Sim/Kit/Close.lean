@@ -81,6 +81,11 @@ def BothInt (_p : Proto) (c : Config) (_s : State) (w : RelPtrs) (ins : Word) : 
   slotTag c.σ.mem (w.slot ins.b) = BitVec.ofNat 8 vNumInt ∧
     slotTag c.σ.mem (w.slot ins.c) = BitVec.ofNat 8 vNumInt
 
+/-- The fall-through of an `op_arith` arm off its float paths: not both
+integers, and no float operand. -/
+abbrev FallBC (_p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  ¬ BothInt _p c s w ins ∧ ¬ FltBC _p s ins
+
 /-- **An `op_arith` arm off its float paths `Q`, from its two paths** (both
 operands integers, or the fall-through to `MMBIN` of a non-number). -/
 theorem sim_arith {o : OpCode} {Q : Proto → State → Word → Prop} (ho : o.toNat < Arms.jtEntries)

@@ -27,7 +27,7 @@ theorem mul_int : ArmBody .MUL BothInt := fun {p} hS {c s s' w ins} hA hf hop hs
         exact .int; all_goals slot_arith), h0.pcAt⟩
 
 /-- **`OP_MUL` off its float paths** (`FloatArms.MUL`). -/
-theorem sim_MUL : SimArmOn .MUL fun p s ins => ¬ FltBC p s ins := sim_arith (by decide) mul_int
+theorem sim_MUL : SimArmOn .MUL (Off FltBC) := sim_arith (by decide) mul_int
   fun {p} hS {c s s' w ins} hA hf hop hstep hI => by kit_arith_fall 0x8001dcc8
 
 end Lua.Vm.Sim.Kit

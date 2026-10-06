@@ -182,6 +182,6 @@ theorem eq_long : ArmBody .EQ fun p c s w ins => ¬ EqShort p c s w ins :=
 
 /-- **`sim_EQ`**: `OP_EQ` simulates its kernel off its float paths
 (`FloatArms.EQ`), every such path proved. -/
-theorem sim_EQ : SimArmOn .EQ fun p s ins => ¬ FltAB p s ins := sim_EQ_of_long eq_long
+theorem sim_EQ : SimArmOn .EQ (Off FltAB) := sim_EQ_of_long eq_long
 
 end Lua.Vm.Sim.Kit

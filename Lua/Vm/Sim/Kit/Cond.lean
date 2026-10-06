@@ -129,6 +129,11 @@ macro "kit_order_stuck " pc:num : tactic => `(tactic| (
     | exact hN (.inl ⟨_, _, hba⟩)
     | exact hN (.inr ⟨_, _, hbb⟩)))
 
+/-- An order arm's other values: neither two integers nor two strings nor a
+float. -/
+abbrev OrderOther (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  ¬ BothIntAB p c s w ins ∧ ¬ BothStrAB p c s w ins ∧ ¬ FltAB p s ins
+
 /-- **An order arm off its float paths, from its paths**: two integers
 (`int`), two strings (`str`); anything else but a float is stuck
 (`stuck`). -/

@@ -309,6 +309,17 @@ def δ : Prim → List Value → Option Value
   | .concat, vs => (vs.mapM Value.toStr?).map fun ss => .str ss.flatten
   | _, _ => none
 
+/-- **Lua's arithmetic on two values**, as `luaV_execute` runs an
+arithmetic or bitwise opcode: the fast path (`fastArith`), then, where it
+fails, the `MMBIN*` metamethod (`δ (.tm o)`: the string library's); `none`
+is an error. The source semantics' operators are this
+(`Lua/Ast/Semantics.lean`). -/
+def Value.arith (o : BinOp) (x y : Value) : Option Value :=
+  match fastArith o x y with
+  | .val n => some (.ofNum n)
+  | .fail => δ (.tm o) [x, y]
+  | .err => none
+
 /-! ## States -/
 
 /-- A VM state of the main chunk's activation (`VState`): the instruction

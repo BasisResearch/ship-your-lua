@@ -45,7 +45,7 @@ theorem modk_corr : ArmBody .MODK (DivPath BothIntK dvK fun x y => DivGen y ∧ 
   armBody_split (fun h => ⟨h.1, h.2.1⟩) modk_call (by
     kit_div_post (kitk_ints 0x8001dad0) (w.k + 16 * ins.c) imodC_eq [hq.1, hq.2])
 
-theorem sim_MODK : SimArmOn .MODK fun p s ins => ¬ FltBK p s ins := sim_div (by decide) _ _ modk_zero modk_m1 modk_rz modk_same modk_corr
+theorem sim_MODK : SimArmOn .MODK (Off FltBK) := sim_div (by decide) _ _ modk_zero modk_m1 modk_rz modk_same modk_corr
   fun {p} hS {c s s' w ins} hA hf hop hstep hI => by kitk_fall 0x8001dad0
 
 end Lua.Vm.Sim.Kit

@@ -29,7 +29,7 @@ theorem mulk_int : ArmBody .MULK BothIntK := fun {p} hS {c s s' w ins} hA hf hop
         exact .int; all_goals slot_arith), h0.pcAt⟩
 
 /-- **`OP_MULK` off its float paths** (`FloatArms.MULK`). -/
-theorem sim_MULK : SimArmOn .MULK fun p s ins => ¬ FltBK p s ins := sim_arithK (by decide) mulk_int
+theorem sim_MULK : SimArmOn .MULK (Off FltBK) := sim_arithK (by decide) mulk_int
   fun {p} hS {c s s' w ins} hA hf hop hstep hI => by kitk_fall 0x8001db3c
 
 end Lua.Vm.Sim.Kit

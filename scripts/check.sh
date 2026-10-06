@@ -68,6 +68,9 @@ c/tests/f1_ops.lua f1OpsAst Lua/Programs/F1OpsAst.lean
 c/tests/f1_src.lua f1SrcAst Lua/Programs/F1SrcAst.lean
 c/tests/while.lua whileAst Lua/Programs/WhileAst.lean
 c/tests/f1b_bits.lua f1bAst Lua/Programs/F1bBitsAst.lean
+c/tests/stuck/s_strflt.lua escStrfltAst Lua/Programs/EscStrfltAst.lean
+c/tests/stuck/s_forstr.lua escForstrAst Lua/Programs/EscForstrAst.lean
+c/tests/stuck/s_unmflt.lua escUnmfltAst Lua/Programs/EscUnmfltAst.lean
 c/tests/f4_strlite.lua f4StrliteAst Lua/Programs/F4StrliteAst.lean
 LIST
 for f in f1_ops f1_src while f1b_bits f4_strlite; do
@@ -450,10 +453,29 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Programs.escStrflt_supported
 #print axioms Lua.Programs.escForstr_supported
 #print axioms Lua.Programs.escUnmflt_supported
-#print axioms Lua.Programs.escStrflt_escapes
-#print axioms Lua.Programs.escStrflt_obstruction
-#print axioms Lua.Programs.escForstr_obstruction
-#print axioms Lua.Programs.escUnmflt_obstruction
+#print axioms Lua.Programs.escStrflt_bcSem
+#print axioms Lua.Programs.escForstr_bcSem
+#print axioms Lua.Programs.escUnmflt_bcSem
+#print axioms Lua.Programs.escStrflt_noEscape
+#print axioms Lua.Programs.escStrflt_layerA
+#print axioms Lua.Compile.escStrflt_tv
+#print axioms Lua.Compile.escForstr_tv
+#print axioms Lua.Compile.escUnmflt_tv
+#print axioms Lua.Bytecode.loop_inv
+#print axioms Lua.Bytecode.forloop_regs
+#print axioms Lua.Bytecode.noEscape_of_supported
+#print axioms Lua.Num.rawArith_err_int
+#print axioms Lua.Vm.Sim.SimArm.split
+#print axioms Lua.Vm.Sim.step_opArith
+#print axioms Lua.Vm.Sim.fastArith_err
+#print axioms Lua.Vm.Sim.stuckSim_of_error
+#print axioms Lua.Vm.Sim.vm_refinement_of_error
+#print axioms Lua.Vm.Sim.vm_refinement_of_ne
+#print axioms Lua.Vm.Sim.Kit.sim_EQ
+#print axioms Lua.Vm.Sim.At.sim_FORPREP
+#print axioms Lua.Num.pow_2_half
+#print axioms Lua.Num.pow_m8_third
+#print axioms Lua.Num.pow_2_m1074
 #print axioms Lua.Vm.Sim.foldSim_of_arms
 #print axioms Lua.Vm.Sim.stuckSimNE_of_error
 #print axioms Lua.Vm.Sim.stuckSim_of_NE

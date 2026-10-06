@@ -509,6 +509,10 @@ def SimArmOn (o : OpCode) (Q : Proto → State → Word → Prop) : Prop :=
     ∀ {ins : Word}, p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
       Q p s ins → ∃ c' n, 0 < n ∧ Vsa.Machine.StepsN n c c' ∧ VmRel p c' s'
 
+/-- The states off a path family `Q`. -/
+abbrev Off (Q : Proto → State → Word → Prop) : Proto → State → Word → Prop :=
+  fun p s ins => ¬ Q p s ins
+
 /-- **An arm from its two path families**: off `Q`, and on `Q`. -/
 theorem SimArm.split {o : OpCode} {Q : Proto → State → Word → Prop}
     (h₁ : SimArmOn o fun p s ins => ¬ Q p s ins) (h₂ : SimArmOn o Q) : SimArm o :=

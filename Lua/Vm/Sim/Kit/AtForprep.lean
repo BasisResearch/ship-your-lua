@@ -98,7 +98,7 @@ theorem fp_down_run : ArmBody .FORPREP
 
 /-- **`OP_FORPREP`** on the location-list route, on three integers (its
 coerced and float loops are `FloatArms.FORPREP`). -/
-theorem sim_FORPREP : SimArmOn .FORPREP fun p s ins => ¬ ForCoerce p s ins :=
+theorem sim_FORPREP : SimArmOn .FORPREP (Off ForCoerce) :=
     sim_arm_on (o := .FORPREP) (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hN => by
   have h := fun {q : BitVec 64 → BitVec 64 → BitVec 64 → Prop} (b : ArmBody .FORPREP (FpQN q))
       (hq : FpQ q p c s w ins) =>

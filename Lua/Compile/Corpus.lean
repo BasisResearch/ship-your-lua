@@ -7,6 +7,10 @@ import Lua.Programs.F1SrcAst
 import Lua.Programs.WhileAst
 import Lua.Programs.F1bBitsAst
 import Lua.Programs.F1Src
+import Lua.Programs.Escape
+import Lua.Programs.EscStrfltAst
+import Lua.Programs.EscForstrAst
+import Lua.Programs.EscUnmfltAst
 
 /-!
 # Layer B on a corpus: `compile_refinement` for the host `luac`'s outputs
@@ -32,7 +36,11 @@ determinism of both semantics gives the `↔`.
   body's locals, `break` out of `while`/`for`/`repeat` (also from inside an
   `if`), shadowing, `local` with missing and extra values;
 * `c/tests/f1b_bits.lua`: the integer bitwise operators `& | ~ << >>` and
-  unary `~`, with `luaV_shiftl`'s edge cases.
+  unary `~`, with `luaV_shiftl`'s edge cases;
+* `c/tests/stuck/s_{strflt,forstr,unmflt}.lua`: string coercion to floats
+  (`"1.5" + 1`, `-"1.5"`) and a coerced `for` limit (`for i = 1, "2"`), the
+  former escapes (FLOAT-DESIGN.md S1/S2; outputs from the ELF on the Sail
+  model, `abstractions/ledger/f1-lane-5.md`).
 
 Every `print(…)` is a call of the global `print`, looked up in `_ENV`.
 `print_print.lua` passes `print` itself as an argument, whose rendering is
@@ -120,6 +128,27 @@ theorem f1b_tv_pair : LuaSem binaryHost f1bAst f1bOut ∧ BcSem binaryHost f1bPr
 theorem f1b_tv : ProgramTV f1bAst f1bProto :=
   .of_outputs f1b_astSupported f1b_supported f1b_tv_pair.1 f1b_tv_pair.2
 
+/-! ## The former escapes: floats from string coercion -/
+
+theorem escStrflt_astSupported : AstSupported escStrfltAst := by decide +kernel
+theorem escForstr_astSupported : AstSupported escForstrAst := by decide +kernel
+theorem escUnmflt_astSupported : AstSupported escUnmfltAst := by decide +kernel
+
+theorem escStrflt_luaSem : LuaSem binaryHost escStrfltAst "2.5\n" :=
+  luaRun_sound (fuel := 100) (by decide +kernel)
+theorem escForstr_luaSem : LuaSem binaryHost escForstrAst "1\n2\n" :=
+  luaRun_sound (fuel := 100) (by decide +kernel)
+theorem escUnmflt_luaSem : LuaSem binaryHost escUnmfltAst "-1.5\n" :=
+  luaRun_sound (fuel := 100) (by decide +kernel)
+
+/-- **Translation validation of `"1.5" + 1`**: `2.5` on both semantics. -/
+theorem escStrflt_tv : ProgramTV escStrfltAst escStrfltProto :=
+  .of_outputs escStrflt_astSupported escStrflt_supported escStrflt_luaSem escStrflt_bcSem
+theorem escForstr_tv : ProgramTV escForstrAst escForstrProto :=
+  .of_outputs escForstr_astSupported escForstr_supported escForstr_luaSem escForstr_bcSem
+theorem escUnmflt_tv : ProgramTV escUnmfltAst escUnmfltProto :=
+  .of_outputs escUnmflt_astSupported escUnmflt_supported escUnmflt_luaSem escUnmflt_bcSem
+
 /-! ## The corpus relation -/
 
 /-- The host `luac -s`'s output on the validated corpus. -/
@@ -128,12 +157,18 @@ inductive CorpusCompiles : Chunk → Proto → Prop where
   | f1Ops : CorpusCompiles f1OpsAst f1OpsProto
   | f1Src : CorpusCompiles f1SrcAst f1SrcProto
   | f1b : CorpusCompiles f1bAst f1bProto
+  | escStrflt : CorpusCompiles escStrfltAst escStrfltProto
+  | escForstr : CorpusCompiles escForstrAst escForstrProto
+  | escUnmflt : CorpusCompiles escUnmfltAst escUnmfltProto
 
 theorem corpus_programTV : ∀ s p, CorpusCompiles s p → ProgramTV s p
   | _, _, .while_ => while_tv
   | _, _, .f1Ops => f1Ops_tv
   | _, _, .f1Src => f1Src_tv
   | _, _, .f1b => f1b_tv
+  | _, _, .escStrflt => escStrflt_tv
+  | _, _, .escForstr => escForstr_tv
+  | _, _, .escUnmflt => escUnmflt_tv
 
 /-- The translation-validation obligations for the corpus. -/
 theorem corpus_compileTV : CompileTV CorpusCompiles := CompileTV.of_programTV corpus_programTV

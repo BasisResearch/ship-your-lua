@@ -673,20 +673,16 @@ theorem loopFacts {f : Nat} {w : Word} {q : Nat} (h : loopOk p f w = true)
         rw [show loopHead p f w = some (f - w.bx) by
           unfold loopHead; simp only [hb, and_self, ↓reduceIte, hw', hc]] at h
         have hall := List.all_eq_true.1 h
-        have hof : ∀ pc K, kernelAt p pc = some K → pc < p.code.length ∧ ∃ w'', p.fetch pc = some w'' ∧ kernel p pc w'' = some K := by
-          intro pc K hK
-          obtain ⟨w'', hw'', hk⟩ := Option.bind_eq_some_iff.1 hK
-          exact ⟨(List.getElem?_eq_some_iff.1 hw'').1, w'', hw'', hk⟩
         refine ⟨⟨w', hw', hc.1, hc.2.1, hc.2.2⟩, by omega, hb.1, ?_, ?_⟩
         · intro pc K h1 h2 hK e he
-          obtain ⟨hlt, w'', hw'', hk⟩ := hof pc K hK
-          have := hall pc (List.mem_range.2 hlt)
+          obtain ⟨w'', hw'', hk⟩ := Option.bind_eq_some_iff.1 hK
+          have := hall pc (List.mem_range.2 (List.getElem?_eq_some_iff.1 hw'').1)
           simp only [hw'', hk, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_eq_eq_not,
             Bool.not_true, decide_eq_false_iff_not] at this
           exact List.all_eq_true.1 (this.1.resolve_left (by omega)) e he
         · intro pc K h1 hK e he
-          obtain ⟨hlt, w'', hw'', hk⟩ := hof pc K hK
-          have := hall pc (List.mem_range.2 hlt)
+          obtain ⟨w'', hw'', hk⟩ := Option.bind_eq_some_iff.1 hK
+          have := hall pc (List.mem_range.2 (List.getElem?_eq_some_iff.1 hw'').1)
           simp only [hw'', hk, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_eq_eq_not,
             Bool.not_true, decide_eq_false_iff_not] at this
           have := List.all_eq_true.1 (this.2.resolve_left (by omega)) e he
@@ -696,28 +692,29 @@ theorem loopFacts {f : Nat} {w : Word} {q : Nat} (h : loopOk p f w = true)
     · cases hq
   · cases hq
 
-/-- A `FORPREP` step into its loop body: the integer loop (edge 0) or the
-float loop (edge 2). -/
+/-- A `FORPREP` step into its loop body, along the edge `e`: the integer
+loop (edge 0: the count replaces the limit) or the float loop (edge 2: four
+floats). -/
+inductive PrepInto (pc : Nat) (w : Word) (vs : List Value) (o : Out Value) : KEdge → Prop where
+  | int {i st n : BitVec 64} {l : Value} : vs = [.int i, l, .int st] → o.vals = [.int i, .int n] →
+      PrepInto pc w vs o { tgt := pc + 1, defs := [w.a + 3, w.a + 1] }
+  | flt {fi fl fs : Float.Model} {ni nl ns : Bool} :
+      o.vals = [.flt fi ni, .flt fl nl, .flt fs ns, .flt fi ni] →
+      PrepInto pc w vs o { tgt := pc + 1, defs := [w.a, w.a + 1, w.a + 2, w.a + 3] }
+
 theorem forprep_into {pc : Nat} {w : Word} {vs : List Value} {o : Out Value} {e : KEdge}
     (hb : (forprepK pc w).body vs = some o) (he : (forprepK pc w).edges[o.edge]? = some e)
-    (ht : e.tgt ≤ pc + w.bx + 1) :
-    (∃ i l st n, vs = [.int i, l, .int st] ∧ e = { tgt := pc + 1, defs := [w.a + 3, w.a + 1] } ∧
-      o.vals = [.int i, .int n]) ∨
-    (∃ fi ni fl nl fs ns, e = { tgt := pc + 1, defs := [w.a, w.a + 1, w.a + 2, w.a + 3] } ∧
-      o.vals = [.flt fi ni, .flt fl nl, .flt fs ns, .flt fi ni]) := by
+    (ht : e.tgt ≤ pc + w.bx + 1) : PrepInto pc w vs o e := by
   simp only [forprepK] at hb
   split at hb
-  · rename_i i l st
-    split at hb
+  · split at hb
     · cases hb
     · obtain ⟨r, -, rfl⟩ := Option.map_eq_some_iff.1 hb
       split at he
-      · rename_i lim
-        split at he
-        · rename_i n hn
-          simp only [forprepK, List.getElem?_cons_zero, Option.some.injEq] at he
+      · split at he
+        · simp only [forprepK, List.getElem?_cons_zero, Option.some.injEq] at he
           subst he
-          exact .inl ⟨i, l, st, n, rfl, rfl, rfl⟩
+          exact .int rfl rfl
         · simp only [forprepK, List.getElem?_cons_succ, List.getElem?_cons_zero,
             Option.some.injEq] at he
           subst he; simp only at ht; omega
@@ -731,43 +728,44 @@ theorem forprep_into {pc : Nat} {w : Word} {vs : List Value} {o : Out Value} {e 
           simp only [forprepK, List.getElem?_cons_succ, List.getElem?_cons_zero,
             Option.some.injEq] at he
         all_goals first
-          | exact .inr ⟨_, _, _, _, _, _, he.symm, rfl⟩
+          | (subst he; exact .flt rfl)
           | (subst he; simp only at ht; omega)
     · cases hb
   · cases hb
 
-/-- A `FORLOOP` step back into its loop body: the integer loop (edge 1) or
-the float loop (edge 2). -/
+/-- A `FORLOOP` step back into its loop body, along the edge `e`: the
+integer loop (edge 1) or the float loop (edge 2). -/
+inductive LoopInto (t : Nat) (w : Word) (vs : List Value) (o : Out Value) : KEdge → Prop where
+  | int {i n st : BitVec 64} : vs = [.int i, .int n, .int st] →
+      o.vals = [.int (n - 1), .int (i + st), .int (i + st)] →
+      LoopInto t w vs o { tgt := t, defs := [w.a + 1, w.a, w.a + 3] }
+  | flt {i l st : Float.Model} {ni nl ns : Bool} : vs = [.flt i ni, .flt l nl, .flt st ns] →
+      o.vals = [.ofFloat (Float.Model.add i st), .ofFloat (Float.Model.add i st)] →
+      LoopInto t w vs o { tgt := t, defs := [w.a, w.a + 3] }
+
 theorem forloop_into {pc t : Nat} {w : Word} {vs : List Value} {o : Out Value} {e : KEdge}
     (hb : (forloopK pc w t).body vs = some o) (he : (forloopK pc w t).edges[o.edge]? = some e)
-    (ht : e.tgt ≠ pc + 1) :
-    (∃ i n st, vs = [.int i, .int n, .int st] ∧ e = { tgt := t, defs := [w.a + 1, w.a, w.a + 3] } ∧
-      o.vals = [.int (n - 1), .int (i + st), .int (i + st)]) ∨
-    (∃ i ni l nl st ns, vs = [.flt i ni, .flt l nl, .flt st ns] ∧
-      e = { tgt := t, defs := [w.a, w.a + 3] } ∧
-      o.vals = [.ofFloat (Float.Model.add i st), .ofFloat (Float.Model.add i st)]) := by
+    (ht : e.tgt ≠ pc + 1) : LoopInto t w vs o e := by
   simp only [forloopK] at hb
   split at hb
-  · rename_i i n st
-    split at hb
+  · split at hb
     · simp only [Option.some.injEq] at hb
       subst hb
       simp only [forloopK, List.getElem?_cons_zero, Option.some.injEq] at he
       subst he; simp only at ht; omega
     · split at hb
-      · rename_i i'
-        simp only [Option.some.injEq] at hb
+      · simp only [Option.some.injEq] at hb
         subst hb
         simp only [forloopK, List.getElem?_cons_succ, List.getElem?_cons_zero,
           Option.some.injEq] at he
-        exact .inl ⟨i', n, st, rfl, he.symm, rfl⟩
+        subst he
+        exact .int rfl rfl
       · cases hb
-  · rename_i i ni l nl st ns
-    split at hb <;> split at hb <;> simp only [Option.some.injEq] at hb <;> subst hb <;>
+  · split at hb <;> split at hb <;> simp only [Option.some.injEq] at hb <;> subst hb <;>
       simp only [forloopK, List.getElem?_cons_succ, List.getElem?_cons_zero,
         Option.some.injEq] at he
     all_goals first
-      | exact .inr ⟨i, ni, l, nl, st, ns, rfl, he.symm, rfl⟩
+      | (subst he; exact .flt rfl rfl)
       | (subst he; simp only at ht; omega)
   · cases hb
 
@@ -803,8 +801,9 @@ theorem loopInv_step {H : Host} (hS : Supported p) {s s' : State} (h : Step H p 
     rw [← heq, kernelAt_of hw' ho'] at hK
     simp only [opKernel, Option.some.injEq] at hK
     subst hK
-    rcases forprep_into hb he (by omega) with ⟨i, l, st, n, rfl, rfl, hv⟩ | ⟨fi, ni, fl, nl, fs, ns, rfl, hv⟩
-    · obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
+    rcases forprep_into hb he (by omega) with ⟨rfl, hv⟩ | ⟨hv⟩
+    · rename_i i st n l
+      obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
       simp only [List.cons.injEq, and_true] at hxyz
       obtain ⟨rfl, rfl, rfl⟩ := hxyz
       rw [← ha]
@@ -816,7 +815,8 @@ theorem loopInv_step {H : Host} (hS : Supported p) {s s' : State} (h : Step H p 
       have e3 : (s.apply (printLine H) { tgt := q + 1, defs := [w'.a + 3, w'.a + 1] } o).regs (w'.a + 2) = some (.int st) := by
         rw [apply_nokill rfl (by simp)]; exact hz
       rw [e1, e2, e3]; exact .int _ _ _
-    · rw [← ha]
+    · rename_i fi fl fs ni nl ns
+      rw [← ha]
       have e0 : ∀ j k, k < 4 → j = w'.a + k →
           (s.apply (printLine H) { tgt := q + 1, defs := [w'.a, w'.a + 1, w'.a + 2, w'.a + 3] } o).regs j =
             [Value.flt fi ni, .flt fl nl, .flt fs ns, .flt fi ni][k]? := by
@@ -831,8 +831,9 @@ theorem loopInv_step {H : Host} (hS : Supported p) {s s' : State} (h : Step H p 
     rw [heq, kernelAt_of hf ho] at hK
     simp only [opKernel, Option.map_eq_some_iff] at hK
     obtain ⟨t, -, rfl⟩ := hK
-    rcases forloop_into hb he (by omega) with ⟨i, n, st, rfl, rfl, hv⟩ | ⟨i, ni, l, nl, st, ns, rfl, rfl, hv⟩
-    · obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
+    rcases forloop_into hb he (by omega) with ⟨rfl, hv⟩ | ⟨rfl, hv⟩
+    · rename_i i n st
+      obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
       simp only [List.cons.injEq, and_true] at hxyz
       obtain ⟨rfl, rfl, rfl⟩ := hxyz
       have e1 : (s.apply (printLine H) { tgt := t, defs := [w.a + 1, w.a, w.a + 3] } o).regs w.a = some (.int (i + st)) := by
@@ -843,7 +844,8 @@ theorem loopInv_step {H : Host} (hS : Supported p) {s s' : State} (h : Step H p 
       have e3 : (s.apply (printLine H) { tgt := t, defs := [w.a + 1, w.a, w.a + 3] } o).regs (w.a + 2) = some (.int st) := by
         rw [apply_nokill rfl (by simp)]; exact hz
       rw [e1, e2, e3]; exact .int _ _ _
-    · obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
+    · rename_i i l st ni nl ns
+      obtain ⟨x, y, z, hx, hy, hz, hxyz⟩ := mapM_three hvs
       simp only [List.cons.injEq, and_true] at hxyz
       obtain ⟨rfl, rfl, rfl⟩ := hxyz
       have e1 : (s.apply (printLine H) { tgt := t, defs := [w.a, w.a + 3] } o).regs w.a =
