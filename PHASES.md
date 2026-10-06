@@ -42,8 +42,9 @@ Every row is currently unassigned.
 | `SimArm` of SHL, SHR, SHLI, SHRI, BANDK, BORK, BXORK | `Lua/Vm/Sim/Kit/At{Shl,Shr,Shli,Shri,Bandk,Bork,Bxork}.lean` | A1 | **proved** (`At.sim_SHL`, …, `At.sim_BXORK`; `luaV_shiftl` per machine branch in `Kit/Shift.lean`; lane F1-1) |
 | `UnmStr_Statement` (`OP_UNM` on a string: `luaT_trybinTM` and the string library's `__unm`; the premise of `At.sim_UNM_of_str`) | `Lua/Vm/Sim/Kit/AtUnm.lean` | A1 (with the `MMBIN`/`CALL` runtime summaries) | open; the integer path (`At.unm_int`) and the stuck values (`At.unm_stuck`) proved |
 | the console end of `print`'s stdio chain (toward `SimArm .CALL`, still an `OpenArms` field) | `Lua/Vm/Sim/Kit/{Console,Write,Swrite,Sflush}.lean` | A0.2 | **proved** (lane F1-6, `abstractions/ledger/f1-lane-6.md`): the `tohost` seam `segSt_putc` (the `SegSt` face of `Console.putc_runFact`), htif.c's `_write` on the console (`write_sum`: `seg_loop` over the `htif_putc` loop), `_write_r` (`write_r_sum`), `__swrite` (`swrite_sum`, an `sh`), and `__sflush_r` on the line-buffered `stdout` (`sflush_sum`: the pending bytes through the `FILE`'s hook, an indirect `jalr`); `StdoutAt` is `stdout`'s state as the emulator trace shows it after the first `print` (`_flags = 0x2889`, a 1024-byte heap buffer, `_w = -|pend|`) |
-| `FwriteStdout_Statement` (`fwrite(src, 1, n, stdout)` on `StdoutAt`: `__sfvwrite_r`'s line-buffered branch, `memchr`, `memmove`, `_fflush_r`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A0.2 | open (stated; `sflush_sum` is its flush) |
-| `FflushStdout_Statement` (`fflush(stdout)`: the lock no-ops around `__sflush_r`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A0.2 | open (stated; `sflush_sum` is its body; `SflOut.keep_file` keeps `_lock`, `_flags2`) |
+| `FwriteStdout_Statement` (`fwrite(src, 1, n, stdout)` on `StdoutAt`: `__sfvwrite_r`'s line-buffered branch, `memchr`, `memmove`, `_fflush_r`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A0.2 | open (stated). Its callees are proved on the callee-context route (lane F1-8, `abstractions/ledger/f1-lane-8.md`): `memmove` on disjoint ranges (`Kit.memmove_sum`, every forward path), `memchr(s, '\n', n)` (`Kit.memchr_nl`, the word test `Kit.mc_hz`), `_fflush_r(_REENT, stdout)` (`Kit.fflush_r_stdout`); `__sfvwrite_r`'s 155 at-lemmas (9 roots: the entry, the line-buffered loop head, the returns from `memchr` ×2, `memmove` ×2, `_fflush_r` ×2, `__swrite`) are generated and build (`Lua/Vm/AtF/Sfvwrite.lean`). Left: the loop's hand proof over those roots (`seg_loop`, the invariant "console ++ pending = pending₀ ++ the bytes read", one call splice per return root) and `_fwrite_r`'s shell (`__muldi3` a pure call, the lock no-ops inline) |
+| `FflushStdout_Statement` (`fflush(stdout)`: the lock no-ops around `__sflush_r`) | `Lua/Vm/Sim/Kit/Fflush.lean` | A0.2 | **proved** (lane F1-8: `Kit.fflush_stdout`, its 16 at-lemmas generated on the callee-context route; the frame shared with `_fflush_r` is `sfl_mid32`/`flush_fin`) |
+| callee-context rows (the at-lemma route for C callees: rows over `FCx`, roots at the entry, loop heads and call returns) | `Lua/Vm/Sim/Kit/AtFn.lean`, `scripts/gen_lua_at.py --fn`, `Lua/Vm/AtF/*.lean` | A1 | **landed** (lane F1-8): `fflush`, `_fflush_r`, `memmove`, `memchr`, `__sfvwrite_r` generated (`FNS`), the summaries `fat_run` over them |
 | `StdoutSetup_Statement` (the first `fwrite` from `StdioBoot`/`MemfsBoot`: `__sinit`, `__swsetup_r`, `__smakebuf_r` → `_fstat` (`fs_init`), `_malloc_r`, `_isatty`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A0.2 | open (stated) |
 | `IntegerToStr_Statement` (`lua_integer2str` = `snprintf(buf, 44, "%lld", i)`, `_svfprintf_r`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A1 | open (stated) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
@@ -576,6 +577,12 @@ covers the new stages.
       has `L->top`; the C `CallInfo` is new); (5) `Complement.exit`
       (`ExitOk`, lane F1-4) re-established over the post-print stdio state
       (`stdio_exit_handler` → `_fclose_r` → `__sflush_r`, `_close`, `_free_r`);
+      Lane F1-8 put C callees on the at-lemma route (callee-context rows,
+      `Kit/AtFn.lean`, `gen_lua_at.py --fn`) and proved `fflush(stdout)`
+      (`FflushStdout_Statement`), `_fflush_r`, `memmove` and `memchr`; the
+      `__sfvwrite_r` loop proof, the set-up, `lua_integer2str`, `luaB_print`,
+      `luaD_precall`/`luaD_poscall` and the relation facts above stay open
+      (`abstractions/ledger/f1-lane-8.md` lists each with its next step);
     * the error paths (`StuckSim` is false; `ErrorSimRest` and `NoEscape`,
       Obligations).
   * **`FinalSim` (proved, lane F1-4, `Lua/Vm/Sim/Kit/Ret*.lean`, `Kit/Exit.lean`).**
