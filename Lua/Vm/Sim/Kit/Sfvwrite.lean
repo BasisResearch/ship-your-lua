@@ -337,17 +337,20 @@ def SfvLoop (G : SfvG) (a : FCx × List (BitVec 8)) (c : Config) : Prop :=
 def SfvNext (G : SfvG) (μ0 : Nat) (c : Config) : Prop :=
   (∃ a, sfvMu a < μ0 ∧ SfvLoop G a c) ∨ SfvPost G c
 
-/-- The head's context after a step: bytes left, newline distance, cursor,
-`a0` and the scratch words over `X`. -/
-def _root_.Lua.Vm.Sim.AtF.FCx.head (X : FCx) (len nld p : Nat) (a0 w15 w16 w17 : BitVec 64) (M : Mem) : FCx :=
-  ⟨fun i => if i = 23 then len else if i = 24 then nld else if i = 25 then p else X.n i,
-   fun i => if i = 14 then a0 else if i = 15 then w15 else if i = 16 then w16 else if i = 17 then w17 else X.b i,
-   M, X.o⟩
+/-- A root's context from another's: some atoms re-bound (`ns`, `bs`: index,
+value), the memory and console of the new root. -/
+def _root_.Lua.Vm.Sim.AtF.FCx.set (X : FCx) (ns : List (Nat × Nat)) (bs : List (Nat × BitVec 64)) (M : Mem)
+    (o : Array String) : FCx :=
+  ⟨fun i => (ns.lookup i).getD (X.n i), fun i => (bs.lookup i).getD (X.b i), M, o⟩
 
-theorem SfvAt.head {G : SfvG} {X : FCx} (hX : SfvAt G X) (len nld p : Nat) (a0 w15 w16 w17 : BitVec 64) (M : Mem) :
-    SfvAt G (X.head len nld p a0 w15 w16 w17 M) :=
-  ⟨hX.sp, hX.U, hX.I, hX.n, hX.src, hX.r, hX.s0, hX.s1, hX.s2, hX.s3, hX.s4, hX.s5, hX.s6, hX.s7, hX.s8, hX.s9,
-    hX.s10, hX.s11⟩
+/-- A re-bound context's atoms evaluated (for `omega`). -/
+macro "sfv_set" : tactic => `(tactic| simp only [Lua.Vm.Sim.AtF.FCx.set, List.lookup, Nat.reduceBEq,
+  Option.getD_some, Option.getD_none])
+
+/-- `SfvAt` of a re-bound context (concrete lists that leave the run's atoms:
+each field by definitional unfolding). -/
+macro "sfv_at% " hX:term : term => `(⟨($hX).sp, ($hX).U, ($hX).I, ($hX).n, ($hX).src, ($hX).r, ($hX).s0, ($hX).s1,
+  ($hX).s2, ($hX).s3, ($hX).s4, ($hX).s5, ($hX).s6, ($hX).s7, ($hX).s8, ($hX).s9, ($hX).s10, ($hX).s11⟩)
 
 /-- A root's context facts (the generated `Ok_*`) from the run's. -/
 macro "sfv_ok " hX:term : tactic => `(tactic| (
@@ -415,31 +418,32 @@ theorem SfvSt.resid {G : SfvG} (hG : G.Ok) {M : Mem} {o : Array String} {pend : 
     st.frame.congr (by omega) fun x h1 h2 => bytesT1_writeMap8_out _ _ _ (by omega),
     st.keep.trans (SfvKeep.of_agree fun x hx => bytesT1_writeMap8_out _ _ _ (by omega)), st.q_le⟩
 
-/-- **Back at the head** after a step that left `len` bytes from `p`. -/
-theorem sfv_head {G : SfvG} {X : FCx} (hX : SfvAt G X) {M : Mem} {pend : List (BitVec 8)} {len nld p μ0 : Nat}
-    {a0 w15 w16 w17 : BitVec 64} {c : Config} (st : SfvStA G M X.o pend (p - G.src))
-    (res : bytesT8 M (G.U + 16) = BitVec.ofNat 64 len) (cur : p + len = G.src + G.n) (lo : G.src ≤ p)
-    (hlen : 1 ≤ len) (nl : a0 = 0#64 ∨ (a0 = 1#64 ∧ 1 ≤ nld ∧ nld < 2 ^ 31))
-    (hμ : 2 * len + (if pend.length = 1024 then 1 else 0) < μ0)
-    (h : SegSt 0x80033dac#64 (Lua.Vm.AtF.Sfvwrite.r16 (X.head len nld p a0 w15 w16 w17 M)) (ArmPay M X.o) c) :
+/-- **Back at the head** (`Y` the head's context). -/
+theorem sfv_head {G : SfvG} {Y : FCx} {pend : List (BitVec 8)} {μ0 : Nat} {c : Config} (hY : SfvAt G Y)
+    (st : SfvStA G Y.m Y.o pend (Y.n 25 - G.src)) (res : bytesT8 Y.m (G.U + 16) = BitVec.ofNat 64 (Y.n 23))
+    (cur : Y.n 25 + Y.n 23 = G.src + G.n) (lo : G.src ≤ Y.n 25) (hlen : 1 ≤ Y.n 23)
+    (nl : Y.b 14 = 0#64 ∨ (Y.b 14 = 1#64 ∧ 1 ≤ Y.n 24 ∧ Y.n 24 < 2 ^ 31))
+    (hμ : 2 * Y.n 23 + (if pend.length = 1024 then 1 else 0) < μ0)
+    (h : SegSt 0x80033dac#64 (Lua.Vm.AtF.Sfvwrite.r16 Y) (ArmPay Y.m Y.o) c) :
     SfvNext G μ0 c :=
-  .inl ⟨(X.head len nld p a0 w15 w16 w17 M, pend), hμ,
-    ⟨⟨hX.head len nld p a0 w15 w16 w17 M, st, res, cur, lo, hlen, nl⟩, h⟩⟩
+  .inl ⟨(Y, pend), hμ, ⟨⟨hY, st, res, cur, lo, hlen, nl⟩, h⟩⟩
 
-/-! ## The call returns -/
+/-! ## The step's tail and the newline distance -/
 
-/-- **After the flush at a newline** (`0x80033ea4`): `uio_resid -= w`, then
-the run's end or the head with the newline unknown. -/
-theorem sfv_nlret {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {μ0 : Nat}
-    (st : SfvStA G X.m X.o [] (X.n 20 + X.n 25 - G.src))
+/-- **The step's tail** (`0x80033e0c`, the root `T`): `w = X.n 20` bytes
+consumed from the cursor `X.n 25`, `uio_resid -= w`; the run's end, or the
+head. -/
+theorem sfv_tail {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {pend : List (BitVec 8)} {μ0 : Nat}
+    (st : SfvStA G X.m X.o pend (X.n 20 + X.n 25 - G.src))
     (res : bytesT8 X.m (G.U + 16) = BitVec.ofNat 64 (X.n 23))
     (cur : X.n 25 + X.n 23 = G.src + G.n) (lo : G.src ≤ X.n 25) (hw : X.n 20 ≤ X.n 23)
-    (hμ : 2 * (X.n 23 - X.n 20) < μ0) :
-    Triple (SegSt 0x80033ea4#64 (Lua.Vm.AtF.Sfvwrite.r5 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+    (nl : X.b 14 = 0#64 ∨ (X.b 14 = 1#64 ∧ 1 ≤ X.n 24 ∧ X.n 24 < 2 ^ 31))
+    (hμ : 2 * (X.n 23 - X.n 20) + (if pend.length = 1024 then 1 else 0) < μ0) :
+    Triple (SegSt 0x80033e0c#64 (Lua.Vm.AtF.Sfvwrite.r40 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
   intro c h
   sfv_nums hG
   sfv_cx hX
-  have hX' : Lua.Vm.AtF.Sfvwrite.Ok_S X := by sfv_ok hX
+  have hX' : Lua.Vm.AtF.Sfvwrite.Ok_T X := by sfv_ok hX
   obtain ⟨hc13, hc14, hc9, hc10, hc11, hc15, hc16, hc12, hc6, hc7, hc8⟩ := st.frame.toX hX
   have acc := Steps.refl c
   have hres : bytesT8 X.m (X.n 1 + 16) = BitVec.ofNat 64 (X.n 23) := by rw [hX.U]; exact res
@@ -454,11 +458,12 @@ theorem sfv_nlret {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {μ0 : Nat}
       rw [sub_ofNat hw (by omega), show (0x0#64 : BitVec 64) = BitVec.ofNat 64 0 from rfl, fbne (by omega) (by decide)]
       simp; omega
     fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033dac]
-    simp only [Lua.Vm.AtF.Sfvwrite.r30, sub_ofNat hw (by omega : X.n 23 < 2 ^ 64)] at h
-    refine ⟨_, acc, sfv_head (len := X.n 23 - X.n 20) (nld := X.n 24) (p := X.n 20 + X.n 25) (a0 := 0x0#64)
-      (w15 := BitVec.ofNat 64 (X.n 20)) (w16 := BitVec.ofNat 64 (X.n 21)) (w17 := BitVec.ofNat 64 (X.n 22))
-      hX (st.resid hG (a := X.n 1 + 16) (by omega) _) ?_ (by omega) (by omega) (by omega) (.inl rfl)
-      (by simpa using hμ) (h.repin (by pins_of h))⟩
+    simp only [Lua.Vm.AtF.Sfvwrite.r44, sub_ofNat hw (by omega : X.n 23 < 2 ^ 64)] at h
+    have hY : SfvAt G (X.set [(23, X.n 23 - X.n 20), (25, X.n 20 + X.n 25)] [(15, BitVec.ofNat 64 (X.n 20))]
+        (Lua.Vm.AtF.Sfvwrite.m5 X) X.o) := sfv_at% hX
+    refine ⟨_, acc, sfv_head hY (st.resid hG (a := X.n 1 + 16) (by omega) _) ?_ (by sfv_set; omega)
+      (by sfv_set; omega) (by sfv_set; omega) nl (by sfv_set; simpa using hμ) (h.repin (by pins_of h))⟩
+    show bytesT8 (Lua.Vm.AtF.Sfvwrite.m5 X) (G.U + 16) = BitVec.ofNat 64 (X.n 23 - X.n 20)
     rw [fw8_same (by omega), v_resid hres (by omega) hw (by omega)]
 
 end Lua.Vm.Sim.Kit
