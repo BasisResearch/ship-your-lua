@@ -344,8 +344,11 @@ def _root_.Lua.Vm.Sim.AtF.FCx.set (X : FCx) (ns : List (Nat × Nat)) (bs : List 
   ⟨fun i => (ns.lookup i).getD (X.n i), fun i => (bs.lookup i).getD (X.b i), M, o⟩
 
 /-- A re-bound context's atoms evaluated (for `omega`). -/
-macro "sfv_set" : tactic => `(tactic| simp only [Lua.Vm.Sim.AtF.FCx.set, List.lookup, Nat.reduceBEq,
-  Option.getD_some, Option.getD_none])
+macro "sfv_set" : tactic => `(tactic| simp (config := { zetaDelta := true }) only [Lua.Vm.Sim.AtF.FCx.set,
+  List.lookup, Nat.reduceBEq, Option.getD_some, Option.getD_none])
+
+/-- An arithmetic fact over a re-bound context. -/
+macro "sfv_om" : tactic => `(tactic| ((try sfv_set) <;> omega))
 
 /-- `SfvAt` of a re-bound context (concrete lists that leave the run's atoms:
 each field by definitional unfolding). -/
@@ -461,8 +464,8 @@ theorem sfv_tail {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {pend : List 
     simp only [Lua.Vm.AtF.Sfvwrite.r44, sub_ofNat hw (by omega : X.n 23 < 2 ^ 64)] at h
     have hY : SfvAt G (X.set [(23, X.n 23 - X.n 20), (25, X.n 20 + X.n 25)] [(15, BitVec.ofNat 64 (X.n 20))]
         (Lua.Vm.AtF.Sfvwrite.m5 X) X.o) := sfv_at% hX
-    refine ⟨_, acc, sfv_head hY (st.resid hG (a := X.n 1 + 16) (by omega) _) ?_ (by sfv_set; omega)
-      (by sfv_set; omega) (by sfv_set; omega) nl (by sfv_set; simpa using hμ) (h.repin (by pins_of h))⟩
+    refine ⟨_, acc, sfv_head hY (st.resid hG (a := X.n 1 + 16) (by omega) _) ?_ (by sfv_om)
+      (by sfv_om) (by sfv_om) nl (by sfv_set; simpa using hμ) (h.repin (by pins_of h))⟩
     show bytesT8 (Lua.Vm.AtF.Sfvwrite.m5 X) (G.U + 16) = BitVec.ofNat 64 (X.n 23 - X.n 20)
     rw [fw8_same (by omega), v_resid hres (by omega) hw (by omega)]
 
@@ -520,17 +523,17 @@ theorem sfv_nld {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {pend : List (
       sfv_at% hX
     have res' : bytesT8 M' (G.U + 16) = BitVec.ofNat 64 (X.n 23) := by
       rw [← res]; exact bytesT8_congrT (a := G.U + 16) fun i _ => kh _ (by omega)
-    obtain ⟨c3, s3, h3⟩ := sfv_tail hG hZ (pend := []) (μ0 := μ0) st' res' (by sfv_set; omega) (by sfv_set; omega)
-      (by sfv_set; omega) (.inl rfl) (by sfv_set; simp; omega) _ (h.repin (by pins_of h))
+    obtain ⟨c3, s3, h3⟩ := sfv_tail hG hZ (pend := []) (μ0 := μ0) st' res' (by sfv_om) (by sfv_om)
+      (by sfv_om) (.inl rfl) (by sfv_set; simp; omega) _ (h.repin (by pins_of h))
     exact ⟨c3, acc.trans s3, h3⟩
   · rw [decide_eq_false e] at hg
     fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033e0c]
     simp only [Lua.Vm.AtF.Sfvwrite.r38, subw_nat hnl (by omega) (by omega)] at h
     have hZ : SfvAt G (X.set [(24, X.n 24 - X.n 21)] [(14, 1#64), (16, BitVec.ofNat 64 (X.n 21))] X.m X.o) :=
       sfv_at% hX
-    obtain ⟨c3, s3, h3⟩ := sfv_tail hG hZ (pend := pend) (μ0 := μ0) st res (by sfv_set; omega)
-      (by sfv_set; omega) (by sfv_set; omega) (.inr ⟨rfl, by sfv_set; omega, by sfv_set; omega⟩)
-      (by sfv_set; omega) _ (h.repin (by pins_of h))
+    obtain ⟨c3, s3, h3⟩ := sfv_tail hG hZ (pend := pend) (μ0 := μ0) st res (by sfv_om)
+      (by sfv_om) (by sfv_om) (.inr ⟨rfl, by sfv_set; omega, by sfv_set; omega⟩)
+      (by sfv_om) _ (h.repin (by pins_of h))
     exact ⟨c3, acc.trans s3, h3⟩
 
 /-! ## `stdout`'s own stores: `_p`, `_w` after a copy into the buffer -/
@@ -664,5 +667,97 @@ theorem sfv_fill {G : SfvG} (hG : G.Ok) {M M' : Mem} {o : Array String} {pend : 
   · rw [bytesAt_congr (m := M') fun i hi => by rw [fw1_wm8 (by omega)]]; exact hmv
   · rw [fw8_same (by rfl), p_add hp, Nat.add_assoc]
   · rw [fw4_wm8 (by omega)]; exact hw
+
+theorem bytesAt_shift {m m' : Mem} {a b k : Nat} (h : ∀ i, i < k → bytesT1 m' (a + i) = bytesT1 m (b + i)) :
+    bytesAt m' a k = bytesAt m b k := by
+  unfold bytesAt
+  exact List.map_congr_left fun i hi => h i (List.mem_range.1 hi)
+
+/-- **`memmove(buf + |pend|, p, k)`** from the run's frame: the `k` source
+bytes after the pending ones, every other byte kept. -/
+theorem sfv_move {G : SfvG} (hG : G.Ok) {M : Mem} {o : Array String} {pend : List (BitVec 8)} {wv : BitVec 32}
+    {q p k : Nat} {ret : BitVec 64} {f : AbiFrame} {c : Config} (st : SfvSt G M o pend wv q)
+    (hret : ret.toNat % 4 = 0) (hp : p = G.src + q) (hk : pend.length + k ≤ 1024) (hq : q + k ≤ G.n)
+    (h : SegSt 0x8003b444#64 (callPre [⟨Register.x10, BitVec.ofNat 64 (G.buf + pend.length)⟩,
+      ⟨Register.x11, BitVec.ofNat 64 p⟩, ⟨Register.x12, BitVec.ofNat 64 k⟩] (G.sp - 96) ret f) (ArmPay M o) c) :
+    ∃ c' M', Steps c c' ∧ mmRet ret (G.sp - 96) (BitVec.ofNat 64 (G.buf + pend.length)) f M' o c' ∧
+      (∀ a, (a < G.buf + pend.length ∨ G.buf + pend.length + k ≤ a) → M'[a]? = M[a]?) ∧
+      bytesAt M' (G.buf + pend.length) k = bytesAt G.m (G.src + q) k := by
+  sfv_nums hG
+  have hb := st.stdout.buf_lo; have hbh := st.stdout.buf_hi
+  subst hp
+  obtain ⟨c', s, M', hr, mo⟩ := memmove_sum (G.sp - 96) (G.buf + pend.length) (G.src + q) k ret f M o
+    ⟨⟨by omega, by omega, by omega, by omega, by omega, by omega⟩, by omega, hret⟩ c h
+  refine ⟨c', M', s, hr, mo.keep, ?_⟩
+  rw [← st.src_bytes hG (i := q) (k := k) hq]
+  exact bytesAt_shift fun i hi => mo.moved i hi
+
+/-- The caller's frame `__sfvwrite_r`'s calls see (its loop registers `s2`,
+`s3`, `s6`–`s9` as the call rows hold them). -/
+abbrev sfvF' (X : FCx) (v18 v19 v22 v23 v24 v25 : BitVec 64) : AbiFrame := sfvF X v18 v19 v22 v23 v24 v25
+
+/-- The facts at the step size (`0x80033dbc`, the root `S`): `s = X.n 21`
+bytes to take from the cursor `X.n 25`, `X.n 23` left, the newline distance
+`X.n 24`. -/
+structure SfvStep (G : SfvG) (X : FCx) (pend : List (BitVec 8)) (μ0 : Nat) : Prop where
+  cx : SfvAt G X
+  st : SfvStA G X.m X.o pend (X.n 25 - G.src)
+  res : bytesT8 X.m (G.U + 16) = BitVec.ofNat 64 (X.n 23)
+  cur : X.n 25 + X.n 23 = G.src + G.n
+  lo : G.src ≤ X.n 25
+  s_pos : 1 ≤ X.n 21
+  s_len : X.n 21 ≤ X.n 23
+  s_nl : X.n 21 ≤ X.n 24
+  nl_hi : X.n 24 < 2 ^ 31
+  mu : 2 * X.n 23 + (if pend.length = 1024 then 1 else 0) ≤ μ0
+
+/-- The step's facts for `omega`. -/
+macro "sfv_step " S:term : tactic => `(tactic| (
+  have := ($S).cur; have := ($S).lo; have := ($S).s_pos; have := ($S).s_len; have := ($S).s_nl;
+  have := ($S).nl_hi; have := ($S).mu))
+
+/-- **A copy into the buffer** (`memmove` at `0x80033f88`, then `_w -= s`,
+`_p += s` and the newline distance): `s` bytes after `pend`, room for them. -/
+theorem sfv_copy {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0 : Nat} (S : SfvStep G X pend μ0)
+    (hroom : pend.length + X.n 21 ≤ 1024) :
+    Triple (SegSt 0x8003b444#64 (Lua.Vm.AtF.Sfvwrite.r23 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+  intro c h
+  have hX := S.cx
+  sfv_nums hG
+  sfv_cx hX
+  sfv_step S
+  have hb := S.st.stdout.buf_lo
+
+  have hp : bytesT8 X.m 0x8005e668 = BitVec.ofNat 64 (G.buf + pend.length) := S.st.stdout.p
+  simp only [Lua.Vm.AtF.Sfvwrite.r23, hX.sp, hp, sfvW_eq S.st.stdout] at h
+  obtain ⟨c2, M', s2, hret, hkeep, hmv⟩ := sfv_move hG S.st (ret := 0x80033f94#64) (by decide)
+    (p := X.n 25) (by omega) hroom (by omega)
+    (h.repin (L' := callPre _ _ _ (sfvF X _ _ _ _ _ _)) (by pins_of h))
+  rw [← hX.sp] at hret
+  simp only [mmRet] at hret
+  -- `memmove`'s return (`0x80033f94`): `_w -= s`, `_p += s`, then the newline distance
+  let Y : FCx := X.set [(20, X.n 21), (22, 1024 - pend.length)] [] M' X.o
+  have hY : SfvAt G Y := sfv_at% hX
+  have hY' : Lua.Vm.AtF.Sfvwrite.Ok_S Y := by sfv_ok hY
+  have h : SegSt 0x80033f94#64 (Lua.Vm.AtF.Sfvwrite.r24 Y) (ArmPay Y.m Y.o) c2 := hret.repin (by pins_of hret)
+  have acc := s2
+  fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033e00]
+  let Z : FCx := X.set [(20, X.n 21), (22, 1024 - pend.length)] [(17, BitVec.ofNat 64 (1024 - pend.length))]
+    (Lua.Vm.AtF.Sfvwrite.m3 Y) X.o
+  have hZ : SfvAt G Z := sfv_at% hX
+  have st' := sfv_push hG S.st (M' := M') hkeep hmv hroom (by omega)
+  have res' : bytesT8 Z.m (G.U + 16) = BitVec.ofNat 64 (Z.n 23) := by
+    show bytesT8 (sfvPushMem M' (X.n 21)) (G.U + 16) = BitVec.ofNat 64 (X.n 23)
+    rw [fw8_wm8 (by omega), fw8_wm4 (by omega), ← S.res]
+    exact bT8_congr fun i _ => hkeep _ (.inr (by omega))
+  obtain ⟨c3, s3, h3⟩ := sfv_nld hG hZ (pend := pend ++ bytesAt G.m (G.src + (X.n 25 - G.src)) (X.n 21)) (μ0 := μ0)
+    (st'.cast (by sfv_om)) res' (by sfv_om) (by sfv_om) (by sfv_om)
+    (by sfv_om) (by sfv_om) (by sfv_om)
+    (by sfv_set; rw [List.length_append, bytesAt_length]; split <;> omega)
+
+    _ (h.repin (by pins_of h))
+  exact ⟨c3, acc.trans s3, h3⟩
+
+
 
 end Lua.Vm.Sim.Kit
