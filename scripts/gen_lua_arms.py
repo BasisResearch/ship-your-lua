@@ -71,6 +71,12 @@ SIM_OPS = {"OP_MOVE", "OP_LOADI", "OP_JMP", "OP_ADD", "OP_EQI", "OP_FORLOOP", "O
            "OP_SHLI", "OP_SHRI", "OP_BANDK", "OP_BORK", "OP_BXORK"}
 # lane KIT-2: the control and compare family
 SIM_OPS |= {"OP_FORPREP", "OP_LOADNIL", "OP_EQK", "OP_LT", "OP_LE"}
+# Arms with a kernel outside the census summary's F1 list (the strings slice
+# of `Lua/Fragment.lean`: `LEN` on a string). Their segments and sites are
+# emitted in modules of their own (`Segs/X<op>`, `Sites/SX<op>`), so the
+# address-chunked modules of the F1 arms stay as they are.
+EXTRA_ARMS = ["OP_LEN"]
+SIM_OPS |= set(EXTRA_ARMS)
 KEEP = [2, 3, 8, 9, 18, 19, 20, 21, 23, 24, 25, 27]
 # The register invariant a `sim` segment threads (every GPR present, the HTIF
 # mailbox idle: `VmRel`'s `Core.ok`), one step lemma per step class.
@@ -125,11 +131,16 @@ HELPERS += [("luaS_eqlngstr", "LuaS_eqlngstr", 0x80017184, 0x800171d4, [], [], [
             ("strcoll", "Strcoll", 0x80036374, 0x80036378, [], [], []),
             ("strcmp", "Strcmp", 0x8003b920, 0x8003ba4c, [], [], []),
             ("strlen", "Strlen", 0x8003b770, 0x8003b844, [], [], [])]
+# lane F1-2: `OP_LEN`'s `luaV_objlen` on a string (variants 4 and 20); the table
+# path (`luaH_getn`, `0x8001bb78`) and the metamethod path (`0x8001bb14`) are
+# stops: `δ .len` has no other F1 value
+HELPERS += [("luaV_objlen", "LuaV_objlen", 0x8001bae0, 0x8001bc28, [], [], [0x8001bb14, 0x8001bb78])]
+SUMMARISED |= {"luaV_objlen"}
 # the registers a helper returns (live at its `ret`)
 RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
-           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}}
+           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaV_objlen": set()}
 
 
 def helper_cfg(lo, hi):
@@ -325,7 +336,7 @@ def seg_spec(lo, hi, path, name, sim, keep=KEEP):
 
 def collect(only):
     g = dfa.cfg()
-    f1 = set(json.load(open(dfa.ARMS_JSON))["summary"]["F1_ops"]) | dfa.F1_EXTRA_OPS
+    f1 = set(json.load(open(dfa.ARMS_JSON))["summary"]["F1_ops"]) | dfa.F1_EXTRA_OPS | set(EXTRA_ARMS)
     arms, cuts = [], {}
     for r in csv.DictReader(open(dfa.ARMS_TSV), delimiter="\t"):
         if r["op"] not in f1 or (only and r["op"] not in only):
@@ -458,8 +469,25 @@ def render(only=None) -> dict[Path, str]:
     parts = gen_sites.load_parts(ROOT / "Lua/Vm/Code/LuaV_execute")
     dump = gen_sites.load_ast_dump(ROOT / "Lua/Vm/DecodeCheck/ast_dump.txt")
     files: dict[Path, str] = {}
+    # the extra arms' own segments and sites (`EXTRA_ARMS`)
+    base = {n for op, ns in arms if op not in EXTRA_ARMS for n in ns}
+    xsegs = {op: [n for n in ns if n not in base] for op, ns in arms if op in EXTRA_ARMS}
+    base_sites = set()
+    for n in base:
+        for row in specs[n][2]:
+            p = row.split("\t")
+            base_sites.add((int(p[0], 16), p[2]))
+    xsites = {}
+    for op, ns in xsegs.items():
+        for n in ns:
+            for row in specs[n][2]:
+                p = row.split("\t")
+                key = (int(p[0], 16), p[2])
+                if key not in base_sites:
+                    xsites.setdefault(op, {}).setdefault(key, row)
+    xall = {k for d in xsites.values() for k in d}
     # site batteries
-    keys = sorted(sites)
+    keys = sorted(k for k in sites if k not in xall)
     site_mod = {}
     for i in range(0, len(keys), SITES_PER_MODULE):
         chunk = keys[i:i + SITES_PER_MODULE]
@@ -474,12 +502,25 @@ def render(only=None) -> dict[Path, str]:
             "the F1 arms of luaV_execute (driver: scripts/gen_lua_arms.py)",
             ast_dump=dump)
         files[OUT / "Sites" / f"{mod}.lean"] = text
+    for op, d in xsites.items():
+        mod = "SX" + op[3:]
+        objs = []
+        for n, key in enumerate(sorted(d), 1):
+            p = d[key].split("\t")
+            objs.append(gen_sites.Site(int(p[0], 16), int(p[1], 16), p[2], p[3:], n))
+            site_mod[site_name_of(key)] = f"{NS}.Sites.{mod}"
+        files[OUT / "Sites" / f"{mod}.lean"] = gen_sites.emit_battery(
+            objs, PRED, "", CODE_IMPORTS, "", NS, TEMPLATE, parts,
+            f"the arm {op} of luaV_execute (driver: scripts/gen_lua_arms.py)",
+            ast_dump=dump)
     # segment theorems
-    names = sorted(specs, key=lambda n: (specs[n][0], n))
+    xnames = {n for ns in xsegs.values() for n in ns}
+    names = sorted((n for n in specs if n not in xnames), key=lambda n: (specs[n][0], n))
+    groups = [(f"G{i // SEGS_PER_MODULE:02d}", names[i:i + SEGS_PER_MODULE])
+              for i in range(0, len(names), SEGS_PER_MODULE)]
+    groups += [("X" + op[3:], sorted(ns, key=lambda n: (specs[n][0], n))) for op, ns in xsegs.items()]
     seg_mods = []
-    for i in range(0, len(names), SEGS_PER_MODULE):
-        chunk = names[i:i + SEGS_PER_MODULE]
-        mod = f"G{i // SEGS_PER_MODULE:02d}"
+    for mod, chunk in groups:
         seg_mods.append(mod)
         imports = {"Lua.Vm.Arms.Text", "Vsa.Sim.SegState"}
         bodies = []
