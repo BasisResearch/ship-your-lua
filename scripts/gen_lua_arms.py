@@ -209,6 +209,37 @@ HELPERS += [("luaH_getshortstr", "LuaH_getshortstr", 0x8001808c, 0x800180f8, [22
              [0x800180ec])]
 SUMMARISED |= {"luaH_getshortstr"}
 SIM_OPS |= {"OP_GETTABUP"}
+# lane F1-8: `print`'s stdio calls on the callee-context route
+# (`scripts/gen_lua_at.py --fn`): `fflush(stdout)` (the `__sinit` call
+# `0x80032a98` and the `fflush(NULL)` walk `0x80032ae4` are stops: `stdout` is
+# set up, `StdioUp`)
+HELPERS += [("fflush", "Fflush", 0x80032a1c, 0x80032af8, [22, 26], [],
+             [0x80032a98, 0x80032ae4])]
+# lane F1-8: `memmove` (`__sfvwrite_r` copying into the `stdout` buffer): every
+# path but the backward copy (`0x8003b450`, a stop: the buffer and the source
+# are disjoint, so `dst < src + n` with `src < dst` is infeasible); the
+# 32-byte block body is cut after each of its stores (roots `0x8003b4d8`, …):
+# a segment's post-state holds every load through the segment's earlier
+# stores, so four stores in one segment state their data exponentially
+HELPERS += [("memmove", "Memmove", 0x8003b444, 0x8003b56c, [22, 26],
+             [0x8003b4d8, 0x8003b4e0, 0x8003b4e8], [0x8003b450])]
+# lane F1-8: `_fflush_r(ptr, stdout)` (`__sfvwrite_r`'s flushes; the `__sinit`
+# call `0x80032a04` is a stop: `StdioUp`)
+HELPERS += [("_fflush_r", "_fflush_r", 0x80032954, 0x80032a1c, [22, 26], [], [0x80032a04])]
+# lane F1-8: `memchr` (`__sfvwrite_r`'s search for the newline)
+HELPERS += [("memchr", "Memchr", 0x800360d8, 0x80036198, [22, 26], [], [])]
+# lane F1-8: `__sfvwrite_r` on the set-up line-buffered `stdout`: its
+# line-buffered loop (the return from the `FILE`'s write hook `0x80033df4` a
+# root). Stops: `__swsetup_r` (`0x80033c2c`: `stdout` is set up), the
+# unbuffered and fully buffered loops (`0x80033ba8`, `0x80033c70`: `__SLBF`),
+# the error exits (`0x80033ea8`, `0x80034008`: the console takes every byte)
+HELPERS += [("__sfvwrite_r", "__sfvwrite_r", 0x80033b50, 0x8003402c, [22, 26], [0x80033df4],
+             [0x80033c2c, 0x80033ba8, 0x80033c70, 0x80033ea8, 0x80034008])]
+# lane F1-8: `fwrite` (`j _fwrite_r`) and `_fwrite_r` on the set-up `stdout`
+# (`__sinit`, `0x800342c0`, a stop: `StdioUp`; the wide-orientation and
+# short-write paths are decided by `_flags2 = 0` and `__sfvwrite_r`'s `0`)
+HELPERS += [("fwrite", "Fwrite", 0x800342e4, 0x80034300, [22, 26], [], []),
+            ("_fwrite_r", "_fwrite_r", 0x800340fc, 0x800342e4, [22, 26], [], [0x800342c0])]
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -224,7 +255,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__call_exitprocs": set(), "__retarget_lock_acquire_recursive": set(),
            "__retarget_lock_release_recursive": set(), "_exit": set(),
            "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
-           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}}
+           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}, "memmove": {"x10"}, "_fflush_r": {"x10"}, "memchr": {"x10"}, "__sfvwrite_r": {"x10"}, "fwrite": {"x10"}, "_fwrite_r": {"x10"}}
 
 
 def helper_cfg(lo, hi):
@@ -350,11 +381,18 @@ def helper_emit(fn, cap, lo, hi, specs, sites):
         p = sites[key].split("\t")
         objs.append(gen_sites.Site(int(p[0], 16), int(p[1], 16), p[2], p[3:], n))
     mod = HMOD.get(fn, "H" + fn.lstrip("_"))
+    # a helper whose code pins are split into parts (`gen_lua_code.py`, more
+    # than 256 instructions: `__sfvwrite_r`) fetches through its part's pin
+    part_dir = ROOT / f"Lua/Vm/Code/{cap}"
+    if part_dir.is_dir():
+        template = f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}_p{{part}}Loaded hmem)"
+        parts = gen_sites.load_parts(part_dir)
+    else:
+        template = f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}Loaded hmem)"
+        parts = {a: 0 for a in range(lo, hi, 4)}
     battery = gen_sites.emit_battery(
         objs, PRED, "", [f"Lua.Vm.Code.FixedImage_{cap}", "Lua.Vm.Arms.Text"], "", NS,
-        f"Lua.Vm.Code.{fn}_at_{{addr}} (Lua.Vm.Code.textLoaded_{cap}Loaded hmem)",
-        {a: 0 for a in range(lo, hi, 4)},
-        f"the helper {fn} (driver: scripts/gen_lua_arms.py)")
+        template, parts, f"the helper {fn} (driver: scripts/gen_lua_arms.py)")
     bodies = []
     for name, spec in specs:
         em = gen_segment.SegmentEmitter(spec)
