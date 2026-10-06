@@ -13,7 +13,7 @@ declaration, elaborated synchronously (`Elab.async false`), in
 |---|---|---|
 | 1. callee-context rows (`At`/`Loc`/`Cx` and `gen_lua_at.py` for a callee, keyed by entry pc) | **landed** | `Lua/Vm/Sim/Kit/AtFn.lean` (`FCx`, `fat_seg`, `fat_close`, `fat_mem`, `fat_rd`, `fat_run`, `fat_call`, `fat_cmp`, `fcx_ok`), `scripts/gen_lua_at.py --fn` (`FNS`), `Lua/Vm/AtF/{Fflush,Fflush_r,Memmove,Memchr,Sfvwrite}.lean` |
 | 2a. `FflushStdout_Statement` | **proved** | `Kit.fflush_stdout` (`Kit/Fflush.lean`) |
-| 2b. `FwriteStdout_Statement` | open; callees proved | `Kit.memmove_sum` (`Kit/Memmove.lean`), `Kit.memchr_nl` (`Kit/Memchr.lean`), `Kit.fflush_r_stdout` (`Kit/Fflush.lean`); `__sfvwrite_r`'s 155 at-lemmas build (`Lua/Vm/AtF/Sfvwrite.lean`) |
+| 2b. `FwriteStdout_Statement` | proved from `SfvwriteLbf_Statement` (`Kit.fwrite_stdout_of_sfv`, `Kit/Fwrite.lean`); callees proved | `Kit.memmove_sum` (`Kit/Memmove.lean`), `Kit.memchr_nl` (`Kit/Memchr.lean`), `Kit.fflush_r_stdout` (`Kit/Fflush.lean`); `__sfvwrite_r`'s 155 at-lemmas build (`Lua/Vm/AtF/Sfvwrite.lean`) |
 | 2c. `StdoutSetup_Statement` | open | not started (below) |
 | 2d. `IntegerToStr_Statement` | open | not started (below) |
 | 3. `luaB_print` per F1 value class | open | not started |
@@ -69,6 +69,7 @@ over an arm context. The callee version:
 | `fflush`, `_fflush_r` (`fflush_stdout`, `fflush_r_stdout`, the shared `sfl_mid32`, `flush_fin`) | 117 | 434 + 404 (16 + 14 at-lemmas); 3,344 + 3,303 | 5.6 s / 2.1 GB; generated 21.8 s + 19.1 s / 2.1 GB | `fflush_stdout` 30.2k, `fflush_r_stdout` 26.4k; generated ≤ 32.4k |
 | `memmove` (`memmove_sum`: `mm_bytes`, `mm_words`, `mm_blocks`, the entry; `MoveOut`) | 330 | 1,152 (50 at-lemmas); 4,787 | 23.0 s / 2.3 GB; generated 65.6 s / 2.6 GB | `memmove_sum` 126.4k, `mm_blocks` 98.3k; generated `at_8003b4e8_8003b4f4_t` 166.3k |
 | `memchr` (`memchr_nl`: `mc_bytes`, `mc_words`, `mc_align`, the entry; the word test `mc_hz`) | 321 | 993 (39 at-lemmas); 3,642 | 13.2 s / 2.2 GB; generated 30.0 s / 2.2 GB | `mc_align` 73.6k; generated ≤ 23.2k |
+| `fwrite` → `_fwrite_r` (`fwrite_stdout_of_sfv`, from `SfvwriteLbf_Statement`; `SfvUio`, `SfvKeep`) | 140 | 612 (19 at-lemmas, 2 roots; `__muldi3` a pure call); segments + sites of `_fwrite_r`, `fwrite` | 15.0 s / 2.2 GB; generated 54.0 s / 2.4 GB | `fwrite_stdout_of_sfv` 116.5k; generated `at_8003426c_80034280_t` 58.2k |
 | `__sfvwrite_r` (line-buffered) | — (open) | 2,959 (155 at-lemmas, 9 roots); 9,393 | generated 159.4 s / 2.9 GB | generated `at_80033c00_80033c2c_1` 106.2k |
 
 Setup (generators): `gen_lua_at.py` +895 lines (the callee walker, `FNS`),
@@ -112,14 +113,13 @@ lines.
 
 ## What is left (the remainder, exactly)
 
-* `FwriteStdout_Statement`: the line-buffered loop of `__sfvwrite_r` over
+* `SfvwriteLbf_Statement` (which gives `FwriteStdout_Statement` by
+  `fwrite_stdout_of_sfv`): the line-buffered loop of `__sfvwrite_r` over
   its 9 roots (`seg_loop` on the bytes left; invariant: `StdoutAt M buf pend`
   with `out ++ pend = pend₀ ++ bytesAt m src c`, `resid = n - c`; one splice
   per return: `memchr_nl` (×2 return values), `memmove_sum` (copy and
   partial fill), `fflush_r_stdout` (after a newline and after a partial
-  fill), `swrite_sum` (a chunk of ≥ 1024 bytes into an empty buffer)), then
-  `fwrite` → `_fwrite_r` (generate with `__muldi3` as a `pure` call, the
-  locks inline, `__sfvwrite_r` abstract).
+  fill), `swrite_sum` (a chunk of ≥ 1024 bytes into an empty buffer)).
 * `StdoutSetup_Statement`: `__sinit` (`global_stdio_init`, its `memset`),
   `__swsetup_r`, `__smakebuf_r` (`_fstat` → `fs_init`, `_malloc_r` on the
   `SWP` allocator route, `_isatty`), each a callee on the route.
