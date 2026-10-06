@@ -49,7 +49,7 @@ def SfvwriteLbf_Statement : Prop :=
     (o : Array String),
     r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → buf + 3584 ≤ sp →
     StdoutAt m buf pend → StdioUp m → SfvUio m U I src n →
-    sp ≤ I → I + 16 ≤ U → U + 24 ≤ sp + 2048 → U % 8 = 0 → I % 8 = 0 →
+    sp ≤ I → I + 16 ≤ U → U + 24 ≤ sp + 2048 → U + 24 ≤ 2 ^ 32 → U % 8 = 0 → I % 8 = 0 →
     errnoAddr + 4 ≤ src → src + n + 3072 ≤ sp →
     (src + n ≤ buf ∨ buf + 1024 ≤ src) → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
     Triple (SegSt 0x80033b50#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
@@ -95,7 +95,7 @@ theorem fwrite_stdout_of_sfv (hsfv : SfvwriteLbf_Statement) : FwriteStdout_State
   obtain ⟨c2, s2, m', out, pend', hret, hs', hu', hout, hkeep⟩ :=
     hsfv (sp - 112) buf (sp - 72) (sp - 88) src n pend 0x800341f8#64 (fwFrame f n)
       (Lua.Vm.AtF.Fwrite.m3 (fwCx sp src n r f m o)) o (by decide) (by omega) (by omega) (by omega) hs3 hu3 hio
-      (by omega) (by omega) (by omega) (by omega) (by omega) hsrc (by omega) hb hst _
+      (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) hsrc (by omega) hb hst _
       (by fcx_unfold; simp only [callPre, List.cons_append, List.nil_append]; exact h.repin (by pins_of h))
   have acc := acc.trans s2
   -- the return from `__sfvwrite_r`: a fresh root over `m'`
