@@ -533,4 +533,136 @@ theorem sfv_nld {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {pend : List (
       (by sfv_set; omega) _ (h.repin (by pins_of h))
     exact ⟨c3, acc.trans s3, h3⟩
 
+/-! ## `stdout`'s own stores: `_p`, `_w` after a copy into the buffer -/
+
+/-- `stdout` after stores to `_p` and `_w` (`[stdout, stdout + 16)`) over a
+buffer that holds `pend'`. -/
+theorem StdoutAtW.restore {m m' : Mem} {buf : Nat} {pend pend' : List (BitVec 8)} {wv wv' : BitVec 32}
+    (hs : StdoutAtW m buf pend wv)
+    (h : ∀ a, a < buf → (a < stdoutFile ∨ stdoutFile + 16 ≤ a) → m'[a]? = m[a]?)
+    (hp : bytesT8 m' (stdoutFile + fileBufPOff) = BitVec.ofNat 64 (buf + pend'.length))
+    (hw : bytesT4 m' (stdoutFile + fileWOff) = wv') (hb : bytesAt m' buf pend'.length = pend')
+    (hr : pend'.length ≤ 1024) : StdoutAtW m' buf pend' wv' := by
+  have hb0 := hs.buf_lo
+  stdio_nums
+  refine ⟨hp, hw, (bT2_congr fun i _ => h _ (by omega) (by omega)).trans hs.flags,
+    (bT2_congr fun i _ => h _ (by omega) (by omega)).trans hs.file,
+    (bT8_congr fun i _ => h _ (by omega) (by omega)).trans hs.base,
+    (bT4_congr fun i _ => h _ (by omega) (by omega)).trans hs.size,
+    (bT4_congr fun i _ => h _ (by omega) (by omega)).trans hs.lbf,
+    (bT8_congr fun i _ => h _ (by omega) (by omega)).trans hs.cookie,
+    (bT8_congr fun i _ => h _ (by omega) (by omega)).trans hs.write, hb, hr, hs.buf_lo, hs.buf_hi, ?_, ?_⟩
+  · rw [bT4_congr fun i _ => h _ (by omega) (by omega)]; exact hs.ready
+  · rw [bT4_congr fun i _ => h _ (by omega) (by omega)]; exact hs.stdout
+
+/-- newlib's set-up words across stores to `_p` and `_w` (and above `stdout`). -/
+theorem StdioUp.congr' {m m' : Mem} (hu : StdioUp m)
+    (h : ∀ a, a < stdoutFile + fileSize → (a < stdoutFile ∨ stdoutFile + 16 ≤ a) → m'[a]? = m[a]?) :
+    StdioUp m' := by
+  stdio_nums
+  refine ⟨(bT8_congr fun i _ => h _ (by omega) (by omega)).trans hu.impure, ?_,
+    (bT4_congr fun i _ => h _ (by omega) (by omega)).trans hu.flags2⟩
+  rw [bT8_congr fun i _ => h _ (by omega) (by omega)]; exact hu.init
+
+theorem bytesAt_length (m : Mem) (a k : Nat) : (bytesAt m a k).length = k := by simp [bytesAt]
+
+/-- **A step's bytes into the buffer**: `s` source bytes copied after `pend`
+(by `memmove`), then `stdout`'s `_p` (and `_w`) stored. -/
+theorem sfv_store {G : SfvG} (hG : G.Ok) {M M' : Mem} {o : Array String} {pend : List (BitVec 8)}
+    {wv wv' : BitVec 32} {q s : Nat} (st : SfvSt G M o pend wv q)
+    (h : ∀ a, (a < G.buf + pend.length ∨ G.buf + pend.length + s ≤ a) → (a < stdoutFile ∨ stdoutFile + 16 ≤ a) →
+      M'[a]? = M[a]?)
+    (hmv : bytesAt M' (G.buf + pend.length) s = bytesAt G.m (G.src + q) s)
+    (hp : bytesT8 M' (stdoutFile + fileBufPOff) = BitVec.ofNat 64 (G.buf + (pend.length + s)))
+    (hw : bytesT4 M' (stdoutFile + fileWOff) = wv') (hroom : pend.length + s ≤ 1024) (hq : q + s ≤ G.n) :
+    SfvSt G M' o (pend ++ bytesAt G.m (G.src + q) s) wv' (q + s) := by
+  sfv_nums hG
+  have hb := st.stdout.buf_lo; have hbh := st.stdout.buf_hi
+  have hl : (pend ++ bytesAt G.m (G.src + q) s).length = pend.length + s := by
+    rw [List.length_append, bytesAt_length]
+  obtain ⟨out, ho, hout⟩ := st.out
+  refine ⟨st.stdout.restore (fun a h1 h2 => h a (.inl (by omega)) h2) (by rw [hl]; exact hp) hw ?_ (by omega),
+    st.up.congr' fun a h1 h2 => h a (.inl (by omega)) h2, ⟨out, ho, ?_⟩,
+    st.frame.congr (by omega) fun a h1 h2 => bT1_congr (h a (.inr (by omega)) (.inr (by omega))),
+    st.keep.trans (SfvKeep.of_agree fun a ha => bT1_congr (h a (by omega) (by omega))), hq⟩
+  · rw [hl, bytesAt_add, hmv, bytesAt_congr (m := M) fun i hi => bT1_congr (h _ (.inl (by omega)) (by omega)),
+      st.stdout.bytes]
+  · rw [← List.append_assoc, hout, List.append_assoc, ← bytesAt_add]
+
+/-- `__sfvwrite_r`'s copy stores after `memmove` (`_w -= s`, `_p += s`): the
+generated memory `m3` over the root's memory and step size. -/
+abbrev sfvPushMem (M : Mem) (s : Nat) : Mem :=
+  writeMap8 (writeMap4 (M) (0x8005e674) (swData ((sign_extend (m := 64) ((Sail.BitVec.extractLsb
+    (sign_extend (m := 64) (bytesT4 (M) ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat :
+    BitVec (8 * 4))) 31 0) - (Sail.BitVec.extractLsb (BitVec.ofNat 64 (s)) 31 0)))))) (0x8005e668)
+    (sdData_val (((sign_extend (m := 64) (bytesT8 (M) ((0x8005e668#64) + sign_extend (m := 64) (0x000#12)).toNat :
+    BitVec (8 * 8))) + (BitVec.ofNat 64 (s)))))
+
+/-- `__sfvwrite_r`'s fill store after `memmove` (`_p += w`, `_w` left for the
+flush): the generated memory `m4`. -/
+abbrev sfvFillMem (M : Mem) (w : Nat) : Mem :=
+  writeMap8 (M) (0x8005e668) (sdData_val (((sign_extend (m := 64) (bytesT8 (M) ((0x8005e668#64) +
+    sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8))) + (BitVec.ofNat 64 (w)))))
+
+theorem swData_sext (x : BitVec 32) : swData (sign_extend (m := 64) x) = x := extract_sext x
+
+/-- `_p += s`. -/
+theorem p_add {M : Mem} {b s : Nat} (h : bytesT8 M (stdoutFile + fileBufPOff) = BitVec.ofNat 64 b) :
+    sign_extend (m := 64) (bytesT8 M ((0x8005e668#64) + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)) +
+      BitVec.ofNat 64 s = BitVec.ofNat 64 (b + s) := by
+  rw [show ((0x8005e668#64) + sign_extend (m := 64) (0x000#12)).toNat = stdoutFile + fileBufPOff from rfl, h,
+    sext64_id, BitVec.ofNat_add_ofNat]
+
+/-- `_w -= s` (32 bits). -/
+theorem w_sub {M : Mem} {l s : Nat} (h : bytesT4 M (stdoutFile + fileWOff) = 0#32 - BitVec.ofNat 32 l) :
+    swData (sign_extend (m := 64) (Sail.BitVec.extractLsb (sign_extend (m := 64) (bytesT4 M
+      ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat : BitVec (8 * 4))) 31 0 -
+      Sail.BitVec.extractLsb (BitVec.ofNat 64 s) 31 0)) = 0#32 - BitVec.ofNat 32 (l + s) := by
+  rw [show ((0x8005e668#64) + sign_extend (m := 64) (0x00c#12)).toNat = stdoutFile + fileWOff from rfl, h,
+    swData_sext, extract_sext]
+  apply BitVec.eq_of_toNat_eq
+  simp only [Sail.BitVec.extractLsb, BitVec.toNat_sub, BitVec.extractLsb_toNat, BitVec.toNat_ofNat,
+    Nat.shiftRight_zero]
+  omega
+
+theorem sfv_push {G : SfvG} (hG : G.Ok) {M M' : Mem} {o : Array String} {pend : List (BitVec 8)} {q s : Nat}
+    (st : SfvStA G M o pend q) (hM' : ∀ a, (a < G.buf + pend.length ∨ G.buf + pend.length + s ≤ a) → M'[a]? = M[a]?)
+    (hmv : bytesAt M' (G.buf + pend.length) s = bytesAt G.m (G.src + q) s)
+    (hroom : pend.length + s ≤ 1024) (hq : q + s ≤ G.n) :
+    SfvStA G (sfvPushMem M' s) o (pend ++ bytesAt G.m (G.src + q) s) (q + s) := by
+  sfv_nums hG
+  have hb := st.stdout.buf_lo
+  have hp : bytesT8 M' (stdoutFile + fileBufPOff) = BitVec.ofNat 64 (G.buf + pend.length) :=
+    (bT8_congr fun i _ => hM' _ (.inl (by omega))).trans st.stdout.p
+  have hw : bytesT4 M' (stdoutFile + fileWOff) = 0#32 - BitVec.ofNat 32 pend.length :=
+    (bT4_congr fun i _ => hM' _ (.inl (by omega))).trans st.stdout.w
+  have hl : (pend ++ bytesAt G.m (G.src + q) s).length = pend.length + s := by
+    rw [List.length_append, bytesAt_length]
+  show SfvSt G _ o _ (0#32 - BitVec.ofNat 32 (pend ++ bytesAt G.m (G.src + q) s).length) (q + s)
+  rw [hl]
+  refine sfv_store hG st (fun a h1 h2 => ?_) ?_ ?_ ?_ hroom hq
+  · rw [getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap4_out _ _ _ _ (by omega)]; exact hM' a h1
+  · rw [bytesAt_congr (m := M') fun i hi => by
+      rw [fw1_wm8 (by omega), fw1_wm4 (by omega)]]; exact hmv
+  · rw [fw8_same (by rfl), p_add hp, Nat.add_assoc]
+  · rw [fw4_wm8 (by omega), fw4_same (by rfl), w_sub hw]
+
+theorem sfv_fill {G : SfvG} (hG : G.Ok) {M M' : Mem} {o : Array String} {pend : List (BitVec 8)} {wv : BitVec 32}
+    {q s : Nat} (st : SfvSt G M o pend wv q)
+    (hM' : ∀ a, (a < G.buf + pend.length ∨ G.buf + pend.length + s ≤ a) → M'[a]? = M[a]?)
+    (hmv : bytesAt M' (G.buf + pend.length) s = bytesAt G.m (G.src + q) s)
+    (hroom : pend.length + s ≤ 1024) (hq : q + s ≤ G.n) :
+    SfvSt G (sfvFillMem M' s) o (pend ++ bytesAt G.m (G.src + q) s) wv (q + s) := by
+  sfv_nums hG
+  have hb := st.stdout.buf_lo
+  have hp : bytesT8 M' (stdoutFile + fileBufPOff) = BitVec.ofNat 64 (G.buf + pend.length) :=
+    (bT8_congr fun i _ => hM' _ (.inl (by omega))).trans st.stdout.p
+  have hw : bytesT4 M' (stdoutFile + fileWOff) = wv :=
+    (bT4_congr fun i _ => hM' _ (.inl (by omega))).trans st.stdout.w
+  refine sfv_store hG st (fun a h1 h2 => ?_) ?_ ?_ ?_ hroom hq
+  · rw [getElem?_writeMap8_out _ _ _ _ (by omega)]; exact hM' a h1
+  · rw [bytesAt_congr (m := M') fun i hi => by rw [fw1_wm8 (by omega)]]; exact hmv
+  · rw [fw8_same (by rfl), p_add hp, Nat.add_assoc]
+  · rw [fw4_wm8 (by omega)]; exact hw
+
 end Lua.Vm.Sim.Kit
