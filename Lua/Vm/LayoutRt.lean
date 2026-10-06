@@ -60,6 +60,12 @@ def fileCookieOff : Nat := 48
 def fileWriteOff : Nat := 64
 /-- `offsetof(FILE, _ub._base)` — the ungetc buffer -/
 def fileUbBaseOff : Nat := 88
+/-- `offsetof(FILE, _lock)` — the stream lock (`__retarget_lock_*`, no-ops) -/
+def fileLockOff : Nat := 160
+/-- `offsetof(FILE, _flags2)` — `__SNLK` (bit 0: no locking) … -/
+def fileFlags2Off : Nat := 176
+/-- `offsetof(struct _reent, __cleanup)` — non-NULL once `__sinit` ran (`CHECK_INIT`) -/
+def reentCleanupOff : Nat := 72
 /-- `offsetof(struct _reent, _stdin)` -/
 def reentStdinOff : Nat := 8
 /-- `offsetof(struct _reent, _stdout)` -/

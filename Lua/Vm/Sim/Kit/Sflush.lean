@@ -165,7 +165,7 @@ theorem bytesT8_sd_self (m : Mem) (a : Nat) (v : BitVec 64) : bytesT8 (writeMap8
 
 /-- The forwarding of a read through the write path's stores (each side
 condition a separation over `Nat`). -/
-macro "sfl_fwd" : tactic => `(tactic| simp (disch := first | decide | omega) only [
+macro "sfl_fwd" : tactic => `(tactic| simp (disch := omega) only [
   bytesT8_wm8_out, bytesT8_wm4_out, b8_wm2_out, bytesT4_wm8_out, b4_wm4_out, b4_wm2_out, b2_wm8_out,
   b2_wm4_out, b2_wm2_out, bytesT1_writeMap8_out, bytesT1_wm4_out, b1_wm2_out])
 
@@ -188,13 +188,26 @@ def SflRet (r : BitVec 64) (sp buf : Nat) (f : AbiFrame) (m : Mem) (o : Array St
 theorem upd_ret (r : BitVec 64) (h : r.toNat % 4 = 0) : BitVec.update r 0 0#1 = r := by
   have := Vsa.Sim.ret_tgt r h; rwa [Vsa.Sim.sext_zero, BitVec.add_zero] at this
 
-/-- `__sflush_r`'s stores before the write: its saves (`s0`, `s3`, `ra`, `s2`,
-`s1`), `_p := _bf._base`, `_w := 0`. -/
-abbrev sflMem (m : Mem) (sp : Nat) (r : BitVec 64) (f : AbiFrame) (buf : Nat) : Mem :=
-  writeMap4 (writeMap8 (writeMap8 (writeMap8 (writeMap8 (writeMap8 (writeMap8 m (sp - 48 + 32)
+/-- `__sflush_r`'s stores up to the count's test: its saves (`s0`, `s3`, `ra`,
+`s2`, `s1`) and `_p := _bf._base`. -/
+abbrev sflMem3 (m : Mem) (sp : Nat) (r : BitVec 64) (f : AbiFrame) (buf : Nat) : Mem :=
+  writeMap8 (writeMap8 (writeMap8 (writeMap8 (writeMap8 (writeMap8 m (sp - 48 + 32)
     (sdData_val f.s0)) (sp - 48 + 8) (sdData_val f.s3)) (sp - 48 + 40) (sdData_val r)) (sp - 48 + 16)
-    (sdData_val f.s2)) (sp - 48 + 24) (sdData_val f.s1)) stdoutFile (sdData_val (BitVec.ofNat 64 buf)))
-    (stdoutFile + 12) (swData 0#64)
+    (sdData_val f.s2)) (sp - 48 + 24) (sdData_val f.s1)) stdoutFile (sdData_val (BitVec.ofNat 64 buf))
+
+/-- … and `_w := 0`: the stores before the write. -/
+abbrev sflMem (m : Mem) (sp : Nat) (r : BitVec 64) (f : AbiFrame) (buf : Nat) : Mem :=
+  writeMap4 (sflMem3 m sp r f buf) (stdoutFile + 12) (swData 0#64)
+
+/-- The pins at the pending count's test (`0x80032868`). -/
+abbrev sflP68 (sp buf n : Nat) (ptr : BitVec 64) (f : AbiFrame) : List Pin :=
+  [⟨Register.x15, 0#64⟩, ⟨Register.x9, BitVec.ofNat 64 n⟩,
+   ⟨Register.x14, sign_extend (m := 64) (0x2889#16 : BitVec 16) &&& sign_extend (m := 64) (0x003#12)⟩,
+   ⟨Register.x2, BitVec.ofNat 64 (sp - 48)⟩, ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩,
+   ⟨Register.x18, BitVec.ofNat 64 buf⟩, ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩,
+   ⟨Register.x8, BitVec.ofNat 64 stdoutFile⟩, ⟨Register.x19, ptr⟩,
+   ⟨Register.x20, f.s4⟩, ⟨Register.x21, f.s5⟩, ⟨Register.x22, f.s6⟩, ⟨Register.x23, f.s7⟩,
+   ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩, ⟨Register.x26, f.s10⟩, ⟨Register.x27, f.s11⟩]
 
 /-- The frame `__swrite` sees: `s0 = stdout`, `s1 = n`, `s2 = buf`, `s3 = ptr`. -/
 abbrev sflFrame (f : AbiFrame) (ptr : BitVec 64) (buf n : Nat) : AbiFrame :=
@@ -205,7 +218,7 @@ set_option hygiene false in
 /-- A segment state's pins normalised: addresses to `Nat`, reads forwarded
 through the stores to the entry memory's fields. -/
 local macro "sfl_norm" : tactic => `(tactic|
-  simp (disch := first | decide | omega) only [Vsa.Sim.sext_zero, BitVec.add_zero, add_imm,
+  simp (disch := omega) only [Vsa.Sim.sext_zero, BitVec.add_zero, add_imm,
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt, sext64_id, bytesT8_sd_self, bytesT8_wm8_out, bytesT8_wm4_out,
     b8_wm2_out, bytesT4_wm8_out, b4_wm4_out, b4_wm2_out, b2_wm8_out, b2_wm4_out, b2_wm2_out,
     hflg, hp, hbase, hck, hwr, subw_len, subw_self] at h)
@@ -213,7 +226,7 @@ local macro "sfl_norm" : tactic => `(tactic|
 set_option hygiene false in
 /-- … and a side condition's. -/
 local macro "sfl_normg" : tactic => `(tactic|
-  simp (disch := first | decide | omega) only [Vsa.Sim.sext_zero, BitVec.add_zero, add_imm,
+  simp (disch := omega) only [Vsa.Sim.sext_zero, BitVec.add_zero, add_imm,
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt, sext64_id, bytesT8_sd_self, bytesT8_wm8_out, bytesT8_wm4_out,
     b8_wm2_out, bytesT4_wm8_out, b4_wm4_out, b4_wm2_out, b2_wm8_out, b2_wm4_out, b2_wm2_out,
     hflg, hp, hbase, hck, hwr, upd_ret _ hra])
@@ -229,12 +242,12 @@ structure SflSaved (M : Mem) (sp : Nat) (r : BitVec 64) (f : AbiFrame) : Prop wh
 set_option hygiene false in
 /-- … the tail's pins, the saved registers read back. -/
 local macro "sfl_tnorm" : tactic => `(tactic|
-  simp (disch := first | decide | omega) only [Vsa.Sim.sext_zero, BitVec.add_zero, add_imm,
+  simp (disch := omega) only [Vsa.Sim.sext_zero, BitVec.add_zero, add_imm,
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt, sext64_id, hM.s0, hM.s1, hM.s2, hM.s3, hM.ra] at h)
 
 set_option hygiene false in
 local macro "sfl_tnormg" : tactic => `(tactic|
-  simp (disch := first | decide | omega) only [Vsa.Sim.sext_zero, BitVec.add_zero, add_imm,
+  simp (disch := omega) only [Vsa.Sim.sext_zero, BitVec.add_zero, add_imm,
     BitVec.toNat_ofNat, Nat.mod_eq_of_lt, sext64_id, hM.ra, upd_ret _ hra])
 
 set_option hygiene false in
@@ -268,35 +281,91 @@ theorem sfl_ret (sp : Nat) (r : BitVec 64) (f : AbiFrame) (a8 a9 a18 a19 : BitVe
   exact ⟨_, acc, h.repin (by pins_of h)⟩
 
 set_option hygiene false in
-/-- `__sflush_r`'s prologue on `stdout` up to the pending count's test (`0x80032868`). -/
-local macro "sfl_pro" : tactic => `(tactic| (
-  intro c h
-  have acc := Steps.refl c
+/-- The context and `stdout`'s fields the prologue and the hook call read. -/
+local macro "sfl_facts" : tactic => `(tactic| (
   sfl_ctx hx hs
   have hflg : bytesT2 m (stdoutFile + 16) = 0x2889#16 := hs.flags
   have hp : bytesT8 m stdoutFile = BitVec.ofNat 64 (buf + pend.length) := hs.p
   have hbase : bytesT8 m (stdoutFile + 24) = BitVec.ofNat 64 buf := hs.base
   have hck : bytesT8 m (stdoutFile + 48) = BitVec.ofNat 64 stdoutFile := hs.cookie
-  have hwr : bytesT8 m (stdoutFile + 64) = BitVec.ofNat 64 symSwrite := hs.write
+  have hwr : bytesT8 m (stdoutFile + 64) = BitVec.ofNat 64 symSwrite := hs.write))
+
+/-- `__sflush_r`'s first saves (`s0`, `s3`, `ra`). -/
+abbrev sflMem0 (m : Mem) (sp : Nat) (r : BitVec 64) (f : AbiFrame) : Mem :=
+  writeMap8 (writeMap8 (writeMap8 m (sp - 48 + 32) (sdData_val f.s0)) (sp - 48 + 8) (sdData_val f.s3))
+    (sp - 48 + 40) (sdData_val r)
+
+/-- The pins at the write-mode branch target (`0x8003283c`). -/
+abbrev sflP3c (sp : Nat) (ptr r : BitVec 64) (f : AbiFrame) : List Pin :=
+  [⟨Register.x19, ptr⟩, ⟨Register.x8, BitVec.ofNat 64 stdoutFile⟩,
+   ⟨Register.x14, sign_extend (m := 64) (0x2889#16 : BitVec 16)⟩,
+   ⟨Register.x2, BitVec.ofNat 64 (sp - 48)⟩, ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩, ⟨Register.x1, r⟩,
+   ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩, ⟨Register.x9, f.s1⟩, ⟨Register.x18, f.s2⟩,
+   ⟨Register.x20, f.s4⟩, ⟨Register.x21, f.s5⟩, ⟨Register.x22, f.s6⟩, ⟨Register.x23, f.s7⟩,
+   ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩, ⟨Register.x26, f.s10⟩, ⟨Register.x27, f.s11⟩]
+
+/-- **`__sflush_r`'s entry on `stdout`** (to `0x8003283c`): the saves, the
+write-mode test (`__SWR`). -/
+theorem sfl_pro1 (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) :
+    Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o))
+      (SegSt 0x8003283c#64 (sflP3c sp ptr r f) (ArmPay (sflMem0 m sp r f) o)) := by
+  intro c h
+  have acc := Steps.refl c
+  sfl_facts
   have hg1 : (((sign_extend (m := 64) (bytesT2 m (BitVec.ofNat 64 stdoutFile + sign_extend (m := 64) (0x010#12)).toNat :
       BitVec (8 * 2))) &&& sign_extend (m := 64) (0x008#12)) != (0#64)) = true := by
     rw [addr_add (by decide) (by omega), hflg]; decide
   kit_run h acc until [0x8003283c]
   rw [imm_sub 48 (0xfd0#12) (by decide) (by omega) (by omega)] at h
   sfl_norm
-  have hg2 : (sign_extend (m := 64) (bytesT8 (writeMap8 (writeMap8 (writeMap8 (writeMap8 m (sp - 48 + 32)
-      (sdData_val f.s0)) (sp - 48 + 8) (sdData_val f.s3)) (sp - 48 + 40) (sdData_val r))
+  exact ⟨_, acc, h.repin (by pins_of h)⟩
+
+/-- The pins after the buffer test (`0x80032848`). -/
+abbrev sflP48 (sp buf : Nat) (ptr : BitVec 64) (f : AbiFrame) : List Pin :=
+  [⟨Register.x18, BitVec.ofNat 64 buf⟩, ⟨Register.x2, BitVec.ofNat 64 (sp - 48)⟩,
+   ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩, ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩,
+   ⟨Register.x8, BitVec.ofNat 64 stdoutFile⟩, ⟨Register.x9, f.s1⟩,
+   ⟨Register.x14, sign_extend (m := 64) (0x2889#16 : BitVec 16)⟩, ⟨Register.x19, ptr⟩,
+   ⟨Register.x20, f.s4⟩, ⟨Register.x21, f.s5⟩, ⟨Register.x22, f.s6⟩, ⟨Register.x23, f.s7⟩,
+   ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩, ⟨Register.x26, f.s10⟩, ⟨Register.x27, f.s11⟩]
+
+/-- **The buffer test** (`0x8003283c` → `0x80032848`): `_bf._base ≠ NULL`,
+`s2` saved. -/
+theorem sfl_pro2 (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) :
+    Triple (SegSt 0x8003283c#64 (sflP3c sp ptr r f) (ArmPay (sflMem0 m sp r f) o))
+      (SegSt 0x80032848#64 (sflP48 sp buf ptr f)
+        (ArmPay (writeMap8 (sflMem0 m sp r f) (sp - 48 + 16) (sdData_val f.s2)) o)) := by
+  intro c h
+  have acc := Steps.refl c
+  sfl_facts
+  have hg2 : (sign_extend (m := 64) (bytesT8 (writeMap8 (sflMem0 m sp r f)
       ((BitVec.ofNat 64 (sp - 48) + sign_extend (m := 64) (0x010#12)).toNat) (sdData_val f.s2))
       (BitVec.ofNat 64 stdoutFile + sign_extend (m := 64) (0x018#12)).toNat : BitVec (8 * 8)) == 0#64) = false := by
     rw [addr_add (by decide) (by omega), addr_add (by decide) (by omega)]
     sfl_fwd
     rw [hbase, sext64_id]; exact ofNat_beq0 (by omega) (by omega)
-  have hg3 : ((sign_extend (m := 64) (0x2889#16 : BitVec 16) &&& sign_extend (m := 64) (0x003#12)) != (0#64)) = true := by
-    decide
   kit_run h acc until [0x80032848]
   sfl_norm
+  exact ⟨_, acc, h.repin (by pins_of h)⟩
+
+/-- **`__sflush_r`'s prologue on `stdout`** up to the pending count's test
+(`0x80032868`): the saves, `_p := _bf._base`, the count `_p - _bf._base`. -/
+theorem sfl_pro (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame)
+    (m : Mem) (o : Array String) (hx : SflCtx sp buf r) (hs : StdoutAt m buf pend) :
+    Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o))
+      (SegSt 0x80032868#64 (sflP68 sp buf pend.length ptr f) (ArmPay (sflMem3 m sp r f buf) o)) := by
+  intro c h
+  obtain ⟨_, acc, h⟩ := sfl_pro1 ptr sp buf pend r f m o hx hs c h
+  obtain ⟨_, s2, h⟩ := sfl_pro2 ptr sp buf pend r f m o hx hs _ h
+  have acc := acc.trans s2
+  sfl_facts
+  have hg3 : ((sign_extend (m := 64) (0x2889#16 : BitVec 16) &&& sign_extend (m := 64) (0x003#12)) != (0#64)) = true := by
+    decide
   kit_run h acc until [0x80032868]
-  sfl_norm))
+  sfl_norm
+  exact ⟨_, acc, h.repin (by pins_of h)⟩
 
 /-- The pins on the return from `__swrite` (`0x80032894`). -/
 abbrev sflR (sp buf n : Nat) (ptr : BitVec 64) (f : AbiFrame) : List Pin :=
@@ -328,7 +397,9 @@ theorem sfl_head (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r : 
     Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o))
       (SegSt 0x80034f18#64 (swPre ptr (sp - 48) buf pend.length 0x80032894#64 (sflFrame f ptr buf pend.length))
         (ArmPay (sflMem m sp r f buf) o)) := by
-  sfl_pro
+  intro c h
+  obtain ⟨_, acc, h⟩ := sfl_pro ptr sp buf pend r f m o hx hs c h
+  sfl_facts
   have hgl := slt0_ofNat (l := pend.length) (by omega)
   simp only [hn, decide_true] at hgl
   kit_run h acc until [0x8003287c]
@@ -344,7 +415,9 @@ theorem sfl_head0 (ptr : BitVec 64) (sp buf : Nat) (pend : List (BitVec 8)) (r :
     Triple (SegSt 0x800326f8#64 (sflPre ptr sp r f) (ArmPay m o))
       (SegSt 0x800328d4#64 (sflT sp (BitVec.ofNat 64 stdoutFile) (BitVec.ofNat 64 pend.length)
         (BitVec.ofNat 64 buf) ptr f) (ArmPay (sflMem m sp r f buf) o)) := by
-  sfl_pro
+  intro c h
+  obtain ⟨_, acc, h⟩ := sfl_pro ptr sp buf pend r f m o hx hs c h
+  sfl_facts
   have hgl := slt0_ofNat (l := pend.length) (by omega)
   simp only [hn, Nat.lt_irrefl, decide_false] at hgl
   rw [hn] at h
@@ -386,7 +459,7 @@ local macro "sfl_rd" : tactic => `(tactic| (
   have hLB : fileLbfsizeOff = 40 := rfl
   have hCK : fileCookieOff = 48 := rfl
   have hWR : fileWriteOff = 64 := rfl
-  simp (disch := first | decide | omega) only [bytesT8_wm8_same, bytesT4_wm4_same, bytesT2_wm2_same,
+  simp (disch := omega) only [bytesT8_wm8_same, bytesT4_wm4_same, bytesT2_wm2_same,
     bytesT8_wm8_out, bytesT8_wm4_out, b8_wm2_out, bytesT4_wm8_out, b4_wm4_out, b4_wm2_out, b2_wm8_out,
     b2_wm4_out, b2_wm2_out, bytesT1_writeMap8_out, bytesT1_wm4_out, b1_wm2_out]))
 
