@@ -61,7 +61,9 @@ FLOAT = re.compile(r"df|^floor$|^fmod$|^pow$")
 # `__umoddi3` holds `__divdi3`'s sign fix-ups, `0x8002f78c`, `0x8002f79c`.)
 EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3",
          # axis S: the string callees of EQ (long strings) and LT/LE
-         "luaS_eqlngstr", "memcmp", "strcoll", "strcmp", "strlen"]
+         "luaS_eqlngstr", "memcmp", "strcoll", "strcmp", "strlen",
+         # lane F1-2: OP_LEN on a string (`luaV_objlen`)
+         "luaV_objlen"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")

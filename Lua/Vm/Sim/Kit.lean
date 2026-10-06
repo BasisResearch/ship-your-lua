@@ -22,9 +22,9 @@ import Lua.Vm.Sim.Kit.AtBandk
 import Lua.Vm.Sim.Kit.AtBork
 import Lua.Vm.Sim.Kit.AtBxork
 import Lua.Vm.Sim.Kit.EqLong
-import Lua.Vm.Sim.Kit.LtStr
 import Lua.Vm.Sim.Kit.Adjvar
 import Lua.Vm.Sim.Kit.Varargprep
+import Lua.Vm.Sim.Kit.AtStr
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
@@ -43,5 +43,9 @@ views (`Kit/Str.lean`: `Core.unseal`, `Core.str_at`), word lanes
 (`Kit/Word.lean`), the string callees (`Kit/Memcmp.lean`, `Kit/Lngstr.lean`,
 `Kit/Strcmp.lean`, `Kit/Strlen.lean`, `Kit/Lstrcmp.lean`,
 `Kit/LstrcmpPro.lean`, with `Kit/Lex.lean` relating chunks to `lexLt`), and
-the closed arms `sim_EQ` (`Kit/EqLong.lean`) and `sim_LT` (`Kit/LtStr.lean`).
+the closed arm `sim_EQ` (`Kit/EqLong.lean`).
+
+Lane F1-2: `docondjump` and the `l_strcmp` call node on the location-list route
+(`Kit/AtCond.lean`), and the string paths of `OP_LE`, `OP_LT` there
+(`Kit/AtStr.lean`: `At.sim_LE`, `At.sim_LT`; the kit's `LtStr` is retired).
 -/

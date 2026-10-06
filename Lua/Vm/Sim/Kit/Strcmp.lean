@@ -190,7 +190,7 @@ theorem cmpObs_hw {v : BitVec 64} {lo1 hi1 lo2 hi2 : Nat} (h1 : lo1 < 256) (h2 :
     (h3 : lo2 < 256) (h4 : hi2 < 256) (he : lo1 = lo2)
     (h : v.toNat = (2 ^ 64 - (lo2 + 256 * hi2) + (lo1 + 256 * hi1)) % 2 ^ 64) : CmpObs v hi1 hi2 := by
   have c := cmpObs_toNat (v := v) (x := lo1 + 256 * hi1) (y := lo2 + 256 * hi2) (by omega) (by omega) h
-  exact ⟨c.zero.trans (by omega), c.neg.trans (by subst he; simp only [decide_eq_decide]; omega)⟩
+  exact ⟨c.zero.trans (by omega), c.neg.trans (by subst he; simp only [decide_eq_decide]; omega), c.small⟩
 
 set_option hygiene false in
 /-- One leaf of the halfword exit: the run to `ret`, the answer at lane `k0`
@@ -402,7 +402,7 @@ theorem sc_ans_zero {m : Mem} {P Q p : Nat} (hok : ∀ j, j < p → ScOk m P Q j
   · rw [← Nat.add_assoc]; exact hz0
   · rw [← Nat.add_assoc, ← Nat.add_assoc] at hlz
     rw [Vsa.Sim.sext_zero, BitVec.add_zero, ← Nat.add_assoc, ← Nat.add_assoc, ← hlz, hz0]
-    exact ⟨by simp, by decide⟩
+    exact ⟨by simp, by decide, by decide⟩
 
 /-- The word loop's state: `a0 = P + i`, `a1 = Q + i`, the mask and `-1`. -/
 abbrev scW (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=

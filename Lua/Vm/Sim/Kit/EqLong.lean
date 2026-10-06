@@ -84,12 +84,13 @@ local macro_rules
 
 /-- **`luaV_equalobj` on two long strings**: `a0` is `1` iff the contents
 are equal; the memory changes only in the callee frames `[sp - 48, sp)`. -/
-theorem eqo_long (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
+theorem eqo_long_ex (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
     (hx : EqCtx m n1 n2 sp r) {s1 s2 : List UInt8} (ht1 : slotTag m n1 = 84#8)
     (ht2 : slotTag m n2 = 84#8) (hl1 : maxShortLen < s1.length) (hl2 : maxShortLen < s2.length)
     (hp : LngPair m sp (slotVal m n1).toNat (slotVal m n2).toNat s1 s2) :
     Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
-      (RetOut r (BitVec.ofNat 64 sp) f m o (sp - 48) sp (if s1 = s2 then 1#64 else 0#64)) := by
+      (RetAt r (BitVec.ofNat 64 sp) f (writeMap8 m (sp - 8) (sdData_val r)) o
+        (if s1 = s2 then 1#64 else 0#64)) := by
   intro c h
   have acc := Steps.refl c
   obtain ⟨hro, hra, h1, h2, h3, h4, h5, h6, h7⟩ := hx
@@ -110,12 +111,27 @@ theorem eqo_long (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : 
       = sp - 8 := by kit_disch
   have v1 := hp.a1.view; have v2 := hp.a2.view
   have := v1.lo; have := v2.lo
-  obtain ⟨_, acc, ⟨m', hO, h⟩⟩ := h.call acc (by pins_of h)
+  obtain ⟨_, acc, ⟨m', hm', h⟩⟩ := h.call acc (by pins_of h)
     (eqlngstr_sum _ _ s1 s2 r sp f _ o
       ⟨hra, by omega, by omega, by omega, by rw [hk]; exact v1.wm8 hp.a1.apart (by omega) (by omega) _,
         by rw [hk]; exact v2.wm8 hp.a2.apart (by omega) (by omega) _, hl1, hl2,
         hp.a1.apart.mono (by omega) (by omega), hp.a2.apart.mono (by omega) (by omega), hp.inj⟩)
-  exact ⟨_, acc, ⟨⟨m', AgreeOut.wm8_trans hO (by omega) (by omega) (by omega), h⟩⟩⟩
+  have e : m' = writeMap8 m (sp - 8) (sdData_val r) := by
+    rcases hm' with rfl | rfl <;> simp only [hk, writeMap8_idem]
+  exact ⟨_, acc, e ▸ h⟩
+
+/-- **`luaV_equalobj` on two long strings**, the memory as a frame: changed
+only in `[sp - 48, sp)`. -/
+theorem eqo_long (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : EqCtx m n1 n2 sp r) {s1 s2 : List UInt8} (ht1 : slotTag m n1 = 84#8)
+    (ht2 : slotTag m n2 = 84#8) (hl1 : maxShortLen < s1.length) (hl2 : maxShortLen < s2.length)
+    (hp : LngPair m sp (slotVal m n1).toNat (slotVal m n2).toNat s1 s2) :
+    Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
+      (RetOut r (BitVec.ofNat 64 sp) f m o (sp - 48) sp (if s1 = s2 then 1#64 else 0#64)) := fun c h =>
+  have := hx.sp_lo
+  let ⟨c', hs, h'⟩ := eqo_long_ex L r n1 n2 sp f m o hx ht1 ht2 hl1 hl2 hp c h
+  ⟨c', hs, ⟨⟨_, AgreeOut.writeMap8 (AgreeOut.refl m (sp - 48) sp) (sdData_val r) (k := sp - 8) (by omega)
+    (by omega), h'⟩⟩⟩
 
 set_option hygiene false in
 local macro_rules

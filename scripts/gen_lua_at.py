@@ -57,7 +57,12 @@ ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
         "OP_UNM": ("Unm", 0x8001d8a4), "OP_SHL": ("Shl", 0x8001d5f0),
         "OP_SHR": ("Shr", 0x8001d57c), "OP_SHLI": ("Shli", 0x8001dd30),
         "OP_SHRI": ("Shri", 0x8001dd8c), "OP_BANDK": ("Bandk", 0x8001d710),
-        "OP_BORK": ("Bork", 0x8001d6b8), "OP_BXORK": ("Bxork", 0x8001d660)}
+        "OP_BORK": ("Bork", 0x8001d6b8), "OP_BXORK": ("Bxork", 0x8001d660), "OP_LE": ("Le", 0x8001c60c), "OP_LT": ("Lt", 0x8001c894),
+        "OP_EQK": ("Eqk", 0x8001c850), "OP_LEN": ("Len", 0x8001dc14)}
+
+# the library modules an arm's at-lemmas need beyond `At`/`Summaries`
+IMPORTS = {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
+           "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"]}
 
 ABI = {"zero": 0, "ra": 1, "sp": 2, "gp": 3, "tp": 4, "t0": 5, "t1": 6, "t2": 7,
        "s0": 8, "fp": 8, "s1": 9}
@@ -138,8 +143,28 @@ def lean_aff(terms, add):
     return f"⟨[{ts}], {max(add, 0)}, {max(-add, 0)}⟩"
 
 
+# locations whose value is stated over the context `X` (`Kit/AtCond.lean`): printed as
+# `.lit <term over X>`, so they may stand in a row (an abbreviation over `X`) but not in a log
+XLOCS = ("andi", "kbit", "jmp", "strle", "strlt", "streqk")
+
+
 def lean_loc(x):
     k = x[0]
+    if k == "andi":   # `andi` of an unknown value: closed over the context
+        return f"(.lit ((Loc.den X {lean_loc(x[1])}) &&& (Loc.den X {lean_loc(x[2])})))"
+    if k == "kbit":
+        return "(.lit (if X.ins.k then 1#64 else 0#64))"
+    if k == "jmp":
+        return "(.lit (BitVec.ofNat 64 (X.w.code + 4 * jmpPc X)))"
+    if k == "strle":
+        return f"(.lit (if !lexLt (sOf X .{x[2]}) (sOf X .{x[1]}) then 1#64 else 0#64))"
+    if k == "slen":
+        # closed over the context: a log may hold it (`Loc.fn`)
+        return f"(.fn fun X => BitVec.ofNat 64 (sOf X .{x[1]}).length)"
+    if k == "streqk":
+        return "(.lit (if sOf X .a = kOf X then 1#64 else 0#64))"
+    if k == "strlt":
+        return f"(.lit (if lexLt (sOf X .{x[1]}) (sOf X .{x[2]}) then 1#64 else 0#64))"
     if k == "lit":
         return f"(.lit 0x{x[1]:x}#64)"
     if k == "litn":
@@ -193,6 +218,15 @@ def slot_of(terms, add):
     if f not in ("a", "b", "c") or c != 16 or add < 0:
         return None
     return f, add // 16, add % 16
+
+
+def walk_loc(x):
+    """`x` and its sub-locations."""
+    yield x
+    if isinstance(x, tuple):
+        for y in x[1:]:
+            if isinstance(y, tuple) and y and isinstance(y[0], str):
+                yield from walk_loc(y)
 
 
 class State:
@@ -259,11 +293,17 @@ class State:
             return ("kval",)
         if t == {"sp": 1} and add == 0 and size == 8:
             return canon(aff({"k": 1}))
+        if t == {"ci": 1} and add == 40 and size == 4:
+            return ("lit", 0)                 # `ci->u.l.trap` (`trap_ld`)
+        if t == {"code": 1, "pc": 4} and add == 4 and size == 4:
+            return ("w4n",)                   # the following `OP_JMP` (`jmp_at`)
         if size == 8:
             return ("cell", terms, add)
         raise Stop(f"byte load at {terms}+{add}")
 
     def store(self, kind, terms, add, v):
+        if any(isinstance(x, tuple) and x and x[0] in XLOCS for x in walk_loc(v)):
+            raise Stop("a store of a location over the context")
         self.touch(terms, add)
         self.log.insert(0, (kind, terms, add, v))
 
@@ -298,10 +338,27 @@ def step(st, raw):
     """One non-control instruction on the symbolic state."""
     mnem, o = ops_of(raw)
     R = lambda s: ABI[s]    # noqa: E731
-    if mnem in ("ld", "lbu"):
+    if mnem in ("ld", "lbu", "lw"):
         off, b = mem_operand(o[1])
         terms, add = addr_of(st, b, off)
-        st.set(R(o[0]), st.load(terms, add, 8 if mnem == "ld" else 1))
+        st.set(R(o[0]), st.load(terms, add, {"ld": 8, "lbu": 1, "lw": 4}[mnem]))
+    elif mnem == "lui":
+        v = (imm(o[1]) << 12) & 0xffffffff
+        st.set(R(o[0]), ("lit", (v | (M64 ^ 0xffffffff)) if v >> 31 else v))
+    elif mnem == "sext.w":
+        x = st.get(R(o[1]))
+        if litval(x) is None:
+            raise Stop("sext.w of a symbolic value")
+        v = litval(x) & 0xffffffff
+        st.set(R(o[0]), ("lit", (v | (M64 ^ 0xffffffff)) if v >> 31 else v))
+    elif mnem == "andi":
+        x, k = st.get(R(o[1])), imm(o[2]) & M64
+        if x == aff({"bx": 1}) and k == 1:
+            st.set(R(o[0]), ("kbit",))        # `docondjump`'s k (`kraw_eq`)
+        elif litval(x) is not None:
+            st.set(R(o[0]), ("lit", litval(x) & k))
+        else:
+            st.set(R(o[0]), ("andi", x, ("lit", k)))
     elif mnem in ("sd", "sb"):
         off, b = mem_operand(o[1])
         terms, add = addr_of(st, b, off)
@@ -322,7 +379,9 @@ def step(st, raw):
     elif mnem == "add":
         x, y = st.get(R(o[1])), st.get(R(o[2]))
         ax, ay = to_aff(x), to_aff(y)
-        if ax is not None and ay is not None and not (x[0] == "lit" and y[0] == "lit"):
+        if x == ("pc", 1) and y == ("shl", ("add", ("nsj",), ("lit", 0xffffffffff000002)), 2):
+            st.set(R(o[0]), ("jmp",))         # `donextjump`'s target (`jmp_at`)
+        elif ax is not None and ay is not None and not (x[0] == "lit" and y[0] == "lit"):
             st.set(R(o[0]), aff_add(ax, ay[0], ay[1]))
         else:
             st.set(R(o[0]), ("add", x, y))
@@ -347,6 +406,8 @@ def step(st, raw):
         elif x[0] == "aff" and x[2] == 0 and len(x[1]) == 1:
             (a, c), = x[1]
             st.set(R(o[0]), aff({a: c << k}))
+        elif x[0] == "add":
+            st.set(R(o[0]), ("shl", x, k))
         else:
             raise Stop(f"slli of {x}")
     elif mnem == "srli":
@@ -356,6 +417,9 @@ def step(st, raw):
         st.set(R(o[0]), ("lit", litval(x) >> k))
     elif mnem == "srliw":
         x, k = st.get(R(o[1])), imm(o[2])
+        if x == ("w4n",) and k == 7:
+            st.set(R(o[0]), ("nsj",))
+            return
         if x != ("insw",):
             raise Stop("srliw of a non-instruction")
         st.set(R(o[0]), {24: aff({"c": 1}), 15: aff({"bx": 1})}.get(k, ("shr", k)))
@@ -407,6 +471,11 @@ def decide(head, x, y, facts, f1=True):
     """The branch's value when the operands decide it, else None. With `f1`,
     a tag is never the float tag: the float paths are infeasible (the arm
     closes the not-taken guard from `ValRepr.ne_float`)."""
+    if litval(x) is None and litval(y) is None:
+        if facts.get(y, ("", None))[0] == "eq":
+            y = ("lit", facts[y][1])
+        elif facts.get(x, ("", None))[0] == "eq":
+            x = ("lit", facts[x][1])
     vx, vy = litval(x), litval(y)
     if vx is not None and vy is not None:
         return {"==": vx == vy, "!=": vx != vy, "zopz0zI_s": sgn(vx) < sgn(vy),
@@ -476,7 +545,14 @@ def code(lo, hi):
 # the summarised calls: entry -> (helper, result registers, Lean application)
 CALLS = {
     0x8002f7b0: "__moddi3", 0x8002f72c: "__divdi3", 0x8002f734: "__hidden___udivdi3",
-    0x8001ade8: "luaV_tointeger"}
+    0x8001ade8: "luaV_tointeger", 0x8001a704: "l_strcmp", 0x8001b780: "luaV_equalobj",
+    0x8001bae0: "luaV_objlen"}
+
+# a call node observed by the instruction after it (`l_strcmp`'s answer is
+# only known up to `LsObs`): the call lemma runs on through that observing
+# segment, whose result is a location (mnemonic -> the location's kind, the
+# observation lemma of `Kit/AtCond.lean`)
+OBSERVED = {"l_strcmp": {"slti": ("strle", "obs_le"), "srliw": ("strlt", "obs_lt")}}
 
 
 def call_effect(st, callee, ret):
@@ -507,6 +583,54 @@ def call_effect(st, callee, ret):
         pins = ["Vsa.Sim.SegSt.pin5"] + pins
         proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.udivdi3_sum _ _ _ _ hframe? _ _ "
                  "(by at_unfold at hn; exact hn) (by decide))")
+    elif callee == "l_strcmp":
+        # `lstr_sum`: two string registers' payloads; the return memory is
+        # the prologue's six saves (`lsMem`)
+        sa, sb = a0, a1
+        if sa[0] != "val" or sb[0] != "val":
+            raise Stop("l_strcmp of a non-slot")
+        post = State({r: st.get(r) for r in FRAME if r not in (22, 26)}, st.log, st.facts)
+        post.bounds = {(sa[1], sa[2]), (sb[1], sb[2])}
+        sp = (("sp", 1),)
+        for off, r in ((-16, 8), (-8, 1), (-24, 9), (-32, 18), (-40, 19), (-48, 20)):
+            post.store("sd", sp, off, st.get(r))
+        hyps.append("(x y : List UInt8)")
+        hyps.append(f"(hsa : X.s.regs (X.ins.{sa[1]} + {sa[2]}) = some (.str x))")
+        hyps.append(f"(hsb : X.s.regs (X.ins.{sb[1]} + {sb[2]}) = some (.str y))")
+        post.obs = (sa[1], sb[1])
+        proof = "at_lstr {obs_seg} {obs_lemma}"
+        return post, hyps, "at_open\n  " + proof, pre_regs
+    elif callee == "luaV_equalobj":
+        # `lngeq_sum`: `luaV_equalobj(NULL, R[A], K[B])` on two long strings;
+        # the return memory is the entry's with `ra` saved at `sp - 8`
+        a2 = st.get(12)
+        if a0 != ("lit", 0) or a1 != aff({"base": 1, "a": 16}) or a2 != aff({"k": 1, "b": 16}):
+            raise Stop(f"luaV_equalobj of {a0}, {a1}, {a2}")
+        if st.log:
+            raise Stop("luaV_equalobj after stores")
+        post = State({r: st.get(r) for r in FRAME if r not in (22, 26)}, st.log, st.facts)
+        post.bounds = {("a", 0)}
+        post.store("sd", (("sp", 1),), -8, ("lit", ret))
+        post.set(10, ("streqk",))
+        hyps += ["(x y : List UInt8)", "(hsa : X.s.regs (X.ins.a + 0) = some (.str x))",
+                 "(hky : kval X.p X.ins.b = some (.str y))",
+                 "(hta : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 0)) = 84#8)",
+                 "(htk : slotTag X.c.σ.mem (X.w.k + stackValueSize * X.ins.b) = 84#8)"]
+        return post, hyps, "at_open\n  at_eqk", pre_regs
+    elif callee == "luaV_objlen":
+        # `len_sum`: `luaV_objlen(L, R[A], R[B])` on a string `R[B]`; the
+        # return memory: `ra` saved at `sp - 8`, then `R[A]` the integer `#R[B]`
+        a2 = st.get(12)
+        sa, sb = aff({"base": 1, "a": 16}), aff({"base": 1, "b": 16})
+        if a0 != ("L",) or a1 != sa or a2 != sb:
+            raise Stop(f"luaV_objlen of {a0}, {a1}, {a2}")
+        post = State({r: st.get(r) for r in FRAME if r not in (22, 26)}, st.log, st.facts)
+        post.bounds = {("a", 0), ("b", 0)}
+        post.store("sd", (("sp", 1),), -8, ("lit", ret))
+        post.store("sb", sa[1], 8, ("lit", 3))
+        post.store("sd", sa[1], 0, ("slen", "b"))
+        hyps += ["(y : List UInt8)", "(hsb : X.s.regs (X.ins.b + 0) = some (.str y))"]
+        return post, hyps, "at_open\n  at_objlen", pre_regs
     elif callee == "luaV_tointeger":
         s = to_aff(a0)
         if s is None or not slot_of(tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))), s[1]):
@@ -591,11 +715,14 @@ class Arm:
         if key in self.lemmas:
             return
         hyps = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(st2) + guards
+        if st2.regs.get(27) == ("jmp",) and st.regs.get(27) != ("jmp",):
+            hyps.append("(hj : (nextJump X.p X.s.pc).isSome = true)")   # `jmp_at`
         base = "at" + name[3:]
         lname = self.name(base, key)
+        pre = "  have := jmp_lt hj\n" if any(h.startswith("(hj :") for h in hyps) else ""
         text = (f"theorem {lname} {' '.join(hyps)} :\n"
                 f"    AtStep X 0x{lo:08x}#64 ({pre_row}) {pre_log} 0x{hi:08x}#64 ({post_row}) {post_log} := by\n"
-                f"  at_seg Lua.Vm.Arms.{name}\n")
+                f"{pre}  at_seg Lua.Vm.Arms.{name}\n")
         self.lemmas[key] = (lname, text)
         self.order.append(key)
 
@@ -673,13 +800,32 @@ class Arm:
     def walk_call(self, entry, ret, st, depth):
         callee = CALLS[entry]
         post, hyps, proof, _ = call_effect(st, callee, ret)
+        nxt = ret
+        if callee in OBSERVED:
+            # run on through the observing segment at `ret`
+            obs = [n for n in self.segs if int(n[4:12], 16) == ret]
+            if len(obs) != 1:
+                raise Stop(f"observer at 0x{ret:x}: {obs}")
+            name = obs[0]
+            ins = code(ret, int(name[13:21], 16))
+            mnem = ins[0][1].split()[0]
+            if mnem not in OBSERVED[callee] or len(ins) != 2 or ins[1][1].split()[0] != "j":
+                raise Stop(f"observer {ins}")
+            kind, lemma = OBSERVED[callee][mnem]
+            post.set(10, (kind,) + post.obs)
+            nxt = int(ops_of(ins[1][1])[1][0], 16)
+            _, opost, _ = self.meta[name]
+            post.regs = {r: v for r, v in post.regs.items() if r in opost}
+            proof = proof.replace("{obs_seg}", f"Lua.Vm.Arms.{name}").replace(
+                "{obs_lemma}", f"Lua.Vm.Sim.At.{lemma}")
         post.regs = {r: v for r, v in post.regs.items() if printable(v)}
-        rest = self.walk(ret, post, depth + 1)
+        rest = self.walk(nxt, post, depth + 1)
         if rest is None:
             return None
-        return [lambda: self.emit_call(entry, ret, st, post, hyps, proof)] + rest
+        return [lambda: self.emit_call(entry, ret, st, post, hyps, proof, nxt)] + rest
 
-    def emit_call(self, entry, ret, st, post, hyps, proof):
+    def emit_call(self, entry, ret, st, post, hyps, proof, nxt=None):
+        nxt = ret if nxt is None else nxt
         pre_row, pre_log = self.row(st.regs), self.logname(st.log)
         post_row, post_log = self.row(post.regs), self.logname(post.log)
         key = ("call", entry, ret, pre_row, pre_log)
@@ -688,7 +834,7 @@ class Arm:
             hs = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(post) + hyps
             lname = self.name(f"call_{ret:08x}", key)
             text = (f"theorem {lname} {' '.join(hs)} :\n"
-                    f"    AtStep X 0x{entry:08x}#64 ({pre_row}) {pre_log} 0x{ret:08x}#64 ({post_row}) {post_log} := by\n"
+                    f"    AtStep X 0x{entry:08x}#64 ({pre_row}) {pre_log} 0x{nxt:08x}#64 ({post_row}) {post_log} := by\n"
                     f"  {proof}\n")
             self.lemmas[key] = (lname, text)
             self.order.append(key)
@@ -699,14 +845,17 @@ class Arm:
         if key in self.lemmas:
             return
         x27 = st.regs.get(27)
-        t = to_aff(x27)
-        if t is None or t[0].get("code") != 1 or t[0].get("pc") != 4 or (t[1] % 4):
-            raise Stop(f"head pc {x27}")
-        extra = {a: c for a, c in t[0].items() if a not in ("code", "pc")}
-        if any(c % 4 for c in extra.values()):
-            raise Stop("head pc")
-        pc_txt = " + ".join(["X.s.pc"] + [f"{c // 4} * X.ins.{a}" if c != 4 else f"X.ins.{a}"
-                                           for a, c in extra.items()] + [str(t[1] // 4)])
+        t = to_aff(x27) if x27 != ("jmp",) else None
+        if x27 == ("jmp",):
+            pc_txt = "jmpPc X"
+        else:
+            if t is None or t[0].get("code") != 1 or t[0].get("pc") != 4 or (t[1] % 4):
+                raise Stop(f"head pc {x27}")
+            extra = {a: c for a, c in t[0].items() if a not in ("code", "pc")}
+            if any(c % 4 for c in extra.values()):
+                raise Stop("head pc")
+            pc_txt = " + ".join(["X.s.pc"] + [f"{c // 4} * X.ins.{a}" if c != 4 else f"X.ins.{a}"
+                                               for a, c in extra.items()] + [str(t[1] // 4)])
         # the stored slots: the newest tag (`sb` at +8) and payload (`sd` at +0)
         slots, bounds = {}, set()
         for kind, t, a, v in st.log:
@@ -755,9 +904,10 @@ class Arm:
             for key, n in self.logs.items())
         body = "\n".join(self.lemmas[k][1] for k in self.order)
         dropped = "\n".join(f"* `{n}`: {why}" for n, why in sorted(set(self.dropped)))
+        extra = "".join(f"import {m}\n" for m in IMPORTS.get(self.op, []))
         return f"""import Lua.Vm.Sim.Kit.At
 import Lua.Vm.Sim.Kit.Summaries
-import Lua.Vm.Arms
+{extra}import Lua.Vm.Arms
 
 /-! {HEADER}
 

@@ -221,10 +221,12 @@ theorem shl16_eq (m : Mem) (p q : Nat) :
 /-! ## The observation -/
 
 /-- **What `l_strcmp` observes of a comparison result** `v` of the bytes `x`
-and `y`: zero iff equal (`bnez`), bit 31 (`srliw 31`) iff `x < y`. -/
+and `y`: zero iff equal (`bnez`), bit 31 (`srliw 31`) iff `x < y`, and a
+sign-extended 32-bit value (so `slti 1`, `OP_LE`'s test, reads the sign). -/
 structure CmpObs (v : BitVec 64) (x y : Nat) : Prop where
   zero : v = 0#64 ↔ x = y
   neg : v.getLsbD 31 = decide (x < y)
+  small : v.toNat < 2 ^ 31 ∨ 2 ^ 64 - 2 ^ 31 ≤ v.toNat
 
 /-- A difference of two small values. -/
 theorem cmpObs_sub {x y : Nat} (hx : x < 2 ^ 16) (hy : y < 2 ^ 16) :
@@ -238,5 +240,6 @@ theorem cmpObs_sub {x y : Nat} (hx : x < 2 ^ 16) (hy : y < 2 ^ 16) :
     simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]
     rw [Bool.eq_iff_iff]; simp only [decide_eq_true_eq]
     constructor <;> intro <;> omega
+  · simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]; omega
 
 end Lua.Vm.Sim

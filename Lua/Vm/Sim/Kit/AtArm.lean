@@ -116,6 +116,11 @@ macro "at_new" : tactic => `(tactic| (
     first | exact .int | (simp_all [snez_eq, BitVec.msb_xor]; done) |
       (simp_all [snez_eq, BitVec.msb_xor]; exact .int))))
 
+/-- An extension point of `at_close`'s successor pc (`Kit/AtCond.lean`:
+`donextjump`'s target `jmpPc`). Fails by default. -/
+syntax "at_pc_ext" : tactic
+macro_rules | `(tactic| at_pc_ext) => `(tactic| fail "at_pc_ext")
+
 open Lean Elab Tactic Meta in
 /-- **`at_close NS h acc`**: the close at the fetch head: the generated
 `fin` lemma of `NS` whose row is `h`'s, then `AtFin.close`. -/
@@ -138,7 +143,7 @@ elab "at_close " ns:ident h:ident acc:ident : tactic => do
       let lem ← `($(mkIdent n) $args* $h)
       withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| (
         refine ⟨_, $acc, (($lem).pc_eq ?_).close $(mkIdent `hX) ?_ ?_⟩
-        first | rfl | omega | (simp only []; omega)
+        first | rfl | omega | (simp only []; omega) | at_pc_ext
         at_hold
         at_new)))
       return

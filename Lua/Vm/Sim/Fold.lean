@@ -314,16 +314,10 @@ structure OpenArms : Prop where
   /-- `OP_UNM` on a string (`luaT_trybinTM` → lstrlib's `__unm`; the integer
   path and the stuck values are `At.sim_UNM_of_str`'s) -/
   UNM_str : At.UnmStr_Statement
-  /-- `luaV_objlen` on a string -/
-  LEN : SimArm .LEN
   /-- `luaV_concat` (string creation: `Strs.own` grows) -/
   CONCAT : SimArm .CONCAT
   /-- `print`: `luaD_precall` → `luaB_print` → … → HTIF (stack reallocation) -/
   CALL : SimArm .CALL
-  /-- `OP_EQK` on two long strings (`luaS_eqlngstr` with `K[B]`) -/
-  EQK_long : ArmBody .EQK fun p c s w ins => ¬ Kit.EqkShort p c s w ins
-  /-- `OP_LE` on two strings (`l_strcmp`'s answer observed by `slti a0,1`) -/
-  LE_str : ArmBody .LE BothStrAB
 
 /-- **The arm table**: the proved arms and the open premises cover `armOps`. -/
 theorem armTable (h : OpenArms) : ∀ o ∈ armOps, SimArm o := by
@@ -364,14 +358,14 @@ theorem armTable (h : OpenArms) : ∀ o ∈ armOps, SimArm o := by
   case UNM => exact At.sim_UNM_of_str h.UNM_str
   case BNOT => exact @sim_BNOT
   case NOT => exact @sim_NOT
-  case LEN => exact h.LEN
+  case LEN => exact At.sim_LEN
   case CONCAT => exact h.CONCAT
   case JMP => exact @sim_JMP
   case EQ => exact Kit.sim_EQ
-  case EQK => exact Kit.sim_EQK_of_long h.EQK_long
+  case EQK => exact At.sim_EQK
   case EQI => exact @sim_EQI
-  case LT => exact Kit.sim_LT
-  case LE => exact Kit.sim_LE_of_str h.LE_str
+  case LT => exact At.sim_LT
+  case LE => exact At.sim_LE
   case LTI => exact @sim_LTI
   case LEI => exact @sim_LEI
   case GTI => exact @sim_GTI
