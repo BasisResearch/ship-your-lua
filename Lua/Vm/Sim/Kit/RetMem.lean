@@ -134,6 +134,66 @@ theorem bytesT8_wm8_out' {m : Mem} {a x : Nat} {d : BitVec (8 * 8)} (h : x + 8 �
     bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
   bytesT8_congr fun i _ => getElem?_writeMap8_out m a d _ (by omega)
 
+theorem bytesT8_wm4_out' {m : Mem} {a x : Nat} {d : BitVec (8 * 4)} (h : x + 8 ≤ a ∨ a + 4 ≤ x) :
+    bytesT8 (writeMap4 m a d) x = bytesT8 m x :=
+  bytesT8_congr fun i _ => getElem?_writeMap4_out m a d _ (by omega)
+
+theorem bytesT4_wm4_out' {m : Mem} {a x : Nat} {d : BitVec (8 * 4)} (h : x + 4 ≤ a ∨ a + 4 ≤ x) :
+    bytesT4 (writeMap4 m a d) x = bytesT4 m x :=
+  bytesT4_congr fun i _ => getElem?_writeMap4_out m a d _ (by omega)
+
+theorem bytesT2_wm4_out' {m : Mem} {a x : Nat} {d : BitVec (8 * 4)} (h : x + 2 ≤ a ∨ a + 4 ≤ x) :
+    bytesT2 (writeMap4 m a d) x = bytesT2 m x := by
+  have h0 : (writeMap4 m a d)[x]? = m[x]? := getElem?_writeMap4_out m a d x (by omega)
+  have h1 := getElem?_writeMap4_out m a d (x + 1) (by omega)
+  show (((writeMap4 m a d)[x + 1]?).getD 0).append (((writeMap4 m a d)[x]?).getD 0) =
+    ((m[x + 1]?).getD 0).append ((m[x]?).getD 0)
+  rw [h0, h1]
+
+open Lean Elab Tactic Meta in
+/-- **`kit_split h`**: at a two-polarity segment (`seg_<pc>_<hi>_t`/`_n`), case
+split on its branch guard, instantiated at `h`'s pins and memory: `hb : g =
+true` or `hb : g = false`, so that `kit_run` takes each polarity by
+assumption. Every path a branch can take is then run; none is assumed
+away. -/
+elab "kit_split " h:ident : tactic => withMainContext do
+  let some ld := (← getLCtx).findFromUserName? h.getId | throwError "kit_split: no {h}"
+  let hty ← instantiateMVars ld.type
+  let some pc ← segPc hty | throwError "kit_split: no literal pc"
+  let cands := segCands (← getEnv) pc
+  let some n := cands.find? (fun n => n.toString.endsWith "_t") | throwError "kit_split: no branch at {pc}"
+  let ci ← getConstInfo n
+  let names := ci.type.getForallBinderNames
+  let (xs, _, body) ← forallMetaTelescope ci.type
+  let pre := body.getAppArgs[0]!
+  let src ← listElems hty.getAppArgs[1]!
+  for q in ← listElems pre.getAppArgs[1]! do
+    if let some p := src.find? (fun p => p.getAppArgs[2]! == q.getAppArgs[2]!) then
+      discard <| isDefEq (← whnfR q.getAppArgs[3]!) (← whnfR p.getAppArgs[3]!)
+  discard <| isDefEq pre.getAppArgs[2]! hty.getAppArgs[2]!
+  for x in xs, nm in names do
+    unless nm.toString.startsWith "hg" do continue
+    let ty ← instantiateMVars (← inferType x)
+    let some (_, lhs, _) := ty.eq? | throwError "kit_split: the guard is not an equation"
+    if lhs.hasExprMVar then throwError "kit_split: the guard is not determined by the pins"
+    let stx ← Term.exprToSyntax lhs
+    evalTactic (← `(tactic| rcases Bool.eq_false_or_eq_true $stx with hb | hb))
+    return
+  throwError "kit_split: no guard"
+
+open Lean Elab Tactic Meta in
+/-- **`kit_hyp`**: close a branch guard by a hypothesis of exactly its type
+(a `kit_split` case), compared syntactically: no unfolding. -/
+elab "kit_hyp" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  for ld in (← getLCtx) do
+    if ld.isImplementationDetail then continue
+    if (← instantiateMVars ld.type) == t then
+      (← getMainGoal).assign ld.toExpr
+      replaceMainGoal []
+      return
+  throwError "kit_hyp: no hypothesis"
+
 /-! ## The head memory, through the relation -/
 
 section

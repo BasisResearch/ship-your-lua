@@ -52,7 +52,7 @@ structure RetCx (p : Proto) (w : RelPtrs) (m0 : Mem) : Prop where
   /-- `L->tbclist < base`: nothing to close (`luaF_close`) -/
   tbc_lt : w.rt.stack < w.base
 
-theorem Core.retCx {c : Config} {s : State} {p : Proto} {w : RelPtrs} (hc : Core p c s w) :
+theorem _root_.Lua.Vm.Sim.Core.retCx {c : Config} {s : State} {p : Proto} {w : RelPtrs} (hc : Core p c s w) :
     RetCx p w c.σ.mem := by
   refine ⟨hc.ranges, hc.headReads, hc.saved, ?_⟩
   have := hc.comp.runtime.lua.stack_le
@@ -148,6 +148,33 @@ local macro_rules
           pcMem, stateTopOff, stateCiOff, ciFuncOff, ciPreviousOff, bytesT8_wm8_out', hT.ra, sext64_id, Vsa.Sim.sext_zero, BitVec.add_zero]
          rw [rtgt _ (by decide)]; decide))
 
+/-- The registers at the `CIST_FRESH` test (`0x8001c274`, where `OP_RETURN0`
+and `OP_RETURN1` join). -/
+abbrev freshRow (w : RelPtrs) (q9 q18 q19 q20 q21 q24 q25 q27 : BitVec 64) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 w.sp⟩, ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩,
+   ⟨Register.x8, BitVec.ofNat 64 w.L⟩, ⟨Register.x23, BitVec.ofNat 64 w.ci⟩,
+   ⟨Register.x9, q9⟩, ⟨Register.x18, q18⟩, ⟨Register.x19, q19⟩, ⟨Register.x20, q20⟩,
+   ⟨Register.x21, q21⟩, ⟨Register.x24, q24⟩, ⟨Register.x25, q25⟩, ⟨Register.x27, q27⟩]
+
+/-- **`CIST_FRESH` and the epilogue**: from `0x8001c274` to the return into
+`ccall`, the saved registers reloaded. -/
+theorem ret_fresh {p : Proto} {w : RelPtrs} {m0 M : Mem} (hX : RetCx p w m0) (hM : RAgree w m0 M)
+    (q9 q18 q19 q20 q21 q24 q25 q27 : BitVec 64) (o : Array String) :
+    Triple (SegSt 0x8001c274#64 (freshRow w q9 q18 q19 q20 q21 q24 q25 q27) (ArmPay M o))
+      (AtCcall w m0 o) := by
+  intro c h
+  have acc := Steps.refl c
+  have hr := hX.ranges
+  have hT := tailMem hX hM
+  ret_facts hr
+  simp only [freshRow] at h
+  kit_run h acc
+  have h := h.at (rtgt _ (by decide))
+  have hsp := hr.sp_eq
+  simp only [execFrame] at hsp
+  rw [hsp] at h
+  exact ⟨_, acc, _, hM, h.repin (by pins_of h)⟩
+
 /-- **The tail of `OP_RETURN`**: from the `luaD_poscall` call site to the
 return into `ccall`. -/
 theorem ret_tail {p : Proto} {w : RelPtrs} {m0 M : Mem} (hX : RetCx p w m0) (hM : RAgree w m0 M)
@@ -181,15 +208,13 @@ theorem ret_tail {p : Proto} {w : RelPtrs} {m0 M : Mem} (hX : RetCx p w m0) (hM 
     (poscall_sum hpc ⟨BitVec.ofNat 64 symGlobalPointer, BitVec.ofNat 64 w.L, q9, q18, q19, q20, q21,
       t22, BitVec.ofNat 64 w.ci, q24, q25, t26, q27⟩ t12 o)
   simp only [RFrame.pins] at h
-  kit_run h acc
-  have h := h.at (rtgt _ (by decide))
-  have hsp := hr.sp_eq
-  simp only [execFrame] at hsp
-  rw [hsp] at h
-  refine ⟨_, acc, _, ?_, h.repin (by pins_of h)⟩
+  kit_run h acc until [0x8001c274]
   have hspl := hr.ci_top
   simp only [ciSize, cStackBudget, RuntimeData.spEntry] at hspl
-  exact ((hM.wm8 _ fun i hi => RetDirty.below (by simp only [cStackBudget, RuntimeData.spEntry]; omega)
-    (by omega)).wm8 _ fun i hi => RetDirty.top hi).wm8 _ fun i hi => RetDirty.lci hi
+  have hM' : RAgree w m0 (pcMem M w.L w.ci w.sp 0x8001c790#64) :=
+    ((hM.wm8 _ fun i hi => RetDirty.below (by simp only [cStackBudget, RuntimeData.spEntry]; omega)
+      (by omega)).wm8 _ fun i hi => RetDirty.top hi).wm8 _ fun i hi => RetDirty.lci hi
+  obtain ⟨c', hs, hq⟩ := ret_fresh hX hM' _ _ _ _ _ _ _ _ o _ (h.repin (by pins_of h))
+  exact ⟨c', acc.trans hs, hq⟩
 
 end Lua.Vm.Sim.Ret
