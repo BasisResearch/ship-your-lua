@@ -342,4 +342,83 @@ theorem mm_blocks (sp d s n q : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o
     fcx_unfold
     exact h.repin (by pins_of h)
 
+/-! ## The entry -/
+
+/-- The alignment test (`or a5, a0, a1; andi a5, a5, 7; bnez`). -/
+theorem or7 (a b : Nat) (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
+    ((((BitVec.ofNat 64 a) ||| (BitVec.ofNat 64 b)) &&& sign_extend (m := 64) (0x007#12)) != (0#64)) =
+      !decide (a % 8 = 0 ∧ b % 8 = 0) := by
+  have hab : a ||| b < 2 ^ 64 := Nat.or_lt_two_pow ha hb
+  have e : (BitVec.ofNat 64 a ||| BitVec.ofNat 64 b) = BitVec.ofNat 64 (a ||| b) := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_or, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb, Nat.mod_eq_of_lt hab]
+  rw [e, show (0x007#12 : BitVec 12) = BitVec.ofNat 12 7 from rfl, and_imm _ 7 hab (by decide), and7,
+    show (0#64 : BitVec 64) = BitVec.ofNat 64 0 from rfl, fbne (by omega) (by decide)]
+  congr 1
+  rw [decide_eq_decide, show (8 : Nat) = 2 ^ 3 from rfl, Nat.or_mod_two_pow, Nat.or_eq_zero_iff]
+
+/-- What `memmove(dst, src, n)` needs: the ranges apart, in RAM, off
+`tohost`, and the return target aligned. -/
+structure MoveCtx (sp dst src n : Nat) (r : BitVec 64) : Prop where
+  span : MmSpan dst src n
+  sp_hi : sp ≤ 2 ^ 32
+  ra : r.toNat % 4 = 0
+
+/-- **`memmove(dst, src, n)` on disjoint ranges**: `dst` returned, the `n`
+source bytes at `dst`, every other byte unchanged (`MoveOut`). -/
+theorem memmove_sum (sp dst src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+    (hx : MoveCtx sp dst src n r) :
+    Triple (SegSt 0x8003b444#64 (callPre [⟨Register.x10, BitVec.ofNat 64 dst⟩,
+        ⟨Register.x11, BitVec.ofNat 64 src⟩, ⟨Register.x12, BitVec.ofNat 64 n⟩] sp r f) (ArmPay m o))
+      (fun c => ∃ m', mmRet r sp (BitVec.ofNat 64 dst) f m' o c ∧ MoveOut m m' dst src n) := by
+  intro c h
+  obtain ⟨hk, hsp, hra⟩ := hx
+  have := hk.d_lo; have := hk.s_lo; have := hk.disj; have := hk.d_hi; have := hk.s_hi; have := hk.s_th
+  have hn : n < 2 ^ 64 := by omega
+  simp only [callPre, List.cons_append, List.nil_append] at h
+  have hX : Lua.Vm.AtF.Memmove.Ok (mmCx [sp, dst, src, n] r f 0#64 m o) := by fcx_ok
+  have h : SegSt 0x8003b444#64 (Lua.Vm.AtF.Memmove.r0 (mmCx [sp, dst, src, n] r f 0#64 m o))
+      (ArmPay (mmCx [sp, dst, src, n] r f 0#64 m o).m (mmCx [sp, dst, src, n] r f 0#64 m o).o) c :=
+    h.repin (by pins_of h)
+  have acc := Steps.refl c
+  -- the byte copy from the start (`n ≤ 31`, or a misaligned range)
+  have bytes : (n ≠ 0) → ∀ c', Steps c c' → SegSt 0x8003b48c#64
+      (Lua.Vm.AtF.Memmove.r2 (mmCx [sp, dst, src, n] r f 0#64 m o)) (ArmPay m o) c' →
+      ∃ c'', Steps c c'' ∧ ∃ m', mmRet r sp (BitVec.ofNat 64 dst) f m' o c'' ∧ MoveOut m m' dst src n := by
+    intro hn0 c' acc h
+    fcx_unfold at h
+    obtain ⟨c2, s2, M2, hr, hMo⟩ := mm_bytes sp dst src n dst src 0 r (BitVec.ofNat 64 dst) f m o rfl rfl hk hsp
+      hra (by omega) 0 m (by omega) (MoveOut.zero m dst src) _ (by fcx_unfold; exact h.repin (by pins_of h))
+    exact ⟨c2, acc.trans s2, M2, hr, hMo.mono (by omega)⟩
+  by_cases hn0 : n = 0
+  · subst hn0
+    by_cases hds : dst ≤ src
+    all_goals
+      fat_run Lua.Vm.AtF.Memmove h acc
+      exact ⟨_, acc, _, h.repin (by pins_of h), MoveOut.zero m dst src⟩
+  by_cases hsm : n ≤ 31
+  · by_cases hds : dst ≤ src
+    all_goals
+      fat_run Lua.Vm.AtF.Memmove h acc until [0x8003b48c]
+      exact bytes hn0 _ acc h
+  by_cases hal : dst % 8 = 0 ∧ src % 8 = 0
+  · have hg4 : ((((BitVec.ofNat 64 dst) ||| (BitVec.ofNat 64 src)) &&& sign_extend (m := 64) (0x007#12)) !=
+        (0#64)) = false := by
+      rw [or7 dst src (by omega) (by omega)]; simp [hal]
+    by_cases hds : dst ≤ src
+    all_goals
+      fat_run Lua.Vm.AtF.Memmove h acc until [0x8003b4c8]
+      fcx_unfold at h
+      rw [srl5 n hn, sll5] at h
+      obtain ⟨c2, s2, M2, hr, hMo⟩ := mm_blocks sp dst src n (n / 32) r f m o rfl (by omega) hk hsp hra
+        hal.1 hal.2 0 m (by omega) (MoveOut.zero m dst src) _ (by fcx_unfold; exact h.repin (by at_pins h))
+      exact ⟨c2, acc.trans s2, M2, hr, hMo⟩
+  · have hg4 : ((((BitVec.ofNat 64 dst) ||| (BitVec.ofNat 64 src)) &&& sign_extend (m := 64) (0x007#12)) !=
+        (0#64)) = true := by
+      rw [or7 dst src (by omega) (by omega)]; simp [hal]
+    by_cases hds : dst ≤ src
+    all_goals
+      fat_run Lua.Vm.AtF.Memmove h acc until [0x8003b48c]
+      exact bytes hn0 _ acc h
+
 end Lua.Vm.Sim.Kit
