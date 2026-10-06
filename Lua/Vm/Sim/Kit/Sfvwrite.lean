@@ -558,14 +558,17 @@ theorem StdoutAtW.restore {m m' : Mem} {buf : Nat} {pend pend' : List (BitVec 8)
   · rw [bT4_congr fun i _ => h _ (by omega) (by omega)]; exact hs.ready
   · rw [bT4_congr fun i _ => h _ (by omega) (by omega)]; exact hs.stdout
 
-/-- newlib's set-up words across stores to `_p` and `_w` (and above `stdout`). -/
+/-- newlib's set-up words across stores to `_p`, `_w`, `_flags`, `errno`
+(and above `stdout`). -/
 theorem StdioUp.congr' {m m' : Mem} (hu : StdioUp m)
-    (h : ∀ a, a < stdoutFile + fileSize → (a < stdoutFile ∨ stdoutFile + 16 ≤ a) → m'[a]? = m[a]?) :
+    (h : ∀ a, a < stdoutFile + fileSize → (a < stdoutFile ∨ stdoutFile + 18 ≤ a) →
+      (a < errnoAddr ∨ errnoAddr + 4 ≤ a) → m'[a]? = m[a]?) :
     StdioUp m' := by
   stdio_nums
-  refine ⟨(bT8_congr fun i _ => h _ (by omega) (by omega)).trans hu.impure, ?_,
-    (bT4_congr fun i _ => h _ (by omega) (by omega)).trans hu.flags2⟩
-  rw [bT8_congr fun i _ => h _ (by omega) (by omega)]; exact hu.init
+  have : errnoAddr = 0x8005d408 := rfl
+  refine ⟨(bT8_congr fun i _ => h _ (by omega) (by omega) (by omega)).trans hu.impure, ?_,
+    (bT4_congr fun i _ => h _ (by omega) (by omega) (by omega)).trans hu.flags2⟩
+  rw [bT8_congr fun i _ => h _ (by omega) (by omega) (by omega)]; exact hu.init
 
 theorem bytesAt_length (m : Mem) (a k : Nat) : (bytesAt m a k).length = k := by simp [bytesAt]
 
@@ -585,7 +588,8 @@ theorem sfv_store {G : SfvG} (hG : G.Ok) {M M' : Mem} {o : Array String} {pend :
     rw [List.length_append, bytesAt_length]
   obtain ⟨out, ho, hout⟩ := st.out
   refine ⟨st.stdout.restore (fun a h1 h2 => h a (.inl (by omega)) h2) (by rw [hl]; exact hp) hw ?_ (by omega),
-    st.up.congr' fun a h1 h2 => h a (.inl (by omega)) h2, ⟨out, ho, ?_⟩,
+    st.up.congr' fun a h1 h2 _ => h a (.inl (by omega)) (by omega), ⟨out, ho, ?_⟩,
+
     st.frame.congr (by omega) fun a h1 h2 => bT1_congr (h a (.inr (by omega)) (.inr (by omega))),
     st.keep.trans (SfvKeep.of_agree fun a ha => bT1_congr (h a (by omega) (by omega))), hq⟩
   · rw [hl, bytesAt_add, hmv, bytesAt_congr (m := M) fun i hi => bT1_congr (h _ (.inl (by omega)) (by omega)),
@@ -759,5 +763,88 @@ theorem sfv_copy {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0 
   exact ⟨c3, acc.trans s3, h3⟩
 
 
+
+/-- **`__swrite(_REENT, stdout, p, 1024)`** from the run's frame (the
+buffer empty): the 1024 bytes on the console, the invariant kept. -/
+theorem sfv_swrite {G : SfvG} (hG : G.Ok) {M : Mem} {o : Array String} {q p : Nat} {ret : BitVec 64}
+    {f : AbiFrame} {c : Config} (st : SfvStA G M o [] q) (hret : ret.toNat % 4 = 0) (hp : p = G.src + q)
+    (hq : q + 1024 ≤ G.n)
+    (h : SegSt 0x80034f18#64 (swPre (BitVec.ofNat 64 symImpureData) (G.sp - 96) p 1024 ret f) (ArmPay M o) c) :
+    ∃ c' M', Steps c c' ∧ wrRet ret (G.sp - 96) 1024 f M' (pushes o (bytesAt G.m (G.src + q) 1024)) c' ∧
+      SfvStA G M' (pushes o (bytesAt G.m (G.src + q) 1024)) [] (q + 1024) ∧
+      ∀ a, G.sp - 96 ≤ a → bytesT1 M' a = bytesT1 M a := by
+  sfv_nums hG
+  have hb := st.stdout.buf_lo; have hbh := st.stdout.buf_hi
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  have hFD : symFds = 0x8005d460 := rfl
+  subst hp
+  obtain ⟨c', s, hr⟩ := swrite_sum (BitVec.ofNat 64 symImpureData) (G.sp - 96) (G.src + q) 1024 ret f M o 0x2889#16
+    ⟨hret, by omega, by omega, by omega, by omega, by omega, by omega, st.stdout.ready, st.stdout.stdout,
+      st.stdout.flags, by decide, st.stdout.file⟩ c h
+  -- `__swrite`'s and `_write_r`'s stores: their frames below `sp - 96`, `_flags` (rewritten
+  -- with its value) and `errno`
+  have hA : ∀ a, (G.sp - 96 ≤ a ∨ a + 24 < G.sp - 96) → (a < stdoutFile + 16 ∨ stdoutFile + 18 ≤ a) →
+      (a < errnoAddr ∨ errnoAddr + 4 ≤ a) →
+      (wrrRetMem (swMem M (G.sp - 96) ret 0x2889#16) (G.sp - 96) f.s0 ret)[a]? = M[a]? := by
+    intro a h1 h2 h3
+    simp only [wrrRetMem, wrMem, wrrMem, swMem]
+    rw [getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap4_out _ _ _ _ (by omega),
+      getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega),
+      getElem?_writeMap2_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega)]
+  have hfl : bytesT2 (wrrRetMem (swMem M (G.sp - 96) ret 0x2889#16) (G.sp - 96) f.s0 ret)
+      (stdoutFile + fileFlagsOff) = 0x2889#16 := by
+    simp only [wrrRetMem, wrMem, wrrMem, swMem]
+    rw [b2_wm8_out (by omega), b2_wm4_out (by omega), b2_wm8_out (by omega), b2_wm8_out (by omega),
+      bytesT2_writeMap2]
+    decide
+  obtain ⟨out, ho, hout⟩ := st.out
+  rw [st.src_bytes hG (i := q) (k := 1024) hq] at hr
+  refine ⟨c', _, s, hr, ⟨st.stdout.congr' (fun a h1 h2 h3 => hA a (by omega) h2 h3) hfl,
+    st.up.congr' fun a h1 h2 h3 => hA a (by omega) (by omega) h3,
+    ⟨out ++ bytesAt G.m (G.src + q) 1024, by rw [ho, pushes_append], ?_⟩,
+    st.frame.congr (by omega) fun a h1 h2 => bT1_congr (hA a (by omega) (by omega) (by omega)),
+    st.keep.trans (SfvKeep.of_agree fun a ha => bT1_congr (hA a (by omega) (by omega) (by omega))), hq⟩,
+    fun a ha => bT1_congr (hA a (by omega) (by omega) (by omega))⟩
+  rw [List.append_nil, ← List.append_nil out, hout, List.append_assoc, ← bytesAt_add]
+
+/-- **The direct write** (`0x80033de0`: the buffer empty and `s ≥ 1024`):
+`fp->_write(ptr, cookie, p, 1024)`, then the newline distance with 1024
+bytes consumed. -/
+theorem sfv_write {G : SfvG} (hG : G.Ok) {X : FCx} {μ0 : Nat} (S : SfvStep G X [] μ0) (hs : 1024 ≤ X.n 21) :
+    Triple (SegSt 0x80034f18#64 (Lua.Vm.AtF.Sfvwrite.r28 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+  intro c h
+  have hX := S.cx
+  sfv_nums hG
+  sfv_cx hX
+  sfv_step S
+  simp only [Lua.Vm.AtF.Sfvwrite.r28, hX.sp, sfvW_eq S.st.stdout] at h
+  obtain ⟨c2, M', s2, hret, st', kh⟩ := sfv_swrite hG S.st (ret := 0x80033df4#64) (by decide)
+    (p := X.n 25) (by omega) (by omega)
+    (h.repin (L' := swPre _ _ _ _ _ (sfvF X _ _ _ _ _ _)) (by pins_of h))
+  rw [← hX.sp] at hret
+  simp only [wrRet] at hret
+  -- `__swrite`'s return (`0x80033df4`): 1024 bytes written (the console kept opaque: a
+  -- definitional unfolding of `pushes` over 1024 bytes runs past the recursion limit)
+  generalize pushes X.o (bytesAt G.m (G.src + (X.n 25 - G.src)) 1024) = o' at hret st'
+  let Y : FCx := X.set [(5, 1024), (20, X.n 21), (22, 1024 - List.length ([] : List (BitVec 8)))] [] M' o'
+
+  have hY : SfvAt G Y := sfv_at% hX
+  have hY' : Lua.Vm.AtF.Sfvwrite.Ok_S Y := by sfv_ok hY
+  have h : SegSt 0x80033df4#64 (Lua.Vm.AtF.Sfvwrite.r29 Y) (ArmPay Y.m Y.o) c2 := hret.repin (by pins_of hret)
+
+  have acc := s2
+  have hg := sge0_nat (a := Y.n 5) (by sfv_om)
+  rw [show decide (Y.n 5 = 0) = false by sfv_set; decide] at hg
+  fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033e00]
+  let Z : FCx := X.set [(5, 1024), (20, 1024), (21, 1024), (22, 1024 - List.length ([] : List (BitVec 8)))]
+    [(17, BitVec.ofNat 64 (1024 - List.length ([] : List (BitVec 8))))] Y.m Y.o
+  have hZ : SfvAt G Z := sfv_at% hX
+  have res' : bytesT8 Z.m (G.U + 16) = BitVec.ofNat 64 (Z.n 23) := by
+    show bytesT8 M' (G.U + 16) = BitVec.ofNat 64 (X.n 23)
+    rw [← S.res]; exact bytesT8_congrT (a := G.U + 16) fun i _ => kh _ (by omega)
+  obtain ⟨c3, s3, h3⟩ := sfv_nld hG hZ (pend := []) (μ0 := μ0) (st'.cast (by sfv_om)) res' (by sfv_om)
+    (by sfv_om) (by sfv_om) (by sfv_om) (by sfv_om) (by sfv_om) (by sfv_set; simp; omega) _
+    (h.repin (by pins_of h))
+  exact ⟨c3, acc.trans s3, h3⟩
 
 end Lua.Vm.Sim.Kit
