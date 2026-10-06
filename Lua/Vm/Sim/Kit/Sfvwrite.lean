@@ -1058,4 +1058,67 @@ theorem sfv_mcret1 {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ
     R.mu⟩ _ (h.repin (by pins_of h))
   exact ⟨c2, acc.trans s2, h2⟩
 
+/-- **`memchr(p, '\n', len)`** from the run's frame (the head's or the
+entry's call), then its return: the newline distance and the body. -/
+theorem sfv_mc {G : SfvG} (hG : G.Ok) {X : FCx} (hX : SfvAt G X) {M : Mem} {o : Array String}
+    {pend : List (BitVec 8)} {μ0 p len : Nat} {v18 v19 v22 v24 : BitVec 64} {c : Config}
+    (st : SfvStA G M o pend (p - G.src)) (res : bytesT8 M (G.U + 16) = BitVec.ofNat 64 len)
+    (cur : p + len = G.src + G.n) (lo : G.src ≤ p) (hlen : 1 ≤ len)
+    (hμ : 2 * len + (if pend.length = 1024 then 1 else 0) ≤ μ0)
+    (h : SegSt 0x800360d8#64 (callPre [⟨Register.x10, BitVec.ofNat 64 p⟩, ⟨Register.x11, 0xa#64⟩,
+      ⟨Register.x12, BitVec.ofNat 64 len⟩] (G.sp - 96) 0x80033e4c#64
+      (sfvF X v18 v19 v22 (BitVec.ofNat 64 len) v24 (BitVec.ofNat 64 p))) (ArmPay M o) c) :
+    ∃ c', Steps c c' ∧ SfvNext G μ0 c' := by
+  sfv_nums hG
+  sfv_cx hX
+  obtain ⟨c1, s1, a0, hret, ans⟩ := memchr_nl (G.sp - 96) p len 0x80033e4c#64 _ M o
+    ⟨by omega, by omega, by omega⟩ (by omega) (by decide) c h
+  have hf : sfvF X v18 v19 v22 (BitVec.ofNat 64 len) v24 (BitVec.ofNat 64 p) = sfvF X (BitVec.ofNat 64 v18.toNat)
+      (BitVec.ofNat 64 v19.toNat) (BitVec.ofNat 64 v22.toNat) (BitVec.ofNat 64 len) (BitVec.ofNat 64 v24.toNat)
+      (BitVec.ofNat 64 p) := by simp only [ofNat64_toNat]
+  rw [hf, ← hX.sp] at hret
+  simp only [mmRet] at hret
+  cases ans with
+  | found k hk _ _ =>
+    let Y : FCx := X.set [(6, p + k), (20, v18.toNat), (21, v19.toNat), (22, v22.toNat), (23, len),
+      (24, v24.toNat), (25, p)] [] M o
+    have hY : SfvAt G Y := sfv_at% hX
+    obtain ⟨c2, s2, h2⟩ := sfv_mcret1 hG (X := Y) ⟨hY, (st.cast (by sfv_om) : SfvStA G M o pend (Y.n 25 - G.src)),
+      res, by sfv_om, by sfv_om, by sfv_om, hμ⟩ (by sfv_om) (by sfv_om) _ (hret.repin (by pins_of hret))
+    exact ⟨c2, s1.trans s2, h2⟩
+  | none _ =>
+    let Y : FCx := X.set [(20, v18.toNat), (21, v19.toNat), (22, v22.toNat), (23, len), (24, v24.toNat), (25, p)] []
+      M o
+    have hY : SfvAt G Y := sfv_at% hX
+    obtain ⟨c2, s2, h2⟩ := sfv_mcret0 hG (X := Y) ⟨hY, (st.cast (by sfv_om) : SfvStA G M o pend (Y.n 25 - G.src)),
+      res, by sfv_om, by sfv_om, by sfv_om, hμ⟩ _ (hret.repin (by pins_of hret))
+    exact ⟨c2, s1.trans s2, h2⟩
+
+/-- **One turn of the loop** from its head (`0x80033dac`, the root `L`): the
+newline known, the body; else `memchr` first. -/
+theorem sfv_turn {G : SfvG} (hG : G.Ok) (a : FCx × List (BitVec 8)) :
+    Triple (SfvLoop G a) (SfvNext G (sfvMu a)) := by
+  obtain ⟨X, pend⟩ := a
+  rintro c ⟨H, h⟩
+  dsimp only at H h
+  have hX := H.cx
+
+  sfv_nums hG
+  sfv_cx hX
+  have := H.cur; have := H.lo; have := H.len
+  have hX' : Lua.Vm.AtF.Sfvwrite.Ok_L X := by sfv_ok hX
+  have acc := Steps.refl c
+  rcases H.nl with e | ⟨e, n1, n2⟩
+  · have hg : (X.b 14 == 0x0#64) = true := by rw [e]; rfl
+    fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x800360d8]
+    simp only [Lua.Vm.AtF.Sfvwrite.r17, hX.sp] at h
+    obtain ⟨c2, s2, h2⟩ := sfv_mc hG hX H.st H.res H.cur H.lo H.len (μ0 := sfvMu (X, pend)) (Nat.le_refl _)
+      (h.repin (L' := callPre _ _ _ (sfvF X (X.b 15) (X.b 16) (X.b 17) _ _ _)) (by pins_of h))
+    exact ⟨c2, acc.trans s2, h2⟩
+  · have hg : (X.b 14 == 0x0#64) = false := by rw [e]; rfl
+    fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033db0]
+    obtain ⟨c2, s2, h2⟩ := sfv_body hG (X := X) ⟨hX, H.st, H.res, H.cur, H.lo, H.len, n1, n2, Nat.le_refl _⟩ _
+      (h.repin (by pins_of h))
+    exact ⟨c2, acc.trans s2, h2⟩
+
 end Lua.Vm.Sim.Kit
