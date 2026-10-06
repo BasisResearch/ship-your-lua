@@ -1121,4 +1121,73 @@ theorem sfv_turn {G : SfvG} (hG : G.Ok) (a : FCx × List (BitVec 8)) :
       (h.repin (by pins_of h))
     exact ⟨c2, acc.trans s2, h2⟩
 
+/-! ## The run -/
+
+/-- **`__sfvwrite_r(_REENT, stdout, uio)` on the line-buffered `stdout`**:
+the entry (`n = 0`: straight back; else the frame saved, the iov read,
+`memchr`), then the loop (`seg_loop` on `sfvMu`). -/
+theorem sfvwrite_lbf : SfvwriteLbf_Statement := by
+  intro sp buf U I src n pend r f m o hra hsp hal hbs hs hu hio hi hiu huh hut hua hia hsl hsh hsb hsf c h
+  let G : SfvG := ⟨sp, buf, U, I, src, n, pend, r, f, m, o⟩
+  have hG : G.Ok := ⟨hra, hsp, hal, hs.buf_lo, hbs, hi, hiu, huh, hut, hua, hia, hsl, hsh, hsb, hsf⟩
+  sfv_nums hG
+  have hb := hs.buf_lo
+  let X : FCx := FCx.mk' [sp, U, I, n, src] [r, f.s0, f.s1, f.s2, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10,
+    f.s11] m o
+  have hX : SfvAt G X := ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  sfv_cx hX
+  have e0 : X.n 0 = sp := rfl; have e1 : X.n 1 = U := rfl; have e2 : X.n 2 = I := rfl
+  have e3 : X.n 3 = n := rfl; have e4 : X.n 4 = src := rfl
+  have g0 : G.sp = sp := rfl; have g1 : G.U = U := rfl; have g2 : G.I = I := rfl; have g3 : G.n = n := rfl
+  have g4 : G.src = src := rfl; have g5 : G.buf = buf := rfl
+  have hX' : Lua.Vm.AtF.Sfvwrite.Ok X := by sfv_ok hX
+  simp only [callPre, List.cons_append, List.nil_append] at h
+
+  have h : SegSt 0x80033b50#64 (Lua.Vm.AtF.Sfvwrite.r0 X) (ArmPay X.m X.o) c := h.repin (by pins_of h)
+  have acc := Steps.refl c
+  have hc0 : bytesT8 X.m (X.n 1 + 16) = BitVec.ofNat 64 (X.n 3) := hio.resid
+  have hc1 : bytesT2 X.m 0x8005e678 = 0x2889#16 := hs.flags
+  have hc2 : bytesT8 X.m (X.n 1) = BitVec.ofNat 64 (X.n 2) := hio.iov
+  have hc3 : bytesT8 X.m (X.n 2 + 8) = BitVec.ofNat 64 (X.n 3) := hio.len
+  have hc4 : bytesT8 X.m (X.n 2) = BitVec.ofNat 64 (X.n 4) := hio.base
+  have hgb : (bytesT8 X.m (0x8005e680) == 0x0#64) = false := by
+    rw [show bytesT8 X.m 0x8005e680 = BitVec.ofNat 64 buf from hs.base,
+      show (0x0#64 : BitVec 64) = BitVec.ofNat 64 0 from rfl, fbeq (by omega) (by decide)]; simp; omega
+  have hgn := fbeq (a := X.n 3) (b := 0) (by omega) (by decide)
+  rw [show (BitVec.ofNat 64 0 : BitVec 64) = 0x0#64 from rfl] at hgn
+  by_cases hn : n = 0
+  · rw [decide_eq_true (show X.n 3 = 0 from hn)] at hgn
+    have hf0 : X.n 3 = 0 := hn
+    fat_run Lua.Vm.AtF.Sfvwrite h acc
+    refine ⟨_, acc, m, [], pend, h.repin (by pins_of h), hs, hu, by subst hn; simp [bytesAt], ⟨fun _ _ _ => rfl,
+      fun _ _ _ _ _ => rfl⟩⟩
+  · rw [decide_eq_false (show ¬ X.n 3 = 0 from hn)] at hgn
+    have hf1 : X.n 3 ≠ 0 := hn
+
+    fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x800360d8]
+    simp only [Lua.Vm.AtF.Sfvwrite.r4, hX.sp] at h
+    -- the frame saved: the run's invariant on the entry memory
+    have hM : ∀ a, (sp ≤ a ∨ a + 88 < sp) → (Lua.Vm.AtF.Sfvwrite.m2 X)[a]? = m[a]? := by
+      intro a ha
+      simp only [Lua.Vm.AtF.Sfvwrite.m2]
+      simp (disch := omega) only [getElem?_writeMap8_out]
+      rfl
+    have st0 : SfvStA G (Lua.Vm.AtF.Sfvwrite.m2 X) o pend 0 := by
+      refine ⟨hs.below fun a ha => hM a (by omega), hu.below fun a ha => hM a (by omega),
+        ⟨[], rfl, by simp [bytesAt]; rfl⟩, ?_, SfvKeep.of_agree fun a ha => bT1_congr (hM a (by omega)), by omega⟩
+      refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> simp only [Lua.Vm.AtF.Sfvwrite.m2] <;>
+        simp (disch := omega) only [fw8_same, fw8_wm8] <;> rfl
+    have res0 : bytesT8 (Lua.Vm.AtF.Sfvwrite.m2 X) (U + 16) = BitVec.ofNat 64 n :=
+      (bT8_congr fun i _ => hM _ (by omega)).trans hio.resid
+    obtain ⟨c2, s2, h2⟩ := sfv_mc hG hX (p := src) (len := n) (μ0 := 2 * n + 2) (st0.cast (by omega)) res0
+      (by omega) (Nat.le_refl _) (by omega) (by split <;> omega)
+      (h.repin (L' := callPre _ _ _ (sfvF X (X.b 3) (X.b 4) (X.b 7) _ _ _)) (by pins_of h))
+    rcases h2 with ⟨a, _, hl⟩ | hpost
+    · obtain ⟨c3, s3, h3⟩ := seg_loop (S := SfvLoop G) (X := SfvPost G) sfvMu (fun a => sfv_turn hG a) a c2 hl
+      exact ⟨c3, acc.trans (s2.trans s3), h3⟩
+    · exact ⟨c2, acc.trans s2, hpost⟩
+
+/-- **`fwrite(src, 1, n, stdout)` on the set-up `stdout`**. -/
+theorem fwrite_stdout : FwriteStdout_Statement := fwrite_stdout_of_sfv sfvwrite_lbf
+
 end Lua.Vm.Sim.Kit
