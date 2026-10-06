@@ -5,8 +5,8 @@ import Lua.Vm.Fn.Adddf3.L2
 `__adddf3` (entry `0x8002d7a8`): its 210 generated segments
 (`Lua/Vm/Arms/Segs/Hadddf3.lean`) folded into 134 nodes, a 48-byte frame below `sp`, the memory `memPatch`ed there.
 `N_<pc>` is the lifted function of the node at `pc`, `n_<pc>` its lemma; at the
-entry they are `F` (the lifted function level 2 relates to `F64`) and `sum` (the
-summary).
+entry they are `F` (the lifted function level 2 relates to `F64`; `Fm`, `Nm_<pc>`
+a framed helper's memory) and `sum` (the summary).
 
 This module: node lemmas, chunk 3 of 4.
 -/
@@ -20,7 +20,7 @@ namespace Lua.Vm.Fn.Adddf3
 theorem n_8002dcc0 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v17 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002dcc0#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x17, v17⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002dcc0 (m) s r v13 v15 v17).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002dcc0 (m) s r v13 v15 v17).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002dcc0 (m) s r v13 v15 v17⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002dcc0 (m) s r v13 v15 v17) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -29,13 +29,13 @@ theorem n_8002dcc0 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
     (n_8002d92c _ _ s r g _ _ _ hs hr (by fn_rod))
   refine ⟨_, acc, ?_⟩
-  rw [N_8002dcc0]
+  rw [N_8002dcc0, Nm_8002dcc0]
   exact h
 
 theorem n_8002dcb4 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v17 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002dcb4#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x17, v17⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002dcb4 (m) s r v13 v15 v17 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002dcb4 (m) s r v13 v15 v17 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002dcb4 (m) s r v13 v15 v17 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002dcb4 (m) s r v13 v15 v17 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -45,20 +45,20 @@ theorem n_8002dcb4 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d818 _ _ s r g _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002dcb4, if_pos hg]
+    rw [N_8002dcb4, Nm_8002dcb4]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002dcb4_8002dcc0_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002dcc0 _ _ s r g _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002dcb4, if_neg hg]
+    rw [N_8002dcb4, Nm_8002dcb4]; simp only [if_neg hg]
     exact h
 
 theorem n_8002db0c (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v16 v17 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002db0c#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002db0c (m) s r v13 v15 v16 v17 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002db0c (m) s r v13 v15 v16 v17 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002db0c (m) s r v13 v15 v16 v17 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002db0c (m) s r v13 v15 v16 v17 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -67,13 +67,13 @@ theorem n_8002db0c (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
     (n_8002db28 _ _ s r g _ _ _ hs hr (by fn_rod))
   refine ⟨_, acc, ?_⟩
-  rw [N_8002db0c]
+  rw [N_8002db0c, Nm_8002db0c]
   exact h
 
 theorem n_8002d808 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v17 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d808#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x17, v17⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d808 (m) s r v13 v15 v17).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d808 (m) s r v13 v15 v17).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d808 (m) s r v13 v15 v17⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d808 (m) s r v13 v15 v17) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -83,20 +83,20 @@ theorem n_8002d808 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002da1c _ _ s r g _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d808, if_pos hg]
+    rw [N_8002d808, Nm_8002d808]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d808_8002d814_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d814 _ _ s r g _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d808, if_neg hg]
+    rw [N_8002d808, Nm_8002d808]; simp only [if_neg hg]
     exact h
 
 theorem n_8002d800 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v16 v17 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d800#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d800 (m) s r v13 v15 v16 v17 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d800 (m) s r v13 v15 v16 v17 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d800 (m) s r v13 v15 v16 v17 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d800 (m) s r v13 v15 v16 v17 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -106,20 +106,20 @@ theorem n_8002d800 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002db0c _ _ s r g _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d800, if_pos hg]
+    rw [N_8002d800, Nm_8002d800]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d800_8002d808_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d808 _ _ s r g _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d800, if_neg hg]
+    rw [N_8002d800, Nm_8002d800]; simp only [if_neg hg]
     exact h
 
 theorem n_8002d968 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v17 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d968#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x17, v17⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d968 (m) s r v13 v15 v17).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d968 (m) s r v13 v15 v17).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d968 (m) s r v13 v15 v17⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d968 (m) s r v13 v15 v17) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -128,13 +128,13 @@ theorem n_8002d968 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
     (n_8002d8fc _ _ s r g _ _ _ hs hr (by fn_rod))
   refine ⟨_, acc, ?_⟩
-  rw [N_8002d968]
+  rw [N_8002d968, Nm_8002d968]
   exact h
 
 theorem n_8002d960 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v16 v17 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d960#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d960 (m) s r v13 v15 v16 v17 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d960 (m) s r v13 v15 v16 v17 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d960 (m) s r v13 v15 v16 v17 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d960 (m) s r v13 v15 v16 v17 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -144,20 +144,20 @@ theorem n_8002d960 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d800 _ _ s r g _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d960, if_pos hg]
+    rw [N_8002d960, Nm_8002d960]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d960_8002d968_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d968 _ _ s r g _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d960, if_neg hg]
+    rw [N_8002d960, Nm_8002d960]; simp only [if_neg hg]
     exact h
 
 theorem n_8002d958 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v16 v17 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d958#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d958 (m) s r v13 v15 v16 v17 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d958 (m) s r v13 v15 v16 v17 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d958 (m) s r v13 v15 v16 v17 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d958 (m) s r v13 v15 v16 v17 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -167,20 +167,20 @@ theorem n_8002d958 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002dcb4 _ _ s r g _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d958, if_pos hg]
+    rw [N_8002d958, Nm_8002d958]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d958_8002d960_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d960 _ _ s r g _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d958, if_neg hg]
+    rw [N_8002d958, Nm_8002d958]; simp only [if_neg hg]
     exact h
 
 theorem n_8002d954 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v16 v17 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d954#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d954 (m) s r v13 v15 v16 v17 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d954 (m) s r v13 v15 v16 v17 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d954 (m) s r v13 v15 v16 v17 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d954 (m) s r v13 v15 v16 v17 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -190,20 +190,20 @@ theorem n_8002d954 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d92c _ _ s r g _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d954, if_pos hg]
+    rw [N_8002d954, Nm_8002d954]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d954_8002d958_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d958 _ _ s r g _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d954, if_neg hg]
+    rw [N_8002d954, Nm_8002d954]; simp only [if_neg hg]
     exact h
 
 theorem n_8002d7f4 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v16 v17 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d7f4#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d7f4 (m) s r v13 v15 v16 v17 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d7f4 (m) s r v13 v15 v16 v17 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d7f4 (m) s r v13 v15 v16 v17 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d7f4 (m) s r v13 v15 v16 v17 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -212,13 +212,13 @@ theorem n_8002d7f4 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
     (n_8002d800 _ _ s r g _ _ _ _ _ hs hr (by fn_rod))
   refine ⟨_, acc, ?_⟩
-  rw [N_8002d7f4]
+  rw [N_8002d7f4, Nm_8002d7f4]
   exact h
 
 theorem n_8002d7ec (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v16 v17 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d7ec#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d7ec (m) s r v13 v15 v16 v17 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d7ec (m) s r v13 v15 v16 v17 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d7ec (m) s r v13 v15 v16 v17 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d7ec (m) s r v13 v15 v16 v17 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -228,20 +228,20 @@ theorem n_8002d7ec (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d8fc _ _ s r g _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d7ec, if_pos hg]
+    rw [N_8002d7ec, Nm_8002d7ec]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d7ec_8002d7f4_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d7f4 _ _ s r g _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d7ec, if_neg hg]
+    rw [N_8002d7ec, Nm_8002d7ec]; simp only [if_neg hg]
     exact h
 
 theorem n_8002d7e8 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v13 v15 v16 v17 v28 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d7e8#64 [⟨Register.x13, v13⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x28, v28⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d7e8 (m) s r v13 v15 v16 v17 v28 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d7e8 (m) s r v13 v15 v16 v17 v28 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d7e8 (m) s r v13 v15 v16 v17 v28 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d7e8 (m) s r v13 v15 v16 v17 v28 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -251,20 +251,20 @@ theorem n_8002d7e8 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d954 _ _ s r g _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d7e8, if_pos hg]
+    rw [N_8002d7e8, Nm_8002d7e8]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d7e8_8002d7ec_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d7ec _ _ s r g _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d7e8, if_neg hg]
+    rw [N_8002d7e8, Nm_8002d7e8]; simp only [if_neg hg]
     exact h
 
 theorem n_8002d7e4 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v6 v11 v12 v13 v14 v15 v16 v17 v28 v29 v30 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d7e4#64 [⟨Register.x6, v6⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x13, v13⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x16, v16⟩, ⟨Register.x17, v17⟩, ⟨Register.x28, v28⟩, ⟨Register.x29, v29⟩, ⟨Register.x30, v30⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (N_8002d7e4 (m) s r v6 v11 v12 v13 v14 v15 v16 v17 v28 v29 v30).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (N_8002d7e4 (m) s r v6 v11 v12 v13 v14 v15 v16 v17 v28 v29 v30).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, N_8002d7e4 (m) s r v6 v11 v12 v13 v14 v15 v16 v17 v28 v29 v30⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Nm_8002d7e4 (m) s r v6 v11 v12 v13 v14 v15 v16 v17 v28 v29 v30) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -274,21 +274,21 @@ theorem n_8002d7e4 (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : S
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d8d4 _ _ s r g _ _ _ _ _ _ _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d7e4, if_pos hg]
+    rw [N_8002d7e4, Nm_8002d7e4]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d7e4_8002d7e8_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d7e8 _ _ s r g _ _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [N_8002d7e4, if_neg hg]
+    rw [N_8002d7e4, Nm_8002d7e4]; simp only [if_neg hg]
     exact h
 
 /-- **The summary**: the entry node's lemma, the lifted function `F`. -/
 theorem sum (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v10 v11 : BitVec 64)
     (hs : FnSp s 48) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002d7a8#64 [⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, (F (m) s r v10 v11).1⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (F (m) s r v10 v11).2 (s - 48) 48) o)) := by
+      (SegSt r [⟨Register.x10, F (m) s r v10 v11⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Fm (m) s r v10 v11) (s - 48) 48) o)) := by
   intro c h
   have acc := Vsa.Machine.Steps.refl c
   fn_sp_facts
@@ -298,14 +298,14 @@ theorem sum (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) 
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d904 _ _ s r g _ _ _ _ _ _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [F, if_pos hg]
+    rw [F, Fm]; simp only [if_pos hg]
     exact h
   · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (Lua.Vm.Arms.seg_8002d7a8_8002d7e4_n _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ (fn_false hg))
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)
       (n_8002d7e4 _ _ s r g _ _ _ _ _ _ _ _ _ _ _ hs hr (by fn_rod))
     refine ⟨_, acc, ?_⟩
-    rw [F, if_neg hg]
+    rw [F, Fm]; simp only [if_neg hg]
     exact h
 
 end Lua.Vm.Fn.Adddf3

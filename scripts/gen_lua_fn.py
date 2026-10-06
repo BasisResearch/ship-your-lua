@@ -26,7 +26,9 @@ path. A leaf helper (`__eqdf2`, `__ledf2`, `__gedf2`, `__fixdfdi`) keeps
 the memory and the caller's frame `HFrame`.
 
 The summary `sum` is the entry node's lemma, `F` its lifted function (for a
-framed helper, the result and the memory), which level 2 relates to `F64`.
+framed helper, `Fm` its memory: two families of definitions, the result
+never a projection of a pair, which the kernel would reduce by unfolding the
+lifted function), which level 2 relates to `F64`.
 No other declaration restates `F` (a definitional unfolding of the lifted
 functions is exponential in the paths: the kernel's projection reduction
 would unfold them).
@@ -196,6 +198,10 @@ class Fn:
         """The lifted function of node `pc` (`F` at the entry)."""
         return "F" if pc == self.entry else f"N_{pc:08x}"
 
+    def mn(self, pc):
+        """A framed helper's memory function of node `pc` (`Fm` at the entry)."""
+        return "Fm" if pc == self.entry else f"Nm_{pc:08x}"
+
     def ln(self, pc):
         """The lemma of node `pc` (`sum` at the entry)."""
         return "sum" if pc == self.entry else f"n_{pc:08x}"
@@ -248,12 +254,13 @@ class Fn:
             return f"(m : Mem) (s : Nat) (r : BitVec 64){bv}"
         return bv.strip()
 
-    def napp(self, pc, mem="m", vals=None):
+    def napp(self, pc, mem="m", vals=None, memfn=False):
         vals = vals if vals is not None else {r: f"v{r}" for r in self.live(pc)}
         a = " ".join(f"({vals[r]})" if not re.fullmatch(r"v\d+", vals[r]) else vals[r]
                      for r in self.live(pc))
         if self.framed():
-            return f"{self.dn(pc)} ({mem}) s r {a}".rstrip()
+            f = self.mn(pc) if memfn else self.dn(pc)
+            return f"{f} ({mem}) s r {a}".rstrip()
         return f"{self.dn(pc)} {a}".rstrip()
 
     def pins(self, pc):
@@ -270,20 +277,19 @@ class Fn:
     def post(self, pc):
         app = self.napp(pc)
         if self.framed():
-            pins = [f"⟨Register.x10, ({app}).1⟩", "⟨Register.x2, BitVec.ofNat 64 s⟩"]
+            pins = [f"⟨Register.x10, {app}⟩", "⟨Register.x2, BitVec.ofNat 64 s⟩"]
             pins += [f"⟨Register.x{r}, g.{f}⟩" for r, f in FRAME.items()]
-            mem = f"memPatch m ({app}).2 (s - {self.F}) {self.F}"
+            mem = f"memPatch m ({self.napp(pc, memfn=True)}) (s - {self.F}) {self.F}"
             return f"SegSt r [{', '.join(pins)}] (ArmPay ({mem}) o)"
         return f"SegSt r (⟨Register.x10, {app}⟩ :: f.pins) (ArmPay m o)"
 
     # ----------------------------------------------------------------------
-    def body(self, pc, s):
-        """The lifted function's value along polarity `s` of node `pc`."""
+    def body(self, pc, s, memfn=False):
+        """The lifted function's value (or memory) along polarity `s` of node `pc`."""
         if s.kind == "ret":
-            v = self.subst(pc, s.post[10])
-            if self.framed():
-                return f"({v}, {self.subst(pc, s.mem)})"
-            return v
+            if memfn:
+                return self.subst(pc, s.mem)
+            return self.subst(pc, s.post[10])
         post = {r: self.subst(pc, e) for r, e in s.post.items()}
         if s.kind == "call":
             post = {10: f"{CALLEES[s.callee][1]} ({post[10]})"}
@@ -292,19 +298,20 @@ class Fn:
             if r not in post:
                 raise SystemExit(f"{s.name}: x{r} live at 0x{s.succ:x} but not carried")
             vals[r] = post[r]
-        return self.napp(s.succ, self.subst(pc, s.mem), vals)
+        return self.napp(s.succ, self.subst(pc, s.mem), vals, memfn)
 
-    def ndef(self, pc):
+    def ndef(self, pc, memfn=False):
         ss = self.nodes[pc]
-        ty = "BitVec 64 × Mem" if self.framed() else "BitVec 64"
+        ty = "Mem" if memfn else "BitVec 64"
         if len(ss) == 1:
-            b = self.body(pc, ss[0])
+            b = self.body(pc, ss[0], memfn)
         else:
             t = next(s for s in ss if s.guard[1])
             n = next(s for s in ss if not s.guard[1])
-            b = (f"if {self.subst(pc, t.guard[0])} = true then\n    {self.body(pc, t)}\n"
-                 f"  else\n    {self.body(pc, n)}")
-        return (f"def {self.dn(pc)} {self.nargs(pc)} : {ty} :=\n  {b}\n")
+            b = (f"if {self.subst(pc, t.guard[0])} = true then\n    {self.body(pc, t, memfn)}\n"
+                 f"  else\n    {self.body(pc, n, memfn)}")
+        name = self.mn(pc) if memfn else self.dn(pc)
+        return (f"def {name} {self.nargs(pc)} : {ty} :=\n  {b}\n")
 
     # ----------------------------------------------------------------------
     def lemma_binders(self, pc):
@@ -345,7 +352,11 @@ class Fn:
         I = " " * ind
         out = [f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)",
                f"{I}  ({self.seg_app(pc, s, neg)})"]
-        unfold = f"rw [{self.dn(pc)}" + (", if_neg hg]" if neg else ", if_pos hg]" if s.guard else "]")
+        if self.framed():
+            unfold = f"rw [{self.dn(pc)}, {self.mn(pc)}]" + (
+                "; simp only [if_neg hg]" if neg else "; simp only [if_pos hg]" if s.guard else "")
+        else:
+            unfold = f"rw [{self.dn(pc)}" + (", if_neg hg]" if neg else ", if_pos hg]" if s.guard else "]")
         if s.kind == "ret":
             if self.framed() and self.inside(pc):
                 out.append(f"{I}rw [fn_sp_restore s ({self.pro_imm}#12) ({s.sp_imm}#12) (by decide)] at h")
@@ -355,7 +366,6 @@ class Fn:
             out.append(f"{I}refine ⟨_, acc, ?_⟩")
             out.append(f"{I}{unfold}")
             if self.framed():
-                out.append(f"{I}dsimp only")
                 out.append(f"{I}rw [memPatch_self]")
             out.append(f"{I}exact (h.at ({tgt})).repin (by pins_of h)")
             return out
@@ -405,6 +415,8 @@ class Fn:
         (`<Mod>/L<k>`, in proof order) and the summary (`<Mod>`), so that no
         module's elaboration holds more than `CHUNK` node proofs."""
         defs = "\n".join(self.ndef(pc) for pc in self.order)
+        if self.framed():
+            defs += "\n" + "\n".join(self.ndef(pc, True) for pc in self.order)
         lems = [self.lemma(pc) for pc in self.order]
         nseg = len(self.segs)
         kind = (f"a {self.F}-byte frame below `sp`, the memory `memPatch`ed there"
@@ -416,8 +428,8 @@ class Fn:
         doc = (f"`{self.fn}` (entry `0x{self.entry:08x}`): its {nseg} generated segments\n"
                f"(`Lua/Vm/Arms/Segs/H{self.fn.lstrip('_')}.lean`) folded into {len(self.order)} nodes, {kind}.\n"
                "`N_<pc>` is the lifted function of the node at `pc`, `n_<pc>` its lemma; at the\n"
-               "entry they are `F` (the lifted function level 2 relates to `F64`) and `sum` (the\n"
-               "summary).")
+               "entry they are `F` (the lifted function level 2 relates to `F64`; `Fm`, `Nm_<pc>`\n"
+               "a framed helper's memory) and `sum` (the summary).")
         opens = ("open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa\n"
                  "open Vsa.Sim Vsa.Logic\nopen Lua.Vm.Sim\n")
         ns = f"Lua.Vm.Fn.{self.mod}"

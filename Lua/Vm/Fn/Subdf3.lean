@@ -5,8 +5,8 @@ import Lua.Vm.Fn.Subdf3.L3
 `__subdf3` (entry `0x8002e9d0`): its 226 generated segments
 (`Lua/Vm/Arms/Segs/Hsubdf3.lean`) folded into 143 nodes, a 48-byte frame below `sp`, the memory `memPatch`ed there.
 `N_<pc>` is the lifted function of the node at `pc`, `n_<pc>` its lemma; at the
-entry they are `F` (the lifted function level 2 relates to `F64`) and `sum` (the
-summary).
+entry they are `F` (the lifted function level 2 relates to `F64`; `Fm`, `Nm_<pc>`
+a framed helper's memory) and `sum` (the summary).
 
 This module: the index.
 -/

@@ -6,8 +6,8 @@ import Lua.Vm.Arms.Segs.Hgedf2
 `__gedf2` (entry `0x8002e3c0`): its 34 generated segments
 (`Lua/Vm/Arms/Segs/Hgedf2.lean`) folded into 19 nodes, a leaf: the memory and the caller's frame kept.
 `N_<pc>` is the lifted function of the node at `pc`, `n_<pc>` its lemma; at the
-entry they are `F` (the lifted function level 2 relates to `F64`) and `sum` (the
-summary).
+entry they are `F` (the lifted function level 2 relates to `F64`; `Fm`, `Nm_<pc>`
+a framed helper's memory) and `sum` (the summary).
 
 This module: the whole fold.
 -/

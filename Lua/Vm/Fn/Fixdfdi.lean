@@ -6,8 +6,8 @@ import Lua.Vm.Arms.Segs.Hfixdfdi
 `__fixdfdi` (entry `0x8002f188`): its 14 generated segments
 (`Lua/Vm/Arms/Segs/Hfixdfdi.lean`) folded into 10 nodes, a leaf: the memory and the caller's frame kept.
 `N_<pc>` is the lifted function of the node at `pc`, `n_<pc>` its lemma; at the
-entry they are `F` (the lifted function level 2 relates to `F64`) and `sum` (the
-summary).
+entry they are `F` (the lifted function level 2 relates to `F64`; `Fm`, `Nm_<pc>`
+a framed helper's memory) and `sum` (the summary).
 
 This module: the whole fold.
 -/

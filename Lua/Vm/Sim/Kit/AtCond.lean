@@ -75,7 +75,7 @@ macro "at_scr" : tactic => `(tactic| (
   intro x hx
   simp only [Scratch, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget, not_or,
     not_and, Nat.not_lt] at hx
-  simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out]))
+  simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]))
 
 /-- The run's memory agrees with the entry memory outside `Scratch` and the
 register slots (an arm's stores, a callee's frame and its stores of `R[A]`). -/
@@ -88,7 +88,7 @@ macro "at_win" : tactic => `(tactic| (
   intro x hx hx'
   simp only [Scratch, Slots, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget, not_or,
     not_and, Nat.not_lt, stackValueSize] at hx hx'
-  simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out]))
+  simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]))
 
 /-! ## `updatetrap` -/
 

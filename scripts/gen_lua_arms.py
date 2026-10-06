@@ -224,6 +224,7 @@ HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
 # return address continues the arm), so the other arms' segments stay as they are
 FLOAT_CALLS = {fn for fn, _, _ in FLOAT_HELPERS}
 FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP"}
+SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.

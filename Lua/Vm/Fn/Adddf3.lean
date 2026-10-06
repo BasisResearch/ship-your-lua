@@ -5,8 +5,8 @@ import Lua.Vm.Fn.Adddf3.L3
 `__adddf3` (entry `0x8002d7a8`): its 210 generated segments
 (`Lua/Vm/Arms/Segs/Hadddf3.lean`) folded into 134 nodes, a 48-byte frame below `sp`, the memory `memPatch`ed there.
 `N_<pc>` is the lifted function of the node at `pc`, `n_<pc>` its lemma; at the
-entry they are `F` (the lifted function level 2 relates to `F64`) and `sum` (the
-summary).
+entry they are `F` (the lifted function level 2 relates to `F64`; `Fm`, `Nm_<pc>`
+a framed helper's memory) and `sum` (the summary).
 
 This module: the index.
 -/
