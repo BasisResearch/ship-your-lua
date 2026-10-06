@@ -346,6 +346,11 @@ objects the arm and the walk read (`cl->upvals[0]`, `uv->v`, `_ENV`'s
 `TValue`, the table header, the node array, the key's header) lie in the heap
 apart from the window (`HeapApart`). -/
 structure EnvGetAt (m : Mem) (L ci : Nat) (e : EntryPtrs) (ts : Nat) (s : EnvSlot) : Prop where
+  /-- `cl->upvals[0]`, `uv->v`, `_ENV`'s tag and table -/
+  upval : rd64 m (e.cl + lclosureUpvalsOff) = some e.uv
+  uv_v : rd64 m (e.uv + upvalVOff) = some e.envv
+  env_tag : tagAt m e.envv = some vTable
+  env_val : rd64 m (e.envv + tvalueValOff) = some e.env
   lsz : rd8 m (e.env + tableLsizenodeOff) = some s.lsz
   /-- `sllw` of `1` by `lsizenode` stays a positive 32-bit mask -/
   lsz_lt : s.lsz < 31
@@ -402,11 +407,13 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   /-- **`GETTABUP _ENV "print"`'s walk** (lane F1-7): for every short-string
   constant `"print"`, `luaH_getshortstr`'s chain from its main position
   reaches `print`'s node (`EnvGetAt`). `env_print_ptr` places the key in some
-  node; the machine needs it on the chain. -/
-  env_get : ∀ ka i x, rd64 m (e.pa + protoKOff) = some ka → i < p.k.length →
-    tagAt m (ka + tvalueSize * i) = some vShrStr →
-    rd64 m (ka + tvalueSize * i + tvalueValOff) = some x →
-    TStringRepr m x printKey → ∃ s, EnvGetAt m L ci e x s
+  node; the machine needs it on the chain. Stated, as `vararg_proto`, in every
+  memory that agrees with this one off the bytes `luaT_adjustvarargs` writes. -/
+  env_get : ∀ m' : Mem, (∀ a, ¬ VarargDirty ci e.func a → m'[a]? = m[a]?) →
+    ∀ ka i x, rd64 m' (e.pa + protoKOff) = some ka → i < p.k.length →
+    tagAt m' (ka + tvalueSize * i) = some vShrStr →
+    rd64 m' (ka + tvalueSize * i + tvalueValOff) = some x →
+    TStringRepr m' x printKey → ∃ s, EnvGetAt m' L ci e x s
   l_G : rd64 m (L + stateGOff) = some e.g
   gc_stopped : rd8 m (e.g + gGcstpOff) = some gcstpUsr
   stack_last : rd64 m (L + stateStackLastOff) = some e.stackLast

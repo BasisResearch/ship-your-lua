@@ -35,47 +35,6 @@ namespace Lua.Vm.Sim
 
 open Lua.Bytecode Lua.Vm.Layout
 
-/-- `rdLE` byte by byte, from the lowest address. -/
-theorem rdLE_succ (m : Mem) (a n : Nat) :
-    rdLE m a (n + 1) = (do
-      let b ← m[a]?
-      let r ← rdLE m (a + 1) n
-      pure (b.toNat + 256 * r)) := by
-  simp only [rdLE, List.range_succ_eq_map, List.foldr_cons, List.foldr_map, Nat.add_zero]
-  congr 1
-  funext b
-  congr 1
-  congr 1
-  funext i acc
-  rw [Nat.add_assoc, Nat.add_comm 1 i]
-
-/-- **A little-endian read is the total read**, and fits its width. -/
-theorem rdLE_spec : ∀ (n : Nat) (m : Mem) (a x : Nat), rdLE m a n = some x →
-    x < 2 ^ (8 * n) ∧ bytesT m a n = BitVec.ofNat (8 * n) x
-  | 0, m, a, x, h => by
-    simp [rdLE] at h
-    subst h
-    exact ⟨by decide, rfl⟩
-  | n + 1, m, a, x, h => by
-    rw [rdLE_succ] at h
-    simp only [Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def, Option.some.injEq] at h
-    obtain ⟨b, hb, r, hr, rfl⟩ := h
-    obtain ⟨hlt, hbt⟩ := rdLE_spec n m (a + 1) r hr
-    have hb8 := b.isLt
-    have hbound : b.toNat + 256 * r < 2 ^ (8 * (n + 1)) := by
-      rw [show 8 * (n + 1) = 8 * n + 8 by omega, Nat.pow_add]
-      have : (r + 1) * 2 ^ 8 ≤ 2 ^ (8 * n) * 2 ^ 8 := Nat.mul_le_mul_right _ hlt
-      simp only [Nat.add_mul, Nat.one_mul] at this
-      omega
-    refine ⟨hbound, ?_⟩
-    simp only [bytesT, hbt, hb, Option.getD_some]
-    apply BitVec.eq_of_toNat_eq
-    show (BitVec.ofNat (8 * n) r ++ b).toNat = _
-    rw [BitVec.toNat_append, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt,
-      ← Nat.shiftLeft_add_eq_or_of_lt hb8, Nat.shiftLeft_eq, BitVec.toNat_ofNat,
-      Nat.mod_eq_of_lt hbound]
-    omega
-
 /-- `rd64` as `ld` reads it. -/
 theorem bytesT8_of_rd64 {m : Mem} {a x : Nat} (h : rd64 m a = some x) :
     bytesT8 m a = BitVec.ofNat 64 x := by
@@ -291,6 +250,36 @@ theorem chunkOwns_of_strChunkAt {p : Proto} {w : RelPtrs} {c : DlHeap.Chunk} {ts
     stateTopOff, stateSize, cStackBudget, symHeapEnd, RuntimeData.spEntry] at *
   omega
 
+/-- **An object of `_ENV` in the relation** (lane F1-7): the boot witness's
+`HeapApart` (heap, apart from the Lua stack above `f0 ≤ func`, `L` and `ci`)
+puts the range outside the window. -/
+theorem heapRead_of_apart {p : Proto} {w : RelPtrs} {f0 lo n : Nat}
+    (h : HeapApart w.L w.ci f0 w.rt.stackLast lo n) (hsp : w.sp = RuntimeData.spEntry - execFrame)
+    (hf0 : f0 ≤ w.func) (hfits : w.func + stackValueSize * (1 + p.maxstacksize) ≤ w.rt.stackLast) :
+    HeapRead p w lo n := by
+  obtain ⟨h1, h2, h3, h4, h5⟩ := h
+  have hroom := cstack_room
+  simp only [symEnd, symHeapEnd, cStackBudget, RuntimeData.spEntry, stateSize, ciSize] at h1 h2 h4 h5 hroom
+  refine ⟨by simp only [tohostAddr]; omega, by simp only [cStackBudget, RuntimeData.spEntry]; omega,
+    fun a ha1 ha2 hw => ?_⟩
+  simp only [Win, Slots, Scratch, RelPtrs.base, stackValueSize, execFrame, ciSavedpcOff, ciSize,
+    stateTopOff, stateSize, cStackBudget, RuntimeData.spEntry] at *
+  omega
+
+/-- **`_ENV.print` from the entry data** (`VmEntryData.env_get`), in any
+memory `m` that agrees with the entry memory off `luaT_adjustvarargs`'s
+stores, for the constant array `k` that `m` holds: every string constant
+`"print"` finds `print` (`EnvMem`, `EnvGetAt.envMem`). -/
+theorem envMem_of_entry {m0 m : Mem} {L ci : Nat} {p : Proto} {e : EntryPtrs}
+    (hE : VmEntryData m0 L ci p e) (hm : ∀ a, ¬ VarargDirty ci e.func a → m[a]? = m0[a]?) {k : Nat}
+    (hk : rd64 m (e.pa + protoKOff) = some k) :
+    ∀ ts, KStrIn m k p.k.length ts printKey → EnvMem m e.cl ts (HeapApart L ci e.func e.stackLast) := by
+  rintro ts ⟨i, hi⟩
+  have ht := hi.tag
+  rw [show strTag printKey = vShrStr by decide] at ht
+  obtain ⟨s, hs⟩ := hE.env_get m hm k i ts hk hi.lt ht hi.ptr hi.str
+  exact hs.envMem
+
 /-- **`Complement.own` at the entry**: the owned strings are the string
 constants (`KStrIn`), each in a chunk the boot witness found (`KOwned`). -/
 theorem own_of_kowned {p : Proto} {w : RelPtrs} {n : Nat} (hk : KOwned w.mo w.L w.ci w.rt)
@@ -356,7 +345,10 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
     (hfits : func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast)
     (hcall : SegsAt m RuntimeData.callerFrames)
     (hcL : ∀ a ∈ RuntimeData.callerLSlots, bytesT8 m a = BitVec.ofNat 64 L)
-    (hat : rd64 m symAtexit = some 0) (hsx : rd64 m symStdioExitHandler = some 0) :
+    (hat : rd64 m symAtexit = some 0) (hsx : rd64 m symStdioExitHandler = some 0)
+    {f0 : Nat} (hf0 : f0 ≤ func)
+    (henv : ∀ ts, KStrIn m rt.k p.k.length ts printKey →
+      EnvMem m rt.cl ts (HeapApart L ci f0 rt.stackLast)) :
     ∃ ι : Strs, RelParts p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩ := by
   have hrg := hrt.regions
   have hlua := hrt.lua
@@ -374,7 +366,8 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
   refine ⟨⟨ι, KStrIn m rt.k p.k.length⟩, ⟨⟨htext, hro, hpr.proto, hpr.code, fun i ins hf => ?_,
     ?_, ?_, ⟨hfunc, hlua, hrt.heap, hrt.error_jmp⟩, hkι,
     own_of_kowned hrt.kowned rfl esizek rfl hsle hfits, hcall, hcL,
-    exitOk_entry hat hsx hrg hfunc hlua.stack_le⟩,
+    exitOk_entry hat hsx hrg hfunc hlua.stack_le,
+    fun ts hts => (henv ts hts).mono fun _ _ h => heapRead_of_apart h rfl hf0 hfits⟩,
     Ranges.of_regions hrg rfl hfunc.symm ecode rfl esz esizek hlua.stack_le hfits⟩⟩
   · obtain ⟨hlt, hi⟩ := List.getElem?_eq_some_iff.1 hf
     rw [bytesT4_of_rd32 (hwords i hlt), hi, BitVec.ofNat_toNat, BitVec.setWidth_eq]
@@ -626,6 +619,9 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
     ⟨hRt.heap, hlua, hRt.error_jmp, hrg, hRt.interned, hRt.kowned⟩ efunc.symm epa.symm rfl
     (by rw [← esl]; exact hE.frame_fits) hRt.cstack.callers
     (fun a ha => bytesT8_of_rd64 (hRt.callerL a ha)) hRt.stdio.atexit hRt.stdio.exit_handler
+    (f0 := e.func) (Nat.le_refl _) (by
+      rw [← ecl, ← esl]
+      exact envMem_of_entry hE (fun _ _ => rfl) (by rw [epa]; exact hrg.kArr))
   have hwo : ∀ {m : Mem} {a x : Nat} {d : BitVec (8 * 8)}, x + 8 ≤ a ∨ a + 8 ≤ x →
       bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
     fun h => bytesT8_congr fun _ _ => getElem?_writeMap8_out _ _ _ _ (by omega)
@@ -645,7 +641,7 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
           pinsHold_get hp2 12 (by simp), hx25, hx27⟩,
         (output_congr (hq2.armOut.trans hq1.armOut)).trans hRt.harness.console, hq2.armOk,
         hq2.armText, fun a ha => congrArg (Option.getD · 0) (hA2 a ?_), hkp,
-        fun j v _ h => ?_, hP.comp, hP.ranges,
+        hcl8, fun j v _ h => ?_, hP.comp, hP.ranges,
         SavedAt.congr (w := ⟨L, ci, e.func, e.pa, e.code, rt.k, RuntimeData.spEntry - execFrame,
           c.σ.mem, ι', rt⟩) ⟨hra1, hs01, fun rv hrv => hsv1 rv.1 rv.2 hrv⟩ hfr12⟩, hq2.pcAt⟩
       entry := hE

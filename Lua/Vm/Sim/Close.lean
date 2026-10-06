@@ -214,7 +214,8 @@ theorem Core.update (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : Lis
       ValRepr w.mo w.ι (slotTag c'.σ.mem (w.slot j)) (slotVal c'.σ.mem (w.slot j)) v) :
     Core p c' ⟨pc', regs', s.out⟩ w :=
   ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hc.text_of hframe, hc.frame_of hframe, hc.kptr_of hframe, hstack, hc.comp,
+    hseg.armOk, hc.text_of hframe, hc.frame_of hframe, hc.kptr_of hframe, hc.clptr_of hframe,
+    hstack, hc.comp,
     hc.ranges, hc.saved_of fun x hx _ => hframe x hx⟩
 
 end

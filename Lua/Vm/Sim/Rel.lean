@@ -2,6 +2,7 @@ import Lua.Vm.Runtime
 import Lua.Vm.Host
 import Lua.Vm.RegsOk
 import Lua.Vm.Sim.Mem
+import Lua.Vm.Sim.Env
 import Lua.Vm.Sim.Step
 import Vsa.Sim.SegState
 
@@ -196,6 +197,15 @@ the complement's (`Core.frame`). -/
 def Win (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
   Slots p w a ∨ (w.sp ≤ a ∧ a < w.sp + execFrame) ∨ Scratch w a
 
+/-- **A heap range the relation reads through its complement** (lane F1-7):
+`[lo, lo + n)` lies above `tohost`, below the callee frames, and outside the
+window, so the machine's bytes there are the complement's (`Core.frame`).
+`_ENV`'s objects (`Complement.env`, `EnvMem`). -/
+structure HeapRead (p : Proto) (w : RelPtrs) (lo n : Nat) : Prop where
+  above : tohostAddr + 16 ≤ lo
+  below : lo + n ≤ RuntimeData.spEntry - cStackBudget
+  out : ∀ a, lo ≤ a → a < lo + n → ¬ Win p w a
+
 /-- **The chunk `c` owns the string object at `ts`** holding `s`: `c` is an
 in-use chunk of the allocator's walk (`HeapAt`'s `chunks`, `w.rt`), its user
 range `[addr + 16, addr + size + 8)` (an in-use chunk also owns the next
@@ -316,6 +326,11 @@ structure Complement (p : Proto) (w : RelPtrs) : Prop where
   callerL : ∀ a ∈ RuntimeData.callerLSlots, bytesT8 w.mo a = BitVec.ofNat 64 w.L
   /-- `exit(0)` from this complement halts with code 0 (`ExitOk`) -/
   exit : ExitOk p w
+  /-- **`_ENV.print`** (lane F1-7): for the string object of every owned
+  `"print"`, `OP_GETTABUP`'s reads through the closure `w.rt.cl` (`8(sp)`,
+  `Core.clptr`) and `luaH_getshortstr`'s walk find `print` (`EnvMem`), the
+  objects outside the window (`HeapRead`) -/
+  env : ∀ ts, w.ι.own ts printKey → EnvMem w.mo w.rt.cl ts (HeapRead p w)
 
 /-- **Where things are**: the address ranges the arms' side conditions need,
 and the window's separation from the code array and the `CallInfo`. -/
@@ -416,6 +431,10 @@ structure Core (p : Proto) (c : Config) (s : State) (w : RelPtrs) : Prop where
   frame : ∀ a, ¬ Win p w a → bytesT1 c.σ.mem a = bytesT1 w.mo a
   /-- `0(sp)` holds `k` (the prologue's `sd`; the `K` arms' `ld a4,0(sp)`) -/
   kptr : bytesT8 c.σ.mem w.sp = BitVec.ofNat 64 w.k
+  /-- `8(sp)` holds the closure (the prologue's `sd a5,8(sp)`; `OP_GETTABUP`'s
+  and `OP_VARARGPREP`'s `ld a4,8(sp)`): no F1 arm writes `[8(sp), 16(sp))`
+  (`CFrame` starts at `16(sp)`), so every close keeps it (lane F1-7) -/
+  clptr : bytesT8 c.σ.mem (w.sp + 8) = BitVec.ofNat 64 w.rt.cl
   stack : ∀ j v, j < p.maxstacksize → s.regs j = some v →
     ValRepr w.mo w.ι (slotTag c.σ.mem (w.slot j)) (slotVal c.σ.mem (w.slot j)) v
   comp : Complement p w
@@ -667,6 +686,21 @@ theorem Core.kptr_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Slots p w x �
   (bytesT8_congr fun i _ => h _ fun hs => by
     have := hc.ranges.frame_sep; simp only [Slots] at hs; omega).trans hc.kptr
 
+/-- `8(sp)` survives any memory change that is exact outside the register slots. -/
+theorem Core.clptr_of (hc : Core p c s w) {m : Mem} (h : ∀ x, ¬ Slots p w x → m[x]? = c.σ.mem[x]?) :
+    bytesT8 m (w.sp + 8) = BitVec.ofNat 64 w.rt.cl :=
+  (bytesT8_congr fun i _ => h _ fun hs => by
+    have := hc.ranges.frame_sep; simp only [Slots] at hs; omega).trans hc.clptr
+
+/-- `8(sp)` survives any memory change that is exact outside the register slots
+and `Scratch`. -/
+theorem Core.clptr_of' (hc : Core p c s w) {m : Mem}
+    (h : ∀ x, ¬ Slots p w x → ¬ Scratch w x → m[x]? = c.σ.mem[x]?) :
+    bytesT8 m (w.sp + 8) = BitVec.ofNat 64 w.rt.cl :=
+  (bytesT8_congr fun i _ => h _ (fun hs => by
+    have := hc.ranges.frame_sep; simp only [Slots] at hs; omega)
+    (fun hs => by have := (hc.ranges.scratch_out _ hs).2; omega)).trans hc.clptr
+
 /-- **The saved words survive every close**: a memory that is exact outside the
 register slots and `Scratch` (the C frame is neither) keeps them. -/
 theorem Core.saved_of (hc : Core p c s w) {m : Mem}
@@ -693,7 +727,8 @@ theorem Core.write (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List
   have hfr : ∀ x, ¬ Slots p w x → c'.σ.mem[x]? = c.σ.mem[x]? := fun x hx =>
     hst.frame x (Classical.byContradiction fun h => hx (hwin x h))
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hc.text_of hfr, hc.frame_of hfr, hc.kptr_of hfr, fun j v' hj hv' => ?_, hc.comp,
+    hseg.armOk, hc.text_of hfr, hc.frame_of hfr, hc.kptr_of hfr, hc.clptr_of hfr,
+    fun j v' hj hv' => ?_, hc.comp,
     hc.ranges, hc.saved_of fun x hx _ => hfr x hx⟩
   · simp only at hv'
     by_cases hja : j = a
@@ -718,7 +753,8 @@ theorem Core.jump (hc : Core p c s w) {c' : Config} {pcv : BitVec 64} {L : List 
     (hpins : Pins c'.σ w pc') (hmem : c'.σ.mem = c.σ.mem) :
     Core p c' ⟨pc', s.regs, s.out⟩ w := by
   refine ⟨hseg.good, hseg.minstret, hseg.tick, hpins, (output_congr hseg.armOut).trans hc.out,
-    hseg.armOk, hmem ▸ hc.text, hmem ▸ hc.frame, hmem ▸ hc.kptr, fun j v hj hv => ?_, hc.comp,
+    hseg.armOk, hmem ▸ hc.text, hmem ▸ hc.frame, hmem ▸ hc.kptr, hmem ▸ hc.clptr,
+    fun j v hj hv => ?_, hc.comp,
     hc.ranges, hmem ▸ hc.saved⟩
   rw [hmem]
   exact hc.stack j v hj hv

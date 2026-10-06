@@ -355,7 +355,9 @@ def envSlotOf (v : View) (slot : PrintSlot) : EnvSlot :=
 /-- `EnvGetAt m L ci e ts s` over the view: the reads, the walk over the view
 (`shrWalk` on `rdLEf`), and the objects' places. -/
 def envGetCheck (v : View) (L ci : Nat) (e : EntryPtrs) (ts : Nat) (s : EnvSlot) : Bool :=
-  readsOk v [(e.env + tableLsizenodeOff, 1, s.lsz), (e.env + tableNodeOff, 8, s.node),
+  readsOk v [(e.cl + lclosureUpvalsOff, 8, e.uv), (e.uv + upvalVOff, 8, e.envv),
+    (e.envv + tvalueTagOff, 1, vTable), (e.envv + tvalueValOff, 8, e.env),
+    (e.env + tableLsizenodeOff, 1, s.lsz), (e.env + tableNodeOff, 8, s.node),
     (ts + tstringHashOff, 4, s.hash), (s.r + tvalueTagOff, 1, vLcf),
     (s.r + tvalueValOff, 8, symLuaBPrint)] &&
   decide (s.lsz < 31) &&
@@ -373,7 +375,11 @@ theorem envGetCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat
   simp only [envGetCheck, Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hc
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨hr, hlt⟩, hw⟩, h1⟩, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := hc
   exact
-    { lsz := h.reads hr (by mem_tac)
+    { upval := h.reads hr (by mem_tac)
+      uv_v := h.reads hr (by mem_tac)
+      env_tag := h.reads hr (by mem_tac)
+      env_val := h.reads hr (by mem_tac)
+      lsz := h.reads hr (by mem_tac)
       lsz_lt := hlt
       node := h.reads hr (by mem_tac)
       hash := h.reads hr (by mem_tac)
@@ -403,13 +409,14 @@ def entryCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : Print
   decide (e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast) &&
   protoCheck (v.minus (VarargDirty ci e.func)) e.pa p &&
   readsOk (v.minus (VarargDirty ci e.func)) [(e.pa + protoCodeOff, 8, e.code)] &&
-  envGetCheck v L ci e slot.ts (envSlotOf v slot)
+  printPtrCheck (v.minus (VarargDirty ci e.func)) e.pa p.k.length slot.ts &&
+  envGetCheck (v.minus (VarargDirty ci e.func)) L ci e slot.ts (envSlotOf v slot)
 
 theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat} {p : Proto}
     {e : EntryPtrs} {slot : PrintSlot} (hc : entryCheck v L ci p e slot = true) :
     VmEntryData m L ci p e := by
   simp only [entryCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hvp⟩, hvc⟩, henv⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hvp⟩, hvc⟩, hvptr⟩, henv⟩ := hc
   exact
     { ci_eq := h.reads hr (by mem_tac)
       ci_func := h.reads hr (by mem_tac)
@@ -427,9 +434,9 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
       env_print_ptr := fun _ _ _ hka hi ht hx hs => by
         rw [printPtrCheck_sound h hptr hka hi ht hx hs]
         exact slotCheck_ptr h hslot
-      env_get := fun _ _ _ hka hi ht hx hs => by
-        rw [printPtrCheck_sound h hptr hka hi ht hx hs]
-        exact ⟨_, envGetCheck_sound h henv⟩
+      env_get := fun _ hm _ _ _ hka hi ht hx hs => by
+        rw [printPtrCheck_sound (h.minus _ hm) hvptr hka hi ht hx hs]
+        exact ⟨_, envGetCheck_sound (h.minus _ hm) henv⟩
       l_G := h.reads hr (by mem_tac)
       gc_stopped := h.reads hr (by mem_tac)
       stack_last := h.reads hr (by mem_tac)

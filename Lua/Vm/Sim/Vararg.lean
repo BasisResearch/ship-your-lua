@@ -211,6 +211,12 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
         simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, symStdioExitHandler,
           symEnd] at b1 b2 ⊢
         omega)).trans hRt.stdio.exit_handler)
+      (f0 := e.func) (Nat.le_add_right _ _) (by
+        have h := envMem_of_entry hE hdirty (k := rt.k) (by
+          have := hRt.vararg.regions.kArr
+          simp only [RtPtrs.vmoved] at this; rw [hrp] at this; exact this)
+        rw [ecl, esl] at h
+        exact h)
     exact ⟨ι', hP⟩
 
 /-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at
