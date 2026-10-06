@@ -74,7 +74,9 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          # lane F1-8: the stdio calls above it (the callee-context route)
          "fflush", "memmove", "_fflush_r", "memchr", "__sfvwrite_r", "_fwrite_r",
          # lane F1-9: the first write's `__sinit` (`std()` of the three `FILE`s)
-         "__sinit", "global_stdio_init.part.0", "memset", "__retarget_lock_init_recursive"]
+         "__sinit", "global_stdio_init.part.0", "memset", "__retarget_lock_init_recursive",
+         # lane F1-10: the rest of the first write's set-up
+         "__swsetup_r", "__smakebuf_r", "_fstat_r", "_fstat", "_isatty_r", "_isatty"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")

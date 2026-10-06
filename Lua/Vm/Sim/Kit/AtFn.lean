@@ -180,6 +180,89 @@ theorem rd2_of {m : Mem} {a : Nat} {v : BitVec 16} (h : bytesT2 m a = v) {x : Na
 theorem rd1_of {m : Mem} {a : Nat} {v : BitVec 8} (h : bytesT1 m a = v) {x : Nat} (e : x = a) :
     bytesT1 m x = v := e ▸ h
 
+/-! ## Ground shifts and fields
+
+A segment computes an address from literals by `slli`/`srli` (`fds + 24 *
+fd`: `shift_bits_left (…) (extractLsb k 5 0)`), which the generator folds;
+`ground_bv` evaluates such a term (every argument a literal) to
+`BitVec.ofNat w v`, by `decide`, so `fat_rd` meets the literal address. -/
+
+open Lean Meta Simp in
+/-- A `BitVec` literal's width and value (`OfNat` or `BitVec.ofNat`). -/
+def bvLit? (e : Expr) : MetaM (Option (Nat × Nat)) := do
+  if let some ⟨w, v⟩ ← getBitVecValue? e then return some (w, v.toNat)
+  if e.isAppOfArity ``BitVec.ofNat 2 then
+    if let some w ← evalNat (e.getArg! 0) |>.run then
+      if let some v ← evalNat (e.getArg! 1) |>.run then return some (w, v % 2 ^ w)
+  return none
+
+open Lean Meta Simp in
+/-- A ground `BitVec` term's width and value: a literal, or `shift_bits_left`,
+`shift_bits_right`, `Sail.BitVec.extractLsb`, `sign_extend`, `&&&`, `|||`,
+`^^^`, `+`, `-` of ground terms. -/
+partial def bvGround? (e : Expr) : MetaM (Option (Nat × Nat)) := do
+  if let some r ← bvLit? e then return some r
+  let width : MetaM (Option Nat) := do
+    let ty ← whnfR (← inferType e)
+    unless ty.isAppOfArity ``BitVec 1 do return none
+    (evalNat (ty.getArg! 0)).run
+  if e.isAppOfArity ``shift_bits_left 4 then
+    let some (w, a) ← bvGround? (e.getArg! 2) | return none
+    let some (_, s) ← bvGround? (e.getArg! 3) | return none
+    return some (w, (a <<< s) % 2 ^ w)
+  if e.isAppOfArity ``shift_bits_right 4 then
+    let some (w, a) ← bvGround? (e.getArg! 2) | return none
+    let some (_, s) ← bvGround? (e.getArg! 3) | return none
+    return some (w, a >>> s)
+  if e.isAppOfArity ``Sail.BitVec.extractLsb 4 then
+    let some (_, a) ← bvGround? (e.getArg! 1) | return none
+    let some hi ← (evalNat (e.getArg! 2)).run | return none
+    let some lo ← (evalNat (e.getArg! 3)).run | return none
+    return some (hi - lo + 1, (a >>> lo) % 2 ^ (hi - lo + 1))
+  if e.isAppOfArity ``LeanRV64DExecutable.Functions.sign_extend 3 then
+    let some (k, a) ← bvGround? (e.getArg! 2) | return none
+    let some w ← width | return none
+    if k = 0 then return none
+    let v := if a >>> (k - 1) % 2 = 1 then a + 2 ^ w - 2 ^ k else a
+    return some (w, v % 2 ^ w)
+  for (op, f) in [(``HAnd.hAnd, fun (a b : Nat) (_ : Nat) => a &&& b),
+      (``HOr.hOr, fun a b _ => a ||| b), (``HXor.hXor, fun a b _ => a ^^^ b),
+      (``HAdd.hAdd, fun a b w => (a + b) % 2 ^ w), (``HSub.hSub, fun a b w => (a + 2 ^ w - b) % 2 ^ w)] do
+    if e.isAppOfArity op 6 then
+      let some (w, a) ← bvGround? (e.getArg! 4) | return none
+      let some (_, b) ← bvGround? (e.getArg! 5) | return none
+      return some (w, f a b w)
+  return none
+
+open Lean Meta Simp in
+/-- **`ground_bv`**: a ground `BitVec` term that is not a literal (an address
+from `slli`/`srli` of literals, a mask `0x60 &&& sext 0xff0`), evaluated to
+`BitVec.ofNat w v`, by `decide`. -/
+simproc_decl ground_bv (_) := fun e => do
+  if (← bvLit? e).isSome then return .continue
+  let some (w, v) ← bvGround? e | return .continue
+  let lit := mkApp2 (mkConst ``BitVec.ofNat) (mkNatLit w) (mkNatLit v)
+  let pf ← mkDecideProof (← mkEq e lit)
+  return .done { expr := lit, proof? := some pf }
+
+/-- `x & (2^k - 1)`: the residue (an alignment test on an address over the
+atoms; the generator's `res`). -/
+theorem and_lowmask (n : Nat) {k m : Nat} (hm : m + 1 = 2 ^ k) (hk : k ≤ 64) :
+    BitVec.ofNat 64 n &&& BitVec.ofNat 64 m = BitVec.ofNat 64 (n % 2 ^ k) := by
+  apply BitVec.eq_of_toNat_eq
+  have hm' : m = 2 ^ k - 1 := by omega
+  subst hm'
+  have h2 : 2 ^ k ≤ 2 ^ 64 := Nat.pow_le_pow_right (by decide) hk
+  simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (show 2 ^ k - 1 < 2 ^ 64 by omega), Nat.and_two_pow_sub_one_eq_mod,
+    Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 hk)]
+  exact (Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos k)) h2)).symm
+
+theorem and_m15 (n : Nat) : BitVec.ofNat 64 n &&& BitVec.ofNat 64 15 = BitVec.ofNat 64 (n % 16) :=
+  and_lowmask n (k := 4) rfl (by decide)
+theorem and_m7 (n : Nat) : BitVec.ofNat 64 n &&& BitVec.ofNat 64 7 = BitVec.ofNat 64 (n % 8) :=
+  and_lowmask n (k := 3) rfl (by decide)
+
 /-! ## Tactics -/
 
 open Lean Elab Tactic Meta
@@ -207,7 +290,7 @@ elab "fat_rd" loc:(Lean.Parser.Tactic.location)? : tactic => withMainContext do
   -- one `simp`: a fact rewritten may expose an address to normalise, and a
   -- normalised address a load to forward
   evalTactic (← `(tactic| (
-    simp (disch := omega) only [add_imm, imm_neg_add, BitVec.ofNat_add_ofNat,
+    simp (disch := omega) only [ground_bv, and_m15, and_m7, add_imm, imm_neg_add, BitVec.ofNat_add_ofNat,
       BitVec.toNat_ofNat, Nat.add_zero, Vsa.Sim.sext_zero, BitVec.add_zero, Nat.mod_eq_of_lt,
       sext64_id, BitVec.mul_one, fw8_same, fw4_same, fw2_same, fw1_same,
       fw1_wm8, fw1_wm4, fw1_wm2, fw1_ins, fw2_wm8, fw2_wm4, fw2_wm2, fw2_ins,
@@ -216,7 +299,8 @@ elab "fat_rd" loc:(Lean.Parser.Tactic.location)? : tactic => withMainContext do
 /-- **The loads of the callee rows** (an `at_eq` extension, tried first):
 forwarded and rewritten by `fat_rd`, then closed. -/
 macro_rules
-  | `(tactic| at_eq_ext) => `(tactic| (fat_rd; first | done | with_reducible rfl | decide))
+  | `(tactic| at_eq_ext) => `(tactic| (fat_rd; first | done | with_reducible rfl | decide |
+      (apply congrArg (BitVec.ofNat 64); omega)))
 
 /-- A post-memory in the row's form: the same stores, the addresses by
 `kit_disch`, the data by `at_eq`. -/
@@ -395,6 +479,12 @@ macro "fat_cmp" : tactic => `(tactic| (
   simp (disch := omega) only [fult, fuge, fbeq, fbne, Bool.not_eq_true', decide_eq_true_eq,
     decide_eq_false_iff_not, Bool.not_eq_false', Bool.not_eq_true]
   try omega))
+
+/-- A decided guard between offsets of the atoms (a loop's cursor against its
+end, an alignment residue): the loads and ground terms first, then
+`fat_cmp`. -/
+macro_rules
+  | `(tactic| fat_gnd) => `(tactic| ((try fat_rd); fat_cmp; done))
 
 /-! ## Chaining a callee's at-lemmas -/
 

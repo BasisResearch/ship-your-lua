@@ -234,12 +234,12 @@ HELPERS += [("memchr", "Memchr", 0x800360d8, 0x80036198, [22, 26], [], [])]
 # unbuffered and fully buffered loops (`0x80033ba8`, `0x80033c70`: `__SLBF`),
 # the error exits (`0x80033ea8`, `0x80034008`: the console takes every byte)
 HELPERS += [("__sfvwrite_r", "__sfvwrite_r", 0x80033b50, 0x8003402c, [22, 26], [0x80033df4],
-             [0x80033c2c, 0x80033ba8, 0x80033c70, 0x80033ea8, 0x80034008])]
+             [0x80033ba8, 0x80033c70, 0x80033ea8, 0x80034008, 0x80033ed0])]
 # lane F1-8: `fwrite` (`j _fwrite_r`) and `_fwrite_r` on the set-up `stdout`
 # (`__sinit`, `0x800342c0`, a stop: `StdioUp`; the wide-orientation and
 # short-write paths are decided by `_flags2 = 0` and `__sfvwrite_r`'s `0`)
 HELPERS += [("fwrite", "Fwrite", 0x800342e4, 0x80034300, [22, 26], [], []),
-            ("_fwrite_r", "_fwrite_r", 0x800340fc, 0x800342e4, [22, 26], [], [0x800342c0])]
+            ("_fwrite_r", "_fwrite_r", 0x800340fc, 0x800342e4, [22, 26], [], [])]
 # lane F1-9: `__sinit` at the first write (`global_stdio_init`: `std()` of the
 # three `FILE`s, each `memset(&_mbstate, 0, 8)` and a no-op lock init); only
 # `memset`'s short path (`n <= 15`: a computed jump into its `sb` chain, whose
@@ -248,9 +248,34 @@ HELPERS += [("__sinit", "__sinit", 0x80032ed0, 0x80032f30, [22, 26], [], []),
             ("global_stdio_init.part.0", "Global_stdio_init_part_0", 0x80032bfc, 0x80032d7c, [22, 26],
              [0x80032d4c, 0x80032d54], []),
             ("memset", "Memset", 0x8003b56c, 0x8003b648, [22, 26],
-             [0x8003b5bc + 4 * i for i in range(15)], [0x8003b578]),
+             [0x8003b5bc + 4 * i for i in range(15)] + [0x8003b630], []),
             ("__retarget_lock_init_recursive", "__retarget_lock_init_recursive",
              0x8003b418, 0x8003b41c, [22, 26], [], [])]
+# lane F1-10: the first write's set-up. `_fwrite_r`'s `CHECK_INIT` (`__sinit`)
+# and `__sfvwrite_r`'s `cantwrite` (`__swsetup_r`, its error exit `0x80033ed0` a
+# stop) are no longer stops; `memset`'s block loop is followed (`_fstat`'s
+# `memset(st, 0, 104)`: the misaligned head through the internal `jalr` into
+# the `sb` chain, which returns to `0x8003b630`: `RET_TO`). `__swsetup_r` on a
+# write stream without a buffer (stops: the `__sinit` call `0x800359ac`, a
+# stream not open for writing `0x800358e0`, no buffer after `__smakebuf_r`
+# `0x80035950`, not line-buffered `0x80035934`); `__smakebuf_r` on a character
+# device (stops: unbuffered `0x80049a38`, `_fstat` failing `0x80049b00`/`0x80049b04`,
+# `_malloc_r` failing `0x80049b64`, not a tty `0x80049b94`); `_fstat_r` →
+# `_fstat` on the console (`fs_init` inlined; stops: `_fstat`'s `-1`
+# `0x8003b124`, a file `0x80000f34`, `EBADF` `0x80000f44`); `_isatty_r` →
+# `_isatty` (stops: `-1` `0x8004a1a4`, a file `0x800015f8`, `EBADF` `0x80001624`)
+HELPERS += [("__swsetup_r", "__swsetup_r", 0x8003587c, 0x800359e0, [22, 26], [],
+             [0x800359ac, 0x800358e0, 0x80035950, 0x80035934]),
+            ("__smakebuf_r", "__smakebuf_r", 0x80049a2c, 0x80049ba4, [22, 26], [],
+             [0x80049a38, 0x80049b00, 0x80049b04, 0x80049b64, 0x80049b94]),
+            ("_fstat_r", "_fstat_r", 0x8003b0e8, 0x8003b140, [22, 26], [], [0x8003b124]),
+            ("_fstat", "_fstat", 0x80000e9c, 0x80000f58, [22, 26], [], [0x80000f34, 0x80000f44]),
+            ("_isatty_r", "_isatty_r", 0x8004a170, 0x8004a1c0, [22, 26], [], [0x8004a1a4]),
+            ("_isatty", "_isatty", 0x80001598, 0x80001630, [22, 26], [], [0x800015f8, 0x80001624])]
+# a `ret` (by its address) that also returns into its own helper's code (an
+# internal `jalr`: `memset`'s `sb` chain): its live-out includes the code
+# after that call
+RET_TO = {0x8003b5f8: [0x8003b630]}
 # indirect calls whose target the callee rows know (`jalr` through a `FILE`
 # hook): the callee's entry reads flow back into the caller's segments, as a
 # `jal`'s do (`__sfvwrite_r`'s `fp->_write`, `__swrite`, reads `a3`)
@@ -272,7 +297,8 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
            "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}, "memmove": {"x10"}, "_fflush_r": {"x10"}, "memchr": {"x10"}, "__sfvwrite_r": {"x10"}, "fwrite": {"x10"}, "_fwrite_r": {"x10"},
            "__sinit": set(), "global_stdio_init.part.0": set(), "memset": {"x10"},
-           "__retarget_lock_init_recursive": set()}
+           "__retarget_lock_init_recursive": set(), "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
+           "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"}}
 
 
 def helper_cfg(lo, hi):
@@ -347,7 +373,8 @@ def helper_live(cuts, owner):
             if hi - 4 in INDIRECT:
                 return set().union(*[live[m] for m in cuts if cuts[m][0] == INDIRECT[hi - 4]])
             if d2s_last_is_ret(hi):     # a return: the helper's results
-                return RESULTS[owner[n]]
+                return RESULTS[owner[n]].union(*[live[m] for m in cuts if owner[m] == owner[n]
+                                                 and cuts[m][0] in RET_TO.get(hi - 4, [])])
             # a computed jump (a jump table): its targets are the helper's roots
             return set().union(*[live[m] for m in cuts
                                  if owner[m] == owner[n] and cuts[m][0] in roots[owner[n]]])

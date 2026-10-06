@@ -1,5 +1,6 @@
 import Lua.Vm.Arms.Sites.Hmemset
 import Lua.Vm.Arms.RegsOk
+import Lua.Vm.Arms.RegsOkJalr
 import Lua.Vm.Arms.Text
 import Vsa.Sim.SegState
 
@@ -20,12 +21,86 @@ namespace Lua.Vm.Arms
 
 /-- `0x8003b56c`–`0x8003b578` (3 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b56c_8003b578_t
-    (v10 v12 v1 v2 v3 v8 v9 v11 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v10 v12 v1 v2 v3 v8 v9 v11 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hg_3 : zopz0zKzJ_u ((0#64) + sign_extend (m := 64) (0x00f#12)) v12 = true)
+    : Triple (SegSt (0x8003b56c#64) [⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5a8#64) [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b56c `site_8003b56c` (alu) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b56c c.σ c.tick (c.steps) (0x8003b56c#64)
+      vmi hgood hpc hmi hloaded rfl htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b570#64 : BitVec 64) := by
+    have := obs_alu_pc hobs1
+    rwa [show BitVec.addInt (0x8003b56c#64) 4 = (0x8003b570#64 : BitVec 64) from by decide] at this
+  have hrd1 : σ1.regs.get? Register.x6 = some ((0#64) + sign_extend (m := 64) (0x00f#12)) :=
+    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp1 : PinsHold σ1 [⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
+  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
+  -- === step 2: 0x8003b570 `site_8003b570` (alu) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b570 σ1 i1 (c.steps + 1) (0x8003b570#64)
+      vmi1 v10 hG1 hpc1 hmi1 hp1.2.1 hload1 rfl hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b574#64 : BitVec 64) := by
+    have := obs_alu_pc hobs2
+    rwa [show BitVec.addInt (0x8003b570#64) 4 = (0x8003b574#64 : BitVec 64) from by decide] at this
+  have hrd2 : σ2.regs.get? Register.x14 = some (v10 + sign_extend (m := 64) (0x000#12)) :=
+    obs_alu_rd hobs2 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp2 : PinsHold σ2 [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd2, pins_alu hobs2 (by rfl) hp1⟩
+  obtain ⟨vmi2, hmi2⟩ := obs_alu_minstret hobs2
+  have hmemE2 : σ2.mem = m0 := by
+    rw [hmem2]; exact hmemE1
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmem2]; exact hload1
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
+  -- === step 3: 0x8003b574 `site_8003b574_taken` (btaken) ===
+  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
+    site_8003b574_taken σ2 i2 (c.steps + 1 + 1) (0x8003b574#64)
+      vmi2 ((0#64) + sign_extend (m := 64) (0x00f#12)) v12 hG2 hpc2 hmi2 hp2.2.1 hp2.2.2.2.1 hload2 rfl hg_3 hi2
+  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b5a8#64 : BitVec 64) := by
+    rw [obs_btaken_pc hobs3,
+      show (0x8003b574#64 : BitVec 64) + sign_extend (m := 64) (0x0034#13) = (0x8003b5a8#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
+  have hp3 : PinsHold σ3 [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_btaken hobs3 (by rfl) hp2
+  obtain ⟨vmi3, hmi3⟩ := obs_btaken_minstret hobs3
+  have hmemE3 : σ3.mem = m0 := by
+    rw [hmem3]; exact hmemE2
+  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
+    rw [hmem3]; exact hload2
+  have hout3 : σ3.sailOutput = o0 :=
+    (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.btaken hobs3 hok2
+  have hsteps3 : Steps c ⟨σ3, i3, c.steps + 1 + 1 + 1⟩ :=
+    ((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)
+  exact ⟨⟨σ3, i3, c.steps + 1 + 1 + 1⟩, hsteps3,
+    ⟨hG3, hpc3, hp3, ⟨vmi3, hmi3⟩, hi3, ⟨hload3, hmemE3, hout3, hok3⟩⟩⟩
+
+/-- `0x8003b56c`–`0x8003b578` (3 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b56c_8003b578_n
+    (v10 v12 v1 v2 v3 v8 v9 v11 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_3 : zopz0zKzJ_u ((0#64) + sign_extend (m := 64) (0x00f#12)) v12 = false)
     : Triple (SegSt (0x8003b56c#64) [⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5a8#64) [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b578#64) [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -69,80 +144,6 @@ theorem seg_8003b56c_8003b578_t
     (ReadsLikePost.out hobs2).trans hout1
   have hok2 : Lua.Vm.RegsOk σ2 :=
     Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
-  -- === step 3: 0x8003b574 `site_8003b574_taken` (btaken) ===
-  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
-    site_8003b574_taken σ2 i2 (c.steps + 1 + 1) (0x8003b574#64)
-      vmi2 ((0#64) + sign_extend (m := 64) (0x00f#12)) v12 hG2 hpc2 hmi2 hp2.2.1 hp2.2.2.2.1 hload2 rfl hg_3 hi2
-  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b5a8#64 : BitVec 64) := by
-    rw [obs_btaken_pc hobs3,
-      show (0x8003b574#64 : BitVec 64) + sign_extend (m := 64) (0x0034#13) = (0x8003b5a8#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
-  have hp3 : PinsHold σ3 [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
-    pins_btaken hobs3 (by rfl) hp2
-  obtain ⟨vmi3, hmi3⟩ := obs_btaken_minstret hobs3
-  have hmemE3 : σ3.mem = m0 := by
-    rw [hmem3]; exact hmemE2
-  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
-    rw [hmem3]; exact hload2
-  have hout3 : σ3.sailOutput = o0 :=
-    (ReadsLikePost.out hobs3).trans hout2
-  have hok3 : Lua.Vm.RegsOk σ3 :=
-    Lua.Vm.RegsOk.btaken hobs3 hok2
-  have hsteps3 : Steps c ⟨σ3, i3, c.steps + 1 + 1 + 1⟩ :=
-    ((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)
-  exact ⟨⟨σ3, i3, c.steps + 1 + 1 + 1⟩, hsteps3,
-    ⟨hG3, hpc3, hp3, ⟨vmi3, hmi3⟩, hi3, ⟨hload3, hmemE3, hout3, hok3⟩⟩⟩
-
-/-- `0x8003b56c`–`0x8003b578` (3 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
-theorem seg_8003b56c_8003b578_n
-    (v10 v12 v2 v3 v8 v9 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
-    (m0 : Std.ExtHashMap Nat (BitVec 8))
-    (o0 : Array String)
-    (hg_3 : zopz0zKzJ_u ((0#64) + sign_extend (m := 64) (0x00f#12)) v12 = false)
-    : Triple (SegSt (0x8003b56c#64) [⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b578#64) [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
-  intro c hPre
-  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
-  -- === step 1: 0x8003b56c `site_8003b56c` (alu) ===
-  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
-    site_8003b56c c.σ c.tick (c.steps) (0x8003b56c#64)
-      vmi hgood hpc hmi hloaded rfl htick
-  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b570#64 : BitVec 64) := by
-    have := obs_alu_pc hobs1
-    rwa [show BitVec.addInt (0x8003b56c#64) 4 = (0x8003b570#64 : BitVec 64) from by decide] at this
-  have hrd1 : σ1.regs.get? Register.x6 = some ((0#64) + sign_extend (m := 64) (0x00f#12)) :=
-    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have hp1 : PinsHold σ1 [⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
-    ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
-  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
-  have hmemE1 : σ1.mem = m0 := by
-    rw [hmem1]; exact hmemeq
-  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
-    rw [hmem1]; exact hloaded
-  have hout1 : σ1.sailOutput = o0 :=
-    (ReadsLikePost.out hobs1).trans hout
-  have hok1 : Lua.Vm.RegsOk σ1 :=
-    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
-  -- === step 2: 0x8003b570 `site_8003b570` (alu) ===
-  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
-    site_8003b570 σ1 i1 (c.steps + 1) (0x8003b570#64)
-      vmi1 v10 hG1 hpc1 hmi1 hp1.2.1 hload1 rfl hi1
-  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b574#64 : BitVec 64) := by
-    have := obs_alu_pc hobs2
-    rwa [show BitVec.addInt (0x8003b570#64) 4 = (0x8003b574#64 : BitVec 64) from by decide] at this
-  have hrd2 : σ2.regs.get? Register.x14 = some (v10 + sign_extend (m := 64) (0x000#12)) :=
-    obs_alu_rd hobs2 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have hp2 : PinsHold σ2 [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
-    ⟨hrd2, pins_alu hobs2 (by rfl) hp1⟩
-  obtain ⟨vmi2, hmi2⟩ := obs_alu_minstret hobs2
-  have hmemE2 : σ2.mem = m0 := by
-    rw [hmem2]; exact hmemE1
-  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
-    rw [hmem2]; exact hload1
-  have hout2 : σ2.sailOutput = o0 :=
-    (ReadsLikePost.out hobs2).trans hout1
-  have hok2 : Lua.Vm.RegsOk σ2 :=
-    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
   -- === step 3: 0x8003b574 `site_8003b574_nottaken` (bnottaken) ===
   obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
     site_8003b574_nottaken σ2 i2 (c.steps + 1 + 1) (0x8003b574#64)
@@ -150,7 +151,7 @@ theorem seg_8003b56c_8003b578_n
   have hpc3 : σ3.regs.get? Register.PC = some (0x8003b578#64 : BitVec 64) := by
     have := obs_bnottaken_pc hobs3
     rwa [show BitVec.addInt (0x8003b574#64) 4 = (0x8003b578#64 : BitVec 64) from by decide] at this
-  have hp3 : PinsHold σ3 [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp3 : PinsHold σ3 [⟨Register.x14, (v10 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x6, ((0#64) + sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_bnottaken hobs3 (by rfl) hp2
   obtain ⟨vmi3, hmi3⟩ := obs_bnottaken_minstret hobs3
   have hmemE3 : σ3.mem = m0 := by
@@ -166,14 +167,578 @@ theorem seg_8003b56c_8003b578_n
   exact ⟨⟨σ3, i3, c.steps + 1 + 1 + 1⟩, hsteps3,
     ⟨hG3, hpc3, hp3, ⟨vmi3, hmi3⟩, hi3, ⟨hload3, hmemE3, hout3, hok3⟩⟩⟩
 
+/-- `0x8003b578`–`0x8003b580` (2 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b578_8003b580_t
+    (v14 v1 v2 v3 v6 v8 v9 v10 v11 v12 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_2 : ((v14 &&& sign_extend (m := 64) (0x00f#12)) != (0#64)) = true)
+    : Triple (SegSt (0x8003b578#64) [⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b61c#64) [⟨Register.x15, (v14 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b578 `site_8003b578` (alu) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b578 c.σ c.tick (c.steps) (0x8003b578#64)
+      vmi v14 hgood hpc hmi hp0.1 hloaded rfl htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b57c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs1
+    rwa [show BitVec.addInt (0x8003b578#64) 4 = (0x8003b57c#64 : BitVec 64) from by decide] at this
+  have hrd1 : σ1.regs.get? Register.x15 = some (v14 &&& sign_extend (m := 64) (0x00f#12)) :=
+    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp1 : PinsHold σ1 [⟨Register.x15, (v14 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
+  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
+  -- === step 2: 0x8003b57c `site_8003b57c_taken` (btaken) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b57c_taken σ1 i1 (c.steps + 1) (0x8003b57c#64)
+      vmi1 (v14 &&& sign_extend (m := 64) (0x00f#12)) hG1 hpc1 hmi1 hp1.1 hload1 rfl hg_2 hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b61c#64 : BitVec 64) := by
+    rw [obs_btaken_pc hobs2,
+      show (0x8003b57c#64 : BitVec 64) + sign_extend (m := 64) (0x00a0#13) = (0x8003b61c#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
+  have hp2 : PinsHold σ2 [⟨Register.x15, (v14 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_btaken hobs2 (by rfl) hp1
+  obtain ⟨vmi2, hmi2⟩ := obs_btaken_minstret hobs2
+  have hmemE2 : σ2.mem = m0 := by
+    rw [hmem2]; exact hmemE1
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmem2]; exact hload1
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.btaken hobs2 hok1
+  have hsteps2 : Steps c ⟨σ2, i2, c.steps + 1 + 1⟩ :=
+    (Steps.single hs1).trans (Steps.single hs2)
+  exact ⟨⟨σ2, i2, c.steps + 1 + 1⟩, hsteps2,
+    ⟨hG2, hpc2, hp2, ⟨vmi2, hmi2⟩, hi2, ⟨hload2, hmemE2, hout2, hok2⟩⟩⟩
+
+/-- `0x8003b578`–`0x8003b580` (2 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b578_8003b580_n
+    (v14 v1 v2 v3 v6 v8 v9 v10 v11 v12 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_2 : ((v14 &&& sign_extend (m := 64) (0x00f#12)) != (0#64)) = false)
+    : Triple (SegSt (0x8003b578#64) [⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b580#64) [⟨Register.x15, (v14 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b578 `site_8003b578` (alu) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b578 c.σ c.tick (c.steps) (0x8003b578#64)
+      vmi v14 hgood hpc hmi hp0.1 hloaded rfl htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b57c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs1
+    rwa [show BitVec.addInt (0x8003b578#64) 4 = (0x8003b57c#64 : BitVec 64) from by decide] at this
+  have hrd1 : σ1.regs.get? Register.x15 = some (v14 &&& sign_extend (m := 64) (0x00f#12)) :=
+    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp1 : PinsHold σ1 [⟨Register.x15, (v14 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
+  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
+  -- === step 2: 0x8003b57c `site_8003b57c_nottaken` (bnottaken) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b57c_nottaken σ1 i1 (c.steps + 1) (0x8003b57c#64)
+      vmi1 (v14 &&& sign_extend (m := 64) (0x00f#12)) hG1 hpc1 hmi1 hp1.1 hload1 rfl hg_2 hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b580#64 : BitVec 64) := by
+    have := obs_bnottaken_pc hobs2
+    rwa [show BitVec.addInt (0x8003b57c#64) 4 = (0x8003b580#64 : BitVec 64) from by decide] at this
+  have hp2 : PinsHold σ2 [⟨Register.x15, (v14 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_bnottaken hobs2 (by rfl) hp1
+  obtain ⟨vmi2, hmi2⟩ := obs_bnottaken_minstret hobs2
+  have hmemE2 : σ2.mem = m0 := by
+    rw [hmem2]; exact hmemE1
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmem2]; exact hload1
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.bnottaken hobs2 hok1
+  have hsteps2 : Steps c ⟨σ2, i2, c.steps + 1 + 1⟩ :=
+    (Steps.single hs1).trans (Steps.single hs2)
+  exact ⟨⟨σ2, i2, c.steps + 1 + 1⟩, hsteps2,
+    ⟨hG2, hpc2, hp2, ⟨vmi2, hmi2⟩, hi2, ⟨hload2, hmemE2, hout2, hok2⟩⟩⟩
+
+/-- `0x8003b580`–`0x8003b584` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b580_8003b584_t
+    (v11 v1 v2 v3 v6 v8 v9 v10 v12 v14 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_1 : (v11 != (0#64)) = true)
+    : Triple (SegSt (0x8003b580#64) [⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5fc#64) [⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b580 `site_8003b580_taken` (btaken) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b580_taken c.σ c.tick (c.steps) (0x8003b580#64)
+      vmi v11 hgood hpc hmi hp0.1 hloaded rfl hg_1 htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5fc#64 : BitVec 64) := by
+    rw [obs_btaken_pc hobs1,
+      show (0x8003b580#64 : BitVec 64) + sign_extend (m := 64) (0x007c#13) = (0x8003b5fc#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
+  have hp1 : PinsHold σ1 [⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_btaken hobs1 (by rfl) hp0
+  obtain ⟨vmi1, hmi1⟩ := obs_btaken_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.btaken hobs1 hok
+  have hsteps1 : Steps c ⟨σ1, i1, c.steps + 1⟩ :=
+    Steps.single hs1
+  exact ⟨⟨σ1, i1, c.steps + 1⟩, hsteps1,
+    ⟨hG1, hpc1, hp1, ⟨vmi1, hmi1⟩, hi1, ⟨hload1, hmemE1, hout1, hok1⟩⟩⟩
+
+/-- `0x8003b580`–`0x8003b584` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b580_8003b584_n
+    (v11 v1 v2 v3 v6 v8 v9 v10 v12 v14 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_1 : (v11 != (0#64)) = false)
+    : Triple (SegSt (0x8003b580#64) [⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b584#64) [⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b580 `site_8003b580_nottaken` (bnottaken) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b580_nottaken c.σ c.tick (c.steps) (0x8003b580#64)
+      vmi v11 hgood hpc hmi hp0.1 hloaded rfl hg_1 htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b584#64 : BitVec 64) := by
+    have := obs_bnottaken_pc hobs1
+    rwa [show BitVec.addInt (0x8003b580#64) 4 = (0x8003b584#64 : BitVec 64) from by decide] at this
+  have hp1 : PinsHold σ1 [⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_bnottaken hobs1 (by rfl) hp0
+  obtain ⟨vmi1, hmi1⟩ := obs_bnottaken_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.bnottaken hobs1 hok
+  have hsteps1 : Steps c ⟨σ1, i1, c.steps + 1⟩ :=
+    Steps.single hs1
+  exact ⟨⟨σ1, i1, c.steps + 1⟩, hsteps1,
+    ⟨hG1, hpc1, hp1, ⟨vmi1, hmi1⟩, hi1, ⟨hload1, hmemE1, hout1, hok1⟩⟩⟩
+
+/-- `0x8003b584`–`0x8003b590` (3 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b584_8003b590
+    (v12 v14 v1 v2 v3 v6 v8 v9 v10 v11 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    : Triple (SegSt (0x8003b584#64) [⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b590#64) [⟨Register.x13, ((v12 &&& sign_extend (m := 64) (0xff0#12)) + v14)⟩, ⟨Register.x12, (v12 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b584 `site_8003b584` (alu) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b584 c.σ c.tick (c.steps) (0x8003b584#64)
+      vmi v12 hgood hpc hmi hp0.1 hloaded rfl htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b588#64 : BitVec 64) := by
+    have := obs_alu_pc hobs1
+    rwa [show BitVec.addInt (0x8003b584#64) 4 = (0x8003b588#64 : BitVec 64) from by decide] at this
+  have hrd1 : σ1.regs.get? Register.x13 = some (v12 &&& sign_extend (m := 64) (0xff0#12)) :=
+    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp1 : PinsHold σ1 [⟨Register.x13, (v12 &&& sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
+  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
+  -- === step 2: 0x8003b588 `site_8003b588` (alu) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b588 σ1 i1 (c.steps + 1) (0x8003b588#64)
+      vmi1 v12 hG1 hpc1 hmi1 hp1.2.1 hload1 rfl hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b58c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs2
+    rwa [show BitVec.addInt (0x8003b588#64) 4 = (0x8003b58c#64 : BitVec 64) from by decide] at this
+  have hrd2 : σ2.regs.get? Register.x12 = some (v12 &&& sign_extend (m := 64) (0x00f#12)) :=
+    obs_alu_rd hobs2 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq2 : PinsHold σ1 [⟨Register.x13, (v12 &&& sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp1.1, hp1.2.2.1, hp1.2.2.2.1, hp1.2.2.2.2.1, hp1.2.2.2.2.2.1, hp1.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp2 : PinsHold σ2 [⟨Register.x12, (v12 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x13, (v12 &&& sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd2, pins_alu hobs2 (by rfl) hq2⟩
+  obtain ⟨vmi2, hmi2⟩ := obs_alu_minstret hobs2
+  have hmemE2 : σ2.mem = m0 := by
+    rw [hmem2]; exact hmemE1
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmem2]; exact hload1
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
+  -- === step 3: 0x8003b58c `site_8003b58c` (alu) ===
+  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
+    site_8003b58c σ2 i2 (c.steps + 1 + 1) (0x8003b58c#64)
+      vmi2 (v12 &&& sign_extend (m := 64) (0xff0#12)) v14 hG2 hpc2 hmi2 hp2.2.1 hp2.2.2.1 hload2 rfl hi2
+  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b590#64 : BitVec 64) := by
+    have := obs_alu_pc hobs3
+    rwa [show BitVec.addInt (0x8003b58c#64) 4 = (0x8003b590#64 : BitVec 64) from by decide] at this
+  have hrd3 : σ3.regs.get? Register.x13 = some ((v12 &&& sign_extend (m := 64) (0xff0#12)) + v14) :=
+    obs_alu_rd hobs3 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq3 : PinsHold σ2 [⟨Register.x12, (v12 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp2.1, hp2.2.2.1, hp2.2.2.2.1, hp2.2.2.2.2.1, hp2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp3 : PinsHold σ3 [⟨Register.x13, ((v12 &&& sign_extend (m := 64) (0xff0#12)) + v14)⟩, ⟨Register.x12, (v12 &&& sign_extend (m := 64) (0x00f#12))⟩, ⟨Register.x14, v14⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd3, pins_alu hobs3 (by rfl) hq3⟩
+  obtain ⟨vmi3, hmi3⟩ := obs_alu_minstret hobs3
+  have hmemE3 : σ3.mem = m0 := by
+    rw [hmem3]; exact hmemE2
+  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
+    rw [hmem3]; exact hload2
+  have hout3 : σ3.sailOutput = o0 :=
+    (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
+  have hsteps3 : Steps c ⟨σ3, i3, c.steps + 1 + 1 + 1⟩ :=
+    ((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)
+  exact ⟨⟨σ3, i3, c.steps + 1 + 1 + 1⟩, hsteps3,
+    ⟨hG3, hpc3, hp3, ⟨vmi3, hmi3⟩, hi3, ⟨hload3, hmemE3, hout3, hok3⟩⟩⟩
+
+/-- `0x8003b590`–`0x8003b5a0` (4 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b590_8003b5a0_t
+    (v14 v11 v13 v1 v2 v3 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hhi_1 : (v14 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
+    (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hal_1 : (v14 + sign_extend (m := 64) (0x000#12)).toNat % 8 = 0)
+    (hlo_2 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hhi_2 : (v14 + sign_extend (m := 64) (0x008#12)).toNat + 8 ≤ 0x100000000)
+    (hwin_2 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hal_2 : (v14 + sign_extend (m := 64) (0x008#12)).toNat % 8 = 0)
+    (hg_4 : zopz0zI_u (v14 + sign_extend (m := 64) (0x010#12)) v13 = true)
+    : Triple (SegSt (0x8003b590#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b590#64) [⟨Register.x14, (v14 + sign_extend (m := 64) (0x010#12))⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = writeMap8 (writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11)) ((v14 + sign_extend (m := 64) (0x008#12)).toNat) (sdData_val v11) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b590 `site_8003b590` (sd) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b590 c.σ c.tick (c.steps) (0x8003b590#64)
+      vmi v14 v11 hgood hpc hmi hp0.1 hp0.2.1 hloaded rfl hlo_1 hhi_1 hwin_1 hal_1 htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b594#64 : BitVec 64) := by
+    have := obs_store_pc hobs1
+    rwa [show BitVec.addInt (0x8003b590#64) 4 = (0x8003b594#64 : BitVec 64) from by decide] at this
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_store hobs1 (by rfl) hp0
+  obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
+  have hmemE1 : σ1.mem = writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11) := by
+    rw [hmem1, mem_afterNextPC, hmemeq]
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmemE1]
+    exact Lua.Vm.Arms.TextLoaded.writeMap8 (hmemeq ▸ hloaded) _ hwin_1
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.store hobs1 hok
+  -- === step 2: 0x8003b594 `site_8003b594` (sd) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b594 σ1 i1 (c.steps + 1) (0x8003b594#64)
+      vmi1 v14 v11 hG1 hpc1 hmi1 hp1.1 hp1.2.1 hload1 rfl hlo_2 hhi_2 hwin_2 hal_2 hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b598#64 : BitVec 64) := by
+    have := obs_store_pc hobs2
+    rwa [show BitVec.addInt (0x8003b594#64) 4 = (0x8003b598#64 : BitVec 64) from by decide] at this
+  have hp2 : PinsHold σ2 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_store hobs2 (by rfl) hp1
+  obtain ⟨vmi2, hmi2⟩ := obs_store_minstret hobs2
+  have hmemE2 : σ2.mem = writeMap8 (writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11)) ((v14 + sign_extend (m := 64) (0x008#12)).toNat) (sdData_val v11) := by
+    rw [hmem2, mem_afterNextPC, hmemE1]
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmemE2]
+    exact Lua.Vm.Arms.TextLoaded.writeMap8 (hmemE1 ▸ hload1) _ hwin_2
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.store hobs2 hok1
+  -- === step 3: 0x8003b598 `site_8003b598` (alu) ===
+  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
+    site_8003b598 σ2 i2 (c.steps + 1 + 1) (0x8003b598#64)
+      vmi2 v14 hG2 hpc2 hmi2 hp2.1 hload2 rfl hi2
+  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b59c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs3
+    rwa [show BitVec.addInt (0x8003b598#64) 4 = (0x8003b59c#64 : BitVec 64) from by decide] at this
+  have hrd3 : σ3.regs.get? Register.x14 = some (v14 + sign_extend (m := 64) (0x010#12)) :=
+    obs_alu_rd hobs3 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq3 : PinsHold σ2 [⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp2.2.1, hp2.2.2.1, hp2.2.2.2.1, hp2.2.2.2.2.1, hp2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp3 : PinsHold σ3 [⟨Register.x14, (v14 + sign_extend (m := 64) (0x010#12))⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd3, pins_alu hobs3 (by rfl) hq3⟩
+  obtain ⟨vmi3, hmi3⟩ := obs_alu_minstret hobs3
+  have hmemE3 : σ3.mem = writeMap8 (writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11)) ((v14 + sign_extend (m := 64) (0x008#12)).toNat) (sdData_val v11) := by
+    rw [hmem3]; exact hmemE2
+  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
+    rw [hmem3]; exact hload2
+  have hout3 : σ3.sailOutput = o0 :=
+    (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
+  -- === step 4: 0x8003b59c `site_8003b59c_taken` (btaken) ===
+  obtain ⟨σ4, i4, hs4, hi4, hG4, hmem4, hobs4⟩ :=
+    site_8003b59c_taken σ3 i3 (c.steps + 1 + 1 + 1) (0x8003b59c#64)
+      vmi3 (v14 + sign_extend (m := 64) (0x010#12)) v13 hG3 hpc3 hmi3 hp3.1 hp3.2.2.1 hload3 rfl hg_4 hi3
+  have hpc4 : σ4.regs.get? Register.PC = some (0x8003b590#64 : BitVec 64) := by
+    rw [obs_btaken_pc hobs4,
+      show (0x8003b59c#64 : BitVec 64) + sign_extend (m := 64) (0x1ff4#13) = (0x8003b590#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
+  have hp4 : PinsHold σ4 [⟨Register.x14, (v14 + sign_extend (m := 64) (0x010#12))⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_btaken hobs4 (by rfl) hp3
+  obtain ⟨vmi4, hmi4⟩ := obs_btaken_minstret hobs4
+  have hmemE4 : σ4.mem = writeMap8 (writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11)) ((v14 + sign_extend (m := 64) (0x008#12)).toNat) (sdData_val v11) := by
+    rw [hmem4]; exact hmemE3
+  have hload4 : Lua.Vm.Arms.TextLoaded σ4.mem := by
+    rw [hmem4]; exact hload3
+  have hout4 : σ4.sailOutput = o0 :=
+    (ReadsLikePost.out hobs4).trans hout3
+  have hok4 : Lua.Vm.RegsOk σ4 :=
+    Lua.Vm.RegsOk.btaken hobs4 hok3
+  have hsteps4 : Steps c ⟨σ4, i4, c.steps + 1 + 1 + 1 + 1⟩ :=
+    (((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)).trans (Steps.single hs4)
+  exact ⟨⟨σ4, i4, c.steps + 1 + 1 + 1 + 1⟩, hsteps4,
+    ⟨hG4, hpc4, hp4, ⟨vmi4, hmi4⟩, hi4, ⟨hload4, hmemE4, hout4, hok4⟩⟩⟩
+
+/-- `0x8003b590`–`0x8003b5a0` (4 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b590_8003b5a0_n
+    (v14 v11 v13 v1 v2 v3 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hhi_1 : (v14 + sign_extend (m := 64) (0x000#12)).toNat + 8 ≤ 0x100000000)
+    (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x000#12)).toNat)
+    (hal_1 : (v14 + sign_extend (m := 64) (0x000#12)).toNat % 8 = 0)
+    (hlo_2 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hhi_2 : (v14 + sign_extend (m := 64) (0x008#12)).toNat + 8 ≤ 0x100000000)
+    (hwin_2 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x008#12)).toNat)
+    (hal_2 : (v14 + sign_extend (m := 64) (0x008#12)).toNat % 8 = 0)
+    (hg_4 : zopz0zI_u (v14 + sign_extend (m := 64) (0x010#12)) v13 = false)
+    : Triple (SegSt (0x8003b590#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5a0#64) [⟨Register.x14, (v14 + sign_extend (m := 64) (0x010#12))⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = writeMap8 (writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11)) ((v14 + sign_extend (m := 64) (0x008#12)).toNat) (sdData_val v11) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b590 `site_8003b590` (sd) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b590 c.σ c.tick (c.steps) (0x8003b590#64)
+      vmi v14 v11 hgood hpc hmi hp0.1 hp0.2.1 hloaded rfl hlo_1 hhi_1 hwin_1 hal_1 htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b594#64 : BitVec 64) := by
+    have := obs_store_pc hobs1
+    rwa [show BitVec.addInt (0x8003b590#64) 4 = (0x8003b594#64 : BitVec 64) from by decide] at this
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_store hobs1 (by rfl) hp0
+  obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
+  have hmemE1 : σ1.mem = writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11) := by
+    rw [hmem1, mem_afterNextPC, hmemeq]
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmemE1]
+    exact Lua.Vm.Arms.TextLoaded.writeMap8 (hmemeq ▸ hloaded) _ hwin_1
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.store hobs1 hok
+  -- === step 2: 0x8003b594 `site_8003b594` (sd) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b594 σ1 i1 (c.steps + 1) (0x8003b594#64)
+      vmi1 v14 v11 hG1 hpc1 hmi1 hp1.1 hp1.2.1 hload1 rfl hlo_2 hhi_2 hwin_2 hal_2 hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b598#64 : BitVec 64) := by
+    have := obs_store_pc hobs2
+    rwa [show BitVec.addInt (0x8003b594#64) 4 = (0x8003b598#64 : BitVec 64) from by decide] at this
+  have hp2 : PinsHold σ2 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_store hobs2 (by rfl) hp1
+  obtain ⟨vmi2, hmi2⟩ := obs_store_minstret hobs2
+  have hmemE2 : σ2.mem = writeMap8 (writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11)) ((v14 + sign_extend (m := 64) (0x008#12)).toNat) (sdData_val v11) := by
+    rw [hmem2, mem_afterNextPC, hmemE1]
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmemE2]
+    exact Lua.Vm.Arms.TextLoaded.writeMap8 (hmemE1 ▸ hload1) _ hwin_2
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.store hobs2 hok1
+  -- === step 3: 0x8003b598 `site_8003b598` (alu) ===
+  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
+    site_8003b598 σ2 i2 (c.steps + 1 + 1) (0x8003b598#64)
+      vmi2 v14 hG2 hpc2 hmi2 hp2.1 hload2 rfl hi2
+  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b59c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs3
+    rwa [show BitVec.addInt (0x8003b598#64) 4 = (0x8003b59c#64 : BitVec 64) from by decide] at this
+  have hrd3 : σ3.regs.get? Register.x14 = some (v14 + sign_extend (m := 64) (0x010#12)) :=
+    obs_alu_rd hobs3 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq3 : PinsHold σ2 [⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp2.2.1, hp2.2.2.1, hp2.2.2.2.1, hp2.2.2.2.2.1, hp2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp3 : PinsHold σ3 [⟨Register.x14, (v14 + sign_extend (m := 64) (0x010#12))⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd3, pins_alu hobs3 (by rfl) hq3⟩
+  obtain ⟨vmi3, hmi3⟩ := obs_alu_minstret hobs3
+  have hmemE3 : σ3.mem = writeMap8 (writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11)) ((v14 + sign_extend (m := 64) (0x008#12)).toNat) (sdData_val v11) := by
+    rw [hmem3]; exact hmemE2
+  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
+    rw [hmem3]; exact hload2
+  have hout3 : σ3.sailOutput = o0 :=
+    (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
+  -- === step 4: 0x8003b59c `site_8003b59c_nottaken` (bnottaken) ===
+  obtain ⟨σ4, i4, hs4, hi4, hG4, hmem4, hobs4⟩ :=
+    site_8003b59c_nottaken σ3 i3 (c.steps + 1 + 1 + 1) (0x8003b59c#64)
+      vmi3 (v14 + sign_extend (m := 64) (0x010#12)) v13 hG3 hpc3 hmi3 hp3.1 hp3.2.2.1 hload3 rfl hg_4 hi3
+  have hpc4 : σ4.regs.get? Register.PC = some (0x8003b5a0#64 : BitVec 64) := by
+    have := obs_bnottaken_pc hobs4
+    rwa [show BitVec.addInt (0x8003b59c#64) 4 = (0x8003b5a0#64 : BitVec 64) from by decide] at this
+  have hp4 : PinsHold σ4 [⟨Register.x14, (v14 + sign_extend (m := 64) (0x010#12))⟩, ⟨Register.x11, v11⟩, ⟨Register.x13, v13⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_bnottaken hobs4 (by rfl) hp3
+  obtain ⟨vmi4, hmi4⟩ := obs_bnottaken_minstret hobs4
+  have hmemE4 : σ4.mem = writeMap8 (writeMap8 (m0) ((v14 + sign_extend (m := 64) (0x000#12)).toNat) (sdData_val v11)) ((v14 + sign_extend (m := 64) (0x008#12)).toNat) (sdData_val v11) := by
+    rw [hmem4]; exact hmemE3
+  have hload4 : Lua.Vm.Arms.TextLoaded σ4.mem := by
+    rw [hmem4]; exact hload3
+  have hout4 : σ4.sailOutput = o0 :=
+    (ReadsLikePost.out hobs4).trans hout3
+  have hok4 : Lua.Vm.RegsOk σ4 :=
+    Lua.Vm.RegsOk.bnottaken hobs4 hok3
+  have hsteps4 : Steps c ⟨σ4, i4, c.steps + 1 + 1 + 1 + 1⟩ :=
+    (((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)).trans (Steps.single hs4)
+  exact ⟨⟨σ4, i4, c.steps + 1 + 1 + 1 + 1⟩, hsteps4,
+    ⟨hG4, hpc4, hp4, ⟨vmi4, hmi4⟩, hi4, ⟨hload4, hmemE4, hout4, hok4⟩⟩⟩
+
+/-- `0x8003b5a0`–`0x8003b5a4` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b5a0_8003b5a4_t
+    (v12 v1 v2 v3 v6 v8 v9 v10 v11 v14 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_1 : (v12 != (0#64)) = true)
+    : Triple (SegSt (0x8003b5a0#64) [⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5a8#64) [⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b5a0 `site_8003b5a0_taken` (btaken) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b5a0_taken c.σ c.tick (c.steps) (0x8003b5a0#64)
+      vmi v12 hgood hpc hmi hp0.1 hloaded rfl hg_1 htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5a8#64 : BitVec 64) := by
+    rw [obs_btaken_pc hobs1,
+      show (0x8003b5a0#64 : BitVec 64) + sign_extend (m := 64) (0x0008#13) = (0x8003b5a8#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
+  have hp1 : PinsHold σ1 [⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_btaken hobs1 (by rfl) hp0
+  obtain ⟨vmi1, hmi1⟩ := obs_btaken_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.btaken hobs1 hok
+  have hsteps1 : Steps c ⟨σ1, i1, c.steps + 1⟩ :=
+    Steps.single hs1
+  exact ⟨⟨σ1, i1, c.steps + 1⟩, hsteps1,
+    ⟨hG1, hpc1, hp1, ⟨vmi1, hmi1⟩, hi1, ⟨hload1, hmemE1, hout1, hok1⟩⟩⟩
+
+/-- `0x8003b5a0`–`0x8003b5a4` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b5a0_8003b5a4_n
+    (v12 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_1 : (v12 != (0#64)) = false)
+    : Triple (SegSt (0x8003b5a0#64) [⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5a4#64) [⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b5a0 `site_8003b5a0_nottaken` (bnottaken) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b5a0_nottaken c.σ c.tick (c.steps) (0x8003b5a0#64)
+      vmi v12 hgood hpc hmi hp0.1 hloaded rfl hg_1 htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5a4#64 : BitVec 64) := by
+    have := obs_bnottaken_pc hobs1
+    rwa [show BitVec.addInt (0x8003b5a0#64) 4 = (0x8003b5a4#64 : BitVec 64) from by decide] at this
+  have hp1 : PinsHold σ1 [⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_bnottaken hobs1 (by rfl) hp0
+  obtain ⟨vmi1, hmi1⟩ := obs_bnottaken_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.bnottaken hobs1 hok
+  have hsteps1 : Steps c ⟨σ1, i1, c.steps + 1⟩ :=
+    Steps.single hs1
+  exact ⟨⟨σ1, i1, c.steps + 1⟩, hsteps1,
+    ⟨hG1, hpc1, hp1, ⟨vmi1, hmi1⟩, hi1, ⟨hload1, hmemE1, hout1, hok1⟩⟩⟩
+
+/-- `0x8003b5a4`–`0x8003b5a8` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b5a4_8003b5a8
+    (v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (htgt_1 : (BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1).toNat % 4 = 0)
+    : Triple (SegSt (0x8003b5a4#64) [⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt ((BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1)) [⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b5a4 `site_8003b5a4` (jr) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b5a4 c.σ c.tick (c.steps) (0x8003b5a4#64)
+      vmi v1 hgood hpc hmi hp0.1 hloaded rfl htgt_1 htick
+  have hpc1 : σ1.regs.get? Register.PC = some (BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1) := by
+    rw [obs_jr_pc hobs1]
+  have hp1 : PinsHold σ1 [⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_jr hobs1 (by rfl) hp0
+  obtain ⟨vmi1, hmi1⟩ := obs_jr_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.jr hobs1 hok
+  have hsteps1 : Steps c ⟨σ1, i1, c.steps + 1⟩ :=
+    Steps.single hs1
+  exact ⟨⟨σ1, i1, c.steps + 1⟩, hsteps1,
+    ⟨hG1, hpc1, hp1, ⟨vmi1, hmi1⟩, hi1, ⟨hload1, hmemE1, hout1, hok1⟩⟩⟩
+
 /-- `0x8003b5a8`–`0x8003b5bc` (5 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5a8_8003b5bc
-    (v6 v12 v1 v2 v3 v8 v9 v10 v11 v14 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v6 v12 v1 v2 v3 v8 v9 v10 v11 v14 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (htgt_5 : (BitVec.update (((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) + sign_extend (m := 64) (0x00c#12)) 0 0#1).toNat % 4 = 0)
-    : Triple (SegSt (0x8003b5a8#64) [⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt ((BitVec.update (((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) + sign_extend (m := 64) (0x00c#12)) 0 0#1)) [⟨Register.x13, ((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5a8#64) [⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt ((BitVec.update (((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) + sign_extend (m := 64) (0x00c#12)) 0 0#1)) [⟨Register.x13, ((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -186,7 +751,7 @@ theorem seg_8003b5a8_8003b5bc
     rwa [show BitVec.addInt (0x8003b5a8#64) 4 = (0x8003b5ac#64 : BitVec 64) from by decide] at this
   have hrd1 : σ1.regs.get? Register.x13 = some (v6 - v12) :=
     obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have hp1 : PinsHold σ1 [⟨Register.x13, (v6 - v12)⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x13, (v6 - v12)⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
   obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
   have hmemE1 : σ1.mem = m0 := by
@@ -206,10 +771,10 @@ theorem seg_8003b5a8_8003b5bc
     rwa [show BitVec.addInt (0x8003b5ac#64) 4 = (0x8003b5b0#64 : BitVec 64) from by decide] at this
   have hrd2 : σ2.regs.get? Register.x13 = some (shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) :=
     obs_alu_rd hobs2 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have hq2 : PinsHold σ1 [⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hq2 : PinsHold σ1 [⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
-    ⟨hp1.2.1, hp1.2.2.1, hp1.2.2.2.1, hp1.2.2.2.2.1, hp1.2.2.2.2.2.1, hp1.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
-  have hp2 : PinsHold σ2 [⟨Register.x13, (shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hp1.2.1, hp1.2.2.1, hp1.2.2.2.1, hp1.2.2.2.2.1, hp1.2.2.2.2.2.1, hp1.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp2 : PinsHold σ2 [⟨Register.x13, (shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     ⟨hrd2, pins_alu hobs2 (by rfl) hq2⟩
   obtain ⟨vmi2, hmi2⟩ := obs_alu_minstret hobs2
   have hmemE2 : σ2.mem = m0 := by
@@ -229,7 +794,7 @@ theorem seg_8003b5a8_8003b5bc
     rwa [show BitVec.addInt (0x8003b5b0#64) 4 = (0x8003b5b4#64 : BitVec 64) from by decide] at this
   have hrd3 : σ3.regs.get? Register.x5 = some ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)) :=
     obs_alu_rd hobs3 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have hp3 : PinsHold σ3 [⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x13, (shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp3 : PinsHold σ3 [⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x13, (shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     ⟨hrd3, pins_alu hobs3 (by rfl) hp2⟩
   obtain ⟨vmi3, hmi3⟩ := obs_alu_minstret hobs3
   have hmemE3 : σ3.mem = m0 := by
@@ -249,10 +814,10 @@ theorem seg_8003b5a8_8003b5bc
     rwa [show BitVec.addInt (0x8003b5b4#64) 4 = (0x8003b5b8#64 : BitVec 64) from by decide] at this
   have hrd4 : σ4.regs.get? Register.x13 = some ((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) :=
     obs_alu_rd hobs4 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have hq4 : PinsHold σ3 [⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hq4 : PinsHold σ3 [⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
-    ⟨hp3.1, hp3.2.2.1, hp3.2.2.2.1, hp3.2.2.2.2.1, hp3.2.2.2.2.2.1, hp3.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
-  have hp4 : PinsHold σ4 [⟨Register.x13, ((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hp3.1, hp3.2.2.1, hp3.2.2.2.1, hp3.2.2.2.2.1, hp3.2.2.2.2.2.1, hp3.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp4 : PinsHold σ4 [⟨Register.x13, ((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     ⟨hrd4, pins_alu hobs4 (by rfl) hq4⟩
   obtain ⟨vmi4, hmi4⟩ := obs_alu_minstret hobs4
   have hmemE4 : σ4.mem = m0 := by
@@ -269,7 +834,7 @@ theorem seg_8003b5a8_8003b5bc
       vmi4 ((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) hG4 hpc4 hmi4 hp4.1 hload4 rfl htgt_5 hi4
   have hpc5 : σ5.regs.get? Register.PC = some (BitVec.update (((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) + sign_extend (m := 64) (0x00c#12)) 0 0#1) := by
     rw [obs_jr_pc hobs5]
-  have hp5 : PinsHold σ5 [⟨Register.x13, ((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp5 : PinsHold σ5 [⟨Register.x13, ((shift_bits_left (v6 - v12) (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x5, ((0x8003b5b0#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x6, v6⟩, ⟨Register.x12, v12⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_jr hobs5 (by rfl) hp4
   obtain ⟨vmi5, hmi5⟩ := obs_jr_minstret hobs5
   have hmemE5 : σ5.mem = m0 := by
@@ -287,14 +852,14 @@ theorem seg_8003b5a8_8003b5bc
 
 /-- `0x8003b5bc`–`0x8003b5c0` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5bc_8003b5c0
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x00e#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x00e#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x00e#12)).toNat)
-    : Triple (SegSt (0x8003b5bc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5c0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5bc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5c0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00e#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -305,7 +870,7 @@ theorem seg_8003b5bc_8003b5c0
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5c0#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5bc#64) 4 = (0x8003b5c0#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00e#12)).toNat) ((stData 1 v11))) := by
@@ -324,14 +889,14 @@ theorem seg_8003b5bc_8003b5c0
 
 /-- `0x8003b5c0`–`0x8003b5c4` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5c0_8003b5c4
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x00d#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x00d#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x00d#12)).toNat)
-    : Triple (SegSt (0x8003b5c0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5c4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5c0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5c4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00d#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -342,7 +907,7 @@ theorem seg_8003b5c0_8003b5c4
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5c4#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5c0#64) 4 = (0x8003b5c4#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00d#12)).toNat) ((stData 1 v11))) := by
@@ -361,14 +926,14 @@ theorem seg_8003b5c0_8003b5c4
 
 /-- `0x8003b5c4`–`0x8003b5c8` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5c4_8003b5c8
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x00c#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x00c#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x00c#12)).toNat)
-    : Triple (SegSt (0x8003b5c4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5c8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5c4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5c8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00c#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -379,7 +944,7 @@ theorem seg_8003b5c4_8003b5c8
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5c8#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5c4#64) 4 = (0x8003b5c8#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00c#12)).toNat) ((stData 1 v11))) := by
@@ -398,14 +963,14 @@ theorem seg_8003b5c4_8003b5c8
 
 /-- `0x8003b5c8`–`0x8003b5cc` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5c8_8003b5cc
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x00b#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x00b#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x00b#12)).toNat)
-    : Triple (SegSt (0x8003b5c8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5cc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5c8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5cc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00b#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -416,7 +981,7 @@ theorem seg_8003b5c8_8003b5cc
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5cc#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5c8#64) 4 = (0x8003b5cc#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00b#12)).toNat) ((stData 1 v11))) := by
@@ -435,14 +1000,14 @@ theorem seg_8003b5c8_8003b5cc
 
 /-- `0x8003b5cc`–`0x8003b5d0` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5cc_8003b5d0
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x00a#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x00a#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x00a#12)).toNat)
-    : Triple (SegSt (0x8003b5cc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5d0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5cc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5d0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00a#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -453,7 +1018,7 @@ theorem seg_8003b5cc_8003b5d0
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5d0#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5cc#64) 4 = (0x8003b5d0#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x00a#12)).toNat) ((stData 1 v11))) := by
@@ -472,14 +1037,14 @@ theorem seg_8003b5cc_8003b5d0
 
 /-- `0x8003b5d0`–`0x8003b5d4` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5d0_8003b5d4
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x009#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x009#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x009#12)).toNat)
-    : Triple (SegSt (0x8003b5d0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5d4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5d0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5d4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x009#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -490,7 +1055,7 @@ theorem seg_8003b5d0_8003b5d4
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5d4#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5d0#64) 4 = (0x8003b5d4#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x009#12)).toNat) ((stData 1 v11))) := by
@@ -509,14 +1074,14 @@ theorem seg_8003b5d0_8003b5d4
 
 /-- `0x8003b5d4`–`0x8003b5d8` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5d4_8003b5d8
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x008#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x008#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x008#12)).toNat)
-    : Triple (SegSt (0x8003b5d4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5d8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5d4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5d8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x008#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -527,7 +1092,7 @@ theorem seg_8003b5d4_8003b5d8
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5d8#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5d4#64) 4 = (0x8003b5d8#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x008#12)).toNat) ((stData 1 v11))) := by
@@ -546,14 +1111,14 @@ theorem seg_8003b5d4_8003b5d8
 
 /-- `0x8003b5d8`–`0x8003b5dc` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5d8_8003b5dc
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x007#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x007#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x007#12)).toNat)
-    : Triple (SegSt (0x8003b5d8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5dc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5d8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5dc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x007#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -564,7 +1129,7 @@ theorem seg_8003b5d8_8003b5dc
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5dc#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5d8#64) 4 = (0x8003b5dc#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x007#12)).toNat) ((stData 1 v11))) := by
@@ -583,14 +1148,14 @@ theorem seg_8003b5d8_8003b5dc
 
 /-- `0x8003b5dc`–`0x8003b5e0` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5dc_8003b5e0
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x006#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x006#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x006#12)).toNat)
-    : Triple (SegSt (0x8003b5dc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5e0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5dc#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5e0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x006#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -601,7 +1166,7 @@ theorem seg_8003b5dc_8003b5e0
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5e0#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5dc#64) 4 = (0x8003b5e0#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x006#12)).toNat) ((stData 1 v11))) := by
@@ -620,14 +1185,14 @@ theorem seg_8003b5dc_8003b5e0
 
 /-- `0x8003b5e0`–`0x8003b5e4` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5e0_8003b5e4
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x005#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x005#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x005#12)).toNat)
-    : Triple (SegSt (0x8003b5e0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5e4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5e0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5e4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x005#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -638,7 +1203,7 @@ theorem seg_8003b5e0_8003b5e4
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5e4#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5e0#64) 4 = (0x8003b5e4#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x005#12)).toNat) ((stData 1 v11))) := by
@@ -657,14 +1222,14 @@ theorem seg_8003b5e0_8003b5e4
 
 /-- `0x8003b5e4`–`0x8003b5e8` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5e4_8003b5e8
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x004#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x004#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x004#12)).toNat)
-    : Triple (SegSt (0x8003b5e4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5e8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5e4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5e8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x004#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -675,7 +1240,7 @@ theorem seg_8003b5e4_8003b5e8
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5e8#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5e4#64) 4 = (0x8003b5e8#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x004#12)).toNat) ((stData 1 v11))) := by
@@ -694,14 +1259,14 @@ theorem seg_8003b5e4_8003b5e8
 
 /-- `0x8003b5e8`–`0x8003b5ec` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5e8_8003b5ec
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x003#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x003#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x003#12)).toNat)
-    : Triple (SegSt (0x8003b5e8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5ec#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5e8#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5ec#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x003#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -712,7 +1277,7 @@ theorem seg_8003b5e8_8003b5ec
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5ec#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5e8#64) 4 = (0x8003b5ec#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x003#12)).toNat) ((stData 1 v11))) := by
@@ -731,14 +1296,14 @@ theorem seg_8003b5e8_8003b5ec
 
 /-- `0x8003b5ec`–`0x8003b5f0` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5ec_8003b5f0
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x002#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x002#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x002#12)).toNat)
-    : Triple (SegSt (0x8003b5ec#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5f0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5ec#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5f0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x002#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -749,7 +1314,7 @@ theorem seg_8003b5ec_8003b5f0
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5f0#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5ec#64) 4 = (0x8003b5f0#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x002#12)).toNat) ((stData 1 v11))) := by
@@ -768,14 +1333,14 @@ theorem seg_8003b5ec_8003b5f0
 
 /-- `0x8003b5f0`–`0x8003b5f4` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5f0_8003b5f4
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x001#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x001#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x001#12)).toNat)
-    : Triple (SegSt (0x8003b5f0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5f4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5f0#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5f4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x001#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -786,7 +1351,7 @@ theorem seg_8003b5f0_8003b5f4
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5f4#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5f0#64) 4 = (0x8003b5f4#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x001#12)).toNat) ((stData 1 v11))) := by
@@ -805,15 +1370,15 @@ theorem seg_8003b5f0_8003b5f4
 
 /-- `0x8003b5f4`–`0x8003b5fc` (2 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
 theorem seg_8003b5f4_8003b5fc
-    (v14 v11 v1 v2 v3 v8 v9 v10 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (v14 v11 v1 v2 v3 v5 v6 v8 v9 v10 v12 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
     (m0 : Std.ExtHashMap Nat (BitVec 8))
     (o0 : Array String)
     (hlo_1 : 0x80000000 ≤ (v14 + sign_extend (m := 64) (0x000#12)).toNat)
     (hhi_1 : (v14 + sign_extend (m := 64) (0x000#12)).toNat + 1 ≤ 0x100000000)
     (hwin_1 : tohostAddr + 16 ≤ (v14 + sign_extend (m := 64) (0x000#12)).toNat)
     (htgt_2 : (BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1).toNat % 4 = 0)
-    : Triple (SegSt (0x8003b5f4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
-      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt ((BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1)) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+    : Triple (SegSt (0x8003b5f4#64) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt ((BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1)) [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
       (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x000#12)).toNat) ((stData 1 v11))) ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
   intro c hPre
   obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
@@ -824,7 +1389,7 @@ theorem seg_8003b5f4_8003b5fc
   have hpc1 : σ1.regs.get? Register.PC = some (0x8003b5f8#64 : BitVec 64) := by
     have := obs_store_pc hobs1
     rwa [show BitVec.addInt (0x8003b5f4#64) 4 = (0x8003b5f8#64 : BitVec 64) from by decide] at this
-  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp1 : PinsHold σ1 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_store hobs1 (by rfl) hp0
   obtain ⟨vmi1, hmi1⟩ := obs_store_minstret hobs1
   have hmemE1 : σ1.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x000#12)).toNat) ((stData 1 v11))) := by
@@ -842,7 +1407,7 @@ theorem seg_8003b5f4_8003b5fc
       vmi1 v1 hG1 hpc1 hmi1 hp1.2.2.1 hload1 rfl htgt_2 hi1
   have hpc2 : σ2.regs.get? Register.PC = some (BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1) := by
     rw [obs_jr_pc hobs2]
-  have hp2 : PinsHold σ2 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+  have hp2 : PinsHold σ2 [⟨Register.x14, v14⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
     pins_jr hobs2 (by rfl) hp1
   obtain ⟨vmi2, hmi2⟩ := obs_jr_minstret hobs2
   have hmemE2 : σ2.mem = ((m0).insert ((v14 + sign_extend (m := 64) (0x000#12)).toNat) ((stData 1 v11))) := by
@@ -857,5 +1422,604 @@ theorem seg_8003b5f4_8003b5fc
     (Steps.single hs1).trans (Steps.single hs2)
   exact ⟨⟨σ2, i2, c.steps + 1 + 1⟩, hsteps2,
     ⟨hG2, hpc2, hp2, ⟨vmi2, hmi2⟩, hi2, ⟨hload2, hmemE2, hout2, hok2⟩⟩⟩
+
+/-- `0x8003b5fc`–`0x8003b61c` (8 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b5fc_8003b61c
+    (v11 v1 v2 v3 v6 v8 v9 v10 v12 v14 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    : Triple (SegSt (0x8003b5fc#64) [⟨Register.x11, v11⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b584#64) [⟨Register.x11, ((((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) ||| (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0)))⟩, ⟨Register.x13, (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b5fc `site_8003b5fc` (alu) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b5fc c.σ c.tick (c.steps) (0x8003b5fc#64)
+      vmi v11 hgood hpc hmi hp0.1 hloaded rfl htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b600#64 : BitVec 64) := by
+    have := obs_alu_pc hobs1
+    rwa [show BitVec.addInt (0x8003b5fc#64) 4 = (0x8003b600#64 : BitVec 64) from by decide] at this
+  have hrd1 : σ1.regs.get? Register.x11 = some (v11 &&& sign_extend (m := 64) (0x0ff#12)) :=
+    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq1 : PinsHold c.σ [⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp0.2.1, hp0.2.2.1, hp0.2.2.2.1, hp0.2.2.2.2.1, hp0.2.2.2.2.2.1, hp0.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp0.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp1 : PinsHold σ1 [⟨Register.x11, (v11 &&& sign_extend (m := 64) (0x0ff#12))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd1, pins_alu hobs1 (by rfl) hq1⟩
+  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
+  -- === step 2: 0x8003b600 `site_8003b600` (alu) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b600 σ1 i1 (c.steps + 1) (0x8003b600#64)
+      vmi1 (v11 &&& sign_extend (m := 64) (0x0ff#12)) hG1 hpc1 hmi1 hp1.1 hload1 rfl hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b604#64 : BitVec 64) := by
+    have := obs_alu_pc hobs2
+    rwa [show BitVec.addInt (0x8003b600#64) 4 = (0x8003b604#64 : BitVec 64) from by decide] at this
+  have hrd2 : σ2.regs.get? Register.x13 = some (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0)) :=
+    obs_alu_rd hobs2 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp2 : PinsHold σ2 [⟨Register.x13, (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))⟩, ⟨Register.x11, (v11 &&& sign_extend (m := 64) (0x0ff#12))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd2, pins_alu hobs2 (by rfl) hp1⟩
+  obtain ⟨vmi2, hmi2⟩ := obs_alu_minstret hobs2
+  have hmemE2 : σ2.mem = m0 := by
+    rw [hmem2]; exact hmemE1
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmem2]; exact hload1
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
+  -- === step 3: 0x8003b604 `site_8003b604` (alu) ===
+  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
+    site_8003b604 σ2 i2 (c.steps + 1 + 1) (0x8003b604#64)
+      vmi2 (v11 &&& sign_extend (m := 64) (0x0ff#12)) (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0)) hG2 hpc2 hmi2 hp2.2.1 hp2.1 hload2 rfl hi2
+  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b608#64 : BitVec 64) := by
+    have := obs_alu_pc hobs3
+    rwa [show BitVec.addInt (0x8003b604#64) 4 = (0x8003b608#64 : BitVec 64) from by decide] at this
+  have hrd3 : σ3.regs.get? Register.x11 = some ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) :=
+    obs_alu_rd hobs3 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq3 : PinsHold σ2 [⟨Register.x13, (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp2.1, hp2.2.2.1, hp2.2.2.2.1, hp2.2.2.2.2.1, hp2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp3 : PinsHold σ3 [⟨Register.x11, ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0)))⟩, ⟨Register.x13, (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd3, pins_alu hobs3 (by rfl) hq3⟩
+  obtain ⟨vmi3, hmi3⟩ := obs_alu_minstret hobs3
+  have hmemE3 : σ3.mem = m0 := by
+    rw [hmem3]; exact hmemE2
+  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
+    rw [hmem3]; exact hload2
+  have hout3 : σ3.sailOutput = o0 :=
+    (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
+  -- === step 4: 0x8003b608 `site_8003b608` (alu) ===
+  obtain ⟨σ4, i4, hs4, hi4, hG4, hmem4, hobs4⟩ :=
+    site_8003b608 σ3 i3 (c.steps + 1 + 1 + 1) (0x8003b608#64)
+      vmi3 ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) hG3 hpc3 hmi3 hp3.1 hload3 rfl hi3
+  have hpc4 : σ4.regs.get? Register.PC = some (0x8003b60c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs4
+    rwa [show BitVec.addInt (0x8003b608#64) 4 = (0x8003b60c#64 : BitVec 64) from by decide] at this
+  have hrd4 : σ4.regs.get? Register.x13 = some (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0)) :=
+    obs_alu_rd hobs4 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq4 : PinsHold σ3 [⟨Register.x11, ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0)))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp3.1, hp3.2.2.1, hp3.2.2.2.1, hp3.2.2.2.2.1, hp3.2.2.2.2.2.1, hp3.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp4 : PinsHold σ4 [⟨Register.x13, (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))⟩, ⟨Register.x11, ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0)))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd4, pins_alu hobs4 (by rfl) hq4⟩
+  obtain ⟨vmi4, hmi4⟩ := obs_alu_minstret hobs4
+  have hmemE4 : σ4.mem = m0 := by
+    rw [hmem4]; exact hmemE3
+  have hload4 : Lua.Vm.Arms.TextLoaded σ4.mem := by
+    rw [hmem4]; exact hload3
+  have hout4 : σ4.sailOutput = o0 :=
+    (ReadsLikePost.out hobs4).trans hout3
+  have hok4 : Lua.Vm.RegsOk σ4 :=
+    Lua.Vm.RegsOk.alu hobs4 (by decide) hok3
+  -- === step 5: 0x8003b60c `site_8003b60c` (alu) ===
+  obtain ⟨σ5, i5, hs5, hi5, hG5, hmem5, hobs5⟩ :=
+    site_8003b60c σ4 i4 (c.steps + 1 + 1 + 1 + 1) (0x8003b60c#64)
+      vmi4 ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0)) hG4 hpc4 hmi4 hp4.2.1 hp4.1 hload4 rfl hi4
+  have hpc5 : σ5.regs.get? Register.PC = some (0x8003b610#64 : BitVec 64) := by
+    have := obs_alu_pc hobs5
+    rwa [show BitVec.addInt (0x8003b60c#64) 4 = (0x8003b610#64 : BitVec 64) from by decide] at this
+  have hrd5 : σ5.regs.get? Register.x11 = some (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) :=
+    obs_alu_rd hobs5 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq5 : PinsHold σ4 [⟨Register.x13, (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp4.1, hp4.2.2.1, hp4.2.2.2.1, hp4.2.2.2.2.1, hp4.2.2.2.2.2.1, hp4.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp5 : PinsHold σ5 [⟨Register.x11, (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0)))⟩, ⟨Register.x13, (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd5, pins_alu hobs5 (by rfl) hq5⟩
+  obtain ⟨vmi5, hmi5⟩ := obs_alu_minstret hobs5
+  have hmemE5 : σ5.mem = m0 := by
+    rw [hmem5]; exact hmemE4
+  have hload5 : Lua.Vm.Arms.TextLoaded σ5.mem := by
+    rw [hmem5]; exact hload4
+  have hout5 : σ5.sailOutput = o0 :=
+    (ReadsLikePost.out hobs5).trans hout4
+  have hok5 : Lua.Vm.RegsOk σ5 :=
+    Lua.Vm.RegsOk.alu hobs5 (by decide) hok4
+  -- === step 6: 0x8003b610 `site_8003b610` (alu) ===
+  obtain ⟨σ6, i6, hs6, hi6, hG6, hmem6, hobs6⟩ :=
+    site_8003b610 σ5 i5 (c.steps + 1 + 1 + 1 + 1 + 1) (0x8003b610#64)
+      vmi5 (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) hG5 hpc5 hmi5 hp5.1 hload5 rfl hi5
+  have hpc6 : σ6.regs.get? Register.PC = some (0x8003b614#64 : BitVec 64) := by
+    have := obs_alu_pc hobs6
+    rwa [show BitVec.addInt (0x8003b610#64) 4 = (0x8003b614#64 : BitVec 64) from by decide] at this
+  have hrd6 : σ6.regs.get? Register.x13 = some (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0)) :=
+    obs_alu_rd hobs6 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq6 : PinsHold σ5 [⟨Register.x11, (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0)))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp5.1, hp5.2.2.1, hp5.2.2.2.1, hp5.2.2.2.2.1, hp5.2.2.2.2.2.1, hp5.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp5.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp6 : PinsHold σ6 [⟨Register.x13, (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0))⟩, ⟨Register.x11, (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0)))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd6, pins_alu hobs6 (by rfl) hq6⟩
+  obtain ⟨vmi6, hmi6⟩ := obs_alu_minstret hobs6
+  have hmemE6 : σ6.mem = m0 := by
+    rw [hmem6]; exact hmemE5
+  have hload6 : Lua.Vm.Arms.TextLoaded σ6.mem := by
+    rw [hmem6]; exact hload5
+  have hout6 : σ6.sailOutput = o0 :=
+    (ReadsLikePost.out hobs6).trans hout5
+  have hok6 : Lua.Vm.RegsOk σ6 :=
+    Lua.Vm.RegsOk.alu hobs6 (by decide) hok5
+  -- === step 7: 0x8003b614 `site_8003b614` (alu) ===
+  obtain ⟨σ7, i7, hs7, hi7, hG7, hmem7, hobs7⟩ :=
+    site_8003b614 σ6 i6 (c.steps + 1 + 1 + 1 + 1 + 1 + 1) (0x8003b614#64)
+      vmi6 (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0)) hG6 hpc6 hmi6 hp6.2.1 hp6.1 hload6 rfl hi6
+  have hpc7 : σ7.regs.get? Register.PC = some (0x8003b618#64 : BitVec 64) := by
+    have := obs_alu_pc hobs7
+    rwa [show BitVec.addInt (0x8003b614#64) 4 = (0x8003b618#64 : BitVec 64) from by decide] at this
+  have hrd7 : σ7.regs.get? Register.x11 = some ((((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) ||| (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0))) :=
+    obs_alu_rd hobs7 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq7 : PinsHold σ6 [⟨Register.x13, (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp6.1, hp6.2.2.1, hp6.2.2.2.1, hp6.2.2.2.2.1, hp6.2.2.2.2.2.1, hp6.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp6.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp7 : PinsHold σ7 [⟨Register.x11, ((((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) ||| (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0)))⟩, ⟨Register.x13, (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd7, pins_alu hobs7 (by rfl) hq7⟩
+  obtain ⟨vmi7, hmi7⟩ := obs_alu_minstret hobs7
+  have hmemE7 : σ7.mem = m0 := by
+    rw [hmem7]; exact hmemE6
+  have hload7 : Lua.Vm.Arms.TextLoaded σ7.mem := by
+    rw [hmem7]; exact hload6
+  have hout7 : σ7.sailOutput = o0 :=
+    (ReadsLikePost.out hobs7).trans hout6
+  have hok7 : Lua.Vm.RegsOk σ7 :=
+    Lua.Vm.RegsOk.alu hobs7 (by decide) hok6
+  -- === step 8: 0x8003b618 `site_8003b618` (j) ===
+  obtain ⟨σ8, i8, hs8, hi8, hG8, hmem8, hobs8⟩ :=
+    site_8003b618 σ7 i7 (c.steps + 1 + 1 + 1 + 1 + 1 + 1 + 1) (0x8003b618#64)
+      vmi7 hG7 hpc7 hmi7 hload7 rfl (by decide) hi7
+  have hpc8 : σ8.regs.get? Register.PC = some (0x8003b584#64 : BitVec 64) := by
+    rw [obs_jr_pc hobs8,
+      show (0x8003b618#64 : BitVec 64) + sign_extend (m := 64) (0x1fff6c#21) = (0x8003b584#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
+  have hp8 : PinsHold σ8 [⟨Register.x11, ((((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) ||| (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0)))⟩, ⟨Register.x13, (shift_bits_left (((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) ||| (shift_bits_left ((v11 &&& sign_extend (m := 64) (0x0ff#12)) ||| (shift_bits_left (v11 &&& sign_extend (m := 64) (0x0ff#12)) (Sail.BitVec.extractLsb (0x08#6) 5 0))) (Sail.BitVec.extractLsb (0x10#6) 5 0))) (Sail.BitVec.extractLsb (0x20#6) 5 0))⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_jr hobs8 (by rfl) hp7
+  obtain ⟨vmi8, hmi8⟩ := obs_jr_minstret hobs8
+  have hmemE8 : σ8.mem = m0 := by
+    rw [hmem8]; exact hmemE7
+  have hload8 : Lua.Vm.Arms.TextLoaded σ8.mem := by
+    rw [hmem8]; exact hload7
+  have hout8 : σ8.sailOutput = o0 :=
+    (ReadsLikePost.out hobs8).trans hout7
+  have hok8 : Lua.Vm.RegsOk σ8 :=
+    Lua.Vm.RegsOk.jr hobs8 hok7
+  have hsteps8 : Steps c ⟨σ8, i8, c.steps + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1⟩ :=
+    (((((((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)).trans (Steps.single hs4)).trans (Steps.single hs5)).trans (Steps.single hs6)).trans (Steps.single hs7)).trans (Steps.single hs8)
+  exact ⟨⟨σ8, i8, c.steps + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1⟩, hsteps8,
+    ⟨hG8, hpc8, hp8, ⟨vmi8, hmi8⟩, hi8, ⟨hload8, hmemE8, hout8, hok8⟩⟩⟩
+
+/-- `0x8003b61c`–`0x8003b630` (5 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b61c_8003b630
+    (v15 v1 v2 v3 v6 v8 v9 v10 v11 v12 v14 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (htgt_5 : (BitVec.update (((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) + sign_extend (m := 64) (0xf98#12)) 0 0#1).toNat % 4 = 0)
+    : Triple (SegSt (0x8003b61c#64) [⟨Register.x15, v15⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt ((BitVec.update (((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) + sign_extend (m := 64) (0xf98#12)) 0 0#1)) [⟨Register.x1, (0x8003b630#64 : BitVec 64)⟩, ⟨Register.x5, (v1 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x13, ((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x15, v15⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b61c `site_8003b61c` (alu) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b61c c.σ c.tick (c.steps) (0x8003b61c#64)
+      vmi v15 hgood hpc hmi hp0.1 hloaded rfl htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b620#64 : BitVec 64) := by
+    have := obs_alu_pc hobs1
+    rwa [show BitVec.addInt (0x8003b61c#64) 4 = (0x8003b620#64 : BitVec 64) from by decide] at this
+  have hrd1 : σ1.regs.get? Register.x13 = some (shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) :=
+    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp1 : PinsHold σ1 [⟨Register.x13, (shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0))⟩, ⟨Register.x15, v15⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
+  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
+  -- === step 2: 0x8003b620 `site_8003b620` (alu) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b620 σ1 i1 (c.steps + 1) (0x8003b620#64)
+      vmi1 hG1 hpc1 hmi1 hload1 rfl hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b624#64 : BitVec 64) := by
+    have := obs_alu_pc hobs2
+    rwa [show BitVec.addInt (0x8003b620#64) 4 = (0x8003b624#64 : BitVec 64) from by decide] at this
+  have hrd2 : σ2.regs.get? Register.x5 = some ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)) :=
+    obs_alu_rd hobs2 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp2 : PinsHold σ2 [⟨Register.x5, ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x13, (shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0))⟩, ⟨Register.x15, v15⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd2, pins_alu hobs2 (by rfl) hp1⟩
+  obtain ⟨vmi2, hmi2⟩ := obs_alu_minstret hobs2
+  have hmemE2 : σ2.mem = m0 := by
+    rw [hmem2]; exact hmemE1
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmem2]; exact hload1
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
+  -- === step 3: 0x8003b624 `site_8003b624` (alu) ===
+  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
+    site_8003b624 σ2 i2 (c.steps + 1 + 1) (0x8003b624#64)
+      vmi2 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)) hG2 hpc2 hmi2 hp2.2.1 hp2.1 hload2 rfl hi2
+  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b628#64 : BitVec 64) := by
+    have := obs_alu_pc hobs3
+    rwa [show BitVec.addInt (0x8003b624#64) 4 = (0x8003b628#64 : BitVec 64) from by decide] at this
+  have hrd3 : σ3.regs.get? Register.x13 = some ((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) :=
+    obs_alu_rd hobs3 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq3 : PinsHold σ2 [⟨Register.x5, ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x15, v15⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp2.1, hp2.2.2.1, hp2.2.2.2.1, hp2.2.2.2.2.1, hp2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp3 : PinsHold σ3 [⟨Register.x13, ((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x5, ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))⟩, ⟨Register.x15, v15⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd3, pins_alu hobs3 (by rfl) hq3⟩
+  obtain ⟨vmi3, hmi3⟩ := obs_alu_minstret hobs3
+  have hmemE3 : σ3.mem = m0 := by
+    rw [hmem3]; exact hmemE2
+  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
+    rw [hmem3]; exact hload2
+  have hout3 : σ3.sailOutput = o0 :=
+    (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
+  -- === step 4: 0x8003b628 `site_8003b628` (alu) ===
+  obtain ⟨σ4, i4, hs4, hi4, hG4, hmem4, hobs4⟩ :=
+    site_8003b628 σ3 i3 (c.steps + 1 + 1 + 1) (0x8003b628#64)
+      vmi3 v1 hG3 hpc3 hmi3 hp3.2.2.2.1 hload3 rfl hi3
+  have hpc4 : σ4.regs.get? Register.PC = some (0x8003b62c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs4
+    rwa [show BitVec.addInt (0x8003b628#64) 4 = (0x8003b62c#64 : BitVec 64) from by decide] at this
+  have hrd4 : σ4.regs.get? Register.x5 = some (v1 + sign_extend (m := 64) (0x000#12)) :=
+    obs_alu_rd hobs4 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq4 : PinsHold σ3 [⟨Register.x13, ((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x15, v15⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp3.1, hp3.2.2.1, hp3.2.2.2.1, hp3.2.2.2.2.1, hp3.2.2.2.2.2.1, hp3.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp4 : PinsHold σ4 [⟨Register.x5, (v1 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x13, ((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x15, v15⟩, ⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd4, pins_alu hobs4 (by rfl) hq4⟩
+  obtain ⟨vmi4, hmi4⟩ := obs_alu_minstret hobs4
+  have hmemE4 : σ4.mem = m0 := by
+    rw [hmem4]; exact hmemE3
+  have hload4 : Lua.Vm.Arms.TextLoaded σ4.mem := by
+    rw [hmem4]; exact hload3
+  have hout4 : σ4.sailOutput = o0 :=
+    (ReadsLikePost.out hobs4).trans hout3
+  have hok4 : Lua.Vm.RegsOk σ4 :=
+    Lua.Vm.RegsOk.alu hobs4 (by decide) hok3
+  -- === step 5: 0x8003b62c `site_8003b62c` (jalr) ===
+  obtain ⟨σ5, i5, hs5, hi5, hG5, hmem5, hobs5⟩ :=
+    site_8003b62c σ4 i4 (c.steps + 1 + 1 + 1 + 1) (0x8003b62c#64)
+      vmi4 ((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) hG4 hpc4 hmi4 hp4.2.1 hload4 rfl htgt_5 hi4
+  have hpc5 : σ5.regs.get? Register.PC = some (BitVec.update (((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12))) + sign_extend (m := 64) (0xf98#12)) 0 0#1) := by
+    rw [obs_jalr_pc hobs5]
+  have hrd5 : σ5.regs.get? Register.x1 = some (0x8003b630#64 : BitVec 64) := by
+    have := obs_jalr_rd hobs5 (by decide) (by decide) (by decide) (by decide) (by decide)
+    rwa [show BitVec.addInt (0x8003b62c#64) 4 = (0x8003b630#64 : BitVec 64) from by decide] at this
+  have hq5 : PinsHold σ4 [⟨Register.x5, (v1 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x13, ((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x15, v15⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp4.1, hp4.2.1, hp4.2.2.1, hp4.2.2.2.2.1, hp4.2.2.2.2.2.1, hp4.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp4.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp5 : PinsHold σ5 [⟨Register.x1, (0x8003b630#64 : BitVec 64)⟩, ⟨Register.x5, (v1 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x13, ((shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0)) + ((0x8003b620#64) + sign_extend (m := 64) ((0x00000#20) +++ 0x000#12)))⟩, ⟨Register.x15, v15⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd5, pins_jalr hobs5 (by rfl) hq5⟩
+  obtain ⟨vmi5, hmi5⟩ := obs_jalr_minstret hobs5
+  have hmemE5 : σ5.mem = m0 := by
+    rw [hmem5]; exact hmemE4
+  have hload5 : Lua.Vm.Arms.TextLoaded σ5.mem := by
+    rw [hmem5]; exact hload4
+  have hout5 : σ5.sailOutput = o0 :=
+    (ReadsLikePost.out hobs5).trans hout4
+  have hok5 : Lua.Vm.RegsOk σ5 :=
+    Lua.Vm.RegsOk.jalr hobs5 (by decide) hok4
+  have hsteps5 : Steps c ⟨σ5, i5, c.steps + 1 + 1 + 1 + 1 + 1⟩ :=
+    ((((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)).trans (Steps.single hs4)).trans (Steps.single hs5)
+  exact ⟨⟨σ5, i5, c.steps + 1 + 1 + 1 + 1 + 1⟩, hsteps5,
+    ⟨hG5, hpc5, hp5, ⟨vmi5, hmi5⟩, hi5, ⟨hload5, hmemE5, hout5, hok5⟩⟩⟩
+
+/-- `0x8003b630`–`0x8003b644` (5 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b630_8003b644_t
+    (v5 v15 v14 v12 v6 v2 v3 v8 v9 v10 v11 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_5 : zopz0zKzJ_u v6 (v12 + (v15 + sign_extend (m := 64) (0xff0#12))) = true)
+    : Triple (SegSt (0x8003b630#64) [⟨Register.x5, v5⟩, ⟨Register.x15, v15⟩, ⟨Register.x14, v14⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b5a8#64) [⟨Register.x12, (v12 + (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b630 `site_8003b630` (alu) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b630 c.σ c.tick (c.steps) (0x8003b630#64)
+      vmi v5 hgood hpc hmi hp0.1 hloaded rfl htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b634#64 : BitVec 64) := by
+    have := obs_alu_pc hobs1
+    rwa [show BitVec.addInt (0x8003b630#64) 4 = (0x8003b634#64 : BitVec 64) from by decide] at this
+  have hrd1 : σ1.regs.get? Register.x1 = some (v5 + sign_extend (m := 64) (0x000#12)) :=
+    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp1 : PinsHold σ1 [⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x15, v15⟩, ⟨Register.x14, v14⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
+  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
+  -- === step 2: 0x8003b634 `site_8003b634` (alu) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b634 σ1 i1 (c.steps + 1) (0x8003b634#64)
+      vmi1 v15 hG1 hpc1 hmi1 hp1.2.2.1 hload1 rfl hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b638#64 : BitVec 64) := by
+    have := obs_alu_pc hobs2
+    rwa [show BitVec.addInt (0x8003b634#64) 4 = (0x8003b638#64 : BitVec 64) from by decide] at this
+  have hrd2 : σ2.regs.get? Register.x15 = some (v15 + sign_extend (m := 64) (0xff0#12)) :=
+    obs_alu_rd hobs2 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq2 : PinsHold σ1 [⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x14, v14⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp1.1, hp1.2.1, hp1.2.2.2.1, hp1.2.2.2.2.1, hp1.2.2.2.2.2.1, hp1.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp2 : PinsHold σ2 [⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x14, v14⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd2, pins_alu hobs2 (by rfl) hq2⟩
+  obtain ⟨vmi2, hmi2⟩ := obs_alu_minstret hobs2
+  have hmemE2 : σ2.mem = m0 := by
+    rw [hmem2]; exact hmemE1
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmem2]; exact hload1
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
+  -- === step 3: 0x8003b638 `site_8003b638` (alu) ===
+  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
+    site_8003b638 σ2 i2 (c.steps + 1 + 1) (0x8003b638#64)
+      vmi2 v14 (v15 + sign_extend (m := 64) (0xff0#12)) hG2 hpc2 hmi2 hp2.2.2.2.1 hp2.1 hload2 rfl hi2
+  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b63c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs3
+    rwa [show BitVec.addInt (0x8003b638#64) 4 = (0x8003b63c#64 : BitVec 64) from by decide] at this
+  have hrd3 : σ3.regs.get? Register.x14 = some (v14 - (v15 + sign_extend (m := 64) (0xff0#12))) :=
+    obs_alu_rd hobs3 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq3 : PinsHold σ2 [⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp2.1, hp2.2.1, hp2.2.2.1, hp2.2.2.2.2.1, hp2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp3 : PinsHold σ3 [⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd3, pins_alu hobs3 (by rfl) hq3⟩
+  obtain ⟨vmi3, hmi3⟩ := obs_alu_minstret hobs3
+  have hmemE3 : σ3.mem = m0 := by
+    rw [hmem3]; exact hmemE2
+  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
+    rw [hmem3]; exact hload2
+  have hout3 : σ3.sailOutput = o0 :=
+    (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
+  -- === step 4: 0x8003b63c `site_8003b63c` (alu) ===
+  obtain ⟨σ4, i4, hs4, hi4, hG4, hmem4, hobs4⟩ :=
+    site_8003b63c σ3 i3 (c.steps + 1 + 1 + 1) (0x8003b63c#64)
+      -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+      vmi3 v12 (v15 + sign_extend (m := 64) (0xff0#12)) hG3 hpc3 hmi3 hp3.2.2.2.2.1 hp3.2.1 hload3 rfl hi3
+  have hpc4 : σ4.regs.get? Register.PC = some (0x8003b640#64 : BitVec 64) := by
+    have := obs_alu_pc hobs4
+    rwa [show BitVec.addInt (0x8003b63c#64) 4 = (0x8003b640#64 : BitVec 64) from by decide] at this
+  have hrd4 : σ4.regs.get? Register.x12 = some (v12 + (v15 + sign_extend (m := 64) (0xff0#12))) :=
+    obs_alu_rd hobs4 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq4 : PinsHold σ3 [⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp3.1, hp3.2.1, hp3.2.2.1, hp3.2.2.2.1, hp3.2.2.2.2.2.1, hp3.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp4 : PinsHold σ4 [⟨Register.x12, (v12 + (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd4, pins_alu hobs4 (by rfl) hq4⟩
+  obtain ⟨vmi4, hmi4⟩ := obs_alu_minstret hobs4
+  have hmemE4 : σ4.mem = m0 := by
+    rw [hmem4]; exact hmemE3
+  have hload4 : Lua.Vm.Arms.TextLoaded σ4.mem := by
+    rw [hmem4]; exact hload3
+  have hout4 : σ4.sailOutput = o0 :=
+    (ReadsLikePost.out hobs4).trans hout3
+  have hok4 : Lua.Vm.RegsOk σ4 :=
+    Lua.Vm.RegsOk.alu hobs4 (by decide) hok3
+  -- === step 5: 0x8003b640 `site_8003b640_taken` (btaken) ===
+  obtain ⟨σ5, i5, hs5, hi5, hG5, hmem5, hobs5⟩ :=
+    site_8003b640_taken σ4 i4 (c.steps + 1 + 1 + 1 + 1) (0x8003b640#64)
+      -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+      vmi4 v6 (v12 + (v15 + sign_extend (m := 64) (0xff0#12))) hG4 hpc4 hmi4 hp4.2.2.2.2.2.1 hp4.1 hload4 rfl hg_5 hi4
+  have hpc5 : σ5.regs.get? Register.PC = some (0x8003b5a8#64 : BitVec 64) := by
+    rw [obs_btaken_pc hobs5,
+      show (0x8003b640#64 : BitVec 64) + sign_extend (m := 64) (0x1f68#13) = (0x8003b5a8#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
+  have hp5 : PinsHold σ5 [⟨Register.x12, (v12 + (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_btaken hobs5 (by rfl) hp4
+  obtain ⟨vmi5, hmi5⟩ := obs_btaken_minstret hobs5
+  have hmemE5 : σ5.mem = m0 := by
+    rw [hmem5]; exact hmemE4
+  have hload5 : Lua.Vm.Arms.TextLoaded σ5.mem := by
+    rw [hmem5]; exact hload4
+  have hout5 : σ5.sailOutput = o0 :=
+    (ReadsLikePost.out hobs5).trans hout4
+  have hok5 : Lua.Vm.RegsOk σ5 :=
+    Lua.Vm.RegsOk.btaken hobs5 hok4
+  have hsteps5 : Steps c ⟨σ5, i5, c.steps + 1 + 1 + 1 + 1 + 1⟩ :=
+    ((((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)).trans (Steps.single hs4)).trans (Steps.single hs5)
+  exact ⟨⟨σ5, i5, c.steps + 1 + 1 + 1 + 1 + 1⟩, hsteps5,
+    ⟨hG5, hpc5, hp5, ⟨vmi5, hmi5⟩, hi5, ⟨hload5, hmemE5, hout5, hok5⟩⟩⟩
+
+/-- `0x8003b630`–`0x8003b644` (5 instructions), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b630_8003b644_n
+    (v5 v15 v14 v12 v6 v2 v3 v8 v9 v10 v11 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    (hg_5 : zopz0zKzJ_u v6 (v12 + (v15 + sign_extend (m := 64) (0xff0#12))) = false)
+    : Triple (SegSt (0x8003b630#64) [⟨Register.x5, v5⟩, ⟨Register.x15, v15⟩, ⟨Register.x14, v14⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b644#64) [⟨Register.x12, (v12 + (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b630 `site_8003b630` (alu) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b630 c.σ c.tick (c.steps) (0x8003b630#64)
+      vmi v5 hgood hpc hmi hp0.1 hloaded rfl htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b634#64 : BitVec 64) := by
+    have := obs_alu_pc hobs1
+    rwa [show BitVec.addInt (0x8003b630#64) 4 = (0x8003b634#64 : BitVec 64) from by decide] at this
+  have hrd1 : σ1.regs.get? Register.x1 = some (v5 + sign_extend (m := 64) (0x000#12)) :=
+    obs_alu_rd hobs1 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hp1 : PinsHold σ1 [⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x15, v15⟩, ⟨Register.x14, v14⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd1, pins_alu hobs1 (by rfl) hp0⟩
+  obtain ⟨vmi1, hmi1⟩ := obs_alu_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.alu hobs1 (by decide) hok
+  -- === step 2: 0x8003b634 `site_8003b634` (alu) ===
+  obtain ⟨σ2, i2, hs2, hi2, hG2, hmem2, hobs2⟩ :=
+    site_8003b634 σ1 i1 (c.steps + 1) (0x8003b634#64)
+      vmi1 v15 hG1 hpc1 hmi1 hp1.2.2.1 hload1 rfl hi1
+  have hpc2 : σ2.regs.get? Register.PC = some (0x8003b638#64 : BitVec 64) := by
+    have := obs_alu_pc hobs2
+    rwa [show BitVec.addInt (0x8003b634#64) 4 = (0x8003b638#64 : BitVec 64) from by decide] at this
+  have hrd2 : σ2.regs.get? Register.x15 = some (v15 + sign_extend (m := 64) (0xff0#12)) :=
+    obs_alu_rd hobs2 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq2 : PinsHold σ1 [⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x14, v14⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp1.1, hp1.2.1, hp1.2.2.2.1, hp1.2.2.2.2.1, hp1.2.2.2.2.2.1, hp1.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp1.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp2 : PinsHold σ2 [⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x14, v14⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd2, pins_alu hobs2 (by rfl) hq2⟩
+  obtain ⟨vmi2, hmi2⟩ := obs_alu_minstret hobs2
+  have hmemE2 : σ2.mem = m0 := by
+    rw [hmem2]; exact hmemE1
+  have hload2 : Lua.Vm.Arms.TextLoaded σ2.mem := by
+    rw [hmem2]; exact hload1
+  have hout2 : σ2.sailOutput = o0 :=
+    (ReadsLikePost.out hobs2).trans hout1
+  have hok2 : Lua.Vm.RegsOk σ2 :=
+    Lua.Vm.RegsOk.alu hobs2 (by decide) hok1
+  -- === step 3: 0x8003b638 `site_8003b638` (alu) ===
+  obtain ⟨σ3, i3, hs3, hi3, hG3, hmem3, hobs3⟩ :=
+    site_8003b638 σ2 i2 (c.steps + 1 + 1) (0x8003b638#64)
+      vmi2 v14 (v15 + sign_extend (m := 64) (0xff0#12)) hG2 hpc2 hmi2 hp2.2.2.2.1 hp2.1 hload2 rfl hi2
+  have hpc3 : σ3.regs.get? Register.PC = some (0x8003b63c#64 : BitVec 64) := by
+    have := obs_alu_pc hobs3
+    rwa [show BitVec.addInt (0x8003b638#64) 4 = (0x8003b63c#64 : BitVec 64) from by decide] at this
+  have hrd3 : σ3.regs.get? Register.x14 = some (v14 - (v15 + sign_extend (m := 64) (0xff0#12))) :=
+    obs_alu_rd hobs3 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq3 : PinsHold σ2 [⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp2.1, hp2.2.1, hp2.2.2.1, hp2.2.2.2.2.1, hp2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp3 : PinsHold σ3 [⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x12, v12⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd3, pins_alu hobs3 (by rfl) hq3⟩
+  obtain ⟨vmi3, hmi3⟩ := obs_alu_minstret hobs3
+  have hmemE3 : σ3.mem = m0 := by
+    rw [hmem3]; exact hmemE2
+  have hload3 : Lua.Vm.Arms.TextLoaded σ3.mem := by
+    rw [hmem3]; exact hload2
+  have hout3 : σ3.sailOutput = o0 :=
+    (ReadsLikePost.out hobs3).trans hout2
+  have hok3 : Lua.Vm.RegsOk σ3 :=
+    Lua.Vm.RegsOk.alu hobs3 (by decide) hok2
+  -- === step 4: 0x8003b63c `site_8003b63c` (alu) ===
+  obtain ⟨σ4, i4, hs4, hi4, hG4, hmem4, hobs4⟩ :=
+    site_8003b63c σ3 i3 (c.steps + 1 + 1 + 1) (0x8003b63c#64)
+      -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+      vmi3 v12 (v15 + sign_extend (m := 64) (0xff0#12)) hG3 hpc3 hmi3 hp3.2.2.2.2.1 hp3.2.1 hload3 rfl hi3
+  have hpc4 : σ4.regs.get? Register.PC = some (0x8003b640#64 : BitVec 64) := by
+    have := obs_alu_pc hobs4
+    rwa [show BitVec.addInt (0x8003b63c#64) 4 = (0x8003b640#64 : BitVec 64) from by decide] at this
+  have hrd4 : σ4.regs.get? Register.x12 = some (v12 + (v15 + sign_extend (m := 64) (0xff0#12))) :=
+    obs_alu_rd hobs4 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq4 : PinsHold σ3 [⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+    ⟨hp3.1, hp3.2.1, hp3.2.2.1, hp3.2.2.2.1, hp3.2.2.2.2.2.1, hp3.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, hp3.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.2.1, trivial⟩
+  have hp4 : PinsHold σ4 [⟨Register.x12, (v12 + (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    ⟨hrd4, pins_alu hobs4 (by rfl) hq4⟩
+  obtain ⟨vmi4, hmi4⟩ := obs_alu_minstret hobs4
+  have hmemE4 : σ4.mem = m0 := by
+    rw [hmem4]; exact hmemE3
+  have hload4 : Lua.Vm.Arms.TextLoaded σ4.mem := by
+    rw [hmem4]; exact hload3
+  have hout4 : σ4.sailOutput = o0 :=
+    (ReadsLikePost.out hobs4).trans hout3
+  have hok4 : Lua.Vm.RegsOk σ4 :=
+    Lua.Vm.RegsOk.alu hobs4 (by decide) hok3
+  -- === step 5: 0x8003b640 `site_8003b640_nottaken` (bnottaken) ===
+  obtain ⟨σ5, i5, hs5, hi5, hG5, hmem5, hobs5⟩ :=
+    site_8003b640_nottaken σ4 i4 (c.steps + 1 + 1 + 1 + 1) (0x8003b640#64)
+      -- discipline: allow(R6-anon-projection-tower) pin-bundle projection emitted by gen_segment.py (the bundle is a PinsHold list)
+      vmi4 v6 (v12 + (v15 + sign_extend (m := 64) (0xff0#12))) hG4 hpc4 hmi4 hp4.2.2.2.2.2.1 hp4.1 hload4 rfl hg_5 hi4
+  have hpc5 : σ5.regs.get? Register.PC = some (0x8003b644#64 : BitVec 64) := by
+    have := obs_bnottaken_pc hobs5
+    rwa [show BitVec.addInt (0x8003b640#64) 4 = (0x8003b644#64 : BitVec 64) from by decide] at this
+  have hp5 : PinsHold σ5 [⟨Register.x12, (v12 + (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x14, (v14 - (v15 + sign_extend (m := 64) (0xff0#12)))⟩, ⟨Register.x15, (v15 + sign_extend (m := 64) (0xff0#12))⟩, ⟨Register.x1, (v5 + sign_extend (m := 64) (0x000#12))⟩, ⟨Register.x5, v5⟩, ⟨Register.x6, v6⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_bnottaken hobs5 (by rfl) hp4
+  obtain ⟨vmi5, hmi5⟩ := obs_bnottaken_minstret hobs5
+  have hmemE5 : σ5.mem = m0 := by
+    rw [hmem5]; exact hmemE4
+  have hload5 : Lua.Vm.Arms.TextLoaded σ5.mem := by
+    rw [hmem5]; exact hload4
+  have hout5 : σ5.sailOutput = o0 :=
+    (ReadsLikePost.out hobs5).trans hout4
+  have hok5 : Lua.Vm.RegsOk σ5 :=
+    Lua.Vm.RegsOk.bnottaken hobs5 hok4
+  have hsteps5 : Steps c ⟨σ5, i5, c.steps + 1 + 1 + 1 + 1 + 1⟩ :=
+    ((((Steps.single hs1).trans (Steps.single hs2)).trans (Steps.single hs3)).trans (Steps.single hs4)).trans (Steps.single hs5)
+  exact ⟨⟨σ5, i5, c.steps + 1 + 1 + 1 + 1 + 1⟩, hsteps5,
+    ⟨hG5, hpc5, hp5, ⟨vmi5, hmi5⟩, hi5, ⟨hload5, hmemE5, hout5, hok5⟩⟩⟩
+
+/-- `0x8003b644`–`0x8003b648` (1 instruction), from `SegSt` to `SegSt`; side conditions are the `h*_<step>` hypotheses. -/
+theorem seg_8003b644_8003b648
+    (v1 v2 v3 v6 v8 v9 v10 v11 v12 v14 v15 v18 v19 v20 v21 v22 v23 v24 v25 v26 v27 : BitVec 64)
+    (m0 : Std.ExtHashMap Nat (BitVec 8))
+    (o0 : Array String)
+    : Triple (SegSt (0x8003b644#64) [⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) (SegSt (0x8003b580#64) [⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩]
+      (fun σ => Lua.Vm.Arms.TextLoaded σ.mem ∧ σ.mem = m0 ∧ σ.sailOutput = o0 ∧ Lua.Vm.RegsOk σ)) := by
+  intro c hPre
+  obtain ⟨hgood, hpc, hp0, ⟨vmi, hmi⟩, htick, ⟨hloaded, hmemeq, hout, hok⟩⟩ := hPre
+  -- === step 1: 0x8003b644 `site_8003b644` (j) ===
+  obtain ⟨σ1, i1, hs1, hi1, hG1, hmem1, hobs1⟩ :=
+    site_8003b644 c.σ c.tick (c.steps) (0x8003b644#64)
+      vmi hgood hpc hmi hloaded rfl (by decide) htick
+  have hpc1 : σ1.regs.get? Register.PC = some (0x8003b580#64 : BitVec 64) := by
+    rw [obs_jr_pc hobs1,
+      show (0x8003b644#64 : BitVec 64) + sign_extend (m := 64) (0x1fff3c#21) = (0x8003b580#64 : BitVec 64) from by apply BitVec.eq_of_toNat_eq; decide]
+  have hp1 : PinsHold σ1 [⟨Register.x1, v1⟩, ⟨Register.x2, v2⟩, ⟨Register.x3, v3⟩, ⟨Register.x6, v6⟩, ⟨Register.x8, v8⟩, ⟨Register.x9, v9⟩, ⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x12, v12⟩, ⟨Register.x14, v14⟩, ⟨Register.x15, v15⟩, ⟨Register.x18, v18⟩, ⟨Register.x19, v19⟩, ⟨Register.x20, v20⟩, ⟨Register.x21, v21⟩, ⟨Register.x22, v22⟩, ⟨Register.x23, v23⟩, ⟨Register.x24, v24⟩, ⟨Register.x25, v25⟩, ⟨Register.x26, v26⟩, ⟨Register.x27, v27⟩] :=
+    pins_jr hobs1 (by rfl) hp0
+  obtain ⟨vmi1, hmi1⟩ := obs_jr_minstret hobs1
+  have hmemE1 : σ1.mem = m0 := by
+    rw [hmem1]; exact hmemeq
+  have hload1 : Lua.Vm.Arms.TextLoaded σ1.mem := by
+    rw [hmem1]; exact hloaded
+  have hout1 : σ1.sailOutput = o0 :=
+    (ReadsLikePost.out hobs1).trans hout
+  have hok1 : Lua.Vm.RegsOk σ1 :=
+    Lua.Vm.RegsOk.jr hobs1 hok
+  have hsteps1 : Steps c ⟨σ1, i1, c.steps + 1⟩ :=
+    Steps.single hs1
+  exact ⟨⟨σ1, i1, c.steps + 1⟩, hsteps1,
+    ⟨hG1, hpc1, hp1, ⟨vmi1, hmi1⟩, hi1, ⟨hload1, hmemE1, hout1, hok1⟩⟩⟩
 
 end Lua.Vm.Arms
