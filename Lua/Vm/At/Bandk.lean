@@ -7,7 +7,8 @@ import Lua.Vm.Arms
 The at-lemmas of `OP_BANDK` (jump-table target `0x8001d710`): its
 generated segments between location-list rows (`Lua/Vm/Sim/Kit/At.lean`),
 each proved in its own declaration, for every path to the fetch head through
-summarised calls. Paths not followed:
+summarised calls, and to the entry of an error exit (`luaG_runerror`, …).
+Paths not followed:
 
 * `seg_8001f28c_8001f294_t`: infeasible
 -/

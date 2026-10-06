@@ -7,7 +7,8 @@ import Lua.Vm.Arms
 The at-lemmas of `OP_SHR` (jump-table target `0x8001d57c`): its
 generated segments between location-list rows (`Lua/Vm/Sim/Kit/At.lean`),
 each proved in its own declaration, for every path to the fetch head through
-summarised calls. Paths not followed:
+summarised calls, and to the entry of an error exit (`luaG_runerror`, …).
+Paths not followed:
 
 * `seg_8001f3dc_8001f3e4_t`: infeasible
 * `seg_8001f550_8001f558_t`: infeasible
