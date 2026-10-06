@@ -112,6 +112,7 @@ import Lua.Vm.Arms.Segs.Hl_strcmp
 import Lua.Vm.Arms.Segs.Hstrcoll
 import Lua.Vm.Arms.Segs.Hstrcmp
 import Lua.Vm.Arms.Segs.Hstrlen
+import Lua.Vm.Arms.Segs.HluaT_adjustvarargs
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

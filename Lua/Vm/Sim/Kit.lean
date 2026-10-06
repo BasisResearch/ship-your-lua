@@ -14,6 +14,7 @@ import Lua.Vm.Sim.Kit.AtIdiv
 import Lua.Vm.Sim.Kit.AtForprep
 import Lua.Vm.Sim.Kit.EqLong
 import Lua.Vm.Sim.Kit.LtStr
+import Lua.Vm.Sim.Kit.Adjvar
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
