@@ -226,6 +226,142 @@ structure EntryPtrs where
   g : Nat
   stackLast : Nat
 
+/-! ## `luaH_getshortstr`'s chain (lane F1-7)
+
+`OP_GETTABUP _ENV "print"` calls `luaH_getshortstr(t, key)` (`0x8001808c`):
+the main position `node + sizeof(Node)·(key->hash & (2^lsizenode - 1))`, then
+`gnext` offsets until a node whose key tag is `LUA_VSHRSTR` and key pointer
+`key`, or `absentkey` where `gnext = 0`. `shrWalk` is that walk over a
+little-endian reader, so one definition serves the boot view (`rdLEf`), the
+memory (`rdLE`) and the machine's total reads. -/
+
+/-- `luaH_getshortstr`'s next node: `n + gnext·sizeof(Node)`, `gnext` a signed
+32-bit offset (`lw`), with the 64-bit wrap of the address arithmetic. -/
+def nodeNext (n g : Nat) : Nat :=
+  (n + nodeSize * (if g < 2 ^ 31 then g else g + (2 ^ 64 - 2 ^ 32))) % 2 ^ 64
+
+/-- **`luaH_getshortstr`'s chain walk** in the node array `[lo, hi)` over a
+reader `rd a n` (`n` little-endian bytes at `a`): from node `n`, the node whose
+key is the short string pointer `ts`, following `gnext` past other keys,
+within `f` nodes; `none` off the array, at the chain's end (`absentkey`) or
+out of fuel. -/
+def shrWalk (rd : Nat → Nat → Option Nat) (ts lo hi : Nat) : Nat → Nat → Option Nat
+  | 0, _ => none
+  | f + 1, n =>
+    if lo ≤ n ∧ n + nodeSize ≤ hi then
+      match rd (n + nodeKeyTtOff) 1, rd (n + nodeKeyValOff) 8, rd (n + nodeNextOff) 4 with
+      | some tt, some kv, some g =>
+        if tt = vShrStr ∧ kv = ts then some n
+        else if g = 0 then none else shrWalk rd ts lo hi f (nodeNext n g)
+      | _, _, _ => none
+    else none
+
+/-- A walk that succeeds ends in the array. -/
+theorem shrWalk_mem {rd : Nat → Nat → Option Nat} {ts lo hi : Nat} :
+    ∀ {f n r : Nat}, shrWalk rd ts lo hi f n = some r → lo ≤ r ∧ r + nodeSize ≤ hi
+  | 0, _, _, h => by simp [shrWalk] at h
+  | f + 1, n, r, h => by
+    unfold shrWalk at h
+    split at h
+    · rename_i hn
+      split at h
+      · split at h
+        · cases h; exact hn
+        · split at h
+          · cases h
+          · exact shrWalk_mem h
+      · cases h
+    · cases h
+
+/-- **A walk survives a finer reader**: every read that succeeds reads the same. -/
+theorem shrWalk_mono {rd rd' : Nat → Nat → Option Nat}
+    (h : ∀ a n x, rd a n = some x → rd' a n = some x) {ts lo hi : Nat} :
+    ∀ {f n r : Nat}, shrWalk rd ts lo hi f n = some r → shrWalk rd' ts lo hi f n = some r
+  | 0, _, _, hw => by simp [shrWalk] at hw
+  | f + 1, n, r, hw => by
+    unfold shrWalk at hw ⊢
+    split at hw
+    · rename_i hn
+      rw [if_pos hn]
+      split at hw
+      · rename_i tt kv g h1 h2 h3
+        rw [h _ _ _ h1, h _ _ _ h2, h _ _ _ h3]
+        simp only
+        by_cases hk : tt = vShrStr ∧ kv = ts
+        · rw [if_pos hk] at hw ⊢; exact hw
+        · rw [if_neg hk] at hw ⊢
+          by_cases hg : g = 0
+          · rw [if_pos hg] at hw; cases hw
+          · rw [if_neg hg] at hw ⊢; exact shrWalk_mono h hw
+      · cases hw
+    · cases hw
+
+/-- **A walk reads only its array**: readers that agree there walk alike. -/
+theorem shrWalk_congr {rd rd' : Nat → Nat → Option Nat} {ts lo hi : Nat}
+    (h : ∀ a n, lo ≤ a → a + n ≤ hi → rd' a n = rd a n) :
+    ∀ {f n : Nat}, shrWalk rd' ts lo hi f n = shrWalk rd ts lo hi f n
+  | 0, _ => rfl
+  | f + 1, n => by
+    unfold shrWalk
+    by_cases hn : lo ≤ n ∧ n + nodeSize ≤ hi
+    · have e1 := h (n + nodeKeyTtOff) 1 (by simp only [nodeKeyTtOff]; omega)
+        (by simp only [nodeKeyTtOff, nodeSize] at hn ⊢; omega)
+      have e2 := h (n + nodeKeyValOff) 8 (by simp only [nodeKeyValOff]; omega)
+        (by simp only [nodeKeyValOff, nodeSize] at hn ⊢; omega)
+      have e3 := h (n + nodeNextOff) 4 (by simp only [nodeNextOff]; omega)
+        (by simp only [nodeNextOff, nodeSize] at hn ⊢; omega)
+      rw [if_pos hn, if_pos hn, e1, e2, e3]
+      split
+      · split
+        · rfl
+        · split
+          · rfl
+          · exact shrWalk_congr h
+      · rfl
+    · rw [if_neg hn, if_neg hn]
+
+/-- `_ENV.print`'s node, as the boot witness found it: `lsizenode`, the node
+array, the key's hash, and the node the walk reaches. -/
+structure EnvSlot where
+  lsz : Nat
+  node : Nat
+  hash : Nat
+  r : Nat
+
+/-- **The bytes `[lo, lo + n)` lie in the dlmalloc heap**, apart from the Lua
+stack above `func` (up to `stackLast`), the `lua_State` and the `CallInfo`:
+outside every byte A1's window or `OP_VARARGPREP`'s stores reach. -/
+def HeapApart (L ci func stackLast lo n : Nat) : Prop :=
+  symEnd ≤ lo ∧ lo + n ≤ symHeapEnd ∧ (lo + n ≤ func ∨ stackLast ≤ lo) ∧
+    (lo + n ≤ L ∨ L + stateSize ≤ lo) ∧ (lo + n ≤ ci ∨ ci + ciSize ≤ lo)
+
+instance (L ci func stackLast lo n : Nat) : Decidable (HeapApart L ci func stackLast lo n) := by
+  unfold HeapApart; infer_instance
+
+/-- **`OP_GETTABUP _ENV "print"` finds `print`** (lane F1-7): for the key
+pointer `ts`, `luaH_getshortstr(_ENV, ts)` reads `lsizenode`, the node array
+and the key's hash, and its chain from the main position reaches the node
+`s.r` (`shrWalk`, past nodes with other keys), whose value is `print`; and the
+objects the arm and the walk read (`cl->upvals[0]`, `uv->v`, `_ENV`'s
+`TValue`, the table header, the node array, the key's header) lie in the heap
+apart from the window (`HeapApart`). -/
+structure EnvGetAt (m : Mem) (L ci : Nat) (e : EntryPtrs) (ts : Nat) (s : EnvSlot) : Prop where
+  lsz : rd8 m (e.env + tableLsizenodeOff) = some s.lsz
+  /-- `sllw` of `1` by `lsizenode` stays a positive 32-bit mask -/
+  lsz_lt : s.lsz < 31
+  node : rd64 m (e.env + tableNodeOff) = some s.node
+  hash : rd32 m (ts + tstringHashOff) = some s.hash
+  walk : shrWalk (rdLE m) ts s.node (s.node + nodeSize * 2 ^ s.lsz) (2 ^ s.lsz)
+    (s.node + nodeSize * (s.hash % 2 ^ s.lsz)) = some s.r
+  tag : tagAt m s.r = some vLcf
+  val : rd64 m (s.r + tvalueValOff) = some symLuaBPrint
+  cl_at : HeapApart L ci e.func e.stackLast (e.cl + lclosureUpvalsOff) 8
+  uv_at : HeapApart L ci e.func e.stackLast (e.uv + upvalVOff) 8
+  tv_at : HeapApart L ci e.func e.stackLast e.envv 16
+  tab_at : HeapApart L ci e.func e.stackLast e.env 32
+  nodes_at : HeapApart L ci e.func e.stackLast s.node (nodeSize * 2 ^ s.lsz)
+  key_at : HeapApart L ci e.func e.stackLast ts 16
+
 /-- The Lua-side facts at `luaV_execute(L, ci)`'s entry for the main
 closure of prototype `p`:
 
@@ -263,6 +399,14 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
     tagAt m (ka + tvalueSize * i) = some vShrStr →
     rd64 m (ka + tvalueSize * i + tvalueValOff) = some x →
     TStringRepr m x printKey → TableHasShortKeyPtr m e.env x (.builtin .print)
+  /-- **`GETTABUP _ENV "print"`'s walk** (lane F1-7): for every short-string
+  constant `"print"`, `luaH_getshortstr`'s chain from its main position
+  reaches `print`'s node (`EnvGetAt`). `env_print_ptr` places the key in some
+  node; the machine needs it on the chain. -/
+  env_get : ∀ ka i x, rd64 m (e.pa + protoKOff) = some ka → i < p.k.length →
+    tagAt m (ka + tvalueSize * i) = some vShrStr →
+    rd64 m (ka + tvalueSize * i + tvalueValOff) = some x →
+    TStringRepr m x printKey → ∃ s, EnvGetAt m L ci e x s
   l_G : rd64 m (L + stateGOff) = some e.g
   gc_stopped : rd8 m (e.g + gGcstpOff) = some gcstpUsr
   stack_last : rd64 m (L + stateStackLastOff) = some e.stackLast

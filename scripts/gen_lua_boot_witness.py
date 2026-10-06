@@ -252,6 +252,7 @@ def evaluate(lay, M, regs, proto):
     need(rd(e["g"] + lay["gGcstpOff"], 1) == lay["gcstpUsr"], "gc_stopped")
     e["stackLast"] = rd(L + lay["stateStackLastOff"], 8)
     need(e["func"] + lay["stackValueSize"] * (1 + proto[2]) <= e["stackLast"], "frame_fits")
+    check_env_get(lay, M, L, ci, e, slot)
     # ---- CStackAt
     inv = {}
     inv["spEntry"], inv["retCcall"] = regs[2], regs[1]
@@ -511,6 +512,50 @@ def find_print(lay, M, t):
             need(rd(n + lay["tvalueValOff"], 8) == lay["symLuaBPrint"], "print is luaB_print")
             return dict(lsz=lsz, node=node, i=i, ts=ts)
     raise Fail("_ENV has no \"print\"")
+
+
+def node_next(lay, n, g):
+    """`luaH_getshortstr`'s `gnext` step (`Lua.Vm.nodeNext`): a signed 32-bit offset."""
+    if g >= 1 << 31:
+        g -= 1 << 32
+    return (n + lay["nodeSize"] * g) % (1 << 64)
+
+
+def check_env_get(lay, M, L, ci, e, slot):
+    """`VmEntryData.env_get` (`Lua.Vm.EnvGetAt`, lane F1-7): `luaH_getshortstr`'s
+    chain from the print key's main position reaches the print node past other
+    keys (`shrWalk`, fuel `2^lsizenode`), and the objects `OP_GETTABUP` and the walk
+    read lie in the heap apart from the Lua stack, `L` and `ci` (`HeapApart`)."""
+    rd = M.rd
+    lsz, node, ts = slot["lsz"], slot["node"], slot["ts"]
+    need(lsz < 31, "env_get: lsizenode < 31")
+    size = lay["nodeSize"] << lsz
+    h = rd(ts + lay["tstringHashOff"], 4)
+    n, found = node + lay["nodeSize"] * (h % (1 << lsz)), None
+    for _ in range(1 << lsz):
+        if not (node <= n and n + lay["nodeSize"] <= node + size):
+            break
+        tt, kv = rd(n + lay["nodeKeyTtOff"], 1), rd(n + lay["nodeKeyValOff"], 8)
+        g = rd(n + lay["nodeNextOff"], 4)
+        if tt == lay["vShrStr"] and kv == ts:
+            found = n
+            break
+        if g == 0:
+            break
+        n = node_next(lay, n, g)
+    need(found == node + lay["nodeSize"] * slot["i"], "env_get: the chain reaches print's node")
+
+    def apart(lo, k, what):
+        need(lay["symEnd"] <= lo and lo + k <= lay["symHeapEnd"], f"env_get: {what} in the heap")
+        need(lo + k <= e["func"] or e["stackLast"] <= lo, f"env_get: {what} apart from the stack")
+        need(lo + k <= L or L + lay["stateSize"] <= lo, f"env_get: {what} apart from L")
+        need(lo + k <= ci or ci + lay["ciSize"] <= lo, f"env_get: {what} apart from ci")
+    apart(e["cl"] + lay["lclosureUpvalsOff"], 8, "cl->upvals[0]")
+    apart(e["uv"] + lay["upvalVOff"], 8, "uv->v")
+    apart(e["envv"], 16, "_ENV's TValue")
+    apart(e["env"], 32, "_ENV's header")
+    apart(node, size, "_ENV's nodes")
+    apart(ts, 16, "the key's header")
 
 
 def heap_walk(lay, M):
