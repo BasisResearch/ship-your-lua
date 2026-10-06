@@ -35,7 +35,7 @@ def k0 (X : Cx) (M : Mem) : Mem :=
 
 @[at_fspec] theorem f0_eq (hsf : SoftFloatSpec) (X : Cx) (hX : X.Ok) :
     f0 X = Lua.Vm.Fn.Floatsidf.S (Loc.den X (.addwr (.addw (.lit 0xffffffffffff0000#64) (.lit 0x1#64)) (.nat ⟨[(1, .bx)], 0, 0⟩))) :=
-  Lua.Vm.Fn.Floatsidf.spec hsf _ _ _ _ (at_fnSp hX)
+  Lua.Vm.Fn.Floatsidf.spec hsf _ _ _ _ (at_fnSp hX) (by at_sext)
 
 @[at_row] abbrev m0 : List Ent :=
   [.clob ⟨[(1, .sp)], 0, 32⟩ 32 k0]

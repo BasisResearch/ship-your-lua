@@ -36,6 +36,7 @@ python3 scripts/gen_lua_decode_check.py --check || fail "decode check drift"
 python3 scripts/gen_lua_arms.py --check || fail "F1 arm segments drift"
 python3 scripts/gen_lua_arm.py --check || fail "A1 arm simulation lemmas drift"
 python3 scripts/gen_lua_at.py --check || fail "at-lemma (location-list rows) drift"
+python3 scripts/gen_lua_fn.py --check || fail "soft-float function summaries drift"
 python3 scripts/syi/gen_alloc_steps.py --check || fail "allocator step table drift"
 python3 scripts/draft_f1_arms.py | tail -1 | grep -q "; 0 steps need" || fail "F1 arm steps without a site class"
 # boot traces to luaV_execute (re-traced on the emulator, ~25 s): the runtime
@@ -184,6 +185,21 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.sim_ADD
 #print axioms Lua.Vm.Sim.Kit.sim_MUL
 #print axioms Lua.Vm.Sim.Kit.sim_MOD
+#print axioms Lua.Vm.Sim.clzdi2_sum
+#print axioms Lua.Vm.Fn.Floatsidf.sum
+#print axioms Lua.Vm.Fn.Floatdidf.sum
+#print axioms Lua.Vm.Fn.Fixdfdi.sum
+#print axioms Lua.Vm.Fn.Eqdf2.sum
+#print axioms Lua.Vm.Fn.Ledf2.sum
+#print axioms Lua.Vm.Fn.Gedf2.sum
+#print axioms Lua.Vm.Fn.Adddf3.sum
+#print axioms Lua.Vm.Fn.Subdf3.sum
+#print axioms Lua.Vm.Sim.At.sim_LOADF_flt
+#print axioms Lua.Vm.Sim.At.sim_LTI_flt
+#print axioms Lua.Vm.Sim.At.sim_EQI_flt
+#print axioms Lua.Vm.Sim.At.sim_GEI_flt
+#print axioms Lua.Vm.Sim.At.sim_ADDI_flt
+#print axioms Lua.Vm.Sim.At.sim_FORLOOP_flt
 #print axioms Lua.Vm.Sim.Kit.sim_MULK
 #print axioms Lua.Vm.Sim.Kit.sim_MODK
 #print axioms Lua.Vm.Sim.Kit.sim_div

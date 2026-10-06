@@ -84,7 +84,11 @@ open Lua.Vm.Fn
 specification (`Lua.Vm.Fn.<R>.S`). Supplied by level 2; a field leaves this
 structure when its equation is proved. -/
 structure SoftFloatSpec : Prop where
-  floatsidf : ∀ m s r x, FnSp s 32 → Floatsidf.F m s r x = Floatsidf.S x
+  /-- on a canonical `int` argument (the upper word the low word's sign, as
+  RV64 keeps a 32-bit value): `__floatsidf` tests all of `a0` for zero, so a
+  zero low word under a nonzero upper word is not `0.0` (`SpecTest.lean`). -/
+  floatsidf : ∀ m s r x, FnSp s 32 → (x.setWidth 32).signExtend 64 = x →
+    Floatsidf.F m s r x = Floatsidf.S x
   floatdidf : ∀ m s r x, FnSp s 32 → Floatdidf.F m s r x = Floatdidf.S x
   fixdfdi : ∀ x, Fixdfdi.F x = Fixdfdi.S x
   eqdf2 : ∀ a b, Eqdf2.F a b = Eqdf2.S a b
@@ -100,8 +104,21 @@ open Lua.Num
 
 open Lua.Vm.Sim
 
-theorem Floatsidf.spec (hsf : SoftFloatSpec) (m : Mem) (s : Nat) (r x : BitVec 64) (hs : FnSp s 32) :
-    Floatsidf.F m s r x = Floatsidf.S x := hsf.floatsidf m s r x hs
+theorem Floatsidf.spec (hsf : SoftFloatSpec) (m : Mem) (s : Nat) (r x : BitVec 64) (hs : FnSp s 32)
+    (hx : (x.setWidth 32).signExtend 64 = x) :
+    Floatsidf.F m s r x = Floatsidf.S x := hsf.floatsidf m s r x hs hx
+
+/-- A sign-extended word is a canonical `int` argument. -/
+theorem sext32_canon (y : BitVec 32) :
+    ((LeanRV64DExecutable.Functions.sign_extend (m := 64) y).setWidth 32).signExtend 64 =
+      LeanRV64DExecutable.Functions.sign_extend (m := 64) y := by
+  have e : (LeanRV64DExecutable.Functions.sign_extend (m := 64) y).setWidth 32 = y := by
+    simp only [LeanRV64DExecutable.Functions.sign_extend, Sail.BitVec.signExtend]
+    apply BitVec.eq_of_getLsbD_eq
+    intro i hi
+    simp [BitVec.getLsbD_signExtend, hi]
+    intro; omega
+  rw [e]; rfl
 theorem Floatdidf.spec (hsf : SoftFloatSpec) (m : Mem) (s : Nat) (r x : BitVec 64) (hs : FnSp s 32) :
     Floatdidf.F m s r x = Floatdidf.S x := hsf.floatdidf m s r x hs
 theorem Fixdfdi.spec (hsf : SoftFloatSpec) (x : BitVec 64) : Fixdfdi.F x = Fixdfdi.S x := hsf.fixdfdi x

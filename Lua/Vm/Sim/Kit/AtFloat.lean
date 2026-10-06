@@ -111,4 +111,9 @@ macro "at_fsite_eq" : tactic => `(tactic| (
 
 macro_rules | `(tactic| at_eq_ext) => `(tactic| at_fsite_eq)
 
+/-- `__floatsidf`'s argument at a call site is canonical: a 32-bit result
+(`addw`, `addiw`) sign-extended (`Lua.Vm.Fn.sext32_canon`). -/
+macro "at_sext" : tactic => `(tactic|
+  first | exact Lua.Vm.Fn.sext32_canon _ | (simp only [Loc.den]; exact Lua.Vm.Fn.sext32_canon _))
+
 end Lua.Vm.Sim.At

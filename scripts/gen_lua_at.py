@@ -813,7 +813,8 @@ class Arm:
                            f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {xs}\n")
                 out.append(f"@[at_fspec] theorem f{k}_eq (hsf : SoftFloatSpec) (X : Cx) (hX : X.Ok) :\n"
                            f"    f{k} X = Lua.Vm.Fn.{mod}.S {xs} :=\n"
-                           f"  Lua.Vm.Fn.{mod}.spec hsf _ _ _ {' '.join(['_'] * len(args))} (at_fnSp hX)\n")
+                           f"  Lua.Vm.Fn.{mod}.spec hsf _ _ _ {' '.join(['_'] * len(args))} (at_fnSp hX)"
+                           + (" (by at_sext)" if mod == "Floatsidf" else "") + "\n")
             else:
                 out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
                            f"def f{k} (X : Cx) : BitVec 64 :=\n"
