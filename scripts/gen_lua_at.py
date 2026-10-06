@@ -1950,7 +1950,14 @@ FNS = {
                # the step size `s = min(len, nldist)` (`s3`, X.n 21) chosen: one root, so
                # the copy, write and fill paths are generated once for both minima
                0x80033dbc: dict(name="S", row={**SFV_LOOP_ROW, 19: N((21, 1))},
-                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 23: 1, 24: 1, 21: 1})},
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 23: 1, 24: 1, 21: 1}),
+               # the newline distance after a copy or a write (`s8 -= s3`, `0x80033e00`)
+               # and the step's tail (`uio_resid -= s2`, the cursor, `0x80033e0c`): each
+               # reached from several returns, each a root so its paths are generated once
+               0x80033e00: dict(name="N", row={**SFV_LOOP_ROW, 18: N((20, 1)), 19: N((21, 1))},
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 23: 1}),
+               0x80033e0c: dict(name="T", row={**SFV_LOOP_ROW, 10: ("bv", 14), 18: N((20, 1))},
+                                ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 23: 1})},
         doc="`__sfvwrite_r` on the line-buffered `stdout` (the set-up, unbuffered and "
             "fully buffered paths and the error exits are stops)."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
