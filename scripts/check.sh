@@ -489,6 +489,7 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.memmove_sum
 #print axioms Lua.Vm.Sim.Kit.memchr_nl
 #print axioms Lua.Vm.Sim.Kit.mc_hz
+#print axioms Lua.Vm.Sim.Kit.fwrite_stdout_of_sfv
 #print axioms Lua.Num.F64.unpack_eq
 #print axioms Lua.Num.F64.pack_cls
 #print axioms Lua.Num.F64.round_eq_model

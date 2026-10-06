@@ -1769,7 +1769,7 @@ class Fn:
         dropped = "\n".join(f"* `{n}`: {why}" for n, why in sorted(set(self.dropped))) or "(none)"
         roots = "\n".join(f"* `0x{pc:08x}` from `{r}`" for pc, r in self.roots)
         ends = "\n".join(f"* {k}: `{r}`, memory `{m}`" for k, r, m in dict.fromkeys(self.ends))
-        imports = "".join(f"import {m}\n" for m in sorted(self.mods))
+        imports = "".join(f"import {m}\n" for m in sorted(self.mods) + self.spec.get("imports", []))
         ns = f"Lua.Vm.AtF.{self.mod}"
         return f"""import Lua.Vm.Sim.Kit.AtFn
 {imports}
@@ -1817,6 +1817,15 @@ def abi_row(args, sp_atom=0, nb=0):
     for k, r in enumerate([8, 9] + list(range(18, 28))):
         row[r] = ("bv", nb + 1 + k)
     return row
+
+
+def mul_val(a, b):
+    """`__muldi3`'s product in canonical form where one factor is `1`."""
+    if b == ("lit", 1):
+        return a
+    if a == ("lit", 1):
+        return b
+    return ("txt", f"({fv(a)} * {fv(b)})")
 
 
 def N(*ts, add=0):
@@ -1884,6 +1893,21 @@ FNS = {
         stops=[0x80032a04],
         doc="`_fflush_r(_REENT, stdout)`: `CHECK_INIT`, the lock, `__sflush_r`, the "
             "unlock (`__sinit`, `0x80032a04`, is a stop: `StdioUp.init`)."),
+    # `fwrite(src, 1, n, stdout)` → `_fwrite_r`: `__muldi3` (a call that keeps
+    # the memory), the lock no-ops, the uio on its stack, `__sfvwrite_r` (its
+    # summary at the call: `0` returned), the unlock; `n` returned
+    "fwrite": dict(
+        mod="Fwrite", entry=0x800342e4,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 1), 12: N((2, 1)), 13: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e720 + 112 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+            "ra : (X.b 0).toNat % 4 = 0"],
+        cells={(8, IMPURE_PTR): IMPURE_DATA, (2, STDOUT + 16): 0x2889, (4, STDOUT + 176): 0},
+        pure={0x8002f6c8: dict(lemma="Lua.Vm.Sim.Kit.muldi3_sum _ _ _ hframe? _ _ (by decide)",
+                               ret={10: lambda st: mul_val(st.get(10), st.get(11))})},
+        calls={0x80033b50: dict(ret={10: ("lit", 0)})},
+        stops=[0x800342c0], imports=["Lua.Vm.Sim.Kit.Muldi3"],
+        doc="`fwrite(src, 1, n, stdout)` → `_fwrite_r` (`__sinit`, `0x800342c0`, is a "
+            "stop: `StdioUp.init`)."),
     # `__sfvwrite_r(_REENT, stdout, uio)` on the set-up line-buffered `stdout`,
     # one iov (`fwrite`'s): X.n 0 = sp, X.n 1 = uio, X.n 2 = iov, X.n 3 = n,
     # X.n 4 = src; the line-buffered loop's head a root (X.n 7 = bytes left,

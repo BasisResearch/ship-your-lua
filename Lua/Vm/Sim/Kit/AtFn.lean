@@ -209,7 +209,7 @@ elab "fat_rd" loc:(Lean.Parser.Tactic.location)? : tactic => withMainContext do
   evalTactic (← `(tactic| (
     simp (disch := omega) only [add_imm, imm_neg_add, BitVec.ofNat_add_ofNat,
       BitVec.toNat_ofNat, Nat.add_zero, Vsa.Sim.sext_zero, BitVec.add_zero, Nat.mod_eq_of_lt,
-      sext64_id, fw8_same, fw4_same, fw2_same, fw1_same,
+      sext64_id, BitVec.mul_one, fw8_same, fw4_same, fw2_same, fw1_same,
       fw1_wm8, fw1_wm4, fw1_wm2, fw1_ins, fw2_wm8, fw2_wm4, fw2_wm2, fw2_ins,
       fw4_wm8, fw4_wm4, fw4_wm2, fw4_ins, fw8_wm8, fw8_wm4, fw8_wm2, fw8_ins, $facts,*] $[$loc]?)))
 
@@ -422,6 +422,16 @@ def fatRunArgs (n : Name) : TermElabM (Array Term) := do
       else args := args.push (← `(_))
     return args
 
+/-- The literal return address (`ra`'s pin) of a `SegSt` type's row, if any:
+a call at-lemma is named by it (`call_<ret>`). -/
+def segRet (ty : Expr) : MetaM (Option Nat) := do
+  let ty ← instantiateMVars ty
+  let pins ← try listElems ty.getAppArgs[1]! catch _ => return none
+  for p in pins do
+    if p.getAppArgs[2]!.isConstOf ``Register.x1 then
+      if let some ⟨_, r⟩ ← getBitVecValue? (← whnfR p.getAppArgs[3]!) then return some r.toNat
+  return none
+
 /-- The (row, memory) names of a `SegSt pc L (ArmPay M o)` type. -/
 def segKey (ty : Expr) : MetaM (Name × Name) := do
   let ty ← instantiateMVars ty
@@ -456,13 +466,13 @@ elab_rules : tactic
   let mut first := true
   while fuel > 0 do
     fuel := fuel - 1
-    let (pc, key) ← withMainContext do
+    let (pc, key, ret) ← withMainContext do
       let some ld := (← getLCtx).findFromUserName? h.getId | throwError "fat_run: no {h}"
-      return (← segPc ld.type, ← segKey ld.type)
+      return (← segPc ld.type, ← segKey ld.type, ← segRet ld.type)
     let some pc := pc | return
     if !first && stops.contains pc then return
     first := false
-    let cands ← At.atCands ns.getId pc none
+    let cands ← At.atCands ns.getId pc ret
     let mut done := false
     let mut errs : Array MessageData := #[]
     for n in cands do

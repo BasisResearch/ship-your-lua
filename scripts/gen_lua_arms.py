@@ -235,6 +235,11 @@ HELPERS += [("memchr", "Memchr", 0x800360d8, 0x80036198, [22, 26], [], [])]
 # the error exits (`0x80033ea8`, `0x80034008`: the console takes every byte)
 HELPERS += [("__sfvwrite_r", "__sfvwrite_r", 0x80033b50, 0x8003402c, [22, 26], [0x80033df4],
              [0x80033c2c, 0x80033ba8, 0x80033c70, 0x80033ea8, 0x80034008])]
+# lane F1-8: `fwrite` (`j _fwrite_r`) and `_fwrite_r` on the set-up `stdout`
+# (`__sinit`, `0x800342c0`, a stop: `StdioUp`; the wide-orientation and
+# short-write paths are decided by `_flags2 = 0` and `__sfvwrite_r`'s `0`)
+HELPERS += [("fwrite", "Fwrite", 0x800342e4, 0x80034300, [22, 26], [], []),
+            ("_fwrite_r", "_fwrite_r", 0x800340fc, 0x800342e4, [22, 26], [], [0x800342c0])]
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
 # liveness flows through it to the root after it.
@@ -250,7 +255,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__call_exitprocs": set(), "__retarget_lock_acquire_recursive": set(),
            "__retarget_lock_release_recursive": set(), "_exit": set(),
            "_write": {"x10"}, "__swrite": {"x10"}, "_write_r": {"x10"},
-           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}, "memmove": {"x10"}, "_fflush_r": {"x10"}, "memchr": {"x10"}, "__sfvwrite_r": {"x10"}}
+           "__sflush_r": {"x10"}, "luaH_getshortstr": {"x10"}, "fflush": {"x10"}, "memmove": {"x10"}, "_fflush_r": {"x10"}, "memchr": {"x10"}, "__sfvwrite_r": {"x10"}, "fwrite": {"x10"}, "_fwrite_r": {"x10"}}
 
 
 def helper_cfg(lo, hi):
