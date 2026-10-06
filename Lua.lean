@@ -21,6 +21,10 @@ import Lua.Vm.Arms
 import Lua.Vm.Sim
 import Lua.Vm.Sim.Kit
 import Lua.Vm.Sim.Fold
+import Lua.StuckCases
+import Lua.Vm.LayoutErr
+import Lua.Vm.Sim.Stuck
+import Lua.Vm.Sim.StuckErr
 import Lua.Refinement
 import Lua.Ast.Syntax
 import Lua.Ast.Rulebook
@@ -42,6 +46,10 @@ import Lua.Programs.F1bBitsAst
 import Lua.Programs.F4StrliteAst
 import Lua.Programs.F4StrliteSrc
 import Lua.Programs.F1Src
+import Lua.Programs.EscStrflt
+import Lua.Programs.EscForstr
+import Lua.Programs.EscUnmflt
+import Lua.Programs.Escape
 import Lua.Compile.TV
 import Lua.Compile.Corpus
 import Lua.Os.HtifFs

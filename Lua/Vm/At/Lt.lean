@@ -8,7 +8,8 @@ import Lua.Vm.Arms
 The at-lemmas of `OP_LT` (jump-table target `0x8001c894`): its
 generated segments between location-list rows (`Lua/Vm/Sim/Kit/At.lean`),
 each proved in its own declaration, for every path to the fetch head through
-summarised calls. Paths not followed:
+summarised calls, and to the entry of an error exit (`luaG_runerror`, …).
+Paths not followed:
 
 * `seg_8001c8e8_8001c8f8`: call to 0x800196c4
 * `seg_8001ead8_8001eae0`: call to 0x8002f200

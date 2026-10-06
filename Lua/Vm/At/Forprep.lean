@@ -7,7 +7,8 @@ import Lua.Vm.Arms
 The at-lemmas of `OP_FORPREP` (jump-table target `0x8001c0f8`): its
 generated segments between location-list rows (`Lua/Vm/Sim/Kit/At.lean`),
 each proved in its own declaration, for every path to the fetch head through
-summarised calls. Paths not followed:
+summarised calls, and to the entry of an error exit (`luaG_runerror`, …).
+Paths not followed:
 
 * `seg_8001c154_8001c160_t`: infeasible
 * `seg_8001c16c_8001c180`: call to 0x8002e350
@@ -16,7 +17,6 @@ summarised calls. Paths not followed:
 * `seg_8001e2d8_8001e2ec`: call to 0x8001ab58
 * `seg_8001e310_8001e320`: call to 0x8001ab58
 * `seg_8001f9b4_8001f9bc_n`: infeasible
-* `seg_8001fdf0_8001fe00`: instruction auipc a1,0x30
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -386,6 +386,22 @@ namespace Lua.Vm.At.FORPREP
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.nat ⟨[(1, .base), (16, .a)], 16, 0⟩))⟩]
 
+@[at_row] abbrev r21 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fe00#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X .L)⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.nat ⟨[(1, .base), (16, .a)], 16, 0⟩))⟩]
+
 @[at_row] abbrev m0 : List Ent :=
   [.sd ⟨[(1, .L)], 16, 0⟩ (.cell ⟨[(1, .ci)], 8, 0⟩),
    .sd ⟨[(1, .ci)], 32, 0⟩ (.pc 1)]
@@ -606,5 +622,17 @@ theorem fin_3 (X : Cx) (hX : X.Ok) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) {c :
     (h : At X 0x8001bfe4#64 (r9 X) m5 c) :
     AtFin X m5 [⟨.a, 3, (.lit (BitVec.ofNat 64 vNumInt)), (.val .a 0)⟩] (X.s.pc + X.ins.bx + 2) c := by
   at_fin
+
+theorem at_8001e1cc_8001e1d4_n (X : Cx) (hX : X.Ok) (hs_a2 : X.ins.a + 2 < X.p.maxstacksize) (hg_2 : ((Loc.den X (.val .a 2)) != (Loc.den X (.lit 0x0#64))) = false) :
+    AtStep X 0x8001e1cc#64 (r2 X) m0 0x8001e1d4#64 (r3 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001e1cc_8001e1d4_n
+
+theorem at_8001e1d4_8001e1d8 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001e1d4#64 (r3 X) m0 0x8001fdf0#64 (r20 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001e1d4_8001e1d8
+
+theorem at_8001fdf0_8001fe00 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fdf0#64 (r20 X) m0 0x800092cc#64 (r21 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001fdf0_8001fe00
 
 end Lua.Vm.At.FORPREP

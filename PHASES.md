@@ -28,7 +28,9 @@ Every row is currently unassigned.
 | `VmSim luaLayout` (F1: `term_sim`, `stuck_sim`) | `Lua/Vm/Sim/` | A1 | open, **reduced to named premises**: `vm_refinement_of_open' : OpenArms → StuckSim → vm_refinement_Statement luaLayout` (`Lua/Vm/Sim/Fold.lean`; lane F1-3's fold, `FinalSim` discharged by lane F1-4's `finalSim`). Discharged inside it: the entry (`entrySim`), `VARARGPREP` (`Kit.varargSim`) and the 34 proved arms (`armTable`: the 25 generated `sim_<OP>`, `Kit.sim_{MUL,MULK,MOD,LOADNIL,EQ,LT}`, `At.sim_{MODK,IDIV,FORPREP}`). Left: the 18 fields of `OpenArms` (GETTABUP, SHL, SHR, SHRI, SHLI, IDIVK, BANDK, BORK, BXORK, MMBIN, MMBINI, MMBINK, UNM, LEN, CONCAT, CALL, and the open paths of EQK (two long strings) and LE (two strings)), and `StuckSim` (row below) |
 | `vmRel_final_Statement` / `FinalSim` (the `RETURN*` arms: from `VmRel` at a `Final` state the machine halts with code 0 and console `s.out`) | `Lua/Vm/Sim/Kit/Ret*.lean`, `Lua/Vm/Sim/Kit/Exit.lean`, `Lua/Vm/Sim/Fold.lean` | A1 | **proved** (lane F1-4): `Ret.vmRel_final` (no `Reach`, no `Supported` needed; every `RETURN`/`RETURN0`/`RETURN1`, any operands), `finalSim`. The `exit(0)` at its end is `Complement.exit` (`ExitOk`): proved at the entry and after `VARARGPREP` (`exitOk_entry`: no `atexit`, no stdio exit handler); **an arm that changes the complement must re-establish it** — after a `print`, newlib's `stdio_exit_handler` runs `_fwalk_sglue(_fclose_r)` over the standard streams (`__sflush_r`, htif `_close`, `_free_r` of the buffer), so `OpenArms.CALL` now carries the post-print `exit` |
 | `vmRel_entry_Statement` (the prologue run from `VmLoaded luaLayout` to `VmRel … State.init`) | `Lua/Vm/Sim/Rel.lean` | A1 | **proved** (`vmRel_entry`, `Lua/Vm/Sim/Entry.lean`) |
-| `StuckSim` (`stuck_sim`'s error paths: from `VmRel` at a reachable state that is neither final nor stepping, the machine diverges or halts nonzero) | `Lua/Vm/Sim/Fold.lean` | A1 | open: `luaG_opinterror`/`luaG_forerror`/`luaG_typeerror`/`luaG_ordererror`/the `MMBIN*` miss/a non-`print` call → `luaD_throw` → `longjmp` (`ErrorJmpAt`) → `lua_pcallk` → `main` returns 2 → `exit` |
+| `StuckSim` (`stuck_sim`'s error paths: from `VmRel` at a reachable state that is neither final nor stepping, the machine diverges or halts nonzero) | `Lua/Vm/Sim/Fold.lean`, `Lua/StuckCases.lean`, `Lua/Vm/Sim/{Stuck,StuckErr}.lean` | A1 | **false as stated** (lane F1-5, `abstractions/ledger/f1-lane-5.md`): the stuck states are enumerated (`stuck_cases`: every reachable stuck non-final state is a `StuckAt` with a failing `Fault`; `reach_regs`, `opKernel_wf`, `body_fault`), and three of the faults are not Lua errors (`Fault.Escape`: string arithmetic to a float, a numeral string in a `for`, `-"1.5"`; `OP_FORLOOP` on a non-integer internal register). `Lua/Programs/Escape.lean`: three `Supported` `luac` programs stuck in `BcSem` (`esc*_noBcSem`, `escStrflt_escapes`) whose ELF exits 0 on the Sail model (`c/tests/stuck/`, difftest); `esc*_obstruction` derives from `vm_refinement_Statement luaLayout` that it never does. Replaced by `StuckSimNE` (under `NoEscape`), proved from `ErrorSim` (`stuckSimNE_of_error`), and Layer A without escapes `vm_refinement_ne_of_rest : OpenArms → FinalSim → ErrorSimRest → vm_refinement_ne_Statement` |
+| `ErrorSimRest` (the error sites: from `VmRel` at a non-escaping stuck state, `StuckOut`) | `Lua/Vm/Sim/StuckErr.lean` | A1 | open, one field per raising C function (`ErrSite`). `luaG_runerror`'s states (`n%0`, `n//0` of MOD/IDIV/MODK/IDIVK, `'for' step is zero`) are reduced to its throw obligation `ThrowFrom symLuaGRunerror` (`runerrorSim`; the arm paths `At.{mod,idiv,modk,idivk,forprep}_err` on the at-lemma route). Open: `ThrowFrom symLuaGRunerror` (`luaO_pushvfstring`, `luaG_addinfo`, `luaG_errormsg` → `luaD_throw` → `longjmp` → `lua_pcallk` → `main`'s `fprintf(stderr)` → `exit(2)`: string creation and the heap, as `CONCAT`), and the sites reached through helpers that may return (`opinterror`/`tointerror`/`strarith` via `luaT_trybinTM`, `typeerror` via `luaV_objlen`, `ordererror` via `luaT_callorderTM`, `concaterror` via `luaV_concat`, `forerror` via `luaV_tonumber_`, `callerror` via `luaD_precall`) |
+| `NoEscape` hypothesis of Layer A, or a semantics with floats | `Lua/StuckCases.lean`, `Lua/Bytecode/Semantics.lean` | A1/Float | open: `vm_refinement_ne_Statement` assumes `NoEscape p` (no reachable stuck state escapes). Removing it needs `δ` to model what Lua does at the escapes: floats (`Fragment.Float`), the numeral recogniser `l_str2d`, the coerced `for` limit, and a stuck `FORLOOP` (or `Supported` rejecting writes to a loop's internal registers) |
 | `sim_{MOD,MODK,IDIV,IDIVK,EQ,EQK}_Statement` (`SimArm o`, `sim_ADD`'s shape; the round-3 bake-off targets) | `Lua/Vm/Sim/Rel.lean` | A1 | `sim_MOD_Statement` proved on the KIT branch (`Lua.Vm.Sim.Kit.sim_MOD`, with `sim_MUL`); `sim_MODK_Statement` proved (`Kit.sim_MODK`, with `Kit.sim_MULK`; kit lane 1, `abstractions/ledger/kit-arms-1.md`); `sim_EQ_Statement` proved (`Kit.sim_EQ`: `Kit.eq_long` closes `Kit.sim_EQ_of_long` through `luaS_eqlngstr`/`memcmp` summaries on BASE-S's owned strings; round-4 S-SCAN, `abstractions/bakeoff4/S-SCAN.md`); `sim_EQK_Statement` proved (`At.sim_EQK`, `Lua/Vm/Sim/Kit/AtStr.lean`: `Kit.eqk_short`, and the two-long-string path on the location-list route through the call node `At.lngeq_sum` over `Kit.eqo_long_ex`, `luaV_equalobj`'s exact return memory; lane F1-2, `abstractions/ledger/f1-lane-2.md`); the others open |
 | `SimArm .LT`, `SimArm .LE` on two strings (the premise of `Kit.sim_LT_of_str`, `Kit.sim_LE_of_str`; integers and the stuck cases proved: `lt_int`, `lt_stuck`, `le_int`, `le_stuck`) | `Lua/Vm/Sim/Kit/{Lt,Le,AtStr}.lean` | A1 | **proved** on the location-list route (`At.sim_LT`, `At.sim_LE`; lane F1-2): the call node `At.lstr_sum` (`Kit.lstrcmp_sum`, now with the observation `Kit.LsObs`: zero iff equal, a sign-extended answer, `LsObs.le` for `slti 1`) fused with its observing instruction (`At.obs_lt`, `At.obs_le`), `docondjump` in the generated at-lemmas (`Lua/Vm/At/{Lt,Le}.lean`); `lt_str_take` costs 14k heartbeats (the kit's 200.3k; the kit's `LtStr` is retired) |
 | `SimArm .LEN` (a string `R[B]`; `δ .len` has no other F1 value) | `Lua/Vm/Sim/Kit/{Objlen,AtStr}.lean` | A1 | **proved** (`At.sim_LEN`; lane F1-2): `luaV_objlen`'s string summary `Kit.objlen_sum` (exact memory `olMem`), the call node `At.len_sum`, the arm's segments emitted apart (`gen_lua_arms.py` `EXTRA_ARMS`), `Lua/Vm/At/Len.lean` |
@@ -525,7 +527,8 @@ covers the new stages.
       evolving in the complement, the `trap` reload; `GETTABUP` (the
       `_ENV.print` lookup) is its companion, blocked as its obligation row
       says (the walk to the `print` node, the closure in the relation);
-    * the error paths (`StuckSim`, Obligations).
+    * the error paths (`StuckSim` is false; `ErrorSimRest` and `NoEscape`,
+      Obligations).
   * **`FinalSim` (proved, lane F1-4, `Lua/Vm/Sim/Kit/Ret*.lean`, `Kit/Exit.lean`).**
     * The relation keeps what the return reads: `Core.saved` (`SavedAt`,
       `luaV_execute`'s saved `ra`, `s0 = L`, `s1 … s11` at `72…175(sp)`; the
@@ -551,6 +554,27 @@ covers the new stages.
       `_exit`) and `exit_halt` (the `tohost` store, `stepOnce_tohost_G`).
     * Boot contract additions (checked by the witnesses): `StdioBoot.atexit`,
       `RuntimeReadyAt.callerL`, `CStackAt.s0`/`saved`.
+  * **The stuck clause (lane F1-5, `Lua/StuckCases.lean`,
+    `Lua/Vm/Sim/{Stuck,StuckErr}.lean`, `Lua/Vm/Sim/Kit/AtErr.lean`).**
+    * `stuck_cases` enumerates the reachable stuck non-final states of a
+      `Supported` program from the kernel table: the read ports are defined
+      (`reach_regs`, from `Kernel.Wf`, one lemma per combinator, `opKernel_wf`),
+      so the body fails, and only at a `Fault` (`body_fault`: `n%0`/`n//0`,
+      `MMBIN*`'s `δ (.tm o)`, `UNM`, `BNOT`, `LEN`, `CONCAT`, the order tests,
+      `FORPREP`, `FORLOOP`, `CALL`; MOVE, the loads, GETTABUP, JMP, EQ*, TEST*,
+      NOT, LOADNIL, VARARGPREP never get stuck).
+    * `Fault.Escape` (a conservative superset) is where Lua 5.4.7 continues
+      instead of raising: `StuckSim` and `vm_refinement_Statement luaLayout` are
+      false there (`Lua/Programs/Escape.lean`, `c/tests/stuck/`). `Fault.site`
+      names the C function that raises each other fault (`ErrSite`).
+    * `ErrorSim` (one `ErrorSimAt` per site) gives `StuckSimNE`, and the fold
+      (`foldSim_of_arms`, now shared by `vmSim_of_arms`) gives
+      `vm_refinement_ne_of_open`/`_of_rest`.
+    * Error paths on the at-lemma route: `gen_lua_at.py` walks a path into an
+      error exit (`ERRS`) and `at_run` stops at its entry; an error path is
+      `ArmErr o Q f` by `at_err` (no kernel run: the facts are the machine's).
+      The throw obligation is keyed by the exit's entry pc (`ThrowFrom f`,
+      `Lua/Vm/LayoutErr.lean`).
 * **Exit.** `vm_refinement : vm_refinement_Statement luaLayout` has only
   standard axioms and is listed in check.sh stage 6.
 

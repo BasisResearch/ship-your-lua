@@ -13,9 +13,9 @@ log over the entry memory). A load is resolved against the log by region
 (the regions of `At.lean`'s `rgnOf`): a store in another region is skipped,
 the same address returns the stored location, an overlap stops the walk. A
 branch whose operands are known (constants, or a location the path already
-compared with a constant) takes one polarity. A path ends at the fetch head,
-or is dropped at a call that is not summarised (the float helpers) or does
-not return (the error exits).
+compared with a constant) takes one polarity. A path ends at the fetch head
+or at the entry of an error exit (`ERRS`: `luaG_runerror`, …, which do not
+return), or is dropped at a call that is not summarised (the float helpers).
 
 For each (segment, entry row) visited one at-lemma is emitted:
 
@@ -58,11 +58,19 @@ ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
         "OP_SHR": ("Shr", 0x8001d57c), "OP_SHLI": ("Shli", 0x8001dd30),
         "OP_SHRI": ("Shri", 0x8001dd8c), "OP_BANDK": ("Bandk", 0x8001d710),
         "OP_BORK": ("Bork", 0x8001d6b8), "OP_BXORK": ("Bxork", 0x8001d660), "OP_LE": ("Le", 0x8001c60c), "OP_LT": ("Lt", 0x8001c894),
-        "OP_EQK": ("Eqk", 0x8001c850), "OP_LEN": ("Len", 0x8001dc14)}
+        "OP_EQK": ("Eqk", 0x8001c850), "OP_LEN": ("Len", 0x8001dc14),
+        "OP_MOD": ("Mod", 0x8001dc58)}
 
 # the library modules an arm's at-lemmas need beyond `At`/`Summaries`
 IMPORTS = {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"]}
+
+# the error exits (`l_noret`, `Lua/Vm/Layout.lean`): a path that calls one
+# ends at its entry (`Lua.Vm.Sim.At.ArmErr`, `at_err`)
+ERRS = {0x800092cc: "luaG_runerror", 0x80009438: "luaG_forerror",
+        0x80009414: "luaG_opinterror", 0x80009468: "luaG_tointerror",
+        0x80009398: "luaG_typeerror", 0x800094c0: "luaG_ordererror",
+        0x800093e4: "luaG_concaterror", 0x80009530: "luaG_callerror"}
 
 ABI = {"zero": 0, "ra": 1, "sp": 2, "gp": 3, "tp": 4, "t0": 5, "t1": 6, "t2": 7,
        "s0": 8, "fp": 8, "s1": 9}
@@ -365,6 +373,9 @@ def step(st, raw):
         st.store(mnem, terms, add, st.get(R(o[0])))
     elif mnem == "li":
         st.set(R(o[0]), ("lit", imm(o[1]) & M64))
+    elif mnem == "auipc":
+        # a pc-relative address (an error message): not kept in the row
+        st.set(R(o[0]), ("opaque",))
     elif mnem == "mv":
         st.set(R(o[0]), st.get(R(o[1])))
     elif mnem == "addi":
@@ -783,9 +794,11 @@ class Arm:
                         step(st2, raw)
                 # the row after the segment: the segment's post registers
                 st2.regs = {r: v for r, v in st2.regs.items() if r in post and printable(v)}
-                if callee is not None and callee not in CALLS:
+                if callee is not None and callee not in CALLS and callee not in ERRS:
                     raise Stop(f"call to 0x{callee:x}")
-                if callee is not None:
+                if callee in ERRS:
+                    rest = []
+                elif callee is not None:
                     rest = self.walk_call(callee, hi, st2, depth)
                 else:
                     rest = self.walk(nxt, st2, depth + 1)
@@ -914,7 +927,8 @@ import Lua.Vm.Sim.Kit.Summaries
 The at-lemmas of `{self.op}` (jump-table target `0x{self.target:08x}`): its
 generated segments between location-list rows (`Lua/Vm/Sim/Kit/At.lean`),
 each proved in its own declaration, for every path to the fetch head through
-summarised calls. Paths not followed:
+summarised calls, and to the entry of an error exit (`luaG_runerror`, …).
+Paths not followed:
 
 {dropped}
 -/

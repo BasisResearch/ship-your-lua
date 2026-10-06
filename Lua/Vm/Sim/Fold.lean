@@ -286,23 +286,36 @@ theorem foldRel_of_step {p : Proto} (hS : Supported p) {c : Config} {s s' : Stat
   let ⟨c', n, hn, hN, hR⟩ := h
   ⟨c', n, hn, hN, hR, fun h0 => absurd h0 (Nat.pos_iff_ne_zero.1 (hS.defInit.pc_pos st))⟩
 
+/-- **The fold's clauses for one program**, from the arms, `VARARGPREP`, the
+final clause and a stuck clause for that program. -/
+theorem foldSim_of_arms (arms : ∀ o ∈ armOps, SimArm o) (vararg : VarargSim) (final : FinalSim)
+    {p : Proto} (hS : Supported p)
+    (stuck : ∀ c s, Reach p s → VmRel p c s → ¬ Final p s → Stuck p s → StuckOut c) :
+    FoldSim p (FoldRel p) := by
+  refine ⟨fun c s s' hs ⟨hR, hE⟩ st => ?_, fun c s hs hR hf => final p c s hS hs hR.1 hf,
+    fun c s hs hR hnf hno => stuck c s hs hR.1 hnf hno⟩
+  obtain ⟨ins, o, ho⟩ := stepOp st
+  by_cases hv : o = .VARARGPREP
+  · subst hv
+    have h0 := ho.vararg rfl
+    obtain rfl := reach_pc_zero hS hs h0
+    obtain ⟨w, hRw, hF⟩ := hE h0
+    exact foldRel_of_step hS st (vararg hS hRw hF ho.fetch ho.op st)
+  · exact foldRel_of_step hS st
+      (arms o ((List.mem_erase_of_ne hv).2 ho.mem) hS hR ho.fetch ho.op st)
+
+/-- The entry run of the fold. -/
+theorem foldRel_entry (entry : EntrySim) {p : Proto} {c : Config} (hS : Supported p)
+    (hL : VmLoaded luaLayout p c) : Reaches (FoldRel p) c State.init :=
+  let ⟨c', hc, w, hR, hF⟩ := entry p c hS hL
+  ⟨c', hc, ⟨w, hR⟩, fun _ => ⟨w, hR, hF⟩⟩
+
 /-- **`VmSim` from the arms** (the fold). -/
 theorem vmSim_of_arms (arms : ∀ o ∈ armOps, SimArm o) (entry : EntrySim) (vararg : VarargSim)
-    (final : FinalSim) (stuck : StuckSim) : VmSim luaLayout := by
-  refine fold_sim (R := FoldRel) (fun p c ⟨hS, hL⟩ => ?_) (fun p c ⟨hS, _⟩ => ?_)
-  · obtain ⟨c', hc, w, hR, hF⟩ := entry p c hS hL
-    exact ⟨c', hc, ⟨w, hR⟩, fun _ => ⟨w, hR, hF⟩⟩
-  · refine ⟨fun c s s' hs ⟨hR, hE⟩ st => ?_, fun c s hs hR hf => final p c s hS hs hR.1 hf,
-      fun c s hs hR hnf hno => stuck p c s hS hs hR.1 hnf hno⟩
-    obtain ⟨ins, o, ho⟩ := stepOp st
-    by_cases hv : o = .VARARGPREP
-    · subst hv
-      have h0 := ho.vararg rfl
-      obtain rfl := reach_pc_zero hS hs h0
-      obtain ⟨w, hRw, hF⟩ := hE h0
-      exact foldRel_of_step hS st (vararg hS hRw hF ho.fetch ho.op st)
-    · exact foldRel_of_step hS st
-        (arms o ((List.mem_erase_of_ne hv).2 ho.mem) hS hR ho.fetch ho.op st)
+    (final : FinalSim) (stuck : StuckSim) : VmSim luaLayout :=
+  fold_sim (R := FoldRel) (fun _ _ ⟨hS, hL⟩ => foldRel_entry entry hS hL)
+    (fun p _ ⟨hS, _⟩ => foldSim_of_arms arms vararg final hS fun c s hs hR hnf hno =>
+      stuck p c s hS hs hR hnf hno)
 
 
 /-! ## The arm table -/

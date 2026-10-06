@@ -7,12 +7,12 @@ import Lua.Vm.Arms
 The at-lemmas of `OP_IDIV` (jump-table target `0x8001deac`): its
 generated segments between location-list rows (`Lua/Vm/Sim/Kit/At.lean`),
 each proved in its own declaration, for every path to the fetch head through
-summarised calls. Paths not followed:
+summarised calls, and to the entry of an error exit (`luaG_runerror`, …).
+Paths not followed:
 
 * `seg_8001df08_8001df10`: call to 0x8002f200
 * `seg_8001e890_8001e898`: call to 0x8002f200
 * `seg_8001e8a0_8001e8ac`: call to 0x8002de30
-* `seg_8001fdc8_8001fdd8`: instruction auipc a1,0x30
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -152,13 +152,43 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x19, (Loc.den X (.val .b 0))⟩,
    ⟨Register.x20, (Loc.den X (.val .c 0))⟩,
    ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
-   ⟨Register.x22, (Loc.den X (.nat ⟨[(1, .base), (16, .a)], 0, 0⟩))⟩,
    ⟨Register.x23, (Loc.den X .ci)⟩,
    ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
 @[at_row] abbrev r8 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fdd8#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X .L)⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x20, (Loc.den X (.val .c 0))⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r9 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x20, (Loc.den X (.val .c 0))⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.nat ⟨[(1, .base), (16, .a)], 0, 0⟩))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r10 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -174,7 +204,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.sub (.lit 0x0#64) (.val .b 0)))⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r9 (X : Cx) : List Pin :=
+@[at_row] abbrev r11 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -191,7 +221,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.sub (.lit 0x0#64) (.val .b 0)))⟩,
    ⟨Register.x27, (Loc.den X (.pc 2))⟩]
 
-@[at_row] abbrev r10 (X : Cx) : List Pin :=
+@[at_row] abbrev r12 (X : Cx) : List Pin :=
   [⟨Register.x1, (Loc.den X (.lit 0x8001f740#64))⟩,
    ⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
@@ -209,7 +239,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r11 (X : Cx) : List Pin :=
+@[at_row] abbrev r13 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -225,7 +255,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r12 (X : Cx) : List Pin :=
+@[at_row] abbrev r14 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -243,7 +273,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.sdiv (.val .b 0) (.val .c 0)))⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r13 (X : Cx) : List Pin :=
+@[at_row] abbrev r15 (X : Cx) : List Pin :=
   [⟨Register.x1, (Loc.den X (.lit 0x8001f968#64))⟩,
    ⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
@@ -262,7 +292,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.sdiv (.val .b 0) (.val .c 0)))⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r14 (X : Cx) : List Pin :=
+@[at_row] abbrev r16 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -279,7 +309,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.sdiv (.val .b 0) (.val .c 0)))⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r15 (X : Cx) : List Pin :=
+@[at_row] abbrev r17 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -297,7 +327,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.sub (.sdiv (.val .b 0) (.val .c 0)) (.snez (.srem (.val .b 0) (.val .c 0)))))⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r16 (X : Cx) : List Pin :=
+@[at_row] abbrev r18 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -314,7 +344,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.sub (.sdiv (.val .b 0) (.val .c 0)) (.snez (.srem (.val .b 0) (.val .c 0)))))⟩,
    ⟨Register.x27, (Loc.den X (.pc 2))⟩]
 
-@[at_row] abbrev r17 (X : Cx) : List Pin :=
+@[at_row] abbrev r19 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -331,7 +361,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.sdiv (.val .b 0) (.val .c 0)))⟩,
    ⟨Register.x27, (Loc.den X (.pc 2))⟩]
 
-@[at_row] abbrev r18 (X : Cx) : List Pin :=
+@[at_row] abbrev r20 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -349,7 +379,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.nat ⟨[(1, .base), (16, .c)], 0, 0⟩))⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r19 (X : Cx) : List Pin :=
+@[at_row] abbrev r21 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -367,7 +397,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x26, (Loc.den X (.nat ⟨[(1, .base), (16, .c)], 0, 0⟩))⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r20 (X : Cx) : List Pin :=
+@[at_row] abbrev r22 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -382,7 +412,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r21 (X : Cx) : List Pin :=
+@[at_row] abbrev r23 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -396,7 +426,7 @@ namespace Lua.Vm.At.IDIV
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 1))⟩]
 
-@[at_row] abbrev r22 (X : Cx) : List Pin :=
+@[at_row] abbrev r24 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -467,20 +497,28 @@ theorem at_8001f720_8001f734_t (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.m
     AtStep X 0x8001f720#64 (r5 X) m0 0x8001fdbc#64 (r6 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001f720_8001f734_t
 
+theorem at_8001fdbc_8001fdc0_t (X : Cx) (hX : X.Ok) (hg_1 : ((Loc.den X (.val .c 0)) == (Loc.den X (.lit 0x0#64))) = true) :
+    AtStep X 0x8001fdbc#64 (r6 X) m0 0x8001fdc8#64 (r7 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001fdbc_8001fdc0_t
+
+theorem at_8001fdc8_8001fdd8 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fdc8#64 (r7 X) m0 0x800092cc#64 (r8 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001fdc8_8001fdd8
+
 theorem at_8001fdbc_8001fdc0_n (X : Cx) (hX : X.Ok) (hg_1 : ((Loc.den X (.val .c 0)) == (Loc.den X (.lit 0x0#64))) = false) :
-    AtStep X 0x8001fdbc#64 (r6 X) m0 0x8001fdc0#64 (r7 X) m0 := by
+    AtStep X 0x8001fdbc#64 (r6 X) m0 0x8001fdc0#64 (r9 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001fdbc_8001fdc0_n
 
 theorem at_8001fdc0_8001fdc8 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001fdc0#64 (r7 X) m0 0x8001f74c#64 (r8 X) m0 := by
+    AtStep X 0x8001fdc0#64 (r9 X) m0 0x8001f74c#64 (r10 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001fdc0_8001fdc8
 
 theorem at_8001f74c_8001f760 (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) :
-    AtStep X 0x8001f74c#64 (r8 X) m0 0x8001bfe4#64 (r9 X) m1 := by
+    AtStep X 0x8001f74c#64 (r10 X) m0 0x8001bfe4#64 (r11 X) m1 := by
   at_seg Lua.Vm.Arms.seg_8001f74c_8001f760
 
 theorem fin_1 (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) {c : Config}
-    (h : At X 0x8001bfe4#64 (r9 X) m1 c) :
+    (h : At X 0x8001bfe4#64 (r11 X) m1 c) :
     AtFin X m1 [⟨.a, 0, (.lit 0x3#64), (.sub (.lit 0x0#64) (.val .b 0))⟩] (X.s.pc + 2) c := by
   at_fin
 
@@ -489,51 +527,51 @@ theorem at_8001f720_8001f734_n (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.m
   at_seg Lua.Vm.Arms.seg_8001f720_8001f734_n
 
 theorem at_8001f734_8001f740 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001f734#64 (r6 X) m0 0x8002f72c#64 (r10 X) m0 := by
+    AtStep X 0x8001f734#64 (r6 X) m0 0x8002f72c#64 (r12 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001f734_8001f740
 
 theorem call_8001f740 (X : Cx) (hX : X.Ok) (hn : (Loc.den X (.val .c 0)) ≠ 0#64) :
-    AtStep X 0x8002f72c#64 (r10 X) m0 0x8001f740#64 (r11 X) m0 := by
+    AtStep X 0x8002f72c#64 (r12 X) m0 0x8001f740#64 (r13 X) m0 := by
   at_open
   obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin26 h
   at_call (Lua.Vm.Sim.Kit.divdi3_sum _ _ _ hframe? _ _ (by at_unfold at hn; exact hn) (by decide))
 
 theorem at_8001f740_8001f74c_t (X : Cx) (hX : X.Ok) (hg_3 : zopz0zI_s (Loc.den X (.xor (.val .b 0) (.val .c 0))) (Loc.den X (.lit 0x0#64)) = true) :
-    AtStep X 0x8001f740#64 (r11 X) m0 0x8001f95c#64 (r12 X) m0 := by
+    AtStep X 0x8001f740#64 (r13 X) m0 0x8001f95c#64 (r14 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001f740_8001f74c_t
 
 theorem at_8001f95c_8001f968 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001f95c#64 (r12 X) m0 0x8002f7b0#64 (r13 X) m0 := by
+    AtStep X 0x8001f95c#64 (r14 X) m0 0x8002f7b0#64 (r15 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001f95c_8001f968
 
 theorem call_8001f968 (X : Cx) (hX : X.Ok) (hn : (Loc.den X (.val .c 0)) ≠ 0#64) :
-    AtStep X 0x8002f7b0#64 (r13 X) m0 0x8001f968#64 (r14 X) m0 := by
+    AtStep X 0x8002f7b0#64 (r15 X) m0 0x8001f968#64 (r16 X) m0 := by
   at_open
   at_call (Lua.Vm.Sim.Kit.moddi3_sum _ _ _ hframe? _ _ (by at_unfold at hn; exact hn) (by decide))
 
 theorem at_8001f968_8001f974 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001f968#64 (r14 X) m0 0x8001f74c#64 (r15 X) m0 := by
+    AtStep X 0x8001f968#64 (r16 X) m0 0x8001f74c#64 (r17 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001f968_8001f974
 
 theorem at_8001f74c_8001f760_1 (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) :
-    AtStep X 0x8001f74c#64 (r15 X) m0 0x8001bfe4#64 (r16 X) m2 := by
+    AtStep X 0x8001f74c#64 (r17 X) m0 0x8001bfe4#64 (r18 X) m2 := by
   at_seg Lua.Vm.Arms.seg_8001f74c_8001f760
 
 theorem fin_2 (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) {c : Config}
-    (h : At X 0x8001bfe4#64 (r16 X) m2 c) :
+    (h : At X 0x8001bfe4#64 (r18 X) m2 c) :
     AtFin X m2 [⟨.a, 0, (.lit 0x3#64), (.sub (.sdiv (.val .b 0) (.val .c 0)) (.snez (.srem (.val .b 0) (.val .c 0))))⟩] (X.s.pc + 2) c := by
   at_fin
 
 theorem at_8001f740_8001f74c_n (X : Cx) (hX : X.Ok) (hg_3 : zopz0zI_s (Loc.den X (.xor (.val .b 0) (.val .c 0))) (Loc.den X (.lit 0x0#64)) = false) :
-    AtStep X 0x8001f740#64 (r11 X) m0 0x8001f74c#64 (r12 X) m0 := by
+    AtStep X 0x8001f740#64 (r13 X) m0 0x8001f74c#64 (r14 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001f740_8001f74c_n
 
 theorem at_8001f74c_8001f760_2 (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) :
-    AtStep X 0x8001f74c#64 (r12 X) m0 0x8001bfe4#64 (r17 X) m3 := by
+    AtStep X 0x8001f74c#64 (r14 X) m0 0x8001bfe4#64 (r19 X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001f74c_8001f760
 
 theorem fin_3 (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) {c : Config}
-    (h : At X 0x8001bfe4#64 (r17 X) m3 c) :
+    (h : At X 0x8001bfe4#64 (r19 X) m3 c) :
     AtFin X m3 [⟨.a, 0, (.lit 0x3#64), (.sdiv (.val .b 0) (.val .c 0))⟩] (X.s.pc + 2) c := by
   at_fin
 
@@ -542,32 +580,32 @@ theorem at_8001deac_8001deec_n (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.m
   at_seg Lua.Vm.Arms.seg_8001deac_8001deec_n
 
 theorem at_8001deec_8001def4_t (X : Cx) (hX : X.Ok) (hg_2 : ((Loc.den X (.tag .b 0)) == (Loc.den X (.lit 0x13#64))) = true) :
-    AtStep X 0x8001deec#64 (r0 X) m0 0x8001def8#64 (r18 X) m0 := by
+    AtStep X 0x8001deec#64 (r0 X) m0 0x8001def8#64 (r20 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001deec_8001def4_t
 
 theorem at_8001def8_8001df04_n (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hs_c0 : X.ins.c + 0 < X.p.maxstacksize) (hg_3 : ((Loc.den X (.tag .c 0)) == (Loc.den X (.tag .b 0))) = false) :
-    AtStep X 0x8001def8#64 (r18 X) m0 0x8001df04#64 (r19 X) m0 := by
+    AtStep X 0x8001def8#64 (r20 X) m0 0x8001df04#64 (r21 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001def8_8001df04_n
 
 theorem at_8001df04_8001df08_t (X : Cx) (hX : X.Ok) (hg_1 : ((Loc.den X (.tag .c 0)) != (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))) = true) :
-    AtStep X 0x8001df04#64 (r19 X) m0 0x8001eb2c#64 (r20 X) m0 := by
+    AtStep X 0x8001df04#64 (r21 X) m0 0x8001eb2c#64 (r22 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001df04_8001df08_t
 
 theorem at_8001eb2c_8001eb34 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001eb2c#64 (r20 X) m0 0x8001bfe4#64 (r21 X) m0 := by
+    AtStep X 0x8001eb2c#64 (r22 X) m0 0x8001bfe4#64 (r23 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001eb2c_8001eb34
 
 theorem fin_4 (X : Cx) (hX : X.Ok) {c : Config}
-    (h : At X 0x8001bfe4#64 (r21 X) m0 c) :
+    (h : At X 0x8001bfe4#64 (r23 X) m0 c) :
     AtFin X m0 [] (X.s.pc + 1) c := by
   at_fin
 
 theorem at_8001deec_8001def4_n (X : Cx) (hX : X.Ok) (hg_2 : ((Loc.den X (.tag .b 0)) == (Loc.den X (.lit 0x13#64))) = false) :
-    AtStep X 0x8001deec#64 (r0 X) m0 0x8001def4#64 (r22 X) m0 := by
+    AtStep X 0x8001deec#64 (r0 X) m0 0x8001def4#64 (r24 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001deec_8001def4_n
 
 theorem at_8001def4_8001def8 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001def4#64 (r22 X) m0 0x8001c1e4#64 (headRow X) m0 := by
+    AtStep X 0x8001def4#64 (r24 X) m0 0x8001c1e4#64 (headRow X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001def4_8001def8
 
 theorem at_8001c1e4_8001c1ec (X : Cx) (hX : X.Ok) :

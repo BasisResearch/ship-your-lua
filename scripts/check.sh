@@ -51,6 +51,9 @@ c/tests/f1_ops.luac f1OpsProto Lua/Programs/F1Ops.lean
 c/tests/f1b_bits.luac f1bProto Lua/Programs/F1bBits.lean
 c/tests/f1_src.luac f1SrcProto Lua/Programs/F1Src.lean
 c/tests/f4_strlite.luac f4StrliteProto Lua/Programs/F4Strlite.lean
+c/tests/stuck/s_strflt.luac escStrfltProto Lua/Programs/EscStrflt.lean
+c/tests/stuck/s_forstr.luac escForstrProto Lua/Programs/EscForstr.lean
+c/tests/stuck/s_unmflt.luac escUnmfltProto Lua/Programs/EscUnmflt.lean
 LIST
 # source ASTs (Layer B translation validation) <- the .lua files, parsed by
 # gen_ast.py (all of Lua 5.4); the committed .luac chunks <- the host luac on
@@ -69,6 +72,9 @@ c/tests/f4_strlite.lua f4StrliteAst Lua/Programs/F4StrliteAst.lean
 LIST
 for f in f1_ops f1_src while f1b_bits f4_strlite; do
   ./c/luac -s -o - "c/tests/$f.lua" | cmp -s - "c/tests/$f.luac" || fail "c/tests/$f.luac is not luac -s of $f.lua"
+done
+for f in s_strflt s_forstr s_unmflt; do
+  ./c/luac -s -o - "c/tests/stuck/$f.lua" | cmp -s - "c/tests/stuck/$f.luac" || fail "c/tests/stuck/$f.luac is not luac -s of $f.lua"
 done
 
 echo "== (2) ELF hash"
@@ -421,6 +427,34 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Ret.vmRel_final
 #print axioms Lua.Vm.Sim.finalSim
 #print axioms Lua.Vm.Sim.vm_refinement_of_open'
+#print axioms Lua.Bytecode.stuck_cases
+#print axioms Lua.Bytecode.reach_regs
+#print axioms Lua.Bytecode.opKernel_wf
+#print axioms Lua.Bytecode.body_fault
+#print axioms Lua.Bytecode.stuckRun_sound
+#print axioms Lua.Bytecode.noBcSem_of_stuckRun
+#print axioms Lua.Programs.escStrflt_supported
+#print axioms Lua.Programs.escForstr_supported
+#print axioms Lua.Programs.escUnmflt_supported
+#print axioms Lua.Programs.escStrflt_escapes
+#print axioms Lua.Programs.escStrflt_obstruction
+#print axioms Lua.Programs.escForstr_obstruction
+#print axioms Lua.Programs.escUnmflt_obstruction
+#print axioms Lua.Vm.Sim.foldSim_of_arms
+#print axioms Lua.Vm.Sim.stuckSimNE_of_error
+#print axioms Lua.Vm.Sim.stuckSim_of_NE
+#print axioms Lua.Vm.Sim.vmSimNE_of_arms
+#print axioms Lua.Vm.Sim.vm_refinement_ne_of_open
+#print axioms Lua.Vm.Sim.vm_refinement_ne_of_rest
+#print axioms Lua.Vm.Sim.vm_refinement_ne_of_open'
+#print axioms Lua.Vm.Sim.vm_refinement_ne_of_rest'
+#print axioms Lua.Vm.Sim.runerrorSim
+#print axioms Lua.Vm.Sim.stuckOut_of_armErr
+#print axioms Lua.Vm.Sim.At.idiv_err
+#print axioms Lua.Vm.Sim.At.mod_err
+#print axioms Lua.Vm.Sim.At.idivk_err
+#print axioms Lua.Vm.Sim.At.modk_err
+#print axioms Lua.Vm.Sim.At.forprep_err
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

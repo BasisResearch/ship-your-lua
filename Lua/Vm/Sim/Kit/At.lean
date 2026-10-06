@@ -846,9 +846,16 @@ def atRet (ty : Expr) : MetaM (Option Nat) := do
         if let some ⟨_, r⟩ ← getBitVecValue? v.appArg!.appArg! then return some r.toNat
   return none
 
+/-- The entries of the error exits (`scripts/gen_lua_at.py` `ERRS`;
+`errEntries_eq` checks them against `Lua/Vm/Layout.lean`): a run of the
+at-lemmas stops there as at the fetch head. -/
+def errEntryPcs : List Nat :=
+  [0x800092cc, 0x80009438, 0x80009414, 0x80009468, 0x80009398, 0x800094c0, 0x800093e4, 0x80009530]
+
 /-- **`at_run ns h acc`**: from `h : At X pc …`, apply the at-lemmas of `ns`
 that start at the current pc (the first whose row matches and whose
-hypotheses `at_hyp` closes), until the fetch head. -/
+hypotheses `at_hyp` closes), until the fetch head or an error exit's entry
+(`errEntryPcs`). -/
 elab "at_run " ns:ident h:ident acc:ident : tactic => do
   let mut fuel := 64
   while fuel > 0 do
@@ -857,7 +864,7 @@ elab "at_run " ns:ident h:ident acc:ident : tactic => do
       let some ld := (← getLCtx).findFromUserName? h.getId | throwError "at_run: no {h}"
       return (← atPc ld.type, ← atRet ld.type)
     let some pc := pc | throwError "at_run: no pc"
-    if pc == 0x8001bfe4 then return
+    if pc == 0x8001bfe4 || errEntryPcs.contains pc then return
     let cands ← atCands ns.getId pc ret
     let mut done := false
     let mut errs : Array MessageData := #[]
