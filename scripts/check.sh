@@ -406,6 +406,9 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.write_putc
 #print axioms Lua.Vm.Sim.Kit.write_loop
 #print axioms Lua.Vm.Sim.Kit.write_sum
+#print axioms Lua.Vm.Sim.Kit.write_r_sum
+#print axioms Lua.Vm.Sim.Kit.swrite_sum
+#print axioms Vsa.Sim.exec_sh
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

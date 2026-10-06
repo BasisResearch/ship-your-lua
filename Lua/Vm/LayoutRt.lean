@@ -38,6 +38,28 @@ def ljStatusOff : Nat := 216
 def jmpBufSize : Nat := 208
 /-- `sizeof(FILE)` — newlib's `struct __sFILE` -/
 def fileSize : Nat := 184
+/-- `offsetof(FILE, _p)` — the next byte of the buffer -/
+def fileBufPOff : Nat := 0
+/-- `offsetof(FILE, _r)` — read space left -/
+def fileROff : Nat := 8
+/-- `offsetof(FILE, _w)` — write space left (`0` when line-buffered) -/
+def fileWOff : Nat := 12
+/-- `offsetof(FILE, _flags)` — `__SLBF`, `__SWR`, … (`short`) -/
+def fileFlagsOff : Nat := 16
+/-- `offsetof(FILE, _file)` — the descriptor (`short`) -/
+def fileFileOff : Nat := 18
+/-- `offsetof(FILE, _bf._base)` — the buffer -/
+def fileBfBaseOff : Nat := 24
+/-- `offsetof(FILE, _bf._size)` — its size -/
+def fileBfSizeOff : Nat := 32
+/-- `offsetof(FILE, _lbfsize)` — `-_bf._size` when line-buffered -/
+def fileLbfsizeOff : Nat := 40
+/-- `offsetof(FILE, _cookie)` — the hooks' argument (the `FILE`) -/
+def fileCookieOff : Nat := 48
+/-- `offsetof(FILE, _write)` — the write hook (`__swrite`) -/
+def fileWriteOff : Nat := 64
+/-- `offsetof(FILE, _ub._base)` — the ungetc buffer -/
+def fileUbBaseOff : Nat := 88
 /-- `offsetof(struct _reent, _stdin)` -/
 def reentStdinOff : Nat := 8
 /-- `offsetof(struct _reent, _stdout)` -/

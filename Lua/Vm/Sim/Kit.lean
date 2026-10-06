@@ -26,6 +26,7 @@ import Lua.Vm.Sim.Kit.Adjvar
 import Lua.Vm.Sim.Kit.Varargprep
 import Lua.Vm.Sim.Kit.AtStr
 import Lua.Vm.Sim.Kit.Write
+import Lua.Vm.Sim.Kit.Swrite
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
