@@ -970,4 +970,92 @@ theorem sfv_size {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0 
       obtain ⟨c2, s2, h2⟩ := sfv_copy hG S (by omega) _ h
       exact ⟨c2, acc.trans s2, h2⟩
 
+/-- The facts at the step's body (`0x80033db0`, the root `D`): the newline
+distance `X.n 24` known. -/
+structure SfvBody (G : SfvG) (X : FCx) (pend : List (BitVec 8)) (μ0 : Nat) : Prop where
+  cx : SfvAt G X
+  st : SfvStA G X.m X.o pend (X.n 25 - G.src)
+  res : bytesT8 X.m (G.U + 16) = BitVec.ofNat 64 (X.n 23)
+  cur : X.n 25 + X.n 23 = G.src + G.n
+  lo : G.src ≤ X.n 25
+  len : 1 ≤ X.n 23
+  nl_lo : 1 ≤ X.n 24
+  nl_hi : X.n 24 < 2 ^ 31
+  mu : 2 * X.n 23 + (if pend.length = 1024 then 1 else 0) ≤ μ0
+
+/-- **The step's body** (`0x80033db0`, the root `D`): `s = min(len, nldist)`. -/
+theorem sfv_body {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0 : Nat} (B : SfvBody G X pend μ0) :
+    Triple (SegSt 0x80033db0#64 (Lua.Vm.AtF.Sfvwrite.r18 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+  intro c h
+  have hX := B.cx
+  sfv_nums hG
+  sfv_cx hX
+  have := B.cur; have := B.lo; have := B.len; have := B.nl_lo; have := B.nl_hi; have := B.mu
+  have hX' : Lua.Vm.AtF.Sfvwrite.Ok_D X := by sfv_ok hX
+  have acc := Steps.refl c
+  have hg := fuge (a := X.n 23) (b := X.n 24) (by omega) (by omega)
+  by_cases e : X.n 24 ≤ X.n 23
+  · rw [decide_eq_true e] at hg
+    fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033dbc]
+    let Y : FCx := X.set [(21, X.n 24)] [] X.m X.o
+    obtain ⟨c2, s2, h2⟩ := sfv_size hG (X := Y) ⟨sfv_at% hX, B.st, B.res, B.cur, B.lo, by sfv_om, by sfv_om, by sfv_om,
+      B.nl_hi, B.mu⟩ _ (h.repin (by pins_of h))
+    exact ⟨c2, acc.trans s2, h2⟩
+  · rw [decide_eq_false e] at hg
+    fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033dbc]
+    let Y : FCx := X.set [(21, X.n 23)] [] X.m X.o
+    obtain ⟨c2, s2, h2⟩ := sfv_size hG (X := Y) ⟨sfv_at% hX, B.st, B.res, B.cur, B.lo, by sfv_om, by sfv_om, by sfv_om,
+      B.nl_hi, B.mu⟩ _ (h.repin (by pins_of h))
+    exact ⟨c2, acc.trans s2, h2⟩
+
+/-- **`memchr`'s returns** (`0x80033e4c`, the roots `r5`: no newline, `r7`:
+the newline at `X.n 6`): the newline distance, then the body. The cursor
+`X.n 25` and the bytes left `X.n 23` as at the call. -/
+structure SfvMcRet (G : SfvG) (X : FCx) (pend : List (BitVec 8)) (μ0 : Nat) : Prop where
+  cx : SfvAt G X
+  st : SfvStA G X.m X.o pend (X.n 25 - G.src)
+  res : bytesT8 X.m (G.U + 16) = BitVec.ofNat 64 (X.n 23)
+  cur : X.n 25 + X.n 23 = G.src + G.n
+  lo : G.src ≤ X.n 25
+  len : 1 ≤ X.n 23
+  mu : 2 * X.n 23 + (if pend.length = 1024 then 1 else 0) ≤ μ0
+
+theorem sfv_mcret0 {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0 : Nat} (R : SfvMcRet G X pend μ0) :
+    Triple (SegSt 0x80033e4c#64 (Lua.Vm.AtF.Sfvwrite.r5 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+  intro c h
+  have hX := R.cx
+  sfv_nums hG
+  sfv_cx hX
+  have := R.cur; have := R.lo; have := R.len; have := R.mu
+  have hX' : Lua.Vm.AtF.Sfvwrite.Ok X := by sfv_ok hX
+  have acc := Steps.refl c
+  fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033db0]
+  simp only [Lua.Vm.AtF.Sfvwrite.r6, addiw1 (a := X.n 23) (by omega)] at h
+  let Y : FCx := X.set [(24, X.n 23 + 1)] [(15, BitVec.ofNat 64 (X.n 20)), (16, BitVec.ofNat 64 (X.n 21)),
+    (17, BitVec.ofNat 64 (X.n 22))] X.m X.o
+  obtain ⟨c2, s2, h2⟩ := sfv_body hG (X := Y) ⟨sfv_at% hX, R.st, R.res, R.cur, R.lo, R.len, by sfv_om, by sfv_om,
+    R.mu⟩ _ (h.repin (by pins_of h))
+  exact ⟨c2, acc.trans s2, h2⟩
+
+theorem sfv_mcret1 {G : SfvG} (hG : G.Ok) {X : FCx} {pend : List (BitVec 8)} {μ0 : Nat} (R : SfvMcRet G X pend μ0)
+    (h6 : X.n 25 ≤ X.n 6) (h6' : X.n 6 < X.n 25 + X.n 23) :
+    Triple (SegSt 0x80033e4c#64 (Lua.Vm.AtF.Sfvwrite.r7 X) (ArmPay X.m X.o)) (SfvNext G μ0) := by
+  intro c h
+  have hX := R.cx
+  sfv_nums hG
+  sfv_cx hX
+  have := R.cur; have := R.lo; have := R.len; have := R.mu
+  have hX' : Lua.Vm.AtF.Sfvwrite.Ok X := by sfv_ok hX
+  have acc := Steps.refl c
+  have hg : (BitVec.ofNat 64 (X.n 6) == 0x0#64) = false := by
+    rw [show (0x0#64 : BitVec 64) = BitVec.ofNat 64 0 from rfl, fbeq (by omega) (by decide)]; simp; omega
+  fat_run Lua.Vm.AtF.Sfvwrite h acc until [0x80033db0]
+  simp only [Lua.Vm.AtF.Sfvwrite.r8,
+    add_imm (X.n 6) 1 (by decide), subw_nat (a := X.n 6 + 1) (b := X.n 25) (by omega) (by omega) (by omega)] at h
+  let Y : FCx := X.set [(24, X.n 6 + 1 - X.n 25)] [(15, BitVec.ofNat 64 (X.n 20)), (16, BitVec.ofNat 64 (X.n 21)),
+    (17, BitVec.ofNat 64 (X.n 22))] X.m X.o
+  obtain ⟨c2, s2, h2⟩ := sfv_body hG (X := Y) ⟨sfv_at% hX, R.st, R.res, R.cur, R.lo, R.len, by sfv_om, by sfv_om,
+    R.mu⟩ _ (h.repin (by pins_of h))
+  exact ⟨c2, acc.trans s2, h2⟩
+
 end Lua.Vm.Sim.Kit
