@@ -696,10 +696,6 @@ theorem sfv_move {G : SfvG} (hG : G.Ok) {M : Mem} {o : Array String} {pend : Lis
   rw [← st.src_bytes hG (i := q) (k := k) hq]
   exact bytesAt_shift fun i hi => mo.moved i hi
 
-/-- The caller's frame `__sfvwrite_r`'s calls see (its loop registers `s2`,
-`s3`, `s6`–`s9` as the call rows hold them). -/
-abbrev sfvF' (X : FCx) (v18 v19 v22 v23 v24 v25 : BitVec 64) : AbiFrame := sfvF X v18 v19 v22 v23 v24 v25
-
 /-- The facts at the step size (`0x80033dbc`, the root `S`): `s = X.n 21`
 bytes to take from the cursor `X.n 25`, `X.n 23` left, the newline distance
 `X.n 24`. -/
