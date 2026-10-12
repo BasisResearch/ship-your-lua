@@ -130,6 +130,9 @@ structure StdioBoot (m : Mem) : Prop where
   /-- No `atexit` handler: `exit` → `__call_exitprocs` finds `__atexit = NULL`
   (the `OP_RETURN*` chain's end, `FinalSim`). -/
   atexit : rd64 m symAtexit = some 0
+  /-- `_REENT->__cleanup` NULL: `CHECK_INIT` (`_fwrite_r`, `__swsetup_r`) calls
+  `__sinit`, which installs `cleanup_stdio` there (`Kit.sinit_boot`). -/
+  cleanup : rd64 m (symImpureData + reentCleanupOff) = some 0
 
 /-- **htif.c's file system before `fs_init`.** `_write(1, …)` (from `__swrite`),
 and `_fstat(1)`/`_isatty(1)` (from `__smakebuf_r` at the first write) call

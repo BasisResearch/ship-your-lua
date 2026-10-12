@@ -536,6 +536,14 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.sfv_swrite
 #print axioms Lua.Vm.Sim.Kit.sfv_mc
 #print axioms Lua.Vm.Sim.Kit.sfv_store
+#print axioms Lua.Vm.Sim.Kit.sinit_boot
+#print axioms Lua.Vm.Sim.Kit.fstat_sum
+#print axioms Lua.Vm.Sim.Kit.isatty_sum
+#print axioms Lua.Vm.Sim.Kit.smakebuf_sum
+#print axioms Lua.Vm.Sim.Kit.swsetup_sum
+#print axioms Lua.Vm.Sim.Kit.sfvwrite_first
+#print axioms Lua.Vm.Sim.Kit.stdoutSetup_of_malloc
+#print axioms Lua.Vm.DlHeap.HeapAt.congr
 #print axioms Lua.Num.F64.unpack_eq
 #print axioms Lua.Num.F64.pack_cls
 #print axioms Lua.Num.F64.round_eq_model

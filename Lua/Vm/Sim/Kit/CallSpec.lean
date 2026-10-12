@@ -17,7 +17,8 @@ ones (`Triple` from a callee's entry pins to its return, `wrRet`):
   `__sflush_r` at a newline or a full buffer);
 * `FflushStdout_Statement`: `fflush(stdout)` (the end of `lua_writeline`):
   the lock no-ops around `__sflush_r` (`sflush_sum`);
-* `StdoutSetup_Statement`: the first `fwrite` from the boot state
+* `StdoutSetup_Statement` (stated in `Kit/StdoutSetup.lean`, proved there from
+  `MallocR_Statement`): the first `fwrite` from the boot state
   (`StdioBoot`, `MemfsBoot`): `__sinit`, `__swsetup_r`, `__smakebuf_r`
   (`_fstat` → `fs_init`, `_malloc_r` of the 1024-byte buffer, `_isatty`);
 * `IntegerToStr_Statement`: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)`
@@ -97,21 +98,6 @@ def FflushStdout_Statement : Prop :=
     Triple (SegSt 0x80032a1c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))
       (fun c => ∃ m', wrRet r sp 0 f m' (pushes o pend) c ∧ StdoutAt m' buf [] ∧ StdioUp m' ∧
         StdoutKeep m m' sp buf)
-
-/-- **The first `fwrite`** from the boot state (`StdioBoot`, `MemfsBoot`,
-the allocator's `HeapAt`): `stdout` set up with a 1024-byte buffer `buf`
-from the heap, then as `FwriteStdout_Statement`. -/
-def StdoutSetup_Statement : Prop :=
-  ∀ (sp src n top brk : Nat) (chunks : List Lua.Vm.DlHeap.Chunk) (bins : Nat → List Nat) (r : BitVec 64)
-    (f : AbiFrame) (m : Mem) (o : Array String),
-    StdioBoot m → MemfsBoot m → Lua.Vm.DlHeap.HeapAt m top brk chunks bins →
-    r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → brk + 4096 ≤ sp →
-    0x80000000 ≤ src → src + n + 4096 ≤ sp → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
-    Triple (SegSt 0x800342e4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 src⟩, ⟨Register.x11, BitVec.ofNat 64 1⟩,
-        ⟨Register.x12, BitVec.ofNat 64 n⟩, ⟨Register.x13, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))
-      (fun c => ∃ m' out pend' buf top' brk' chunks' bins', wrRet r sp n f m' (pushes o out) c ∧
-        StdoutAt m' buf pend' ∧ StdioUp m' ∧ out ++ pend' = bytesAt m src n ∧
-        Lua.Vm.DlHeap.HeapAt m' top' brk' chunks' bins' ∧ (src + n ≤ buf ∨ buf + 1024 ≤ src))
 
 /-- The bytes of `toString i` (`%lld`), one per character. -/
 def intBytes (i : BitVec 64) : List (BitVec 8) := (toString i.toInt).toList.map fun ch => BitVec.ofNat 8 ch.toNat

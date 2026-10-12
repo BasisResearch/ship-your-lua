@@ -1380,12 +1380,14 @@ class FState:
         self.root = root              # the root's context facts (`Ok`, `Ok_<loop>`)
         self.nfacts = []              # the path's branch outcomes over Nat atoms (`hf*`)
         self.entry = False            # in the entry root (`entry_rcells` hold)
+        self.rootpc = None            # the pc the root starts at (`root_cells`)
 
     def copy(self):
         s = FState(self.regs, self.log, self.carried, self.facts, self.root)
         s.hyps = list(self.hyps)
         s.nfacts = list(self.nfacts)
         s.entry = self.entry
+        s.rootpc = self.rootpc
         return s
 
     def get(self, r):
@@ -1552,8 +1554,12 @@ class Fn:
                         f"bytesT{w} X.m ({nat_txt(terms, add, True)}) = "
                         + (fv(v) if w == 8 else f"0x{v[1] & ((1 << 8 * w) - 1):x}#{8 * w}")))
                 return res
-        if not terms and (w, add) in self.spec.get("cells", {}):
-            val = self.spec["cells"][(w, add)]
+        # a global word: the root's own value (`root_cells`: a field a callee
+        # changed before this root), else the function's (`cells`)
+        # (`None`: the word is not known in this root)
+        cells = {**self.spec.get("cells", {}), **self.spec.get("root_cells", {}).get(st.rootpc, {})}
+        if not terms and cells.get((w, add)) is not None:
+            val = cells[(w, add)]
             st.hyps.append(self.fact(f"bytesT{w} X.m 0x{add:x} = 0x{val:x}#{8 * w}"))
             return ("lit", sx(val, 8 * w) if signed and w < 8 else val)
         # a word the root memory holds at an address over the atoms (`rcells`:
@@ -1563,6 +1569,13 @@ class Fn:
             val = rc[(terms, add)]
             st.hyps.append(self.fact(f"bytesT8 X.m ({nat_txt(terms, add, True)}) = {fv(val)}"))
             return val
+        # a narrower word the root memory holds over the atoms (`rcellsw`: a
+        # callee's result in the caller's frame, `(w, terms, add) -> literal`)
+        rw_ = self.spec.get("rcellsw", {})
+        if (w, terms, add) in rw_:
+            val = rw_[(w, terms, add)]
+            st.hyps.append(self.fact(f"bytesT{w} X.m ({nat_txt(terms, add, True)}) = 0x{val:x}#{8 * w}"))
+            return ("lit", sx(val, 8 * w) if signed else val)
         return ("ld", w, signed, terms, add)
 
     # ---- instructions
@@ -1612,6 +1625,11 @@ class Fn:
                 st.set(R(o[0]), self.fnat(fadd(x[1], tuple((i, -c) for i, c in y[1])), x[2] - y[2]))
             else:
                 st.set(R(o[0]), ("opq",))
+        elif (mnem == "andi" and st.get(R(o[1]))[0] == "nat" and imm(o[2]) > 0
+              and (imm(o[2]) + 1) & imm(o[2]) == 0 and self.residue(st.get(R(o[1])), imm(o[2]) + 1) is not None):
+            # `x & (2^k - 1)` of an affine value whose atoms have known residues
+            # (`res`: the stack pointer's alignment), a literal
+            setlit(R(o[0]), self.residue(st.get(R(o[1])), imm(o[2]) + 1))
         elif mnem == "slli" and st.get(R(o[1]))[0] == "nat":
             x, k = st.get(R(o[1])), imm(o[2])
             st.set(R(o[0]), self.fnat(tuple((i, c << k) for i, c in x[1]), x[2] << k))
@@ -1624,6 +1642,17 @@ class Fn:
                 setlit(R(o[0]), v)
             else:
                 st.set(R(o[0]), ("opq",))
+
+    def residue(self, v, mod):
+        """`v mod mod` for an affine value whose atoms' residues are known
+        (`res`: atom -> (modulus, residue), the modulus a multiple of `mod`)."""
+        total = v[2]
+        for i, c in v[1]:
+            r = self.spec.get("res", {}).get(i)
+            if r is None or r[0] % mod:
+                return None
+            total += c * r[1]
+        return total % mod
 
     # ---- the walk
     def walk(self, pc, st, depth=0):
@@ -1671,6 +1700,12 @@ class Fn:
                 d = None
                 if "opq" not in (x[0], y[0]):
                     d = decide(head, x, y, st2.facts, f1=False)
+                if d is None and x[0] == "nat" and y[0] == "nat" and x[1] == y[1] and \
+                        head in ("zopz0zI_u", "zopz0zKzJ_u", "==", "!="):
+                    # two offsets from the same atoms (a loop's cursor against its
+                    # end): the constants decide it
+                    d = {"zopz0zI_u": x[2] < y[2], "zopz0zKzJ_u": x[2] >= y[2],
+                         "==": x[2] == y[2], "!=": x[2] != y[2]}[head]
                 if d is not None and d != taken:
                     raise Stop("infeasible")
                 ground = x[0] == "lit" and y[0] == "lit"
@@ -1699,10 +1734,11 @@ class Fn:
                 nxt = callee
             elif mnem == "jalr":
                 _, o = ops_of(raw)
-                t = st2.get(ABI[o[0]])
+                off, b = mem_operand(o[0]) if "(" in o[0] else (0, ABI[o[0]])
+                t = st2.get(b)
                 if t[0] != "lit":
                     raise Stop("an indirect call to a symbolic target")
-                callee = t[1] & ~1
+                callee = (t[1] + off) % 2 ** 64 & ~1
                 st2.set(1, ("lit", a + 4))
                 nxt = callee
             elif mnem == "ret":
@@ -1770,6 +1806,11 @@ class Fn:
         if nxt in self.spec.get("loops", {}):
             self.emit(*emit)
             self.ends.append((f"loop 0x{nxt:x}", self.row(st2.regs), self.mem(st2.log)))
+            return
+        if nxt in self.spec.get("ends", ()):
+            # a hand-off point: the summary proof continues there on another route
+            self.emit(*emit)
+            self.ends.append((f"end 0x{nxt:x}", self.row(st2.regs), self.mem(st2.log)))
             return
         if not self.walk(nxt, st2, depth + 1):
             raise Stop("no path on")
@@ -1853,6 +1894,7 @@ class Fn:
         self.order.append(key)
 
     def root(self, pc, st):
+        st.rootpc = pc
         key = (pc, self.row(st.regs), tuple(st.carried))
         if key in self.root_seen:
             return
@@ -2109,24 +2151,100 @@ FNS = {
     # `__sinit(_REENT)` at the first write (`StdioBoot`: `__cleanup` and
     # `__stdio_exit_handler` still NULL): the handlers, then `global_stdio_init`'s
     # `std()` of `stdin`, `stdout`, `stderr` (walked through, with `memset` and the
-    # no-op locks); one path, one store chain
+    # no-op locks). The two `__retarget_lock_init_recursive` calls between the
+    # `std()`s are roots that carry the stack slots (`calls`): no store chain is
+    # longer than one `std()`, and the epilogue reads the saved slots as the
+    # carried facts of the last root
     "__sinit": dict(
         mod="Sinit", entry=0x80032ed0,
         row=abi_row({10: ("lit", IMPURE_DATA)}),
         ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0"] + CALLEE_OK,
         cells={(8, IMPURE_DATA + 72): 0, (8, 0x8005d3e0): 0},
-        # the saved frames (`__sinit`'s at `sp - 16`, `global_stdio_init`'s at
-        # `sp - 64`), read back in the epilogue root
-        rcells={(((0, 1),), -64): ("bv", 5), (((0, 1),), -56): ("bv", 4), (((0, 1),), -48): ("bv", 3),
-                (((0, 1),), -40): ("bv", 2), (((0, 1),), -32): ("lit", IMPURE_DATA),
-                (((0, 1),), -24): ("lit", 0x80032f1c), (((0, 1),), -16): ("bv", 1), (((0, 1),), -8): ("bv", 0)},
-        # `global_stdio_init`'s epilogue a root: its loads read the root memory's
-        # saved slots (`rcells`), not back through the three `FILE`s' stores
-        loops={0x80032d54: dict(name="E", row={2: N((0, 1), add=-64), 3: ("lit", 0x8005ced0),
-                                               **{r: ("bv", 20 + k) for k, r in
-                                                  enumerate([8, 9] + list(range(18, 28)))}},
-                                ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0"] + CALLEE_OK)},
+        calls={0x8003b418: dict(ret={})},
         doc="`__sinit(_REENT)` from the boot state."),
+    # lane F1-10: `fwrite(src, 1, n, stdout)` at the first write: `CHECK_INIT`
+    # calls `__sinit` (a root after it: `stdout` as `std()` left it, `_flags`
+    # `__SWR | __SLBF`, file 1), the lock, `ORIENT` (`__SORD` set, `_flags2`
+    # cleared), `__sfvwrite_r` (its set-up summary at the call: `0` returned),
+    # the unlock (a root after it: `stdout` set up)
+    "fwrite/setup": dict(
+        mod="FwriteSetup", entry=0x800342e4,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 1), 12: N((2, 1)), 13: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e720 + 112 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+            "ra : (X.b 0).toNat % 4 = 0"],
+        cells={(8, IMPURE_PTR): IMPURE_DATA, (8, IMPURE_DATA + 72): 0},
+        root_cells={0x800342cc: {(2, STDOUT + 16): 0x9, (4, STDOUT + 176): 0},
+                    0x800341f8: {(2, STDOUT + 16): 0x2889, (4, STDOUT + 176): 0}},
+        pure={0x8002f6c8: dict(lemma="Lua.Vm.Sim.Kit.muldi3_sum _ _ _ hframe? _ _ (by decide)",
+                               ret={10: lambda st: mul_val(st.get(10), st.get(11))})},
+        calls={0x80032ed0: dict(ret={}), 0x80033b50: dict(ret={10: ("lit", 0)})},
+        imports=["Lua.Vm.Sim.Kit.Muldi3"],
+        doc="`fwrite(src, 1, n, stdout)` → `_fwrite_r` before `__sinit`."),
+    # lane F1-10: `__sfvwrite_r(_REENT, stdout, uio)` at the first write
+    # (`_flags` `__SORD | __SWR | __SLBF`, no buffer): `cantwrite` → `__swsetup_r`
+    # (its summary at the call: `0`; a root after it, `stdout` set up), then the
+    # line-buffered entry as `Sfvwrite`'s up to the first `memchr` (an end: the
+    # summary proof hands over to `Sfvwrite`'s loop there)
+    "__sfvwrite_r/setup": dict(
+        mod="SfvwriteSetup", entry=0x80033b50,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT), 12: N((1, 1))}),
+        ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0},
+        cells={(2, STDOUT + 16): 0x2009, (8, STDOUT + 24): 0},
+        root_cells={0x80033c38: {(2, STDOUT + 16): 0x2889, (4, STDOUT + 32): 1024}},
+        rcells={(((1, 1),), 0): N((2, 1)), (((2, 1),), 0): N((4, 1)), (((2, 1),), 8): N((3, 1))},
+        entry_rcells={(((1, 1),), 16): N((3, 1))},
+        calls={0x8003587c: dict(ret={10: ("lit", 0)})},
+        ends=[0x800360d8],
+        stops=[0x80033ba8, 0x80033c70, 0x80033ea8, 0x80034008, 0x80033ed0],
+        stop_unless={0x80033e28: (9, N((2, 1)))},
+        doc="`__sfvwrite_r` at the first write, up to its first `memchr`."),
+    # lane F1-10: `__swsetup_r(_REENT, stdout)` on the stream `std()` left
+    # (`__sinit` ran: `CHECK_INIT` passes): writable, no buffer, so
+    # `__smakebuf_r` (a root after it: `stdout` buffered, line-buffered), then
+    # `_w = 0`, `_lbfsize = -1024`; `0` returned
+    "__swsetup_r": dict(
+        mod="Swsetup_r", entry=0x8003587c,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0"] + CALLEE_OK,
+        cells={(8, IMPURE_PTR): IMPURE_DATA, (8, IMPURE_DATA + 72): 0x80032b0c,
+               (2, STDOUT + 16): 0x2009, (8, STDOUT + 24): 0, (8, STDOUT + 16): 0x12009},
+        root_cells={0x80035920: {(2, STDOUT + 16): 0x2889, (4, STDOUT + 32): 1024, (8, STDOUT + 24): None}},
+        calls={0x80049a2c: dict(ret={})},
+        doc="`__swsetup_r(_REENT, stdout)` on `std()`'s `stdout`."),
+    # lane F1-10: `__smakebuf_r(_REENT, stdout)`: `_fstat_r` (a root after it:
+    # `st_mode` `S_IFCHR` in the frame), `_malloc_r(_REENT, 1024)` (a root
+    # after it: the buffer `X.n 1`), `_isatty_r` (a root after it: `1`):
+    # `_flags` gains `__SMBF`, `__SLBF`, `__SNPT`; the buffer installed
+    "__smakebuf_r": dict(
+        mod="Smakebuf_r", entry=0x80049a2c,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e7d8 + 64 + 160 ≤ X.n 0"] + CALLEE_OK,
+        cells={(2, STDOUT + 16): 0x2009, (2, STDOUT + 18): 1},
+        root_cells={0x80049adc: {(2, STDOUT + 16): 0x2089}},
+        rcellsw={(4, ((0, 1),), -160 + 28): 0x2000},
+        calls={0x8003b0e8: dict(ret={10: ("lit", 0)}), 0x8002fa34: dict(ret={10: N((1, 1))}),
+               0x8004a170: dict(ret={10: ("lit", 1)})},
+        doc="`__smakebuf_r(_REENT, stdout)` on the console."),
+    # lane F1-10: `_fstat_r(_REENT, 1, st)` from `__smakebuf_r` (`st` = its
+    # `sp + 24`, so `sp + 24` here, 8 mod 16): `errno = 0`, `_fstat`'s lazy
+    # `fs_init`, the console's `kind`, `memset(st, 0, 104)` (the misaligned
+    # head through the `sb` chain, the 16-byte loop unrolled: its bounds are
+    # offsets of one atom), `st_mode = S_IFCHR`, `st_nlink = 1`; `0` returned
+    "_fstat_r": dict(
+        mod="Fstat_r", entry=0x8003b0e8,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", 1), 12: N((0, 1), add=24)}),
+        ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0", "sp_st : X.n 0 + 128 ≤ 2 ^ 32"] + CALLEE_OK,
+        res={0: (16, 0)},
+        cells={(4, 0x8005d3c0): 0},
+        doc="`_fstat_r(_REENT, 1, sp + 24)` before `fs_init`."),
+    # lane F1-10: `_isatty_r(_REENT, 1)` after `fs_init`: `errno = 0`, `fds[1]`
+    # the console (`kind = 2`, not a file): `1` returned
+    "_isatty_r": dict(
+        mod="Isatty_r", entry=0x8004a170,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", 1)}),
+        ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0"] + CALLEE_OK,
+        cells={(4, 0x8005d3c0): 1, (4, 0x8005d478): 2},
+        doc="`_isatty_r(_REENT, 1)` on the console."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
     # in the byte scan, the end); the alignment bytes, the words (the
     # zero-lane test on `word ^ 0x0a…0a`), the bytes, each loop a root

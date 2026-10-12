@@ -51,7 +51,8 @@ Every row is currently unassigned.
 | `SfvwriteLbf_Statement` (`__sfvwrite_r(_REENT, stdout, uio)`, one iov, on the set-up line-buffered `stdout`: `0` returned, `out ++ pend' = pend ++ bytes`, `SfvKeep`) | `Lua/Vm/Sim/Kit/Fwrite.lean` | A0.2 | **proved** (lane F1-9: `Kit.sfvwrite_lbf`, `Lua/Vm/Sim/Kit/Sfvwrite.lean`): `seg_loop` on `2·len + [buffer full]` over the generated at-lemmas (`Lua/Vm/AtF/Sfvwrite.lean`, 51; roots: the entry, the loop head `L`, the body `D`, the step size `S`, the newline distance `N`, the tail `T`, and the call returns), one splice per callee (`sfv_mc`: `memchr_nl`; `sfv_move`: `memmove_sum`; `sfv_swrite`: `swrite_sum`; `sfv_flush`: `fflush_r_stdout`). `StdoutAt` became `StdoutAtW` with `_w` a parameter and a full buffer allowed (a copy can fill it exactly; the fill path flushes before `_w` is restored) |
 | `FflushStdout_Statement` (`fflush(stdout)`: the lock no-ops around `__sflush_r`) | `Lua/Vm/Sim/Kit/Fflush.lean` | A0.2 | **proved** (lane F1-8: `Kit.fflush_stdout`, its 16 at-lemmas generated on the callee-context route; the frame shared with `_fflush_r` is `sfl_mid32`/`flush_fin`) |
 | callee-context rows (the at-lemma route for C callees: rows over `FCx`, roots at the entry, loop heads and call returns) | `Lua/Vm/Sim/Kit/AtFn.lean`, `scripts/gen_lua_at.py --fn`, `Lua/Vm/AtF/*.lean` | A1 | **landed** (lane F1-8): `fflush`, `_fflush_r`, `memmove`, `memchr`, `__sfvwrite_r` generated (`FNS`), the summaries `fat_run` over them |
-| `StdoutSetup_Statement` (the first `fwrite` from `StdioBoot`/`MemfsBoot`: `__sinit`, `__swsetup_r`, `__smakebuf_r` → `_fstat` (`fs_init`), `_malloc_r`, `_isatty`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A0.2 | open (stated). Lane F1-9 groundwork: `__sinit`'s at-lemmas are generated and build (`Lua/Vm/AtF/Sinit.lean`: `std()` of the three `FILE`s, `memset`'s short path through its computed jump, the epilogue a root over the saved slots); its summary is blocked on forwarding the saved slots through the 65 stores of `std()` (the recursion limit: next, the lock-init calls as roots), and `StdioBoot` lacks `__cleanup = 0`. `_malloc_r` (`__smakebuf_r`'s buffer) has no summary at Lua addresses: syi's dlmalloc spec is on its WHILE ledger (A0); a named `MallocR_Statement` over `DlHeap.HeapAt` is next (`abstractions/ledger/f1-lane-9.md`) |
+| `StdoutSetup_Statement` (the first `fwrite(src, 1, n, stdout)`, `n ≥ 1`, from `StdioBoot`/`MemfsBoot` and the heap with room for the buffer: `__sinit`, `ORIENT`, `__sfvwrite_r`'s `cantwrite` → `__swsetup_r` → `__smakebuf_r` → `_fstat_r` (`fs_init`, `memset`), `_malloc_r`, `_isatty_r`; then the line-buffered loop; post `SetupPost`) | `Lua/Vm/Sim/Kit/StdoutSetup.lean` | A0.2 | **proved from `MallocR_Statement`** (lane F1-10: `Kit.stdoutSetup_of_malloc`; the callees `sinit_boot`, `fstat_sum`, `isatty_sum`, `smakebuf_sum`, `swsetup_sum`, `sfvwrite_first`, each over generated at-lemmas, `abstractions/ledger/f1-lane-10.md`). Not covered: a first write of 0 bytes (`print("")` sets `stdout` up at its newline) |
+| `MallocR_Statement` (`_malloc_r(_REENT, n)` with room for one `_sbrk`: a fresh 16-aligned block of a chunk in use, `HeapAt` again, the chunks in use kept, writes only `MallocW` and 1 KiB of stack) | `Lua/Vm/Sim/Kit/Malloc.lean` | A0 (the dlmalloc proof is ship-your-interpreter's `mallocLocalRun_proved` at its WHILE addresses, ~9,700 lines on its `AllocLedger`; here only the step tables `VsaIris.Vsa.AllocSteps` are at Lua addresses) | open (named premise of `stdoutSetup_of_malloc`, `smakebuf_sum`, `swsetup_sum`, `sfvwrite_first`) |
 | `IntegerToStr_Statement` (`lua_integer2str` = `snprintf(buf, 44, "%lld", i)`, `_svfprintf_r`) | `Lua/Vm/Sim/Kit/CallSpec.lean` | A1 | open (stated) |
 | **`vm_refinement_Statement luaLayout`** | `Lua/Theorems.lean` | A1 (by `vm_refinement_of_sim`) | open |
 | `CompileTV CorpusCompiles` (translation validation of the host `luac -s` on the corpus) | `Lua/Compile/Corpus.lean` | B1 | **proved** (`corpus_compileTV`) |
@@ -588,7 +589,14 @@ covers the new stages.
       (`FflushStdout_Statement`), `_fflush_r`, `memmove` and `memchr`; the
       `__sfvwrite_r` loop proof, the set-up, `lua_integer2str`, `luaB_print`,
       `luaD_precall`/`luaD_poscall` and the relation facts above stay open
-      (`abstractions/ledger/f1-lane-8.md` lists each with its next step);
+      (`abstractions/ledger/f1-lane-8.md` lists each with its next step).
+      Lanes F1-9/10 proved the loop and the set-up (`stdoutSetup_of_malloc`,
+      from the named premise `MallocR_Statement`). Before (3): the stdio
+      summaries' keeps are byte-total (`SfvKeep`/`StdoutKeep`, `bytesT1`),
+      while `HeapAt` reads with `rd64` (bytes present), so `RuntimeMem.heap`
+      after a print needs those keeps as `Agree` (`getElem?`) or arena
+      presence as an invariant (`abstractions/ledger/f1-lane-10.md`,
+      obstacle 3);
     * the error paths (`StuckSim` is false; `ErrorSimRest` and `NoEscape`,
       Obligations).
   * **`FinalSim` (proved, lane F1-4, `Lua/Vm/Sim/Kit/Ret*.lean`, `Kit/Exit.lean`).**
