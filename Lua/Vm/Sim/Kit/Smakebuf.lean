@@ -104,12 +104,12 @@ structure SmbM4 (M : Mem) (X : FCx) : Prop where
   fp : bytesT8 M (X.n 0 - 160) = 0x8005e668#64
 
 theorem smb_m4 (X : FCx) (hX : Ok X) :
-    Agree (fun a => Rng (X.n 0 - 160) 8 a ∨ Rng stdoutFile 36 a) X.m (Lua.Vm.AtF.Smakebuf_r.m4 X) ∧
+    Agree (fun a => Rng (X.n 0 - 160) 8 a ∨ StdoutW a) X.m (Lua.Vm.AtF.Smakebuf_r.m4 X) ∧
       SmbM4 (Lua.Vm.AtF.Smakebuf_r.m4 X) X := by
   have := hX.sp_lo
   have : stdoutFile = 0x8005e668 := rfl
   refine ⟨fun a ha => ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp only [Rng, not_and, not_or] at ha
+  · simp only [Rng, StdoutW, not_and, not_or] at ha
     simp only [Lua.Vm.AtF.Smakebuf_r.m4]; fs_off
   all_goals simp only [Lua.Vm.AtF.Smakebuf_r.m4]; fat_rd; try decide
 
@@ -144,7 +144,7 @@ structure SmakebufPost (m m' : Mem) (sp buf brk : Nat) (chunks : List Chunk) (to
   block : ∃ sz, (⟨buf - 16, sz, true⟩ : Chunk) ∈ chunks' ∧ 1024 + 8 ≤ sz
   fresh : ∀ a, buf ≤ a → a < buf + 1024 → ¬ InUse chunks a
   kept : ∀ c ∈ chunks, c.inuse = true → c ∈ chunks'
-  agree : Agree (fun a => FsGlobal a ∨ MallocW chunks a ∨ Below sp 1184 a ∨ Rng stdoutFile 36 a) m m'
+  agree : Agree (fun a => FsGlobal a ∨ MallocW chunks a ∨ Below sp 1184 a ∨ StdoutW a) m m'
 
 /-- The caller's frame `__smakebuf_r`'s calls see (`s0 = _REENT`, `s1` the
 caller's or `st_mode`). -/
@@ -204,7 +204,7 @@ theorem smb_pre (sp : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array S
 
 /-- The regions of the set-up, unfolded for `omega` (off the chunks in use). -/
 macro "rg_simp" : tactic => `(tactic|
-  simp only [FsGlobal, MallocGlobal, Arena, Below, Rng, HeapReads, smbX, FCx.mk', List.getD_cons_zero,
+  simp only [FsGlobal, MallocGlobal, Arena, Below, Rng, StdoutW, HeapReads, smbX, FCx.mk', List.getD_cons_zero,
     List.getD_cons_succ, not_or, not_and])
 
 /-- **`__smakebuf_r(_REENT, stdout)`** on the stream `std()` left (`_flags`
@@ -263,7 +263,7 @@ theorem smakebuf_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List 
         simp only [decide_eq_false_iff_not]; show buf ≠ 0; omega)
     c2 (hr2.repin (by pins_of hr2))
   obtain ⟨k4, M4⟩ := smb_m4 X2 hX2
-  have k4' : Agree (fun a => Rng (sp - 160) 8 a ∨ Rng stdoutFile 36 a) m2 (Lua.Vm.AtF.Smakebuf_r.m4 X2) := k4
+  have k4' : Agree (fun a => Rng (sp - 160) 8 a ∨ StdoutW a) m2 (Lua.Vm.AtF.Smakebuf_r.m4 X2) := k4
   have km := (k2'.trans kc).trans k4'
   have hcall3 : SegSt 0x8004a170#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩, ⟨Register.x11, 1#64⟩]
       (sp - 160) 0x80049adc#64 (smbF X2 0x2000#64)) (ArmPay (Lua.Vm.AtF.Smakebuf_r.m4 X2) o) c3 := by
@@ -303,7 +303,7 @@ theorem smakebuf_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List 
     · have kf := (((k1.trans k2').trans P.agree).trans ((k4'.trans k5).trans k6))
       refine kf a fun hr => ha ?_
       simp only [hw, false_or, or_false] at hr ⊢
-      simp only [FsGlobal, Below, Rng, smbX, FCx.mk', List.getD_cons_zero] at hr ⊢
+      simp only [FsGlobal, Below, Rng, StdoutW, smbX, FCx.mk', List.getD_cons_zero] at hr ⊢
       omega
 
 end Lua.Vm.Sim.Kit

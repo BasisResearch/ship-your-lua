@@ -46,7 +46,7 @@ structure SwsetupPost (m m' : Mem) (sp buf brk : Nat) (chunks : List Chunk) (top
     (chunks' : List Chunk) (bins' : Nat → List Nat) : Prop where
   set : StdoutSet m' buf
   grant : HeapGrant chunks 1024 buf brk m' top' brk' chunks' bins'
-  agree : Agree (fun a => FsGlobal a ∨ MallocW chunks a ∨ Below sp 1216 a ∨ Rng stdoutFile 44 a) m m'
+  agree : Agree (fun a => FsGlobal a ∨ MallocW chunks a ∨ Below sp 1216 a ∨ StdoutW a) m m'
 
 theorem sws_run0 (X : FCx) (hX : Lua.Vm.AtF.Swsetup_r.Ok X) (hc0 : bytesT8 X.m 0x8005d398 = 0x8005d1b8#64)
     (hc1 : bytesT8 X.m 0x8005d200 = 0x80032b0c#64) (hc2 : bytesT2 X.m 0x8005e678 = 0x2009#16)
@@ -133,7 +133,7 @@ theorem swsetup_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List C
     intro a h1 h2
     by_cases hw : MallocW chunks a
     · exact absurd (hw.coarse) (by simp only [MallocGlobal, Arena]; omega)
-    · exact P.agree a (by simp only [hw, false_or]; simp only [FsGlobal, Below, Rng]; omega)
+    · exact P.agree a (by simp only [hw, false_or]; simp only [FsGlobal, Below, Rng, StdoutW]; omega)
   simp only [voidRet] at hr1
   obtain ⟨c2, s2, h2⟩ := sws_run1 X1 hX1
     ((AtF.bT8_congr (x := sp - 32) fun i _ => kq _ (by omega) (by omega)).trans fp1) P.flags P.size
@@ -158,7 +158,7 @@ theorem swsetup_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List C
     · exact absurd (.inr (.inl hw)) ha
     · refine ((k1'.trans P.agree).trans k2) a fun hr => ha ?_
       simp only [hw, false_or, or_false] at hr ⊢
-      simp only [FsGlobal, Below, Rng] at hr ⊢
+      simp only [FsGlobal, Below, Rng, StdoutW] at hr ⊢
       omega
 
 end Lua.Vm.Sim.Kit

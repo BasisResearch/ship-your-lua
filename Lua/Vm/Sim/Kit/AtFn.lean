@@ -240,6 +240,11 @@ from `slli`/`srli` of literals, a mask `0x60 &&& sext 0xff0`), evaluated to
 `BitVec.ofNat w v`, by `decide`. -/
 simproc_decl ground_bv (_) := fun e => do
   if (← bvLit? e).isSome then return .continue
+  -- an immediate (`sign_extend k#12`) and a sum stay in the form the
+  -- segments' guards and rows print (`add_imm` normalises sums); they are
+  -- evaluated only inside a ground shift, field or mask
+  if e.isAppOf ``LeanRV64DExecutable.Functions.sign_extend || e.isAppOf ``HAdd.hAdd ||
+    e.isAppOf ``HSub.hSub || e.isAppOf ``Sail.BitVec.extractLsb then return .continue
   let some (w, v) ← bvGround? e | return .continue
   let lit := mkApp2 (mkConst ``BitVec.ofNat) (mkNatLit w) (mkNatLit v)
   let pf ← mkDecideProof (← mkEq e lit)
@@ -262,6 +267,12 @@ theorem and_m15 (n : Nat) : BitVec.ofNat 64 n &&& BitVec.ofNat 64 15 = BitVec.of
   and_lowmask n (k := 4) rfl (by decide)
 theorem and_m7 (n : Nat) : BitVec.ofNat 64 n &&& BitVec.ofNat 64 7 = BitVec.ofNat 64 (n % 8) :=
   and_lowmask n (k := 3) rfl (by decide)
+theorem and_sx15 (n : Nat) :
+    BitVec.ofNat 64 n &&& sign_extend (m := 64) (0x00f#12) = BitVec.ofNat 64 (n % 16) := by
+  rw [show sign_extend (m := 64) (0x00f#12) = BitVec.ofNat 64 15 by decide]; exact and_m15 n
+theorem and_sx7 (n : Nat) :
+    BitVec.ofNat 64 n &&& sign_extend (m := 64) (0x007#12) = BitVec.ofNat 64 (n % 8) := by
+  rw [show sign_extend (m := 64) (0x007#12) = BitVec.ofNat 64 7 by decide]; exact and_m7 n
 
 /-! ## Tactics -/
 
@@ -290,7 +301,7 @@ elab "fat_rd" loc:(Lean.Parser.Tactic.location)? : tactic => withMainContext do
   -- one `simp`: a fact rewritten may expose an address to normalise, and a
   -- normalised address a load to forward
   evalTactic (← `(tactic| (
-    simp (disch := omega) only [ground_bv, and_m15, and_m7, add_imm, imm_neg_add, BitVec.ofNat_add_ofNat,
+    simp (disch := omega) only [ground_bv, and_m15, and_m7, and_sx15, and_sx7, add_imm, imm_neg_add, BitVec.ofNat_add_ofNat,
       BitVec.toNat_ofNat, Nat.add_zero, Vsa.Sim.sext_zero, BitVec.add_zero, Nat.mod_eq_of_lt,
       sext64_id, BitVec.mul_one, fw8_same, fw4_same, fw2_same, fw1_same,
       fw1_wm8, fw1_wm4, fw1_wm2, fw1_ins, fw2_wm8, fw2_wm4, fw2_wm2, fw2_ins,
