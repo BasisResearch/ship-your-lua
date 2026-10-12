@@ -1,0 +1,28 @@
+(2900, 2900)
+(2900, 2900)
+(2900, 2900)
+(2900, 2900)
+(2900, 2900)
+[]
+(7326, 7326)
+(7326, 7326)
+(18900, 18900)
+(300, 141)
+(6070, 6070)
+(1210, 1210)
+[("none", 273, [["nil", "bool", "int", "flt", "str", "fn"], ["nil", "bool", "int", "flt", "str", "fn"], ["flt"]]),
+  ("e0:[]", 23, [["flt"], ["flt"], ["flt"]]), ("e2:[flt, flt]", 4, [["flt"], ["flt"], ["flt"]])]
+[("e1:[]", 30, [["flt", "nil", "bool", "str", "fn"], ["nil", "bool", "flt", "str", "fn"]]),
+  ("e0:[flt]", 21, [["flt", "int"], ["int", "flt"]])]
+[("e1:[]", 30, [["flt", "nil", "bool", "str", "fn"], ["nil", "bool", "flt", "str", "fn"]]),
+  ("e0:[flt]", 21, [["flt", "int"], ["int", "flt"]])]
+[("e1:[]", 30, [["flt", "nil", "bool", "str", "fn"], ["nil", "bool", "flt", "str", "fn"]]),
+  ("e0:[flt]", 21, [["flt", "int"], ["int", "flt"]])]
+[("e1:[]", 46, [["flt", "nil", "bool", "int", "str", "fn"], ["nil", "bool", "int", "flt", "str", "fn"]]),
+  ("e0:[int]", 5, [["flt", "int"], ["int", "flt"]])]
+[("none", 30, [["flt", "nil", "bool", "str", "fn"], ["nil", "bool", "flt", "str", "fn"]]),
+  ("e0:[bool]", 21, [["flt", "int"], ["int", "flt"]])]
+[("e0:[bool]", 3, [["flt"]])]
+[("e0:[flt]", 3, [["flt"]])]
+USER 3.22 s  SYS 2.43 s  WALL 15.28 s  PEAK 1921256 KB
+exit 0

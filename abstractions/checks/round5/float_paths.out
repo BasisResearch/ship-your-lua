@@ -1,0 +1,40 @@
+field	done	fp	ip	calls	vforks	tags	shared	routines
+LOADF	y	1	0	1	0	0	0.00	__floatsidf
+DIV		5	2	3	2	3	0.43	__divdf3,__floatdidf
+DIVK		5	2	3	2	3	0.41	__divdf3,__floatdidf
+POW		9	2	4	3	3	0.35	__eqdf2,__floatdidf,__muldf3,pow
+POWK		9	2	4	3	3	0.36	__eqdf2,__floatdidf,__muldf3,pow
+ADD		3	4	2	0	3	0.62	__adddf3,__floatdidf
+SUB		3	4	2	0	3	0.61	__floatdidf,__subdf3
+MUL		3	4	2	0	3	0.61	__floatdidf,__muldf3
+MOD		15	8	6	4	3	0.39	__adddf3,__floatdidf,__gedf2,__ledf2,fmod
+IDIV		3	7	3	0	3	0.62	__divdf3,__floatdidf,floor
+BAND		13	3	10	8	2	0.38	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+BOR		13	3	10	8	2	0.38	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+BXOR		13	3	10	8	2	0.38	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+SHL		22	6	10	11	2	0.45	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+SHR		22	6	10	11	2	0.45	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+ADDK		3	4	2	0	3	0.61	__adddf3,__floatdidf
+SUBK		3	4	2	0	3	0.63	__floatdidf,__subdf3
+MULK		3	4	2	0	3	0.62	__floatdidf,__muldf3
+MODK		15	8	6	4	3	0.41	__adddf3,__floatdidf,__gedf2,__ledf2,fmod
+IDIVK		3	7	3	0	3	0.63	__divdf3,__floatdidf,floor
+BANDK		4	2	5	3	1	0.48	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+BORK		4	2	5	3	1	0.45	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+BXORK		4	2	5	3	1	0.45	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+ADDI	y	1	2	2	0	1	0.58	__adddf3,__floatsidf
+SHRI		7	5	5	6	1	0.53	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+SHLI		7	5	5	6	1	0.51	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+UNM		0	3	0	0	0	0.00	
+BNOT		4	2	5	3	1	0.55	__eqdf2,__fixdfdi,__gedf2,__ledf2,floor
+EQ		0	1	0	0	0	0.00	
+LT		24	7	6	6	3	0.28	__adddf3,__eqdf2,__fixdfdi,__floatdidf,__gedf2,__ledf2,floor
+LE		24	7	6	6	3	0.27	__adddf3,__eqdf2,__fixdfdi,__floatdidf,__gedf2,__ledf2,floor
+EQK		0	1	0	0	0	0.00	
+EQI	y	2	4	2	1	1	0.85	__eqdf2,__floatsidf
+LTI	y	2	3	2	1	1	0.72	__floatsidf,__ledf2
+LEI		2	3	2	1	1	0.84	__floatsidf,__ledf2
+GTI		2	3	2	1	1	0.72	__floatsidf,__gedf2
+GEI	y	2	3	2	1	1	0.82	__floatsidf,__gedf2
+FORPREP		10	9	3	3	5	0.41	__eqdf2,__gedf2,__ledf2
+FORLOOP	y	4	2	3	2	1	0.22	__adddf3,__gedf2,__ledf2

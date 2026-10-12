@@ -1,0 +1,29 @@
+comparison idioms (routine, idiom): sites
+   12 __eqdf2  beqz (branch)
+    9 __eqdf2  bnez (branch)
+    1 __eqdf2  seqz
+   11 __gedf2  bgez (branch)
+    4 __gedf2  blez (branch)
+    9 __gedf2  bltz (branch)
+    3 __gedf2  ld
+    2 __gedf2  li
+    1 __gedf2  mv
+    3 __gedf2  not; srli 0x3f
+    4 __gedf2  sgtz
+   11 __ledf2  bgez (branch)
+   13 __ledf2  bltz (branch)
+    1 __ledf2  ld
+    3 __ledf2  slti 0
+    4 __ledf2  slti 1
+    2 __ledf2  srli 0x3f
+  17 idioms, 93 sites
+
+inlined flttointeger chains from `jal floor`: 22 sites
+   10 floor __eqdf2 beqz j __gedf2 bgez j __ledf2 bltz j __fixdfdi
+    4 floor __eqdf2 bnez __gedf2 bltz __ledf2 bgez __fixdfdi
+    2 floor __eqdf2 beqz __adddf3 __gedf2 bltz __ledf2 bgez __fixdfdi
+    2 floor __gedf2 bltz __ledf2 bgez __fixdfdi
+    1 floor j beq j __divdf3 j beq j bltu j
+    1 floor j beq j __eqdf2 bnez __muldf3 j j
+    1 floor __eqdf2 bnez __gedf2 bgez j __ledf2 bgez __fixdfdi
+    1 floor __eqdf2 bnez __gedf2 bltz __ledf2 bltz j __fixdfdi

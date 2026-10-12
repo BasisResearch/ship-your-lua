@@ -1,0 +1,11 @@
+routine	insns	round	sticky	clz	pack	cls
+__adddf3	418	6	5	1	4	17
+__subdf3	440	5	5	1	4	19
+__muldf3	307	3	1	2	3	6
+__divdf3	328	2	1	2	3	5
+__floatsidf	36	0	0	1	2	0
+__floatdidf	86	1	1	1	4	0
+__fixdfdi	30	0	0	0	0	0
+__eqdf2	28	0	0	0	0	0
+__ledf2	41	0	0	0	0	0
+__gedf2	40	0	0	0	0	0
