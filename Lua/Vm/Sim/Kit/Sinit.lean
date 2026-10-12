@@ -60,9 +60,11 @@ structure SinitPost (m m' : Mem) (sp : Nat) : Prop where
   stdin : FileStd m' stdinFile 0x4#32
   stdout : FileStd m' stdoutFile 0x10009#32
   stderr : FileStd m' stderrFile 0x20012#32
+  /-- `stdout`'s padding after `_file`, which `std()` leaves -/
+  pad : bytesT4 m' (stdoutFile + 20) = bytesT4 m (stdoutFile + 20)
   keep : ∀ a, (a + 64 < sp ∨ sp ≤ a) → (a < symSf ∨ symSf + 3 * fileSize ≤ a) →
-    (a + 8 ≤ symImpureData + reentCleanupOff ∨ symImpureData + reentCleanupOff + 8 ≤ a) →
-    (a + 8 ≤ symStdioExitHandler ∨ symStdioExitHandler + 8 ≤ a) → m'[a]? = m[a]?
+    (a < symImpureData + reentCleanupOff ∨ symImpureData + reentCleanupOff + 8 ≤ a) →
+    (a < symStdioExitHandler ∨ symStdioExitHandler + 8 ≤ a) → m'[a]? = m[a]?
 
 /-- A return that sets no result: `ra`, `sp`, `gp` and the caller's frame. -/
 abbrev voidRet (r : BitVec 64) (sp : Nat) (f : AbiFrame) (m : Mem) (o : Array String) : Config → Prop :=
@@ -101,8 +103,8 @@ macro "sin_fld" : tactic => `(tactic| (
 open Lua.Vm.AtF.Sinit in
 /-- **The root memories keep what lies off their `FILE`.** -/
 theorem sin_keep0 (X : FCx) (hX : Ok X) (a : Nat) (h1 : a + 64 < X.n 0 ∨ X.n 0 ≤ a)
-    (h2 : a < symSf ∨ symSf + fileSize ≤ a) (h3 : a + 8 ≤ 0x8005d200 ∨ 0x8005d208 ≤ a)
-    (h4 : a + 8 ≤ 0x8005d3e0 ∨ 0x8005d3e8 ≤ a) : (m11 X)[a]? = X.m[a]? := by
+    (h2 : a < symSf ∨ symSf + fileSize ≤ a) (h3 : a < 0x8005d200 ∨ 0x8005d208 ≤ a)
+    (h4 : a < 0x8005d3e0 ∨ 0x8005d3e8 ≤ a) : (m11 X)[a]? = X.m[a]? := by
   have : symSf = 0x8005e5b0 := rfl; have : fileSize = 184 := rfl; have := hX.sp_lo
   simp only [m11]; sin_off
 
@@ -215,7 +217,7 @@ theorem sinit_boot (sp : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Arra
   have hm2 : X2.m = Lua.Vm.AtF.Sinit.m21 X1 := rfl
   have hm0 : X0.m = m := rfl
   stdio_nums
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [bT8_congr fun i _ => (k2 _ (by omega)).trans ((congrArg (·[_]?) hm2).trans (k1 _ (by omega)))]
     show bytesT8 (Lua.Vm.AtF.Sinit.m11 X0) _ = _
     simp only [Lua.Vm.AtF.Sinit.m11]; sin_fld
@@ -226,6 +228,14 @@ theorem sinit_boot (sp : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Arra
       (k2 a (by omega)).trans ((congrArg (·[a]?) hm2).trans ((k1 a (by omega)).trans (congrArg (·[a]?) hm1.symm)))
   · exact (sin_std1 X1).congr fun a h1 h2 => (k2 a (by omega)).trans (congrArg (·[a]?) hm2)
   · exact sin_std2 X2
+  · have p2 : bytesT4 (Lua.Vm.AtF.Sinit.m32 X2) 0x8005e67c = bytesT4 X2.m 0x8005e67c :=
+      bT4_congr fun i _ => k2 _ (by omega)
+    have p1 : bytesT4 (Lua.Vm.AtF.Sinit.m21 X1) 0x8005e67c = bytesT4 X1.m 0x8005e67c := by
+      simp only [Lua.Vm.AtF.Sinit.m21]; fat_rd
+    have p0 : bytesT4 (Lua.Vm.AtF.Sinit.m11 X0) 0x8005e67c = bytesT4 X0.m 0x8005e67c :=
+      bT4_congr fun i _ => k0 _ (by omega) (by omega) (by omega) (by omega)
+    show bytesT4 (Lua.Vm.AtF.Sinit.m32 X2) 0x8005e67c = bytesT4 m 0x8005e67c
+    rw [p2, hm2, p1, hm1, p0]
   · intro a h1 h2 h3 h4
     rw [k2 a (by omega), hm2, k1 a (by omega), hm1, k0 a (by omega) (by omega) (by omega) (by omega)]
 

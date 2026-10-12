@@ -45,6 +45,7 @@ import Lua.Vm.Sim.Kit.Setup
 import Lua.Vm.Sim.Kit.Smakebuf
 import Lua.Vm.Sim.Kit.Swsetup
 import Lua.Vm.Sim.Kit.SfvFirst
+import Lua.Vm.Sim.Kit.StdoutSetup
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

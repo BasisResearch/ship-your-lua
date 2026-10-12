@@ -647,7 +647,7 @@ theorem at_80034280_80034284 (X : FCx) (hX : Ok X) :
   fat_seg Lua.Vm.Arms.seg_80034280_80034284
   fat_close
 
-theorem at_8003426c_80034280_n (X : FCx) (hX : Ok X) (hc4 : bytesT2 X.m 0x8005e678 = 0x10009#16) (hc3 : bytesT4 X.m 0x8005e718 = 0x0#32) :
+theorem at_8003426c_80034280_n (X : FCx) (hX : Ok X) (hc4 : bytesT2 X.m 0x8005e678 = 0x9#16) (hc3 : bytesT4 X.m 0x8005e718 = 0x0#32) :
     Triple (SegSt 0x8003426c#64 (r16 X) (ArmPay (m3 X) X.o))
       (SegSt (0x80034280#64) (r15 X) (ArmPay (m3 X) X.o)) := by
   intro c h
@@ -683,7 +683,7 @@ theorem at_800341cc_800341d4_t (X : FCx) (hX : Ok X) :
   fat_seg Lua.Vm.Arms.seg_800341cc_800341d4_t
   fat_close
 
-theorem at_8003415c_8003416c_t (X : FCx) (hX : Ok X) (hc3 : bytesT4 X.m 0x8005e718 = 0x0#32) (hc4 : bytesT2 X.m 0x8005e678 = 0x10009#16) :
+theorem at_8003415c_8003416c_t (X : FCx) (hX : Ok X) (hc3 : bytesT4 X.m 0x8005e718 = 0x0#32) (hc4 : bytesT2 X.m 0x8005e678 = 0x9#16) :
     Triple (SegSt 0x8003415c#64 (r20 X) (ArmPay X.m X.o))
       (SegSt (0x800341cc#64) (r19 X) (ArmPay X.m X.o)) := by
   intro c h

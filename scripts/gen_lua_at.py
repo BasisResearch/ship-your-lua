@@ -2034,7 +2034,7 @@ FNS = {
         ok=["sp_lo : 0x8005e720 + 112 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
             "ra : (X.b 0).toNat % 4 = 0"],
         cells={(8, IMPURE_PTR): IMPURE_DATA, (8, IMPURE_DATA + 72): 0},
-        root_cells={0x800342cc: {(2, STDOUT + 16): 0x10009, (4, STDOUT + 176): 0},
+        root_cells={0x800342cc: {(2, STDOUT + 16): 0x9, (4, STDOUT + 176): 0},
                     0x800341f8: {(2, STDOUT + 16): 0x2889, (4, STDOUT + 176): 0}},
         pure={0x8002f6c8: dict(lemma="Lua.Vm.Sim.Kit.muldi3_sum _ _ _ hframe? _ _ (by decide)",
                                ret={10: lambda st: mul_val(st.get(10), st.get(11))})},
