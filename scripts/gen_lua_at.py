@@ -61,8 +61,36 @@ ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
         "OP_EQK": ("Eqk", 0x8001c850), "OP_LEN": ("Len", 0x8001dc14),
         "OP_MOD": ("Mod", 0x8001dc58), "OP_GETTABUP": ("Gettabup", 0x8001cf84)}
 
+# lane float-m0 (M1): the float paths of six arms, through the soft-float call
+# nodes (`Lua/Vm/Fn/*`); only their float paths are walked (`FLOAT_SEED`: the
+# operand's tag is the float tag, so the integer and other paths, proved on
+# the earlier routes, are infeasible here)
+FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
+              "OP_LTI": ("Lti", 0x8001c46c), "OP_GEI": ("Gei", 0x8001c548),
+              "OP_ADDI": ("Addi", 0x8001ca44), "OP_FORLOOP": ("Forloop", 0x8001c1ec)}
+ARMS.update(FLOAT_ARMS)
+FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
+              "OP_GEI": [("tag", "a", 0)], "OP_ADDI": [("tag", "b", 0)],
+              "OP_FORLOOP": [("tag", "a", 2)], "OP_LOADF": []}
+VNUMFLT_ = 19
+# the soft-float call nodes of the float arms: entry -> (module, arguments,
+# frame bytes (0: a leaf helper))
+FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
+          0x8002e460: ("Ledf2", 2, 0), 0x8002e3c0: ("Gedf2", 2, 0),
+          0x8002d7a8: ("Adddf3", 2, 48)}
+FLOAT_ON = [False]
+# the soft-float lifted functions are opaque to the arm (a definitional
+# unfolding of one is exponential in its paths)
+FOPAQUE = ("\n-- the lifted functions are compared by their arguments, never unfolded\n"
+           "attribute [local irreducible] " + " ".join(
+               f"Lua.Vm.Fn.{m}.F" + (f" Lua.Vm.Fn.{m}.Fm" if fr else "")
+               for m, _, fr in FCALLS.values()) + "\n")
+# the current arm (its log names, for a call result over its entry memory)
+CUR = [None]
+
 # the library modules an arm's at-lemmas need beyond `At`/`Summaries`
-IMPORTS = {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
+IMPORTS = {op: ["Lua.Vm.Sim.Kit.AtCond", "Lua.Vm.Sim.Kit.AtFloat"] for op in FLOAT_ARMS}
+IMPORTS |= {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_GETTABUP": ["Lua.Vm.Sim.Kit.AtEnv"]}
 
@@ -203,8 +231,13 @@ def lean_loc(x):
         return f"(.cell {lean_aff(x[1], x[2])})"
     if k == "cell1":
         return f"(.cell1 {lean_aff(x[1], x[2])})"
+    if k == "back":
+        return f"(.sub (.pc {x[1]}) (.nat ⟨[(4, .bx)], 0, 0⟩))"
+    if k == "fsite":
+        # a soft-float call's result: the call site's definition (`fsite_defs`)
+        return f"(.fn f{x[1]})"
     if k in ("add", "sub", "xor", "srem", "sdiv", "udiv", "umod", "and", "or", "sll", "srl",
-             "addw", "subw"):
+             "addw", "subw", "slt", "sltu", "addwr"):
         return f"(.{k} {lean_loc(x[1])} {lean_loc(x[2])})"
     if k == "snez":
         return f"(.snez {lean_loc(x[1])})"
@@ -288,6 +321,11 @@ class State:
         rg = region(terms)
         for kind, t2, a2, v in self.log:
             sz2 = 8 if kind == "sd" else 1
+            if kind == "clob":
+                sz2 = v[0]
+                if region(t2) == rg and t2 == terms and not (add + size <= a2 or a2 + sz2 <= add):
+                    raise Stop("a load from a callee's frame")
+                continue
             if region(t2) != rg:
                 continue
             if t2 != terms:
@@ -416,8 +454,14 @@ def step(st, raw):
             st.set(R(o[0]), aff_add(ax, ay[0], ay[1]))
         else:
             st.set(R(o[0]), ("add", x, y))
+    elif mnem == "addw" and FLOAT_ON[0]:
+        st.set(R(o[0]), ("addwr", st.get(R(o[1])), st.get(R(o[2]))))
     elif mnem == "sub":
-        st.set(R(o[0]), ("sub", st.get(R(o[1])), st.get(R(o[2]))))
+        x, y = st.get(R(o[1])), st.get(R(o[2]))
+        if FLOAT_ON[0] and x[0] == "pc" and y[0] == "aff" and dict(y[1]) == {"bx": 4} and y[2] == 0:
+            st.set(R(o[0]), ("back", x[1]))      # `pc += 1 - Bx` (`FORLOOP`'s jump back)
+        else:
+            st.set(R(o[0]), ("sub", x, y))
     elif mnem == "neg":
         st.set(R(o[0]), ("sub", ("lit", 0), st.get(R(o[1]))))
     elif mnem == "xor":
@@ -430,6 +474,16 @@ def step(st, raw):
         st.set(R(o[0]), ("addw", st.get(R(o[1])), ("lit", imm(o[2]) & M64)))
     elif mnem == "snez":
         st.set(R(o[0]), ("snez", st.get(R(o[1]))))
+    elif mnem in ("seqz", "slti", "sltiu", "slt", "sltu", "not") and not FLOAT_ON[0]:
+        raise Stop(f"instruction {raw}")
+    elif mnem == "seqz":
+        st.set(R(o[0]), ("sltu", st.get(R(o[1])), ("lit", 1)))
+    elif mnem in ("slti", "sltiu"):
+        st.set(R(o[0]), ("slt" if mnem == "slti" else "sltu", st.get(R(o[1])), ("lit", imm(o[2]) & M64)))
+    elif mnem in ("slt", "sltu"):
+        st.set(R(o[0]), (mnem, st.get(R(o[1])), st.get(R(o[2]))))
+    elif mnem == "not":
+        st.set(R(o[0]), ("xor", st.get(R(o[1])), ("lit", M64)))
     elif mnem == "slli":
         x, k = st.get(R(o[1])), imm(o[2])
         if litval(x) is not None:
@@ -444,8 +498,11 @@ def step(st, raw):
     elif mnem == "srli":
         x, k = st.get(R(o[1])), imm(o[2])
         if litval(x) is None:
-            raise Stop("srli of a symbolic value")
-        st.set(R(o[0]), ("lit", litval(x) >> k))
+            if not FLOAT_ON[0]:
+                raise Stop("srli of a symbolic value")
+            st.set(R(o[0]), ("srl", x, ("lit", k)))
+        else:
+            st.set(R(o[0]), ("lit", litval(x) >> k))
     elif mnem == "srliw":
         x, k = st.get(R(o[1])), imm(o[2])
         if x == ("w4n",) and k == 7:
@@ -581,6 +638,9 @@ CALLS = {
     0x8001ade8: "luaV_tointeger", 0x8001a704: "l_strcmp", 0x8001b780: "luaV_equalobj",
     0x8001bae0: "luaV_objlen", 0x8001808c: "luaH_getshortstr"}
 
+CALLS.update({e: f"fcall_{m}" for e, (m, _, _) in FCALLS.items()})
+FCALLS_BY_NAME = {f"fcall_{m}": (m, n, fr) for e, (m, n, fr) in FCALLS.items()}
+
 # a call node observed by the instruction after it (`l_strcmp`'s answer is
 # only known up to `LsObs`): the call lemma runs on through that observing
 # segment, whose result is a location (mnemonic -> the location's kind, the
@@ -591,7 +651,10 @@ OBSERVED = {"l_strcmp": {"slti": ("strle", "obs_le"), "srliw": ("strlt", "obs_lt
 def call_effect(st, callee, ret):
     """The state after a summarised call, and the at-lemma's extra hypotheses
     and proof."""
-    a0, a1 = st.get(10), st.get(11)
+    if callee in FCALLS_BY_NAME:
+        a0 = a1 = None          # the soft-float calls read their arguments below
+    else:
+        a0, a1 = st.get(10), st.get(11)
     dead = [r for r in FRAME if r not in st.regs]
     if not set(dead) <= {22, 26}:
         raise Stop(f"frame registers {dead} unknown")
@@ -599,7 +662,19 @@ def call_effect(st, callee, ret):
     pins = [f"Vsa.Sim.SegSt.pin{r}" for r in dead]
     post.bounds = set()
     hyps, pre_regs = [], [10, 11, 1] + FRAME
-    if callee == "__moddi3":
+    if callee in FCALLS_BY_NAME:
+        mod, nargs, frame = FCALLS_BY_NAME[callee]
+        args = tuple(st.get(10 + i) for i in range(nargs))
+        k = CUR[0].fsite(mod, args, tuple(st.log), ret, frame)
+        post.set(10, ("fsite", k))
+        vs = " ".join(["_"] * nargs)
+        if frame:
+            post.log.insert(0, ("clob", (("sp", 1),), -frame, (frame, k)))
+            proof = (f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum _ _ _ _ sframe? {vs} (at_fnSp hX) "
+                     f"(by decide) (by at_rod))")
+        else:
+            proof = f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum _ _ _ hframe? {vs} (by decide))"
+    elif callee == "__moddi3":
         post.set(10, ("srem", a0, a1))
         hyps.append(f"(hn : {den(a1)} ≠ 0#64)")
         proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.moddi3_sum _ _ _ hframe? _ _ "
@@ -708,6 +783,46 @@ class Arm:
         self.lemmas = {}       # key -> (name, text)
         self.order = []
         self.fins = {}
+        self.fsites = {}
+        self.decls = []
+
+    def fsite(self, mod, args, log, ret, frame):
+        """The index of a soft-float call site's definitions (`f<k>`, its
+        result; `k<k>`, a framed helper's memory; `f<k>_eq`, the result's
+        specification), allocated once per (helper, arguments, log, return)."""
+        key = (mod, args, log, ret, frame)
+        if key not in self.fsites:
+            self.logname(log)            # the result is over the call's entry memory
+            self.fsites[key] = len(self.fsites)
+            self.decls.append(("site", key))
+        return self.fsites[key]
+
+    def fsite_defs(self, only):
+        out = []
+        for (mod, args, log, ret, frame), k in self.fsites.items():
+            if (mod, args, log, ret, frame) != only:
+                continue
+            xs = " ".join(f"(Loc.den X {lean_loc(y)})" for y in args)
+            r = f"(0x{ret:x}#64)"
+            if frame:
+                out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
+                           f"def f{k} (X : Cx) : BitVec 64 :=\n"
+                           f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {xs}\n")
+                out.append(f"/-- ... its frame. -/\n"
+                           f"def k{k} (X : Cx) (M : Mem) : Mem :=\n"
+                           f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {xs}\n")
+                out.append(f"@[at_fspec] theorem f{k}_eq (hsf : SoftFloatSpec) (X : Cx) (hX : X.Ok) :\n"
+                           f"    f{k} X = Lua.Vm.Fn.{mod}.S {xs} :=\n"
+                           f"  Lua.Vm.Fn.{mod}.spec hsf _ _ _ {' '.join(['_'] * len(args))} (at_fnSp hX)"
+                           + (" (by at_sext)" if mod == "Floatsidf" else "") + "\n")
+            else:
+                out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
+                           f"def f{k} (X : Cx) : BitVec 64 :=\n"
+                           f"  Lua.Vm.Fn.{mod}.F {xs}\n")
+                out.append(f"@[at_fspec] theorem f{k}_eq (hsf : SoftFloatSpec) (X : Cx) :\n"
+                           f"    f{k} X = Lua.Vm.Fn.{mod}.S {xs} :=\n"
+                           f"  Lua.Vm.Fn.{mod}.spec hsf {' '.join(['_'] * len(args))}\n")
+        return "\n".join(out)
 
     def row(self, regs):
         key = tuple(sorted(regs.items()))
@@ -723,6 +838,7 @@ class Arm:
             return "[]"
         if key not in self.logs:
             self.logs[key] = f"m{len(self.logs)}"
+            self.decls.append(("log", key))
         return self.logs[key]
 
     def name(self, base, key):
@@ -828,6 +944,8 @@ class Arm:
                         step(st2, raw)
                 # the row after the segment: the segment's post registers
                 st2.regs = {r: v for r, v in st2.regs.items() if r in post and printable(v)}
+                if callee in FCALLS and not FLOAT_ON[0]:
+                    raise Stop(f"call to 0x{callee:x}")
                 if callee is not None and callee not in CALLS and callee not in ERRS:
                     raise Stop(f"call to 0x{callee:x}")
                 if callee in ERRS:
@@ -894,9 +1012,13 @@ class Arm:
         if key in self.lemmas:
             return
         x27 = st.regs.get(27)
-        t = to_aff(x27) if x27 != ("jmp",) else None
+        t = to_aff(x27) if x27 != ("jmp",) and x27[0] != "back" else None
+        back = []
         if x27 == ("jmp",):
             pc_txt = "jmpPc X"
+        elif x27[0] == "back":
+            pc_txt = f"X.s.pc + {x27[1]} - X.ins.bx"
+            back = [f"(hbx : X.ins.bx ≤ X.s.pc + {x27[1]})"]
         else:
             if t is None or t[0].get("code") != 1 or t[0].get("pc") != 4 or (t[1] % 4):
                 raise Stop(f"head pc {x27}")
@@ -908,6 +1030,8 @@ class Arm:
         # the stored slots: the newest tag (`sb` at +8) and payload (`sd` at +0)
         slots, bounds = {}, set()
         for kind, t, a, v in st.log:
+            if kind == "clob":
+                continue
             so = slot_of(t, a)
             if so is None:
                 continue
@@ -922,11 +1046,13 @@ class Arm:
             bounds.add((f, k))
         ws = []
         for (f, k), e in sorted(slots.items()):
+            if FLOAT_ON[0] and set(e) == {"v"}:
+                e["t"] = ("tag", f, k)     # `chgfltvalue`: the entry's tag kept
             if set(e) != {"t", "v"}:
                 raise Stop("a slot with its tag or payload unstored")
             ws.append(f"⟨.{f}, {k}, {lean_loc(e['t'])}, {lean_loc(e['v'])}⟩")
         st.bounds = bounds
-        hs = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(st)
+        hs = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(st) + back
         lname = self.name("fin", key)
         text = (f"theorem {lname} {' '.join(hs)} {{c : Config}}\n"
                 f"    (h : At X 0x{HEAD:08x}#64 ({row}) {log} c) :\n"
@@ -938,8 +1064,10 @@ class Arm:
     def run(self):
         PRUNE_FLOAT[0] = self.op in PRUNE_ARMS
         ENV[0] = self.op in ENV_ARMS
+        FLOAT_ON[0] = self.op in FLOAT_ARMS
+        CUR[0] = self
         self.dropped = []
-        st = State(HEADROW, [], {})
+        st = State(HEADROW, [], {loc: ("eq", VNUMFLT_) for loc in FLOAT_SEED.get(self.op, [])})
         for f in self.walk(self.target, st) or []:
             f()
 
@@ -948,11 +1076,15 @@ class Arm:
             f"@[at_row] abbrev {n} (X : Cx) : List Pin :=\n  [" +
             ",\n   ".join(f"⟨Register.x{r}, {den(v)}⟩" for r, v in key) + "]\n"
             for key, n in self.rows.items())
+        # the logs and the soft-float call sites, in dependency order (a
+        # site's result is over its entry log; a later log holds its frame)
         logs = "\n".join(
-            f"@[at_row] abbrev {n} : List Ent :=\n  [" +
-            ",\n   ".join(f".{k} {lean_aff(t, a)} {lean_loc(v)}" for k, t, a, v in key) + "]\n"
-            for key, n in self.logs.items())
+            (f"@[at_row] abbrev {self.logs[key]} : List Ent :=\n  [" +
+             ",\n   ".join(ent_text(k, t, a, v) for k, t, a, v in key) + "]\n")
+            if kind == "log" else self.fsite_defs(key)
+            for kind, key in self.decls)
         body = "\n".join(self.lemmas[k][1] for k in self.order)
+        first, second = (logs, rows) if self.op in FLOAT_ARMS else (rows, logs)
         dropped = "\n".join(f"* `{n}`: {why}" for n, why in sorted(set(self.dropped)))
         extra = "".join(f"import {m}\n" for m in IMPORTS.get(self.op, []))
         return f"""import Lua.Vm.Sim.Kit.At
@@ -974,14 +1106,21 @@ open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterface
 open Vsa.Sim Vsa.Logic
 open Lua.Vm.Sim Lua.Vm.Sim.At Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (Config)
-
+{FOPAQUE if self.op in FLOAT_ARMS else ""}
 namespace Lua.Vm.At.{self.op[3:]}
 
-{rows}
-{logs}
+{first}
+{second}
 {body}
 end Lua.Vm.At.{self.op[3:]}
 """
+
+
+def ent_text(k, t, a, v):
+    if k == "clob":
+        frame, site = v
+        return f".clob ⟨[(1, .sp)], 0, {frame}⟩ {frame} k{site}"
+    return f".{k} {lean_aff(t, a)} {lean_loc(v)}"
 
 
 def printable(v):

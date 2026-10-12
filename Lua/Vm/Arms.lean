@@ -145,6 +145,15 @@ import Lua.Vm.Arms.Segs.Hsinit
 import Lua.Vm.Arms.Segs.Hglobal_stdio_init_part_0
 import Lua.Vm.Arms.Segs.Hmemset
 import Lua.Vm.Arms.Segs.Hretarget_lock_init_recursive
+import Lua.Vm.Arms.Segs.Hclzdi2
+import Lua.Vm.Arms.Segs.Hfloatsidf
+import Lua.Vm.Arms.Segs.Hfloatdidf
+import Lua.Vm.Arms.Segs.Hfixdfdi
+import Lua.Vm.Arms.Segs.Heqdf2
+import Lua.Vm.Arms.Segs.Hgedf2
+import Lua.Vm.Arms.Segs.Hledf2
+import Lua.Vm.Arms.Segs.Hadddf3
+import Lua.Vm.Arms.Segs.Hsubdf3
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

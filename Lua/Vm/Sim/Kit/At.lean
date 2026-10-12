@@ -1,6 +1,7 @@
 import Lua.Vm.Sim.Kit.Multi
 import Lua.Vm.Sim.Kit.K
 import Lua.Vm.Sim.Kit.AtAttr
+import Lua.Vm.Sim.Kit.Fn
 
 /-!
 # Location lists and segment-local discharge (round-4 bake-off, B-SEGLOCAL)
@@ -126,6 +127,11 @@ inductive Loc
   /-- an entry-memory byte at an affine address (lane F1-7: a tag through a
   pointer, `lbu 8(s6)`) -/
   | cell1 (e : Aff)
+  /-- lane float-m0: `slt`/`slti` and `sltu`/`sltiu`/`seqz` (a soft-float
+  comparison's answer observed by the arm) -/
+  | slt (x y : Loc) | sltu (x y : Loc)
+  /-- lane float-m0: `addw` of two registers (`LOADF`'s `sBx`) -/
+  | addwr (x y : Loc)
 
 /-- The value of a location. -/
 def Loc.den (X : Cx) : Loc → BitVec 64
@@ -159,6 +165,10 @@ def Loc.den (X : Cx) : Loc → BitVec 64
       ((Sail.BitVec.extractLsb (x.den X) 31 0) - (Sail.BitVec.extractLsb (y.den X) 31 0))
   | .fn f => f X
   | .cell1 e => zero_extend (m := 64) (bytesT1 X.c.σ.mem (e.den X) : BitVec (8 * 1))
+  | .slt x y => zero_extend (m := 64) (bool_to_bit (zopz0zI_s (x.den X) (y.den X)))
+  | .sltu x y => zero_extend (m := 64) (bool_to_bit (zopz0zI_u (x.den X) (y.den X)))
+  | .addwr x y => sign_extend (m := 64)
+      ((Sail.BitVec.extractLsb (x.den X) 31 0) + (Sail.BitVec.extractLsb (y.den X) 31 0))
 
 /-- `snez`'s value. -/
 theorem snez_eq (x : BitVec 64) :
@@ -175,10 +185,15 @@ theorem snez_eq (x : BitVec 64) :
 inductive Ent
   | sd (a : Aff) (v : Loc)
   | sb (a : Aff) (v : Loc)
+  /-- lane float-m0: a framed helper's stores in its own frame `[a, a + n)`
+  below `sp` (`Kit/Fn.lean`): there the memory is the callee's `f`, elsewhere
+  it is unchanged by construction (`memPatch`) -/
+  | clob (a : Aff) (n : Nat) (f : Cx → Mem → Mem)
 
 def Ent.app (X : Cx) (m : Mem) : Ent → Mem
   | .sd a v => writeMap8 m (a.den X) (sdData_val (v.den X))
   | .sb a v => m.insert (a.den X) (stData 1 (v.den X))
+  | .clob a n f => memPatch m (f X m) (a.den X) n
 
 /-- **The path's memory**: its stores (newest first) over the entry memory. -/
 def Log.den (X : Cx) : List Ent → Mem
@@ -292,6 +307,12 @@ theorem ld1_wm8 {m : Mem} {a x : Nat} {d : BitVec (8 * 8)} (h : Sep x 1 a 8) :
 theorem ld1_ins {m : Mem} {a x : Nat} {b : BitVec 8} (h : Sep x 1 a 1) :
     bytesT1 (m.insert a b) x = bytesT1 m x := by
   simp only [bytesT1, getElem?_insert_out (show x ≠ a by unfold Sep at h; omega)]
+
+theorem ld8_patch {m m' : Mem} {a n x : Nat} (h : Sep x 8 a n) :
+    bytesT8 (memPatch m m' a n) x = bytesT8 m x := bytesT8_memPatch_out (by unfold Sep at h; omega)
+
+theorem ld1_patch {m m' : Mem} {a n x : Nat} (h : Sep x 1 a n) :
+    bytesT1 (memPatch m m' a n) x = bytesT1 m x := bytesT1_memPatch_out (by unfold Sep at h; omega)
 
 theorem ld8_wm8_same {m : Mem} {a x : Nat} {d : BitVec (8 * 8)} (h : x = a) :
     bytesT8 (writeMap8 m a d) x = d := by subst h; exact bytesT8_writeMap8 m x d
@@ -416,11 +437,25 @@ partial def atFwd1 : TacticM Bool := withMainContext do
   let loads := collectE (fun e : Expr =>
     (e.isAppOfArity ``bytesT1 2 || e.isAppOfArity ``bytesT8 2) &&
     (e.appFn!.appArg!.isAppOfArity ``writeMap8 3 ||
-      e.appFn!.appArg!.isAppOf ``Std.ExtHashMap.insert)) t
+      e.appFn!.appArg!.isAppOf ``Std.ExtHashMap.insert ||
+      e.appFn!.appArg!.isAppOfArity ``Lua.Vm.Sim.memPatch 4)) t
   for e in loads do
     let isB1 := e.isAppOfArity ``bytesT1 2
     let M := e.appFn!.appArg!
     let x := e.appArg!
+    -- lane float-m0: a callee's frame (`Ent.clob`): past it by its window
+    if M.isAppOfArity ``Lua.Vm.Sim.memPatch 4 then
+      let as := M.getAppArgs
+      let sepTy ← mkAppM ``Sep #[x, mkNatLit (if isB1 then 1 else 8), as[2]!, as[3]!]
+      if let some pf ← proveBy sepTy (← `(tactic| at_sep)) then
+        let eq ← mkAppOptM (if isB1 then ``ld1_patch else ``ld8_patch)
+          #[as[0]!, as[1]!, as[2]!, as[3]!, x, pf]
+        let g ← getMainGoal
+        let r ← g.rewrite (← g.getType) eq
+        let g' ← g.replaceTargetEq r.eNew r.eqProof
+        replaceMainGoal (g' :: r.mvarIds)
+        return true
+      continue
     let isW8 := M.isAppOfArity ``writeMap8 3
     let (m, a, d) := if isW8 then (M.appFn!.appFn!.appArg!, M.appFn!.appArg!, M.appArg!)
       else (M.appFn!.appFn!.appArg!, M.appFn!.appArg!, M.appArg!)
@@ -582,7 +617,11 @@ macro_rules
     | (with_reducible refine insert_congr ?_ ?_ ?_
        · at_mem
        · kit_disch
-       · exact un_congr (by at_eq)))
+       · exact un_congr (by at_eq))
+    | (with_reducible refine memPatch_congr ?_ ?_ ?_
+       · at_mem
+       · first | with_reducible rfl | at_eq_ext | (with_reducible refine un_congr ?_; at_eq) | at_eq
+       · kit_disch))
 
 /-- **`at_pins h`**: the goal's pin list (a row), each register found by name
 in `h`'s pins, the value by `at_eq` where the forms differ. -/
@@ -744,9 +783,9 @@ macro "at_fin" : tactic => `(tactic| (
   · intro x h1 h2 h3
     simp only [Slots, Scratch, CFrame, RelPtrs.slot, ciSavedpcOff, stateTopOff, RuntimeData.spEntry,
       cStackBudget, execFrame, stackValueSize, not_or, not_and, Nat.not_lt] at h1 h2 h3
-    try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out]
+    try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]
   · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Loc.den]
+      SlotW.j, Fld.den, Loc.den, stData_zext]
     try refine ⟨?_, ?_⟩
     all_goals at_eq
   · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
@@ -757,7 +796,7 @@ macro "at_fin" : tactic => `(tactic| (
     simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
       SlotW.j, Fld.den, Slots, RelPtrs.slot, stackValueSize, Word.a, Word.b, Word.c, Word.field,
       Nat.shiftRight_eq_div_pow] at h1 h2
-    try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out]
+    try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]
   · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
       SlotW.j, Fld.den, Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow]
     try refine ⟨?_, ?_⟩
@@ -896,16 +935,18 @@ elab "at_run " ns:ident h:ident acc:ident : tactic => do
     for n in cands do
       unless (← lemmaKey n) == key do continue
       let s ← saveState
-      try
-        let args ← Tactic.runTermElab (atRunArgs n)
-        let lem ← `($(mkIdent n) $args*)
-        withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
-          obtain ⟨_, $acc, $h⟩ := At.run $acc $h $lem))
-        done := true
-        break
-      catch e =>
-        errs := errs.push m!"{n}: {e.toMessageData}"
-        s.restore
+      -- a candidate whose hypotheses `at_hyp` cannot close is rejected, also
+      -- when a closer runs into the recursion limit on an undecided guard
+      let ok ← tryCatchRuntimeEx (do
+          let args ← Tactic.runTermElab (atRunArgs n)
+          let lem ← `($(mkIdent n) $args*)
+          withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic|
+            obtain ⟨_, $acc, $h⟩ := At.run $acc $h $lem))
+          pure (none : Option MessageData))
+        (fun e => pure (some m!"{n}: {e.toMessageData}"))
+      match ok with
+      | none => done := true; break
+      | some m => errs := errs.push m; s.restore
     unless done do
       throwError "at_run: no at-lemma at 0x{hex8 pc} applies:{indentD (MessageData.joinSep errs.toList "\n")}"
   throwError "at_run: out of fuel"

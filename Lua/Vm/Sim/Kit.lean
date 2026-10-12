@@ -38,6 +38,12 @@ import Lua.Vm.Sim.Kit.Memchr
 import Lua.Vm.Sim.Kit.Fwrite
 import Lua.Vm.Sim.Kit.Sfvwrite
 import Lua.Vm.AtF.Sinit
+import Lua.Vm.Sim.Kit.AtFltLoadf
+import Lua.Vm.Sim.Kit.AtFltLti
+import Lua.Vm.Sim.Kit.AtFltEqi
+import Lua.Vm.Sim.Kit.AtFltGei
+import Lua.Vm.Sim.Kit.AtFltAddi
+import Lua.Vm.Sim.Kit.AtFltForloop
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

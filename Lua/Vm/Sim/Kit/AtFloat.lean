@@ -1,0 +1,119 @@
+import Lua.Vm.Sim.Kit.At
+import Lua.Vm.Sim.Kit.AtFAttr
+import Lua.Vm.Sim.Kit.Clzdi2
+import Lua.Vm.Fn.Spec
+
+/-!
+# The soft-float call nodes on the location-list route (lane float-m0, M1)
+
+A float path of an arm calls libgcc's soft-float routines; their summaries
+are `scripts/gen_lua_fn.py`'s (`Lua/Vm/Fn/*`, `sum`), keyed by entry pc. The
+generated call at-lemmas (`scripts/gen_lua_at.py` `FCALLS`) apply them at
+the row (`at_call`) with what this file supplies once:
+
+* `at_fnSp`: the stack facts a framed helper's frame below `luaV_execute`'s
+  `sp` needs (`FnSp`, from `Ranges.sp_eq`);
+* `at_rod`: `.rodata` (`__clz_tab`) read through the path's stores
+  (`Core.rodata` and the stores' addresses above the HTIF mailbox);
+* `at_fsite_eq` (an `at_eq` extension): a call site's result `f<k> X` (or
+  memory `k<k> X M`) against the summary's, by unfolding the site once
+  (`at_fsite_delta`) and comparing the lifted function's arguments
+  (`fn_congr*`), never the lifted function itself.
+
+The call's result is the location `.fn f<k>`; a framed helper's frame is the
+log entry `Ent.clob` with content `k<k>` (`memPatch`).
+-/
+
+open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
+open Vsa.Sim Vsa.Logic
+
+namespace Lua.Vm.Sim.At
+
+open Lua.Vm.Sim Lua.Bytecode Lua.Vm.Layout
+
+/-- **A frame of up to 48 bytes below `luaV_execute`'s `sp`** (`FnSp`). -/
+theorem at_fnSp {X : Cx} {F : Nat} (hX : X.Ok) (hF : F ≤ 48 := by decide) : FnSp X.w.sp F := by
+  have := hX.core.ranges.sp_eq
+  simp only [execFrame, RuntimeData.spEntry] at this
+  exact ⟨by have : tohostAddr = 0x8005c6c0 := rfl; omega, by omega, by omega⟩
+
+/-- `.rodata` survives a byte store above the HTIF mailbox. -/
+theorem RodataRead.ins {m : Mem} (h : RodataRead m) {a : Nat} {b : BitVec 8} (ha : tohostAddr ≤ a) :
+    RodataRead (m.insert a b) := fun o ho => by
+  have := Lua.Vm.Sim.rodata_below_tohost
+  simp only [bytesT1, getElem?_insert_out (show Image.rodataBase + o ≠ a by omega)]
+  exact h o ho
+
+set_option hygiene false in
+/-- **`.rodata` through the path's stores** (`Core.rodata` at the entry). -/
+macro "at_rod" : tactic => `(tactic| (
+  repeat (first
+    | exact hc.rodata
+    | (refine RodataRead.wm8 ?_ (by kit_disch))
+    | (refine RodataRead.ins ?_ (by kit_disch))
+    | (refine RodataRead.patch ?_ (by kit_disch)))))
+
+theorem fn_congr2 {α β γ : Type} (f : α → β → γ) {a a' : α} {b b' : β} (ha : a = a') (hb : b = b') :
+    f a b = f a' b' := by subst ha hb; rfl
+
+theorem fn_congr4 {α β γ δ ε : Type} (f : α → β → γ → δ → ε) {a a' : α} {b b' : β} {c c' : γ}
+    {d d' : δ} (ha : a = a') (hb : b = b') (hc : c = c') (hd : d = d') : f a b c d = f a' b' c' d' := by
+  subst ha hb hc hd; rfl
+
+theorem fn_congr5 {α β γ δ ε ζ : Type} (f : α → β → γ → δ → ε → ζ) {a a' : α} {b b' : β} {c c' : γ}
+    {d d' : δ} {e e' : ε} (ha : a = a') (hb : b = b') (hc : c = c') (hd : d = d') (he : e = e') :
+    f a b c d e = f a' b' c' d' e' := by
+  subst ha hb hc hd he; rfl
+
+theorem fn_congr1 {α β : Type} (f : α → β) {a a' : α} (ha : a = a') : f a = f a' := by subst ha; rfl
+
+open Lean Elab Tactic Meta in
+/-- A call site's definition (`Lua.Vm.At.<OP>.f<k>`, `….k<k>`). -/
+def isFsite (n : Name) : Bool :=
+  match n with
+  | .str p s =>
+    (`Lua.Vm.At).isPrefixOf p && s.length ≥ 2 && (s.front == 'f' || s.front == 'k') &&
+      (s.drop 1).all Char.isDigit
+  | _ => false
+
+open Lean Elab Tactic Meta in
+/-- **The call sites of the goal unfolded once** (a definitional step: no
+equation lemma, whose generation would unfold the lifted function). -/
+elab "at_fsite_delta" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  let some (ty, l, r) := t.eq? | throwError "at_fsite_delta: not an equation"
+  -- only a side's head: the sites inside the arguments stay folded
+  let unfoldHead (e : Expr) : MetaM (Option Expr) := do
+    let f := e.getAppFn
+    unless f.isConst && isFsite f.constName! do return none
+    return some (← deltaExpand e (· == f.constName!)).headBeta
+  let l' ← unfoldHead l
+  let r' ← unfoldHead r
+  if l'.isNone && r'.isNone then throwError "at_fsite_delta: no call site at the head"
+  let t' ← mkEq (l'.getD l) (r'.getD r)
+  let _ := ty
+  replaceMainGoal [← (← getMainGoal).replaceTargetDefEq t']
+
+/-- **A call site's result or memory against the summary's** (`at_eq`'s
+extension in a float arm): the site unfolded once (`at_fsite_delta`), then
+the lifted function's arguments compared (each by `at_unfold` and `at_eq` or
+`at_mem`). -/
+macro "at_fsite_eq" : tactic => `(tactic| (
+  at_fsite_delta
+  first
+    | (refine fn_congr5 _ ?_ ?_ ?_ ?_ ?_)
+    | (refine fn_congr4 _ ?_ ?_ ?_ ?_)
+    | (refine fn_congr2 _ ?_ ?_)
+    | (refine fn_congr1 _ ?_)
+  all_goals first
+    | with_reducible rfl
+    | (at_unfold <;> first | with_reducible rfl | at_mem | at_eq)))
+
+macro_rules | `(tactic| at_eq_ext) => `(tactic| at_fsite_eq)
+
+/-- `__floatsidf`'s argument at a call site is canonical: a 32-bit result
+(`addw`, `addiw`) sign-extended (`Lua.Vm.Fn.sext32_canon`). -/
+macro "at_sext" : tactic => `(tactic|
+  first | exact Lua.Vm.Fn.sext32_canon _ | (simp only [Loc.den]; exact Lua.Vm.Fn.sext32_canon _))
+
+end Lua.Vm.Sim.At

@@ -74,7 +74,11 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          # lane F1-8: the stdio calls above it (the callee-context route)
          "fflush", "memmove", "_fflush_r", "memchr", "__sfvwrite_r", "_fwrite_r",
          # lane F1-9: the first write's `__sinit` (`std()` of the three `FILE`s)
-         "__sinit", "global_stdio_init.part.0", "memset", "__retarget_lock_init_recursive"]
+         "__sinit", "global_stdio_init.part.0", "memset", "__retarget_lock_init_recursive",
+         # lane float-m0: the libgcc soft-float routines of the T1/T2 float paths
+         # (FLOAT-DESIGN.md §3, M0) and their `__clzdi2`
+         "__floatsidf", "__floatdidf", "__fixdfdi", "__eqdf2", "__ledf2", "__gedf2",
+         "__adddf3", "__subdf3", "__clzdi2"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")
