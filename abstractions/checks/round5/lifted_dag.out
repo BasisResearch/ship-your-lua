@@ -1,0 +1,33 @@
+routine	nodes	ifs	paths	vshift	mem	clz	pack_refs
+Floatsidf	3	1	2	16	2	2	4 (N_8002f16c)
+Floatdidf	14	7	11	7	8	2	15 (N_8002f278,N_8002f2e0,N_8002f250)
+Fixdfdi	9	4	6	2	0	0	0 ()
+Eqdf2	9	7	19	0	0	0	0 ()
+Ledf2	18	15	67	0	0	0	0 ()
+Gedf2	18	15	67	0	0	0	0 ()
+Adddf3	133	76	497	42	14	2	22 (N_8002db68,N_8002d8b8,N_8002dae0,N_8002da9c)
+Subdf3	142	83	509	34	14	2	21 (N_8002ea8c,N_8002eb90,N_8002ec8c,N_8002ec40)
+
+shared node bodies (alpha-normalised) across routines:
+  8 occurrences in ['Adddf3', 'Subdf3']: N (m) s r P0 P1 P2
+  5 occurrences in ['Eqdf2', 'Fixdfdi', 'Gedf2', 'Ledf2']: P0
+  4 occurrences in ['Adddf3', 'Subdf3']: if (P0 == (0#64)) = true then N (m) s r P1 P2 P3 else N (m) s r
+  3 occurrences in ['Eqdf2', 'Gedf2', 'Ledf2']: ((0#64) + sign_extend (m := 64) (0x001#12))
+  3 occurrences in ['Eqdf2', 'Gedf2', 'Ledf2']: if ((P1 + sign_extend (m := 64) (0x801#12)) != (0#64)) = true then N P0 P1 P2 P3 P4 P5 else N P0 P1 P2 P3 P4 P5
+  3 occurrences in ['Adddf3', 'Subdf3']: N (m) s r P0 P1 P2 P3 ((P4 ||| (shift_bits_left ((0#64) + sign_extend (m := 64) (0x001#12)) (Sail.BitVec.extractLsb (0x37#6) 5 0))))
+  2 occurrences in ['Floatdidf', 'Floatsidf']: (((shift_bits_left P0 (Sail.BitVec.extractLsb (0x34#6) 5 0)) ||| ((0#64) + sign_extend (m := 64) (0x000#12))) ||| (shift_bits_left ((0#64) + sign_extend (m := 6
+  2 occurrences in ['Gedf2', 'Ledf2']: ((0#64) + sign_extend (m := 64) (0xfff#12))
+  2 occurrences in ['Gedf2', 'Ledf2']: if (P0 != (0#64)) = true then N (((0#64) + sign_extend (m := 64) (0x001#12))) else N
+  2 occurrences in ['Gedf2', 'Ledf2']: if (P0 != (0#64)) = true then N else N
+  2 occurrences in ['Gedf2', 'Ledf2']: if (P0 == (0#64)) = true then N else N (((0#64) + sign_extend (m := 64) (0x001#12)))
+  2 occurrences in ['Gedf2', 'Ledf2']: if zopz0zKzJ_u P2 P1 = true then N (((0#64) + sign_extend (m := 64) (0x000#12))) else N P0
+  2 occurrences in ['Gedf2', 'Ledf2']: if zopz0zI_u P1 P2 = true then N P0 else N P0 P1 P2
+  2 occurrences in ['Gedf2', 'Ledf2']: if zopz0zI_s P1 P0 = true then N P2 else N P2 P3 P4
+  2 occurrences in ['Gedf2', 'Ledf2']: if zopz0zI_s P0 P1 = true then N P2 else N P0 P1 P2 P3 P4
+  2 occurrences in ['Gedf2', 'Ledf2']: if (((P5 ||| P2) ||| (P4 ||| P1)) == (0#64)) = true then N (((P5 ||| P2) ||| (P4 ||| P1))) else N ((P4 ||| P1)) P0 P1 P2 P3 P4 P5 ((P5 ||| P2))
+  2 occurrences in ['Adddf3', 'Subdf3']: (((shift_bits_left ((0#64) + sign_extend (m := 64) (0x7ff#12)) (Sail.BitVec.extractLsb (0x34#6) 5 0)) ||| (shift_bits_left ((0#64) + sign_extend (m := 64) (0x00
+  2 occurrences in ['Adddf3', 'Subdf3']: if ((P0 &&& sign_extend (m := 64) (0x00f#12)) == ((0#64) + sign_extend (m := 64) (0x004#12))) = true then N (m) s r P1 P2 P3 else N (m) s r P1 P2 P3
+  2 occurrences in ['Adddf3', 'Subdf3']: if zopz0zI_s (sign_extend (m := 64) (Sail.BitVec.extractLsb (P0 + sign_extend (m := 64) (0xff8#12)) 31 0)) (sign_extend (m := 64) (bytesT8 (m) ((BitVec.ofNat 64
+  2 occurrences in ['Adddf3', 'Subdf3']: N (writeMap8 (writeMap8 (writeMap8 (writeMap8 (m) ((((BitVec.ofNat 64 s) + sign_extend (m := 64) (0xfd0#12)) + sign_extend (m := 64) (0x018#12)).toNat) (sdData_
+  2 occurrences in ['Adddf3', 'Subdf3']: N (m) s r ((P1 + sign_extend (m := 64) (0x000#12))) ((P0 + sign_extend (m := 64) (0x000#12)))
+total distinct bodies 281; shared across routines 21

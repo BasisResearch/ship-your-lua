@@ -1,0 +1,325 @@
+HB start 10694
+HB kit_setup 11646
+HB jumpTo split 11958
+HB simp forloopK 14020
+HB kit_reg x3 17732
+HB refute non-float (cases v0 v1) 20680
+HB jump target 21784
+HB payload bundle + comm 21902
+HB branch: kernel split 22161
+HB branch: successor 22471
+HB branch: at_go prelude 22926
+STEP at_8001c1ec_8001c204_n taken 760 rejected-before 0
+STEP at_8001c204_8001c208 taken 28 rejected-before 0
+STEP at_8001e158_8001e16c taken 2263 rejected-before 0
+STEP call_8001e16c taken 28 rejected-before 0
+STEP at_8001e16c_8001e17c taken 27 rejected-before 0
+STEP call_8001e17c taken 27 rejected-before 0
+STEP at_8001e17c_8001e180_n taken 188 rejected-before 1939
+STEP at_8001e180_8001e18c taken 28 rejected-before 0
+STEP call_8001e18c taken 27 rejected-before 0
+STEP at_8001e18c_8001e194 taken 27 rejected-before 0
+STEP at_8001e194_8001e19c_t_1 taken 282 rejected-before 0
+STEP at_8001e1a0_8001e1c0_1 taken 1663 rejected-before 0
+STEP at_8001c240_8001c24c taken 1577 rejected-before 0
+HB branch: at_run 32714
+HB branch: at_close 36963
+HB branch: kernel split 36967
+HB branch: successor 37220
+HB branch: at_go prelude 37651
+STEP at_8001c1ec_8001c204_n taken 702 rejected-before 0
+STEP at_8001c204_8001c208 taken 24 rejected-before 0
+STEP at_8001e158_8001e16c taken 1920 rejected-before 0
+STEP call_8001e16c taken 24 rejected-before 0
+STEP at_8001e16c_8001e17c taken 24 rejected-before 0
+STEP call_8001e17c taken 25 rejected-before 0
+STEP at_8001e17c_8001e180_n taken 186 rejected-before 1883
+STEP at_8001e180_8001e18c taken 25 rejected-before 0
+STEP call_8001e18c taken 25 rejected-before 0
+STEP at_8001e18c_8001e194 taken 25 rejected-before 0
+STEP at_8001e194_8001e19c_n_1 taken 282 rejected-before 4233
+STEP at_8001e19c_8001e1a0_1 taken 26 rejected-before 0
+STEP at_8001c240_8001c24c_1 taken 26 rejected-before 0
+HB branch: at_run 48003
+HB branch: at_close 49155
+HB branch: kernel split 49159
+HB branch: successor 49467
+HB branch: at_go prelude 49917
+STEP at_8001c1ec_8001c204_n taken 749 rejected-before 0
+STEP at_8001c204_8001c208 taken 27 rejected-before 0
+STEP at_8001e158_8001e16c taken 2033 rejected-before 0
+STEP call_8001e16c taken 27 rejected-before 0
+STEP at_8001e16c_8001e17c taken 27 rejected-before 0
+STEP call_8001e17c taken 27 rejected-before 0
+STEP at_8001e17c_8001e180_t taken 183 rejected-before 0
+STEP at_8001edf0_8001edfc taken 27 rejected-before 0
+STEP call_8001edfc taken 28 rejected-before 0
+STEP at_8001edfc_8001ee04 taken 28 rejected-before 0
+STEP at_8001e194_8001e19c_t taken 256 rejected-before 0
+STEP at_8001e1a0_8001e1c0 taken 1547 rejected-before 0
+STEP at_8001c240_8001c24c taken 1561 rejected-before 0
+HB branch: at_run 57357
+HB branch: at_close 61565
+HB branch: kernel split 61569
+HB branch: successor 61816
+HB branch: at_go prelude 62235
+STEP at_8001c1ec_8001c204_n taken 701 rejected-before 0
+STEP at_8001c204_8001c208 taken 24 rejected-before 0
+STEP at_8001e158_8001e16c taken 1908 rejected-before 0
+STEP call_8001e16c taken 24 rejected-before 0
+STEP at_8001e16c_8001e17c taken 24 rejected-before 0
+STEP call_8001e17c taken 25 rejected-before 0
+STEP at_8001e17c_8001e180_t taken 179 rejected-before 0
+STEP at_8001edf0_8001edfc taken 25 rejected-before 0
+STEP call_8001edfc taken 25 rejected-before 0
+STEP at_8001edfc_8001ee04 taken 25 rejected-before 0
+STEP at_8001e194_8001e19c_n taken 260 rejected-before 2195
+STEP at_8001e19c_8001e1a0 taken 26 rejected-before 0
+STEP at_8001c240_8001c24c_1 taken 26 rejected-before 0
+HB branch: at_run 68623
+HB branch: at_close 69772
+abstractions/checks/round5/ProfForloop.lean:78:18: warning: This simp argument is unused:
+  Kernel.regTop
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [forloopK] at hk htop
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+tactic execution of Lean.Parser.Tactic.decide took 26.2ms
+tactic execution of Lean.Parser.Tactic.refine took 26ms
+typeclass inference of LE took 28.8ms
+simp took 96.8ms
+tactic execution of Lean.Parser.Tactic.simp took 54.3ms
+tactic execution of Lean.Parser.Tactic.refine took 31.6ms
+simp took 124ms
+tactic execution of Lean.Parser.Tactic.simp took 41.9ms
+simp took 24ms
+congr simp thm took 22.4ms
+typeclass inference of Decidable took 29.6ms
+simp took 541ms
+typeclass inference of LE took 47.4ms
+simp took 959ms
+typeclass inference of HAdd took 77.2ms
+type checking took 212ms
+tactic execution of Lean.Parser.Tactic.omega took 118ms
+tactic execution of Lean.Parser.Tactic.simp took 39.8ms
+tactic execution of Lean.Parser.Tactic.rcases took 23.2ms
+typeclass inference of LawfulGetElem took 73ms
+simp took 239ms
+simp took 35.4ms
+simp took 46.2ms
+simp took 28.3ms
+simp took 144ms
+simp took 68.7ms
+simp took 43.7ms
+simp took 208ms
+simp took 20.4ms
+tactic execution of Lean.Parser.Tactic.simp took 44.6ms
+tactic execution of Lean.Parser.Tactic.refine took 25.2ms
+type checking took 54.6ms
+tactic execution of Lean.Parser.Tactic.omega took 24.9ms
+simp took 71.3ms
+tactic execution of Lean.Parser.Tactic.simp took 42.1ms
+tactic execution of Lean.Parser.Tactic.simp took 24.5ms
+typeclass inference of Decidable took 21.8ms
+type checking took 110ms
+tactic execution of Lean.Parser.Tactic.omega took 58.4ms
+tactic execution of Lean.Parser.Tactic.simp took 37.1ms
+type checking took 116ms
+tactic execution of Lean.Parser.Tactic.omega took 27.4ms
+tactic execution of Lean.Parser.Tactic.simp took 42.7ms
+typeclass inference of Decidable took 31.5ms
+simp took 108ms
+tactic execution of Lean.Parser.Tactic.simp took 54.6ms
+tactic execution of Lean.Parser.Tactic.obtain took 28.9ms
+tactic execution of Lean.Parser.Tactic.obtain took 26.9ms
+tactic execution of Lean.Parser.Tactic.simp took 69.1ms
+tactic execution of Lean.Parser.Tactic.simp took 34ms
+tactic execution of Lean.Parser.Tactic.simp took 134ms
+tactic execution of Lean.Parser.Tactic.simp took 45.4ms
+simp took 24.9ms
+tactic execution of Lean.Parser.Tactic.simp took 76.9ms
+tactic execution of Lean.Parser.Tactic.omega took 77.8ms
+tactic execution of Lua.Vm.Sim.At.tacticAt_vals took 20.5ms
+tactic execution of Lean.Parser.Tactic.assumption took 166ms
+simp took 47.4ms
+tactic execution of Lean.Parser.Tactic.omega took 94.8ms
+tactic execution of Lua.Vm.Sim.At.Prof5.tacticAt_run_log___ took 225ms
+tactic execution of Lean.Parser.Tactic.decide took 20.9ms
+tactic execution of Lean.Parser.Tactic.simp took 69ms
+simp took 24.4ms
+simp took 23.9ms
+simp took 44.3ms
+tactic execution of Lean.Parser.Tactic.simp took 31.4ms
+simp took 23ms
+simp took 28.6ms
+simp took 26.8ms
+simp took 39.1ms
+simp took 35.5ms
+simp took 56.6ms
+simp took 67.6ms
+simp took 67ms
+simp took 82.7ms
+simp took 20.5ms
+simp took 33.1ms
+simp took 52ms
+simp took 50ms
+simp took 31.4ms
+simp took 24.3ms
+tactic execution of Lean.Parser.Tactic.rcases took 25.5ms
+simp took 26.4ms
+simp took 20.7ms
+simp took 70.3ms
+tactic execution of Lean.Parser.Tactic.refine took 51.2ms
+tactic execution of Lean.Parser.Tactic.simp took 20.4ms
+typeclass inference of Decidable took 24.7ms
+tactic execution of Lean.Parser.Tactic.simp took 52.5ms
+congr simp thm took 22.9ms
+tactic execution of Lean.Parser.Tactic.simp took 26ms
+tactic execution of Lean.Parser.Tactic.omega took 22ms
+tactic execution of Lean.Parser.Tactic.simp took 64.7ms
+simp took 39.3ms
+simp took 28.9ms
+simp took 31.3ms
+simp took 35.4ms
+simp took 29.7ms
+tactic execution of Lean.Parser.Tactic.simp took 78ms
+tactic execution of Lean.Parser.Tactic.omega took 48.7ms
+tactic execution of Lua.Vm.Sim.At.tacticAt_hyp took 60.2ms
+tactic execution of Lean.Parser.Tactic.simp took 84.3ms
+tactic execution of Lean.Parser.Tactic.simp took 31.5ms
+tactic execution of Lean.Parser.Tactic.obtain took 52.3ms
+tactic execution of Lean.Parser.Tactic.assumption took 30ms
+tactic execution of Lean.Parser.Tactic.assumption took 1.76s
+tactic execution of Lua.Vm.Sim.At.Prof5.tacticAt_run_log___ took 124ms
+simp took 28.2ms
+tactic execution of Lean.Parser.Tactic.refine took 61ms
+simp took 24.8ms
+simp took 26ms
+tactic execution of Lean.Parser.Tactic.simp took 37.2ms
+tactic execution of Lean.Parser.Tactic.tacticTry_ took 26.3ms
+tactic execution of Lean.Parser.Tactic.simp took 117ms
+simp took 26.2ms
+simp took 24.2ms
+tactic execution of Lean.Parser.Tactic.simp took 33.8ms
+simp took 23.9ms
+tactic execution of Lean.Parser.Tactic.simp took 45.2ms
+tactic execution of Lean.Parser.Tactic.obtain took 85.6ms
+typeclass inference of Decidable took 32ms
+simp took 53.4ms
+tactic execution of Lean.Parser.Tactic.simp took 191ms
+simp took 43.1ms
+simp took 72.4ms
+simp took 82.6ms
+simp took 109ms
+simp took 79.7ms
+simp took 94.5ms
+simp took 320ms
+tactic execution of Lean.Parser.Tactic.simp took 334ms
+typeclass inference of HDiv took 75.2ms
+typeclass inference of Decidable took 62.5ms
+tactic execution of Lean.Parser.Tactic.omega took 240ms
+tactic execution of Lean.Parser.Tactic.tacticSeq took 73.1ms
+typeclass inference of OfNat took 47.9ms
+tactic execution of Lean.Parser.Tactic.decide took 41.6ms
+simp took 48.7ms
+tactic execution of Lean.Parser.Tactic.simp took 162ms
+simp took 100ms
+simp took 26.6ms
+simp took 67.8ms
+simp took 77.3ms
+simp took 69ms
+simp took 63.6ms
+simp took 36.7ms
+simp took 64.9ms
+simp took 77.5ms
+simp took 83.2ms
+simp took 51ms
+tactic execution of Lean.Parser.Tactic.simp took 121ms
+typeclass inference of HMod took 56.2ms
+typeclass inference of HMod took 79.2ms
+tactic execution of Lean.Parser.Tactic.omega took 219ms
+tactic execution of Lua.Vm.Sim.At.tacticAt_hyp took 106ms
+tactic execution of Lean.Parser.Tactic.decide took 63.7ms
+typeclass inference of Decidable took 51.3ms
+tactic execution of Lean.Parser.Tactic.simp took 346ms
+simp took 34.1ms
+simp took 28.2ms
+simp took 37.7ms
+simp took 23ms
+simp took 20.3ms
+simp took 27.4ms
+simp took 47.2ms
+tactic execution of Lean.Parser.Tactic.simp took 101ms
+tactic execution of Lean.Parser.Tactic.omega took 41.4ms
+tactic execution of Lean.Parser.Tactic.obtain took 50.7ms
+tactic execution of Lean.Parser.Tactic.simp took 35.3ms
+tactic execution of Lean.Parser.Tactic.simp took 20.5ms
+tactic execution of Lean.Parser.Tactic.simp took 23.4ms
+tactic execution of Lua.Vm.Sim.At.Prof5.tacticAt_run_log___ took 485ms
+simp took 45.9ms
+simp took 30.4ms
+tactic execution of Lean.Parser.Tactic.exact took 63ms
+simp took 55.4ms
+tactic execution of Lean.Parser.Tactic.simp took 39ms
+tactic execution of Lean.Parser.Tactic.exact took 30.9ms
+simp took 47.1ms
+tactic execution of Lean.Parser.Tactic.simp took 29.5ms
+simp took 62ms
+tactic execution of Lean.Parser.Tactic.simp took 46.2ms
+tactic execution of Lean.Parser.Tactic.refine took 49.4ms
+tactic execution of Lean.Parser.Tactic.simp took 112ms
+simp took 35.1ms
+simp took 33ms
+simp took 31ms
+simp took 35.2ms
+simp took 26.8ms
+tactic execution of Lean.Parser.Tactic.simp took 47.5ms
+typeclass inference of OfNat took 27.5ms
+tactic execution of Lean.Parser.Tactic.decide took 60.4ms
+simp took 46.7ms
+tactic execution of Lean.Parser.Tactic.simp took 151ms
+tactic execution of Lean.Parser.Tactic.obtain took 28.4ms
+tactic execution of Lean.Parser.Tactic.obtain took 48.7ms
+tactic execution of Lean.Parser.Tactic.simp took 72.9ms
+tactic execution of Lean.Parser.Tactic.omega took 22.9ms
+tactic execution of Lean.Parser.Tactic.obtain took 30.4ms
+tactic execution of Lean.Parser.Tactic.simp took 35.7ms
+tactic execution of Lean.Parser.Tactic.obtain took 22.7ms
+tactic execution of Lean.Parser.Tactic.simp took 64.9ms
+tactic execution of Lean.Parser.Tactic.simp took 20.6ms
+tactic execution of Lean.Parser.Tactic.omega took 22.3ms
+tactic execution of Lean.Parser.Tactic.simp took 34.7ms
+simp took 25.4ms
+tactic execution of Lean.Parser.Tactic.simp took 59.8ms
+typeclass inference of LawfulBEq took 142ms
+simp took 57.3ms
+tactic execution of Lean.Parser.Tactic.simp took 148ms
+tactic execution of Lean.Parser.Tactic.omega took 134ms
+tactic execution of Lean.Parser.Tactic.assumption took 54.9ms
+tactic execution of Lua.Vm.Sim.At.tacticAt_hyp took 62.9ms
+tactic execution of Lua.Vm.Sim.At.Prof5.tacticAt_run_log___ took 466ms
+tactic execution of Lean.Parser.Tactic.tacticSeq1Indented took 34.9ms
+instantiate metavars took 63.9ms
+share common exprs took 21.5ms
+type checking took 122ms
+linting took 27.2ms
+elaboration took 87.7ms
+cumulative profiling times:
+	attribute application 0.0101ms
+	congr simp thm 252ms
+	elaboration 88.3ms
+	fix level params 1.99ms
+	instantiate metavars 64ms
+	interpretation 0.0295ms
+	let-to-have transformation 0.00301ms
+	linting 27.2ms
+	parsing 5.95ms
+	process pre-definitions 9.15ms
+	share common exprs 21.5ms
+	simp 9.35s
+	tactic execution 11.5s
+	type checking 692ms
+	typeclass inference 1.38s
+USER 7.94 s  SYS 2.03 s  WALL 48.74 s  PEAK 2222540 KB
+exit 0
