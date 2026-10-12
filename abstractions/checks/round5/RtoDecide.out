@@ -1,0 +1,28 @@
+type checking took 29.4s
+type checking took 29.2s
+type checking took 36.1s
+type checking took 36.1s
+'Lua.Num.RtoDecide.rto_add_even_8' depends on axioms: [propext]
+elaboration took 36.1s
+'Lua.Num.RtoDecide.rto_add_odd_cex' depends on axioms: [propext]
+'Lua.Num.RtoDecide.shr_rto_8' depends on axioms: [propext]
+'Lua.Num.RtoDecide.shr_rto_s1_cex' depends on axioms: [propext]
+cumulative profiling times:
+	attribute application 0.048ms
+	compilation (IR) 0.0729ms
+	compilation (LCNF base) 1.04ms
+	compilation (LCNF impure) 0.266ms
+	compilation (LCNF mono) 0.48ms
+	elaboration 36.3s
+	fix level params 0.0433ms
+	instantiate metavars 0.0868ms
+	let-to-have transformation 0.0629ms
+	linting 1.74ms
+	parsing 2.57ms
+	process pre-definitions 1.05ms
+	share common exprs 0.244ms
+	tactic execution 9.55ms
+	type checking 131s
+	typeclass inference 120ms
+USER 12.13 s  SYS 7.99 s  WALL 39.20 s  PEAK 1414868 KB
+exit 0
