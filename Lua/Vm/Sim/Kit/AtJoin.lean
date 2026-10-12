@@ -146,6 +146,75 @@ macro "flt_reg2 " x:ident j:term "," y:ident k:term : tactic => `(tactic| (
   have hxm := And.intro hxm' (And.intro hxm'' hxm)
   clear hta' hxm' hta'' hxm''))
 
+/-- **The per-operand view of a number operand** (`tonumberns`, `op_arithf`'s
+per-operand conversion): a float (its model), an integer (its payload), or no
+number. The third component is uniform (`True` but for no number), so one
+`rcases` pattern names it in every class. -/
+theorem _root_.Lua.Vm.Sim.ValRepr.numView {mo : Mem} {ι : Strs} {t : BitVec 8} {x : BitVec 64} {v : Value}
+    (h : ValRepr mo ι t x v) :
+    (v = .flt (F64.toModel x) x.msb ∧ t = BitVec.ofNat 8 vNumFlt ∧ True) ∨
+    (v = .int x ∧ t = BitVec.ofNat 8 vNumInt ∧ True) ∨
+    (v.toNum? = none ∧ t ≠ BitVec.ofNat 8 vNumInt ∧ t ≠ BitVec.ofNat 8 19) := by
+  cases h with
+  | flt => exact .inl ⟨rfl, rfl, trivial⟩
+  | int => exact .inr (.inl ⟨rfl, rfl, trivial⟩)
+  | str => exact .inr (.inr ⟨rfl, by rcases strTag_cases _ with e | e <;> rw [e] <;> decide,
+      by rcases strTag_cases _ with e | e <;> rw [e] <;> decide⟩)
+  | _ => exact .inr (.inr ⟨rfl, by decide, by decide⟩)
+
+set_option hygiene false in
+/-- **`num_reg j, hn`**: register `j` by its per-operand view, three goals
+(float, integer, no number: `hn : v.toNum? = none`, else `True`). -/
+macro "num_reg " j:term "," hn:ident : tactic => `(tactic| (
+  kit_reg hr v hv $j
+  rcases hv.numView with ⟨rfl, htn, $hn⟩ | ⟨rfl, htn, $hn⟩ | ⟨$hn, htn, htn'⟩))
+
+set_option hygiene false in
+/-- A stored float computed by the soft-float call nodes (`luai_numsub`,
+`luai_numadd`, the conversions `__floatdidf`): its bits are the kernel's
+value's, through `F64`'s bridges. -/
+macro_rules
+  | `(tactic| at_new_ext) => `(tactic| (
+      refine ValRepr.ofFloat_of (by decide) ?_
+      simp (disch := assumption) only [Loc.den, Fld.den, Nat.add_zero, at_fspec, Lua.Vm.Fn.Subdf3.S,
+        Lua.Vm.Fn.Adddf3.S, Lua.Vm.Fn.Floatdidf.S, F64.sub_eq_model, F64.add_eq_model, toModel_toBits,
+        toModel_ofInt, ofI, hxm, true_and, and_true]
+      done))
+
+/-- Two tags compared (`beq a4, a2`: `R[C]`'s tag against `R[B]`'s). -/
+theorem zext_byte_beq (a b : BitVec 8) :
+    (zero_extend (m := 64) (a : BitVec (8 * 1)) == zero_extend (m := 64) (b : BitVec (8 * 1))) =
+      decide (a = b) := by
+  have key : ∀ x : BitVec 8, (zero_extend (m := 64) (x : BitVec (8 * 1))).toNat = x.toNat := by
+    intro x
+    simp only [zero_extend, Sail.BitVec.zeroExtend, BitVec.toNat_setWidth, BitVec.zeroExtend_eq_setWidth]
+    have := x.isLt; omega
+  by_cases h : a = b
+  · subst h; simp
+  · have hne : zero_extend (m := 64) (a : BitVec (8 * 1)) ≠ zero_extend (m := 64) (b : BitVec (8 * 1)) :=
+      fun he => h (BitVec.eq_of_toNat_eq (by have := congrArg BitVec.toNat he; rwa [key, key] at this))
+    simp [h, hne]
+
+open Lean Elab Tactic Meta in
+/-- **`at_tags`**: a tag guard from the views' tag facts (whatever their
+names): the operands' tags, a tag against a literal or another tag. -/
+elab "at_tags" : tactic => withMainContext do
+  let mut facts : Array (TSyntax ``Lean.Parser.Tactic.simpLemma) := #[]
+  for d in (← getLCtx) do
+    if d.isImplementationDetail || d.userName.hasMacroScopes then continue
+    let t ← instantiateMVars d.type
+    unless ← Meta.isProp t do continue
+    unless (t.find? fun e => e.isConstOf ``slotTag).isSome do continue
+    if (t.find? fun e => e.isConstOf ``Vsa.Sim.SegSt).isSome then continue
+    facts := facts.push (← `(Lean.Parser.Tactic.simpLemma| $(mkIdent d.userName):term))
+  evalTactic (← `(tactic| simp only [Loc.den, Fld.den, Nat.add_zero, zext_byte_beq, bne,
+      zext_beq_lit _ 19 (by decide), zext_beq_lit _ vNumInt (by decide), vNumFlt, true_and, and_true,
+      decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true', Bool.not_eq_false', $facts,*]))
+  unless (← getUnsolvedGoals).isEmpty do evalTactic (← `(tactic| decide))
+
+/-- The tag guards of the per-operand views, tried first. -/
+macro_rules | `(tactic| at_hyp) => `(tactic| at_tags)
+
 /-! ## The run: Boolean forks -/
 
 open Lean Elab Tactic Meta
@@ -228,7 +297,8 @@ fetch head (or an error exit) in every machine path, split at the forks. -/
 macro "at_walk " ns:ident : tactic => `(tactic| (
   have hX : Cx.Ok ⟨p, c, s, w, ins⟩ := ⟨hc, hf⟩
   have h0 : At ⟨p, c, s, w, ins⟩ _ (headRow ⟨p, c, s, w, ins⟩) [] c := h0
-  have e : True := trivial  -- the float closers' kernel fact: none here (no kernel split)
+  have e : True := trivial  -- the float closers' kernel facts: none here (no kernel split)
+  have hnj : True := trivial
   try simp only [stackValueSize] at *
   repeat' at_step1 $ns h0 acc))
 
@@ -311,6 +381,7 @@ macro "at_leaf " ns:ident : tactic => `(tactic| (
   | (exfalso; at_atoms)
   | (simp [VState.apply, writeDefs, KEdge.kills] at hk
      subst hk
-     at_close $ns h0 acc)))
+     at_close $ns h0 acc)
+  | at_close $ns h0 acc))
 
 end Lua.Vm.Sim.At

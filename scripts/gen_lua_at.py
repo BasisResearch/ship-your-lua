@@ -67,7 +67,10 @@ ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
 # the earlier routes, are infeasible here)
 FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               "OP_LTI": ("Lti", 0x8001c46c), "OP_GEI": ("Gei", 0x8001c548),
-              "OP_ADDI": ("Addi", 0x8001ca44), "OP_FORLOOP": ("Forloop", 0x8001c1ec)}
+              "OP_ADDI": ("Addi", 0x8001ca44), "OP_FORLOOP": ("Forloop", 0x8001c1ec),
+              # round 5 (A-JOIN): every path of `op_arith` (no seed: the
+              # operand classes are the hand side's per-operand views)
+              "OP_SUB": ("Sub", 0x8001d964)}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_GEI": [("tag", "a", 0)], "OP_ADDI": [("tag", "b", 0)],
@@ -83,7 +86,9 @@ JOINS = {"OP_FORLOOP": {0x8001e194: (15, 0x8001e17c)}}
 # frame bytes (0: a leaf helper))
 FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
           0x8002e460: ("Ledf2", 2, 0), 0x8002e3c0: ("Gedf2", 2, 0),
-          0x8002d7a8: ("Adddf3", 2, 48)}
+          0x8002d7a8: ("Adddf3", 2, 48),
+          # round 5 (A-JOIN): `op_arithf`'s conversions and `luai_numsub`
+          0x8002f200: ("Floatdidf", 1, 32), 0x8002e9d0: ("Subdf3", 2, 48)}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)

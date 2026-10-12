@@ -31,7 +31,6 @@ theorem sim_FORLOOP_flt (hsf : SoftFloatSpec) : SimArmOn .FORLOOP FltStep :=
   flt_views; flt_reg_q st (ins.a + 2), hT; flt_reg2 i ins.a, l (ins.a + 1)
   have hbx : ins.bx ≤ s.pc + 1 := by simp [jumpTo] at hj; omega
   obtain rfl : t = s.pc + 1 - ins.bx := by simp [jumpTo] at hj; omega
-  have hnj := toModel_zero
   simp only [model_add_comm i st] at hk
   at_walk Lua.Vm.At.FORLOOP
   all_goals at_leaf Lua.Vm.At.FORLOOP
