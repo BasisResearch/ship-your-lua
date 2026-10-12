@@ -84,7 +84,7 @@ def MallocR_Statement : Prop :=
     (m : Mem) (o : Array String),
     HeapAt m top brk chunks bins → r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → heapEnd + 1024 ≤ sp →
     1 ≤ n → brk + n + 16384 ≤ heapEnd →
-    Triple (SegSt (BitVec.ofNat 64 symMallocR) (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
+    Triple (SegSt 0x8002fa34#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
         ⟨Register.x11, BitVec.ofNat 64 n⟩] sp r f) (ArmPay m o))
       (fun c => ∃ m' p top' brk' chunks' bins', wrRet r sp p f m' o c ∧
         MallocPost m m' sp n p brk chunks top' brk' chunks' bins')

@@ -1417,8 +1417,9 @@ class Fn:
                 return res
         # a global word: the root's own value (`root_cells`: a field a callee
         # changed before this root), else the function's (`cells`)
+        # (`None`: the word is not known in this root)
         cells = {**self.spec.get("cells", {}), **self.spec.get("root_cells", {}).get(st.rootpc, {})}
-        if not terms and (w, add) in cells:
+        if not terms and cells.get((w, add)) is not None:
             val = cells[(w, add)]
             st.hyps.append(self.fact(f"bytesT{w} X.m 0x{add:x} = 0x{val:x}#{8 * w}"))
             return ("lit", sx(val, 8 * w) if signed and w < 8 else val)
@@ -2022,6 +2023,69 @@ FNS = {
         cells={(8, IMPURE_DATA + 72): 0, (8, 0x8005d3e0): 0},
         calls={0x8003b418: dict(ret={})},
         doc="`__sinit(_REENT)` from the boot state."),
+    # lane F1-10: `fwrite(src, 1, n, stdout)` at the first write: `CHECK_INIT`
+    # calls `__sinit` (a root after it: `stdout` as `std()` left it, `_flags`
+    # `__SWR | __SLBF`, file 1), the lock, `ORIENT` (`__SORD` set, `_flags2`
+    # cleared), `__sfvwrite_r` (its set-up summary at the call: `0` returned),
+    # the unlock (a root after it: `stdout` set up)
+    "fwrite/setup": dict(
+        mod="FwriteSetup", entry=0x800342e4,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 1), 12: N((2, 1)), 13: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e720 + 112 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+            "ra : (X.b 0).toNat % 4 = 0"],
+        cells={(8, IMPURE_PTR): IMPURE_DATA, (8, IMPURE_DATA + 72): 0},
+        root_cells={0x800342cc: {(2, STDOUT + 16): 0x10009, (4, STDOUT + 176): 0},
+                    0x800341f8: {(2, STDOUT + 16): 0x2889, (4, STDOUT + 176): 0}},
+        pure={0x8002f6c8: dict(lemma="Lua.Vm.Sim.Kit.muldi3_sum _ _ _ hframe? _ _ (by decide)",
+                               ret={10: lambda st: mul_val(st.get(10), st.get(11))})},
+        calls={0x80032ed0: dict(ret={}), 0x80033b50: dict(ret={10: ("lit", 0)})},
+        imports=["Lua.Vm.Sim.Kit.Muldi3"],
+        doc="`fwrite(src, 1, n, stdout)` → `_fwrite_r` before `__sinit`."),
+    # lane F1-10: `__sfvwrite_r(_REENT, stdout, uio)` at the first write
+    # (`_flags` `__SORD | __SWR | __SLBF`, no buffer): `cantwrite` → `__swsetup_r`
+    # (its summary at the call: `0`; a root after it, `stdout` set up), then the
+    # line-buffered entry as `Sfvwrite`'s up to the first `memchr` (an end: the
+    # summary proof hands over to `Sfvwrite`'s loop there)
+    "__sfvwrite_r/setup": dict(
+        mod="SfvwriteSetup", entry=0x80033b50,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT), 12: N((1, 1))}),
+        ok=SFV_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0},
+        cells={(2, STDOUT + 16): 0x2009, (8, STDOUT + 24): 0},
+        root_cells={0x80033c38: {(2, STDOUT + 16): 0x2889, (4, STDOUT + 32): 1024}},
+        rcells={(((1, 1),), 0): N((2, 1)), (((2, 1),), 0): N((4, 1)), (((2, 1),), 8): N((3, 1))},
+        entry_rcells={(((1, 1),), 16): N((3, 1))},
+        calls={0x8003587c: dict(ret={10: ("lit", 0)})},
+        ends=[0x800360d8],
+        stops=[0x80033ba8, 0x80033c70, 0x80033ea8, 0x80034008, 0x80033ed0],
+        stop_unless={0x80033e28: (9, N((2, 1)))},
+        doc="`__sfvwrite_r` at the first write, up to its first `memchr`."),
+    # lane F1-10: `__swsetup_r(_REENT, stdout)` on the stream `std()` left
+    # (`__sinit` ran: `CHECK_INIT` passes): writable, no buffer, so
+    # `__smakebuf_r` (a root after it: `stdout` buffered, line-buffered), then
+    # `_w = 0`, `_lbfsize = -1024`; `0` returned
+    "__swsetup_r": dict(
+        mod="Swsetup_r", entry=0x8003587c,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0"] + CALLEE_OK,
+        cells={(8, IMPURE_PTR): IMPURE_DATA, (8, IMPURE_DATA + 72): 0x80032b0c,
+               (2, STDOUT + 16): 0x2009, (8, STDOUT + 24): 0, (8, STDOUT + 16): 0x12009},
+        root_cells={0x80035920: {(2, STDOUT + 16): 0x2889, (4, STDOUT + 32): 1024, (8, STDOUT + 24): None}},
+        calls={0x80049a2c: dict(ret={})},
+        doc="`__swsetup_r(_REENT, stdout)` on `std()`'s `stdout`."),
+    # lane F1-10: `__smakebuf_r(_REENT, stdout)`: `_fstat_r` (a root after it:
+    # `st_mode` `S_IFCHR` in the frame), `_malloc_r(_REENT, 1024)` (a root
+    # after it: the buffer `X.n 1`), `_isatty_r` (a root after it: `1`):
+    # `_flags` gains `__SMBF`, `__SLBF`, `__SNPT`; the buffer installed
+    "__smakebuf_r": dict(
+        mod="Smakebuf_r", entry=0x80049a2c,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e7d8 + 64 + 160 ≤ X.n 0"] + CALLEE_OK,
+        cells={(2, STDOUT + 16): 0x2009, (2, STDOUT + 18): 1},
+        root_cells={0x80049adc: {(2, STDOUT + 16): 0x2089}},
+        rcellsw={(4, ((0, 1),), -160 + 28): 0x2000},
+        calls={0x8003b0e8: dict(ret={10: ("lit", 0)}), 0x8002fa34: dict(ret={10: N((1, 1))}),
+               0x8004a170: dict(ret={10: ("lit", 1)})},
+        doc="`__smakebuf_r(_REENT, stdout)` on the console."),
     # lane F1-10: `_fstat_r(_REENT, 1, st)` from `__smakebuf_r` (`st` = its
     # `sp + 24`, so `sp + 24` here, 8 mod 16): `errno = 0`, `_fstat`'s lazy
     # `fs_init`, the console's `kind`, `memset(st, 0, 104)` (the misaligned
