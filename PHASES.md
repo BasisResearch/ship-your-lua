@@ -587,7 +587,14 @@ covers the new stages.
       (`FflushStdout_Statement`), `_fflush_r`, `memmove` and `memchr`; the
       `__sfvwrite_r` loop proof, the set-up, `lua_integer2str`, `luaB_print`,
       `luaD_precall`/`luaD_poscall` and the relation facts above stay open
-      (`abstractions/ledger/f1-lane-8.md` lists each with its next step);
+      (`abstractions/ledger/f1-lane-8.md` lists each with its next step).
+      Lanes F1-9/10 proved the loop and the set-up (`stdoutSetup_of_malloc`,
+      from the named premise `MallocR_Statement`). Before (3): the stdio
+      summaries' keeps are byte-total (`SfvKeep`/`StdoutKeep`, `bytesT1`),
+      while `HeapAt` reads with `rd64` (bytes present), so `RuntimeMem.heap`
+      after a print needs those keeps as `Agree` (`getElem?`) or arena
+      presence as an invariant (`abstractions/ledger/f1-lane-10.md`,
+      obstacle 3);
     * the error paths (`StuckSim` is false; `ErrorSimRest` and `NoEscape`,
       Obligations).
   * **`FinalSim` (proved, lane F1-4, `Lua/Vm/Sim/Kit/Ret*.lean`, `Kit/Exit.lean`).**
