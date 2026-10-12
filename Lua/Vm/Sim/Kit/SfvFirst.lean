@@ -264,4 +264,100 @@ theorem sfs_pre (hM : MallocR_Statement) (sp U I src n top brk : Nat) (chunks : 
   exact ⟨_, s0.trans (s1.trans s2), Lua.Vm.AtF.SfvwriteSetup.m2 X1, buf, top', brk', chunks', bins',
     h2.repin (by pins_of h2), ⟨hstd, hup, hfr, hres, hgr, hag⟩⟩
 
+/-- **What the first write leaves**: `stdout` set up holding `pend'` with
+`out ++ pend' = (the n bytes at src)`; the heap block `buf` (granted at the
+set-up's memory `M`, the region the set-up wrote), then the loop's keep. -/
+structure FirstWrite (m M m' : Mem) (sp U src n buf brk : Nat) (chunks : List Chunk) (top' brk' : Nat)
+    (chunks' : List Chunk) (bins' : Nat → List Nat) (out pend' : List (BitVec 8)) : Prop where
+  stdout : StdoutAt m' buf pend'
+  up : StdioUp m'
+  out : out ++ pend' = bytesAt m src n
+  grant : HeapGrant chunks 1024 buf brk M top' brk' chunks' bins'
+  agree : Agree (fun a => FsGlobal a ∨ MallocW chunks a ∨ Below sp 1312 a ∨ StdoutW a) m M
+  keep : SfvKeep M m' sp buf U
+  src_buf : src + n ≤ buf ∨ buf + 1024 ≤ src
+
+/-- A range no byte of which the allocator may write lies apart from a
+fresh block of the arena. -/
+theorem apart_of_fresh {chunks : List Chunk} {src n buf k : Nat}
+    (hs : ∀ a, src ≤ a → a < src + n → ¬ MallocW chunks a) (hlo : heapStart ≤ buf) (hhi : buf + k ≤ heapEnd)
+    (hf : ∀ a, buf ≤ a → a < buf + k → ¬ InUse chunks a) (hk : 0 < k) (hn : 0 < n) :
+    src + n ≤ buf ∨ buf + k ≤ src := by
+  refine Classical.byContradiction fun hn => ?_
+  have h1 : ¬ src + n ≤ buf := fun h => hn (.inl h)
+  have h2 : ¬ buf + k ≤ src := fun h => hn (.inr h)
+  by_cases hc : src ≤ buf
+  · exact hs buf hc (by omega) (.inr ⟨hlo, by omega, hf buf (Nat.le_refl _) (by omega)⟩)
+  · exact hs src (Nat.le_refl _) (by omega) (.inr ⟨by omega, by omega, hf src (by omega) (by omega)⟩)
+
+/-- **`__sfvwrite_r(_REENT, stdout, uio)` at the first write** (one iov of
+`n ≥ 1` bytes at `src`; `stdout` as `std()` and `ORIENT` left it), given
+`_malloc_r`'s summary: the set-up, then the line-buffered loop. -/
+theorem sfvwrite_first (hM : MallocR_Statement) (sp U I src n top brk : Nat) (chunks : List Chunk)
+    (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+    (hra : r.toNat % 4 = 0) (hlo : heapEnd + 4096 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
+    (hF : StdoutFresh m) (hheap : HeapAt m top brk chunks bins) (hroom : brk + 1024 + 16384 ≤ heapEnd)
+    (hio : SfvUio m U I src n) (hi : sp ≤ I) (hiu : I + 16 ≤ U) (huh : U + 24 ≤ sp + 2048)
+    (hut : U + 24 ≤ 2 ^ 32) (hua : U % 8 = 0) (hia : I % 8 = 0) (hn : 1 ≤ n)
+    (hsl : errnoAddr + 4 ≤ src) (hsh : src + n + 3072 ≤ sp)
+    (hsf : src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src)
+    (hsrc : ∀ a, src ≤ a → a < src + n → ¬ FsGlobal a ∧ ¬ MallocW chunks a) :
+    Triple (SegSt 0x80033b50#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
+        ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩, ⟨Register.x12, BitVec.ofNat 64 U⟩] sp r f) (ArmPay m o))
+      (fun c => ∃ M m' out pend' buf top' brk' chunks' bins', wrRet r sp 0 f m' (pushes o out) c ∧
+        FirstWrite m M m' sp U src n buf brk chunks top' brk' chunks' bins' out pend') := by
+  have hlo' : heapEnd + 32 + 2048 + 32 + 96 ≤ sp := by
+    obtain ⟨H, hH⟩ : ∃ H, heapEnd = H := ⟨_, rfl⟩
+    rw [hH] at hlo ⊢; omega
+  intro c h
+  have hnb : n < 2 ^ 32 := by omega
+  obtain ⟨c1, s1, M, buf, top', brk', chunks', bins', h1, mid⟩ :=
+    sfs_pre hM sp U I src n top brk chunks bins r f m o hra hlo' hhi hal hF hheap hroom hio hi hiu huh hut hua hia
+      hn hnb c h
+  have hb0 := mid.grant.lo; have hb1 := mid.grant.hi; have hb2 := mid.grant.heap.brk_le
+  have hsb : src + n ≤ buf ∨ buf + 1024 ≤ src :=
+    apart_of_fresh (fun a h1 h2 => (hsrc a h1 h2).2) (Nat.le_trans (Nat.le_add_right _ _) hb0) (Nat.le_trans hb1 hb2)
+      mid.grant.fresh (by decide) hn
+  have hbl : stdoutFile + fileSize ≤ buf := Nat.le_trans (by decide) hb0
+  have hbsp : buf + 3584 ≤ sp := by
+    have h3 := Nat.le_trans hb1 hb2
+    obtain ⟨H, hH⟩ : ∃ H, heapEnd = H := ⟨_, rfl⟩
+    rw [hH] at hlo h3; omega
+  let G : SfvG := ⟨sp, buf, U, I, src, n, [], r, f, M, o⟩
+  have hG : G.Ok := ⟨hra, hhi, hal, hbl, hbsp, hi, hiu, huh, hut, hua, hia, hsl, hsh, hsb, hsf⟩
+  let X1 := sfsX sp U I n src r f M o
+  have hX : SfvAt G X1 :=
+    ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+  have st : SfvStA G M o [] (src - G.src) :=
+    ⟨mid.stdout, mid.up, ⟨[], rfl, by simp [bytesAt, G]⟩,
+      ⟨mid.frame.ra, mid.frame.s0, mid.frame.s1, mid.frame.s2, mid.frame.s3, mid.frame.s4, mid.frame.s5,
+        mid.frame.s6, mid.frame.s7, mid.frame.s8, mid.frame.s9⟩,
+      ⟨fun _ _ _ => rfl, fun _ _ _ _ _ => rfl⟩, by simp [G]⟩
+  have hcall : SegSt 0x800360d8#64 (callPre [⟨Register.x10, BitVec.ofNat 64 src⟩, ⟨Register.x11, 0xa#64⟩,
+      ⟨Register.x12, BitVec.ofNat 64 n⟩] (G.sp - 96) 0x80033e4c#64
+      (sfvF X1 f.s2 f.s3 f.s6 (BitVec.ofNat 64 n) 0x0#64 (BitVec.ofNat 64 src))) (ArmPay M o) c1 := by
+    simp only [Lua.Vm.AtF.SfvwriteSetup.r7, show X1.n 0 - 96 = sp - 96 from rfl] at h1
+    exact h1.repin (by pins_of h1)
+  obtain ⟨c2, s2, h2⟩ := sfv_mc (μ0 := 2 * n + 2) hG hX st mid.res (by simp [G]) (by simp [G]) hn
+    (by simp) hcall
+  have post : ∃ c3, Steps c2 c3 ∧ SfvPost G c3 := by
+    rcases h2 with ⟨a, _, hl⟩ | hpost
+    · exact seg_loop (S := SfvLoop G) (X := SfvPost G) sfvMu (fun a => sfv_turn hG a) a c2 hl
+    · exact ⟨c2, Steps.refl _, hpost⟩
+  obtain ⟨c3, s3, m', out, pend', hret, hs, hu, ho, hk⟩ := post
+  refine ⟨c3, s1.trans (s2.trans s3), M, m', out, pend', buf, top', brk', chunks', bins', hret,
+    ⟨hs, hu, ?_, mid.grant, mid.agree, hk, hsb⟩⟩
+  rw [ho]
+  show [] ++ bytesAt M src n = bytesAt m src n
+  rw [List.nil_append]
+  refine bytesAt_congr fun i hi => ?_
+  have hx := hsrc (src + i) (by omega) (by omega)
+  simp only [bytesT1]
+  rw [mid.agree (src + i) fun hr => by
+    rcases hr with h | h | h | h
+    · exact hx.1 h
+    · exact hx.2 h
+    · simp only [Below] at h; omega
+    · simp only [StdoutW, Rng] at h; have : fileSize = 184 := rfl; have : stdoutFile = 0x8005e668 := rfl; omega]
+
 end Lua.Vm.Sim.Kit
