@@ -581,3 +581,45 @@ Each stage has one closed-form Nat semantics. Their composition
 | L5-idiom | comparison idioms by one 4-case schema | **holds** (17 idioms, 93 sites); a generator rule |
 | L5-chain | inlined `flttointeger` is one summary | **forecast**: 20 sites, 6 layouts, mode and polarity quantified, `floor` a new named premise |
 | L5-stage | normalise-round-pack algebra shared across routines | **holds where checked** (pack join ×2 routines, SRS for `1 ≤ k ≤ 63`, `roundPack = F64.round`, 58 ELF sites); semantic, not syntactic; core round-invariance unchecked; generator must cut at stage boundaries |
+
+## 3. Blind ontologist fan-out (deep seeded, 2 rounds × 5)
+
+The brief is `pilot/ONTOLOGIST_BRIEF_R5.md`; the answers are `fanout/R5-R1-*.md` and `R5-R2-*.md` (3 character seeds and 2 word seeds per round). Round 1 converged heavily, and round 2 corrected it against the ELF. No round 3 was run.
+
+| mechanism | round 1 | round 2's cheapest form, with corrections |
+|---|---|---|
+| **Round-to-odd** for level (b) | 5/5 (`odd`, `ro`, `StEq`, `rto`, round-to-odd) | `rto` as a function (R1-2 #1) plus value-guarded rules: `round_rto` under `2^54 ≤ rto n k` (W1, R2-2 #3; R2-5 #4) and `round_scale`. These drop margin and log2 bookkeeping. R2-4 #4: `log2(A·2^d+B)` is not linear, so put bounds on the machine-scale value. Even anchors are load-bearing (odd fails about 98%). `shr_jam` covers any divisor (R2-3 #4). |
+| **Answer atoms** | 5/5 as trees with 4-way splits | Atoms keyed by the unordered pair (R2-3 #1, R2-5 #1); split on the Boolean the machine reads (R2-1 #1, R2-3 #2: a 4-way split replays FORLOOP's `blez` side 3×). Cut at the machine's joins (R2-2 #1, R2-4 #1, R2-5 #2): FORLOOP `0x8001e194`, FORPREP `0x8001c1b8` plus 3 coercion rejoins, SUB's single `__subdf3` site reached by 3 paths. |
+| **No feasibility filter** | Round 1 proposed filters, order closure and layout certificates | The kernel is written in lvm.c's control shape (`flttointeger` and friends test the same pairs in the same order as the ELF), so kernel and machine are the same Boolean function of the atoms (R2-1 #1, R2-3 #1, R2-4 #3, R2-5 #1). Python checks agreed on all 16 points for FORPREP and FORLOOP, NaN included. |
+| **Views** | 4/5, per class tuple | Per operand where the ELF coerces per operand (FORPREP: 3 diamonds through `luaV_tonumber_`); pair classes where GCC duplicated per pair. LT's int×float branch is a different algorithm (R2-2 #2, R2-5 #3). |
+| **Idioms** | 5/5 | `relOf`, evaluating the idiom on the 4 answers (R1-5 #2). `Ledf2.S`/`Gedf2.S` match on `F64.compare`, so it reduces by `rfl`. |
+| **Symmetry group** | 3/5 | Dropped: pair keying plus `compare_swap` plus `sub_eq_add_neg` absorb it. Machine-side `__subdf3`/`__adddf3` conjugacy is false (14.6–17% operand alignment; R2-1 #4, R2-2 fact 4). |
+| **Spill reloads** | 2/5 | `reload_forward` across the single `__clzdi2` call (3 spills; R2-4). |
+| **New: `signedBound`** | — | FORLOOP and FORPREP share one float skeleton `if lt 0 st then R x y else R y x`, decided by one 32-point check (R2-3 #3, R2-4 #5, R2-5 #2), against L5-share's "unshareable". |
+| **New: `SfRef`** | — | A soft-fp-shaped reference program: level (b) = (`SfRef = F64` in Nat, proved once) + (lifted DAG = `SfRef` by chambers). `SfRef.sub` is add with a sign flip by definition (R2-3 #5). |
+
+**Corrections to the census:**
+- `__subdf3` is NOT free on the machine side; it is a second instance of the same rules.
+- `__muldf3`/`__divdf3` need double-word limb algebra over `__muldi3`/`__udivdi3`/`__umoddi3` (limb stages, R2-5 #5); they are outside the pilot.
+- All seven `__clzdi2` call sites need a spec.
+- At NaN, `toInt64` (NaN ↦ 0) and `__fixdfdi` (which saturates by sign) differ, so the range guard moves into the kernel's `if` first (R2-1 #1).
+
+| seed type | agents | ideas | only that seed type |
+|---|---|---|---|
+| chars | 6 | 30 | pair atoms, Boolean split, `shr_jam`, `SfRef` (R2-3); JoinCut and W1 (R2-2); the kernel-mirror zip (R2-1) |
+| words | 4 | 20 | biplane (R1-4); `compare_key` (R1-5); `bySign` (R2-4); `round_scale` (R2-5) |
+
+## 4. Retrieval by law
+
+All citations were recalled by the agents; check them before citing.
+- **Round-to-odd:** Boldo & Melquiond, "Emulation of FMA and correctly rounded sums: proved algorithms using rounding to odd", IEEE Trans. Computers 2008; von Neumann's "jamming".
+- **Joins:** φ-nodes / SSA (Cytron et al. 1991); veritesting (Avgerinos et al., ICSE 2014); state merging (Kuznetsov et al., PLDI 2012).
+- **Atoms:** Shannon expansion and BDDs; Maranget's decision-tree compilation.
+- **Views:** Wadler's views; occurrence typing.
+- **Limb stages:** Knuth TAOCP vol. 2, Algorithm D; GMP `umul_ppmm`/`udiv_qrnnd`.
+
+## 5. Variation
+
+- **Negate "a tree over the machine's paths":** a DAG with named joins (adopted into the arm design).
+- **Negate "round at a position margin":** round under a value guard (W1, `round_scale`; adopted).
+- **Combine `SfRef` × `rto`:** `SfRef` is written with `rto`, so (b2) is the round-to-odd algebra and (b1) is chamber matching. This becomes the level-(b) contender B-SFREF.
