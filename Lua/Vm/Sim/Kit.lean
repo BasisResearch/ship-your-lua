@@ -43,6 +43,7 @@ import Lua.Vm.Sim.Kit.Malloc
 import Lua.Vm.Sim.Kit.HeapKeep
 import Lua.Vm.Sim.Kit.Setup
 import Lua.Vm.Sim.Kit.Smakebuf
+import Lua.Vm.Sim.Kit.Swsetup
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
