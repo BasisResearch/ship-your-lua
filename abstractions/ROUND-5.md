@@ -581,3 +581,182 @@ Each stage has one closed-form Nat semantics. Their composition
 | L5-idiom | comparison idioms by one 4-case schema | **holds** (17 idioms, 93 sites); a generator rule |
 | L5-chain | inlined `flttointeger` is one summary | **forecast**: 20 sites, 6 layouts, mode and polarity quantified, `floor` a new named premise |
 | L5-stage | normalise-round-pack algebra shared across routines | **holds where checked** (pack join ×2 routines, SRS for `1 ≤ k ≤ 63`, `roundPack = F64.round`, 58 ELF sites); semantic, not syntactic; core round-invariance unchecked; generator must cut at stage boundaries |
+
+## 2b. Falsifier: round to odd at `__adddf3`'s and `__subdf3`'s round sites
+
+Measurement only; nothing is adopted. It checks the M-odd claim of the
+round-1 ontologists as refined in round 2 (R5-R2-4 §4 "RtoCore", R5-R2-2
+idea 3 "W1"), with `rto n k := n / 2^k ||| [n % 2^k ≠ 0]`:
+1. at each round site, the lifted function's pre-round mantissa is
+   `rto` of the exact aligned sum (difference) at the machine's scale;
+2. rounding it (3 work bits) equals `F64.round` of the exact value when
+   `2^54 ≤ rto n k` (W1).
+
+**Files** (`abstractions/checks/round5/`, not imported by `Lua`):
+- `rto_trace.py` writes a traced copy of `Adddf3.F` and `Subdf3.F` into
+  `RtoCheck.lean` (between `-- BEGIN/END rto_trace.py`);
+- `RtoCheck.lean` (`#eval`s), output `RtoCheck.out`: 7.5 s user, 1.9 GB peak;
+- `RtoDecide.lean` (closed `decide`s), output `RtoDecide.out`.
+
+### How the pre-round value is located
+
+The pre-round value is **not a named node**. The generator's `N_<pc>`
+boundaries are the compiler's blocks, so `F` is instrumented instead:
+- `rto_trace.py` copies every node `N_<pc>` of `Lua/Vm/Fn/<R>/Defs.lean`
+  verbatim into `T_<pc> : List Ev × BitVec 64`. Each node prepends its pc and
+  live-ins to the trace. The value component equals `F` on all 9,100 pairs of
+  both routines (0 differences).
+- A **round site** is detected syntactically: a node whose guard is soft-fp's
+  inexactness test `(X &&& 7) == 0` (or `!= 0`) at `_FP_ROUND`'s entry. There
+  are 6 per routine. The trace records the guard's own operand `X`, evaluated
+  from the node's live-ins. That is the DAG evaluated up to that node.
+- The **site's exponent** is a hand table `SITE_E` of 6 entries per routine,
+  read off each node's callees. The script fails if a detected site is
+  missing from it.
+- **Folded sites.** At 3 sites per routine the compiler folded the round into
+  the constant: `x + 5` is sticky 1 then `+4`; `x + 4` after `A − 1`. These
+  are the `d ≥ 57` paths. They have no test to detect, so they are listed by
+  hand (`FOLDED`) with the implicit pre-round value (`x + 1`, `x`).
+- A path with no round site is observed at the pack join (`N_8002d92c`,
+  `N_8002ea50`).
+- Every finite path met exactly one round site or the join. No path met two.
+
+**Vectors.**
+- `SpecTest`'s 2,900 pairs.
+- 6,200 edge pairs, each also run with `b`'s sign flipped:
+  - exponent differences 0, 1, 2, 3, 4, 55, 56, 57, 60 and 1000, both
+    orders, with zero and all-ones fractions;
+  - cancellation: equal exponents with nearby fractions, `2^(E+1)` minus just
+    under it, and `d = 1` borrows, at normal and near-subnormal exponents;
+  - subnormal operands and results;
+  - ties: half an ulp, a quarter, just over and just under, and `d = 1` with
+    an odd dropped bit.
+- There are 8,287 rows with a finite nonzero exact result for `__adddf3`,
+  8,274 for `__subdf3`, and 3,344 inexact rows for each.
+
+Per vector it computes:
+- `exact`: `F64.add`/`F64.sub`'s own `(neg, M, emin)`;
+- the machine scale `ev = max(E,1) − 1078`, and `k = ev − emin`;
+- `r = rto M k` (`M · 2^−k` if `k ≤ 0`).
+
+### Results (`RtoCheck.out`; `__adddf3`, `SpecTest` + edge pairs)
+
+| site | kind | rows | (1) `v = r` | hidden bit implicit (`v + 2^55 = r`) | (1′) `v = rto M (k+1) · 2` | inexact | W1 hyp. false | (2) `round r = round exact` fails |
+|---|---|---|---|---|---|---|---|---|
+| `dd48` aligned add | probe | 1,738 | — | 1,738 | — | 531 | 0 | 0 |
+| `dbcc` add, carry SRS by 1 | probe | 386 | — | 386 | — | 22 | 0 | 0 |
+| `dc60` `d = 0` carry | probe | 1,210 | — | 1,210 | — | 0 | 0 | 0 |
+| `db30` aligned subtract | probe | 1,008 | — | 1,008 | — | 515 | 0 | 0 |
+| `da50` cancellation, clz renormalised | probe | 931 | 861 | — | **70** | 64 | 0 | 0 |
+| `d854` renormalised, subnormal (2nd SRS) | probe | 694 | 694 | — | — | 0 | **520** | 0 |
+| `d928`, `dc4c` `d ≥ 57` add | folded | 1,138 | — | 1,138 | — | 1,138 | 0 | 0 |
+| `da1c` `d ≥ 57` subtract | folded | 1,074 | — | 1,074 | — | 1,074 | 0 | 0 |
+| `d92c` no round site | join | 108 | — | 108 | — | 0 | 0 | 0 |
+
+`__subdf3` gives the same table at its own sites, with the same counts on the
+edge pairs:
+
+| `__subdf3` | `__adddf3` |
+|---|---|
+| `ee98` | `dd48` |
+| `ed4c` | `dbcc` |
+| `efc8` | `dc60` |
+| `ecdc` | `db30` |
+| `ec00` | `da50` (88 rows `(1′)`) |
+| `eb28` | `d854` (522 rows with W1's hypothesis false, all exact) |
+| `ef7c`, `ed14`, `ebe4` | folded |
+| `ea50` | join |
+
+Across both routines and all 18,200 runs:
+- (1) or (1′) holds on every row, with **0** rows unexplained;
+- (2) `F64.round neg r ev = F64.round neg M emin` fails on 0 rows;
+- (2′) the same with the machine's own value, hidden bit restored, fails on
+  0 rows;
+- (3) `F = F64.add`/`F64.sub` fails on 0 rows;
+- the margin, `target M emin − ev`, is 3 on every row;
+- every inexact row has `r ≥ 2^55`.
+
+### What the evidence says about the claim
+
+- **(1) holds, refined twice.**
+  - **(a) The hidden bit.** At 7 of the 10 observation points per routine
+    (every site but the clz-renormalised and the subnormal one), the machine
+    holds soft-fp's semi-raw mantissa without the implicit `2^55`:
+    `v + 2^55 = rto M k`. The equation the pilot states is on
+    `v + 2^55·[E ≥ 1]`, or on the semi-raw value, at each site.
+  - **(b) The renormalisation site** (`da50`/`ec00`). Here the claim "`rto`
+    at the machine's scale" is **false as stated**. On 70 (add) and 88 (sub)
+    rows,
+    `v ≠ rto M k` at the post-shift scale. On all of them,
+    `v = rto M (k+1) · 2`. The machine applies round to odd at the
+    pre-normalisation scale (the SRS before the subtract), then `__clzdi2`'s
+    left shift by 1 doubles it, jam bit included.
+    - A counterexample (`__subdf3`, a `SpecTest` edge pair):
+      `a = 0x0000000000000001` (`2^−1074`), `b = 0x3ff0000000000000` (1.0),
+      so `d = 1075` (pure sticky).
+      - `v = 2^56 − 2`, but `rto M k = 2^56 − 1` at `k = 1018`.
+      - `rto M 1019 · 2 = 2^56 − 2` holds.
+    - So the "one-bit cancellation" case is **`rto` then an exact shift**, not
+      `rto` at the final scale. RtoCore's rules cover it as `rto_sub_even` at
+      scale `k+1`, then a `·2` stage. That is a seventh rule, or W2
+      (`round_scale`) applied to the doubled value.
+    - It is also where W1's bound is tight: `rto M (k+1) ∈ [2^54, 2^55)`.
+      Everywhere else, every inexact `r` is `≥ 2^55`.
+- **(2) holds where its hypothesis holds.** W1's hypothesis `2^54 ≤ rto M k`
+  is false on 520 (add) and 522 (sub) rows, all at the subnormal-result site
+  (`d854`/`eb28`). All of those rows are exact (`k ≤ 0`: a subnormal sum is
+  always exact). They agree by `rto_exact`/`roundExact`, not by W1. So W1
+  needs that site split off: **W1 for normal results, `rto_exact` for
+  subnormal ones**. W1's hypothesis is false only where it is not needed, and
+  no row has W1's hypothesis true while rounding disagrees.
+- **Folded sites.** 3 of the 9 round sites per routine (the `d ≥ 57` paths)
+  have no node holding the pre-round value. The compiler folded sticky and
+  increment into `+5`/`+4`. Here the stage match is an arithmetic identity
+  (`rne3 (x+1) = x+5` when `x % 8 = 0`), not a rewrite at a node. A stage cut
+  in the generator would have to un-fold them or name them.
+- **The site exponent is hand-read.** `SITE_E` (12 entries) is the one
+  non-generated input. A pilot needs the same per-site exponent as a
+  hypothesis. The generator does not expose it.
+
+### Closed `decide`s (`RtoDecide.lean`, `decide +kernel`)
+
+| theorem | instances | holds |
+|---|---|---|
+| `rto_add_even_8`: `A` even → `A + rto B k = rto (A·2^k + B) k`, `A < 16`, `B < 256`, `k < 8` | 32,768 (16,384 even `A`) | yes |
+| `rto_add_odd_cex`: `¬ (1 + rto 1 1 = rto 3 1)` | 1 | yes (parity is load-bearing) |
+| `shr_rto_8`: `F64.shr (rto n k) ff ff s = F64.shr n ff ff (s+k)`, `s ∈ {2,3}`, `n < 256`, `k < 5` | 2,560 | yes |
+| `shr_rto_s1_cex`: the same at `s = 1`, `n = 3`, `k = 1`, differs | 1 | yes (the margin is load-bearing) |
+
+- Axioms: `[propext]` for all four.
+- Cost: 12.1 s user (the import alone takes 0.5 s), 36 s wall, 1.4 GB peak.
+- So the 8-bit closed instances are cheap enough to pin the preconditions,
+  `¬` statements included. Most of the cost is the 32k-case
+  `rto_add_even_8`, and the cost grows with the case count, so these
+  `decide`s are pins, not proofs.
+- The universally quantified laws need real proofs (R5-R2-4's ≈120 lines).
+- The first statement of `shr_rto_8` (`2 ≤ s → … = …` on the triple) failed
+  to synthesise `Decidable`. It is restated with `s + 2` and `==`.
+
+### Verdict
+
+**Holds, with two refinements. The pre-round value was located by tracing,
+not as a named node.**
+- **(1)** `v = rto (exact) k` holds at every round site at the site's scale,
+  except at the clz-renormalised site. That is modulo soft-fp's implicit
+  `2^55` at 7 of 10 points.
+  - At the clz-renormalised site it is **false as stated**: 70 + 88
+    counterexamples (e.g. `2^−1074 − 1.0` in `__subdf3`, `v = r − 1`).
+  - It holds as `rto` one bit coarser, then `·2`, on all of them.
+- **(2)** W1 is never contradicted:
+  - 0 rows with `2^54 ≤ r` and disagreement;
+  - its hypothesis fails only at the subnormal-result site, where the sum is
+    exact;
+  - its bound is tight only at the renormalisation site.
+- **(3)** `F = F64.add`/`F64.sub` on all 9,100 pairs, both routines.
+
+**Consequences for the bake-off pilot:**
+- the RtoCore rule set needs a doubling stage (or W2) at `da50`/`ec00`;
+- W1 must be split by result class (normal: W1; subnormal: `rto_exact`);
+- the 3 folded `d ≥ 57` sites per routine need an arithmetic match, not a
+  node rewrite;
+- the per-site exponent must be supplied (today a 12-entry hand table).
