@@ -351,6 +351,7 @@ theorem SetupPost.heapAfter {m M m' : Mem} {sp src n buf brk : Nat} {chunks : Li
     obtain ⟨H, hH⟩ : ∃ H, heapEnd = H := ⟨_, rfl⟩
     have : H = 0x87800000 := hH ▸ rfl
     rw [hH] at hsp ⊢; omega
-  exact P.grant.heap.ofStdioKeep P.grant.block P.grant.lo hd P.keep.keep_lo
+  exact P.grant.heap.ofStdioKeep P.grant.block P.grant.lo hd fun a h1 h2 h3 h4 =>
+    (P.keep.keep_lo a h1 h2 h3 h4).trans (bytesT1_fill M a).symm
 
 end Lua.Vm.Sim.Kit

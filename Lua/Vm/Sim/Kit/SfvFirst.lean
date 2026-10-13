@@ -150,7 +150,7 @@ entry, `__swsetup_r`, the line-buffered entry. -/
 theorem sfs_pre (hM : MallocR_Statement) (sp U I src n top brk : Nat) (chunks : List Chunk)
     (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hlo : heapEnd + 32 + 2048 + 32 + 96 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
-    (hF : StdoutFresh m) (hheap : HeapAt m top brk chunks bins) (hroom : brk + 1024 + 16384 ≤ heapEnd)
+    (hF : StdoutFresh m) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins) (hroom : brk + 1024 + 16384 ≤ heapEnd)
     (hio : SfvUio m U I src n) (hi : sp ≤ I) (hiu : I + 16 ≤ U) (huh : U + 24 ≤ sp + 2048)
     (hut : U + 24 ≤ 2 ^ 32) (hua : U % 8 = 0) (hia : I % 8 = 0) (hn : 1 ≤ n) (hnb : n < 2 ^ 32) :
     Triple (SegSt 0x80033b50#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
@@ -189,7 +189,7 @@ theorem sfs_pre (hM : MallocR_Statement) (sp U I src n top brk : Nat) (chunks : 
       ((k0'.b2 fun i _ => by sfr).trans hF.flags) ((k0'.b2 fun i _ => by sfr).trans hF.file)
       ((k0'.b8 fun i _ => by sfr).trans hF.flags8) ((k0'.b8 fun i _ => by sfr).trans hF.base)
       ((k0'.b4 fun i _ => by sfr).trans hF.fs)
-      (hheap.congr fun a ha => k0'.get (by simp only [HeapReads] at ha; sfr)) hroom c0 hcall
+      (hheap.congr fun a ha => fill_congr <| k0'.get (by simp only [HeapReads] at ha; sfr)) hroom c0 hcall
   have hb0 := P.grant.lo; have hb1 := P.grant.hi; have hb2 := P.grant.heap.brk_le
   have hbl : stdoutFile + fileSize ≤ buf := Nat.le_trans (by decide) hb0
   have hbh : buf + 1024 ≤ 2 ^ 32 := Nat.le_trans (Nat.le_trans hb1 hb2) (by decide)
@@ -250,7 +250,7 @@ theorem sfs_pre (hM : MallocR_Statement) (sp U I src n top brk : Nat) (chunks : 
   have hres : bytesT8 (Lua.Vm.AtF.SfvwriteSetup.m2 X1) (U + 16) = BitVec.ofNat 64 n :=
     (k02.b8 (a := U + 16) fun i _ => by sfr).trans ((k0'.b8 (a := U + 16) fun i _ => by sfr).trans hio.resid)
   have hgr : HeapGrant chunks 1024 buf brk (Lua.Vm.AtF.SfvwriteSetup.m2 X1) top' brk' chunks' bins' :=
-    ⟨P.grant.heap.congr fun a ha => k2'.get (by simp only [HeapReads] at ha; sfr), P.grant.brk_le,
+    ⟨P.grant.heap.congr fun a ha => fill_congr <| k2'.get (by simp only [HeapReads] at ha; sfr), P.grant.brk_le,
       P.grant.lo, P.grant.hi, P.grant.block, P.grant.fresh, P.grant.kept⟩
   have hag : Agree (fun a => FsGlobal a ∨ MallocW chunks a ∨ Below sp 1312 a ∨ StdoutW a) m
       (Lua.Vm.AtF.SfvwriteSetup.m2 X1) := by
@@ -296,7 +296,7 @@ theorem apart_of_fresh {chunks : List Chunk} {src n buf k : Nat}
 theorem sfvwrite_first (hM : MallocR_Statement) (sp U I src n top brk : Nat) (chunks : List Chunk)
     (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hlo : heapEnd + 4096 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
-    (hF : StdoutFresh m) (hheap : HeapAt m top brk chunks bins) (hroom : brk + 1024 + 16384 ≤ heapEnd)
+    (hF : StdoutFresh m) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins) (hroom : brk + 1024 + 16384 ≤ heapEnd)
     (hio : SfvUio m U I src n) (hi : sp ≤ I) (hiu : I + 16 ≤ U) (huh : U + 24 ≤ sp + 2048)
     (hut : U + 24 ≤ 2 ^ 32) (hua : U % 8 = 0) (hia : I % 8 = 0) (hn : 1 ≤ n)
     (hsl : errnoAddr + 4 ≤ src) (hsh : src + n + 3072 ≤ sp)

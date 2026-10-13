@@ -29,6 +29,13 @@ one; and it writes nothing but its globals (`MallocGlobal`), the arena off
 the chunks in use (`InUse`: a chunk's payload, up to the next chunk's
 `prev_size`, which a request of `n ≤ size - 8` may use) and its stack below
 `sp` (1 KiB: its frame, `_sbrk_r`, `_sbrk`, `__errno`).
+
+**The heap is stated of the zero fill** (`Vsa.Densify.fillZeroMem`, lane
+F1-11): `HeapAt` reads with `rd64` (bytes present), but the machine reads
+totally (`readByte = getD 0`), so `_malloc_r`'s run depends only on the
+fill. `VmRel` holds the machine's memory only by total reads (`Core.frame`),
+so a heap stated of the machine memory itself could never be met from the
+relation; of the fill it can (`HeapAt.ofTotal`, `Kit/HeapFill.lean`).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -62,7 +69,7 @@ fresh, in the arena below the new break; the heap's shape; the chunks in use
 kept, and every byte off its writes. -/
 structure MallocPost (m m' : Mem) (sp n p : Nat) (brk : Nat) (chunks : List Chunk)
     (top' brk' : Nat) (chunks' : List Chunk) (bins' : Nat → List Nat) : Prop where
-  heap : HeapAt m' top' brk' chunks' bins'
+  heap : HeapAt (Vsa.Densify.fillZeroMem m') top' brk' chunks' bins'
   brk_le : brk ≤ brk'
   lo : heapStart + 16 ≤ p
   hi : p + n ≤ brk'
@@ -82,7 +89,7 @@ address returned. -/
 def MallocR_Statement : Prop :=
   ∀ (sp n top brk : Nat) (chunks : List Chunk) (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame)
     (m : Mem) (o : Array String),
-    HeapAt m top brk chunks bins → r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → heapEnd + 1024 ≤ sp →
+    HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins → r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → heapEnd + 1024 ≤ sp →
     1 ≤ n → brk + n + 16384 ≤ heapEnd →
     Triple (SegSt 0x8002fa34#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
         ⟨Register.x11, BitVec.ofNat 64 n⟩] sp r f) (ArmPay m o))

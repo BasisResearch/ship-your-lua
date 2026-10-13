@@ -162,4 +162,115 @@ theorem fwu_post (sp n : Nat) (r : BitVec 64) (f : AbiFrame) (M : Mem) (o : Arra
   fcx_unfold at h
   exact ⟨_, acc, h.repin (by pins_of h)⟩
 
+/-! ## The writes -/
+
+/-- `fwrite`'s entry pins for `fwrite(src, 1, n, stdout)`. -/
+abbrev fwPre (src n sp : Nat) (r : BitVec 64) (f : AbiFrame) : List Pin :=
+  callPre [⟨Register.x10, BitVec.ofNat 64 src⟩, ⟨Register.x11, BitVec.ofNat 64 1⟩,
+    ⟨Register.x12, BitVec.ofNat 64 n⟩, ⟨Register.x13, BitVec.ofNat 64 stdoutFile⟩] sp r f
+
+/-- **An empty `fwrite` on the fresh stream**: `0` returned, nothing written
+but `fwrite`'s frame; `stdout` stays fresh. -/
+theorem fwrite_fresh0 (sp src : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+    (hra : r.toNat % 4 = 0) (hlo : 0x8005e720 + 96 + 112 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
+    (hF : StdoutFresh m) :
+    Triple (SegSt 0x800342e4#64 (fwPre src 0 sp r f) (ArmPay m o))
+      (fun c => ∃ M, wrRet r sp 0 f M o c ∧ StdoutFresh M ∧ Agree (Below sp 112) m M) := by
+  intro c h
+  obtain ⟨c1, s1, h1⟩ := fwf_pre sp src 0 r f m o hra (by omega) hhi hal hF c h
+  obtain ⟨hM, hfr, hio⟩ := fwf_m3 sp src 0 r f m o (by omega) hhi
+  have hF' : StdoutFresh (Lua.Vm.AtF.FwriteFresh.m3 (fwCx sp src 0 r f m o)) :=
+    hF.below fun a ha => hM a (by stdio_nums; omega)
+  obtain ⟨c2, s2, h2⟩ := sfv_empty (sp - 112) (sp - 72) 0x800341f8#64 (fwFrame f 0) _ o (by decide)
+    (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by
+      rw [show sp - 72 + 16 = sp - 56 by omega]; have := hio.resid
+      rw [show sp - 72 + 16 = sp - 56 by omega] at this; exact this) c1 h1
+  obtain ⟨c3, s3, h3⟩ := fwf_post sp 0 r f _ o hra (by omega) hhi hal hfr hF'.flags' hF'.flags2' c2 h2
+  exact ⟨c3, s1.trans (s2.trans s3), _, h3, hF', fun a ha => hM a (by simp only [Below] at ha; omega)⟩
+
+/-- **An empty `fwrite` from boot**: `CHECK_INIT` runs `__sinit`, `ORIENT`
+marks the stream, `__sfvwrite_r` returns at once; `stdout` is fresh. -/
+theorem fwrite_boot0 (sp src : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+    (hra : r.toNat % 4 = 0) (hlo : 0x8005e7d8 + 64 + 112 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
+    (hB : StdioBoot m) (hMf : MemfsBoot m) :
+    Triple (SegSt 0x800342e4#64 (fwPre src 0 sp r f) (ArmPay m o))
+      (fun c => ∃ M, wrRet r sp 0 f M o c ∧ StdoutFresh M ∧ Agree (fun a => SinitW a ∨ Below sp 176 a) m M) := by
+  intro c h
+  obtain ⟨c1, s1, M, h1, mid⟩ := fws_pre sp src 0 r f m o hra hlo hhi hal hB (bytesT4_of_rd32 hMf.ready) c h
+  obtain ⟨c2, s2, h2⟩ := sfv_empty (sp - 112) (sp - 72) 0x800341f8#64 (fwFrame f 0) M o (by decide)
+    (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by
+      have := mid.uio.resid
+      rw [show sp - 72 + 16 = sp - 56 by omega] at this ⊢; exact this) c1 h1
+  have hfr : FwFrame M sp 0 r f := ⟨mid.frame.ra, mid.frame.s0, mid.frame.s1, mid.frame.s2, mid.frame.s3, mid.frame.n⟩
+  obtain ⟨c3, s3, h3⟩ := fwf_post sp 0 r f M o hra (by omega) hhi hal hfr mid.fresh.flags' mid.fresh.flags2' c2 h2
+  exact ⟨c3, s1.trans (s2.trans s3), M, h3, mid.fresh, mid.agree⟩
+
+/-- **The first non-empty `fwrite` from the fresh stream** (after an empty
+first write): as `StdoutSetup_Statement` from boot, without `__sinit`. -/
+theorem stdoutSetup_fresh (hM : MallocR_Statement) (sp src n top brk : Nat) (chunks : List Chunk)
+    (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+    (hF : StdoutFresh m) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins)
+    (hra : r.toNat % 4 = 0) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0) (hlo : heapEnd + 8192 ≤ sp)
+    (hroom : brk + 1024 + 16384 ≤ heapEnd) (hn : 1 ≤ n) (hsl : errnoAddr + 4 ≤ src) (hsh : src + n + 4096 ≤ sp)
+    (hsf : src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src)
+    (hsrc : ∀ a, src ≤ a → a < src + n → ¬ FsGlobal a ∧ ¬ MallocW chunks a) :
+    Triple (SegSt 0x800342e4#64 (fwPre src n sp r f) (ArmPay m o))
+      (fun c => ∃ M m' out pend' buf top' brk' chunks' bins', wrRet r sp n f m' (pushes o out) c ∧
+        SetupPost m M m' sp src n buf brk chunks top' brk' chunks' bins' out pend') := by
+  have q : heapEnd + 4096 ≤ sp - 112 ∧ 0x8005e7d8 + 64 + 112 ≤ sp ∧ heapEnd + 32 ≤ sp - 112 := by
+    obtain ⟨H, hH⟩ : ∃ H, heapEnd = H := ⟨_, rfl⟩
+    have : H = 0x87800000 := hH ▸ rfl
+    rw [hH] at hlo ⊢; omega
+  intro c h
+  fs_nums
+  stdio_nums
+  have : symSf = 0x8005e5b0 := rfl
+  obtain ⟨c1, s1, h1⟩ := fwf_pre sp src n r f m o hra (by omega) hhi hal hF c h
+  obtain ⟨hM3, hfr, hio⟩ := fwf_m3 sp src n r f m o (by omega) hhi
+  have hF3 : StdoutFresh (Lua.Vm.AtF.FwriteFresh.m3 (fwCx sp src n r f m o)) :=
+    hF.below fun a ha => hM3 a (by omega)
+  have hH3 : HeapAt (Vsa.Densify.fillZeroMem (Lua.Vm.AtF.FwriteFresh.m3 (fwCx sp src n r f m o))) top brk chunks bins :=
+    hheap.congr fun a ha => fill_congr <| hM3 a (.inl (by
+      have e4 : symMallocAv = 0x8005c6d0 := rfl
+      have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+      have e6 : symBrk = 0x8005d3b8 := rfl
+      have e7 : symMallocTopPad = 0x8005d3d8 := rfl
+      have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
+      have e9 : symMallocMallinfo = 0x8005e560 := rfl
+      have e2 : heapStart = 0x8006ecd0 := rfl
+      simp only [HeapReads] at ha; omega))
+  obtain ⟨c2, s2, M, m', out, pend', buf, top', brk', chunks', bins', hret, FW⟩ :=
+    sfvwrite_first hM (sp - 112) (sp - 72) (sp - 88) src n top brk chunks bins 0x800341f8#64 (fwFrame f n) _ o
+      (by decide) q.1 (by omega) (by omega) hF3 hH3 hroom hio (by omega) (by omega) (by omega)
+      (by omega) (by omega) (by omega) hn hsl (by omega) hsf hsrc c1 h1
+  have hfrM : FwFrame M sp n r f := hfr.keep (by omega) fun a h1 h2 => bT1_congr (FW.agree a (by
+    simp only [FsGlobal, MallocW, MallocGlobal, Below, StdoutW, Rng, not_or, not_and]
+    have e4 : symMallocAv = 0x8005c6d0 := rfl
+    have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+    have e6 : symBrk = 0x8005d3b8 := rfl
+    have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
+    have e9 : symMallocMallinfo = 0x8005e560 := rfl
+    have e2 : heapStart = 0x8006ecd0 := rfl
+    have : symFiles = 0x8005d760 := rfl
+    omega))
+  have hfr' : FwFrame m' sp n r f := hfrM.keep (by omega) fun a h1 h2 => FW.keep.keep_hi a h1 h2
+  obtain ⟨c3, s3, h3⟩ := fwu_post sp n r f m' (pushes o out) hra (by omega) hhi hal hfr' FW.stdout.flags'
+    FW.up.flags2' c2 hret
+  refine ⟨c3, s1.trans (s2.trans s3), M, m', out, pend', buf, top', brk', chunks', bins', h3,
+    ⟨FW.stdout, FW.up, ?_, FW.grant, ?_, FW.keep, FW.src_buf⟩⟩
+  · rw [FW.out]
+    exact bytesAt_congr fun i hi => bT1_congr (hM3 (src + i) (by omega))
+  · have k : Agree (Below sp 112) m (Lua.Vm.AtF.FwriteFresh.m3 (fwCx sp src n r f m o)) :=
+      fun a ha => hM3 a (by simp only [Below] at ha; omega)
+    exact (k.trans FW.agree).mono fun a ha => by
+      have : symStdioExitHandler = 0x8005d3e0 := rfl
+      have : symImpureData = 0x8005d1b8 := rfl
+      have : reentCleanupOff = 72 := rfl
+      rcases ha with hb | hg | hw | hb2 | hs
+      · simp only [Below] at hb; exact .inr (.inr (.inr ⟨hb.1, by omega⟩))
+      · exact .inl hg
+      · exact .inr (.inl hw)
+      · simp only [Below] at hb2; exact .inr (.inr (.inr ⟨by omega, by omega⟩))
+      · simp only [StdoutW, SinitW, Rng] at hs ⊢; omega
+
 end Lua.Vm.Sim.Kit

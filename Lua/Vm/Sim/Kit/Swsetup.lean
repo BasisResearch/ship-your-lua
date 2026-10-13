@@ -21,7 +21,7 @@ open Vsa.Machine (Config Steps)
 inside the arena below the new break; the chunks in use kept. -/
 structure HeapGrant (chunks : List Chunk) (n buf brk : Nat) (m' : Mem) (top' brk' : Nat) (chunks' : List Chunk)
     (bins' : Nat → List Nat) : Prop where
-  heap : HeapAt m' top' brk' chunks' bins'
+  heap : HeapAt (Vsa.Densify.fillZeroMem m') top' brk' chunks' bins'
   brk_le : brk ≤ brk'
   lo : heapStart + 16 ≤ buf
   hi : buf + n ≤ brk'
@@ -99,7 +99,7 @@ theorem swsetup_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List C
     (hcl : bytesT8 m (symImpureData + reentCleanupOff) = BitVec.ofNat 64 symCleanupStdio)
     (hfl : bytesT2 m (stdoutFile + 16) = 0x2009#16) (hfile : bytesT2 m (stdoutFile + 18) = 1#16)
     (hfl8 : bytesT8 m (stdoutFile + 16) = 0x12009#64) (hbase : bytesT8 m (stdoutFile + 24) = 0#64)
-    (hrd : bytesT4 m symFsReady = 0#32) (hheap : HeapAt m top brk chunks bins)
+    (hrd : bytesT4 m symFsReady = 0#32) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins)
     (hroom : brk + 1024 + 16384 ≤ heapEnd) :
     Triple (SegSt 0x8003587c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
         ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))
@@ -125,7 +125,7 @@ theorem swsetup_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List C
       (by omega) ((AtF.bT2_congr fun i _ => nk _ (by omega)).trans hfl)
       ((AtF.bT2_congr fun i _ => nk _ (by omega)).trans hfile)
       ((AtF.bT4_congr fun i _ => nk _ (by omega)).trans hrd)
-      (hheap.congr fun a ha => k1'.get (by simp only [HeapReads] at ha; rg_simp; omega)) hroom c0 hcall
+      (hheap.congr fun a ha => fill_congr <| k1'.get (by simp only [HeapReads] at ha; rg_simp; omega)) hroom c0 hcall
   have hb0 := P.lo; have hb1 := P.hi; have hb2 := P.heap.brk_le
   let X1 := smbX sp buf r f m1 o
   have hX1 : Lua.Vm.AtF.Swsetup_r.Ok X1 := ⟨show _ ≤ sp by omega, hhi, hal, hra⟩
@@ -151,7 +151,7 @@ theorem swsetup_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List C
   · exact (k2.b4 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.size
   · exact (k2.b4 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.ready
   · exact (k2.b4 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.console
-  · exact P.heap.congr fun a ha => k2.get (by simp only [HeapReads] at ha; simp only [Rng, not_or, not_and]; omega)
+  · exact P.heap.congr fun a ha => fill_congr <| k2.get (by simp only [HeapReads] at ha; simp only [Rng, not_or, not_and]; omega)
   · obtain ⟨sz, h1, h2⟩ := P.block; exact ⟨sz, h1, by omega⟩
   · intro a ha
     by_cases hw : MallocW chunks a

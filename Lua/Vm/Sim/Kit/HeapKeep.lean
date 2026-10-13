@@ -86,6 +86,12 @@ theorem MallocPost.agree {m m' : Mem} {sp n p brk top' brk' : Nat} {chunks chunk
     · exact .inr (.inl (by omega))
   · exact .inl (by omega)
 
+/-- A presence-level agreement is one of the zero fills (`Vsa.Densify.fillZeroMem`):
+the heap is stated of the fill (`MallocR_Statement`), as the machine reads totally. -/
+theorem fill_congr {m m' : Mem} {a : Nat} (h : m'[a]? = m[a]?) :
+    (Vsa.Densify.fillZeroMem m')[a]? = (Vsa.Densify.fillZeroMem m)[a]? := by
+  simp only [Vsa.Densify.fillZeroMem_get, h]
+
 /-! ## What `HeapAt` reads -/
 
 /-- The bytes `HeapAt` reads: the arena (and a header's width past its end),

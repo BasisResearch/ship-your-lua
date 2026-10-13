@@ -137,7 +137,7 @@ structure SmakebufPost (m m' : Mem) (sp buf brk : Nat) (chunks : List Chunk) (to
   size : bytesT4 m' (stdoutFile + 32) = 1024#32
   ready : bytesT4 m' symFsReady = 1#32
   console : bytesT4 m' (symFds + 24) = 2#32
-  heap : HeapAt m' top' brk' chunks' bins'
+  heap : HeapAt (Vsa.Densify.fillZeroMem m') top' brk' chunks' bins'
   brk_le : brk ≤ brk'
   lo : heapStart + 16 ≤ buf
   hi : buf + 1024 ≤ brk'
@@ -214,7 +214,7 @@ theorem smakebuf_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List 
     (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hlo : heapEnd + 32 + 2048 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
     (hfl : bytesT2 m (stdoutFile + 16) = 0x2009#16) (hfile : bytesT2 m (stdoutFile + 18) = 1#16)
-    (hrd : bytesT4 m symFsReady = 0#32) (hheap : HeapAt m top brk chunks bins)
+    (hrd : bytesT4 m symFsReady = 0#32) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins)
     (hroom : brk + 1024 + 16384 ≤ heapEnd) :
     Triple (SegSt 0x80049a2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
         ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))
@@ -230,8 +230,8 @@ theorem smakebuf_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List 
       (Lua.Vm.AtF.Smakebuf_r.m2 (smbX sp 0 r f m1 o)) := k2
   have k12 := k1.trans k2'
   -- `_malloc_r(_REENT, 1024)`
-  have hH : HeapAt (Lua.Vm.AtF.Smakebuf_r.m2 (smbX sp 0 r f m1 o)) top brk chunks bins :=
-    hheap.congr fun a ha => k12.get (by simp only [HeapReads] at ha; rg_simp; omega)
+  have hH : HeapAt (Vsa.Densify.fillZeroMem (Lua.Vm.AtF.Smakebuf_r.m2 (smbX sp 0 r f m1 o))) top brk chunks bins :=
+    hheap.congr fun a ha => fill_congr <| k12.get (by simp only [HeapReads] at ha; rg_simp; omega)
   have hcall : SegSt 0x8002fa34#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
       ⟨Register.x11, BitVec.ofNat 64 1024⟩] (sp - 160) 0x80049a98#64 (smbF (smbX sp 0 r f m1 o) 0x2000#64))
       (ArmPay (Lua.Vm.AtF.Smakebuf_r.m2 (smbX sp 0 r f m1 o)) o) c1 := by
@@ -296,7 +296,7 @@ theorem smakebuf_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List 
   · exact (kS.b4 (a := 0x8005e688) fun i _ => by rg_simp; omega).trans M4.size
   · exact ((kn.trans k6).b4 fun i _ => by rg_simp; omega).trans rdy
   · exact ((kn.trans k6).b4 fun i _ => by rg_simp; omega).trans con
-  · exact P.heap.congr fun a ha => ((k4'.trans k5).trans k6).get (by simp only [HeapReads] at ha; rg_simp; omega)
+  · exact P.heap.congr fun a ha => fill_congr <| ((k4'.trans k5).trans k6).get (by simp only [HeapReads] at ha; rg_simp; omega)
   · intro a ha
     by_cases hw : MallocW chunks a
     · exact absurd (.inr (.inl hw)) ha

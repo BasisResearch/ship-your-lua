@@ -229,7 +229,7 @@ structure SetupPost (m M m' : Mem) (sp src n buf brk : Nat) (chunks : List Chunk
 def StdoutSetup_Statement : Prop :=
   ∀ (sp src n top brk : Nat) (chunks : List Chunk) (bins : Nat → List Nat) (r : BitVec 64)
     (f : AbiFrame) (m : Mem) (o : Array String),
-    StdioBoot m → MemfsBoot m → HeapAt m top brk chunks bins →
+    StdioBoot m → MemfsBoot m → HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins →
     r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → heapEnd + 8192 ≤ sp → brk + 1024 + 16384 ≤ heapEnd →
     1 ≤ n → errnoAddr + 4 ≤ src → src + n + 4096 ≤ sp → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
     (∀ a, src ≤ a → a < src + n → ¬ FsGlobal a ∧ ¬ MallocW chunks a ∧ ¬ SinitW a) →
@@ -251,8 +251,8 @@ theorem stdoutSetup_of_malloc (hM : MallocR_Statement) : StdoutSetup_Statement :
   have : symStdioExitHandler = 0x8005d3e0 := rfl
   have hfs : bytesT4 m symFsReady = 0#32 := bytesT4_of_rd32 hMf.ready
   obtain ⟨c1, s1, M5, h1, mid⟩ := fws_pre sp src n r f m o hra q.2 hhi hal hB hfs c h
-  have hH5 : HeapAt M5 top brk chunks bins :=
-    hheap.congr fun a ha => mid.agree.get (by simp only [HeapReads] at ha; ssr)
+  have hH5 : HeapAt (Vsa.Densify.fillZeroMem M5) top brk chunks bins :=
+    hheap.congr fun a ha => fill_congr <| mid.agree.get (by simp only [HeapReads] at ha; ssr)
   obtain ⟨c2, s2, M, m', out, pend', buf, top', brk', chunks', bins', hret, FW⟩ :=
     sfvwrite_first hM (sp - 112) (sp - 72) (sp - 88) src n top brk chunks bins 0x800341f8#64 (fwFrame f n) M5 o
       (by decide) q.1 (by omega) (by omega) mid.fresh hH5 hroom mid.uio (by omega) (by omega) (by omega)
