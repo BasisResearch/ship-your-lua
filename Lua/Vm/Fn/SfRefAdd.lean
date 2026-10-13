@@ -1,5 +1,7 @@
 import Lua.Vm.Fn.Adddf3
 import Lua.Vm.Fn.SfLens
+import Lua.Vm.Fn.Spec
+import Lua.Num.SfRefSpec
 
 /-!
 # `__adddf3` against `SfRef.add` (round 5, B-SFREF (b1))
@@ -768,5 +770,11 @@ theorem F_eq_sfref (m : Mem) (s : Nat) (r a b : BitVec 64) (hsp : Lua.Vm.Sim.FnS
   unfold SfRef.add
   rw [sign_nf a, sign_nf b]
   exact cover m s r _ _ _ _ _ _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) hs1 hs2
+
+open Lua.Num in
+/-- **`SoftFloatSpec.adddf3`, proved**: (b1) `F_eq_sfref` then (b2) `SfRef.add_eq`. -/
+theorem spec_proved (m : Mem) (s : Nat) (r a b : BitVec 64) (hsp : Lua.Vm.Sim.FnSp s 48) :
+    F m s r a b = S a b := by
+  rw [F_eq_sfref m s r a b hsp, SfRef.add_eq]
 
 end Lua.Vm.Fn.Adddf3

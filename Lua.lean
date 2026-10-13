@@ -65,6 +65,8 @@ import Lua.Num.F64
 import Lua.Num.Pow
 import Lua.Num.PowFacts
 import Lua.Num.Arith
+import Lua.Num.SfRefSpec
+import Lua.Vm.Fn.SfRefAdd
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/
