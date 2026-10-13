@@ -18,8 +18,8 @@ namespace Lua.Vm.Sim.At
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **`OP_BNOT` of a float** (`FloatArms.BNOT`), under `floor`'s premise. -/
-theorem sim_BNOT_flt (hsf : SoftFloatSpec) (hfl : FloorSpec) : SimArmOn .BNOT FltB :=
+/-- **`OP_BNOT` of a float** (`FloatArms.BNOT`) (`floor` by `floorSpec_proved`). -/
+theorem sim_BNOT_flt (hsf : SoftFloatSpec) : SimArmOn .BNOT FltB :=
   sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
   at_junary 0x8001df18 Lua.Vm.At.BNOT_F
 

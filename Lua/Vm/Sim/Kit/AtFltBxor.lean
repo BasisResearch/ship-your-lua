@@ -18,7 +18,7 @@ namespace Lua.Vm.Sim.At
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
--- **`OP_BXOR` with a float operand** (`FloatArms.BXOR`), under `floor`'s premise.
+-- **`OP_BXOR` with a float operand** (`FloatArms.BXOR`) (`floor` by `floorSpec_proved`).
 bitwise_flt_arm sim_BXOR_flt .BXOR 0x8001da10 Lua.Vm.At.BXOR_F
 
 end Lua.Vm.Sim.At

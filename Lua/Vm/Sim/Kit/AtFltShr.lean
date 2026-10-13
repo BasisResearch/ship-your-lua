@@ -19,7 +19,7 @@ namespace Lua.Vm.Sim.At
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
--- **`OP_SHR` with a float operand** (`FloatArms.SHR`), under `floor`'s premise.
+-- **`OP_SHR` with a float operand** (`FloatArms.SHR`) (`floor` by `floorSpec_proved`).
 shift2_flt_arm sim_SHR_flt .SHR 0x8001d57c Lua.Vm.At.SHR_F
 
 end Lua.Vm.Sim.At

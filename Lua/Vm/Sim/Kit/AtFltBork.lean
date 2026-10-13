@@ -17,8 +17,8 @@ namespace Lua.Vm.Sim.At
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **`OP_BORK` with a float `R[B]`** (`FloatArms.BORK`), under `floor`'s premise. -/
-theorem sim_BORK_flt (hsf : SoftFloatSpec) (hfl : FloorSpec) : SimArmOn .BORK FltB :=
+/-- **`OP_BORK` with a float `R[B]`** (`FloatArms.BORK`) (`floor` by `floorSpec_proved`). -/
+theorem sim_BORK_flt (hsf : SoftFloatSpec) : SimArmOn .BORK FltB :=
   sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
   at_jbitk 0x8001d6b8 Lua.Vm.At.BORK_F
 

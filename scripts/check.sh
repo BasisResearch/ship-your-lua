@@ -248,6 +248,9 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.sim_SHR_flt
 #print axioms Lua.Vm.Sim.At.sim_SHLI_flt
 #print axioms Lua.Vm.Sim.At.sim_SHRI_flt
+#print axioms Lua.Vm.Sim.At.sim_MUL_flt
+#print axioms Lua.Vm.Sim.At.sim_MULK_flt
+#print axioms Lua.Vm.Sim.At.model_mul_comm
 #print axioms Lua.Vm.Sim.At.shiftl_m
 #print axioms Lua.Vm.Sim.At.shiftr_m
 #print axioms Lua.Vm.Sim.At.shiftr_K

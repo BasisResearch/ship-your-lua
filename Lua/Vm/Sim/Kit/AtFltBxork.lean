@@ -17,8 +17,8 @@ namespace Lua.Vm.Sim.At
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- **`OP_BXORK` with a float `R[B]`** (`FloatArms.BXORK`), under `floor`'s premise. -/
-theorem sim_BXORK_flt (hsf : SoftFloatSpec) (hfl : FloorSpec) : SimArmOn .BXORK FltB :=
+/-- **`OP_BXORK` with a float `R[B]`** (`FloatArms.BXORK`) (`floor` by `floorSpec_proved`). -/
+theorem sim_BXORK_flt (hsf : SoftFloatSpec) : SimArmOn .BXORK FltB :=
   sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
   at_jbitk 0x8001d660 Lua.Vm.At.BXORK_F
 
