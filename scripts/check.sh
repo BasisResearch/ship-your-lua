@@ -238,6 +238,16 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.sim_SHR_flt
 #print axioms Lua.Vm.Sim.At.sim_SHLI_flt
 #print axioms Lua.Vm.Sim.At.sim_SHRI_flt
+#print axioms Lua.Vm.Sim.At.sim_EQ_flt
+#print axioms Lua.Vm.Sim.At.sim_EQK_flt
+#print axioms Lua.Vm.Sim.At.eqf_at
+#print axioms Lua.Vm.Sim.Kit.equalobj_flt_sum
+#print axioms Lua.Vm.Sim.Kit.eqo_ff
+#print axioms Lua.Vm.Sim.Kit.eqo_if
+#print axioms Lua.Vm.Sim.Kit.eqo_fi
+#print axioms Lua.Vm.Sim.Kit.eqo_diff_gen
+#print axioms Lua.Vm.Sim.Kit.eqfMem_out
+#print axioms Lua.Vm.Sim.AtF.fw8_patch
 #print axioms Lua.Vm.Sim.At.shiftl_m
 #print axioms Lua.Vm.Sim.At.shiftr_m
 #print axioms Lua.Vm.Sim.At.shiftr_K

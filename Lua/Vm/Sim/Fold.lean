@@ -361,7 +361,9 @@ join route), `LT` and `LE` (lane F2: their f2i paths under `floor`,
 `FloorSpec`), `BNOT`, `BAND`, `BOR`, `BXOR` (lane F2: `tointegerns` under
 `FloorSpec`), `BANDK`, `BORK`, `BXORK` (lane F3: `K[C]` read through
 `floor`'s frame, under `FloorSpec`), `SHL`, `SHR`, `SHLI`, `SHRI` (lane F3: the
-shift's tests of `__fixdfdi`'s value as residual atoms, under `FloorSpec`).
+shift's tests of `__fixdfdi`'s value as residual atoms, under `FloorSpec`), `EQ`,
+`EQK` (lane F4: `luaV_equalobj`'s float summary `Kit.equalobj_flt_sum` as the
+call node, from the callee-context route, under `FloorSpec`).
 `EQI` and `FORPREP` are proved but for
 the paths their fields name (`At.EqiFlt_Statement`, `At.FpCoerce_Statement`). -/
 structure FloatArms : Prop where
@@ -393,10 +395,6 @@ structure FloatArms : Prop where
   MODK : SimArmOn .MODK FltBK
   /-- `OP_IDIVK` with a float operand (T4) -/
   IDIVK : SimArmOn .IDIVK FltBK
-  /-- `OP_EQ` with a float operand (`luaV_equalobj`: `__eqdf2`, F2Ieq; T3) -/
-  EQ : SimArmOn .EQ FltAB
-  /-- `OP_EQK` with a float `R[A]` or `K[B]` (`luaV_rawequalobj`; T3) -/
-  EQK : SimArmOn .EQK FltAKb
   /-- `OP_EQI` with a float `R[A]`: `δ .eq` of a float and an 8-bit
   immediate is `Float.Model.beq`; the machine side is `At.sim_EQI_flt` -/
   EQI : At.EqiFlt_Statement
@@ -453,8 +451,8 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case LEN => exact At.sim_LEN
   case CONCAT => exact h.CONCAT
   case JMP => exact @sim_JMP
-  case EQ => exact SimArm.split Kit.sim_EQ hF.EQ
-  case EQK => exact SimArm.split At.sim_EQK hF.EQK
+  case EQ => exact SimArm.split Kit.sim_EQ (At.sim_EQ_flt hF.floor)
+  case EQK => exact SimArm.split At.sim_EQK (At.sim_EQK_flt hF.floor)
   case EQI => exact SimArm.split @sim_EQI (At.sim_EQI_flt hF.soft hF.EQI)
   case LT => exact SimArm.split At.sim_LT (At.sim_LT_flt hF.soft (At.lt_flt_f2i hF.soft hF.floor))
   case LE => exact SimArm.split At.sim_LE (At.sim_LE_flt hF.soft (At.le_flt_f2i hF.soft hF.floor))
