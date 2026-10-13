@@ -236,6 +236,7 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
       stat_in := fun a ha => (hI.stat_in a ha).imp kept' id
       stat_apart := hI.stat_apart
       fits := hI.fits
+      growFree := hI.growFree
       kslots := hI.kslots
       lits := h.lits.facts.trans fun a _ => bytesT1_fill m a
       lits_in := fun a ha => keptH (h.lits.kept a ha)

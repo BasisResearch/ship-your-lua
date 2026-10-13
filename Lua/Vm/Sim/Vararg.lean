@@ -235,7 +235,8 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
           exact (Option.some.inj h).symm)
         (by have := hrg.kArr; rw [hrp] at this; exact this) rfl rfl rfl
         (Option.some.inj (hE.l_G.symm.trans hRt.lua.g)) esl ecl (Nat.le_add_right _ _) rfl
-        (by simp only [RtPtrs.vmoved, stackValueSize]; omega))
+        (by simp only [RtPtrs.vmoved, stackValueSize]; omega)
+        (by have hcr := hE.call_room; rw [esl] at hcr; simp only [RtPtrs.vmoved, stackValueSize] at hcr ⊢; omega))
     exact ⟨ι', hP⟩
 
 /-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at

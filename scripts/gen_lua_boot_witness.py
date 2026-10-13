@@ -255,6 +255,9 @@ def evaluate(lay, M, regs, proto):
     need(rd(e["g"] + lay["gGcstpOff"], 1) == lay["gcstpUsr"], "gc_stopped")
     e["stackLast"] = rd(L + lay["stateStackLastOff"], 8)
     need(e["func"] + lay["stackValueSize"] * (1 + proto[2]) <= e["stackLast"], "frame_fits")
+    # lane F1-14: `OP_CALL print` never grows the stack (`luaD_precall`'s
+    # `checkstackGCp(L, LUA_MINSTACK)`), before or after `OP_VARARGPREP`
+    need(e["func"] + lay["stackValueSize"] * (2 + proto[2]) + 320 < e["stackLast"], "call_room")
     check_env_get(lay, M, L, ci, e, slot)
     # ---- CStackAt
     inv = {}

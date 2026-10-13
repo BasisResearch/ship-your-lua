@@ -433,6 +433,9 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   stat_apart : ∀ a, F a → ¬ CallDirty w a
   /-- the register frame lies below `L->stack_last` -/
   fits : w.func + stackValueSize * (1 + p.maxstacksize) ≤ w.rt.stackLast
+  /-- (lane F1-14) room for `LUA_MINSTACK` slots above the frame: `OP_CALL
+  print` does not grow the stack -/
+  growFree : w.func + stackValueSize * (1 + p.maxstacksize) + 320 < w.rt.stackLast
   /-- the constant array is frozen (its slots in `F`) -/
   kslots : ∀ j, j < tvalueSize * p.k.length → F (w.k + j)
   /-- the reserved literals interned, frozen on `FL` -/

@@ -213,7 +213,21 @@ structure CallOpen : Prop where
   print : PrintRel_Statement
   extendCI : ExtendCI_Statement
   poscall : PoscallN_Statement
-  grow : PrintGrow_Statement CallInv
   freeR : FreeR_Statement
+
+/-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the
+`CALL` invariant keeps `LUA_MINSTACK` slots above the frame (`growFree`, from
+the entry contract's `call_room`), and the call's arguments lie inside the
+frame (`call_bounds`), so the growth path's states do not occur. -/
+theorem printGrow_none : PrintGrow_Statement CallInv := by
+  intro p c s w ins args f o hS hR hI hf hop hb hcc hregs hbud hq
+  obtain ⟨ph, F, FL, ls, hI⟩ := hI
+  have hB := call_bounds hS hf hop hb hcc
+  have h1 := hI.growFree
+  have h2 := hB.ab
+  exact absurd (by simp only [RelPtrs.slot, RelPtrs.base, stackValueSize] at h1 ⊢; omega) hq
+
+/-- `CALL`'s growth path, discharged (lane F1-14). -/
+theorem CallOpen.grow (_O : CallOpen) : PrintGrow_Statement CallInv := printGrow_none
 
 end Lua.Vm.Sim.Kit

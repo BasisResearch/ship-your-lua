@@ -316,6 +316,11 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   with `L->top = func + 1` does not grow the stack (`L->stack_last - L->top >
   maxstacksize + 1` slots) -/
   vararg_room : e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast
+  /-- (lane F1-14) `OP_CALL print` from the frame, before or after
+  `OP_VARARGPREP` (which moves `ci->func` one slot up), does not grow the
+  stack: `luaD_precall`'s `checkstackGCp(L, LUA_MINSTACK)` finds more than 20
+  slots above any `L->top` inside the frame -/
+  call_room : e.func + stackValueSize * (2 + p.maxstacksize) + 320 < e.stackLast
   /-- the prototype and its code pointer lie apart from the bytes
   `luaT_adjustvarargs` writes (`VarargDirty`): they hold in every memory that
   agrees with this one elsewhere -/
