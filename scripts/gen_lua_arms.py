@@ -287,6 +287,9 @@ HELPERS += [("luaB_print", "LuaB_print", 0x80022f18, 0x80023010, [22, 26], [], [
 # `luaD_poscall`; the Lua-function and `__call` paths (`0x8000aae0`) are stops
 SIM_OPS |= {"OP_CALL"}
 SUMMARISED |= {"luaD_precall"}
+# the argument registers an arm's summarised call reads (live into its `jal`,
+# beside the registers live at the return address)
+CALL_ARGS = {"luaD_precall": {"x10", "x11", "x12"}}
 HELPERS += [("luaD_precall", "LuaD_precall", 0x8000aab4, 0x8000ae3c, [22, 26], [0x8000ac8c],
              [0x8000aae0, 0x8000abe4, 0x8000ace0])]
 # the argument registers of a callee with no segments of its own (a call node
@@ -604,7 +607,10 @@ def collect(only):
                and (re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in SUMMARISED
                     or (n in float_segs
                         and re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in FLOAT_CALLS))}
-    for name, regs in live_keep(arms, specs, sim, jal_end).items():
+    jal_args = {n: CALL_ARGS[re.search(r"<([^>+]+)>", g[cuts[n][1] - 4][0]).group(1)]
+                for n in jal_end
+                if re.search(r"<([^>+]+)>", g[cuts[n][1] - 4][0]).group(1) in CALL_ARGS}
+    for name, regs in live_keep(arms, specs, sim, jal_end, jal_args).items():
         if regs:
             lo, hi, path = cuts[name]
             spec, rows = seg_spec(lo, hi, path, name, True,
@@ -618,7 +624,7 @@ def collect(only):
     return arms, specs, sites
 
 
-def live_keep(arms, specs, sim, jal_end=frozenset()):
+def live_keep(arms, specs, sim, jal_end=frozenset(), jal_args=None):
     """Per SIM segment, the registers a later segment of its arm reads that
     the segment neither reads nor writes (a temporary such as `ADD`'s slot
     of `R[A]`, computed before a branch and stored after it): they are
@@ -641,7 +647,8 @@ def live_keep(arms, specs, sim, jal_end=frozenset()):
         live = {n: set(info[n][0]) for n in names}
 
         def live_out(n):
-            return set().union(*[live[m] for m in names if specs[m][0] == info[n][2]])
+            return set().union(*[live[m] for m in names if specs[m][0] == info[n][2]],
+                               (jal_args or {}).get(n, set()))
         changed = True
         while changed:
             changed = False
