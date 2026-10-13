@@ -116,4 +116,78 @@ theorem roundPack_eq (neg : Bool) (E F : Nat) (hF : F < 2 ^ 56) (hn : 2 ≤ E �
     · rw [if_neg hm]
       (repeat' split) <;> rp_close
 
+/-! ## The representation of an exact value does not matter -/
+
+theorem div_scale (n j s : Nat) : n * 2 ^ j / 2 ^ (s + j) = n / 2 ^ s := by
+  rw [Nat.pow_add, Nat.mul_div_mul_right _ _ (Nat.two_pow_pos j)]
+theorem mod_scale (n j s : Nat) : n * 2 ^ j % 2 ^ (s + j) = n % 2 ^ s * 2 ^ j := by
+  rw [Nat.pow_add, Nat.mul_mod_mul_right]
+
+theorem shr_scale (n j s : Nat) : shr (n * 2 ^ j) false false (s + j) = shr n false false s := by
+  unfold shr
+  by_cases h0 : s + j = 0
+  · have : s = 0 := by omega
+    have : j = 0 := by omega
+    subst_vars; simp
+  rw [if_neg h0]
+  by_cases hs : s = 0
+  · subst hs
+    rw [if_pos rfl]
+    obtain ⟨j', rfl⟩ : ∃ j', j = j' + 1 := ⟨j - 1, by omega⟩
+    have ee : n * 2 ^ (j' + 1) = (2 * n) * 2 ^ j' := by
+      rw [Nat.pow_succ, Nat.mul_comm (2 ^ j') 2, ← Nat.mul_assoc, Nat.mul_comm n 2]
+    have e1 : n * 2 ^ (j' + 1) / 2 ^ (0 + (j' + 1) - 1) = 2 * n := by
+      rw [ee, show 0 + (j' + 1) - 1 = 0 + j' by omega, div_scale]; simp
+    have e2 : n * 2 ^ (j' + 1) % 2 ^ (0 + (j' + 1) - 1) = 0 := by
+      rw [ee, show 0 + (j' + 1) - 1 = 0 + j' by omega, mod_scale]; simp [Nat.mod_one]
+    rw [div_scale, e1, e2]; simp
+  · rw [if_neg hs, div_scale, show s + j - 1 = (s - 1) + j by omega, div_scale, mod_scale]
+    have : (n % 2 ^ (s - 1) * 2 ^ j ≠ 0) ↔ (n % 2 ^ (s - 1) ≠ 0) := by
+      constructor
+      · intro h h'; rw [h'] at h; simp at h
+      · intro h; exact Nat.mul_ne_zero h (Nat.ne_of_gt (Nat.two_pow_pos j))
+    simp only [Bool.or_false, decide_eq_decide.mpr this]
+
+theorem round_zero (neg : Bool) (e : Int) : round neg 0 e false false = zero neg := by
+  unfold round
+  dsimp only
+  split
+  · simp [shr, rne, finish, packFin]
+  · simp [packFin]
+
+theorem target_scale (n j : Nat) (e : Int) (hn : 0 < n) : target (n * 2 ^ j) (e - j) = target n e := by
+  unfold target
+  rw [← Nat.shiftLeft_eq, log2_shiftLeft j hn]; omega
+
+theorem round_scale (neg : Bool) (n j : Nat) (e : Int) :
+    round neg (n * 2 ^ j) (e - j) false false = round neg n e false false := by
+  rcases Nat.eq_zero_or_pos n with h0 | hn
+  · subst h0; simp only [Nat.zero_mul, round_zero]
+  have hT := target_scale n j e hn
+  have ht : ((n.log2 : Int) + 1 + e - 53) ≤ target n e := by unfold target; omega
+  unfold round
+  rw [hT]
+  by_cases h1 : e ≤ target n e
+  · rw [if_pos (by omega), if_pos h1,
+      show (target n e - (e - j)).toNat = (target n e - e).toNat + j by omega, shr_scale]
+  · rw [if_neg h1]
+    obtain ⟨d, hd⟩ : ∃ d : Nat, (e - target n e) = (d : Int) := ⟨(e - target n e).toNat, by omega⟩
+    have hd1 : 1 ≤ d := by omega
+    have hlt : n * 2 ^ d < 2 ^ 53 := by
+      rw [← Nat.shiftLeft_eq]
+      apply lt_two_pow_of_log2
+      rw [log2_shiftLeft d hn]; omega
+    by_cases h2 : e - j ≤ target n e
+    · rw [if_pos h2]
+      have hs : j = (target n e - (e - j)).toNat + d := by omega
+      have e1 : n * 2 ^ j = (n * 2 ^ d) * 2 ^ (target n e - (e - j)).toNat := by
+        rw [Nat.mul_assoc, ← Nat.pow_add]; congr 2; omega
+      have hss := shr_scale (n * 2 ^ d) ((target n e - (e - j)).toNat) 0
+      rw [Nat.zero_add] at hss
+      rw [e1, hss]
+      simp only [shr, if_true, rne, Bool.false_and, Bool.false_eq_true, ite_false, finish]
+      rw [if_neg (by omega), show (e - target n e).toNat = d by omega, Nat.shiftLeft_eq]
+    · rw [if_neg h2, Nat.shiftLeft_eq, Nat.shiftLeft_eq, Nat.mul_assoc, ← Nat.pow_add]
+      congr 3; omega
+
 end Lua.Num.SfRef
