@@ -200,8 +200,11 @@ class Fail(Exception):
 class Mem:
     def __init__(self, mem):
         self.m = mem
+        self.rec = None  # the bytes read, while recording a footprint
 
     def rd(self, a, n):
+        if self.rec is not None:
+            self.rec.update(range(a, a + n))
         x = 0
         for i in range(n):
             b = self.m.get(a + i)
@@ -559,6 +562,162 @@ def check_env_get(lay, M, L, ci, e, slot):
     apart(ts, 16, "the key's header")
 
 
+# ------------------------------------------------------------------ CALL facts
+def ranges_of(addrs):
+    """Contiguous byte ranges `(lo, n)` of a set of addresses."""
+    out = []
+    for a in sorted(addrs):
+        if out and out[-1][0] + out[-1][1] == a:
+            out[-1][1] += 1
+        else:
+            out.append([a, 1])
+    return [(lo, n) for lo, n in out]
+
+
+def lua_hash(seed, b):
+    """`luaS_hash` (`Lua.Vm.luaHash`): `h = seed ^ l`, then from the last byte
+    `h ^= (h << 5) + (h >> 2) + c`, in 32 bits."""
+    h = (seed ^ len(b)) & 0xFFFFFFFF
+    for c in reversed(b):
+        h = (h ^ (((h << 5) + (h >> 2) + c) & 0xFFFFFFFF)) & 0xFFFFFFFF
+    return h
+
+
+def rtree(rs):
+    """A footprint as the balanced search tree `Lua.Vm.RTree` (sorted, disjoint ranges)."""
+    if not rs:
+        return ".leaf"
+    k = len(rs) // 2
+    lo, n = rs[k]
+    return f"(.node {rtree(rs[:k])} {lo:#x} {n} {rtree(rs[k + 1:])})"
+
+
+FIRST_ROOM = 4 * (16384 + 4096 + 1024 + 128)
+
+
+def call_facts(lay, M, L, ci, e, w, slot, proto):
+    """`VmEntryData`'s `CALL` facts (lane F1-13, `frozenCheck`, `litsEntryCheck`,
+    `placedCheck`): the footprint `e.foot` of the objects a `print` leaves alone
+    (the reads of the restricted checks, the static words of `L` and `g`,
+    `.rodata`), the literals' footprint `e.litFoot` (the string table, its
+    cache, the literals), each range in one chunk in use (or the image below
+    `tohost`), apart from what a `CALL` writes, and the heap room."""
+    rd = M.rd
+    g = e["g"]
+    chunks = [c for c in w["chunks"] if c[2]]
+
+    def in_chunk(lo, n):
+        return (lay["symEnd"] <= lo and lo + n <= lay["symHeapEnd"] and
+                any(a + 16 <= lo and lo + n <= a + sz + 8 for a, sz, _ in chunks))
+
+    def split(rs):
+        out = []
+        for lo, n in rs:
+            while n > 0:
+                if lo + n <= lay["symTohost"]:
+                    out.append((lo, n))
+                    break
+                c = next(((a, sz) for a, sz, _ in chunks if a + 16 <= lo < a + sz + 8), None)
+                need(c is not None, f"CALL footprint byte {lo:#x} in a chunk in use")
+                k = min(n, c[0] + c[1] + 8 - lo)
+                out.append((lo, k))
+                lo, n = lo + k, n - k
+        return out
+
+    def apart(rs, ds, what):
+        for lo, n in rs:
+            for d, k in ds:
+                need(lo + n <= d or d + k <= lo, f"{what}: ({lo:#x}, {n}) apart from ({d:#x}, {k})")
+            need(0x80000000 <= lo and lo + n <= 0x88000000, f"{what} in RAM")
+
+    # ---- e.foot
+    M.rec = set()
+    check_proto(lay, M, e["pa"], proto)
+    rd(e["pa"] + lay["protoPOff"], 8)
+    rd(e["pa"] + lay["protoCodeOff"], 8)
+    ka = rd(e["pa"] + lay["protoKOff"], 8)
+    for i in range(len(proto[4])):
+        a = ka + lay["tvalueSize"] * i
+        if rd(a + lay["tvalueTagOff"], 1) in (lay["vShrStr"], lay["vLngStr"]):
+            ts = rd(a + lay["tvalueValOff"], 8)
+            if rd(ts + lay["gcTtOff"], 1) == lay["gcShrStr"]:
+                n = rd(ts + lay["tstringShrlenOff"], 1)
+            else:
+                n = rd(ts + lay["tstringLnglenOff"], 8)
+                rd(ts + lay["tstringShrlenOff"], 1)
+            for j in range(n + 1):
+                rd(ts + lay["tstringContentsOff"] + j, 1)
+    check_env_get(lay, M, L, ci, e, slot)
+    rd(e["cl"] + lay["lclosureUpvalsOff"], 8)
+    rd(e["uv"] + lay["upvalVOff"], 8)
+    rd(e["envv"] + lay["tvalueTagOff"], 1)
+    rd(e["envv"] + lay["tvalueValOff"], 8)
+    rd(e["env"] + lay["tableLsizenodeOff"], 1)
+    rd(e["env"] + lay["tableNodeOff"], 8)
+    pr = slot["node"] + lay["nodeSize"] * slot["i"]
+    rd(pr + lay["tvalueTagOff"], 1)
+    rd(pr + lay["tvalueValOff"], 8)
+    foot = M.rec
+    M.rec = None
+    static = [(L + lay["stateHookmaskOff"], 4), (L + lay["stateErrfuncOff"], 8), (L + lay["stateNCcallsOff"], 4),
+              (L + lay["stateOpenupvalOff"], 8), (L + lay["stateTbclistOff"], 8), (L + lay["stateStackOff"], 8),
+              (L + lay["stateStackLastOff"], 8), (L + lay["stateGOff"], 8), (L + lay["stateErrorJmpOff"], 8)]
+    static += [(g + lay["gMtOff"] + 8 * lay[t], 8) for t in ("luaTnil", "luaTboolean", "luaTnumber")]
+    for a, n in static:
+        foot.update(range(a, a + n))
+    foot.update(range(ka, ka + lay["tvalueSize"] * len(proto[4])))
+    foot = split(ranges_of(foot))
+    for a, n in static:
+        need(any(lo <= a and a + n <= lo + k for lo, k in foot), "a static word in one footprint range")
+    g_end = lay["gStrcacheOff"] + 8 * lay["strcacheN"] * lay["strcacheM"]
+    dirty = [(L + lay["stateTopOff"], 8), (L + lay["stateCiOff"], 8), (ci, lay["ciSize"]),
+             (e["func"], max(0, e["stackLast"] - e["func"]))]
+    apart(foot, dirty + [(g, 64), (g + lay["gStrcacheOff"], g_end - lay["gStrcacheOff"])], "e.foot")
+    # ---- the literals
+    seed = rd(g + lay["gSeedOff"], 4)
+    M.rec = set()
+    sh, size = rd(g + lay["gStrtHashOff"], 8), rd(g + lay["gStrtSizeOff"], 4)
+    rd(g + lay["gStrtNuseOff"], 4)
+    heads = []
+    for i in range(size):
+        ts = rd(sh + 8 * i, 8)
+        heads.append(ts)
+        while ts:
+            rd(ts + lay["gcTtOff"], 1)
+            rd(ts + lay["tstringHashOff"], 4)
+            ts = rd(ts + lay["tstringLnglenOff"], 8)
+    for i in range(lay["strcacheN"] * lay["strcacheM"]):
+        rd(rd(g + lay["gStrcacheOff"] + 8 * i, 8) + lay["gcTtOff"], 1)
+    rd(g + lay["gSeedOff"], 4)
+    lits = []
+    for b in (b"nil", b"true", b"false"):
+        p, found = heads[lua_hash(seed, b) % size], None
+        while p:
+            n = M.m.get(p + lay["tstringShrlenOff"])
+            if n == len(b) and bytes(M.m.get(p + lay["tstringContentsOff"] + j, 0) for j in range(n)) == b:
+                found = p
+                break
+            p = rd(p + lay["tstringLnglenOff"], 8)
+        need(found is not None, f"the literal {b!r} interned in its bucket")
+        check_tstring(lay, M, found, list(b))
+        lits.append(found)
+    lit_foot = split(ranges_of(M.rec))
+    M.rec = None
+    need(all(lo + n <= lay["symTohost"] or in_chunk(lo, n) for lo, n in lit_foot) and
+         all(lo >= lay["symTohost"] for lo, _ in lit_foot), "e.litFoot in chunks in use")
+    apart(lit_foot, dirty, "e.litFoot")
+    for ts in lits:
+        need(not any(lo <= ts + lay["gcMarkedOff"] < lo + n for lo, n in foot), "a literal's mark byte off e.foot")
+        need(in_chunk(ts, 30), "a literal's object in a chunk in use")
+    # ---- the places and the room
+    for lo, n, what in [(L, lay["stateSize"], "L"), (g, g_end, "g"), (ci, lay["ciSize"], "ci"),
+                        (e["func"], e["stackLast"] - e["func"], "the Lua stack")]:
+        need(in_chunk(lo, n), f"{what} in a chunk in use")
+    need(all(in_chunk(lo, n) or lo + n <= lay["symTohost"] for lo, n in foot), "e.foot in chunks in use")
+    need(w["brkv"] + FIRST_ROOM <= lay["symHeapEnd"], "room for the first print")
+    return foot, lit_foot, (seed, *lits)
+
+
 def heap_walk(lay, M):
     rd = M.rd
     av = lay["symMallocAv"]
@@ -803,6 +962,9 @@ def render_program(lay, name, lean, proto_const, module, chunk, log, entry, e, w
             "/-- The pointers `VmEntryData` names. -/",
             "def e : EntryPtrs where",
             ] + [f"  {k} := {e[k]:#x}" for k in ("func", "cl", "pa", "code", "uv", "envv", "env", "g", "stackLast")] + [
+            f"  foot := {rtree(e['foot'])}",
+            f"  litFoot := {rtree(e['litFoot'])}",
+            f"  lits := ⟨{e['lits'][0]:#x}, {e['lits'][1]:#x}, {e['lits'][2]:#x}, {e['lits'][3]:#x}⟩",
             "",
             "/-- `_ENV.print`'s node: `(lsizenode, node array, index, key string)`. -/",
             f"def printSlot : PrintSlot := ⟨{slot['lsz']}, {slot['node']:#x}, {slot['i']}, {slot['ts']:#x}⟩",
@@ -885,7 +1047,7 @@ def render_witness(name, lean, nstores, nruns):
         "theorem regsOk : gprsCheck gprs L ci = true := by decide +kernel",
         "theorem imageOk : runsAvoid runs Image.textBase (Image.rodataBase + Image.rodataSize) = true := by",
         "  decide +kernel",
-        "theorem entryOk : entryCheck view L ci proto e printSlot = true := by decide +kernel",
+        "theorem entryOk : EntryChecks view L ci proto e printSlot w := by constructor <;> decide +kernel",
         "theorem rtPostOk : RtPostChecks view L ci w := by constructor <;> decide +kernel",
         "theorem rtOk : RtChecks view L ci w := by",
         "  constructor <;> first | exact rtPostOk | decide +kernel",
@@ -961,6 +1123,7 @@ def main():
         proto = undump(chunk)
         try:
             e, w, slot, inv = evaluate(lay, M, regs, proto)
+            e["foot"], e["litFoot"], e["lits"] = call_facts(lay, M, regs[10], regs[11], e, w, slot, proto)
             check_harness(lay, log)
             check_regs(lay, entry, log)
         except Fail as ex:

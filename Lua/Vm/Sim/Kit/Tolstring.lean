@@ -100,32 +100,6 @@ theorem toltop_sum {sp L lenp top ts len : Nat} {r : BitVec 64} (f : AbiFrame) {
 
 /-! ## `lua_pushstring` of an interned literal: the named premise -/
 
-/-- `luaS_hash` (`lstring.c`): `h = seed ^ l`, then for each byte from the
-last, `h ^= (h << 5) + (h >> 2) + byte`, in 32 bits. -/
-def luaHash (seed : UInt32) (b : List UInt8) : UInt32 :=
-  b.foldr (fun c h => h ^^^ ((h <<< 5) + (h >>> 2) + c.toUInt32)) (seed ^^^ b.length.toUInt32)
-
-/-- The chain of `g->strt`'s bucket from `p` (`u.hnext`) reaches `ts`. -/
-inductive ChainHas (m : Mem) (ts : Nat) : Nat → Prop where
-  | here : ChainHas m ts ts
-  | next {p nx : Nat} : p ≠ 0 → rd64 m (p + tstringLnglenOff) = some nx → ChainHas m ts nx → ChainHas m ts p
-
-/-- **The literal's string is interned** in `g->strt` (`rt`'s table, of the
-memory's zero fill): the one `TString` `ts` of the short bytes `b`, in the
-chain of the bucket of `b`'s hash with the state's seed. What `luaS_new` →
-`internshrstr` needs to return it without allocating (`luaX_init` interns the
-reserved words `nil`, `true`, `false` at boot; nothing is ever collected); the
-string cache `g->strcache` holds strings (`StrCacheAt`), which a hit
-returns only if equal (`strcmp`). -/
-structure LitInterned (m : Mem) (rt : RtPtrs) (seed : UInt32) (b : List UInt8) (ts : Nat) : Prop where
-  repr : TStringRepr (fillZeroMem m) ts b
-  short : b.length ≤ maxShortLen
-  strt : StrtAt (fillZeroMem m) rt
-  cache : StrCacheAt (fillZeroMem m) rt
-  seed_w : bytesT4 m (rt.g + gSeedOff) = seed.toBitVec
-  bucket : ∀ (h : (luaHash seed b).toNat % rt.strtSize < rt.strtHeads.length),
-    ChainHas (fillZeroMem m) ts rt.strtHeads[(luaHash seed b).toNat % rt.strtSize]
-
 /-- **What `lua_pushstring` of an interned literal leaves**: the string at the
 top (`L->top` one slot up, `LUA_VSHRSTR`, `ts`), its length, and every byte
 kept off `L->top`, the new slot, `g`'s string cache and GC words, the
@@ -267,15 +241,6 @@ structure TolLitPost (m m' : Mem) (sp L lenp g top ts len : Nat) : Prop where
   keep : ∀ a, (sp ≤ a ∧ ¬ Rng lenp 8 a) ∨ (a + 16384 + 64 ≤ sp ∧ ¬ Rng (L + 16) 8 a ∧ ¬ Rng top 16 a ∧
       ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧ ¬ Rng g 64 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a) →
     bytesT1 m' a = bytesT1 m a
-
-/-- The bytes of `"nil"`. -/
-def nilB : List UInt8 := [0x6e, 0x69, 0x6c]
-
-/-- The bytes of `"true"`. -/
-def trueB : List UInt8 := [0x74, 0x72, 0x75, 0x65]
-
-/-- The bytes of `"false"`. -/
-def falseB : List UInt8 := [0x66, 0x61, 0x6c, 0x73, 0x65]
 
 set_option hygiene false in
 /-- **`luaL_tolstring` on a literal argument's proof** over the at-lemmas of

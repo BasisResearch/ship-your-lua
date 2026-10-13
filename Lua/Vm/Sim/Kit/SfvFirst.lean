@@ -53,21 +53,6 @@ theorem b2_hi_of_b4 {m : Mem} {a : Nat} {x : BitVec 32} (h : bytesT4 m a = x) :
 
 /-! ## The stream before its set-up -/
 
-/-- **`stdout` as `std()` and `_fwrite_r`'s `ORIENT` leave it** (`__sinit`
-ran; `_flags` `__SORD | __SWR | __SLBF`, file 1, no buffer), htif.c's tables
-before `fs_init`. -/
-structure StdoutFresh (m : Mem) : Prop where
-  impure : bytesT8 m symImpurePtr = BitVec.ofNat 64 symImpureData
-  cleanup : bytesT8 m (symImpureData + reentCleanupOff) = BitVec.ofNat 64 symCleanupStdio
-  flags : bytesT2 m (stdoutFile + 16) = 0x2009#16
-  file : bytesT2 m (stdoutFile + 18) = 1#16
-  pad : bytesT4 m (stdoutFile + 20) = 0#32
-  base : bytesT8 m (stdoutFile + 24) = 0#64
-  cookie : bytesT8 m (stdoutFile + 48) = BitVec.ofNat 64 stdoutFile
-  write : bytesT8 m (stdoutFile + 64) = BitVec.ofNat 64 symSwrite
-  flags2 : bytesT4 m (stdoutFile + 176) = 0#32
-  fs : bytesT4 m symFsReady = 0#32
-
 theorem StdoutFresh.flags8 {m : Mem} (h : StdoutFresh m) : bytesT8 m (stdoutFile + 16) = 0x12009#64 := by
   rw [b8_of_b4s (b4_of_b2s h.flags h.file) h.pad]; decide
 

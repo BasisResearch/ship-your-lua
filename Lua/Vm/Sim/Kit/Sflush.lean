@@ -26,33 +26,6 @@ namespace Lua.Vm.Sim.Kit
 open Lua.Vm.Sim Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps)
 
-/-- **newlib's `stdout`, set up and line-buffered**, its buffer at `buf`
-holding `pend` (up to a full buffer), its write count `_w` the word `wv`
-(`StdoutAt`: `-|pend|`; `__sfvwrite_r`'s fill path advances `_p` alone
-before the flush, which resets `_w` without reading it). -/
-structure StdoutAtW (m : Mem) (buf : Nat) (pend : List (BitVec 8)) (wv : BitVec 32) : Prop where
-  p : bytesT8 m (stdoutFile + fileBufPOff) = BitVec.ofNat 64 (buf + pend.length)
-  w : bytesT4 m (stdoutFile + fileWOff) = wv
-  flags : bytesT2 m (stdoutFile + fileFlagsOff) = 0x2889#16
-  file : bytesT2 m (stdoutFile + fileFileOff) = 1#16
-  base : bytesT8 m (stdoutFile + fileBfBaseOff) = BitVec.ofNat 64 buf
-  size : bytesT4 m (stdoutFile + fileBfSizeOff) = 1024#32
-  lbf : bytesT4 m (stdoutFile + fileLbfsizeOff) = 0#32 - 1024#32
-  cookie : bytesT8 m (stdoutFile + fileCookieOff) = BitVec.ofNat 64 stdoutFile
-  write : bytesT8 m (stdoutFile + fileWriteOff) = BitVec.ofNat 64 symSwrite
-  bytes : bytesAt m buf pend.length = pend
-  room : pend.length ≤ 1024
-  /-- the buffer is heap memory: above the C runtime's globals, apart from `stdout` -/
-  buf_lo : stdoutFile + fileSize ≤ buf
-  buf_hi : buf + 1024 ≤ 2 ^ 32
-  /-- htif.c's descriptor table: `fs_init` ran, `fds[1]` is the console -/
-  ready : bytesT4 m symFsReady ≠ 0#32
-  stdout : bytesT4 m (symFds + 24) = 2#32
-
-/-- **`stdout` between calls**: `_w = -|pend|`. -/
-abbrev StdoutAt (m : Mem) (buf : Nat) (pend : List (BitVec 8)) : Prop :=
-  StdoutAtW m buf pend (0#32 - BitVec.ofNat 32 pend.length)
-
 /-! ## Reads through the stores of the write path -/
 
 theorem b8_wm2_out {m : Mem} {a x : Nat} {d : BitVec (8 * 2)} (h : x + 8 ≤ a ∨ a + 2 ≤ x) :

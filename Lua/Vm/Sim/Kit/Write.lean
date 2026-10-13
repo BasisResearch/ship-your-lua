@@ -35,9 +35,6 @@ abbrev AbiFrame.pins (f : AbiFrame) : List Pin :=
    ⟨Register.x20, f.s4⟩, ⟨Register.x21, f.s5⟩, ⟨Register.x22, f.s6⟩, ⟨Register.x23, f.s7⟩,
    ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩, ⟨Register.x26, f.s10⟩, ⟨Register.x27, f.s11⟩]
 
-/-- The bytes `[buf, buf + n)` of `m`, in order. -/
-def bytesAt (m : Mem) (buf n : Nat) : List (BitVec 8) := (List.range n).map fun i => bytesT1 m (buf + i)
-
 theorem bytesAt_succ (m : Mem) (buf n : Nat) :
     bytesAt m buf (n + 1) = bytesAt m buf n ++ [bytesT1 m (buf + n)] := by
   simp [bytesAt, List.range_succ]

@@ -51,9 +51,6 @@ theorem Agree.b2 {R : Nat → Prop} {m m' : Mem} (h : Agree R m m') {a : Nat} (h
 /-- The `d` bytes below `sp` (a callee's frames). -/
 def Below (sp d a : Nat) : Prop := a < sp ∧ sp ≤ a + d
 
-/-- The `n` bytes from `lo`. -/
-def Rng (lo n a : Nat) : Prop := lo ≤ a ∧ a < lo + n
-
 /-- The fields of `stdout` the set-up writes: `_p`, `_w`, `_flags`,
 `_bf`, `_lbfsize` (not `_file`, the cookie or the hooks). -/
 def StdoutW (a : Nat) : Prop :=

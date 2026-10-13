@@ -3,6 +3,7 @@ import Lua.Vm.Host
 import Lua.Vm.RegsOk
 import Lua.Vm.Sim.Mem
 import Lua.Vm.Sim.Env
+import Lua.Vm.Sim.StdioState
 import Lua.Vm.Sim.Step
 import Vsa.Sim.SegState
 
@@ -111,30 +112,6 @@ inductive ValRepr (mo : Mem) (ι : Strs) : BitVec 8 → BitVec 64 → Value → 
       ι.own x.toNat s → ValRepr mo ι (BitVec.ofNat 8 (strTag s)) x (.str s)
   | print {x} : x = BitVec.ofNat 64 symLuaBPrint →
       ValRepr mo ι (BitVec.ofNat 8 vLcf) x (.builtin .print)
-
-/-- **A `TString` holds one content**: the length (`shrlen`/`lnglen`) and the
-bytes are read off the object, so pointer equality of represented strings is
-content equality. -/
-theorem _root_.Lua.Vm.TStringRepr.inj {m : Mem} {ts : Nat} {s s' : List UInt8}
-    (h : TStringRepr m ts s) (h' : TStringRepr m ts s') : s = s' := by
-  have hb : BytesAt m (ts + tstringContentsOff) s → BytesAt m (ts + tstringContentsOff) s' →
-      s.length = s'.length → s = s' := fun hb hb' hl =>
-    List.ext_getElem hl fun i h1 h2 => by
-      have e := (hb i h1).symm.trans (hb' i h2)
-      simp only [Option.some.injEq] at e
-      have e2 := congrArg BitVec.toNat e
-      simp only [BitVec.toNat_ofNat] at e2
-      rw [Nat.mod_eq_of_lt (UInt8.toNat_lt _), Nat.mod_eq_of_lt (UInt8.toNat_lt _)] at e2
-      exact UInt8.toNat_inj.mp e2
-  cases h with
-  | short ht _ hl hs _ =>
-    cases h' with
-    | short _ _ hl' hs' _ => exact hb hs hs' (by have := hl.symm.trans hl'; simpa using this)
-    | long ht' => have := ht.symm.trans ht'; simp [gcShrStr, gcLngStr] at this
-  | long ht _ hl hs _ =>
-    cases h' with
-    | short ht' => have := ht.symm.trans ht'; simp [gcShrStr, gcLngStr] at this
-    | long _ _ hl' hs' _ => exact hb hs hs' (by have := hl.symm.trans hl'; simpa using this)
 
 /-- `luaV_execute`'s own C frame (`addi sp,sp,-176` in its prologue). -/
 def execFrame : Nat := 176
@@ -353,6 +330,102 @@ def ExitOk (p : Proto) (w : RelPtrs) : Prop :=
       (fun σ => Arms.TextLoaded σ.mem ∧ σ.mem = M ∧ σ.sailOutput = o ∧ RegsOk σ) c →
     Vsa.Machine.Halts c (Vsa.Machine.output c.σ) 0
 
+/-! ## The `CALL` invariant (lane F1-13)
+
+What `OP_CALL print` needs of the complement beyond the arms' facts, kept by
+every other arm because it is a fact of `w` alone (no arm but `CALL` changes
+`w.mo`): `stdout`'s phase with the heap (the room for the first `print`'s
+allocations at boot), the objects a `print` leaves alone frozen on a footprint
+in chunks in use apart from what it writes (`CallDirty`), the reserved
+literals interned, and where the `lua_State`, `g`, the `CallInfo`s and the Lua
+stack lie. -/
+
+/-- The heap indices of the runtime witness (`HeapAt`'s). -/
+def _root_.Lua.Vm.RtPtrs.hix (rt : RtPtrs) : Kit.HeapIx :=
+  ⟨rt.top, rt.brkv, rt.chunks, fun i => rt.bins.getD i []⟩
+
+/-- **What a `CALL print` writes inside the heap's chunks in use**: `L->top`,
+`L->ci`, the Lua `CallInfo`, the Lua stack above `ci->func`, `g`'s first words
+(the GC debt, the string table's header) and its string cache (`EntryDirty` at
+the relation's pointers). -/
+def CallDirty (w : RelPtrs) (a : Nat) : Prop :=
+  (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨ (w.L + stateCiOff ≤ a ∧ a < w.L + stateCiOff + 8) ∨
+  (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast) ∨ (w.rt.g ≤ a ∧ a < w.rt.g + 64) ∨
+  (w.rt.g + gStrcacheOff ≤ a ∧ a < w.rt.g + gEnd)
+
+/-- **What the literals' facts stay apart from**: `L->top`, `L->ci`, the Lua
+`CallInfo` and the Lua stack above `ci->func` (`LitDirty`). -/
+def CallLitDirty (w : RelPtrs) (a : Nat) : Prop :=
+  (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨ (w.L + stateCiOff ≤ a ∧ a < w.L + stateCiOff + 8) ∨
+  (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast)
+
+/-- **The words of the `lua_State` and `g` a `print` keeps** (`LuaStateRel`'s
+`L` and `g` words, and `L->errorJmp`). -/
+structure LuaStatic (M : Mem) (L : Nat) (rt : RtPtrs) : Prop where
+  hookmask : rd32 M (L + stateHookmaskOff) = some 0
+  errfunc : rd64 M (L + stateErrfuncOff) = some 0
+  nCcalls : rd32 M (L + stateNCcallsOff) = some RuntimeData.nCcallsEntry
+  openupval : rd64 M (L + stateOpenupvalOff) = some 0
+  tbclist : rd64 M (L + stateTbclistOff) = some rt.stack
+  stack : rd64 M (L + stateStackOff) = some rt.stack
+  stack_last : rd64 M (L + stateStackLastOff) = some rt.stackLast
+  g : rd64 M (L + stateGOff) = some rt.g
+  mt_nil : rd64 M (rt.g + gMtOff + 8 * luaTnil) = some 0
+  mt_boolean : rd64 M (rt.g + gMtOff + 8 * luaTboolean) = some 0
+  mt_number : rd64 M (rt.g + gMtOff + 8 * luaTnumber) = some 0
+  errjmp : rd64 M (L + stateErrorJmpOff) = some RuntimeData.ljAddr
+
+/-- **The objects a `CALL print` leaves alone**, in a memory `M`: `.rodata`,
+the prototype and its code pointer, the owned strings, `_ENV`'s chain to
+`print`, the `lua_State`'s and `g`'s static words. -/
+structure StatFacts (p : Proto) (w : RelPtrs) (M : Mem) : Prop where
+  rodata : RodataLoaded M
+  proto : ProtoRepr M w.pa p
+  proto_code : rd64 M (w.pa + protoCodeOff) = some w.code
+  strs : ∀ ts s, w.ι.own ts s → TStringRepr M ts s
+  env : ∀ ts, w.ι.own ts printKey → EnvMem M w.rt.cl ts (HeapRead p w)
+  lua : LuaStatic M w.L w.rt
+
+/-- **The `CALL` invariant** at `stdout`'s phase `ph`, the footprints `F` (the
+objects a `print` leaves alone) and `FL` (the interned literals), and the
+literals `ls`. -/
+structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (ls : LitPtrs) :
+    Prop where
+  /-- `stdout` in phase `ph` with the heap, nothing pending -/
+  io : Kit.StdoutIn w.mo w.rt.hix ph
+  pend : ph.pend = []
+  cells : Kit.PrintCells w.mo
+  /-- before the first `print`, room for its allocations -/
+  room : ph = .boot → w.rt.brkv + firstRoom ≤ DlHeap.heapEnd
+  /-- no `atexit` handler -/
+  atexit : Vsa.Sim.bytesT8 w.mo symAtexit = 0#64
+  /-- the objects a `print` leaves alone, frozen on `F` -/
+  stat : Kit.Frozen F (fun M => StatFacts p w (Vsa.Densify.fillZeroMem M)) w.mo
+  stat_in : ∀ a, F a → Kit.Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost)
+  stat_apart : ∀ a, F a → ¬ CallDirty w a
+  /-- the reserved literals interned, frozen on `FL` -/
+  lits : Kit.Frozen FL (fun M => LitsHold M w.rt.g w.rt.stackLast ls) w.mo
+  lits_in : ∀ a, FL a → Kit.Kept w.rt.hix ph a
+  lits_apart : ∀ a, FL a → ¬ CallLitDirty w a
+  lit_strs : ∀ ts ∈ ls.strs, ∀ a, ts ≤ a → a < ts + 30 → Kit.Kept w.rt.hix ph a
+  marks : ∀ ts ∈ ls.strs, ¬ F (ts + gcMarkedOff)
+  /-- the `lua_State`, `g` up to its string cache, the `CallInfo` and the Lua
+  stack above `ci->func` in chunks in use -/
+  L_in : ∀ a, w.L ≤ a → a < w.L + stateSize → Kit.Kept w.rt.hix ph a
+  g_in : ∀ a, w.rt.g ≤ a → a < w.rt.g + gEnd → Kit.Kept w.rt.hix ph a
+  ci_in : ∀ a, w.ci ≤ a → a < w.ci + ciSize → Kit.Kept w.rt.hix ph a
+  stack_in : ∀ a, w.func ≤ a → a < w.rt.stackLast → Kit.Kept w.rt.hix ph a
+  /-- the C `CallInfo` after the Lua one, once there is one: in a chunk in
+  use, apart from both footprints -/
+  nci : ∀ nci, rd64 w.mo (w.ci + ciNextOff) = some nci → nci ≠ 0 → ∀ a, nci ≤ a → a < nci + ciSize →
+    Kit.Kept w.rt.hix ph a ∧ ¬ F a ∧ ¬ FL a
+
+-- discipline: allow(R7-conj-tower-def) one existential over the invariant's
+-- witnesses; its body is the named-field structure `CallInvAt`
+/-- **The `CALL` invariant** (`CallInvAt` for some phase, footprints and
+literals). -/
+def CallInv (p : Proto) (w : RelPtrs) : Prop := ∃ ph F FL ls, CallInvAt p w ph F FL ls
+
 /-- **The complement**: what the relation knows about `w.mo`. -/
 structure Complement (p : Proto) (w : RelPtrs) : Prop where
   text : Arms.TextLoaded w.mo
@@ -387,6 +460,10 @@ structure Complement (p : Proto) (w : RelPtrs) : Prop where
   `Core.clptr`) and `luaH_getshortstr`'s walk find `print` (`EnvMem`), the
   objects outside the window (`HeapRead`) -/
   env : ∀ ts, w.ι.own ts printKey → EnvMem w.mo w.rt.cl ts (HeapRead p w)
+  /-- **(lane F1-13) the `CALL` invariant** (`CallInv`): established at the
+  entry and after `OP_VARARGPREP` from the boot contract, kept by every arm
+  that keeps `w`, and by `CALL print` (`PrintCall_Statement`) -/
+  call : CallInv p w
 
 /-- **Where things are**: the address ranges the arms' side conditions need,
 and the window's separation from the code array and the `CallInfo`. -/

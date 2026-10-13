@@ -325,4 +325,12 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
         rw [et, ev]
         exact hout.vrepr _ _ _ hv0
 
+/-- **`SimArm .CALL`** (lane F1-13): the arm on the `CALL` invariant
+(`sim_CALL_of`), which `Complement.call` carries at every state of the
+relation. -/
+theorem sim_CALL (hP : PrintCall_Statement CallInv) (hG : HeapBudget_Statement CallInv) : SimArm .CALL := by
+  intro p hS c s s' ⟨w, hR⟩ ins hf hop hstep
+  obtain ⟨c', n, w', hn, hst, hR', -⟩ := sim_CALL_of hP hG hS hR hR.core.comp.call hf hop hstep
+  exact ⟨c', n, hn, hst, w', hR'⟩
+
 end Lua.Vm.Sim.Kit

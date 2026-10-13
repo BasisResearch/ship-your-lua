@@ -305,25 +305,279 @@ theorem _root_.Lua.Vm.ProtoRepr.maxstack {m : Mem} {pa : Nat} {p : Proto} (h : P
   match h with
   | .mk _ _ _ hms _ _ _ _ _ _ _ _ _ _ _ _ _ _ => exact hms
 
+/-! ## The `CALL` invariant from the boot contract (lane F1-13)
+
+`callInv_boot`: `CallInv` at the relation's pointers from `VmEntryData`'s
+`CALL` facts (the objects a `print` leaves alone frozen on `e.foot`, the
+literals on `e.litFoot`, their places, the room) and `RuntimeReadyAt`'s
+`StdioBoot`/`MemfsBoot`/heap, for any memory that agrees with the boot memory
+off `OP_VARARGPREP`'s stores (the entry itself, and after `VARARGPREP`). -/
+
+/-- A dense memory's RAM byte is its total read. -/
+theorem get_of_dense {m : Mem}
+    (hd : ∀ a, Vsa.Densify.ramBase ≤ a → a < Vsa.Densify.ramBase + Vsa.Densify.ramSize → (m[a]?).isSome)
+    {a : Nat} (h1 : 0x80000000 ≤ a) (h2 : a < 0x88000000) : m[a]? = some (bytesT1 m a) := by
+  have := hd a (by simp only [Vsa.Densify.ramBase]; omega)
+    (by simp only [Vsa.Densify.ramBase, Vsa.Densify.ramSize]; omega)
+  cases hm : m[a]? with
+  | none => rw [hm] at this; cases this
+  | some b => simp [bytesT1, hm]
+
+/-- A zero fill's RAM byte is the total read. -/
+theorem fill_get (M : Mem) {a : Nat} (h1 : 0x80000000 ≤ a) (h2 : a < 0x88000000) :
+    (Vsa.Densify.fillZeroMem M)[a]? = some (bytesT1 M a) :=
+  Vsa.Densify.fillZeroMem_ram M (by simp only [Vsa.Densify.ramBase]; omega)
+    (by simp only [Vsa.Densify.ramBase, Vsa.Densify.ramSize]; omega)
+
+/-- The zero fill is idempotent. -/
+theorem fill_fill (M : Mem) :
+    Vsa.Densify.fillZeroMem (Vsa.Densify.fillZeroMem M) = Vsa.Densify.fillZeroMem M :=
+  Vsa.Densify.fillZeroMem_eq_of_dense fun a h1 h2 => by rw [Vsa.Densify.fillZeroMem_ram M h1 h2]; rfl
+
+/-- The literals' facts of a fill are the memory's (`LitInterned` reads the fill). -/
+theorem _root_.Lua.Vm.LitInterned.of_fill {M : Mem} {rt : RtPtrs} {seed : UInt32} {b : List UInt8} {ts : Nat}
+    (h : LitInterned (Vsa.Densify.fillZeroMem M) rt seed b ts) : LitInterned M rt seed b ts := by
+  have e := fill_fill M
+  exact ⟨e ▸ h.repr, h.short, e ▸ h.strt, e ▸ h.cache, e ▸ h.seed_w, fun hl => e ▸ h.bucket hl⟩
+
+/-- `TStringRepr` depends only on the object's bytes. -/
+theorem _root_.Lua.Vm.TStringRepr.congr {m m' : Mem} {ts : Nat} {s : List UInt8} (h : TStringRepr m ts s)
+    (hk : ∀ a, ts ≤ a → a < ts + tstringContentsOff + s.length + 1 → m'[a]? = m[a]?) :
+    TStringRepr m' ts s := by
+  have r : ∀ {o n : Nat}, o + n ≤ tstringContentsOff → rdLE m' (ts + o) n = rdLE m (ts + o) n :=
+    fun {o n} h => rdLE_congr fun i hi => hk _ (by omega) (by simp only [tstringContentsOff] at h ⊢; omega)
+  have hb : ∀ {bs : List UInt8}, bs.length = s.length → BytesAt m (ts + tstringContentsOff) bs →
+      BytesAt m' (ts + tstringContentsOff) bs := fun hl hb i hi =>
+    (hk _ (by omega) (by omega)).trans (hb i hi)
+  have hz : m[ts + tstringContentsOff + s.length]? = some 0 → m'[ts + tstringContentsOff + s.length]? = some 0 :=
+    fun hz => (hk _ (by omega) (by omega)).trans hz
+  cases h with
+  | short ht hl hs hbs hn =>
+    exact .short ((r (by simp only [gcTtOff, tstringContentsOff]; omega)).trans ht) hl
+      ((r (by simp only [tstringShrlenOff, tstringContentsOff]; omega)).trans hs) (hb rfl hbs) (hz hn)
+  | long ht hl hs hbs hn hf =>
+    exact .long ((r (by simp only [gcTtOff, tstringContentsOff]; omega)).trans ht) hl
+      ((r (by simp only [tstringLnglenOff, tstringContentsOff]; omega)).trans hs) (hb rfl hbs) (hz hn)
+      ((r (by simp only [tstringShrlenOff, tstringContentsOff]; omega)).trans hf)
+
+/-- **The `CALL` invariant from the boot contract** (lane F1-13): at the
+pointers of a relation whose memory `m` agrees with the boot memory `m0` off
+`OP_VARARGPREP`'s stores, with `ci->next` NULL and `stdout` before its first
+write. -/
+theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtrs} {rt0 rt : RtPtrs}
+    {ι : Strs} (hE : VmEntryData m0 L ci p e) (hS : StdioBoot m0) (hFs : MemfsBoot m0) (hro : RodataLoaded m0)
+    (hej : ErrorJmpAt m0 L) (hlua : LuaStateAt m0 L ci rt0)
+    (hheap : DlHeap.HeapAt m0 rt.top rt.brkv rt.chunks (fun i => rt.bins.getD i []))
+    (hdense : ∀ a, Vsa.Densify.ramBase ≤ a → a < Vsa.Densify.ramBase + Vsa.Densify.ramSize → (m0[a]?).isSome)
+    (hm : ∀ a, ¬ VarargDirty ci e.func a → m[a]? = m0[a]?) (hnext : rd64 m (ci + ciNextOff) = some 0)
+    (hko : KOwned m L ci rt) (hreg : VmRegionsAt m L ci rt) (hι : ι.own = KStrIn m rt.k p.k.length)
+    (hszk : rt.sizek = p.k.length) (hka : rd64 m0 (e.pa + protoKOff) = some rt.k)
+    (hst : rt.stack = rt0.stack) (hsl : rt.stackLast = rt0.stackLast) (hg : rt.g = rt0.g)
+    (heg : e.g = rt.g) (hesl : e.stackLast = rt.stackLast) (hecl : e.cl = rt.cl) (hfunc : e.func ≤ func)
+    (hsp : sp = RuntimeData.spEntry - execFrame)
+    (hfits : func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast) :
+    CallInv p ⟨L, ci, func, e.pa, e.code, rt.k, sp, m, ι, rt⟩ := by
+  have hvr := hE.vararg_room
+  have hsle : rt.stack ≤ e.func := by
+    have h1 := hlua.func; rw [hE.ci_func] at h1
+    rw [hst, Option.some.inj h1]; exact hlua.stack_le
+  have hTH : symTohost = 0x8005c6c0 := rfl
+  have hHE : symHeapEnd = 0x87800000 := rfl
+  have hHS : symEnd = 0x8006ecd0 := rfl
+  -- `OP_VARARGPREP`'s stores lie in the `CallInfo` and the Lua stack above `ci->func`
+  have hvd : ∀ a, VarargDirty ci e.func a → (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) := by
+    intro a h
+    simp only [VarargDirty, stackValueSize, tvalueTagOff] at h hvr
+    omega
+  -- the footprints: RAM, off `OP_VARARGPREP`'s stores, present in the boot memory
+  have hRam : ∀ a, 0x80000000 ≤ a ∧ a < 0x88000000 → m0[a]? = some (bytesT1 m0 a) :=
+    fun a ha => get_of_dense hdense ha.1 ha.2
+  have hFm : ∀ a, InRanges e.foot a → m[a]? = m0[a]? := fun a ha => hm a fun hv => hE.foot_apart a ha (by
+    rcases hvd a hv with h | h
+    · exact .inr (.inr (.inl h))
+    · exact .inr (.inr (.inr (.inl h))))
+  have hLm : ∀ a, InRanges e.litFoot a → m[a]? = m0[a]? := fun a ha => hm a fun hv => hE.lits_apart a ha (by
+    rcases hvd a hv with h | h
+    · exact .inr (.inr (.inl h))
+    · exact .inr (.inr (.inr h)))
+  have hP : ∀ M : Mem, (∀ a, InRanges e.foot a → bytesT1 M a = bytesT1 m a) →
+      ∀ a, InRanges e.foot a → (Vsa.Densify.fillZeroMem M)[a]? = m0[a]? := fun M hM a ha => by
+    have hr := hE.foot_ram a ha
+    rw [fill_get M hr.1 hr.2, hRam a hr, hM a ha]
+    simp only [bytesT1, hFm a ha]
+  have hPL : ∀ M : Mem, (∀ a, InRanges e.litFoot a → bytesT1 M a = bytesT1 m a) →
+      ∀ a, InRanges e.litFoot a → (Vsa.Densify.fillZeroMem M)[a]? = m0[a]? := fun M hM a ha => by
+    have hr := hE.lits_ram a ha
+    rw [fill_get M hr.1 hr.2, hRam a hr, hM a ha]
+    simp only [bytesT1, hLm a ha]
+  -- where the objects lie
+  have hpl := hE.placed rt.top rt.chunks hheap.top_ptr hheap.walk
+  have kept : ∀ {a}, HeapIn rt.chunks a → Kit.Kept rt.hix .boot a := fun h =>
+    ⟨h.inuse, h.lo, h.hi, fun hb => hb⟩
+  -- a string constant's object and slot lie off `OP_VARARGPREP`'s stores
+  have kslot : ∀ i j, i < p.k.length → j < tvalueSize → ¬ VarargDirty ci e.func (rt.k + tvalueSize * i + j) := by
+    intro i j hi hj hv
+    have := hreg.k_sep; have := hreg.k_sep_ci; rw [hszk] at *
+    have hi' : tvalueSize * i + j < tvalueSize * p.k.length := by
+      simp only [tvalueSize] at hj ⊢; omega
+    rcases hvd _ hv with h | h
+    · simp only [ciSize, tvalueSize] at *; omega
+    · simp only [ciSize, tvalueSize] at *; omega
+  have kstr : ∀ i ts s, KStrAt m rt.k p.k.length i ts s → ∀ a, ts ≤ a →
+      a < ts + tstringContentsOff + s.length + 1 → ¬ VarargDirty ci e.func a := by
+    intro i ts s hk a h1 h2 hv
+    obtain ⟨c, hc⟩ := hko i ts s (by rw [hszk]; exact hk)
+    have := hc.lo; have := hc.hi; have := hc.stack_sep; have := hc.ci_sep
+    rcases hvd _ hv with h | h
+    · simp only [ciSize] at *; omega
+    · omega
+  have kat : ∀ i ts s, KStrAt m rt.k p.k.length i ts s → KStrAt m0 rt.k p.k.length i ts s := by
+    intro i ts s hk
+    refine ⟨hk.lt, ?_, ?_, hk.str.congr fun a h1 h2 => (hm a (kstr i ts s hk a h1 h2)).symm⟩
+    · rw [← hk.tag]; simp only [tagAt, rd8]
+      exact rdLE_congr fun j hj => (hm _ (by
+        have := kslot i (tvalueTagOff + j) hk.lt (by simp only [tvalueTagOff, tvalueSize]; omega)
+        rwa [Nat.add_assoc])).symm
+    · rw [← hk.ptr]; simp only [rd64]
+      exact rdLE_congr fun j hj => (hm _ (by
+        have := kslot i (tvalueValOff + j) hk.lt (by simp only [tvalueValOff, tvalueSize]; omega)
+        rwa [Nat.add_assoc])).symm
+  -- below the heap, `m` is the boot memory, and both are present
+  have hlo0 : ∀ a, a < symEnd → ¬ VarargDirty ci e.func a := fun a ha hv => by
+    have := hreg.ci_lo; have := hreg.stack_lo
+    rcases hvd a hv with h | h <;> omega
+  have hm0 : ∀ a, 0x80000000 ≤ a → a < 0x8006ecd0 → m[a]? = some (bytesT1 m0 a) := fun a h1 h2 =>
+    (hm a (hlo0 a (by rw [hHS]; exact h2))).trans (hRam a ⟨h1, by omega⟩)
+  have hlow : ∀ a, 0x80000000 ≤ a → a < 0x8006ecd0 → (Vsa.Densify.fillZeroMem m)[a]? = m0[a]? :=
+    fun a h1 h2 => by
+      rw [Vsa.Densify.fillZeroMem_some (hm0 a h1 h2), hRam a ⟨h1, by omega⟩]
+  refine ⟨.boot, fun a => InRanges e.foot a ∨ (Image.rodataBase ≤ a ∧ a < Image.rodataBase + Image.rodataSize),
+    InRanges e.litFoot, e.lits, ?_⟩
+  have hroom := hE.room rt.brkv hheap.brk
+  refine
+    { io := .boot ?_ ?_ (by simp only [RtPtrs.hix, DlHeap.heapEnd, firstRoom] at hroom ⊢; omega)
+      pend := rfl
+      cells := ?_
+      room := fun _ => hroom
+      atexit := ?_
+      stat := fun M hM => ?_
+      stat_in := fun a ha => ha.elim (fun ha => (hpl.foot a ha).imp kept id) fun ha => .inr ⟨by
+        have : Image.rodataBase = 0x8004ecc8 := rfl; omega, by
+        have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl; omega⟩
+      stat_apart := fun a ha hd => ha.elim (fun ha => hE.foot_apart a ha ?_) fun ha => ?_
+      lits := fun M hM => ?_
+      lits_in := fun a ha => kept (hpl.litFoot a ha)
+      lits_apart := fun a ha hd => hE.lits_apart a ha ?_
+      lit_strs := fun ts hts a h1 h2 => kept (hpl.lit_strs ts hts a h1 h2)
+      marks := fun ts hts hf => hf.elim (hE.marks ts hts) fun hr => by
+        have := (hpl.lit_strs ts hts ts (Nat.le_refl _) (by omega)).lo
+        have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl
+        simp only [DlHeap.heapStart, symEnd] at *; omega
+      L_in := fun a h1 h2 => kept (hpl.L a h1 h2)
+      g_in := fun a h1 h2 => kept (hpl.g a (by rw [heg]; exact h1) (by rw [heg]; exact h2))
+      ci_in := fun a h1 h2 => kept (hpl.ci a h1 h2)
+      stack_in := fun a h1 h2 => kept (hpl.stack a (Nat.le_trans hfunc h1) (by rw [hesl]; exact h2))
+      nci := fun nci h h0 => absurd (Option.some.inj (h.symm.trans hnext)) h0 }
+  · exact hS.congr fun a ha => hlow a (by simp only [Kit.StdioGlob] at ha; omega)
+      (by simp only [Kit.StdioGlob] at ha; omega)
+  · exact hFs.congr fun a ha => hlow a (by simp only [Kit.StdioGlob] at ha; omega)
+      (by simp only [Kit.StdioGlob] at ha; omega)
+  · have h8 : ∀ {a x : Nat}, 0x80000000 ≤ a → a + 8 ≤ 0x8006ecd0 → rd64 m0 a = some x →
+        bytesT8 m a = BitVec.ofNat 64 x := fun {a x} h1 h2 hx => by
+      rw [← bytesT8_of_rd64 hx]
+      exact bytesT8_congrT fun j hj => by
+        show (m[a + j]?).getD 0 = (m0[a + j]?).getD 0
+        rw [hm0 (a + j) (by omega) (by omega), hRam (a + j) ⟨by omega, by omega⟩]
+    have h1 : ∀ {a o : Nat}, a = Image.rodataBase + o → o < Image.rodataSize →
+        Kit.bytesAt m a 1 = [Image.rodataByte o] := fun {a o} ha ho => by
+      subst ha
+      have hb : Image.rodataBase = 0x8004ecc8 := rfl
+      have hz : Image.rodataSize = 55776 := rfl
+      have e1 := hm0 (Image.rodataBase + o) (by omega) (by omega)
+      simp only [Kit.bytesAt, List.range_one, List.map_cons, List.map_nil, Nat.add_zero, bytesT1, e1,
+        Option.getD_some, hro o ho]
+    exact ⟨h8 (by decide) (by decide) hS.impure_ptr, h8 (by decide) (by decide) hS.stdout,
+      (h1 (o := 4728) rfl (by decide)).trans (by decide : [Image.rodataByte 4728] = [0x09#8]),
+      (h1 (o := 3712) rfl (by decide)).trans (by decide : [Image.rodataByte 3712] = [0x0a#8])⟩
+  · rw [show (0#64 : BitVec 64) = BitVec.ofNat 64 0 from rfl, ← bytesT8_of_rd64 hS.atexit]
+    exact bytesT8_congrT fun j hj => by
+      have : symAtexit = 0x8005d450 := rfl
+      show (m[symAtexit + j]?).getD 0 = (m0[symAtexit + j]?).getD 0
+      rw [hm0 (symAtexit + j) (by omega) (by omega), hRam (symAtexit + j) ⟨by omega, by omega⟩]
+  · -- the objects frozen on `e.foot`
+    have Fr := hE.frozen _ (hP M (fun a ha => hM a (.inl ha)))
+    have hstr : ∀ ts s, ι.own ts s → TStringRepr (Vsa.Densify.fillZeroMem M) ts s := by
+      intro ts s hown
+      rw [hι] at hown
+      obtain ⟨i, hk⟩ := hown
+      have hk0 := kat i ts s hk
+      exact hE.frozen_strs _ (hP M (fun a ha => hM a (.inl ha))) rt.k i ts s hka hk0.lt hk0.tag hk0.ptr hk0.str
+    have rdF : ∀ r ∈ luaStaticWords L e.g, rdLE (Vsa.Densify.fillZeroMem M) r.1 r.2 = rdLE m0 r.1 r.2 :=
+      fun r hr => rdLE_congr fun j hj => hP M (fun a ha => hM a (.inl ha)) _ (hE.foot_lua r hr j hj)
+    have rdW : ∀ {a n x : Nat}, (a, n) ∈ luaStaticWords L e.g → rdLE m0 a n = some x →
+        rdLE (Vsa.Densify.fillZeroMem M) a n = some x := fun hr hx => (rdF _ hr).trans hx
+    rw [heg] at rdW
+    refine
+      { rodata := fun o ho => by
+          have hb : Image.rodataBase = 0x8004ecc8 := rfl
+          have hz : Image.rodataSize = 55776 := rfl
+          have e1 := hm0 (Image.rodataBase + o) (by omega) (by omega)
+          rw [fill_get M (a := Image.rodataBase + o) (by omega) (by omega), hM _ (.inr ⟨by omega, by omega⟩)]
+          simp only [bytesT1, e1, Option.getD_some, hro o ho]
+        proto := Fr.proto
+        proto_code := Fr.proto_code
+        strs := hstr
+        env := fun ts hown => ?_
+        lua := ?_ }
+    · have hown' := hown
+      rw [hι] at hown'
+      obtain ⟨i, hk⟩ := hown'
+      have hk0 := kat i ts printKey hk
+      have hkp : rd64 (Vsa.Densify.fillZeroMem M) (e.pa + protoKOff) = some rt.k := by
+        rw [← hka]; simp only [rd64]
+        exact rdLE_congr fun j hj => hP M (fun a ha => hM a (.inl ha)) _ ((hE.foot_k rt.k hka).1 j hj)
+      have hsl : ∀ o n, o + n ≤ tvalueSize →
+          rdLE (Vsa.Densify.fillZeroMem M) (rt.k + tvalueSize * i + o) n = rdLE m0 (rt.k + tvalueSize * i + o) n :=
+        fun o n hon => rdLE_congr fun j hj => hP M (fun a ha => hM a (.inl ha)) _ (by
+          have := (hE.foot_k rt.k hka).2 (tvalueSize * i + (o + j)) (by
+            have := hk0.lt; simp only [tvalueSize] at hon ⊢; omega)
+          rwa [← Nat.add_assoc, ← Nat.add_assoc] at this)
+      have htag : tagAt (Vsa.Densify.fillZeroMem M) (rt.k + tvalueSize * i) = some vShrStr := by
+        have := hk0.tag
+        rw [show strTag printKey = vShrStr by decide] at this
+        simp only [tagAt, rd8] at this ⊢
+        rw [hsl tvalueTagOff 1 (by decide)]; exact this
+      have hptr : rd64 (Vsa.Densify.fillZeroMem M) (rt.k + tvalueSize * i + tvalueValOff) = some ts := by
+        simp only [rd64] at hk0 ⊢
+        rw [hsl tvalueValOff 8 (by decide)]; exact hk0.ptr
+      obtain ⟨s', hs'⟩ := Fr.env_get rt.k i ts hkp hk0.lt htag hptr (hstr ts printKey hown)
+      have he := hs'.envMem
+      rw [hecl, hesl] at he
+      exact he.mono fun _ _ h => heapRead_of_apart h hsp hfunc hfits
+    · exact ⟨rdW (by simp [luaStaticWords]) hlua.hookmask, rdW (by simp [luaStaticWords]) hlua.errfunc,
+        rdW (by simp [luaStaticWords]) hlua.nCcalls, rdW (by simp [luaStaticWords]) hlua.openupval,
+        hst ▸ rdW (by simp [luaStaticWords]) hlua.tbclist, hst ▸ rdW (by simp [luaStaticWords]) hlua.stack,
+        hsl ▸ rdW (by simp [luaStaticWords]) hlua.stack_last, hg ▸ rdW (by simp [luaStaticWords]) hlua.g,
+        rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_nil), rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_boolean),
+        rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_number), rdW (by simp [luaStaticWords]) hej.ptr⟩
+  · simp only [CallDirty, EntryDirty] at hd ⊢
+    rw [heg, hesl]; omega
+  · have := hreg.ci_lo; have := hreg.L_lo; have := hreg.stack_lo
+    have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl
+    have := hpl.g e.g (Nat.le_refl _) (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega)
+    have := this.lo
+    simp only [CallDirty, DlHeap.heapStart, symEnd] at *
+    rw [← heg] at hd; omega
+  · obtain ⟨rt', hL⟩ := hE.lits (Vsa.Densify.fillZeroMem M) (hPL M hM)
+    rw [heg, hesl] at hL
+    exact ⟨rt', hL.g, hL.sl, hL.nil.of_fill, hL.tru.of_fill, hL.fls.of_fill⟩
+  · simp only [CallLitDirty, LitDirty] at hd ⊢
+    rw [hesl]; omega
+
 /-- **The relation's complement and ranges**, named (`relParts`). -/
 structure RelParts (p : Proto) (w : RelPtrs) : Prop where
   comp : Complement p w
   ranges : Ranges p w
-
-/-- A little-endian read depends only on its bytes. -/
-theorem rdLE_congr {m m' : Mem} {a n : Nat} (h : ∀ i, i < n → m'[a + i]? = m[a + i]?) :
-    rdLE m' a n = rdLE m a n := by
-  unfold rdLE
-  have : ∀ l : List Nat, (∀ i ∈ l, i < n) →
-      l.foldr (fun i acc => do let b ← m'[a + i]?; let r ← acc; pure (b.toNat + 256 * r)) (some 0) =
-        l.foldr (fun i acc => do let b ← m[a + i]?; let r ← acc; pure (b.toNat + 256 * r)) (some 0) := by
-    intro l hl
-    induction l with
-    | nil => rfl
-    | cons x t ih =>
-      simp only [List.foldr_cons]
-      rw [h x (hl x (List.mem_cons_self ..)), ih fun i hi => hl i (List.mem_cons_of_mem _ hi)]
-  exact this _ fun i hi => List.mem_range.mp hi
 
 /-- **`exit(0)` from a quiet complement** (no `atexit`, no stdio exit
 handler): the two words lie in `.bss`, below every heap object. -/
@@ -354,7 +608,8 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
     (hat : rd64 m symAtexit = some 0) (hsx : rd64 m symStdioExitHandler = some 0)
     (hci : rd64 m (L + stateCiOff) = some ci) {f0 : Nat} (hf0 : f0 ≤ func)
     (henv : ∀ ts, KStrIn m rt.k p.k.length ts printKey →
-      EnvMem m rt.cl ts (HeapApart L ci f0 rt.stackLast)) :
+      EnvMem m rt.cl ts (HeapApart L ci f0 rt.stackLast))
+    (hcinv : ∀ ι : Strs, ι.own = KStrIn m rt.k p.k.length → CallInv p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩) :
     ∃ ι : Strs, RelParts p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩ := by
   have hrg := hrt.regions
   have hlua := hrt.lua
@@ -373,7 +628,7 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
     ?_, ?_, ⟨hfunc, hlua.rel hci, hrt.heap, hrt.error_jmp⟩, hkι,
     own_of_kowned hrt.kowned rfl esizek rfl hsle hfits, hcall, hcL,
     exitOk_entry hat hsx hrg hfunc hlua.stack_le,
-    fun ts hts => (henv ts hts).mono fun _ _ h => heapRead_of_apart h rfl hf0 hfits⟩,
+    fun ts hts => (henv ts hts).mono fun _ _ h => heapRead_of_apart h rfl hf0 hfits, hcinv _ rfl⟩,
     Ranges.of_regions hrg rfl hfunc.symm ecode rfl esz esizek hlua.stack_le hfits⟩⟩
   · obtain ⟨hlt, hi⟩ := List.getElem?_eq_some_iff.1 hf
     rw [bytesT4_of_rd32 (hwords i hlt), hi, BitVec.ofNat_toNat, BitVec.setWidth_eq]
@@ -560,6 +815,10 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
   obtain ⟨hsz, hwords⟩ := hE.proto.code hE.proto_code
   have esz : rt.sizecode = p.code.length := by
     have h := hrg.sizecode; rw [← epa, hsz] at h; exact (Option.some.inj h).symm
+  have eg : e.g = rt.g := Option.some.inj (hE.l_G.symm.trans hlua.g)
+  have hszk : rt.sizek = p.k.length := by
+    have h := hrg.sizek; rw [← epa, (hE.proto.kArr (by rw [epa]; exact hrg.kArr)).1] at h
+    exact (Option.some.inj h).symm
   rw [← efunc] at hsle hfal
   rw [← esl] at hsthi hcisep hcdsep
   rw [← ecl] at hcllo hclhi
@@ -649,6 +908,9 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
     (f0 := e.func) (Nat.le_refl _) (by
       rw [← ecl, ← esl]
       exact envMem_of_entry hE (fun _ _ => rfl) (by rw [epa]; exact hrg.kArr))
+    (fun ι hι => callInv_boot hE hRt.stdio hRt.memfs hM.rodata hRt.error_jmp hlua hRt.heap hcs.dense
+      (fun _ _ => rfl) hlua.next hRt.kowned hrg hι hszk (by rw [epa]; exact hrg.kArr) rfl rfl rfl eg esl ecl
+      (Nat.le_refl _) rfl (by rw [← esl]; exact hE.frame_fits))
   have hwo : ∀ {m : Mem} {a x : Nat} {d : BitVec (8 * 8)}, x + 8 ≤ a ∨ a + 8 ≤ x →
       bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
     fun h => bytesT8_congr fun _ _ => getElem?_writeMap8_out _ _ _ _ (by omega)

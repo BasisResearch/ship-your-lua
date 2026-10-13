@@ -1,4 +1,4 @@
-import Lua.Vm.Repr
+import Lua.Vm.EntryData
 import Lua.Vm.Image
 import Vsa.Sim.GoodState
 import Vsa.Sim.BlockPilot

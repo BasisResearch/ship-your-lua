@@ -333,15 +333,12 @@ structure OpenArms : Prop where
   UNM_str : At.UnmStr_Statement
   /-- `luaV_concat` (string creation: `Strs.own` grows) -/
   CONCAT : SimArm .CONCAT
-  /-- `print`: `luaD_precall` → `luaB_print` → … → HTIF (stack reallocation).
-  Lane F1-12: not satisfiable over the current `VmRel`, which leaves
-  `stdout`'s state, the heap room for its buffer and the separation of the
-  complement's static objects from a `print`'s stores unconstrained; it
-  follows from `Kit.sim_CALL_of` (the arm on an invariant `I` of the relation's
-  pointers, from `PrintCall_Statement I` and `HeapBudget_Statement I`) once
-  `Complement` carries such an `I`, established at the entry from the boot
-  contract (`abstractions/ledger/f1-lane-12.md`, obstacle 1). -/
-  CALL : SimArm .CALL
+  /-- `print`: `luaD_precall` → `luaB_print` → … → HTIF, on the `CALL`
+  invariant `Complement.call` (`CallInv`, lane F1-13): `luaD_precall`'s C path
+  on `print` in the relation's terms (`Kit.PrintCall_Statement`) -/
+  CALL_print : Kit.PrintCall_Statement CallInv
+  /-- `CALL print` beyond the heap room (`Kit.HeapBudget_Statement`, A8) -/
+  CALL_heap : Kit.HeapBudget_Statement CallInv
 
 /-- **The float paths** (FLOAT-DESIGN.md §3, tiers T1–T4), one named premise
 per arm: the arms with no proof whose kernels compute floats, and, for each
@@ -496,7 +493,7 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case TESTSET => exact @sim_TESTSET
   case FORPREP => exact SimArm.split At.sim_FORPREP (At.sim_FORPREP_flt hF.soft hF.FORPREP)
   case FORLOOP => exact SimArm.split @sim_FORLOOP (At.sim_FORLOOP_flt hF.soft)
-  case CALL => exact h.CALL
+  case CALL => exact Kit.sim_CALL h.CALL_print h.CALL_heap
   all_goals simp [armOps, kernelOps] at ho
 
 /-- **`VmSim luaLayout` from the open premises**: the proved arms, the entry

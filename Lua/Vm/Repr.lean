@@ -214,6 +214,64 @@ structure ProtoAt (m : Mem) (pa : Nat) (p : Proto) (code : Nat) : Prop where
   proto : ProtoRepr m pa p
   code : rd64 m (pa + protoCodeOff) = some code
 
+/-- **A byte footprint**: disjoint ranges `[lo, lo + n)` as a binary search
+tree (lane F1-13), so a membership test is a logarithmic walk (the boot
+witness tests every byte its restricted checks read). -/
+inductive RTree where
+  | leaf
+  | node (l : RTree) (lo n : Nat) (r : RTree)
+
+/-- The search: left below `lo`, right at or above `lo + n`. -/
+def RTree.mem : RTree → Nat → Bool
+  | .leaf, _ => false
+  | .node l lo n r, a => if a < lo then l.mem a else if a < lo + n then true else r.mem a
+
+/-- `(lo, n)` is one of the tree's ranges. -/
+inductive RTree.Has : RTree → Nat → Nat → Prop where
+  | here {l : RTree} {lo n : Nat} {r : RTree} : RTree.Has (.node l lo n r) lo n
+  | left {l : RTree} {lo n : Nat} {r : RTree} {lo' n' : Nat} : RTree.Has l lo' n' →
+      RTree.Has (.node l lo n r) lo' n'
+  | right {l : RTree} {lo n : Nat} {r : RTree} {lo' n' : Nat} : RTree.Has r lo' n' →
+      RTree.Has (.node l lo n r) lo' n'
+
+/-- A byte the search finds lies in one of the ranges. -/
+theorem RTree.mem_sound : ∀ {t : RTree} {a : Nat}, t.mem a = true → ∃ lo n, t.Has lo n ∧ lo ≤ a ∧ a < lo + n
+  | .leaf, _, h => by simp [RTree.mem] at h
+  | .node l lo n r, a, h => by
+    simp only [RTree.mem] at h
+    split at h
+    · obtain ⟨lo', n', hh, h1, h2⟩ := RTree.mem_sound h
+      exact ⟨lo', n', .left hh, h1, h2⟩
+    · split at h
+      · exact ⟨lo, n, .here, by omega, by omega⟩
+      · obtain ⟨lo', n', hh, h1, h2⟩ := RTree.mem_sound h
+        exact ⟨lo', n', .right hh, h1, h2⟩
+
+/-- Every range satisfies `p`. -/
+def RTree.all (p : Nat → Nat → Bool) : RTree → Bool
+  | .leaf => true
+  | .node l lo n r => p lo n && l.all p && r.all p
+
+theorem RTree.all_sound {p : Nat → Nat → Bool} : ∀ {t : RTree} {lo n : Nat}, t.all p = true → t.Has lo n →
+    p lo n = true
+  | .node _ _ _ _, _, _, h, .here => by simp only [RTree.all, Bool.and_eq_true] at h; exact h.1.1
+  | .node _ _ _ _, _, _, h, .left hh => by
+    simp only [RTree.all, Bool.and_eq_true] at h; exact RTree.all_sound h.1.2 hh
+  | .node _ _ _ _, _, _, h, .right hh => by
+    simp only [RTree.all, Bool.and_eq_true] at h; exact RTree.all_sound h.2 hh
+
+/-- **The reserved words `luaL_tolstring` pushes** (lane F1-13): the string
+table's seed and the interned `TString`s of `"nil"`, `"true"`, `"false"`
+(`luaX_init`). -/
+structure LitPtrs where
+  seed : UInt32
+  nil : Nat
+  tru : Nat
+  fls : Nat
+
+/-- The three literals' objects. -/
+def LitPtrs.strs (ls : LitPtrs) : List Nat := [ls.nil, ls.tru, ls.fls]
+
 /-- The pointers `VmEntryData` names. -/
 structure EntryPtrs where
   func : Nat
@@ -225,6 +283,14 @@ structure EntryPtrs where
   env : Nat
   g : Nat
   stackLast : Nat
+  /-- (lane F1-13) the byte ranges `(lo, n)` the objects a `CALL print` leaves
+  alone are read from (`VmEntryData.frozen`) -/
+  foot : RTree
+  /-- (lane F1-13) the byte ranges the interned literals are read from
+  (`VmEntryData.lits`) -/
+  litFoot : RTree
+  /-- (lane F1-13) the interned literals -/
+  lits : LitPtrs
 
 /-! ## `luaH_getshortstr`'s chain (lane F1-7)
 
@@ -366,66 +432,5 @@ structure EnvGetAt (m : Mem) (L ci : Nat) (e : EntryPtrs) (ts : Nat) (s : EnvSlo
   tab_at : HeapApart L ci e.func e.stackLast e.env 32
   nodes_at : HeapApart L ci e.func e.stackLast s.node (nodeSize * 2 ^ s.lsz)
   key_at : HeapApart L ci e.func e.stackLast ts 16
-
-/-- The Lua-side facts at `luaV_execute(L, ci)`'s entry for the main
-closure of prototype `p`:
-
-* `L->ci = ci`, the `CallInfo` is a Lua call (`savedpc` at the first
-  instruction), and `ci->func` is the stack slot holding the `LClosure`;
-* the closure's prototype is represented by `ProtoRepr`;
-* its upvalue 0 (`_ENV`) points to the globals table, which maps `"print"`
-  to `luaB_print`;
-* the collector is stopped (`gcstp = GCSTPUSR`, `main.c`);
-* the frame `[func+1, func+1+maxstacksize)` lies below `L->stack_last`.
-
-Register *contents* are deliberately unconstrained: at entry they are
-stale stack values, which `Supported`'s definite-initialisation check makes
-irrelevant. -/
-structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop where
-  ci_eq : rd64 m (L + stateCiOff) = some ci
-  ci_func : rd64 m (ci + ciFuncOff) = some e.func
-  func_tag : tagAt m e.func = some vLcl
-  func_val : rd64 m (e.func + tvalueValOff) = some e.cl
-  cl_proto : rd64 m (e.cl + lclosureProtoOff) = some e.pa
-  proto : ProtoRepr m e.pa p
-  proto_code : rd64 m (e.pa + protoCodeOff) = some e.code
-  savedpc : rd64 m (ci + ciSavedpcOff) = some e.code
-  cl_upval0 : rd64 m (e.cl + lclosureUpvalsOff) = some e.uv
-  uv_v : rd64 m (e.uv + upvalVOff) = some e.envv
-  env_tag : tagAt m e.envv = some vTable
-  env_val : rd64 m (e.envv + tvalueValOff) = some e.env
-  env_print : TableHasShortKey m e.env printKey (.builtin .print)
-  /-- **`GETTABUP _ENV "print"` finds `print` by pointer.** Every short-string
-  constant whose bytes are `"print"` is the key pointer of `_ENV`'s `print`
-  node: `lundump`'s `loadStringN` and `luaL_openlibs`' `lua_setfield` both
-  intern `"print"` (`luaS_newlstr` → `internshrstr`), and `luaH_getshortstr`
-  compares pointers. `env_print` alone compares contents. -/
-  env_print_ptr : ∀ ka i x, rd64 m (e.pa + protoKOff) = some ka → i < p.k.length →
-    tagAt m (ka + tvalueSize * i) = some vShrStr →
-    rd64 m (ka + tvalueSize * i + tvalueValOff) = some x →
-    TStringRepr m x printKey → TableHasShortKeyPtr m e.env x (.builtin .print)
-  /-- **`GETTABUP _ENV "print"`'s walk** (lane F1-7): for every short-string
-  constant `"print"`, `luaH_getshortstr`'s chain from its main position
-  reaches `print`'s node (`EnvGetAt`). `env_print_ptr` places the key in some
-  node; the machine needs it on the chain. Stated, as `vararg_proto`, in every
-  memory that agrees with this one off the bytes `luaT_adjustvarargs` writes. -/
-  env_get : ∀ m' : Mem, (∀ a, ¬ VarargDirty ci e.func a → m'[a]? = m[a]?) →
-    ∀ ka i x, rd64 m' (e.pa + protoKOff) = some ka → i < p.k.length →
-    tagAt m' (ka + tvalueSize * i) = some vShrStr →
-    rd64 m' (ka + tvalueSize * i + tvalueValOff) = some x →
-    TStringRepr m' x printKey → ∃ s, EnvGetAt m' L ci e x s
-  l_G : rd64 m (L + stateGOff) = some e.g
-  gc_stopped : rd8 m (e.g + gGcstpOff) = some gcstpUsr
-  stack_last : rd64 m (L + stateStackLastOff) = some e.stackLast
-  frame_fits : e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast
-  /-- `OP_VARARGPREP` → `luaT_adjustvarargs` → `luaD_checkstack(L, maxstacksize + 1)`
-  with `L->top = func + 1` does not grow the stack (`L->stack_last - L->top >
-  maxstacksize + 1` slots) -/
-  vararg_room : e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast
-  /-- the prototype and its code pointer lie apart from the bytes
-  `luaT_adjustvarargs` writes (`VarargDirty`): they hold in every memory that
-  agrees with this one elsewhere -/
-  vararg_proto : ∀ m' : Mem, (∀ a, ¬ VarargDirty ci e.func a → m'[a]? = m[a]?) →
-    ProtoAt m' e.pa p e.code
 
 end Lua.Vm

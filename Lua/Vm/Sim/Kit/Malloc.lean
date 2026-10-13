@@ -58,12 +58,6 @@ def MallocGlobal (a : Nat) : Prop :=
   (symMallocMaxSbrked ≤ a ∧ a < symMallocMaxSbrked + 8) ∨ (errnoAddr ≤ a ∧ a < errnoAddr + 4) ∨
   (symMallocMallinfo ≤ a ∧ a < symMallocMallinfo + 0x50)
 
-/-- A byte of a chunk in use: its payload `[addr + 16, addr + size + 8)`
-(the last 8 bytes are the next chunk's `prev_size`, which only a free
-predecessor's footer writes). -/
-def InUse (chunks : List Chunk) (a : Nat) : Prop :=
-  ∃ c ∈ chunks, c.inuse = true ∧ c.addr + 16 ≤ a ∧ a < c.addr + c.size + 8
-
 /-- **What `_malloc_r(_REENT, n)` leaves**: the block `p` of a chunk in use,
 fresh, in the arena below the new break; the heap's shape; the chunks in use
 kept, and every byte off its writes. -/

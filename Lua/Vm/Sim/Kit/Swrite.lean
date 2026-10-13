@@ -179,9 +179,6 @@ theorem write_r_sum (ptr : BitVec 64) (sp buf n : Nat) (r : BitVec 64) (f : AbiF
 
 /-! ## `__swrite` -/
 
-/-- newlib's `stdout`, the second of the three standard `FILE`s (`__sf`). -/
-def stdoutFile : Nat := symSf + fileSize
-
 theorem stdoutFile_eq : stdoutFile = 0x8005e668 := rfl
 
 /-- Reads through the stores `__swrite` makes. -/

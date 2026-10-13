@@ -22,14 +22,6 @@ namespace Lua.Vm.Sim.Kit
 
 open Lua.Vm.Sim Lua.Vm.Layout Lua.Vm.DlHeap Vsa.Densify
 
-/-- **A byte a `print`'s Lua side keeps**: in a chunk in use of the heap, in
-the arena, apart from `stdout`'s buffer. -/
-structure Kept (H : HeapIx) (ph : StdoutPh) (a : Nat) : Prop where
-  inuse : InUse H.chunks a
-  lo : heapStart ≤ a
-  hi : a < heapEnd
-  nbuf : ¬ ph.Buf a
-
 /-- **A kept byte is no write's** (`PrintW`), nor `luaB_print`'s frame. -/
 theorem Kept.not_printW {H : HeapIx} {ph ph' : StdoutPh} {a sp : Nat} (h : Kept H ph a)
     (hsp : heapEnd + 4096 ≤ sp) (hbf : BufFrom ph ph' H) : ¬ (PrintW sp H ph' a ∨ Rng sp 64 a) := by

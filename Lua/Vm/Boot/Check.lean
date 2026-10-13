@@ -393,58 +393,6 @@ theorem envGetCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat
       nodes_at := h5
       key_at := h6 }
 
-/-- Every field of `VmEntryData m L ci p e` over the view. -/
-def entryCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : PrintSlot) : Bool :=
-  readsOk v [(L + stateCiOff, 8, ci), (ci + ciFuncOff, 8, e.func), (e.func + tvalueTagOff, 1, vLcl),
-    (e.func + tvalueValOff, 8, e.cl), (e.cl + lclosureProtoOff, 8, e.pa),
-    (e.pa + protoCodeOff, 8, e.code), (ci + ciSavedpcOff, 8, e.code),
-    (e.cl + lclosureUpvalsOff, 8, e.uv), (e.uv + upvalVOff, 8, e.envv),
-    (e.envv + tvalueTagOff, 1, vTable), (e.envv + tvalueValOff, 8, e.env), (L + stateGOff, 8, e.g),
-    (e.g + gGcstpOff, 1, gcstpUsr), (L + stateStackLastOff, 8, e.stackLast)] &&
-  protoCheck v e.pa p &&
-  slotCheck v e.env slot.lsz slot.node slot.idx slot.ts &&
-  tstrCheck v slot.ts printKey &&
-  printPtrCheck v e.pa p.k.length slot.ts &&
-  decide (e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast) &&
-  decide (e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast) &&
-  protoCheck (v.minus (VarargDirty ci e.func)) e.pa p &&
-  readsOk (v.minus (VarargDirty ci e.func)) [(e.pa + protoCodeOff, 8, e.code)] &&
-  printPtrCheck (v.minus (VarargDirty ci e.func)) e.pa p.k.length slot.ts &&
-  envGetCheck (v.minus (VarargDirty ci e.func)) L ci e slot.ts (envSlotOf v slot)
-
-theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat} {p : Proto}
-    {e : EntryPtrs} {slot : PrintSlot} (hc : entryCheck v L ci p e slot = true) :
-    VmEntryData m L ci p e := by
-  simp only [entryCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hvp⟩, hvc⟩, hvptr⟩, henv⟩ := hc
-  exact
-    { ci_eq := h.reads hr (by mem_tac)
-      ci_func := h.reads hr (by mem_tac)
-      func_tag := h.reads hr (by mem_tac)
-      func_val := h.reads hr (by mem_tac)
-      cl_proto := h.reads hr (by mem_tac)
-      proto := protoCheck_sound h hp
-      proto_code := h.reads hr (by mem_tac)
-      savedpc := h.reads hr (by mem_tac)
-      cl_upval0 := h.reads hr (by mem_tac)
-      uv_v := h.reads hr (by mem_tac)
-      env_tag := h.reads hr (by mem_tac)
-      env_val := h.reads hr (by mem_tac)
-      env_print := slotCheck_key h hslot hkey
-      env_print_ptr := fun _ _ _ hka hi ht hx hs => by
-        rw [printPtrCheck_sound h hptr hka hi ht hx hs]
-        exact slotCheck_ptr h hslot
-      env_get := fun _ hm _ _ _ hka hi ht hx hs => by
-        rw [printPtrCheck_sound (h.minus _ hm) hvptr hka hi ht hx hs]
-        exact ⟨_, envGetCheck_sound (h.minus _ hm) henv⟩
-      l_G := h.reads hr (by mem_tac)
-      gc_stopped := h.reads hr (by mem_tac)
-      stack_last := h.reads hr (by mem_tac)
-      frame_fits := hfit
-      vararg_room := hroom
-      vararg_proto := fun _ hm =>
-        ⟨protoCheck_sound (h.minus _ hm) hvp, (h.minus _ hm).reads hvc (by mem_tac)⟩ }
-
 /-! ## `luaRuntimeReady`'s memory structures -/
 
 def errorJmpCheck (v : View) (L : Nat) : Bool :=
@@ -755,6 +703,405 @@ theorem kownedCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat
       · cases hi
     · cases hi
   · cases hi
+
+/-! ## The `CALL` invariant's boot facts (lane F1-13)
+
+`VmEntryData`'s fields for `OP_CALL print` (`Lua/Vm/EntryData.lean`): the
+objects a `print` leaves alone, decided over the view restricted to their
+footprint `e.foot` (`View.only`), so that they hold of every memory agreeing
+with the boot memory there; the interned literals over `e.litFoot`; the
+footprints' places (in RAM, apart from what a `CALL` writes, in chunks in use
+of the heap's walk) and the heap room. -/
+
+/-- The view on the byte ranges `rs` only. -/
+def _root_.Lua.Vm.View.only (v : View) (t : RTree) : View := fun a => if t.mem a then v a else none
+
+/-- **A view on a footprint** is a partial view of every memory that agrees
+with `m` there. -/
+theorem _root_.Lua.Vm.PartialView.only {m : Mem} {v : View} (h : PartialView m v) (t : RTree)
+    {M : Mem} (hm : ∀ a, InRanges t a → M[a]? = m[a]?) : PartialView M (v.only t) := by
+  intro k b hk
+  simp only [View.only] at hk
+  split at hk
+  · rename_i hin
+    rw [hm k hin]; exact h k b hk
+  · cases hk
+
+/-- A partial view of a memory is one of its zero fill. -/
+theorem _root_.Lua.Vm.PartialView.fill {M : Mem} {v : View} (h : PartialView M v) :
+    PartialView (Vsa.Densify.fillZeroMem M) v :=
+  fun k b hk => Vsa.Densify.fillZeroMem_some (h k b hk)
+
+/-- `(lo, n)` lies in one chunk in use of `cs`. -/
+def inChunk (cs : List DlHeap.Chunk) (r : Nat × Nat) : Bool :=
+  cs.any fun c => c.inuse && decide (c.addr + 16 ≤ r.1) && decide (r.1 + r.2 ≤ c.addr + c.size + 8)
+
+/-- `(lo, n)` lies in one chunk in use of `cs`, in the arena. -/
+def inHeapChunk (cs : List DlHeap.Chunk) (r : Nat × Nat) : Bool :=
+  inChunk cs r && decide (DlHeap.heapStart ≤ r.1 ∧ r.1 + r.2 ≤ DlHeap.heapEnd)
+
+theorem inChunk_sound {cs : List DlHeap.Chunk} {r : Nat × Nat} (h : inHeapChunk cs r = true) {a : Nat}
+    (h1 : r.1 ≤ a) (h2 : a < r.1 + r.2) : HeapIn cs a := by
+  simp only [inHeapChunk, Bool.and_eq_true, decide_eq_true_eq] at h
+  obtain ⟨c, hc, hb⟩ := List.any_eq_true.mp h.1
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at hb
+  exact ⟨⟨c, hc, hb.1.1, by omega, by omega⟩, by omega, by omega⟩
+
+/-- Every range of `t` is apart from every range of `ds`. -/
+def rangesApart (t : RTree) (ds : List (Nat × Nat)) : Bool :=
+  t.all fun lo n => ds.all fun d => decide (lo + n ≤ d.1 ∨ d.1 + d.2 ≤ lo)
+
+/-- A list of ranges as a predicate. -/
+def InList (ds : List (Nat × Nat)) (a : Nat) : Prop := ∃ d ∈ ds, d.1 ≤ a ∧ a < d.1 + d.2
+
+theorem rangesApart_sound {t : RTree} {ds : List (Nat × Nat)} (h : rangesApart t ds = true) {a : Nat}
+    (ha : InRanges t a) : ¬ InList ds a := by
+  rintro ⟨d, hd, hd1, hd2⟩
+  obtain ⟨lo, n, hh, h1, h2⟩ := RTree.mem_sound ha
+  have := List.all_eq_true.mp (RTree.all_sound h hh) d hd
+  simp only [decide_eq_true_eq] at this
+  omega
+
+/-- Every range of `t` lies in `[lo, hi)`. -/
+def rangesIn (t : RTree) (lo hi : Nat) : Bool :=
+  t.all fun a n => decide (lo ≤ a ∧ a + n ≤ hi)
+
+theorem rangesIn_sound {t : RTree} {lo hi : Nat} (h : rangesIn t lo hi = true) {a : Nat}
+    (ha : InRanges t a) : lo ≤ a ∧ a < hi := by
+  obtain ⟨lo', n, hh, h1, h2⟩ := RTree.mem_sound ha
+  have := RTree.all_sound h hh
+  simp only [decide_eq_true_eq] at this
+  omega
+
+/-- Every byte of `[lo, lo + n)` is in `t`. -/
+def containsB (t : RTree) (lo n : Nat) : Bool :=
+  (List.range n).all fun j => t.mem (lo + j)
+
+theorem containsB_sound {t : RTree} {lo n : Nat} (h : containsB t lo n = true) {j : Nat}
+    (hj : j < n) : InRanges t (lo + j) :=
+  List.all_eq_true.mp h j (List.mem_range.mpr hj)
+
+/-- `EntryDirty` as ranges. -/
+def entryDirtyRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
+  [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func), (e.g, 64),
+   (e.g + gStrcacheOff, gEnd - gStrcacheOff)]
+
+theorem entryDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : EntryDirty L ci e a) :
+    InList (entryDirtyRanges L ci e) a := by
+  have hg : gStrcacheOff ≤ gEnd := by decide
+  simp only [EntryDirty] at h
+  rcases h with h | h | h | h | h | h
+  · exact ⟨_, List.Mem.head _, h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.head _), h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)), h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _))), h.1, by
+      show a < e.func + (e.stackLast - e.func); omega⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)))),
+      h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
+      (List.Mem.head _))))), h.1, by show a < e.g + gStrcacheOff + (gEnd - gStrcacheOff); omega⟩
+
+/-- `LitDirty` as ranges. -/
+def litDirtyRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
+  [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func)]
+
+theorem litDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : LitDirty L ci e a) :
+    InList (litDirtyRanges L ci e) a := by
+  simp only [LitDirty] at h
+  rcases h with h | h | h | h
+  · exact ⟨_, List.Mem.head _, h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.head _), h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)), h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _))), h.1, by
+      show a < e.func + (e.stackLast - e.func); omega⟩
+
+/-- **A chunk walk is determined by its memory and ends** (`p` up to `top`). -/
+theorem _root_.Lua.Vm.DlHeap.ChunkWalk.le {m : Mem} {p top : Nat} {cs : List DlHeap.Chunk}
+    (h : DlHeap.ChunkWalk m p top cs) : p ≤ top := by
+  induction h with
+  | top => exact Nat.le_refl _
+  | chunk _ _ hsz _ _ _ ih => omega
+
+theorem _root_.Lua.Vm.DlHeap.ChunkWalk.unique {m : Mem} {p top : Nat} {cs cs' : List DlHeap.Chunk}
+    (h : DlHeap.ChunkWalk m p top cs) (h' : DlHeap.ChunkWalk m p top cs') : cs = cs' := by
+  induction h generalizing cs' with
+  | top =>
+    cases h' with
+    | top => rfl
+    | chunk _ _ hsz _ _ hw => have := hw.le; omega
+  | chunk hh _ hsz _ hh' hw ih =>
+    cases h' with
+    | top => have := hw.le; omega
+    | chunk hh2 _ _ _ hh2' hw2 =>
+      obtain rfl := Option.some.inj (hh.symm.trans hh2)
+      obtain rfl := Option.some.inj (hh'.symm.trans hh2')
+      rw [ih hw2]
+
+/-- `ChainHas` over the view, with fuel. -/
+def chainHasCheck (v : View) (ts : Nat) : Nat → Nat → Bool
+  | p, 0 => p == ts
+  | p, fuel + 1 => p == ts || (p != 0 && match r64 v (p + tstringLnglenOff) with
+      | some nx => chainHasCheck v ts nx fuel
+      | none => false)
+
+theorem chainHasCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ts : Nat} :
+    ∀ fuel p, chainHasCheck v ts p fuel = true → ChainHas m ts p
+  | 0, p, hc => by
+    simp only [chainHasCheck, beq_iff_eq] at hc
+    subst hc; exact .here
+  | fuel + 1, p, hc => by
+    simp only [chainHasCheck, Bool.or_eq_true, beq_iff_eq, Bool.and_eq_true, bne_iff_ne, ne_eq] at hc
+    rcases hc with rfl | ⟨h0, hn⟩
+    · exact .here
+    · split at hn
+      · rename_i nx hnx
+        exact .next h0 (h.rd64 hnx) (chainHasCheck_sound h fuel nx hn)
+      · cases hn
+
+/-- One literal of `LitInterned` over a view (of the memory's fill), its
+string table and cache aside. -/
+def litCheck (v : View) (rt : RtPtrs) (seed : UInt32) (b : List UInt8) (ts : Nat) : Bool :=
+  tstrCheck v ts b && decide (b.length ≤ maxShortLen) && readsOk v [(rt.g + gSeedOff, 4, seed.toNat)] &&
+  (match rt.strtHeads[(luaHash seed b).toNat % rt.strtSize]? with
+   | some hd => chainHasCheck v ts hd (rt.strtNuse + 1)
+   | none => true)
+
+theorem litCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZeroMem M) v) {rt : RtPtrs}
+    {seed : UInt32} {b : List UInt8} {ts : Nat} (hc : litCheck v rt seed b ts = true)
+    (hs : StrtAt (Vsa.Densify.fillZeroMem M) rt) (hk : StrCacheAt (Vsa.Densify.fillZeroMem M) rt) :
+    LitInterned M rt seed b ts := by
+  simp only [litCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨ht, hshort⟩, hr⟩, hch⟩ := hc
+  refine ⟨tstrCheck_sound h ht, hshort, hs, hk, h.reads hr (by mem_tac), fun hl => ?_⟩
+  rw [List.getElem?_eq_getElem hl] at hch
+  exact chainHasCheck_sound h _ _ hch
+
+/-- The reserved literals over a view (of the memory's fill). -/
+def litsCheck (v : View) (g sl : Nat) (ls : LitPtrs) (rt : RtPtrs) : Bool :=
+  rt.g == g && rt.stackLast == sl && strtCheck v rt && strcacheCheck v rt &&
+  litCheck v rt ls.seed nilB ls.nil && litCheck v rt ls.seed trueB ls.tru && litCheck v rt ls.seed falseB ls.fls
+
+theorem litsCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZeroMem M) v) {g sl : Nat}
+    {ls : LitPtrs} {rt : RtPtrs} (hc : litsCheck v g sl ls rt = true) : LitsIn M g sl ls rt := by
+  simp only [litsCheck, Bool.and_eq_true, beq_iff_eq] at hc
+  obtain ⟨⟨⟨⟨⟨⟨hg, hsl⟩, hst⟩, hca⟩, hn⟩, ht⟩, hf⟩ := hc
+  have hS := strtCheck_sound h hst
+  have hK := strcacheCheck_sound h hca
+  exact ⟨hg, hsl, litCheck_sound h hn hS hK, litCheck_sound h ht hS hK, litCheck_sound h hf hS hK⟩
+
+/-- The string at `ts`'s `n` content bytes, off the view. -/
+def strBytesV (v : View) (ts n : Nat) : List UInt8 :=
+  (List.range n).map fun j => ((v (ts + tstringContentsOff + j)).getD 0).toNat.toUInt8
+
+/-- Every string constant's object over the view `vf` too (its bytes decoded
+off `v`). -/
+def kstrsCheck (v vf : View) (pa sizek : Nat) : Bool :=
+  match r64 v (pa + protoKOff) with
+  | some ka => (List.range sizek).all fun i =>
+      match r8 v (ka + tvalueSize * i + tvalueTagOff) with
+      | some t =>
+        if t = vShrStr ∨ t = vLngStr then
+          match r64 v (ka + tvalueSize * i + tvalueValOff) with
+          | some ts =>
+            match strLenV v ts with
+            | some n => tstrCheck v ts (strBytesV v ts n) && tstrCheck vf ts (strBytesV v ts n)
+            | none => false
+          | none => false
+        else true
+      | none => false
+  | none => false
+
+theorem kstrsCheck_sound {m M : Mem} {v vf : View} (h : PartialView m v) (hf : PartialView M vf)
+    {pa sizek : Nat} (hc : kstrsCheck v vf pa sizek = true) {ka i ts : Nat} {s : List UInt8}
+    (hka : rd64 m (pa + protoKOff) = some ka) (hi : i < sizek)
+    (ht : tagAt m (ka + tvalueSize * i) = some (strTag s))
+    (hts : rd64 m (ka + tvalueSize * i + tvalueValOff) = some ts) (hs : TStringRepr m ts s) :
+    TStringRepr M ts s := by
+  unfold kstrsCheck at hc
+  split at hc
+  · rename_i ka' hka'
+    obtain rfl := Option.some.inj ((h.rd64 hka').symm.trans hka)
+    have hi' := List.all_eq_true.mp hc i (List.mem_range.mpr hi)
+    split at hi'
+    · rename_i t htv
+      have htt : t = strTag s := Option.some.inj ((h.rd8 htv).symm.trans ht)
+      have hstr : t = vShrStr ∨ t = vLngStr := by
+        rw [htt]; unfold strTag; split <;> simp
+      rw [if_pos hstr] at hi'
+      split at hi'
+      · rename_i ts' hts'
+        obtain rfl := Option.some.inj ((h.rd64 hts').symm.trans hts)
+        split at hi'
+        · rename_i n hn
+          simp only [Bool.and_eq_true] at hi'
+          have e := (tstrCheck_sound h hi'.1).inj hs
+          rw [e] at hi'
+          exact tstrCheck_sound hf hi'.2
+        · cases hi'
+      · cases hi'
+    · cases hi'
+  · cases hc
+
+/-- **The objects a `CALL print` leaves alone** over the view (lane F1-13):
+`EntryFrozen` and the string constants on the footprint `e.foot`, the static
+words and `.rodata` in it, it in RAM and apart from `EntryDirty`. -/
+def frozenCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : PrintSlot) : Bool :=
+  protoCheck (v.only e.foot) e.pa p &&
+  readsOk (v.only e.foot) [(e.pa + protoCodeOff, 8, e.code)] &&
+  printPtrCheck (v.only e.foot) e.pa p.k.length slot.ts &&
+  envGetCheck (v.only e.foot) L ci e slot.ts (envSlotOf v slot) &&
+  kstrsCheck v (v.only e.foot) e.pa p.k.length &&
+  (luaStaticWords L e.g).all (fun r => containsB e.foot r.1 r.2) &&
+  containsB e.foot (e.pa + protoKOff) 8 &&
+  (p.k.length == 0 || match r64 v (e.pa + protoKOff) with
+    | some ka => containsB e.foot ka (tvalueSize * p.k.length)
+    | none => false) &&
+  rangesIn e.foot 0x80000000 0x88000000 &&
+  rangesApart e.foot (entryDirtyRanges L ci e)
+
+/-- **The interned literals and their places** over the view (lane F1-13). -/
+def litsEntryCheck (v : View) (L ci : Nat) (e : EntryPtrs) (rt : RtPtrs) : Bool :=
+  litsCheck (v.only e.litFoot) e.g e.stackLast e.lits rt &&
+  rangesIn e.litFoot 0x80000000 0x88000000 &&
+  rangesApart e.litFoot (litDirtyRanges L ci e) &&
+  e.lits.strs.all (fun ts => !(e.foot.mem (ts + gcMarkedOff)))
+
+/-- **Where the objects lie, the heap room** over the view (lane F1-13), for
+the witness's chunk walk `rt.chunks`. -/
+def placedCheck (v : View) (L ci : Nat) (e : EntryPtrs) (rt : RtPtrs) : Bool :=
+  readsOk v [(DlHeap.topAddr, 8, rt.top)] && walkCheck v rt.top DlHeap.heapStart rt.chunks &&
+  e.foot.all (fun lo n => inHeapChunk rt.chunks (lo, n) || decide (0x80000000 ≤ lo ∧ lo + n ≤ symTohost)) &&
+  e.litFoot.all (fun lo n => inHeapChunk rt.chunks (lo, n)) &&
+  e.lits.strs.all (fun ts => inHeapChunk rt.chunks (ts, 30)) &&
+  inHeapChunk rt.chunks (L, stateSize) && inHeapChunk rt.chunks (e.g, gEnd) &&
+  inHeapChunk rt.chunks (ci, ciSize) && inHeapChunk rt.chunks (e.func, e.stackLast - e.func) &&
+  readsOk v [(symBrk, 8, rt.brkv)] && decide (rt.brkv + firstRoom ≤ symHeapEnd)
+
+theorem placedCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat} {e : EntryPtrs}
+    {rt : RtPtrs} (hc : placedCheck v L ci e rt = true) :
+    (∀ top cs, rd64 m DlHeap.topAddr = some top → DlHeap.ChunkWalk m DlHeap.heapStart top cs →
+      CallPlaced cs L ci e) ∧ (∀ b, rd64 m symBrk = some b → b + firstRoom ≤ symHeapEnd) := by
+  simp only [placedCheck, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, Bool.or_eq_true] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨htop, hwalk⟩, hfoot⟩, hlf⟩, hls⟩, hL⟩, hg⟩, hci⟩, hst⟩, hbrk⟩, hroom⟩ := hc
+  refine ⟨fun top cs ht hw => ?_, fun b hb => ?_⟩
+  · obtain rfl := Option.some.inj (ht.symm.trans (h.reads htop (by mem_tac)))
+    obtain rfl := (walkCheck_sound h hwalk).unique hw
+    refine ⟨fun a ha => ?_, fun a ha => by
+        obtain ⟨lo, n, hh, h1, h2⟩ := RTree.mem_sound ha
+        exact inChunk_sound (r := (lo, n)) (RTree.all_sound hlf hh) h1 h2,
+      fun ts hts a h1 h2 => inChunk_sound (hls ts hts) h1 h2, fun a h1 h2 => inChunk_sound hL h1 h2,
+      fun a h1 h2 => inChunk_sound hg h1 h2, fun a h1 h2 => inChunk_sound hci h1 h2,
+      fun a h1 h2 => inChunk_sound hst h1 (by show a < e.func + (e.stackLast - e.func); omega)⟩
+    obtain ⟨lo, n, hh, h1, h2⟩ := RTree.mem_sound ha
+    have hr := RTree.all_sound hfoot hh
+    simp only [Bool.or_eq_true, decide_eq_true_eq] at hr
+    rcases hr with hr' | hr'
+    · exact .inl (inChunk_sound (r := (lo, n)) hr' h1 h2)
+    · exact .inr ⟨by omega, by omega⟩
+  · obtain rfl := Option.some.inj (hb.symm.trans (h.reads hbrk (by mem_tac)))
+    exact hroom
+
+/-- `VmEntryData`'s fields before lane F1-13 over the view. -/
+def entryBaseCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : PrintSlot) : Bool :=
+  readsOk v [(L + stateCiOff, 8, ci), (ci + ciFuncOff, 8, e.func), (e.func + tvalueTagOff, 1, vLcl),
+    (e.func + tvalueValOff, 8, e.cl), (e.cl + lclosureProtoOff, 8, e.pa),
+    (e.pa + protoCodeOff, 8, e.code), (ci + ciSavedpcOff, 8, e.code),
+    (e.cl + lclosureUpvalsOff, 8, e.uv), (e.uv + upvalVOff, 8, e.envv),
+    (e.envv + tvalueTagOff, 1, vTable), (e.envv + tvalueValOff, 8, e.env), (L + stateGOff, 8, e.g),
+    (e.g + gGcstpOff, 1, gcstpUsr), (L + stateStackLastOff, 8, e.stackLast)] &&
+  protoCheck v e.pa p &&
+  slotCheck v e.env slot.lsz slot.node slot.idx slot.ts &&
+  tstrCheck v slot.ts printKey &&
+  printPtrCheck v e.pa p.k.length slot.ts &&
+  decide (e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast) &&
+  decide (e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast) &&
+  protoCheck (v.minus (VarargDirty ci e.func)) e.pa p &&
+  readsOk (v.minus (VarargDirty ci e.func)) [(e.pa + protoCodeOff, 8, e.code)] &&
+  printPtrCheck (v.minus (VarargDirty ci e.func)) e.pa p.k.length slot.ts &&
+  envGetCheck (v.minus (VarargDirty ci e.func)) L ci e slot.ts (envSlotOf v slot)
+
+/-- Every field of `VmEntryData m L ci p e` over the view. -/
+def entryCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : PrintSlot) (rt : RtPtrs) :
+    Bool :=
+  entryBaseCheck v L ci p e slot &&
+  frozenCheck v L ci p e slot && litsEntryCheck v L ci e rt && placedCheck v L ci e rt
+
+/-- `entryCheck`'s parts, one `decide +kernel` each in a witness. -/
+structure EntryChecks (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : PrintSlot) (rt : RtPtrs) :
+    Prop where
+  base : entryBaseCheck v L ci p e slot = true
+  frozen : frozenCheck v L ci p e slot = true
+  lits : litsEntryCheck v L ci e rt = true
+  placed : placedCheck v L ci e rt = true
+
+theorem EntryChecks.check {v : View} {L ci : Nat} {p : Proto} {e : EntryPtrs} {slot : PrintSlot} {rt : RtPtrs}
+    (h : EntryChecks v L ci p e slot rt) : entryCheck v L ci p e slot rt = true := by
+  simp only [entryCheck, h.base, h.frozen, h.lits, h.placed, Bool.and_self]
+
+theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat} {p : Proto}
+    {e : EntryPtrs} {slot : PrintSlot} {rt : RtPtrs} (hc : entryCheck v L ci p e slot rt = true) :
+    VmEntryData m L ci p e := by
+  simp only [entryCheck, entryBaseCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hvp⟩, hvc⟩, hvptr⟩, henv⟩, hfz⟩, hlit⟩,
+    hpl⟩ := hc
+  simp only [frozenCheck, Bool.and_eq_true, List.all_eq_true] at hfz
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hfp, hfc⟩, hfptr⟩, hfenv⟩, hfk⟩, hflua⟩, hfkp⟩, hfka⟩, hfram⟩, hfap⟩ := hfz
+  simp only [litsEntryCheck, Bool.and_eq_true, List.all_eq_true, Bool.not_eq_true',
+    decide_eq_false_iff_not] at hlit
+  obtain ⟨⟨⟨hlc, hlram⟩, hlap⟩, hmk⟩ := hlit
+  obtain ⟨hplaced, hbrk⟩ := placedCheck_sound h hpl
+  exact
+    { ci_eq := h.reads hr (by mem_tac)
+      ci_func := h.reads hr (by mem_tac)
+      func_tag := h.reads hr (by mem_tac)
+      func_val := h.reads hr (by mem_tac)
+      cl_proto := h.reads hr (by mem_tac)
+      proto := protoCheck_sound h hp
+      proto_code := h.reads hr (by mem_tac)
+      savedpc := h.reads hr (by mem_tac)
+      cl_upval0 := h.reads hr (by mem_tac)
+      uv_v := h.reads hr (by mem_tac)
+      env_tag := h.reads hr (by mem_tac)
+      env_val := h.reads hr (by mem_tac)
+      env_print := slotCheck_key h hslot hkey
+      env_print_ptr := fun _ _ _ hka hi ht hx hs => by
+        rw [printPtrCheck_sound h hptr hka hi ht hx hs]
+        exact slotCheck_ptr h hslot
+      env_get := fun _ hm _ _ _ hka hi ht hx hs => by
+        rw [printPtrCheck_sound (h.minus _ hm) hvptr hka hi ht hx hs]
+        exact ⟨_, envGetCheck_sound (h.minus _ hm) henv⟩
+      l_G := h.reads hr (by mem_tac)
+      gc_stopped := h.reads hr (by mem_tac)
+      stack_last := h.reads hr (by mem_tac)
+      frame_fits := hfit
+      vararg_room := hroom
+      vararg_proto := fun _ hm =>
+        ⟨protoCheck_sound (h.minus _ hm) hvp, (h.minus _ hm).reads hvc (by mem_tac)⟩
+      frozen := fun M hm =>
+        { proto := protoCheck_sound (h.only _ hm) hfp
+          proto_code := (h.only _ hm).reads hfc (by mem_tac)
+          env_get := fun _ _ _ hka hi ht hx hs => by
+            rw [printPtrCheck_sound (h.only _ hm) hfptr hka hi ht hx hs]
+            exact ⟨_, envGetCheck_sound (h.only _ hm) hfenv⟩ }
+      frozen_strs := fun M hm _ _ _ _ hka hi ht hts hs => kstrsCheck_sound h (h.only _ hm) hfk hka hi ht hts hs
+      foot_lua := fun r hr j hj => containsB_sound (hflua r hr) hj
+      foot_k := fun ka hka => ⟨fun j hj => containsB_sound hfkp hj, fun j hj => by
+        simp only [Bool.or_eq_true, beq_iff_eq] at hfka
+        rcases hfka with h0 | h1
+        · rw [h0] at hj; omega
+        · split at h1
+          · rename_i ka' hka'
+            obtain rfl := Option.some.inj ((h.rd64 hka').symm.trans hka)
+            exact containsB_sound h1 hj
+          · cases h1⟩
+      foot_ram := fun a ha => rangesIn_sound hfram ha
+      foot_apart := fun a ha hd => rangesApart_sound hfap ha (entryDirty_ranges hd)
+      lits := fun M hm => ⟨rt, litsCheck_sound (h.only _ hm).fill hlc⟩
+      lits_ram := fun a ha => rangesIn_sound hlram ha
+      lits_apart := fun a ha hd => rangesApart_sound hlap ha (litDirty_ranges hd)
+      marks := fun ts hts hin => by have := hmk ts hts; simp_all [InRanges]
+      placed := hplaced
+      room := hbrk }
 
 /-- **The checks after `OP_VARARGPREP`'s stores** (`RuntimeReadyAt.vararg`): the
 memory structures at the view `postView`, for the moved witness. -/
