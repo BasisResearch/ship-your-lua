@@ -78,6 +78,49 @@ instance decForallAtom (P : Option Ordering → Prop) [DecidablePred P] : Decida
     ⟨fun ⟨a, b, c, d⟩ o => by rcases o with _ | _ | _ | _ <;> assumption,
      fun h => ⟨h _, h _, h _, h _⟩⟩
 
+/-- `Decidable` of an implication, named (`atomDec`). -/
+def decImp {p q : Prop} (hp : Decidable p) (hq : Decidable q) : Decidable (p → q) := inferInstance
+
+/-- `Decidable` of a statement over a Boolean atom, named (`atomDec`). -/
+def decForallBool (P : Bool → Prop) (h : DecidablePred P) : Decidable (∀ b, P b) := inferInstance
+
+open Lean Meta in
+/-- **The leaf's `Decidable` instance by the statement's structure**: an
+atom's four answers (`decForallAtom`), a Boolean atom (`decForallBool`), an
+implication (`decImp`), a negation; every other piece by instance search,
+alone (lane F2: one search over a leaf with many atoms exceeds its size). -/
+partial def atomDec (P : Expr) : MetaM Expr := do
+  let P ← instantiateMVars P
+  match P with
+  | .forallE n t b bi =>
+    if b.hasLooseBVars then
+      let mk (c : Name) : MetaM Expr := withLocalDecl n bi t fun x => do
+        let i ← atomDec (b.instantiate1 x)
+        return mkApp2 (mkConst c) (.lam n t b bi) (← mkLambdaFVars #[x] i)
+      if t.isConstOf ``Bool then mk ``decForallBool
+      else if t == mkApp (mkConst ``Option [0]) (mkConst ``Ordering) then mk ``decForallAtom
+      else synthInstance (mkApp (mkConst ``Decidable) P)
+    else if ← isProp t then
+      return mkApp4 (mkConst ``decImp) t b (← atomDec t) (← atomDec b)
+    else synthInstance (mkApp (mkConst ``Decidable) P)
+  | _ =>
+    if P.isAppOfArity ``Not 1 then
+      return mkApp2 (mkConst ``instDecidableNot) P.appArg! (← atomDec P.appArg!)
+    synthInstance (mkApp (mkConst ``Decidable) P)
+
+open Lean Elab Tactic Meta in
+/-- **`at_atom_decide`**: `decide` with the instance of `atomDec`: the
+statement evaluated to `true` (else a failure, as `decide`'s). -/
+elab "at_atom_decide" : tactic => withMainContext do
+  let g ← getMainGoal
+  let P ← instantiateMVars (← g.getType)
+  let inst ← atomDec P
+  let d := mkApp2 (mkConst ``Decidable.decide) P inst
+  let r ← ofExceptKernelException (Kernel.whnf (← getEnv) (← getLCtx) d)
+  unless r.isConstOf ``Bool.true do throwError "at_atom_decide: the statement is false"
+  g.assign (mkApp3 (mkConst ``of_decide_eq_true) P inst (mkApp2 (mkConst ``Eq.refl [1]) (mkConst ``Bool) (mkConst ``Bool.true)))
+  replaceMainGoal []
+
 /-! ## The signed bound -/
 
 /-- **`luai_numlt(0, step) ? R(a, b) : R(b, a)`**: `floatforloop`'s and
@@ -342,6 +385,12 @@ elab "at_step1 " ns:ident h:ident acc:ident : tactic => withMainContext do
   for n in cands do
     if let some g ← forkGuard? n X then
       let some (_, lhs, _) := g.eq? | continue
+      -- lane F2: a fork already split here has no at-lemma on this side (a
+      -- path the generator dropped): fail, never split it again
+      for d in ← getLCtx do
+        if let some (_, l, _) := (← instantiateMVars d.type).eq? then
+          if l == lhs then
+            throwError "at_step1: no at-lemma for this side of the fork at 0x{hex8 pc}"
       let stx ← Term.exprToSyntax lhs
       let hn := mkIdent (Name.mkSimple s!"hf_{hex8 pc}")
       evalTactic (← `(tactic| rcases Bool.eq_false_or_eq_true $stx with $hn:ident | $hn:ident))
@@ -389,7 +438,7 @@ elab "at_atoms" : tactic => withMainContext do
       model_beq_cmp, sgnBound, true_and, and_true, Bool.not_eq_true,
       -- lane F2: `op_orderI`'s immediate through `__floatsidf` (`sb_fsi`, `toInt_imm`)
       Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.zero_add, Nat.sub_zero, Lua.Vm.Fn.Floatsidf.S,
-      sb_fsi, toInt_imm, $ms,*] at $hids*))
+      sb_fsi, toInt_imm, at_atom_simp, $ms,*] at $hids*))
   if (← getUnsolvedGoals).isEmpty then return
   withMainContext do
     -- the pair atoms: the kernel's test (`hq`) names the orientation first
@@ -431,10 +480,41 @@ elab "at_atoms" : tactic => withMainContext do
       bs := bs.push b
       let sk ← Term.exprToSyntax kt
       evalTactic (← `(tactic| generalize $sk:term = $b:ident at $hids*))
-    evalTactic (← `(tactic| revert $hids*))
-    evalTactic (← `(tactic| revert $os*))
-    unless bs.isEmpty do evalTactic (← `(tactic| revert $bs*))
-    evalTactic (← `(tactic| decide))
+    -- lane F2: the residual Boolean atoms, read off values the pair atoms do
+    -- not decide (an integer compare of `__fixdfdi`'s result, `decide (i <
+    -- fi)` in the kernel): each a `decide` or a signed `slt` over neither
+    -- a pair atom nor a Boolean atom, generalised as it stands
+    for _ in [0:8] do
+      let some rt ← withMainContext do
+          let lctx ← getLCtx
+          let ids := (os ++ bs).filterMap fun i => (lctx.findFromUserName? i.getId).map (·.fvarId)
+          for nm in hs do
+            let some d := lctx.findFromUserName? nm | continue
+            let ty ← instantiateMVars d.type
+            if let some e := ty.find? (fun e =>
+                (e.isAppOfArity ``Decidable.decide 2 ||
+                  e.isAppOfArity ``LeanRV64DExecutable.Functions.zopz0zI_s 3) &&
+                e.hasFVar && !(ids.any fun f => e.containsFVar f)) then
+              return some e
+          return none
+        | break
+      let b := mkIdent (← mkFreshUserName `b)
+      bs := bs.push b
+      let sr ← Term.exprToSyntax rt
+      evalTactic (← `(tactic| generalize $sr:term = $b:ident at $hids*))
+    -- lane F2: each atom reverted with the facts that read it (`revert`
+    -- takes the dependents along), innermost first, so a fact is evaluated
+    -- as soon as its atoms are bound and a false one prunes the rest
+    for v in (os ++ bs).reverse do
+      evalTactic (← `(tactic| revert $v:ident))
+    for h in hids do
+      withMainContext do
+        if ((← getLCtx).findFromUserName? h.getId).isSome then
+          evalTactic (← `(tactic| revert $h:ident))
+    -- lane F2: a leaf with many atoms (the f2i chain) exceeds the instance
+    -- search's size for one `Decidable` over every atom; there the instance
+    -- is assembled by structure (`atomDec`), each piece searched alone
+    evalTactic (← `(tactic| at_atom_decide))
 
 set_option hygiene false in
 /-- **`at_leaf NS`**: at the fetch head, the kernel's outcome: the side of

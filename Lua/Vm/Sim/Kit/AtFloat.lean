@@ -2,6 +2,7 @@ import Lua.Vm.Sim.Kit.At
 import Lua.Vm.Sim.Kit.AtFAttr
 import Lua.Vm.Sim.Kit.Clzdi2
 import Lua.Vm.Fn.Spec
+import Lua.Vm.Fn.Floor
 
 /-!
 # The soft-float call nodes on the location-list route (lane float-m0, M1)
@@ -31,8 +32,8 @@ namespace Lua.Vm.Sim.At
 
 open Lua.Vm.Sim Lua.Bytecode Lua.Vm.Layout
 
-/-- **A frame of up to 48 bytes below `luaV_execute`'s `sp`** (`FnSp`). -/
-theorem at_fnSp {X : Cx} {F : Nat} (hX : X.Ok) (hF : F ≤ 48 := by decide) : FnSp X.w.sp F := by
+/-- **A frame of up to 112 bytes below `luaV_execute`'s `sp`** (`FnSp`). -/
+theorem at_fnSp {X : Cx} {F : Nat} (hX : X.Ok) (hF : F ≤ 112 := by decide) : FnSp X.w.sp F := by
   have := hX.core.ranges.sp_eq
   simp only [execFrame, RuntimeData.spEntry] at this
   exact ⟨by have : tohostAddr = 0x8005c6c0 := rfl; omega, by omega, by omega⟩
@@ -115,5 +116,29 @@ macro_rules | `(tactic| at_eq_ext) => `(tactic| at_fsite_eq)
 (`addw`, `addiw`) sign-extended (`Lua.Vm.Fn.sext32_canon`). -/
 macro "at_sext" : tactic => `(tactic|
   first | exact Lua.Vm.Fn.sext32_canon _ | (simp only [Loc.den]; exact Lua.Vm.Fn.sext32_canon _))
+
+/-! ## `.rodata` constants (`auipc`; `ld`) -/
+
+open Lean Elab Tactic Meta in
+/-- **`at_ground`**: a ground address an `auipc` computes (`pc + (hi +++ 0)
++ lo`, a `.rodata` constant's) evaluated to its literal, by one `decide`;
+fails when there is none. -/
+elab "at_ground" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  let cands := collectE (fun e => !e.hasFVar && !e.hasMVar && e.isAppOfArity ``HAdd.hAdd 6 &&
+    (e.find? fun x => x.isAppOf ``HAppend.hAppend).isSome) t
+  let some e := cands[0]? | throwError "at_ground: no ground address"
+  let n ← unsafe evalExpr Nat (mkConst ``Nat) (← mkAppM ``BitVec.toNat #[e])
+  let lit := mkApp2 (mkConst ``BitVec.ofNat) (mkNatLit 64) (mkNatLit n)
+  let some pf ← proveBy (← mkEq e lit) (← `(tactic| decide)) | throwError "at_ground: {e}"
+  let g ← getMainGoal
+  let r ← g.rewrite (← g.getType) pf
+  replaceMainGoal ((← g.replaceTargetEq r.eNew r.eqProof) :: r.mvarIds)
+
+/-- The address normaliser on a `.rodata` constant's address. -/
+macro_rules | `(tactic| at_addr) => `(tactic| (at_ground; at_addr))
+
+/-- A load of a `.rodata` constant (`at_eq`): its address evaluated first. -/
+macro_rules | `(tactic| at_eq_ext) => `(tactic| (at_ground; at_eq))
 
 end Lua.Vm.Sim.At

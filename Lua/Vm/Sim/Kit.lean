@@ -67,6 +67,7 @@ import Lua.Vm.Sim.Kit.AtFltAddk
 import Lua.Vm.Sim.Kit.AtFltSubk
 import Lua.Vm.Sim.Kit.AtFltUnm
 import Lua.Vm.Sim.Kit.AtFltLe
+import Lua.Vm.Sim.Kit.AtFltF2I
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

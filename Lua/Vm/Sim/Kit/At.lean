@@ -900,7 +900,7 @@ segment's `at_<pc>_<hi>[_t|_n][_k]`, and a call's `call_<ret>[_k]` where
 def atCands (ns : Name) (pc : Nat) (ret : Option Nat) : MetaM (List Name) := do
   let env ← getEnv
   let mut out := []
-  let ks := ["", "_1", "_2", "_3", "_4", "_5", "_6", "_7"]
+  let ks := "" :: (List.range 15).map (fun i => s!"_{i + 1}")
   for d in [0:96] do
     let hi := pc + 4 * (d + 1)
     for suf in ["", "_t", "_n"] do

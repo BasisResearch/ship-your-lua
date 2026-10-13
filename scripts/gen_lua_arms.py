@@ -304,8 +304,8 @@ HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
 # the arms whose float paths run through the soft-float call nodes (lane
 # float-m0, M1): only there is a call to a soft-float routine a call node (its
 # return address continues the arm), so the other arms' segments stay as they are
-FLOAT_CALLS = {fn for fn, _, _ in FLOAT_HELPERS}
-FLOAT_UNARY = {"__floatsidf", "__floatdidf", "__fixdfdi", "__clzdi2"}
+FLOAT_CALLS = {fn for fn, _, _ in FLOAT_HELPERS} | {"floor"}   # libm `floor`: a named premise (`FloorSpec`; lane F2, from A-INC)
+FLOAT_UNARY = {"__floatsidf", "__floatdidf", "__fixdfdi", "__clzdi2", "floor"}
 FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP",
               "OP_SUB", "OP_FORPREP", "OP_LT",  # round 5 (A-JOIN): SUB's, FORPREP's, LT's float paths
               # lane F2: LEI's, GTI's, ADD's, ADDK's, SUBK's, LE's float paths
