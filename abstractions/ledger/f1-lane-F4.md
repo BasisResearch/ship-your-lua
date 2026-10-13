@@ -57,6 +57,6 @@ Nothing new. `FloorSpec` stays the named premise it was (`FloatArms.floor`).
 
 ## Builds
 
-- Single modules were built one `lake build` at a time under a 12 GB cap. `lake build Lua.Vm.Sim.StuckErr` (1189 jobs) ran with `LEAN_NUM_THREADS=4` under 14 GB and completed with exit 0.
+- Single modules were built one `lake build` at a time under a 12 GB cap. The full `lake build Lua Vsa VsaIris` (2051 jobs) ran with `LEAN_NUM_THREADS=4` under 30 GB and completed with exit 0.
 - `gen_lua_at.py --check` and `gen_lua_arms.py --check` are clean. `check_discipline.py` is OK. `abstractions/gate.py` is OK (`a1-float-arm`: 32 cases, first quarter 3.0, last quarter 4.1).
 - The axioms of `sim_EQ_flt`, `sim_EQK_flt`, `equalobj_flt_sum`, `armTable` and `vm_refinement_of_open'` are `[propext, Classical.choice, Quot.sound]`. They are listed in check.sh stage 6.
