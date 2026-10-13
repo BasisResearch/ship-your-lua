@@ -230,6 +230,23 @@ structure HeapIn (cs : List DlHeap.Chunk) (a : Nat) : Prop where
   lo : DlHeap.heapStart ≤ a
   hi : a < DlHeap.heapEnd
 
+/-- `[a, a + n)` and `[b, b + k)` are disjoint. -/
+def Apart (a n b k : Nat) : Prop := a + n ≤ b ∨ b + k ≤ a
+
+instance (a n b k : Nat) : Decidable (Apart a n b k) := by unfold Apart; infer_instance
+
+/-- **The objects a `CALL print` writes are apart** (lane F1-13): `g` up to
+its string cache, the literals' objects, the `lua_State`, the `CallInfo` and
+the Lua stack above `ci->func`. -/
+structure ObjsApart (L ci : Nat) (e : EntryPtrs) : Prop where
+  g_L : Apart e.g gEnd L stateSize
+  g_ci : Apart e.g gEnd ci ciSize
+  g_stack : Apart e.g gEnd e.func (e.stackLast - e.func)
+  lit_L : ∀ ts ∈ e.lits.strs, Apart ts 30 L stateSize
+  lit_g : ∀ ts ∈ e.lits.strs, Apart ts 30 e.g gEnd
+  lit_ci : ∀ ts ∈ e.lits.strs, Apart ts 30 ci ciSize
+  lit_stack : ∀ ts ∈ e.lits.strs, Apart ts 30 e.func (e.stackLast - e.func)
+
 /-- **Where the objects a `CALL print` reads lie** (lane F1-13), for the
 chunks `cs` of the heap's walk: `e.foot` in chunks in use or in the image
 below the HTIF mailbox, `e.litFoot` and the literals' objects in chunks in
@@ -334,5 +351,7 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
     CallPlaced cs L ci e
   /-- the heap has room for the first `print`'s allocations (`firstRoom`) -/
   room : ∀ b, rd64 m symBrk = some b → b + firstRoom ≤ symHeapEnd
+  /-- the objects a `CALL` writes are apart (`ObjsApart`) -/
+  objs : ObjsApart L ci e
 
 end Lua.Vm

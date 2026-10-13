@@ -370,6 +370,7 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
     (hheap : DlHeap.HeapAt m0 rt.top rt.brkv rt.chunks (fun i => rt.bins.getD i []))
     (hdense : ∀ a, Vsa.Densify.ramBase ≤ a → a < Vsa.Densify.ramBase + Vsa.Densify.ramSize → (m0[a]?).isSome)
     (hm : ∀ a, ¬ VarargDirty ci e.func a → m[a]? = m0[a]?) (hnext : rd64 m (ci + ciNextOff) = some 0)
+    (hmd : ∀ a, 0x80000000 ≤ a → a < 0x88000000 → (m[a]?).isSome)
     (hko : KOwned m L ci rt) (hreg : VmRegionsAt m L ci rt) (hι : ι.own = KStrIn m rt.k p.k.length)
     (hszk : rt.sizek = p.k.length) (hka : rd64 m0 (e.pa + protoKOff) = some rt.k)
     (hst : rt.stack = rt0.stack) (hsl : rt.stackLast = rt0.stackLast) (hg : rt.g = rt0.g)
@@ -455,7 +456,8 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
     InRanges e.litFoot, e.lits, ?_⟩
   have hroom := hE.room rt.brkv hheap.brk
   refine
-    { io := .boot ?_ ?_ (by simp only [RtPtrs.hix, DlHeap.heapEnd, firstRoom] at hroom ⊢; omega)
+    { dense := hmd
+      io := .boot ?_ ?_ (by simp only [RtPtrs.hix, DlHeap.heapEnd, firstRoom] at hroom ⊢; omega)
       pend := rfl
       cells := ?_
       room := fun _ => hroom
@@ -465,6 +467,7 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         have : Image.rodataBase = 0x8004ecc8 := rfl; omega, by
         have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl; omega⟩
       stat_apart := fun a ha hd => ha.elim (fun ha => hE.foot_apart a ha ?_) fun ha => ?_
+      kslots := fun j hj => .inl ((hE.foot_k rt.k hka).2 j hj)
       lits := fun M hM => ?_
       lits_in := fun a ha => kept (hpl.litFoot a ha)
       lits_apart := fun a ha hd => hE.lits_apart a ha ?_
@@ -477,7 +480,8 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
       g_in := fun a h1 h2 => kept (hpl.g a (by rw [heg]; exact h1) (by rw [heg]; exact h2))
       ci_in := fun a h1 h2 => kept (hpl.ci a h1 h2)
       stack_in := fun a h1 h2 => kept (hpl.stack a (Nat.le_trans hfunc h1) (by rw [hesl]; exact h2))
-      nci := fun nci h h0 => absurd (Option.some.inj (h.symm.trans hnext)) h0 }
+      nci := fun nci h h0 => absurd (Option.some.inj (h.symm.trans hnext)) h0
+      objs := ?_ }
   · exact hS.congr fun a ha => hlow a (by simp only [Kit.StdioGlob] at ha; omega)
       (by simp only [Kit.StdioGlob] at ha; omega)
   · exact hFs.congr fun a ha => hlow a (by simp only [Kit.StdioGlob] at ha; omega)
@@ -573,6 +577,15 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
     exact ⟨rt', hL.g, hL.sl, hL.nil.of_fill, hL.tru.of_fill, hL.fls.of_fill⟩
   · simp only [CallLitDirty, LitDirty] at hd ⊢
     rw [hesl]; omega
+  · have ho := hE.objs
+    have hcs := hreg.ci_sep
+    refine ⟨by show Apart rt.g _ _ _; rw [← heg]; exact ho.g_L, by show Apart rt.g _ _ _; rw [← heg]; exact ho.g_ci,
+      ?_, ?_, ho.lit_L, fun ts hts => by show Apart _ _ rt.g _; rw [← heg]; exact ho.lit_g ts hts, ho.lit_ci,
+      fun ts hts => ?_⟩
+    · have := ho.g_stack; show Apart rt.g _ _ _; simp only [Apart] at this ⊢; rw [← heg, ← hesl]; omega
+    · show Apart _ _ _ (rt.stackLast - func); simp only [Apart]; omega
+    · have := ho.lit_stack ts hts; show Apart _ _ _ (rt.stackLast - func); simp only [Apart] at this ⊢
+      rw [← hesl]; omega
 
 /-- **The relation's complement and ranges**, named (`relParts`). -/
 structure RelParts (p : Proto) (w : RelPtrs) : Prop where
@@ -909,7 +922,7 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
       rw [← ecl, ← esl]
       exact envMem_of_entry hE (fun _ _ => rfl) (by rw [epa]; exact hrg.kArr))
     (fun ι hι => callInv_boot hE hRt.stdio hRt.memfs hM.rodata hRt.error_jmp hlua hRt.heap hcs.dense
-      (fun _ _ => rfl) hlua.next hRt.kowned hrg hι hszk (by rw [epa]; exact hrg.kArr) rfl rfl rfl eg esl ecl
+      (fun _ _ => rfl) hlua.next (fun a h1 h2 => hcs.dense a h1 h2) hRt.kowned hrg hι hszk (by rw [epa]; exact hrg.kArr) rfl rfl rfl eg esl ecl
       (Nat.le_refl _) rfl (by rw [← esl]; exact hE.frame_fits))
   have hwo : ∀ {m : Mem} {a x : Nat} {d : BitVec (8 * 8)}, x + 8 ≤ a ∨ a + 8 ≤ x →
       bytesT8 (writeMap8 m a d) x = bytesT8 m x :=

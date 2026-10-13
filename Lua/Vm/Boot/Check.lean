@@ -966,6 +966,19 @@ def litsEntryCheck (v : View) (L ci : Nat) (e : EntryPtrs) (rt : RtPtrs) : Bool 
   rangesApart e.litFoot (litDirtyRanges L ci e) &&
   e.lits.strs.all (fun ts => !(e.foot.mem (ts + gcMarkedOff)))
 
+/-- `ObjsApart` (arithmetic). -/
+def objsCheck (L ci : Nat) (e : EntryPtrs) : Bool :=
+  decide (Apart e.g gEnd L stateSize) && decide (Apart e.g gEnd ci ciSize) &&
+  decide (Apart e.g gEnd e.func (e.stackLast - e.func)) &&
+  e.lits.strs.all (fun ts => decide (Apart ts 30 L stateSize) && decide (Apart ts 30 e.g gEnd) &&
+    decide (Apart ts 30 ci ciSize) && decide (Apart ts 30 e.func (e.stackLast - e.func)))
+
+theorem objsCheck_sound {L ci : Nat} {e : EntryPtrs} (h : objsCheck L ci e = true) : ObjsApart L ci e := by
+  simp only [objsCheck, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true] at h
+  obtain ⟨⟨⟨h1, h2⟩, h3⟩, h4⟩ := h
+  exact ⟨h1, h2, h3, fun ts hts => (h4 ts hts).1.1.1, fun ts hts => (h4 ts hts).1.1.2,
+    fun ts hts => (h4 ts hts).1.2, fun ts hts => (h4 ts hts).2⟩
+
 /-- **Where the objects lie, the heap room** over the view (lane F1-13), for
 the witness's chunk walk `rt.chunks`. -/
 def placedCheck (v : View) (L ci : Nat) (e : EntryPtrs) (rt : RtPtrs) : Bool :=
@@ -975,15 +988,16 @@ def placedCheck (v : View) (L ci : Nat) (e : EntryPtrs) (rt : RtPtrs) : Bool :=
   e.lits.strs.all (fun ts => inHeapChunk rt.chunks (ts, 30)) &&
   inHeapChunk rt.chunks (L, stateSize) && inHeapChunk rt.chunks (e.g, gEnd) &&
   inHeapChunk rt.chunks (ci, ciSize) && inHeapChunk rt.chunks (e.func, e.stackLast - e.func) &&
-  readsOk v [(symBrk, 8, rt.brkv)] && decide (rt.brkv + firstRoom ≤ symHeapEnd)
+  readsOk v [(symBrk, 8, rt.brkv)] && decide (rt.brkv + firstRoom ≤ symHeapEnd) && objsCheck L ci e
 
 theorem placedCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat} {e : EntryPtrs}
     {rt : RtPtrs} (hc : placedCheck v L ci e rt = true) :
     (∀ top cs, rd64 m DlHeap.topAddr = some top → DlHeap.ChunkWalk m DlHeap.heapStart top cs →
-      CallPlaced cs L ci e) ∧ (∀ b, rd64 m symBrk = some b → b + firstRoom ≤ symHeapEnd) := by
+      CallPlaced cs L ci e) ∧ (∀ b, rd64 m symBrk = some b → b + firstRoom ≤ symHeapEnd) ∧
+      ObjsApart L ci e := by
   simp only [placedCheck, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, Bool.or_eq_true] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨htop, hwalk⟩, hfoot⟩, hlf⟩, hls⟩, hL⟩, hg⟩, hci⟩, hst⟩, hbrk⟩, hroom⟩ := hc
-  refine ⟨fun top cs ht hw => ?_, fun b hb => ?_⟩
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨htop, hwalk⟩, hfoot⟩, hlf⟩, hls⟩, hL⟩, hg⟩, hci⟩, hst⟩, hbrk⟩, hroom⟩, hobj⟩ := hc
+  refine ⟨fun top cs ht hw => ?_, fun b hb => ?_, objsCheck_sound hobj⟩
   · obtain rfl := Option.some.inj (ht.symm.trans (h.reads htop (by mem_tac)))
     obtain rfl := (walkCheck_sound h hwalk).unique hw
     refine ⟨fun a ha => ?_, fun a ha => by
@@ -1049,7 +1063,7 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
   simp only [litsEntryCheck, Bool.and_eq_true, List.all_eq_true, Bool.not_eq_true',
     decide_eq_false_iff_not] at hlit
   obtain ⟨⟨⟨hlc, hlram⟩, hlap⟩, hmk⟩ := hlit
-  obtain ⟨hplaced, hbrk⟩ := placedCheck_sound h hpl
+  obtain ⟨hplaced, hbrk, hobjs⟩ := placedCheck_sound h hpl
   exact
     { ci_eq := h.reads hr (by mem_tac)
       ci_func := h.reads hr (by mem_tac)
@@ -1101,7 +1115,8 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
       lits_apart := fun a ha hd => rangesApart_sound hlap ha (litDirty_ranges hd)
       marks := fun ts hts hin => by have := hmk ts hts; simp_all [InRanges]
       placed := hplaced
-      room := hbrk }
+      room := hbrk
+      objs := hobjs }
 
 /-- **The checks after `OP_VARARGPREP`'s stores** (`RuntimeReadyAt.vararg`): the
 memory structures at the view `postView`, for the moved witness. -/

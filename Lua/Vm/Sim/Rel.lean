@@ -386,11 +386,37 @@ structure StatFacts (p : Proto) (w : RelPtrs) (M : Mem) : Prop where
   env : ∀ ts, w.ι.own ts printKey → EnvMem M w.rt.cl ts (HeapRead p w)
   lua : LuaStatic M w.L w.rt
 
+/-- **The objects a `CALL print` writes are apart** at the relation's
+pointers: `g` up to its string cache, the literals' objects, the `lua_State`,
+the `CallInfo` and the Lua stack above `ci->func`. -/
+structure CallObjs (w : RelPtrs) (ls : LitPtrs) : Prop where
+  g_L : Apart w.rt.g gEnd w.L stateSize
+  g_ci : Apart w.rt.g gEnd w.ci ciSize
+  g_stack : Apart w.rt.g gEnd w.func (w.rt.stackLast - w.func)
+  ci_stack : Apart w.ci ciSize w.func (w.rt.stackLast - w.func)
+  lit_L : ∀ ts ∈ ls.strs, Apart ts 30 w.L stateSize
+  lit_g : ∀ ts ∈ ls.strs, Apart ts 30 w.rt.g gEnd
+  lit_ci : ∀ ts ∈ ls.strs, Apart ts 30 w.ci ciSize
+  lit_stack : ∀ ts ∈ ls.strs, Apart ts 30 w.func (w.rt.stackLast - w.func)
+
+/-- **The C `CallInfo` `nci` after the Lua one**: in a chunk in use, apart
+from both footprints and from the objects a `CALL` writes. -/
+structure NciApart (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (ls : LitPtrs) (nci : Nat) : Prop where
+  kept : ∀ a, nci ≤ a → a < nci + ciSize → Kit.Kept w.rt.hix ph a
+  foot : ∀ a, nci ≤ a → a < nci + ciSize → ¬ F a ∧ ¬ FL a
+  L : Apart nci ciSize w.L stateSize
+  g : Apart nci ciSize w.rt.g gEnd
+  ci : Apart nci ciSize w.ci ciSize
+  stack : Apart nci ciSize w.func (w.rt.stackLast - w.func)
+  lits : ∀ ts ∈ ls.strs, Apart nci ciSize ts 30
+
 /-- **The `CALL` invariant** at `stdout`'s phase `ph`, the footprints `F` (the
 objects a `print` leaves alone) and `FL` (the interned literals), and the
 literals `ls`. -/
 structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (ls : LitPtrs) :
     Prop where
+  /-- every RAM byte of the complement is present -/
+  dense : ∀ a, 0x80000000 ≤ a → a < 0x88000000 → (w.mo[a]?).isSome
   /-- `stdout` in phase `ph` with the heap, nothing pending -/
   io : Kit.StdoutIn w.mo w.rt.hix ph
   pend : ph.pend = []
@@ -403,6 +429,8 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   stat : Kit.Frozen F (fun M => StatFacts p w (Vsa.Densify.fillZeroMem M)) w.mo
   stat_in : ∀ a, F a → Kit.Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost)
   stat_apart : ∀ a, F a → ¬ CallDirty w a
+  /-- the constant array is frozen (its slots in `F`) -/
+  kslots : ∀ j, j < tvalueSize * p.k.length → F (w.k + j)
   /-- the reserved literals interned, frozen on `FL` -/
   lits : Kit.Frozen FL (fun M => LitsHold M w.rt.g w.rt.stackLast ls) w.mo
   lits_in : ∀ a, FL a → Kit.Kept w.rt.hix ph a
@@ -417,8 +445,9 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   stack_in : ∀ a, w.func ≤ a → a < w.rt.stackLast → Kit.Kept w.rt.hix ph a
   /-- the C `CallInfo` after the Lua one, once there is one: in a chunk in
   use, apart from both footprints -/
-  nci : ∀ nci, rd64 w.mo (w.ci + ciNextOff) = some nci → nci ≠ 0 → ∀ a, nci ≤ a → a < nci + ciSize →
-    Kit.Kept w.rt.hix ph a ∧ ¬ F a ∧ ¬ FL a
+  nci : ∀ nci, rd64 w.mo (w.ci + ciNextOff) = some nci → nci ≠ 0 → NciApart w ph F FL ls nci
+  /-- the objects a `CALL` writes are apart (`ObjsApart` at the relation's pointers) -/
+  objs : CallObjs w ls
 
 -- discipline: allow(R7-conj-tower-def) one existential over the invariant's
 -- witnesses; its body is the named-field structure `CallInvAt`

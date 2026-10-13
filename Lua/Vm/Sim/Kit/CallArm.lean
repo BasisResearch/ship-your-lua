@@ -106,6 +106,20 @@ emergency `luaC_fullgc`. -/
 def HeapBudget (w : RelPtrs) (args : List Value) : Prop :=
   w.rt.brkv + callBudget args w.rt.strtSize ≤ DlHeap.heapEnd
 
+/-- `PrintCall_Statement` on the states where `Q` holds of the program, the
+relation's pointers and the instruction (lane F1-13). -/
+def PrintCallOn (I : Proto → RelPtrs → Prop) (Q : Proto → RelPtrs → Word → Prop) : Prop :=
+  ∀ {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    (f : AbiFrame) (o : Array String),
+    Supported p → VmRelAt p c s w → I p w → p.fetch s.pc = some ins → ins.op? = some .CALL →
+    ins.b ≠ 0 → ins.c ≠ 0 → (List.range' ins.a ins.b).mapM s.regs = some (.builtin .print :: args) →
+    (AnyAlloc args → HeapBudget w args) → Q p w ins →
+    Triple (SegSt 0x8000aab4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 w.L⟩,
+        ⟨Register.x11, BitVec.ofNat 64 (w.slot ins.a)⟩, ⟨Register.x12, BitVec.ofNat 64 (ins.c - 1)⟩]
+        w.sp 0x8001c7d8#64 f) (ArmPay (callMem c.σ.mem w s.pc ins) o))
+      (fun c' => ∃ m' out mo ι rt, wrRet 0x8001c7d8#64 w.sp 0 f m' (pushes o out) c' ∧
+        CallOut p w c.σ.mem ins args m' out (w.after mo ι rt) ∧ I p (w.after mo ι rt))
+
 /-- **Named premise: `luaD_precall` on `print` from `OP_CALL`**, on states
 with the invariant `I`, and with the heap room `HeapBudget` when an argument
 allocates (`Allocates`: integers, floats, functions): from the `jal` (`L`,
@@ -115,16 +129,7 @@ console gaining the line, the relation's facts for the memory it leaves
 `luaD_precall`'s C path (`precall_reuse`, `precall_ext`), `luaB_print`
 (`print_sum`), `luaD_poscall` and the relation facts. -/
 def PrintCall_Statement (I : Proto → RelPtrs → Prop) : Prop :=
-  ∀ {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
-    (f : AbiFrame) (o : Array String),
-    Supported p → VmRelAt p c s w → I p w → p.fetch s.pc = some ins → ins.op? = some .CALL →
-    ins.b ≠ 0 → ins.c ≠ 0 → (List.range' ins.a ins.b).mapM s.regs = some (.builtin .print :: args) →
-    (AnyAlloc args → HeapBudget w args) →
-    Triple (SegSt 0x8000aab4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 w.L⟩,
-        ⟨Register.x11, BitVec.ofNat 64 (w.slot ins.a)⟩, ⟨Register.x12, BitVec.ofNat 64 (ins.c - 1)⟩]
-        w.sp 0x8001c7d8#64 f) (ArmPay (callMem c.σ.mem w s.pc ins) o))
-      (fun c' => ∃ m' out mo ι rt, wrRet 0x8001c7d8#64 w.sp 0 f m' (pushes o out) c' ∧
-        CallOut p w c.σ.mem ins args m' out (w.after mo ι rt) ∧ I p (w.after mo ι rt))
+  PrintCallOn I fun _ _ _ => True
 
 /-- **A non-empty run from `c` into the relation with `s'` and the invariant
 `I`.** -/
@@ -253,7 +258,7 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
     BitVec.ofNat 64 (w.code + 4 * (s.pc + 1)), sign_extend (m := 64) ins, 0#64, t22, BitVec.ofNat 64 w.ci,
     BitVec.ofNat 64 Arms.jtBase, BitVec.ofNat 64 w.base, t26, BitVec.ofNat 64 (w.code + 4 * s.pc)⟩
   obtain ⟨c3, s3, m', out, mo, ι, rt, hret, hout, hI'⟩ :=
-    hP f c1.σ.sailOutput hS hR hI hf hop hb hcc hargs hbud _ ((h0.repin (by
+    hP f c1.σ.sailOutput hS hR hI hf hop hb hcc hargs hbud trivial _ ((h0.repin (by
       simp only [callPre, f, AbiFrame.pins, List.cons_append, List.nil_append, RelPtrs.slot]
       pins_of h0)).mem_eq (by rw [hm1]; simp only [callMem, RelPtrs.slot, stateTopOff, ciSavedpcOff, stackValueSize]))
   have acc := acc.trans s3

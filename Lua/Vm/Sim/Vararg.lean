@@ -223,7 +223,12 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
         rw [ecl, esl] at h
         exact h)
       (fun ι hι => callInv_boot (rt0 := rt) hE hRt.stdio hRt.memfs h.rel.core.comp.rodata hRt.error_jmp
-        hRt.lua hRt.heap hRt.cstack.dense hdirty hRt.vararg.lua.next hRt.vararg.kowned hRt.vararg.regions hι
+        hRt.lua hRt.heap hRt.cstack.dense hdirty hRt.vararg.lua.next
+        (fun a h1 h2 => by
+          simp only [varargMem, varargMemV, getElem?_writeLE]
+          repeat' split
+          all_goals first | rfl | exact hRt.cstack.dense a h1 h2)
+        hRt.vararg.kowned hRt.vararg.regions hι
         (by
           have h := hrg.sizek; simp only [RtPtrs.vmoved] at h ⊢
           rw [hrp, (hE.proto.kArr (by rw [← hrp]; exact hrg.kArr)).1] at h
