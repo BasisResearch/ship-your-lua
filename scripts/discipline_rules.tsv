@@ -18,3 +18,4 @@ R17-hand-inductive-semantics	Lua/**/*.lean	^\s*inductive\s+(Step|Exec|ExecS|Exec
 R17-hand-inductive-semantics	Lua/*.lean	^\s*inductive\s+(Step|Exec|ExecS|ExecB|ExecL|ExecBF|Eval|EvalList|ForIter)\b	a hand-written inductive semantics: Step is KStep over the kernel table and LuaSem is Sem over the rulebook (abstraction-discovery round 1)
 R18-hand-floor-chamber	Lua/Vm/Fn/SfRefFloor*.lean	^\s*theorem\s+ch_\w+	floor chamber lemma by hand: emit chambers with fl_chambers lo hi / fl_cover lo hi (Lua/Vm/Fn/SfRefFloor.lean), never a hand chamber list
 R18-hand-floor-chamber	Lua/Vm/Fn/SfRefMul*.lean	^\s*theorem\s+ch_\w+	__muldf3 chamber lemma by hand: emit chambers with smc_chambers (Lua/Vm/Fn/SfRefMul.lean), never a hand chamber list
+R18-hand-floor-chamber	Lua/Vm/Fn/SfRefDiv*.lean	^\s*theorem\s+ch_\w+	__divdf3 chamber lemma by hand: emit chambers with sdc_chambers (Lua/Vm/Fn/SfRefDiv.lean), never a hand chamber list

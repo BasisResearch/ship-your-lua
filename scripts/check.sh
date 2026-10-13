@@ -214,6 +214,16 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Num.SfRef.mul_eq
 #print axioms Lua.Vm.Fn.Muldf3.F_eq_ref
 #print axioms Lua.Vm.Fn.Muldf3.spec_proved
+#print axioms Lua.Vm.Sim.Kit.udivdi3_sumT
+#print axioms Lua.Vm.Sim.Kit.umoddi3_sum
+#print axioms Lua.Vm.Fn.Divdf3.sum
+#print axioms Lua.Num.SfRef.udivQrnnd_eq
+#print axioms Lua.Num.SfRef.round_jam
+#print axioms Lua.Num.SfRef.round_refine
+#print axioms Lua.Num.SfRef.div_eq
+#print axioms Lua.Vm.Fn.Divdf3.g_e114
+#print axioms Lua.Vm.Fn.Divdf3.F_eq_ref
+#print axioms Lua.Vm.Fn.Divdf3.spec_proved
 #print axioms Lua.Num.SfRef.cmp_eq
 #print axioms Lua.Num.SfRef.eqv_eq
 #print axioms Lua.Num.SfRef.toInt_eq

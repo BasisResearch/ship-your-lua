@@ -124,7 +124,10 @@ HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26, 6, 14, 15, 
            # into the sign fix-ups that objdump labels `__umoddi3+0x10`/`+0x20`
            # (a second range, pinned as `__umoddi3`)
            ("__divdi3", "__divdi3", 0x8002f72c, 0x8002f734, [22, 26], [], []),
-           ("__umoddi3", "__umoddi3", 0x8002f78c, 0x8002f7b0, [22, 26], [0x8002f79c], [])]
+           # lane float-sf4: from `__umoddi3`'s own entry `0x8002f77c` (`mv t0,ra; jal
+           # __udivdi3; mv a0,a1; jr t0`: `__divdf3`'s `udiv_qrnnd` remainders);
+           # `__divdi3`'s sign fix-ups `0x8002f78c`, `0x8002f79c` are roots
+           ("__umoddi3", "__umoddi3", 0x8002f77c, 0x8002f7b0, [22, 26], [0x8002f78c, 0x8002f79c], [])]
 # lane KIT-2: `luaV_tointeger` on a non-string, non-float value (the string
 # and float paths `0x8001ae4c`, `0x8001ae98` are stops: F1's limits are
 # integers, `forprepK`)
@@ -399,12 +402,28 @@ HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
 # are not call nodes of the arms (`FLOAT_CALLS`), so no arm segment changes.
 FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc),
               # `__muldf3` (`_FP_MUL`: four `__muldi3` partial products, two `__clzdi2`)
-              ("__muldf3", "__muldf3", 0x8002e504, 0x8002e9d0)]
+              ("__muldf3", "__muldf3", 0x8002e504, 0x8002e9d0),
+              # lane float-sf4: `__divdf3` (`_FP_DIV`: `udiv_qrnnd` by two `__udivdi3`,
+              # two `__umoddi3`, two `__muldi3`; `__clzdi2`; two class-switch jump
+              # tables, whose entries are roots: `FN_ROOTS`)
+              ("__divdf3", "__divdf3", 0x8002de30, 0x8002e350)]
+# a lifted routine's computed-jump targets (its jump tables' entries), and
+# cuts between a spill and a reload of another slot (`0x8002e1f0`: the reload
+# then reads the node's memory, a forwarded slot, `gen_lua_fn.py` `FORWARD`)
+FN_ROOTS = {"__divdf3": [0x8002e114, 0x8002df68, 0x8002df8c, 0x8002df34, 0x8002df3c,
+                         0x8002e08c, 0x8002e2cc, 0x8002e1f0]}
 # a callee's registers carried through its segments without being its
 # inputs: a call to it carries them only where they are live after the
 # return (`helper_live`), so its other callers' segments do not change
-PASS_THROUGH = {0x8002f6c8: {"x6", "x14", "x15", "x16", "x17", "x28", "x29"}}
-HELPERS += [(fn, cap, lo, hi, [22, 26], [], []) for fn, cap, lo, hi in FN_HELPERS]
+PASS_THROUGH = {0x8002f6c8: {"x6", "x14", "x15", "x16", "x17", "x28", "x29"},
+                # lane float-sf4: `__udivdi3` keeps `t0` (`__moddi3`'s, `__umoddi3`'s
+                # return address); a caller that does not read it after the call
+                # (`__divdf3`) does not carry it
+                0x8002f734: {"x5"}}
+# the callers a callee's pass-through applies to (default: every caller), so
+# that no other helper's segments change
+PASS_THROUGH_FOR = {0x8002f734: {"__divdf3"}}
+HELPERS += [(fn, cap, lo, hi, [22, 26], FN_ROOTS.get(fn, []), []) for fn, cap, lo, hi in FN_HELPERS]
 # the arms whose float paths run through the soft-float call nodes (lane
 # float-m0, M1): only there is a call to a soft-float routine a call node (its
 # return address continues the arm), so the other arms' segments stay as they are
@@ -444,7 +463,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__retarget_lock_init_recursive": set(),
            "__clzdi2": {"x10"}, "__floatsidf": {"x10"}, "__floatdidf": {"x10"},
            "__fixdfdi": {"x10"}, "__eqdf2": {"x10"}, "__gedf2": {"x10"}, "__ledf2": {"x10"},
-           "__adddf3": {"x10"}, "__subdf3": {"x10"}, "floor": {"x10"}, "__muldf3": {"x10"},
+           "__adddf3": {"x10"}, "__subdf3": {"x10"}, "floor": {"x10"}, "__muldf3": {"x10"}, "__divdf3": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
            "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),
@@ -537,7 +556,8 @@ def helper_live(cuts, owner):
             return set().union(*[live[m] for m in cuts
                                  if owner[m] == owner[n] and cuts[m][0] in roots[owner[n]]])
         end = info[n][2]
-        if end in PASS_THROUGH:     # a call: the callee's inputs, and what lives across it
+        if end in PASS_THROUGH and owner[n] in PASS_THROUGH_FOR.get(end, {owner[n]}):
+            # a call: the callee's inputs, and what lives across it
             pt = PASS_THROUGH[end]
             after = set().union(*[live[m] for m in cuts if cuts[m][0] == cuts[n][1]])
             return (set().union(*[live[m] for m in cuts if cuts[m][0] == end]) - pt) | (pt & after)
