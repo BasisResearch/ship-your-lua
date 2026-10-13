@@ -1,8 +1,9 @@
 import Lua.Vm.Sim.Kit.AtJoinOps
 import Lua.Vm.Fn.SfRefDiv
+import Lua.Vm.Fn.FloorR
 
 /-!
-# `luai_numdiv` on the join route (lane F1-F6)
+# `luai_numdiv` and `luai_numidiv` on the join route (lane F1-F6)
 
 `op_arithf(K)`'s `luai_numdiv` is `__divdf3` (`Lua.Vm.Fn.Divdf3`, its level-2
 equation `Divdf3.spec_proved : F = F64.div`, lane float-sf4), a call node of
@@ -16,6 +17,12 @@ every path, not a float path family:
   to `MMBIN`), the kernel's `rawArith`, then `at_walk NS`;
 * `at_jarithAK pc NS`: the same with the constant `K[C]` (`num_k`);
 * the stored float of `__divdf3` (an `at_new_ext` rule).
+
+The float paths of `OP_IDIV`/`OP_IDIVK` are `luai_numidiv`, `floor(a / b)`,
+on `at_jarith`/`at_jarithK` (`Kit/AtJoinOps.lean`). The result is stored, so
+`floor`'s call node is `FloorR` (`gen_lua_at.py` `FCALL_ARM`), whose result
+is the reference `SfRef.floor`, the canonical datum of `Lua.Num.floor`
+(`FloorR.S_bits`); the same stored-float rule covers it.
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -35,6 +42,17 @@ macro "at_keep_tags" : tactic => `(tactic| (
   try (have htb' := htn'; clear htn')))
 
 set_option hygiene false in
+/-- The kernel on the two views (`hn`, `hn'`): `rawArith`, the successor
+substituted, then `at_walk NS`, on every goal. -/
+macro "at_jarith_both " ns:ident : tactic => `(tactic| (
+  all_goals
+    simp only [Opnd.fill, fastArith, hn, hn'] at hk
+    simp [Value.toNum?, Lua.Num.rawArith, BinOp.toOp, Lua.Num.numarith, Lua.Num.Numeral.toFloat,
+      Value.ofNum, VState.apply, writeDefs, KEdge.kills] at hk
+    subst hk
+    at_walk $ns))
+
+set_option hygiene false in
 /-- **`at_jarithA pc NS`**: `op_arithf` on every operand class (`OP_DIV`):
 `R[B]` and `R[C]` by their per-operand views, the kernel's `rawArith`, then
 `at_walk NS`. -/
@@ -45,12 +63,7 @@ macro "at_jarithA " pc:num ns:ident : tactic => `(tactic| (
   num_reg ins.b, hn
   all_goals at_keep_tags
   all_goals num_reg ins.c, hn'
-  all_goals
-    simp only [Opnd.fill, fastArith, hn, hn'] at hk
-    simp [Value.toNum?, Lua.Num.rawArith, BinOp.toOp, Lua.Num.numarith, Lua.Num.Numeral.toFloat,
-      Value.ofNum, VState.apply, writeDefs, KEdge.kills] at hk
-    subst hk
-    at_walk $ns))
+  at_jarith_both $ns))
 
 set_option hygiene false in
 /-- **`at_jarithAK pc NS`**: `op_arithfK` on every operand class (`OP_DIVK`):
@@ -63,22 +76,18 @@ macro "at_jarithAK " pc:num ns:ident : tactic => `(tactic| (
   num_reg ins.b, hn
   all_goals at_keep_tags
   all_goals num_k hn'
-  all_goals
-    simp only [Opnd.fill, fastArith, hn, hn'] at hk
-    simp [Value.toNum?, Lua.Num.rawArith, BinOp.toOp, Lua.Num.numarith, Lua.Num.Numeral.toFloat,
-      Value.ofNum, VState.apply, writeDefs, KEdge.kills] at hk
-    subst hk
-    at_walk $ns))
+  at_jarith_both $ns))
 
 set_option hygiene false in
 /-- A stored float computed by `__divdf3` (after `__floatdidf` for an
-integer operand): its bits are the kernel's quotient's. -/
+integer operand), or by `floor` of it (`luai_numidiv`, `FloorR.S_bits`): its
+bits are the kernel's quotient's. -/
 macro_rules
   | `(tactic| at_new_ext) => `(tactic| (
       refine ValRepr.ofFloat_of (by decide) ?_
-      simp (disch := assumption) only [Loc.den, Fld.den, Nat.add_zero, at_fspec, Lua.Vm.Fn.Divdf3.S,
-        Lua.Vm.Fn.Floatdidf.S, F64.div_eq_model, toModel_toBits, toModel_ofInt, ofI, hxm, true_and,
-        and_true]
+      simp (disch := assumption) only [Loc.den, Fld.den, Nat.add_zero, at_fspec, Lua.Vm.Fn.FloorR.S_bits,
+        Lua.Vm.Fn.Divdf3.S, Lua.Vm.Fn.Floatdidf.S, F64.div_eq_model, toModel_toBits, toModel_ofInt, ofI,
+        hxm, true_and, and_true, Lua.Num.numidiv]
       done))
 
 end Lua.Vm.Sim.At

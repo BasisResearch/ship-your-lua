@@ -1,4 +1,4 @@
-import Lua.Vm.Sim.Kit.AtJoinIdiv
+import Lua.Vm.Sim.Kit.AtJoinDiv
 import Lua.Vm.At.IdivF
 
 /-!

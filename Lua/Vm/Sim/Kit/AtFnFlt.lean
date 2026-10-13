@@ -2,6 +2,7 @@ import Lua.Vm.Sim.Kit.AtFn
 import Lua.Vm.Fn.Spec
 import Lua.Vm.Fn.Floor
 import Lua.Vm.Fn.Muldf3
+import Lua.Vm.Fn.Divdf3
 
 /-!
 # Soft-float call nodes and Boolean forks on the callee route (lane F1-F4)
