@@ -556,6 +556,14 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.stdoutSetup_fresh
 #print axioms Lua.Vm.Sim.Kit.SetupPost.print
 #print axioms Lua.Vm.Sim.Kit.fwrite_print
+#print axioms Lua.Vm.Sim.Kit.gettop_sum
+#print axioms Lua.Vm.Sim.Kit.settop_pop_sum
+#print axioms Lua.Vm.Sim.Kit.PrintSt.keep
+#print axioms Lua.Vm.Sim.Kit.pr_tail
+#print axioms Lua.Vm.Sim.Kit.pr_mid
+#print axioms Lua.Vm.Sim.Kit.pr_step
+#print axioms Lua.Vm.Sim.Kit.pr_loop
+#print axioms Lua.Vm.Sim.Kit.print_sum
 #print axioms Lua.Num.F64.unpack_eq
 #print axioms Lua.Num.F64.pack_cls
 #print axioms Lua.Num.F64.round_eq_model
