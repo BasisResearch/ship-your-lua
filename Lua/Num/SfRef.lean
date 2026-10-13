@@ -107,7 +107,7 @@ def add (a b : F64) : F64 := addFields a.sign a.bexp a.frac b.sign b.bexp b.frac
 
 /-- `SfRef.sub`: soft-fp's `_FP_SUB` is `_FP_ADD_INTERNAL` with `Y`'s sign
 flipped (a NaN's sign is irrelevant: every NaN result is `qnan`). -/
-def sub (a b : F64) : F64 := add a (b ^^^ 0x8000000000000000#64)
+def sub (a b : F64) : F64 := add a (F64.neg b)
 
 /-! ## Rewriting the reference by cases (side conditions by `omega`) -/
 

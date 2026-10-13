@@ -783,8 +783,18 @@ theorem add_eq (a b : F64) : add a b = F64.add a b := by
   rw [cls_fin' (by omega) hai, cls_fin' (by omega) hbi,
     addFields_fin _ _ _ _ _ _ (by omega) (by omega) hfa hfb (Or.inl (by omega))]
 
+theorem sgnApply_not (b : Bool) (m : Nat) : sgnApply (!b) m = - sgnApply b m := by
+  cases b <;> simp [sgnApply]
+
+/-- `F64.sub` is `F64.add` with the second operand's sign flipped. -/
+theorem sub_eq_add_neg (x y : F64) : F64.sub x y = F64.add x (neg y) := by
+  unfold F64.sub F64.add
+  rw [cls_neg]
+  rcases x.cls with _ | a | a | ⟨a, m₁, e₁⟩ <;> rcases y.cls with _ | b | b | ⟨b, m₂, e₂⟩ <;>
+    simp only [Cls.negate, Bool.not_not, sgnApply_not, Int.sub_eq_add_neg]
+
 /-- **(b2) for `__subdf3`**: soft-fp's `_FP_SUB` is the `F64` subtraction. -/
 theorem sub_eq (a b : F64) : sub a b = F64.sub a b := by
-  sorry
+  rw [sub, add_eq, sub_eq_add_neg]
 
 end Lua.Num.SfRef
