@@ -386,7 +386,10 @@ elab "at_atoms" : tactic => withMainContext do
       Lua.Vm.Fn.Gedf2.S, Lua.Vm.Fn.Ledf2.S, Lua.Vm.Fn.Eqdf2.S, Lua.Vm.Fn.Adddf3.S, F64.eq,
       Lua.Vm.Fn.Floatdidf.S, toModel_ofInt, ofI, Value.isFalse,
       F64.compare_eq_model, toModel_add, toModel_toBits, toModel_zero, model_lt_cmp, model_le_cmp,
-      model_beq_cmp, sgnBound, true_and, and_true, Bool.not_eq_true, $ms,*] at $hids*))
+      model_beq_cmp, sgnBound, true_and, and_true, Bool.not_eq_true,
+      -- lane F2: `op_orderI`'s immediate through `__floatsidf` (`sb_fsi`, `toInt_imm`)
+      Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.zero_add, Nat.sub_zero, Lua.Vm.Fn.Floatsidf.S,
+      sb_fsi, toInt_imm, $ms,*] at $hids*))
   if (← getUnsolvedGoals).isEmpty then return
   withMainContext do
     -- the pair atoms: the kernel's test (`hq`) names the orientation first
