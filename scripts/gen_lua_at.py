@@ -154,7 +154,11 @@ FPROVED = {"Adddf3": "Lua.Vm.Fn.SfRefAdd", "Subdf3": "Lua.Vm.Fn.SfRefSub",
            # `FCALLS` with the MUL/MULK arms' float paths)
            "Muldf3": "Lua.Vm.Fn.SfRefMul",
            # lane F1-F5: libm `floor` (`FloorSpec`, proved by lane float-sf3)
-           "Floor": "Lua.Vm.Fn.SfRefFloorSpec"}
+           "Floor": "Lua.Vm.Fn.SfRefFloorSpec",
+           # lane float-sf5: `__ieee754_fmod` (`spec_proved` also takes the
+           # image's `RodataRead`, the `Zero[]` table; its call node and the
+           # `fmod` wrapper are an arm lane's)
+           "Ieee754Fmod": "Lua.Vm.Fn.FmodSpec"}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)

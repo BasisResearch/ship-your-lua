@@ -27,6 +27,13 @@ namespace Lua.Vm.Fn.FmodLens
 set_option linter.unusedSimpArgs false
 set_option linter.deprecated false
 
+/-- A nonnegative `Int` is a `Nat`. -/
+theorem nat_of (a : Int) (h : 0 ≤ a) : ∃ u : Nat, a = (u : Int) := ⟨a.toNat, (Int.toNat_of_nonneg h).symm⟩
+
+/-- A multiple of `2^k`. -/
+theorem mul_of (u k : Nat) (h : u % 2 ^ k = 0) : ∃ q, u = 2 ^ k * q :=
+  ⟨u / 2 ^ k, (Nat.mul_div_cancel' (Nat.dvd_of_mod_eq_zero h)).symm⟩
+
 /-- Powers of two are monotone (in `Int`). -/
 theorem ipow_mono {k j : Nat} (h : k ≤ j) : (2 : Int) ^ k ≤ 2 ^ j := by
   obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le h
@@ -131,7 +138,7 @@ theorem srl32 {m : Nat} (a : Int) (k : BitVec m) :
   rw [e32]
   have h0 : 0 ≤ a % 2 ^ 32 := Int.emod_nonneg _ (by decide)
   have hl : a % 2 ^ 32 < 2 ^ 32 := Int.emod_lt_of_pos _ (by decide)
-  obtain ⟨u, hu⟩ : ∃ u : Nat, a % 2 ^ 32 = (u : Int) := ⟨_, (Int.toNat_of_nonneg h0).symm⟩
+  obtain ⟨u, hu⟩ := nat_of (a % 2 ^ 32) h0
   rw [hu, Int.toNat_natCast]
   have hP : ((2 : Int) ^ k.toNat) = ((2 ^ k.toNat : Nat) : Int) := by simp
   rw [hP, ← Int.natCast_ediv]
@@ -200,7 +207,7 @@ theorem srl64 {m : Nat} (a : Int) (k : BitVec m) :
   rw [e64]
   have h0 : 0 ≤ a % 2 ^ 64 := Int.emod_nonneg _ (by decide)
   have hl : a % 2 ^ 64 < 2 ^ 64 := Int.emod_lt_of_pos _ (by decide)
-  obtain ⟨u, hu⟩ : ∃ u : Nat, a % 2 ^ 64 = (u : Int) := ⟨_, (Int.toNat_of_nonneg h0).symm⟩
+  obtain ⟨u, hu⟩ := nat_of (a % 2 ^ 64) h0
   rw [hu, Int.toNat_natCast]
   have hP : ((2 : Int) ^ k.toNat) = ((2 ^ k.toNat : Nat) : Int) := by simp
   rw [hP, ← Int.natCast_ediv]
@@ -259,7 +266,7 @@ theorem land_field (a j l : Nat) : a &&& ((2 ^ l - 1) * 2 ^ j) = (a / 2 ^ j % 2 
 theorem and_field (a : Int) (m j l : Nat) (ha : 0 ≤ a) (ha2 : a < 2 ^ 63) (hm : m = (2 ^ l - 1) * 2 ^ j)
     (hm2 : m < 2 ^ 63) :
     BitVec.ofInt 64 a &&& BitVec.ofInt 64 (m : Int) = BitVec.ofInt 64 (a / 2 ^ j % 2 ^ l * 2 ^ j) := by
-  obtain ⟨u, rfl⟩ : ∃ u : Nat, a = (u : Int) := ⟨a.toNat, (Int.toNat_of_nonneg ha).symm⟩
+  obtain ⟨u, rfl⟩ := nat_of a ha
   rw [ofInt_ofNat, ofInt_ofNat]
   have e : ((u : Int) / 2 ^ j % 2 ^ l * 2 ^ j) = ((u / 2 ^ j % 2 ^ l * 2 ^ j : Nat) : Int) := by
     simp [Int.natCast_ediv, Int.natCast_emod, Int.natCast_mul, Int.natCast_pow]
@@ -294,7 +301,7 @@ theorem and_7ff00000 (a : Int) (ha : 0 ≤ a) (ha2 : a < 2 ^ 63) :
 /-- `and` with the sign-extended `0x80000000` (the sign word of a high word). -/
 theorem and_hi31 (a : Int) (ha : 0 ≤ a) (ha2 : a < 2 ^ 32) :
     BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-2147483648) = BitVec.ofInt 64 (a / 2147483648 * 2147483648) := by
-  obtain ⟨u, rfl⟩ : ∃ u : Nat, a = (u : Int) := ⟨a.toNat, (Int.toNat_of_nonneg ha).symm⟩
+  obtain ⟨u, rfl⟩ := nat_of a ha
   have hu : u < 2 ^ 32 := by omega
   have h1 : BitVec.ofInt 64 (-2147483648) = BitVec.ofNat 64 ((2 ^ 33 - 1) * 2 ^ 31) := by decide
   have e : ((u : Int) / 2147483648 * 2147483648) = ((u / 2 ^ 31 % 2 ^ 33 * 2 ^ 31 : Nat) : Int) := by
@@ -309,8 +316,8 @@ theorem and_hi31 (a : Int) (ha : 0 ≤ a) (ha2 : a < 2 ^ 32) :
 /-- `or` of disjoint non-negative values: the sum (`b` below `2^k`, `a` a multiple). -/
 theorem or_disj (a b : Int) (k : Nat) (ha : 0 ≤ a) (hb : 0 ≤ b) (hak : a % 2 ^ k = 0) (hbk : b < 2 ^ k)
     (hab : a + b < 2 ^ 64) : BitVec.ofInt 64 a ||| BitVec.ofInt 64 b = BitVec.ofInt 64 (a + b) := by
-  obtain ⟨u, rfl⟩ : ∃ u : Nat, a = (u : Int) := ⟨a.toNat, (Int.toNat_of_nonneg ha).symm⟩
-  obtain ⟨v, rfl⟩ : ∃ v : Nat, b = (v : Int) := ⟨b.toNat, (Int.toNat_of_nonneg hb).symm⟩
+  obtain ⟨u, rfl⟩ := nat_of a ha
+  obtain ⟨v, rfl⟩ := nat_of b hb
   rw [ofInt_ofNat, ofInt_ofNat, show ((u : Int) + v) = ((u + v : Nat) : Int) by simp, ofInt_ofNat]
   have hk : (2 : Int) ^ k = ((2 ^ k : Nat) : Int) := by simp
   rw [hk] at hak hbk
@@ -320,7 +327,7 @@ theorem or_disj (a b : Int) (k : Nat) (ha : 0 ≤ a) (hb : 0 ≤ b) (hak : a % 2
   simp only [BitVec.toNat_or, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt (by omega : u < 2 ^ 64), Nat.mod_eq_of_lt (by omega : v < 2 ^ 64),
     Nat.mod_eq_of_lt (by omega : u + v < 2 ^ 64)]
-  obtain ⟨q, rfl⟩ : ∃ q, u = 2 ^ k * q := ⟨u / 2 ^ k, (Nat.mul_div_cancel' (Nat.dvd_of_mod_eq_zero hu)).symm⟩
+  obtain ⟨q, rfl⟩ := mul_of u k hu
   rw [Nat.mul_comm, SfLens.or_add _ _ _ hv]
 
 theorem or_disj' (a b : Int) (k : Nat) (ha : 0 ≤ a) (hb : 0 ≤ b) (hak : a % 2 ^ k = 0) (hbk : b < 2 ^ k)
@@ -385,7 +392,7 @@ theorem or_low (a b : Int) (k : Nat) (hk : k ≤ 64) (hak : a % 2 ^ k = 0) (hb :
     have h2 : U + V < 2 ^ 64 := by
       have : U < 2 ^ 64 := by rw [← hU]; exact BitVec.isLt _
       have hUc : U ≤ 2 ^ 64 - 2 ^ k := by
-        obtain ⟨q, rfl⟩ : ∃ q, U = 2 ^ k * q := ⟨U / 2 ^ k, (Nat.mul_div_cancel' (Nat.dvd_of_mod_eq_zero hUk)).symm⟩
+        obtain ⟨q, rfl⟩ := mul_of U k hUk
         rw [hc] at this ⊢
         have hq : q < c := Nat.lt_of_mul_lt_mul_left this
         have := Nat.mul_le_mul_left (2 ^ k) (show q + 1 ≤ c by omega)
@@ -396,7 +403,7 @@ theorem or_low (a b : Int) (k : Nat) (hk : k ≤ 64) (hak : a % 2 ^ k = 0) (hb :
       rw [← h1]; exact (Int.emod_eq_of_lt (by omega) (by exact_mod_cast h2)).symm
     omega
   rw [hWUV]
-  obtain ⟨q, rfl⟩ : ∃ q, U = 2 ^ k * q := ⟨U / 2 ^ k, (Nat.mul_div_cancel' (Nat.dvd_of_mod_eq_zero hUk)).symm⟩
+  obtain ⟨q, rfl⟩ := mul_of U k hUk
   rw [Nat.mul_comm, SfLens.or_add _ _ _ hVk]
 
 /-- The machine's two-word right shift: `(h << (32 - n)) | (l >>> n)` as
