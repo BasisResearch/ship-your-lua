@@ -2089,6 +2089,36 @@ PRINT_LOOP_ROW = {2: N((0, 1), add=-64), 3: ("lit", 0x8005ced0), 8: N((5, 1)), 9
                   **{r: ("bv", 6 + k) for k, r in enumerate(range(21, 28))},
                   10: N((1, 1)), 11: N((5, 1)), 12: N((0, 1), add=-56)}
 
+# lane F1-12: `luaD_precall`'s objects: `L`, the function's slot, the stack
+# top and end, the Lua `CallInfo` and the C one, in the arena (above the
+# allocator's globals, below `2 ^ 32`); the C call needs more than
+# `LUA_MINSTACK` slots of room (`stack_last - top > 320`, else growth: a stop)
+PRECALL_OK = ["sp_lo : 0x8005e7d8 + 4096 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+              "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + [
+              "f_lo : 0x8005c6d0 ≤ X.n 2", "f_hi : X.n 2 + 16 ≤ 2 ^ 32", "f_al : X.n 2 % 8 = 0",
+              "nr_lt : X.n 3 < 2 ^ 15", "t_hi : X.n 4 + 320 < X.n 5", "s_hi : X.n 5 ≤ 2 ^ 32",
+              "ci_lo : 0x8005c6d0 ≤ X.n 6", "ci_hi : X.n 6 + 64 ≤ 2 ^ 32", "ci_al : X.n 6 % 8 = 0",
+              # the objects lie below the frame
+              "L_sp : X.n 1 + 256 + 96 ≤ X.n 0", "f_sp : X.n 2 + 16 + 96 ≤ X.n 0",
+              "ci_sp : X.n 6 + 64 + 96 ≤ X.n 0"]
+PRECALL_LB = {**LUA_LB, 2: 0x8005c6d0, 6: 0x8005c6d0, 7: 0x8005c6d0}
+# the words `luaD_precall` reads: `L->top`, `L->stack_last`, `L->ci`, the
+# function's value (`luaB_print`); its tag (`LUA_VLCF`) and `L->hookmask` (0)
+PRECALL_CELLS = {(((1, 1),), 16): N((4, 1)), (((1, 1),), 40): N((5, 1)),
+                 (((1, 1),), 32): N((6, 1)), (((2, 1),), 0): ("lit", 0x80022f18),
+                 # its frame's saved `ra`, `s0` (the caller's), read by the epilogue
+                 (((0, 1),), -8): ("bv", 0), (((0, 1),), -16): ("bv", 1)}
+PRECALL_CELLSW = {(1, ((2, 1),), 8): 0x16, (4, ((1, 1),), 192): 0}
+# the join's registers: `sp` inside the frame, `s0` = L, the caller's `ra`,
+# `s1`-`s11`; `a5` = the C `CallInfo`, `a4` = its top, `a1` = func, `a6` =
+# nresults, `a7` = the C function
+PRECALL_JOIN_ROW = {1: ("bv", 0), 2: N((0, 1), add=-96), 3: ("lit", 0x8005ced0), 8: N((1, 1)),
+                    9: ("bv", 2), **{r: ("bv", 3 + k) for k, r in enumerate(range(18, 28))},
+                    15: N((7, 1)), 14: N((4, 1), add=320), 11: N((2, 1)), 16: N((3, 1)),
+                    17: ("lit", 0x80022f18)}
+PRECALL_JOIN_OK = ["n_lo : 0x8005c6d0 ≤ X.n 7", "n_hi : X.n 7 + 64 ≤ 2 ^ 32", "n_al : X.n 7 % 8 = 0",
+                   "n_sp : X.n 7 + 64 + 96 ≤ X.n 0"]
+
 FNS = {
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
@@ -2321,6 +2351,37 @@ FNS = {
         doc="`luaB_print(L)`: each argument's `luaL_tolstring`, `fwrite` of a tab "
             "between them and of each string, `lua_pop`; then `fwrite` of the newline "
             "and `fflush(stdout)`."),
+    # lane F1-12: `luaD_precall(L, func, nresults)` on a light C function
+    # (`print`): X.n 1 = L, X.n 2 = func, X.n 3 = nresults, X.n 4 = L->top,
+    # X.n 5 = L->stack_last, X.n 6 = L->ci, X.n 7 = the C `CallInfo` (`ci->next`
+    # reused); the join after `next_ci` (`0x8000ac5c`, X.n 7 the `CallInfo`
+    # either way) a root, so `luaD_precall/ext` hands over there; the C
+    # function (`jalr a7`, `luaB_print`) and `luaD_poscall` are call nodes
+    "luaD_precall": dict(
+        mod="Precall", entry=0x8000aab4,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=PRECALL_OK, lb=PRECALL_LB,
+        rcells={**PRECALL_CELLS, (((6, 1),), 24): N((7, 1))},
+        rcellsw=PRECALL_CELLSW,
+        calls={0x80022f18: dict(ret={10: ("lit", 0)}), 0x8000a39c: dict(ret={})},
+        stops=[0x8000aae0, 0x8000abe4, 0x8000ace0],
+        loops={0x8000ac5c: dict(name="J", row=PRECALL_JOIN_ROW, ok=PRECALL_OK + PRECALL_JOIN_OK,
+                                lb=PRECALL_LB)},
+        doc="`luaD_precall(L, func, nresults)` → `precallC` on `luaB_print`: no stack "
+            "growth, `ci->next` reused, no hook; the join after `next_ci` a root."),
+    # lane F1-12: `luaD_precall` up to the join when `ci->next` is NULL:
+    # `luaE_extendCI` (a call node: the new `CallInfo` X.n 7), a root after it
+    # (the arguments reloaded from the frame), the `j` to the join (an end)
+    "luaD_precall/ext": dict(
+        mod="PrecallExt", entry=0x8000aab4,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=PRECALL_OK, lb=PRECALL_LB,
+        rcells={**PRECALL_CELLS, (((6, 1),), 24): ("lit", 0)},
+        rcellsw=PRECALL_CELLSW,
+        calls={0x80016a5c: dict(ret={10: N((7, 1))})},
+        stops=[0x8000aae0, 0x8000abe4, 0x8000ace0], ends=[0x8000ac5c],
+        doc="`luaD_precall(L, func, nresults)` → `precallC` on `luaB_print` with "
+            "`ci->next` NULL: `luaE_extendCI`, up to the join after `next_ci`."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
     # in the byte scan, the end); the alignment bytes, the words (the
     # zero-lane test on `word ^ 0x0a…0a`), the bytes, each loop a root

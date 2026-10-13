@@ -154,6 +154,7 @@ import Lua.Vm.Arms.Segs.Hisatty
 import Lua.Vm.Arms.Segs.HluaB_print
 import Lua.Vm.Arms.Segs.Hlua_gettop
 import Lua.Vm.Arms.Segs.Hlua_settop
+import Lua.Vm.Arms.Segs.HluaD_precall
 import Lua.Vm.Arms.Segs.Hclzdi2
 import Lua.Vm.Arms.Segs.Hfloatsidf
 import Lua.Vm.Arms.Segs.Hfloatdidf

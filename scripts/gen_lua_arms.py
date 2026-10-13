@@ -279,10 +279,20 @@ HELPERS += [("__swsetup_r", "__swsetup_r", 0x8003587c, 0x800359e0, [22, 26], [],
 HELPERS += [("luaB_print", "LuaB_print", 0x80022f18, 0x80023010, [22, 26], [], []),
             ("lua_gettop", "Lua_gettop", 0x80001bb4, 0x80001bd4, [22, 26], [], []),
             ("lua_settop", "Lua_settop", 0x80001bd4, 0x80001cbc, [22, 26], [], [0x80001c8c])]
+# lane F1-12: `OP_CALL` (its `jal luaD_precall` a call node) and
+# `luaD_precall`'s light-C-function path (`precallC`): the `LUA_VLCF` case, no
+# stack growth (`checkstackGCp`'s `luaD_growstack`, `0x8000abe4`, a stop),
+# `next_ci` (`ci->next` reused, or `luaE_extendCI`: a call node), no call hook
+# (`0x8000ace0` a stop), the C function through `jalr a7` (`luaB_print`), then
+# `luaD_poscall`; the Lua-function and `__call` paths (`0x8000aae0`) are stops
+SIM_OPS |= {"OP_CALL"}
+SUMMARISED |= {"luaD_precall"}
+HELPERS += [("luaD_precall", "LuaD_precall", 0x8000aab4, 0x8000ae3c, [22, 26], [0x8000ac8c],
+             [0x8000aae0, 0x8000abe4, 0x8000ace0])]
 # the argument registers of a callee with no segments of its own (a call node
 # whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
-# idx, &len)`)
-CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}}
+# idx, &len)`; lane F1-12: `luaE_extendCI(L)`)
+CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}, 0x80016a5c: {"x10"}}
 # a `ret` (by its address) that also returns into its own helper's code (an
 # internal `jalr`: `memset`'s `sb` chain): its live-out includes the code
 # after that call
@@ -290,7 +300,7 @@ RET_TO = {0x8003b5f8: [0x8003b630]}
 # indirect calls whose target the callee rows know (`jalr` through a `FILE`
 # hook): the callee's entry reads flow back into the caller's segments, as a
 # `jal`'s do (`__sfvwrite_r`'s `fp->_write`, `__swrite`, reads `a3`)
-INDIRECT = {0x80033df0: 0x80034f18}
+INDIRECT = {0x80033df0: 0x80034f18, 0x8000ac88: 0x80022f18}
 # lane float-m0: libgcc's soft-float routines of the T1/T2 float paths
 # (FLOAT-DESIGN.md §3, M0), all loop-free but `__clzdi2` (a counted byte scan,
 # unrolled by `scripts/gen_lua_fn.py`); their whole-function summaries are
@@ -330,7 +340,8 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__adddf3": {"x10"}, "__subdf3": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
-           "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set()}
+           "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),
+           "luaD_precall": {"x10"}}
 
 
 def helper_cfg(lo, hi):
