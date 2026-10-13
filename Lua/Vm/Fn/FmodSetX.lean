@@ -100,52 +100,28 @@ macro "fm_xbe78_chambers " lo:num hi:num : command => do
 
 fm_xbe78_chambers 1 32
 
-open Lean in
-set_option hygiene false in
-/-- The chambers `xbe78_<n>` joined by `n = -1022 - ix` (a balanced split). -/
-macro "fm_xbe78_cover" : command => do
-  let rec tree (a b : Nat) (fuel : Nat) : MacroM (TSyntax `tactic) := do
-    match fuel with
-    | 0 => `(tactic| omega)
-    | fuel + 1 =>
-      if b ≤ a + 1 then
-        let il := Syntax.mkNumLit (toString (1022 + a))
-        let ch := mkIdent (Name.mkSimple s!"xbe78_{a}")
-        `(tactic| (obtain rfl : ix = -$il := by omega
-                   rw [show ((-1022 : Int) - -$il).toNat = $(Syntax.mkNumLit (toString a)) by decide] at hX1 hX2 hlow ⊢
-                   exact $ch hro s r iy sx hx lx hy ly h5 hx0 hx1 hl1 hl2 hy0 hy1 hm1 hm2 hX1 hX2 hiy1 hiy2 hY1 hY2
-                     hix hlow))
-      else
-        let c := (a + b) / 2
-        let cl := Syntax.mkNumLit (toString (1022 + c))
-        let t1 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree a c fuel):tactic)
-        let t2 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree c b fuel):tactic)
-        `(tactic| if hS : -$cl < ix then $t1 else $t2)
-  let tac ← tree 1 32 64
-  `(command|
-    /-- **A subnormal `x` shifted by `n = -1022 - ix ≤ 31`** (`e_fmod.c:84-87`,
-    `0x8002be78`), a subnormal `y`. -/
-    theorem x_be78 {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
-        (iy ix sx hx lx hy ly : Int) (h5 : sx = 0 ∨ sx = 2 ^ 31) (hx0 : 0 ≤ hx) (hx1 : hx < 2 ^ 20)
-        (hl1 : -2 ^ 31 ≤ lx) (hl2 : lx < 2 ^ 31) (hy0 : 0 ≤ hy) (hy1 : hy < 2 ^ 20) (hm1 : -2 ^ 31 ≤ ly)
-        (hm2 : ly < 2 ^ 31) (hix1 : -1053 ≤ ix) (hix2 : ix ≤ -1023)
-        (hX1 : 2 ^ 52 ≤ (hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (-1022 - ix).toNat)
-        (hX2 : (hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (-1022 - ix).toNat < 2 ^ 53)
-        (hiy1 : -1074 ≤ iy) (hiy2 : iy ≤ -1023)
-        (hY1 : 2 ^ 52 ≤ (hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)
-        (hY2 : (hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat < 2 ^ 53) (hix : iy ≤ ix)
-        (hlow : LowOk iy (((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (-1022 - ix).toNat) * 2 ^ (ix - iy).toNat) %
-          ((hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)).toNat)) :
-        N_8002be78 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 (-1022)) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx)
-            (BitVec.ofInt 64 ix) (BitVec.ofInt 64 hy) (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly)
-            (BitVec.ofInt 64 (-1053)) =
-          outv sx iy (((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (-1022 - ix).toNat) * 2 ^ (ix - iy).toNat) %
-            ((hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)).toNat) ∧
-        T_8002be78 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 (-1022)) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx)
-            (BitVec.ofInt 64 ix) (BitVec.ofInt 64 hy) (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly)
-            (BitVec.ofInt 64 (-1053)) = true := by
-      $tac:tactic)
-
-fm_xbe78_cover
+/-- **A subnormal `x` shifted by `n = -1022 - ix ≤ 31`** (`e_fmod.c:84-87`,
+`0x8002be78`), a subnormal `y`. -/
+theorem x_be78 {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
+    (iy ix sx hx lx hy ly : Int) (h5 : sx = 0 ∨ sx = 2 ^ 31) (hx0 : 0 ≤ hx) (hx1 : hx < 2 ^ 20)
+    (hl1 : -2 ^ 31 ≤ lx) (hl2 : lx < 2 ^ 31) (hy0 : 0 ≤ hy) (hy1 : hy < 2 ^ 20) (hm1 : -2 ^ 31 ≤ ly)
+    (hm2 : ly < 2 ^ 31) (hix1 : -1053 ≤ ix) (hix2 : ix ≤ -1023)
+    (hX1 : 2 ^ 52 ≤ (hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (-1022 - ix).toNat)
+    (hX2 : (hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (-1022 - ix).toNat < 2 ^ 53)
+    (hiy1 : -1074 ≤ iy) (hiy2 : iy ≤ -1023)
+    (hY1 : 2 ^ 52 ≤ (hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)
+    (hY2 : (hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat < 2 ^ 53) (hix : iy ≤ ix)
+    (hlow : LowOk iy (((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (-1022 - ix).toNat) * 2 ^ (ix - iy).toNat) %
+      ((hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)).toNat)) :
+    N_8002be78 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 (-1022)) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx)
+        (BitVec.ofInt 64 ix) (BitVec.ofInt 64 hy) (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly)
+        (BitVec.ofInt 64 (-1053)) =
+      outv sx iy (((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (-1022 - ix).toNat) * 2 ^ (ix - iy).toNat) %
+        ((hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)).toNat) ∧
+    T_8002be78 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 (-1022)) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx)
+        (BitVec.ofInt 64 ix) (BitVec.ofInt 64 hy) (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly)
+        (BitVec.ofInt 64 (-1053)) = true := by
+  fm_cover xbe78 ix 1 32 at hX1 hX2 hlow using
+    hro s r iy sx hx lx hy ly h5 hx0 hx1 hl1 hl2 hy0 hy1 hm1 hm2 hX1 hX2 hiy1 hiy2 hY1 hY2 hix hlow
 
 end Lua.Vm.Fn.Ieee754Fmod

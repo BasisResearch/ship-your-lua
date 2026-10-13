@@ -581,4 +581,30 @@ macro "fm_close" : tactic => `(tactic| (
      try simp only [Int.bmod]
      (repeat' split) <;> omega)))
 
+open Lean in
+set_option hygiene false in
+/-- **The balanced cover of per-exponent chambers** (rule R18): the
+chambers `<pre>_<n>` (`n = lo … hi - 1`, one per `v = -1022 - n`, the
+exponent literal) joined by a balanced split on `v`; at a leaf `v` is
+substituted, `(-1022 - v).toNat` evaluated in the hypotheses `hs` and the
+goal, and the chamber applied to `args`. -/
+macro "fm_cover " pre:ident v:ident lo:num hi:num " at " hs:ident* " using " args:term:max* : tactic => do
+  let rec tree (a b : Nat) (fuel : Nat) : MacroM (TSyntax `tactic) := do
+    match fuel with
+    | 0 => `(tactic| omega)
+    | fuel + 1 =>
+      if b ≤ a + 1 then
+        let il := Syntax.mkNumLit (toString (1022 + a))
+        let ch := mkIdent (Name.mkSimple s!"{pre.getId}_{a}")
+        `(tactic| (obtain rfl : $v = -$il := by omega
+                   rw [show ((-1022 : Int) - -$il).toNat = $(Syntax.mkNumLit (toString a)) by decide] at $[$hs]* ⊢
+                   exact $ch $args*))
+      else
+        let c := (a + b) / 2
+        let cl := Syntax.mkNumLit (toString (1022 + c))
+        let t1 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree a c fuel):tactic)
+        let t2 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree c b fuel):tactic)
+        `(tactic| if hS : -$cl < $v then $t1 else $t2)
+  tree lo.getNat hi.getNat 64
+
 end Lua.Vm.Fn.FmodLens

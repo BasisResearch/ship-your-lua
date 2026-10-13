@@ -66,48 +66,25 @@ macro "fm_yc0b4_chambers " lo:num hi:num : command => do
 
 fm_yc0b4_chambers 1 32
 
-open Lean in
-set_option hygiene false in
-/-- The chambers `yc0b4_<n>` joined by `n = -1022 - iy` (a balanced split). -/
-macro "fm_yc0b4_cover" : command => do
-  let rec tree (a b : Nat) (fuel : Nat) : MacroM (TSyntax `tactic) := do
-    match fuel with
-    | 0 => `(tactic| omega)
-    | fuel + 1 =>
-      if b ≤ a + 1 then
-        let il := Syntax.mkNumLit (toString (1022 + a))
-        let ch := mkIdent (Name.mkSimple s!"yc0b4_{a}")
-        `(tactic| (obtain rfl : iy = -$il := by omega
-                   rw [show ((-1022 : Int) - -$il).toNat = $(Syntax.mkNumLit (toString a)) by decide] at hY1 hY2 hlow ⊢
-                   exact $ch hro s r sx ix hx lx hy ly h5 hx0 hl1 hl2 hy0 hy1 hm1 hm2 hX2 hY1 hY2 hix hix2 hlow))
-      else
-        let c := (a + b) / 2
-        let cl := Syntax.mkNumLit (toString (1022 + c))
-        let t1 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree a c fuel):tactic)
-        let t2 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree c b fuel):tactic)
-        `(tactic| if hS : -$cl < iy then $t1 else $t2)
-  let tac ← tree 1 32 64
-  `(command|
-    /-- **A subnormal `y` shifted by `n = -1022 - iy ≤ 31`** (`e_fmod.c:93-96`,
-    `0x8002c0b4`), then the loop entry. -/
-    theorem y_c0b4 {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
-        (iy sx ix hx lx hy ly : Int) (h5 : sx = 0 ∨ sx = 2 ^ 31) (hx0 : 0 ≤ hx) (hl1 : -2 ^ 31 ≤ lx)
-        (hl2 : lx < 2 ^ 31) (hy0 : 0 ≤ hy) (hy1 : hy < 2 ^ 20) (hm1 : -2 ^ 31 ≤ ly) (hm2 : ly < 2 ^ 31)
-        (hX2 : hx * 2 ^ 32 + lx % 2 ^ 32 < 2 ^ 53) (hiy1 : -1053 ≤ iy) (hiy2 : iy ≤ -1023)
-        (hY1 : 2 ^ 52 ≤ (hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)
-        (hY2 : (hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat < 2 ^ 53)
-        (hix : iy ≤ ix) (hix2 : ix ≤ 1023)
-        (hlow : LowOk iy ((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (ix - iy).toNat) %
-          ((hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)).toNat)) :
-        N_8002c0b4 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
-            (BitVec.ofInt 64 hy) (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly) =
-          outv sx iy ((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (ix - iy).toNat) %
-            ((hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)).toNat) ∧
-        T_8002c0b4 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
-            (BitVec.ofInt 64 hy) (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly) = true := by
-      $tac:tactic)
-
-fm_yc0b4_cover
+/-- **A subnormal `y` shifted by `n = -1022 - iy ≤ 31`** (`e_fmod.c:93-96`,
+`0x8002c0b4`), then the loop entry. -/
+theorem y_c0b4 {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
+    (iy sx ix hx lx hy ly : Int) (h5 : sx = 0 ∨ sx = 2 ^ 31) (hx0 : 0 ≤ hx) (hl1 : -2 ^ 31 ≤ lx)
+    (hl2 : lx < 2 ^ 31) (hy0 : 0 ≤ hy) (hy1 : hy < 2 ^ 20) (hm1 : -2 ^ 31 ≤ ly) (hm2 : ly < 2 ^ 31)
+    (hX2 : hx * 2 ^ 32 + lx % 2 ^ 32 < 2 ^ 53) (hiy1 : -1053 ≤ iy) (hiy2 : iy ≤ -1023)
+    (hY1 : 2 ^ 52 ≤ (hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)
+    (hY2 : (hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat < 2 ^ 53)
+    (hix : iy ≤ ix) (hix2 : ix ≤ 1023)
+    (hlow : LowOk iy ((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (ix - iy).toNat) %
+      ((hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)).toNat)) :
+    N_8002c0b4 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
+        (BitVec.ofInt 64 hy) (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly) =
+      outv sx iy ((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (ix - iy).toNat) %
+        ((hy * 2 ^ 32 + ly % 2 ^ 32) * 2 ^ (-1022 - iy).toNat)).toNat) ∧
+    T_8002c0b4 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
+        (BitVec.ofInt 64 hy) (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly) = true := by
+  fm_cover yc0b4 iy 1 32 at hY1 hY2 hlow using
+    hro s r sx ix hx lx hy ly h5 hx0 hl1 hl2 hy0 hy1 hm1 hm2 hX2 hY1 hY2 hix hix2 hlow
 
 
 open Lean in
@@ -150,46 +127,23 @@ macro "fm_ybe94_chambers " lo:num hi:num : command => do
 
 fm_ybe94_chambers 32 53
 
-open Lean in
-set_option hygiene false in
-/-- The chambers `ybe94_<n>` joined by `n = -1022 - iy` (a balanced split). -/
-macro "fm_ybe94_cover" : command => do
-  let rec tree (a b : Nat) (fuel : Nat) : MacroM (TSyntax `tactic) := do
-    match fuel with
-    | 0 => `(tactic| omega)
-    | fuel + 1 =>
-      if b ≤ a + 1 then
-        let il := Syntax.mkNumLit (toString (1022 + a))
-        let ch := mkIdent (Name.mkSimple s!"ybe94_{a}")
-        `(tactic| (obtain rfl : iy = -$il := by omega
-                   rw [show ((-1022 : Int) - -$il).toNat = $(Syntax.mkNumLit (toString a)) by decide] at hY1 hY2 hlow ⊢
-                   exact $ch hro s r sx ix hx lx ly h5 hx0 hl1 hl2 hm0 hm2 hX2 hY1 hY2 hix hix2 hlow))
-      else
-        let c := (a + b) / 2
-        let cl := Syntax.mkNumLit (toString (1022 + c))
-        let t1 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree a c fuel):tactic)
-        let t2 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree c b fuel):tactic)
-        `(tactic| if hS : -$cl < iy then $t1 else $t2)
-  let tac ← tree 32 53 64
-  `(command|
-    /-- **A subnormal `y` with `n = -1022 - iy ≥ 32`** (`e_fmod.c:97-99`,
-    `0x8002be94`: its low word alone, shifted into `hy`), then the loop. -/
-    theorem y_be94 {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
-        (iy sx ix hx lx ly : Int) (h5 : sx = 0 ∨ sx = 2 ^ 31) (hx0 : 0 ≤ hx) (hl1 : -2 ^ 31 ≤ lx)
-        (hl2 : lx < 2 ^ 31) (hm0 : 0 ≤ ly) (hm2 : ly < 2 ^ 31)
-        (hX2 : hx * 2 ^ 32 + lx % 2 ^ 32 < 2 ^ 53) (hiy1 : -1074 ≤ iy) (hiy2 : iy ≤ -1054)
-        (hY1 : 2 ^ 52 ≤ ly * 2 ^ (-1022 - iy).toNat) (hY2 : ly * 2 ^ (-1022 - iy).toNat < 2 ^ 53)
-        (hix : iy < ix) (hix2 : ix ≤ 1023)
-        (hlow : LowOk iy ((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (ix - iy).toNat) %
-          (ly * 2 ^ (-1022 - iy).toNat)).toNat)) :
-        N_8002be94 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
-            (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly) =
-          outv sx iy ((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (ix - iy).toNat) %
-            (ly * 2 ^ (-1022 - iy).toNat)).toNat) ∧
-        T_8002be94 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
-            (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly) = true := by
-      $tac:tactic)
-
-fm_ybe94_cover
+/-- **A subnormal `y` with `n = -1022 - iy ≥ 32`** (`e_fmod.c:97-99`,
+`0x8002be94`: its low word alone, shifted into `hy`), then the loop. -/
+theorem y_be94 {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
+    (iy sx ix hx lx ly : Int) (h5 : sx = 0 ∨ sx = 2 ^ 31) (hx0 : 0 ≤ hx) (hl1 : -2 ^ 31 ≤ lx)
+    (hl2 : lx < 2 ^ 31) (hm0 : 0 ≤ ly) (hm2 : ly < 2 ^ 31)
+    (hX2 : hx * 2 ^ 32 + lx % 2 ^ 32 < 2 ^ 53) (hiy1 : -1074 ≤ iy) (hiy2 : iy ≤ -1054)
+    (hY1 : 2 ^ 52 ≤ ly * 2 ^ (-1022 - iy).toNat) (hY2 : ly * 2 ^ (-1022 - iy).toNat < 2 ^ 53)
+    (hix : iy < ix) (hix2 : ix ≤ 1023)
+    (hlow : LowOk iy ((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (ix - iy).toNat) %
+      (ly * 2 ^ (-1022 - iy).toNat)).toNat)) :
+    N_8002be94 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
+        (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly) =
+      outv sx iy ((((hx * 2 ^ 32 + lx % 2 ^ 32) * 2 ^ (ix - iy).toNat) %
+        (ly * 2 ^ (-1022 - iy).toNat)).toNat) ∧
+    T_8002be94 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
+        (BitVec.ofInt 64 hx) (BitVec.ofInt 64 ly) = true := by
+  fm_cover ybe94 iy 32 53 at hY1 hY2 hlow using
+    hro s r sx ix hx lx ly h5 hx0 hl1 hl2 hm0 hm2 hX2 hY1 hY2 hix hix2 hlow
 
 end Lua.Vm.Fn.Ieee754Fmod
