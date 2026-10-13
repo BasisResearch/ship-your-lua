@@ -45,11 +45,13 @@ theorem addr0 {x : Nat} (h : x < 2 ^ 64) :
   rw [Vsa.Sim.sext_zero, BitVec.add_zero, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h]
 
 /-- The facts every path uses: the two ranges in RAM apart from `tohost`,
-and the return address aligned. -/
+and the return address aligned. (Lane F1-15: the first range may lie below
+`tohost`, `internshrstr`'s C string in `.rodata`.) -/
 structure McCtx (P Q n : Nat) (r : BitVec 64) : Prop where
   ra : r.toNat % 4 = 0
-  p_lo : tohostAddr + 16 ≤ P
+  p_lo : 0x80000000 ≤ P
   p_hi : P + n + 8 ≤ 2 ^ 32
+  p_th : P + n + 8 ≤ tohostAddr ∨ tohostAddr + 16 ≤ P
   q_lo : tohostAddr + 16 ≤ Q
   q_hi : Q + n + 8 ≤ 2 ^ 32
 
@@ -70,7 +72,7 @@ set_option hygiene false in
 /-- The context's numeric facts, for `kit_disch`. -/
 local macro "mc_ctx" hx:ident : tactic => `(tactic| (
   have hTH : tohostAddr = 0x8005c6c0 := rfl
-  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).q_lo; have := ($hx).q_hi))
+  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).p_th; have := ($hx).q_lo; have := ($hx).q_hi))
 
 /-- The byte guard `beq a5, a4` on byte `i`. -/
 theorem mc_byte_guard {m : Mem} {P Q i : Nat} (hp : P + i < 2 ^ 64) (hq : Q + i < 2 ^ 64) :

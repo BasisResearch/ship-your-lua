@@ -180,7 +180,7 @@ test fails (`NoMatch`). So the walk returns `ts`, the string interned at boot
 (`ChainHas` only says `ts` is on the chain). -/
 inductive ChainFirst (m : Mem) (b : List UInt8) (ts : Nat) : Nat → Prop where
   | here : ChainFirst m b ts ts
-  | next {p nx : Nat} : p ≠ 0 → p ≠ ts → symTohost + 16 ≤ p → p + 64 ≤ 2 ^ 32 →
+  | next {p nx : Nat} : p ≠ 0 → p ≠ ts → symTohost + 16 ≤ p → p + 128 ≤ symHeapEnd →
       rd64 m (p + tstringLnglenOff) = some nx → NoMatch m p b → ChainFirst m b ts nx → ChainFirst m b ts p
 
 /-- **The literal's string is interned** in `g->strt` (`rt`'s table, of the
@@ -202,7 +202,7 @@ structure LitInterned (m : Mem) (rt : RtPtrs) (seed : UInt32) (b : List UInt8) (
   first : ∀ (h : (luaHash seed b).toNat % rt.strtSize < rt.strtHeads.length),
     ChainFirst (fillZeroMem m) b ts rt.strtHeads[(luaHash seed b).toNat % rt.strtSize]
   ts_lo : symTohost + 16 ≤ ts
-  ts_hi : ts + 64 ≤ 2 ^ 32
+  ts_hi : ts + 128 ≤ symHeapEnd
 
 /-! ## The string cache and the C literals (lane F1-15)
 
@@ -246,7 +246,7 @@ def CDiffers (m : Mem) (p : Nat) (b : List UInt8) : Prop :=
 and for every literal of that row, its own string or `strcmp`-different. -/
 structure CandOk (m : Mem) (lits : List CLit) (r p : Nat) : Prop where
   lo : symTohost + 16 ≤ p
-  hi : p + 64 ≤ 2 ^ 32
+  hi : p + 64 ≤ symHeapEnd
   ok : ∀ l ∈ lits, l.addr % strcacheN = r → p = l.ts ∨ CDiffers m p l.bytes
 
 /-- **`g->strcache` holds candidates**: word `i` (row `i / STRCACHE_M`) is the
@@ -336,6 +336,12 @@ structure LitsIn (M : Mem) (g sl : Nat) (ls : LitPtrs) (rt : RtPtrs) : Prop wher
   cands : ∀ c ∈ ls.cands, CandOk (fillZeroMem M) ls.table c.1 c.2
   /-- (lane F1-15) the string metatable misses `"__tostring"` -/
   strmt : StrMtMiss (fillZeroMem M) rt.g ls.tos ls.smt ls.smtNode ls.smtLsz ls.tosHash
+  /-- (lane F1-15) the bucket array in RAM, its size a 32-bit `int` (`internshrstr`'s `lw`) -/
+  hash_lo : symTohost + 16 ≤ rt.strtHash
+  hash_hi : rt.strtHash + 8 * rt.strtSize ≤ symHeapEnd
+  size_hi : rt.strtSize < 2 ^ 30
+  /-- (lane F1-15) every literal's string is a candidate of its row (`luaS_new`'s miss stores it) -/
+  lit_cands : ∀ l ∈ ls.table, (l.addr % strcacheN, l.ts) ∈ ls.cands
 
 /-- **The reserved literals are interned** in `M`, for some string table. -/
 def LitsHold (M : Mem) (g sl : Nat) (ls : LitPtrs) : Prop := ∃ rt, LitsIn M g sl ls rt

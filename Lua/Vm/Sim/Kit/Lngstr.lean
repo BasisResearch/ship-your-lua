@@ -163,7 +163,7 @@ theorem eqlngstr_sum (t1 t2 : Nat) (s1 s2 : List UInt8) (r : BitVec 64) (sp : Na
       obtain ⟨_, acc, ⟨v, h, hv⟩⟩ := h.call acc (by pins_of h)
         (memcmp_sum (t1 + 24) (t2 + 24) s1.length 0x800171b4#64
           (BitVec.ofNat 64 sp + sign_extend (m := 64) (0xff0#12)) f _ o
-          ⟨by decide, by omega, by omega, by omega, by omega⟩)
+          ⟨by decide, by omega, by omega, .inr (by omega), by omega, by omega⟩)
       dsimp only [RetAt] at h
       kit_run h acc
       have h := h.at (by rw [ld_ra, Vsa.Sim.ret_tgt r hra])

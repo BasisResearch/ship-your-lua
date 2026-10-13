@@ -2574,6 +2574,59 @@ def eqf(mod, t1, t2, doc):
         imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
 
 
+# lane F1-15: `lua_pushstring` of a C literal. The objects lie in the arena
+# (above the allocator's globals, below `__heap_end`), the C stack far above
+LIT_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+          "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + ["L_he : X.n 1 + 200 ≤ 0x87800000"]
+GP = ("lit", 0x8005ced0)
+
+
+def int_saved(nb=0):
+    """`internshrstr`'s frame `[sp, sp + 80)`: the caller's `ra` (`72`), `s0`–`s7`
+    (`64` … `8`), as the root's words."""
+    return {(((0, 1),), 72 - 8 * k): ("bv", nb + k) for k in range(9)}
+
+
+# `internshrstr(L, str, l)`'s loop rows (no `ra`: saved, dead until the return): X.n 0 = its `sp`, X.n 1 = L, X.n 2 =
+# str, X.n 3 = l, X.n 4 = g; the hash `s1` = X.b 13; the caller's `s8`–`s11`
+# in place, `s0`–`s7` saved (`int_saved`)
+def int_row(extra):
+    row = {2: N((0, 1)), 3: GP, 9: ("bv", 13), 18: N((2, 1)), 19: N((4, 1)), 20: N((1, 1)),
+           21: N((3, 1)), **{r: ("bv", 9 + k) for k, r in enumerate(range(24, 28))}}
+    row.update(extra)
+    return row
+
+
+INT_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 + 80 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+          "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + ["L_he : X.n 1 + 200 ≤ 0x87800000",
+          "s_lo : 0x80000000 ≤ X.n 2", "s_th : X.n 2 + X.n 3 + 1 ≤ 0x8005c6c0", "l_lo : 1 ≤ X.n 3",
+          "l_hi : X.n 3 ≤ 40", "g_lo : 0x8005c6d0 ≤ X.n 4", "g_hi : X.n 4 + 1400 ≤ 0x87800000"]
+INT_LB = {**LUA_LB, 2: 0x80000000, 3: 1, 4: 0x8005c6d0}
+
+
+def lua_s_new(mod, addr, what):
+    """`luaS_new(L, s)` on the C literal at `addr` (its cache row `addr % 53`
+    literal): X.n 1 = L, X.n 2 = g, X.n 3 = the row's first entry, X.n 5
+    its second; `strcmp` (call nodes: 0, or X.n 4 ≥ 1), on a miss `strlen`
+    (X.n 6) and `luaS_newlstr` (X.n 7, a call node: `internshrstr`)."""
+    row = addr % 53
+    return dict(
+        mod=mod, entry=0x8001772c,
+        row=abi_row({10: N((1, 1)), 11: ("lit", addr)}),
+        ok=LIT_OK + ["g_lo : 0x8005c6d0 ≤ X.n 2", "g_hi : X.n 2 + 1400 ≤ 0x87800000", "g_al : X.n 2 % 8 = 0",
+                     "p_lo : 0x8005c6d0 ≤ X.n 3", "p_hi : X.n 3 + 64 ≤ 2 ^ 32",
+                     "q_lo : 0x8005c6d0 ≤ X.n 5", "q_hi : X.n 5 + 64 ≤ 2 ^ 32"],
+        lb={**LUA_LB, 2: 0x8005c6d0, 3: 0x8005c6d0, 4: 1, 5: 0x8005c6d0},
+        rcells={(((1, 1),), 24): N((2, 1)), (((2, 1),), 552 + 16 * row): N((3, 1)),
+                (((2, 1),), 552 + 16 * row + 8): N((5, 1))},
+        calls={0x8002f77c: dict(ret={10: ("lit", row)}),
+               0x8003b920: dict(ret=[{10: ("lit", 0)}, {10: N((4, 1))}]),
+               0x8003b770: dict(ret={10: N((6, 1))}),
+               0x80017694: dict(ret={10: N((7, 1))})},
+        doc=f"`luaS_new(L, s)` on {what}: the cache's row, `strcmp` against its two "
+            "entries, on a miss `strlen`, `luaS_newlstr` and the row's shift.")
+
+
 FNS = {
     # lane F1-F4: `luaV_equalobj`'s float paths: two floats (`__eqdf2`), an
     # integer and a float either way (`luaV_tointegerns(F2Ieq)` inlined: `floor`,
@@ -2938,6 +2991,63 @@ FNS = {
         calls={0x8000172c: dict(ret={10: N((4, 1))})},
         doc="`luaE_extendCI(L)`: `luaM_malloc_(L, sizeof(CallInfo), 0)` (its "
             "`g->frealloc` a call node), the links, `L->nci++`."),
+    # lane F1-15: `lua_pushstring(L, s)` of a C literal: X.n 1 = L, X.n 2 = s,
+    # X.n 3 = the string `luaS_new` returns (`LUA_VSHRSTR`), X.n 4 = L->top,
+    # X.n 5 = g; `luaC_step` a call node (`GCdebt > 0`)
+    "lua_pushstring": dict(
+        mod="Pushstring", entry=0x80002fe4,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1))}),
+        ok=LIT_OK + ["s_lo : 1 ≤ X.n 2", "ts_lo : 0x8005c6d0 ≤ X.n 3", "ts_hi : X.n 3 + 64 ≤ 2 ^ 32",
+                     "t_lo : 0x8005c6d0 ≤ X.n 4", "t_hi : X.n 4 + 32 ≤ 0x87800000",
+                     "g_lo : 0x8005c6d0 ≤ X.n 5", "g_hi : X.n 5 + 1400 ≤ 0x87800000",
+                     "tL : X.n 4 + 16 ≤ X.n 1 ∨ X.n 1 + 200 ≤ X.n 4",
+                     "tg : X.n 4 + 16 ≤ X.n 5 ∨ X.n 5 + 1400 ≤ X.n 4",
+                     "Lg : X.n 1 + 200 ≤ X.n 5 ∨ X.n 5 + 1400 ≤ X.n 1",
+                     "t_al : X.n 4 % 8 = 0", "g_al : X.n 5 % 8 = 0",
+                     "tts : X.n 4 + 16 ≤ X.n 3 ∨ X.n 3 + 30 ≤ X.n 4"],
+        lb={**LUA_LB, 2: 1, 3: 0x8005c6d0, 4: 0x8005c6d0, 5: 0x8005c6d0},
+        rcells={(((1, 1),), 16): N((4, 1)), (((1, 1),), 24): N((5, 1))},
+        rcellsw={(1, ((3, 1),), 8): 4},
+        calls={0x8001772c: dict(ret={10: N((3, 1))}), 0x8000ec80: dict(ret={})},
+        doc="`lua_pushstring(L, s)` of a C literal: `luaS_new`, the push, `luaC_checkGC`."),
+    # `luaC_step(L)` with the collector stopped: X.n 1 = L, X.n 2 = g
+    # (`gcstp` = 1): `luaE_setdebt(g, -2000)`
+    "luaC_step/stopped": dict(
+        mod="LuaCStep", entry=0x8000ec80,
+        row=abi_row({10: N((1, 1))}),
+        ok=LIT_OK + ["g_lo : 0x8005c6d0 ≤ X.n 2", "g_hi : X.n 2 + 1400 ≤ 0x87800000"],
+        lb={**LUA_LB, 2: 0x8005c6d0},
+        rcells={(((1, 1),), 24): N((2, 1))},
+        rcellsw={(1, ((2, 1),), 106): 1}, ends=[0x80016a20],
+        doc="`luaC_step(L)` with the collector stopped, up to its tail `j luaE_setdebt`."),
+    "luaS_new/nil": lua_s_new("LuaSNewNil", 0x8004f2b8, "`\"nil\"`"),
+    "luaS_new/true": lua_s_new("LuaSNewTrue", 0x8004f2e8, "`\"true\"`"),
+    "luaS_new/false": lua_s_new("LuaSNewFalse", 0x8004f280, "`\"false\"`"),
+    "luaS_new/tos": lua_s_new("LuaSNewTos", 0x8004fd20, "`\"__tostring\"`"),
+    # `internshrstr(L, str, l)` on a short C string in `.rodata` (`l ≤ 40`):
+    # the hash loop (`0x800173a4`, the cursor X.n 5), the bucket, the chain
+    # walk (`0x800173f0`, the node X.n 6) with `memcmp` (a call node: 0, or
+    # X.n 8 ≥ 1); `isdead`'s `changewhite`; the creation path a stop
+    "internshrstr": dict(
+        mod="Internshrstr", entry=0x80017350,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=LIT_OK + ["s_lo : 0x80000000 ≤ X.n 2", "s_th : X.n 2 + X.n 3 + 1 ≤ 0x8005c6c0",
+                     "l_lo : 1 ≤ X.n 3", "l_hi : X.n 3 ≤ 40",
+                     "g_lo : 0x8005c6d0 ≤ X.n 4", "g_hi : X.n 4 + 1400 ≤ 0x87800000"],
+        lb={**INT_LB, 8: 1},
+        rcells={(((1, 1),), 24): N((4, 1)), **int_saved()},
+        calls={0x80036198: dict(ret=[{10: ("lit", 0)}, {10: N((8, 1))}])},
+        loops={
+            0x800173a4: dict(name="H", row=int_row({15: N((5, 1)), 11: N((2, 1), add=-1), 8: ("bv", 1),
+                                                    22: ("bv", 7), 23: ("bv", 8)}),
+                             ok=INT_OK + ["c_ge : X.n 2 ≤ X.n 5", "c_lt : X.n 5 < X.n 2 + X.n 3"],
+                             lb={**INT_LB, 5: 0x80000000}),
+            0x800173f0: dict(name="C", row=int_row({8: N((6, 1)), 22: N((7, 1)), 23: N((9, 1))}),
+                             ok=INT_OK + ["n_lo : 0x8005c6d0 ≤ X.n 6", "n_hi : X.n 6 + 128 ≤ 0x87800000"],
+                             lb={**INT_LB, 6: 0x8005c6d0, 8: 1})},
+        stops=[0x8001742c], ends=[0x800173c4],
+        doc="`internshrstr(L, str, l)` on an interned short C string: the hash, the "
+            "bucket, the chain walk with `memcmp`, `isdead`."),
     "_fclose_r/stdin": fclose_std("FcloseIn", 0x8005e5b0, 0x4, 0, 1, "stdin"),
     "_fclose_r/stderr": fclose_std("FcloseErr", 0x8005e720, 0x12, 2, 3, "stderr"),
     # `_fclose_r(_REENT, stdout)` on the set-up, flushed `stdout`: the lock,

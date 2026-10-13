@@ -21,10 +21,12 @@ open Vsa.Machine (MState Config Steps)
 /-- The string at `P` has its first zero byte at `t`; the reads in RAM. -/
 structure SlCtx (m : Mem) (P t : Nat) (r : BitVec 64) : Prop where
   ra : r.toNat % 4 = 0
-  p_lo : tohostAddr + 16 ≤ P
+  p_lo : 0x80000000 ≤ P
   p_hi : P + t + 16 ≤ 2 ^ 32
   term : bytesT1 m (P + t) = 0#8
   nz : ∀ j, j < t → bytesT1 m (P + j) ≠ 0#8
+  /-- (lane F1-15) `P` below `tohost` (a C literal in `.rodata`) or above it -/
+  p_th : P + t + 16 ≤ tohostAddr ∨ tohostAddr + 16 ≤ P
 
 /-- `addi` of a negative immediate `k - 4096`. -/
 theorem sl_neg {y k : Nat} (hk : 2048 ≤ k ∧ k < 4096) (hy : 4096 - k ≤ y) (hy2 : y < 2 ^ 64) :
@@ -106,7 +108,7 @@ local macro_rules | `(tactic| kit_norm $h) => `(tactic|
 set_option hygiene false in
 local macro "sl_ctx" hx:ident : tactic => `(tactic| (
   have hTH : tohostAddr = 0x8005c6c0 := rfl
-  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi))
+  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).p_th))
 
 /-- The first zero byte bounds a scan's position. -/
 theorem sl_le {m : Mem} {P t j : Nat} {r : BitVec 64} (hx : SlCtx m P t r) (hj : ∀ i, i < j → bytesT1 m (P + i) ≠ 0#8) :

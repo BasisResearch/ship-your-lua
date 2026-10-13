@@ -176,6 +176,12 @@ import Lua.Vm.Arms.Segs.HluaM_malloc_
 import Lua.Vm.Arms.Segs.Hl_alloc
 import Lua.Vm.Arms.Segs.Hrealloc
 import Lua.Vm.Arms.Segs.Hrealloc_r
+import Lua.Vm.Arms.Segs.Hlua_pushstring
+import Lua.Vm.Arms.Segs.HluaS_new
+import Lua.Vm.Arms.Segs.HluaS_newlstr
+import Lua.Vm.Arms.Segs.Hinternshrstr
+import Lua.Vm.Arms.Segs.HluaC_step
+import Lua.Vm.Arms.Segs.HluaE_setdebt
 import Lua.Vm.Arms.Segs.Hclzdi2
 import Lua.Vm.Arms.Segs.Hfloatsidf
 import Lua.Vm.Arms.Segs.Hfloatdidf

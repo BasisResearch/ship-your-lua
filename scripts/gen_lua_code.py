@@ -93,7 +93,13 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          "stdio_exit_handler", "_fwalk_sglue", "_fclose_r", "__sclose", "_close_r", "_close",
          "__sfp_lock_acquire", "__sfp_lock_release", "__retarget_lock_close_recursive",
          # lane F1-14: `luaE_extendCI` and its allocation (main.c's `l_alloc`)
-         "luaE_extendCI", "luaM_malloc_", "l_alloc", "realloc", "_realloc_r"]
+         "luaE_extendCI", "luaM_malloc_", "l_alloc", "realloc", "_realloc_r",
+         # lane F1-15: `lua_pushstring` of a C literal (`luaS_new` → the cache, or
+         # `internshrstr`'s walk; `luaC_step` with the collector stopped) and the
+         # string class of `luaL_tolstring` (`luaL_getmetafield`, `lua_rawget`,
+         # `luaH_get`, `lua_pushvalue`)
+         "lua_pushstring", "luaS_new", "luaS_newlstr", "internshrstr", "luaC_step", "luaE_setdebt",
+         "luaL_getmetafield.part.0", "lua_rawget", "index2value", "luaH_get", "lua_pushvalue"]
 # a static name defined twice whose first (lowest) definition is the one
 # pinned: main.c's `l_alloc` (`g->frealloc`; lauxlib.c's is the second)
 DUP_FIRST = {"l_alloc"}

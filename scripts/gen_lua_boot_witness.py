@@ -698,7 +698,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     c_off = lay["tstringContentsOff"]
 
     def in_ram(p):
-        return lay["symTohost"] + 16 <= p and p + 64 <= 1 << 32
+        return lay["symTohost"] + 16 <= p and p + 128 <= lay["symHeapEnd"]
 
     def first_diff(p, b):
         """`CDiffers`: the first k <= |b| where the contents at p and `b ++ [0]`

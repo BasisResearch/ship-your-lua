@@ -901,7 +901,7 @@ theorem noMatchCheck_sound {m : Mem} {v : View} (h : PartialView m v) {p : Nat} 
 /-- `ChainFirst` over the view, with fuel. -/
 def chainFirstCheck (v : View) (b : List UInt8) (ts : Nat) : Nat → Nat → Bool
   | p, 0 => p == ts
-  | p, fuel + 1 => p == ts || (p != 0 && decide (symTohost + 16 ≤ p ∧ p + 64 ≤ 2 ^ 32) && noMatchCheck v p b &&
+  | p, fuel + 1 => p == ts || (p != 0 && decide (symTohost + 16 ≤ p ∧ p + 128 ≤ symHeapEnd) && noMatchCheck v p b &&
       match r64 v (p + tstringLnglenOff) with
       | some nx => chainFirstCheck v b ts nx fuel
       | none => false)
@@ -944,7 +944,7 @@ theorem cdiffCheck_sound {m : Mem} {v : View} (h : PartialView m v) {p : Nat} {b
 
 /-- The cache's candidates over the view. -/
 def candsCheck (v : View) (ls : LitPtrs) : Bool :=
-  ls.cands.all fun c => decide (symTohost + 16 ≤ c.2 ∧ c.2 + 64 ≤ 2 ^ 32) &&
+  ls.cands.all fun c => decide (symTohost + 16 ≤ c.2 ∧ c.2 + 64 ≤ symHeapEnd) &&
     ls.table.all fun l => l.addr % strcacheN != c.1 || c.2 == l.ts || cdiffCheck v c.2 l.bytes
 
 theorem candsCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ls : LitPtrs}
@@ -1043,7 +1043,7 @@ theorem litCacheCheck_sound {m : Mem} {v : View} (h : PartialView m v) {g : Nat}
 string table aside. -/
 def litCheck (v : View) (rt : RtPtrs) (seed : UInt32) (b : List UInt8) (ts : Nat) : Bool :=
   tstrCheck v ts b && decide (b.length ≤ maxShortLen) && readsOk v [(rt.g + gSeedOff, 4, seed.toNat)] &&
-  decide (symTohost + 16 ≤ ts ∧ ts + 64 ≤ 2 ^ 32) &&
+  decide (symTohost + 16 ≤ ts ∧ ts + 128 ≤ symHeapEnd) &&
   (match rt.strtHeads[(luaHash seed b).toNat % rt.strtSize]? with
    | some hd => chainHasCheck v ts hd (rt.strtNuse + 1) && chainFirstCheck v b ts hd (rt.strtNuse + 1)
    | none => true)
@@ -1066,15 +1066,18 @@ theorem litCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZe
 def litsCheck (v : View) (g sl : Nat) (ls : LitPtrs) (rt : RtPtrs) : Bool :=
   rt.g == g && rt.stackLast == sl && strtCheck v rt &&
   litCheck v rt ls.seed nilB ls.nil && litCheck v rt ls.seed trueB ls.tru && litCheck v rt ls.seed falseB ls.fls &&
-  litCheck v rt ls.seed tosB ls.tos && candsCheck v ls && strMtCheck v rt.g ls
+  litCheck v rt ls.seed tosB ls.tos && candsCheck v ls && strMtCheck v rt.g ls &&
+  decide (symTohost + 16 ≤ rt.strtHash) && decide (rt.strtHash + 8 * rt.strtSize ≤ symHeapEnd) &&
+  decide (rt.strtSize < 2 ^ 30) && ls.table.all (fun l => ls.cands.contains (l.addr % strcacheN, l.ts))
 
 theorem litsCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZeroMem M) v) {g sl : Nat}
     {ls : LitPtrs} {rt : RtPtrs} (hc : litsCheck v g sl ls rt = true) : LitsIn M g sl ls rt := by
-  simp only [litsCheck, Bool.and_eq_true, beq_iff_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨hg, hsl⟩, hst⟩, hn⟩, ht⟩, hf⟩, hto⟩, hca⟩, hsm⟩ := hc
+  simp only [litsCheck, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hg, hsl⟩, hst⟩, hn⟩, ht⟩, hf⟩, hto⟩, hca⟩, hsm⟩, hb1⟩, hb2⟩, hb3⟩, hlc⟩ := hc
   have hS := strtCheck_sound h hst
   exact ⟨hg, hsl, litCheck_sound h hn hS, litCheck_sound h ht hS, litCheck_sound h hf hS, litCheck_sound h hto hS,
-    candsCheck_sound h hca, strMtCheck_sound h hsm⟩
+    candsCheck_sound h hca, strMtCheck_sound h hsm, hb1, hb2, hb3,
+    fun l hl => by simpa using List.all_eq_true.mp hlc l hl⟩
 
 /-- The string at `ts`'s `n` content bytes, off the view. -/
 def strBytesV (v : View) (ts n : Nat) : List UInt8 :=

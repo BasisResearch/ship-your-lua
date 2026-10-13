@@ -101,6 +101,8 @@ structure PrintIn (L nci func n tbc sl g : Nat) (ls : LitPtrs) (args : List Valu
   /-- (lane F1-15) the arguments, in every memory agreeing on `G` and their slots -/
   args_fz : Frozen (fun a => G a ∨ ArgSlot func n a) (ArgsAt func ι args) M
   args : ArgsAt func ι args M
+  /-- (lane F1-15) `func` aligned (`L->top`'s slots, `lua_pushstring`'s stores) -/
+  f_al : func % 8 = 0
   room : func + 16 * n + 16 + 320 < sl
   g_w : bytesT8 M (L + stateGOff) = BitVec.ofNat 64 g
   mt : ∀ t ∈ [luaTnil, luaTboolean, luaTnumber], bytesT8 M (g + gMtOff + 8 * t) = 0#64
@@ -367,8 +369,6 @@ def ExitUp_Statement : Prop :=
 structure CallOpen : Prop where
   /-- (lane F1-15) `luaB_print` when an argument allocates -/
   printAlloc : PrintAlloc_Statement
-  /-- (lane F1-15) `lua_pushstring` of `luaL_tolstring`'s C literals -/
-  pushLit : PushLit_Statement
   /-- (lane F1-15) `luaL_tolstring` on a string argument -/
   tolStr : TolStr_Statement
   /-- (lane F1-14) `_malloc_r` (A0): `luaE_extendCI`'s allocation

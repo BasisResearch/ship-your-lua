@@ -456,6 +456,9 @@ theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
       pend := hI.pend
       len := by simp only [List.length_cons] at hlen; omega
       args := call_args cx hI hJ
+      f_al := by
+        have := cx.rel.core.ranges.base_al
+        simp only [RelPtrs.slot, stackValueSize]; omega
       room := by omega
       g_w := (bytesT8_congrT fun j _ => callMC_keep (by simp only [stateGOff]; pcw_omega)).trans hJ.g_w
       mt := fun t ht => (bytesT8_congrT fun j _ => callMC_keep (by

@@ -117,14 +117,14 @@ structure PushPost (m m' : Mem) (sp L g top ts len : Nat) (ls : LitPtrs) : Prop 
       ¬ Rng (g + gGCdebtOff) 8 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a) →
     bytesT1 m' a = bytesT1 m a
 
-/-- **Where `lua_pushstring`'s objects lie** (lane F1-15): its `sp` and `ra`,
-the `lua_State`, `g` up to its string cache and the slot at `L->top`, in the
-arena. -/
+/-- **Where `lua_pushstring`'s objects lie** (lane F1-15): its `sp` and `ra`
+(room below for its callees' frames), the `lua_State`, `g` up to its string
+cache and the slot at `L->top`, in the arena and apart. -/
 structure PushCx (sp L top g : Nat) (r : BitVec 64) : Prop where
   ra : r.toNat % 4 = 0
   sp_al : sp % 16 = 0
   sp_hi : sp ≤ 2 ^ 32
-  sp_lo : heapEnd + 16384 ≤ sp
+  sp_lo : heapEnd + 16384 + 1024 ≤ sp
   L_lo : symTohost + 16 ≤ L
   L_hi : L + stateSize ≤ heapEnd
   L_al : L % 8 = 0
@@ -133,11 +133,24 @@ structure PushCx (sp L top g : Nat) (r : BitVec 64) : Prop where
   g_al : g % 8 = 0
   t_lo : symTohost + 16 ≤ top
   t_hi : top + 32 ≤ heapEnd
+  t_al : top % 8 = 0
+  tL : Apart top 16 L stateSize
+  tg : Apart top 16 g gEnd
+  Lg : Apart L stateSize g gEnd
+
+/-- (lane F1-15) **A literal's string apart** from what `lua_pushstring`
+writes: the `lua_State`, `g` up to its string cache, the slot at `L->top`. -/
+structure LitApart (ts L g top : Nat) : Prop where
+  L : Apart ts 30 L stateSize
+  g : Apart ts 30 g gEnd
+  top : Apart ts 30 top 16
 
 /-- **Named premise: `lua_pushstring(L, s)` of a C literal** (`0x80002fe4`;
 lane F1-15 restated): `s` the `.rodata` address of one of `luaL_tolstring`'s
 literals `l` (`LitPtrs.table`), the literals interned (`LitsIn`: the walk of
-`internshrstr` meets `l.ts` first), the string cache's words candidates of
+`internshrstr` meets `l.ts` first; frozen on a footprint `FL` below the heap's
+end and off the string cache, which `luaS_new` writes before `internshrstr`
+reads the table), the string cache's words candidates of
 their rows (`LitCache`: no other entry of `l`'s row is `strcmp`-equal), the
 collector stopped (`gcstp`): `luaS_new` returns `l.ts` (a cache hit, or
 `internshrstr`'s bucket walk: no allocation) and the row holds candidates
@@ -149,12 +162,13 @@ all break its post. Open: the at-lemmas of `lua_pushstring`, `luaS_new`
 (`__umoddi3`, `strcmp`, `strlen`), `internshrstr` (the hash loop, the bucket
 walk with `memcmp`) and `luaC_step`'s stopped path. -/
 def PushLit_Statement : Prop :=
-  ∀ (sp L top g sl : Nat) (l : CLit) (ls : LitPtrs) (rt : RtPtrs) (r : BitVec 64) (f : AbiFrame) (m : Mem)
+  ∀ (sp L top g sl : Nat) (l : CLit) (ls : LitPtrs) (FL : Nat → Prop) (r : BitVec 64) (f : AbiFrame) (m : Mem)
     (o : Array String),
-    l ∈ ls.table → PushCx sp L top g r →
+    l ∈ ls.table → PushCx sp L top g r → LitApart l.ts L g top →
     bytesT8 m (L + 16) = BitVec.ofNat 64 top → bytesT8 m (L + 24) = BitVec.ofNat 64 g →
     top + 16 + 16 ≤ sl → RodataRead m →
-    LitsIn m g sl ls rt → LitCache m g ls →
+    Frozen FL (fun M => LitsHold M g sl ls) m →
+    (∀ a, FL a → a < heapEnd ∧ ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a) → LitCache m g ls →
     bytesT1 m (g + gGcstpOff) = BitVec.ofNat 8 gcstpUsr →
     Triple (SegSt 0x80002fe4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 l.addr⟩]
         sp r f) (ArmPay m o))
@@ -283,6 +297,10 @@ structure TolLitIn (m : Mem) (sp L top g sl : Nat) (ls : LitPtrs) (FL : Nat → 
   ro : RodataRead m
   cx : PushCx (sp - 48) L top g 0x80021be8#64
   room : top + 32 ≤ sl
+  /-- (lane F1-15) the footprint off the string cache -/
+  apart : ∀ a, FL a → ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a
+  /-- (lane F1-15) the literals' strings apart from the push's stores -/
+  lit_ap : ∀ ts ∈ ls.strs, LitApart ts L g top
 
 set_option hygiene false in
 /-- **`luaL_tolstring` on a literal argument's proof** over the at-lemmas of
@@ -327,15 +345,15 @@ macro "tol_lit_run " ns:ident addr:term:max b:ident tsf:term:max mto:num len:num
     have hHE : heapEnd = 0x87800000 := rfl
     have hgE : gEnd = 1400 := rfl
     have hgh := hpc.g_hi
-    obtain ⟨rt, hLI⟩ := hT.lits M1 fun a ha => hM1T a (.inl (by have := hT.foot a ha; omega))
-    have hcall := hPL (sp - 48) L top g sl ⟨$addr, $b, $tsf⟩ ls rt 0x80021be8#64
-      (tlFr L i lenp f) M1 o (by simp [LitPtrs.table]) hpc
+    have hLI := hT.lits.trans fun a ha => hM1T a (.inl (by have := hT.foot a ha; omega))
+    have hcall := hPL (sp - 48) L top g sl ⟨$addr, $b, $tsf⟩ ls FL 0x80021be8#64
+      (tlFr L i lenp f) M1 o (by simp [LitPtrs.table]) hpc (hT.lit_ap _ (by simp [LitPtrs.strs]))
       ((bytesT8_congrT fun j _ => hM1T _ (by omega)).trans hc2)
       ((bytesT8_congrT fun j _ => hM1T _ (by omega)).trans hc4) (by have := hT.room; omega)
       (fun o' ho => (hM1T _ (.inl (by
         have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl; omega))).trans
         (hT.ro o' ho))
-      hLI (hT.cache.congr fun a h1 h2 => hM1T a (.inl (by omega)))
+      hLI (fun a ha => ⟨hT.foot a ha, hT.apart a ha⟩) (hT.cache.congr fun a h1 h2 => hM1T a (.inl (by omega)))
       ((hM1T _ (.inl (by simp only [gGcstpOff]; omega))).trans hT.gcstp)
     simp only [callPre, List.cons_append, List.nil_append] at hcall
     obtain ⟨c1, s1, m', hret, hpp⟩ := hcall _ (h.repin (by pins_of h))

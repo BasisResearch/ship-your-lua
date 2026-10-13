@@ -44,15 +44,17 @@ structure ScRetS (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
   intro ::
   ret : ∃ v, RetAtS r sp f m o v c ∧ ScAns m P Q v
 
-/-- The facts every path uses: `P`'s terminator at `t`, the reads in RAM. -/
+/-- The facts every path uses: `P`'s terminator at `t`, the reads in RAM.
+(Lane F1-15: `P` may lie below `tohost`, a C literal in `.rodata`.) -/
 structure ScCtx (m : Mem) (P Q t : Nat) (r : BitVec 64) : Prop where
   ro : RodataRead m
   ra : r.toNat % 4 = 0
-  p_lo : tohostAddr + 16 ≤ P
+  p_lo : 0x80000000 ≤ P
   q_lo : tohostAddr + 16 ≤ Q
   p_hi : P + t + 16 ≤ 2 ^ 32
   q_hi : Q + t + 16 ≤ 2 ^ 32
   term : bytesT1 m (P + t) = 0#8
+  p_th : P + t + 16 ≤ tohostAddr ∨ tohostAddr + 16 ≤ P
 
 /-- The byte loop's state at `0x8003ba04`, position `j`. -/
 abbrev scB (P Q j : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
@@ -91,7 +93,8 @@ set_option hygiene false in
 /-- The context's numeric facts, for `kit_disch`. -/
 local macro "sc_ctx" hx:ident : tactic => `(tactic| (
   have hTH : tohostAddr = 0x8005c6c0 := rfl
-  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).q_lo; have := ($hx).q_hi))
+  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).q_lo; have := ($hx).q_hi
+  have := ($hx).p_th))
 
 /-- The byte answer: `sub a0, a2, a3` of the two zero-extended bytes. -/
 theorem sc_sub_obs (x y : BitVec 8) :

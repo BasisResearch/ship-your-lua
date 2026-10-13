@@ -94,6 +94,7 @@ import Lua.Vm.Sim.Kit.AtFnFlt
 import Lua.Vm.Sim.Kit.EqualobjF
 import Lua.Vm.Sim.Kit.AtEqF
 import Lua.Vm.Sim.Kit.AtFltEq
+import Lua.Vm.Sim.Kit.PushLitProof
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

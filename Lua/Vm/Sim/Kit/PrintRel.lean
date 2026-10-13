@@ -1,4 +1,5 @@
 import Lua.Vm.Sim.Kit.CallOpen
+import Lua.Vm.Sim.Kit.PushLitProof
 
 /-!
 # `luaB_print` on the C frame from its per-class parts (lane F1-15)
@@ -408,7 +409,7 @@ theorem tolLit_in {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
     (.inr (.inl h)))))
   have hapi := hS.api
   refine ⟨?_, ⟨hapi.ci_w, hapi.func_w, hapi.top_w, ?_, ?_, ?_⟩, ⟨hS.lits.facts, fun a ha => (hS.lits.kept a ha).hi,
-    hS.lits.cache, ?_, fun o ho => ?_, ?_, ?_⟩⟩
+    hS.lits.cache, ?_, fun o ho => ?_, ?_, ?_, ?_, ?_⟩⟩
   · constructor <;> first | exact hr | pr_omega
   · exact (bytesT8_congrT fun j _ => kG _ (by simp only [Rng, stateGOff]; omega)).trans hIn.g_w
   · rw [show g + 480 + 8 * t = g + gMtOff + 8 * t by rfl]
@@ -419,8 +420,19 @@ theorem tolLit_in {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
   · exact (hS.keep _ (.inr (.inr (.inr (.inl ⟨Nat.le_refl _, Nat.lt_succ_self _⟩))))).trans hIn.gcstp
   · exact (hS.keep _ (.inr (.inr (.inl ⟨Nat.le_add_right _ _, Nat.add_lt_add_left ho _⟩)))).trans (hIn.ro o ho)
   · exact ⟨by decide, by omega, by omega, by pr_omega, by pr_omega, by pr_omega, by pr_omega, by pr_omega,
-      by pr_omega, hga, by pr_omega, by pr_omega⟩
+      by pr_omega, hga, by pr_omega, by pr_omega, by have := hIn.f_al; omega, by simp only [Apart]; pr_omega, by simp only [Apart]; pr_omega,
+      by simp only [Apart]; pr_omega⟩
   · pr_omega
+  · intro a ha hr
+    apply hS.lits.apart a ha
+    apply hIn.dirty a
+    simp only [Rng, gEnd, gStrcacheOff, strcacheN, strcacheM] at hr ⊢
+    exact .inr (.inr (.inr (.inr ⟨by omega, by omega⟩)))
+  · intro ts' hts'
+    have ob := hIn.objs
+    have e1 := ob.lit_L ts' hts'; have e2 := ob.lit_g ts' hts'; have e3 := ob.lit_stack ts' hts'
+    simp only [Apart] at e1 e2 e3 ⊢
+    exact ⟨e1, e2, by simp only [Apart]; pr_omega⟩
 
 theorem _root_.Lua.Vm.Sim.ValRepr.tag_nil {mo : Mem} {ι : Strs} {t : BitVec 8} {x : BitVec 64}
     (h : ValRepr mo ι t x .nil) : t = 0#8 := by cases h; rfl
@@ -611,8 +623,9 @@ theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : To
   rw [hend.out, hIn.pend, List.nil_append, ← hlen]
   exact prLine_chars args hna
 
-/-- **`luaB_print` on the C frame** from `CALL`'s open parts (lane F1-15). -/
+/-- **`luaB_print` on the C frame** from `CALL`'s open parts (lane F1-15):
+`lua_pushstring` of the literals proved (`pushLit_proved`). -/
 theorem CallOpen.print (O : CallOpen) : PrintRel_Statement :=
-  printRel_of O.mallocR O.pushLit O.tolStr O.printAlloc
+  printRel_of O.mallocR pushLit_proved O.tolStr O.printAlloc
 
 end Lua.Vm.Sim.Kit

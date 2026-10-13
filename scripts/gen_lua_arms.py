@@ -124,7 +124,8 @@ HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26, 6, 14, 15, 
            # into the sign fix-ups that objdump labels `__umoddi3+0x10`/`+0x20`
            # (a second range, pinned as `__umoddi3`)
            ("__divdi3", "__divdi3", 0x8002f72c, 0x8002f734, [22, 26], [], []),
-           ("__umoddi3", "__umoddi3", 0x8002f78c, 0x8002f7b0, [22, 26], [0x8002f79c], [])]
+           # lane F1-15: from its own entry `0x8002f77c` too (`luaS_new`'s `point2uint(s) % 53`)
+           ("__umoddi3", "__umoddi3", 0x8002f77c, 0x8002f7b0, [22, 26], [0x8002f78c, 0x8002f79c], [])]
 # lane KIT-2: `luaV_tointeger` on a non-string, non-float value (the string
 # and float paths `0x8001ae4c`, `0x8001ae98` are stops: F1's limits are
 # integers, `forprepK`)
@@ -359,6 +360,21 @@ HELPERS += [("luaE_extendCI", "LuaE_extendCI", 0x80016a5c, 0x80016aa8, [22, 26],
             ("l_alloc", "L_alloc", 0x8000172c, 0x80001758, [22, 26], [], [0x8000173c]),
             ("realloc", "Realloc", 0x8003030c, 0x80030320, [22, 26], [], []),
             ("_realloc_r", "_realloc_r", 0x80030320, 0x80030518, [22, 26], [], [0x80030324])]
+# lane F1-15: `lua_pushstring(L, s)` of a C literal: `luaS_new` (`__umoddi3`,
+# `strcmp` on the cache's row, on a miss `strlen` and `luaS_newlstr` → `j
+# internshrstr`: the hash loop `0x800173a4`, the chain walk `0x800173f0` with
+# `memcmp`; the creation path `0x8001742c` a stop: the literal is interned),
+# `luaC_step` with the collector stopped (`j luaE_setdebt`; the running path
+# `0x8000ec98` a stop); `lua_pushstring(L, NULL)` (`0x8000304c`) and a long
+# string (`0x8001769c`) stops
+HELPERS += [("lua_pushstring", "Lua_pushstring", 0x80002fe4, 0x8000305c, [22, 26], [], [0x8000304c]),
+            ("luaS_new", "LuaS_new", 0x8001772c, 0x800177f0, [22, 26], [], []),
+            ("luaS_newlstr", "LuaS_newlstr", 0x80017694, 0x8001772c, [22, 26], [], [0x8001769c]),
+            ("internshrstr", "Internshrstr", 0x80017350, 0x8001751c, [22, 26], [0x800173a4, 0x800173f0],
+             [0x8001742c]),
+            ("luaC_step", "LuaC_step", 0x8000ec80, 0x8000f1c8, [22, 26], [], [0x8000ec98]),
+            ("luaE_setdebt", "LuaE_setdebt", 0x80016a20, 0x80016a54, [22, 26], [], [])]
+
 # the argument registers of a callee with no segments of its own (a call node
 # whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
 # idx, &len)`; lane F1-12: `luaE_extendCI(L)`)
@@ -463,6 +479,8 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__retarget_lock_close_recursive": set(),
            "luaE_extendCI": {"x10"}, "luaM_malloc_": {"x10"}, "l_alloc": {"x10"}, "realloc": {"x10"},
            "_realloc_r": {"x10"}}
+RESULTS.update({"lua_pushstring": {"x10"}, "luaS_new": {"x10"}, "luaS_newlstr": {"x10"},
+                "internshrstr": {"x10"}, "luaC_step": set(), "luaE_setdebt": set()})
 
 
 def helper_cfg(lo, hi):

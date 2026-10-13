@@ -366,7 +366,7 @@ theorem _root_.Lua.Vm.LitsIn.of_fill {M : Mem} {g sl : Nat} {ls : LitPtrs} {rt :
     (h : LitsIn (Vsa.Densify.fillZeroMem M) g sl ls rt) : LitsIn M g sl ls rt := by
   have e := fill_fill M
   exact ⟨h.g, h.sl, h.nil.of_fill, h.tru.of_fill, h.fls.of_fill, h.tos.of_fill,
-    fun c hc => e ▸ h.cands c hc, e ▸ h.strmt⟩
+    fun c hc => e ▸ h.cands c hc, e ▸ h.strmt, h.hash_lo, h.hash_hi, h.size_hi, h.lit_cands⟩
 
 /-- The literals frozen on `e.litFoot`, from the boot contract. -/
 theorem lits_boot {m0 m : Mem} {L ci : Nat} {p : Proto} {e : EntryPtrs} {rt : RtPtrs} (hE : VmEntryData m0 L ci p e)
