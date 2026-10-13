@@ -10,9 +10,11 @@ are `BitVec 64` DAGs. Level (b1) relates them to `SfRef` (`Lua/Num/SfRef.lean`)
 by chambers; inside a chamber the DAG is *explored*:
 
 * `unfold_lhs` unfolds the node at the head of the goal's left side;
-* a guard is split (`split`), its hypothesis normalised to `Nat`/`Int`
-  arithmetic by `sf_hyp` (the lens lemmas below), and a side the chamber's
-  facts refute is closed by `omega`.
+* the goal is kept in the `ofNat` normal form (`sf_nf`: every argument
+  `BitVec.ofNat 64 n`, guards `decide`s over `n`); a guard `omega` decides is
+  resolved in place, otherwise it is split (`split`) and a side the
+  chamber's facts refute is closed by `omega` (`sf_go`, `sf_step`);
+* a leaf is closed against the reference by `sf_close`.
 
 The lens lemmas turn the machine's words into `Nat`: guards (`==`, `!=`,
 signed and unsigned compares) into `decide` over `toNat`/`toInt`, literal
