@@ -158,6 +158,21 @@ theorem fw8_ins {m : Mem} {a x : Nat} {d : BitVec 8} (h : x + 8 ≤ a ∨ a + 1 
     bytesT8 (m.insert a d) x = bytesT8 m x :=
   bT8_congr fun i _ => ins_out m a d _ (by omega)
 
+/-! lane F1-F4: a load past a framed callee's frame (`memPatch`, a soft-float
+call node's `Fm`), the separation over `Nat` (`omega`). -/
+
+theorem fw1_patch {m M : Mem} {lo n x : Nat} (h : x + 1 ≤ lo ∨ lo + n ≤ x) :
+    bytesT1 (memPatch m M lo n) x = bytesT1 m x := bT1_congr (getElem?_memPatch_out (by omega))
+theorem fw2_patch {m M : Mem} {lo n x : Nat} (h : x + 2 ≤ lo ∨ lo + n ≤ x) :
+    bytesT2 (memPatch m M lo n) x = bytesT2 m x :=
+  bT2_congr fun _ _ => getElem?_memPatch_out (by omega)
+theorem fw4_patch {m M : Mem} {lo n x : Nat} (h : x + 4 ≤ lo ∨ lo + n ≤ x) :
+    bytesT4 (memPatch m M lo n) x = bytesT4 m x :=
+  bT4_congr fun _ _ => getElem?_memPatch_out (by omega)
+theorem fw8_patch {m M : Mem} {lo n x : Nat} (h : x + 8 ≤ lo ∨ lo + n ≤ x) :
+    bytesT8 (memPatch m M lo n) x = bytesT8 m x :=
+  bT8_congr fun _ _ => getElem?_memPatch_out (by omega)
+
 /-- The load of what was just stored, at the same width (the address in
 another form, `omega`). -/
 theorem fw8_same {m : Mem} {a x : Nat} {v : BitVec 64} (h : x = a) :
@@ -225,6 +240,11 @@ partial def bvGround? (e : Expr) : MetaM (Option (Nat × Nat)) := do
     if k = 0 then return none
     let v := if a >>> (k - 1) % 2 = 1 then a + 2 ^ w - 2 ^ k else a
     return some (w, v % 2 ^ w)
+  -- lane F1-F4: `auipc`'s `hi +++ 0#12`
+  if e.isAppOfArity ``HAppend.hAppend 6 then
+    let some (w1, a) ← bvGround? (e.getArg! 4) | return none
+    let some (w2, b) ← bvGround? (e.getArg! 5) | return none
+    return some (w1 + w2, (a <<< w2) ||| b)
   for (op, f) in [(``HAnd.hAnd, fun (a b : Nat) (_ : Nat) => a &&& b),
       (``HOr.hOr, fun a b _ => a ||| b), (``HXor.hXor, fun a b _ => a ^^^ b),
       (``HAdd.hAdd, fun a b w => (a + b) % 2 ^ w), (``HSub.hSub, fun a b w => (a + 2 ^ w - b) % 2 ^ w)] do
@@ -247,6 +267,20 @@ simproc_decl ground_bv (_) := fun e => do
     e.isAppOf ``HSub.hSub || e.isAppOf ``Sail.BitVec.extractLsb then return .continue
   let some (w, v) ← bvGround? e | return .continue
   let lit := mkApp2 (mkConst ``BitVec.ofNat) (mkNatLit w) (mkNatLit v)
+  let pf ← mkDecideProof (← mkEq e lit)
+  return .done { expr := lit, proof? := some pf }
+
+open Lean Meta Simp in
+/-- **`ground_toNat`** (lane F1-F4): the `Nat` of a ground address an
+`auipc` computes (`pc + sext (hi +++ 0) + sext lo`: a `.rodata` word's, a
+jump table's), evaluated to a literal by `decide`. -/
+simproc_decl ground_toNat (BitVec.toNat _) := fun e => do
+  unless e.isAppOfArity ``BitVec.toNat 2 do return .continue
+  let x := e.appArg!
+  if x.hasFVar || x.hasMVar then return .continue
+  unless (x.find? fun y => y.isAppOf ``HAppend.hAppend).isSome do return .continue
+  let some (_, v) ← bvGround? x | return .continue
+  let lit := mkNatLit v
   let pf ← mkDecideProof (← mkEq e lit)
   return .done { expr := lit, proof? := some pf }
 
@@ -301,11 +335,12 @@ elab "fat_rd" loc:(Lean.Parser.Tactic.location)? : tactic => withMainContext do
   -- one `simp`: a fact rewritten may expose an address to normalise, and a
   -- normalised address a load to forward
   evalTactic (← `(tactic| (
-    simp (disch := omega) only [ground_bv, and_m15, and_m7, and_sx15, and_sx7, add_imm, imm_neg_add, BitVec.ofNat_add_ofNat,
+    simp (disch := omega) only [↓ground_toNat, ground_bv, and_m15, and_m7, and_sx15, and_sx7, add_imm, imm_neg_add, BitVec.ofNat_add_ofNat,
       BitVec.toNat_ofNat, Nat.add_zero, Vsa.Sim.sext_zero, BitVec.add_zero, Nat.mod_eq_of_lt,
       sext64_id, BitVec.mul_one, fw8_same, fw4_same, fw2_same, fw1_same,
       fw1_wm8, fw1_wm4, fw1_wm2, fw1_ins, fw2_wm8, fw2_wm4, fw2_wm2, fw2_ins,
-      fw4_wm8, fw4_wm4, fw4_wm2, fw4_ins, fw8_wm8, fw8_wm4, fw8_wm2, fw8_ins, $facts,*] $[$loc]?)))
+      fw4_wm8, fw4_wm4, fw4_wm2, fw4_ins, fw8_wm8, fw8_wm4, fw8_wm2, fw8_ins,
+      fw1_patch, fw2_patch, fw4_patch, fw8_patch, $facts,*] $[$loc]?)))
 
 /-- **The loads of the callee rows** (an `at_eq` extension, tried first):
 forwarded and rewritten by `fat_rd`, then closed (lane F1-12: a scaled
@@ -336,6 +371,8 @@ def storeCongr? (e : Expr) : Option Name :=
   else if e.isAppOfArity ``writeMap4 3 then some ``wm4_congr
   else if e.isAppOfArity ``writeMap2 3 then some ``wm2_congr
   else if e.isAppOf ``Std.ExtHashMap.insert then some ``At.insert_congr
+  -- lane F1-F4: a framed callee's frame
+  else if e.isAppOfArity ``memPatch 4 then some ``memPatch_congr
   else none
 
 open Lean Elab Tactic Meta in
@@ -363,9 +400,16 @@ partial def fatMem : TacticM Unit := withMainContext do
     let gs ← getUnsolvedGoals
     match gs with
     | [gm, ga, gd] =>
-      setGoals [gm]; fatMem
-      setGoals [ga]; evalTactic (← `(tactic| kit_disch))
-      setGoals [gd]; evalTactic (← `(tactic| exact At.un_congr (by at_eq)))
+      if c == ``memPatch_congr then
+        -- lane F1-F4: the base memory, the callee's frame contents (the same
+        -- lifted function, its arguments syntactically), the window's address
+        setGoals [gm]; fatMem
+        setGoals [ga]; evalTactic (← `(tactic| first | with_reducible rfl | rfl))
+        setGoals [gd]; evalTactic (← `(tactic| kit_disch))
+      else
+        setGoals [gm]; fatMem
+        setGoals [ga]; evalTactic (← `(tactic| kit_disch))
+        setGoals [gd]; evalTactic (← `(tactic| exact At.un_congr (by at_eq)))
     | _ => throwError "fat_mem: congruence"
   | _, _ => evalTactic (← `(tactic| with_reducible rfl))
 
@@ -399,6 +443,10 @@ elab "fat_side" : tactic => withMainContext do
   let t ← instantiateMVars (← getMainTarget)
   if (t.find? fun e => e.isConstOf ``Sail.BitVec.update).isSome then
     evalTactic (← `(tactic| fat_ret))
+  else if (t.find? fun e => e.isAppOf ``HAppend.hAppend).isSome then
+    -- lane F1-F4: a ground `auipc` address (`ground_toNat`), never `kit_disch`'s
+    -- unfolding
+    evalTactic (← `(tactic| (fat_rd; first | done | ground_decide | omega)))
   else
     evalTactic (← `(tactic| first
       | kit_disch

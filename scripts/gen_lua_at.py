@@ -1694,7 +1694,10 @@ class Fn:
     def mem_text(self, key):
         txt = "X.m"
         for w, ad, v in reversed(key):
-            if w == 8:
+            if w < 0:
+                # lane F1-F4: a framed callee's frame `[ad, ad - w)` (`memPatch`)
+                txt = f"memPatch ({txt}) ({v}) ({ad}) {-w}"
+            elif w == 8:
                 txt = f"writeMap8 ({txt}) ({ad}) (sdData_val ({v}))"
             elif w == 4:
                 txt = f"writeMap4 ({txt}) ({ad}) (swData ({v}))"
@@ -1747,6 +1750,12 @@ class Fn:
                     continue
                 if t2 != terms:
                     raise Stop("a load against a store at another base")
+                # lane F1-F4: a framed callee's frame (`w2 < 0`: `-w2` bytes from
+                # `a2`, `memPatch`), read past only outside it
+                if w2 < 0:
+                    if add + w <= a2 or a2 - w2 <= add:
+                        continue
+                    raise Stop("a load inside a callee's frame")
                 if add + w <= a2 or a2 + w2 <= add:
                     continue
                 if a2 != add or w2 != w:
@@ -2002,6 +2011,16 @@ class Fn:
         if callee is not None and callee in self.spec.get("calls", {}):
             kind = "call"
         emit = (name, pc, st, st2, nxt, guard, kind)
+        if callee is not None and self.spec.get("float") and callee in FCALLS:
+            # lane F1-F4: a soft-float call node (`FCALLS`, the arm route's): its
+            # result the lifted function of its arguments, a framed routine's
+            # frame a `memPatch` of the log; then on from the return
+            post = self.fcall(callee, st2)
+            if not self.walk(st2.get(1)[1], post, depth + 1):
+                raise Stop("no path on")
+            self.emit(*emit)
+            self.emit_fcall(callee, st2, post)
+            return
         if callee is not None and callee in self.spec.get("pure", {}):
             # a call whose summary keeps the memory: one call at-lemma, then on
             post = self.pure_call(callee, st2)
@@ -2109,6 +2128,73 @@ class Fn:
         self.lemmas[key] = (n, text)
         self.order.append(key)
 
+    def fcall(self, callee, st):
+        """lane F1-F4: the state after a soft-float call node (`FCALLS`): the
+        callee-saved registers, the result `Lua.Vm.Fn.<R>.F` of the arguments
+        (a framed routine's also of the memory, `sp` and `ra`), and a framed
+        routine's frame `Lua.Vm.Fn.<R>.Fm` as a `memPatch` entry of the log."""
+        mod, nargs, frame = FCALLS[callee]
+        ret = st.get(1)
+        if ret[0] != "lit":
+            raise Stop("a soft-float call with a symbolic return")
+        regs = {r: v for r, v in st.regs.items() if r in (2, 3, 8, 9, *range(18, 28))}
+        args = " ".join(f"({fv(st.get(10 + i))})" for i in range(nargs))
+        log = list(st.log)
+        if frame:
+            sp = st.get(2)
+            if sp[0] != "nat":
+                raise Stop("sp at a framed soft-float call")
+            pre = f"{self.mem(st.log)} ({nat_txt(sp[1], sp[2], True)}) (0x{ret[1]:x}#64) {args}"
+            regs[10] = ("txt", f"Lua.Vm.Fn.{mod}.F {pre}")
+            log.insert(0, (-frame, sp[1], sp[2] - frame, ("txt", f"Lua.Vm.Fn.{mod}.Fm {pre}")))
+        else:
+            regs[10] = ("txt", f"Lua.Vm.Fn.{mod}.F {args}")
+        post = FState(regs, log, st.carried, st.facts, st.root)
+        post.nfacts, post.entry, post.rootpc = list(st.nfacts), st.entry, st.rootpc
+        return post
+
+    def emit_fcall(self, callee, st, post):
+        """lane F1-F4: a soft-float call node's at-lemma: the registers the
+        caller's row leaves dead pinned (`SegSt.pin22`, `pin26`), the routine's
+        summary at the row (`fat_fcall`)."""
+        mod, nargs, frame = FCALLS[callee]
+        ret = st.get(1)[1]
+        pre_row, pre_mem = self.row(st.regs), self.mem(st.log)
+        post_row, post_mem = self.row(post.regs), self.mem(post.log)
+        key = ("fcall", callee, pre_row, pre_mem, post_row, post_mem)
+        if key in self.lemmas:
+            return
+        hyps = ["(X : FCx)", f"(hX : {st.root} X)"]
+        for nf in st.nfacts:
+            if nf not in self.nfacts_n:
+                self.nfacts_n[nf] = f"hf{len(self.nfacts_n)}"
+            hyps.append(f"({self.nfacts_n[nf]} : {nf})")
+        n, k = f"call_{ret:08x}", 0
+        while n in {v[0] for kk, v in self.lemmas.items() if kk != key}:
+            k += 1
+            n = f"call_{ret:08x}_{k}"
+        vs = " ".join(["_"] * nargs)
+        if frame:
+            pre = f"{PREMISED[mod]} " if mod in PREMISED else ""
+            pre = pre.replace(PREMISED.get(mod, "?"), f"hx_{PREMISED.get(mod, '?')}")
+            sm = (f"Lua.Vm.Fn.{mod}.sum {pre}_ _ _ _ sframe? {vs} (by fat_fnsp) (by decide) "
+                  f"(by fat_rod)")
+        else:
+            sm = f"Lua.Vm.Fn.{mod}.sum _ _ _ hframe? {vs} (by decide)"
+        oks = [f"hx_{f.split(':')[0].strip()}" for f in self.oks[st.root][0]]
+        pins = "".join(f"  obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin{r} h\n" for r in (22, 26)
+                       if r not in st.regs)
+        text = (f"theorem {n} {' '.join(hyps)} :\n"
+                f"    Triple (SegSt 0x{callee:08x}#64 ({pre_row} X) (ArmPay {pre_mem} X.o))\n"
+                f"      (SegSt (0x{ret:08x}#64) ({post_row} X) (ArmPay {post_mem} X.o)) := by\n"
+                f"  intro c h\n"
+                f"  obtain ⟨{', '.join(oks)}⟩ := hX\n"
+                f"  have hTH : tohostAddr = 0x8005c6c0 := rfl\n"
+                + pins +
+                f"  fat_fcall ({sm})\n")
+        self.lemmas[key] = (n, text)
+        self.order.append(key)
+
     def root(self, pc, st):
         st.rootpc = pc
         key = (pc, self.row(st.regs), tuple(st.carried))
@@ -2201,14 +2287,14 @@ open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterface
 open Vsa.Sim Vsa.Logic
 open Lua.Vm.Sim Lua.Vm.Sim.AtF Lua.Vm.Layout
 open Vsa.Machine (Config)
-
+{FOPAQUE if self.spec.get("float") else ""}
 namespace {ns}
-
+{"noncomputable section" + chr(10) if self.spec.get("float") else ""}
 {ok}
 {mems}
 {rows}
 {body}
-end {ns}
+{"end" + chr(10) if self.spec.get("float") else ""}end {ns}
 """
 
 
@@ -2372,7 +2458,36 @@ def tol_lit(mod, tag, what):
             "`lua_tolstring(L, -1, &l)`.")
 
 
+def eqf(mod, t1, t2, doc):
+    """lane F1-F4: `luaV_equalobj(L, t1, t2)` on the tags `t1`, `t2` (a float
+    one of them): X.n 0 = sp, X.n 1 = t1, X.n 2 = t2; X.b 0 = ra, X.b 1 = gp,
+    X.b 2… the caller's `s0`–`s11` but `s6`, `s10` (`KFrame`), X.b 12 = L.
+    The soft-float routines are call nodes (`float`); `.rodata` (the jump
+    table's word for `LUA_VNUMFLT`, `(double)LUA_MININTEGER` and its negation)
+    are root facts (`cells`), the tags too (`rcellsw`)."""
+    row = {10: ("bv", 12), 11: N((1, 1)), 12: N((2, 1)), 1: ("bv", 0), 2: N((0, 1)), 3: ("bv", 1)}
+    for k, r in enumerate([8, 9, 18, 19, 20, 21, 23, 24, 25, 27]):
+        row[r] = ("bv", 2 + k)
+    return dict(
+        mod=mod, entry=0x8001b780, row=row, float=True,
+        ok=["sp_lo : 0x8005c6c0 + 16 + 160 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 8 = 0",
+            "n1_lo : 0x8005c6c0 + 16 ≤ X.n 1", "n1_hi : X.n 1 + 16 + 160 ≤ X.n 0",
+            "n2_lo : 0x8005c6c0 + 16 ≤ X.n 2", "n2_hi : X.n 2 + 16 + 160 ≤ X.n 0",
+            "ra : (X.b 0).toNat % 4 = 0", "hro : RodataRead X.m", "hfl : FloorSpec"],
+        lb={1: 0x8005c6d0, 2: 0x8005c6d0},
+        cells={(4, 0x80053310 + 4 * 19): 0xfffc85fc, (8, 0x8005c478): 0xc3e0000000000000,
+               (8, 0x8005c480): 0x43e0000000000000},
+        rcellsw={(1, ((1, 1),), 8): t1, (1, ((2, 1),), 8): t2},
+        imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
+
+
 FNS = {
+    # lane F1-F4: `luaV_equalobj`'s float paths: two floats (`__eqdf2`), an
+    # integer and a float either way (`luaV_tointegerns(F2Ieq)` inlined: `floor`,
+    # `__eqdf2`, the range against `.rodata`, `__fixdfdi`, the integer compare)
+    "luaV_equalobj/ff": eqf("EqobjFF", 19, 19, "`luaV_equalobj` on two floats."),
+    "luaV_equalobj/if": eqf("EqobjIF", 3, 19, "`luaV_equalobj` on an integer and a float."),
+    "luaV_equalobj/fi": eqf("EqobjFI", 19, 3, "`luaV_equalobj` on a float and an integer."),
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
     "fflush": dict(
