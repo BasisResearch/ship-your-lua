@@ -100,10 +100,16 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               # lane F1-F4: EQ's and EQK's float paths (`luaV_equalobj`'s float
               # summary `equalobj_flt_sum` as the call node)
               "OP_EQ_F": ("EqF", 0x8001c690), "OP_EQK_F": ("EqkF", 0x8001c850)}
+# lane F1-F6: `luai_numdiv` by `__divdf3` (DIV, DIVK: every path, always float)
+# and `luai_numidiv` (`floor` of `__divdf3`: IDIV's and IDIVK's float paths,
+# over the integer arms' segments, `SEG_OP`)
+FLOAT_ARMS.update({"OP_DIV": ("Div", 0x8001d494), "OP_DIVK": ("Divk", 0x8001d7d8),
+                   "OP_IDIV_F": ("IdivF", 0x8001deac), "OP_IDIVK_F": ("IdivkF", 0x8001d768)})
 SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("SHL", "SHR", "SHLI", "SHRI")},
 "OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
           "OP_LE_F": "OP_LE", "OP_EQ_F": "OP_EQ", "OP_EQK_F": "OP_EQK",
+          "OP_IDIV_F": "OP_IDIV", "OP_IDIVK_F": "OP_IDIVK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("BNOT", "BAND", "BOR", "BXOR")}}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
@@ -133,7 +139,9 @@ FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
           # worktree-agent-af308d3f0fd62a0df): `luaV_flttointeger`'s chain
           0x8002f188: ("Fixdfdi", 1, 0), 0x8002bb14: ("Floor", 1, 112),
           # lane F1-F5: `luai_nummul` (`Muldf3.spec_proved`, lane float-sf3)
-          0x8002e504: ("Muldf3", 2, 80)}
+          0x8002e504: ("Muldf3", 2, 80),
+          # lane F1-F6: `luai_numdiv` (`Divdf3.spec_proved`, lane float-sf4)
+          0x8002de30: ("Divdf3", 2, 112)}
 # a routine whose summary and result model are stated through a premise
 # structure (`FloorSpec`, `Lua/Vm/Fn/Floor.lean`): module -> the premise's
 # hypothesis name while it is open (`PREMISED`), or the theorem passed in its
@@ -154,7 +162,20 @@ FPROVED = {"Adddf3": "Lua.Vm.Fn.SfRefAdd", "Subdf3": "Lua.Vm.Fn.SfRefSub",
            # `FCALLS` with the MUL/MULK arms' float paths)
            "Muldf3": "Lua.Vm.Fn.SfRefMul",
            # lane F1-F5: libm `floor` (`FloorSpec`, proved by lane float-sf3)
-           "Floor": "Lua.Vm.Fn.SfRefFloorSpec"}
+           "Floor": "Lua.Vm.Fn.SfRefFloorSpec",
+           # lane F1-F6: `__divdf3` (lane float-sf4)
+           "Divdf3": "Lua.Vm.Fn.SfRefDiv"}
+# lane F1-F6: a framed routine whose frame stores some of the caller's saved
+# registers (its `Fm` takes the caller's `SFrame`): module -> (its summary over
+# `frame4` of those registers, the registers). `__divdf3` saves `s0`-`s3`.
+FRAME_G = {"Divdf3": ("Lua.Vm.Sim.At.divdf3_sumG", (8, 9, 18, 19))}
+# lane F1-F6: an arm's own call node for an entry (arm -> {entry: (module,
+# arguments, frame bytes)}). `luai_numidiv` STORES `floor`'s result, whose bits
+# `FloorSpec`'s chosen function does not fix (only its model): IDIV's and
+# IDIVK's float paths take `FloorR` (`Lua/Vm/Fn/FloorR.lean`: the reference
+# `SfRef.floor` as the result, `Floor.sum_ref`).
+FCALL_ARM = {op: {0x8002bb14: ("FloorR", 1, 112)} for op in ("OP_IDIV_F", "OP_IDIVK_F")}
+FPROVED["FloorR"] = "Lua.Vm.Fn.FloorR"
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
@@ -171,6 +192,9 @@ IMPORTS["OP_FORLOOP"] = IMPORTS["OP_FORLOOP"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
 IMPORTS["OP_FORPREP_F"] = IMPORTS["OP_FORPREP_F"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
 # lane F3: `K[C]`'s address read through a callee's frame (`at_side_ext`, `Kit/AtFrame.lean`)
 for _op in ("OP_BANDK_F", "OP_BORK_F", "OP_BXORK_F"):
+    IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtFrame"]
+# lane F1-F6: DIVK's and IDIVK's `K[C]` read after `__floatdidf`'s frame
+for _op in ("OP_DIVK", "OP_IDIVK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtFrame"]
 # lane F1-F4: the float call node of `luaV_equalobj` (`Kit/AtEqF.lean`)
 for _op in ("OP_EQ_F", "OP_EQK_F"):
@@ -750,6 +774,7 @@ CALLS = {
 
 CALLS.update({e: f"fcall_{m}" for e, (m, _, _) in FCALLS.items()})
 FCALLS_BY_NAME = {f"fcall_{m}": (m, n, fr) for e, (m, n, fr) in FCALLS.items()}
+FCALLS_BY_NAME.update({f"fcall_{m}": (m, n, fr) for d in FCALL_ARM.values() for m, n, fr in d.values()})
 
 # a call node observed by the instruction after it (`l_strcmp`'s answer is
 # only known up to `LsObs`): the call lemma runs on through that observing
@@ -775,7 +800,12 @@ def call_effect(st, callee, ret):
     if callee in FCALLS_BY_NAME:
         mod, nargs, frame = FCALLS_BY_NAME[callee]
         args = tuple(st.get(10 + i) for i in range(nargs))
-        k = CUR[0].fsite(mod, args, tuple(st.log), ret, frame)
+        g = ()
+        if mod in FRAME_G:
+            g = tuple(st.get(r) for r in FRAME_G[mod][1])
+            if any(x is None for x in g):
+                raise Stop(f"{mod}: a stored frame register unknown")
+        k = CUR[0].fsite(mod, args, tuple(st.log), ret, frame, g)
         post.set(10, ("fsite", k))
         vs = " ".join(["_"] * nargs)
         pre = (f"{PREMISED[mod]} " if mod in PREMISED else
@@ -784,7 +814,8 @@ def call_effect(st, callee, ret):
             hyps.append(f"({PREMISED[mod]} : {mod}Spec)")
         if frame:
             post.log.insert(0, ("clob", (("sp", 1),), -frame, (frame, k)))
-            proof = (f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum {pre}_ _ _ _ sframe? {vs} (at_fnSp hX) "
+            sm = FRAME_G[mod][0] if mod in FRAME_G else f"Lua.Vm.Fn.{mod}.sum"
+            proof = (f"at_call [{{pins}}] ({sm} {pre}_ _ _ _ sframe? {vs} (at_fnSp hX) "
                      f"(by decide) (by at_rod))")
         else:
             proof = f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum _ _ _ hframe? {vs} (by decide))"
@@ -924,11 +955,11 @@ class Arm:
         self.decls = []
         self.join_sides, self.join_pending, self.join_defs, self.join_st = {}, [], [], {}
 
-    def fsite(self, mod, args, log, ret, frame):
+    def fsite(self, mod, args, log, ret, frame, g=()):
         """The index of a soft-float call site's definitions (`f<k>`, its
         result; `k<k>`, a framed helper's memory; `f<k>_eq`, the result's
         specification), allocated once per (helper, arguments, log, return)."""
-        key = (mod, args, log, ret, frame)
+        key = (mod, args, log, ret, frame, g)
         if key not in self.fsites:
             self.logname(log)            # the result is over the call's entry memory
             self.fsites[key] = len(self.fsites)
@@ -937,8 +968,8 @@ class Arm:
 
     def fsite_defs(self, only):
         out = []
-        for (mod, args, log, ret, frame), k in self.fsites.items():
-            if (mod, args, log, ret, frame) != only:
+        for (mod, args, log, ret, frame, g), k in self.fsites.items():
+            if (mod, args, log, ret, frame, g) != only:
                 continue
             xs = " ".join(f"(Loc.den X {lean_loc(y)})" for y in args)
             r = f"(0x{ret:x}#64)"
@@ -959,9 +990,13 @@ class Arm:
                 out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
                            f"def f{k} (X : Cx) : BitVec 64 :=\n"
                            f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {xs}\n")
+                # lane F1-F6: a frame that stores the caller's saved registers
+                # (`FRAME_G`) is over their row values (`frame4`)
+                gs = ("(Lua.Vm.Sim.At.frame4 " + " ".join(f"(Loc.den X {lean_loc(y)})" for y in g)
+                      + ") ") if g else ""
                 out.append(f"/-- ... its frame. -/\n"
                            f"def k{k} (X : Cx) (M : Mem) : Mem :=\n"
-                           f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {xs}\n")
+                           f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {gs}{xs}\n")
                 hsf, spec = (("", "spec_proved") if mod in FPROVED
                              else ("(hsf : SoftFloatSpec) ", "spec hsf"))
                 out.append(f"@[at_fspec] theorem f{k}_eq {hsf}(X : Cx) (hX : X.Ok) :\n"
@@ -1195,6 +1230,8 @@ class Arm:
 
     def walk_call(self, entry, ret, st, depth):
         callee = CALLS[entry]
+        if entry in FCALL_ARM.get(self.op, {}):
+            callee = f"fcall_{FCALL_ARM[self.op][entry][0]}"
         post, hyps, proof, _ = call_effect(st, callee, ret)
         nxt = ret
         if callee in OBSERVED:
@@ -1344,6 +1381,9 @@ class Arm:
         # a premised routine's result is chosen from its premise (`noncomputable`)
         prem = any(key[0] in PREMISE_FORM for key in self.fsites) or self.op in ("OP_EQ_F", "OP_EQK_F")
         nc_open = "noncomputable section\n" if prem else ""
+        # lane F1-F6: an arm's own call nodes (`FCALL_ARM`) opaque too
+        fopq_arm = "".join(f"attribute [local irreducible] Lua.Vm.Fn.{m}.F Lua.Vm.Fn.{m}.Fm\n"
+                           for m, _, _ in FCALL_ARM.get(self.op, {}).values())
         nc_close = "end\n" if prem else ""
         return f"""import Lua.Vm.Sim.Kit.At
 import Lua.Vm.Sim.Kit.Summaries
@@ -1364,7 +1404,7 @@ open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterface
 open Vsa.Sim Vsa.Logic
 open Lua.Vm.Sim Lua.Vm.Sim.At Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (Config)
-{FOPAQUE if self.op in FLOAT_ARMS else ""}
+{FOPAQUE if self.op in FLOAT_ARMS else ""}{fopq_arm}
 namespace Lua.Vm.At.{self.op[3:]}
 {nc_open}
 {first}
@@ -2185,6 +2225,8 @@ class Fn:
         (a framed routine's also of the memory, `sp` and `ra`), and a framed
         routine's frame `Lua.Vm.Fn.<R>.Fm` as a `memPatch` entry of the log."""
         mod, nargs, frame = FCALLS[callee]
+        if mod in FRAME_G:
+            raise Stop(f"{mod}: a frame over the caller's registers (FRAME_G) on the callee route")
         ret = st.get(1)
         if ret[0] != "lit":
             raise Stop("a soft-float call with a symbolic return")

@@ -79,6 +79,9 @@ SIM_OPS |= {"OP_VARARGPREP"}
 # emitted in modules of their own (`Segs/X<op>`, `Sites/SX<op>`), so the
 # address-chunked modules of the F1 arms stay as they are.
 EXTRA_ARMS = ["OP_LEN"]
+# lane F1-F6: `OP_DIV`, `OP_DIVK` (`op_arithf(K)`, always float: no integer kernel
+# case, so outside the census summary's F1 list)
+EXTRA_ARMS += ["OP_DIV", "OP_DIVK"]
 SIM_OPS |= set(EXTRA_ARMS)
 KEEP = [2, 3, 8, 9, 18, 19, 20, 21, 23, 24, 25, 27]
 # The register invariant a `sim` segment threads (every GPR present, the HTIF
@@ -442,6 +445,11 @@ FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP",
 # call node of MUL's and MULK's float paths
 FLOAT_CALLS |= {"__muldf3"}
 FLOAT_ARMS |= {"OP_MUL", "OP_MULK"}
+# lane F1-F6: `luai_numdiv` by `__divdf3` (proved: `Divdf3.spec_proved`), a call
+# node of DIV's and DIVK's paths (always float) and, with libm `floor`
+# (`luai_numidiv`), of IDIV's and IDIVK's float paths
+FLOAT_CALLS |= {"__divdf3"}
+FLOAT_ARMS |= {"OP_DIV", "OP_DIVK", "OP_IDIV", "OP_IDIVK"}
 SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the

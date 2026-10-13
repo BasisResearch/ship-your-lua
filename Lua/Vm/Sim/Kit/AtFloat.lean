@@ -4,6 +4,7 @@ import Lua.Vm.Sim.Kit.Clzdi2
 import Lua.Vm.Fn.Spec
 import Lua.Vm.Fn.Floor
 import Lua.Vm.Fn.Muldf3
+import Lua.Vm.Fn.Divdf3
 
 /-!
 # The soft-float call nodes on the location-list route (lane float-m0, M1)
@@ -69,6 +70,33 @@ theorem fn_congr5 {α β γ δ ε ζ : Type} (f : α → β → γ → δ → ε
 
 theorem fn_congr1 {α β : Type} (f : α → β) {a a' : α} (ha : a = a') : f a = f a' := by subst ha; rfl
 
+theorem fn_congr6 {α β γ δ ε ζ η : Type} (f : α → β → γ → δ → ε → ζ → η) {a a' : α} {b b' : β}
+    {c c' : γ} {d d' : δ} {e e' : ε} {z z' : ζ} (ha : a = a') (hb : b = b') (hc : c = c') (hd : d = d')
+    (he : e = e') (hz : z = z') : f a b c d e z = f a' b' c' d' e' z' := by
+  subst ha hb hc hd he hz; rfl
+
+/-! ## A frame that stores the caller's saved registers (lane F1-F6) -/
+
+/-- The caller's frame reduced to the registers a routine's memory stores
+(`s0`–`s3`: `__divdf3`'s mid-body saves); the other fields are `0`. -/
+def frame4 (s0 s1 s2 s3 : BitVec 64) : SFrame := ⟨0, s0, s1, s2, s3, 0, 0, 0, 0, 0, 0, 0, 0⟩
+
+/-- `__divdf3`'s frame reads only `s0`–`s3` of the caller's frame (the
+lifted memory passes `g` through and stores `g.s0 … g.s3`): definitional. -/
+theorem divdf3_Fm_frame4 (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame) (a b : BitVec 64) :
+    Lua.Vm.Fn.Divdf3.Fm m s r g a b = Lua.Vm.Fn.Divdf3.Fm m s r (frame4 g.s0 g.s1 g.s2 g.s3) a b :=
+  rfl
+
+/-- **`__divdf3`'s summary with its frame over `frame4`** (`Divdf3.sum`):
+the call node's memory `k<k>` is then a function of the row (`gen_lua_at.py`
+`FRAME_G`), whatever the registers the caller leaves dead. -/
+theorem divdf3_sumG (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v10 v11 : BitVec 64)
+    (hs : FnSp s 112) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
+    Triple (SegSt 0x8002de30#64 [⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
+      (SegSt r [⟨Register.x10, Lua.Vm.Fn.Divdf3.F m s r v10 v11⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Lua.Vm.Fn.Divdf3.Fm m s r (frame4 g.s0 g.s1 g.s2 g.s3) v10 v11) (s - 112) 112) o)) := by
+  rw [← divdf3_Fm_frame4]
+  exact Lua.Vm.Fn.Divdf3.sum m o s r g v10 v11 hs hr hrod
+
 open Lean Elab Tactic Meta in
 /-- A call site's definition (`Lua.Vm.At.<OP>.f<k>`, `….k<k>`). -/
 def isFsite (n : Name) : Bool :=
@@ -103,6 +131,7 @@ the lifted function's arguments compared (each by `at_unfold` and `at_eq` or
 macro "at_fsite_eq" : tactic => `(tactic| (
   at_fsite_delta
   first
+    | (refine fn_congr6 _ ?_ ?_ ?_ ?_ ?_ ?_)
     | (refine fn_congr5 _ ?_ ?_ ?_ ?_ ?_)
     | (refine fn_congr4 _ ?_ ?_ ?_ ?_)
     | (refine fn_congr2 _ ?_ ?_)

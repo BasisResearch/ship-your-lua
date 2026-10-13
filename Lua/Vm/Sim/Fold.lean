@@ -363,7 +363,9 @@ join route), `LT` and `LE` (lane F2: their f2i paths through `floor`),
 `SHRI` (lane F3: the shift's tests of `__fixdfdi`'s value as residual atoms),
 `MUL`, `MULK` (lane F1-F5: `__muldf3`, `Muldf3.spec_proved`), `EQ`, `EQK` (lane
 F4: `luaV_equalobj`'s float summary `Kit.equalobj_flt_sum` as the call node,
-from the callee-context route). libm `floor`'s premise `FloorSpec` is
+from the callee-context route), `DIV`, `DIVK` (every path) and the float paths
+of `IDIV`, `IDIVK` (lane F1-F6: `__divdf3`, `Divdf3.spec_proved`; IDIV's
+stored `floor` by `FloorR`). libm `floor`'s premise `FloorSpec` is
 `floorSpec_proved` (lane float-sf3), passed by the generated at-lemmas of both
 routes (lane F1-F5, `PREMISE_PROOF`). `EQI` (lane F1-F5: `At.eqiFlt_proved`).
 `FORPREP` is proved but for the paths its field names (`At.FpCoerce_Statement`). -/
@@ -372,22 +374,14 @@ structure FloatArms : Prop where
   (`Lua/Vm/Fn/Spec.lean`): empty since lane float-sf2, every routine's is a
   theorem `Lua.Vm.Fn.<R>.spec_proved`; kept while the arms name it -/
   soft : SoftFloatSpec
-  /-- `OP_DIV` (`op_arithf`: `__floatdidf`, `__divdf3`; T3) -/
-  DIV : SimArm .DIV
-  /-- `OP_DIVK` (`op_arithfK`; T3) -/
-  DIVK : SimArm .DIVK
   /-- `OP_POW` (`luai_numpow`: `__muldf3`, newlib `pow`; T4) -/
   POW : SimArm .POW
   /-- `OP_POWK` (T4) -/
   POWK : SimArm .POWK
   /-- `OP_MOD` with a float operand (`luaV_modf`: `fmod`; T4) -/
   MOD : SimArmOn .MOD FltBC
-  /-- `OP_IDIV` with a float operand (`luai_numidiv`: `__divdf3`, `floor`; T4) -/
-  IDIV : SimArmOn .IDIV FltBC
   /-- `OP_MODK` with a float operand (T4) -/
   MODK : SimArmOn .MODK FltBK
-  /-- `OP_IDIVK` with a float operand (T4) -/
-  IDIVK : SimArmOn .IDIVK FltBK
   /-- `OP_FORPREP`'s coerced classes, neither three integers nor three floats
   (`forlimit`'s `luaV_tointeger`/`luaV_tonumber_` → `strtod`); the float loop
   is `At.sim_FORPREP_flt` -/
@@ -411,20 +405,20 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case SUB => exact SimArm.split @sim_SUB (At.sim_SUB_flt hF.soft)
   case MUL => exact SimArm.split Kit.sim_MUL At.sim_MUL_flt
   case MOD => exact SimArm.split Kit.sim_MOD hF.MOD
-  case IDIV => exact SimArm.split At.sim_IDIV hF.IDIV
+  case IDIV => exact SimArm.split At.sim_IDIV At.sim_IDIV_flt
   case BAND => exact SimArm.split @sim_BAND (At.sim_BAND_flt hF.soft)
   case BOR => exact SimArm.split @sim_BOR (At.sim_BOR_flt hF.soft)
   case BXOR => exact SimArm.split @sim_BXOR (At.sim_BXOR_flt hF.soft)
   case SHL => exact SimArm.split At.sim_SHL (At.sim_SHL_flt hF.soft)
   case SHR => exact SimArm.split At.sim_SHR (At.sim_SHR_flt hF.soft)
-  case DIV => exact hF.DIV
+  case DIV => exact At.sim_DIV
   case POW => exact hF.POW
   case ADDK => exact SimArm.split @sim_ADDK (At.sim_ADDK_flt hF.soft)
   case SUBK => exact SimArm.split @sim_SUBK (At.sim_SUBK_flt hF.soft)
   case MULK => exact SimArm.split Kit.sim_MULK At.sim_MULK_flt
   case MODK => exact SimArm.split At.sim_MODK hF.MODK
-  case IDIVK => exact SimArm.split At.sim_IDIVK hF.IDIVK
-  case DIVK => exact hF.DIVK
+  case IDIVK => exact SimArm.split At.sim_IDIVK At.sim_IDIVK_flt
+  case DIVK => exact At.sim_DIVK
   case POWK => exact hF.POWK
   case BANDK => exact SimArm.split At.sim_BANDK (At.sim_BANDK_flt hF.soft)
   case BORK => exact SimArm.split At.sim_BORK (At.sim_BORK_flt hF.soft)
