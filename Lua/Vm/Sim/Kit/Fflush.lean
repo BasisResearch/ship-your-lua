@@ -59,7 +59,9 @@ theorem sfl_mid32 {sp buf : Nat} {pend : List (BitVec 8)} {r ret : BitVec 64} {f
     ⟨hret, by omega, by omega, by omega⟩ (hs.below fun a ha => hM a (by omega)) c h
   have kh := hout.keep_hi; have kl := hout.keep_lo; have kf := hout.keep_file
   have bM : ∀ a, (a < sp - 32 ∨ sp ≤ a) → bytesT1 M a = bytesT1 m a := fun a ha => bT1_congr (hM a ha)
-  refine ⟨c', m', s, hret', ⟨?_, ?_, hout.stdout.flags', ?_, hout.stdout, ⟨?_, ?_, ?_⟩, fun a ha => ?_,
+  refine ⟨c', m', s, hret', ⟨?_, ?_, hout.stdout.flags', ?_, hout.stdout, ⟨?_, ?_, ?_,
+    hu.tail.congrT fun a h1 h2 => (kf a (by omega) (by omega)).trans (bM a (by omega)),
+    hu.fds.congrT fun a h1 h2 => (kl a (by omega) (by omega) (by omega)).trans (bM a (by omega))⟩, fun a ha => ?_,
     fun a ha h1 h2 => ?_⟩⟩
   · rw [bytesT8_congrT fun i _ => kh _ (by omega)]; exact h32
   · rw [bytesT8_congrT fun i _ => kh _ (by omega)]; exact h8

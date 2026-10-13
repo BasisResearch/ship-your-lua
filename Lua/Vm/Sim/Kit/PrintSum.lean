@@ -69,7 +69,7 @@ theorem StdoutIn.buf_lo {m : Mem} {H : HeapIx} {ph : StdoutPh} (h : StdoutIn m H
     ∀ a, ph.Buf a → heapStart + 16 ≤ a := by
   intro a ha
   cases h with
-  | up _ _ hb => exact Nat.le_trans hb.lo ha.1
+  | up _ _ hb _ => exact Nat.le_trans hb.lo ha.1
   | boot => exact ha.elim
   | fresh => exact ha.elim
 
@@ -141,7 +141,7 @@ theorem StdoutIn.buf_hi {m : Mem} {H : HeapIx} {ph : StdoutPh} (h : StdoutIn m H
     ∀ a, ph.Buf a → a < heapEnd := by
   intro a ha
   cases h with
-  | up _ _ hb => exact Nat.lt_of_lt_of_le ha.2 hb.hi
+  | up _ _ hb _ => exact Nat.lt_of_lt_of_le ha.2 hb.hi
   | boot => exact ha.elim
   | fresh => exact ha.elim
 
@@ -241,9 +241,9 @@ theorem pr_tail (hM : MallocR_Statement) (sp0 L : Nat) (r : BitVec 64) (f : AbiF
   fcx_unfold at h2
   have h3 : SegSt 0x80032a1c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 stdoutFile⟩] (sp0 - 64) 0x80022ff8#64
       (prFr f.s0 f.s1 f.s4 L f)) (ArmPay m1 (pushes o out1)) _ := h2.repin (by pins_of h2)
-  obtain ⟨hs1, hu1, hb1⟩ : StdoutAt m1 buf pend1 ∧ StdioUp m1 ∧ BufOwned H1 buf := by
+  obtain ⟨hs1, hu1, hb1, hr1⟩ : StdoutAt m1 buf pend1 ∧ StdioUp m1 ∧ BufOwned H1 buf ∧ StdioRest m1 := by
     cases P1.phase with
-    | up hs hu hb => exact ⟨hs, hu, hb⟩
+    | up hs hu hb hr => exact ⟨hs, hu, hb, hr⟩
   have hbh := hb1.hi
   obtain ⟨c4, s4, m2, hret2, hsA, huA, hk2⟩ := fflush_stdout (sp0 - 64) buf pend1 0x80022ff8#64
     (prFr f.s0 f.s1 f.s4 L f) m1 (pushes o out1)
@@ -267,7 +267,11 @@ theorem pr_tail (hM : MallocR_Statement) (sp0 L : Nat) (r : BitVec 64) (f : AbiF
   fat_run Lua.Vm.AtF.Print h4 acc
   fcx_unfold at h4
   refine ⟨_, m2, out1 ++ pend1, buf, H1, acc, by rw [pushes_append]; exact h4.repin (by pins_of h4), ?_,
-    ⟨.up hsA huA hb1, ?_, ?_⟩, P1.kept, fun a ha => P1.buf_new a ha, fun a ha => ?_⟩
+    ⟨.up hsA huA hb1 (hr1.congrT fun a ha => by
+      have := ha.range; have := hb1.lo; have := hok.nums
+      have : heapStart = 0x8006ecd0 := rfl; have : errnoAddr = 0x8005d408 := rfl
+      stdio_nums
+      exact hk2.keep_lo a (by omega) (by omega) (by omega) (by omega)), ?_, ?_⟩, P1.kept, fun a ha => P1.buf_new a ha, fun a ha => ?_⟩
   · have ho := P1.out
     rw [show (StdoutPh.up buf pend1).pend = pend1 from rfl, hP.cells.nl] at ho
     exact ho
@@ -308,7 +312,8 @@ theorem StdoutFresh.congrT {m m' : Mem} (h : StdoutFresh m) (hk : ∀ a, StdioGl
     (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.cookie,
     (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.write,
     (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.flags2,
-    (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.fs⟩
+    (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.fs,
+    h.tail.congrT fun a h1 h2 => hk a ⟨by omega, by omega⟩⟩
 
 theorem StdoutAtW.congrT {m m' : Mem} {buf : Nat} {pend : List (BitVec 8)} {wv : BitVec 32}
     (h : StdoutAtW m buf pend wv) (hk : ∀ a, StdioGlob a ∨ Rng buf 1024 a → bytesT1 m' a = bytesT1 m a) :
@@ -343,7 +348,10 @@ theorem StdioUp.congrT {m m' : Mem} (h : StdioUp m) (hk : ∀ a, StdioGlob a →
   have : symImpureData = 0x8005d1b8 := rfl
   have : reentCleanupOff = 72 := rfl
   refine ⟨(bytesT8_congrT fun i _ => hk _ ⟨by omega, by omega⟩).trans h.impure, ?_,
-    (bytesT4_congrT fun i _ => hk _ ⟨by omega, by omega⟩).trans h.flags2⟩
+    (bytesT4_congrT fun i _ => hk _ ⟨by omega, by omega⟩).trans h.flags2,
+    h.tail.congrT fun a h1 h2 => hk a ⟨by omega, by omega⟩,
+    h.fds.congrT fun a h1 h2 => hk a ⟨by have : symFds = 0x8005d460 := rfl; omega,
+      by have : symFds = 0x8005d460 := rfl; omega⟩⟩
   rw [bytesT8_congrT fun i _ => hk _ ⟨by omega, by omega⟩]; exact h.init
 
 /-- **The I/O state across a change off what it reads.** -/
@@ -357,9 +365,11 @@ theorem PrintSt.keep {m m' : Mem} {ph : StdoutPh} {H : HeapIx} (h : PrintSt m ph
     ⟨?_, ?_, ?_, ?_⟩⟩
   · cases h.io with
     | boot hB hMf hroom => exact .boot (hB.congr hgf) (hMf.congr hgf) hroom
-    | fresh hF hroom => exact .fresh (hF.congrT hg) hroom
-    | up hs hu hb =>
+    | fresh hF hroom hR => exact .fresh (hF.congrT hg) hroom (hR.congrT fun a ha => hg a (by
+        have := ha.range; exact ⟨by omega, by omega⟩))
+    | up hs hu hb hR =>
       exact .up (hs.congrT fun a ha => ha.elim (hg a) fun hb' => hk a (.inr (.inl hb'))) (hu.congrT hg) hb
+        (hR.congrT fun a ha => hg a (by have := ha.range; exact ⟨by omega, by omega⟩))
   · exact (bytesT8_congrT fun i _ => hg _ ⟨by omega, by omega⟩).trans h.cells.impure
   · exact (bytesT8_congrT fun i _ => hg _ ⟨by omega, by omega⟩).trans h.cells.stdout
   · rw [bytesAt_congr fun i hi => hk _ (.inr (.inr (.inr ⟨by omega, by omega⟩)))]; exact h.cells.tab

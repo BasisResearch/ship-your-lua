@@ -74,7 +74,7 @@ theorem SetupPost.print {m M m' : Mem} {sp src n buf brk : Nat} {chunks : List C
     PrintPost m m' sp src n ph H (.up buf pend') ⟨top', brk', chunks', bins'⟩ out := by
   subst hc
   have hb2 := P.grant.heap.brk_le
-  refine ⟨.up P.stdout P.up ⟨P.grant.block, P.grant.lo, Nat.le_trans P.grant.hi hb2⟩, P.heapAfter hsp,
+  refine ⟨.up P.stdout P.up ⟨P.grant.block, P.grant.lo, Nat.le_trans P.grant.hi hb2⟩ P.rest, P.heapAfter hsp,
     by rw [hph, List.nil_append]; exact P.out, hkept, fun a ha => by
       have ha' : buf ≤ a ∧ a < buf + 1024 := ha
       exact .inr ⟨Nat.le_trans (Nat.le_add_right _ _) (Nat.le_trans P.grant.lo ha'.1),
@@ -115,8 +115,8 @@ theorem fwrite_print (hM : MallocR_Statement) (sp src n : Nat) (r : BitVec 64) (
   cases hin with
   | boot hB hMf hroom =>
     rcases Nat.eq_zero_or_pos n with rfl | hn
-    · obtain ⟨c', s', M, hret, hF, hag⟩ := fwrite_boot0 sp src r f m o hra q.2.1 hhi hal hB hMf c h
-      refine ⟨c', s', M, [], .fresh, H, hret, ⟨.fresh hF hroom, ?_, rfl, fun c hc _ => hc, fun _ h => h.elim, fun h => absurd h (by omega), ?_⟩⟩
+    · obtain ⟨c', s', M, hret, hF, hag, hR⟩ := fwrite_boot0 sp src r f m o hra q.2.1 hhi hal hB hMf c h
+      refine ⟨c', s', M, [], .fresh, H, hret, ⟨.fresh hF hroom hR, ?_, rfl, fun c hc _ => hc, fun _ h => h.elim, fun h => absurd h (by omega), ?_⟩⟩
       · exact hheap.congr fun a ha => fill_congr (hag a fun hr => by
           pw_nums
           have e9 : symMallocMallinfo = 0x8005e560 := rfl
@@ -137,10 +137,12 @@ theorem fwrite_print (hM : MallocR_Statement) (sp src n : Nat) (r : BitVec 64) (
         stdoutSetup_of_malloc hM sp src n H.top H.brk H.chunks H.bins r f m o hB hMf hheap hra hhi hal hlo
           hroom hn hsl hsh hsf hsrc c h
       exact ⟨c', s', m', out, _, _, hret, P.print rfl rfl hlo P.grant.kept⟩
-  | fresh hF hroom =>
+  | fresh hF hroom hR =>
     rcases Nat.eq_zero_or_pos n with rfl | hn
     · obtain ⟨c', s', M, hret, hF', hag⟩ := fwrite_fresh0 sp src r f m o hra q.2.2 hhi hal hF c h
-      refine ⟨c', s', M, [], .fresh, H, hret, ⟨.fresh hF' hroom, ?_, rfl, fun c hc _ => hc, fun _ h => h.elim, fun h => absurd h (by omega), ?_⟩⟩
+      have hR' : StdioRest M := hR.congrT fun a ha => hag.t1 (by
+        have := ha.range; simp only [Below]; omega)
+      refine ⟨c', s', M, [], .fresh, H, hret, ⟨.fresh hF' hroom hR', ?_, rfl, fun c hc _ => hc, fun _ h => h.elim, fun h => absurd h (by omega), ?_⟩⟩
       · exact hheap.congr fun a ha => fill_congr (hag a fun hr => by
           have e2 : heapStart = 0x8006ecd0 := rfl
           have e3 : heapEnd = 0x87800000 := rfl
@@ -155,10 +157,10 @@ theorem fwrite_print (hM : MallocR_Statement) (sp src n : Nat) (r : BitVec 64) (
         exact bT1_congr (hag a fun hr => ha (by
           simp only [Below] at hr; exact .inr (.inr (.inr (.inr (.inr ⟨hr.1, by omega⟩))))))
     · obtain ⟨c', s', M, m', out, pend', buf, top', brk', chunks', bins', hret, P⟩ :=
-        stdoutSetup_fresh hM sp src n H.top H.brk H.chunks H.bins r f m o hF hheap hra hhi hal hlo hroom hn hsl
+        stdoutSetup_fresh hM sp src n H.top H.brk H.chunks H.bins r f m o hF hR hheap hra hhi hal hlo hroom hn hsl
           hsh hsf (fun a h1 h2 => ⟨(hsrc a h1 h2).1, (hsrc a h1 h2).2.1⟩) c h
       exact ⟨c', s', m', out, _, _, hret, P.print rfl rfl hlo P.grant.kept⟩
-  | @up buf pend hs hu hb =>
+  | @up buf pend hs hu hb hR =>
     have hsb := hsb buf pend rfl
     have hbh := hb.hi
     have hx : StdioCtx sp buf r := ⟨hra, by omega, hhi, hal⟩
@@ -167,7 +169,11 @@ theorem fwrite_print (hM : MallocR_Statement) (sp src n : Nat) (r : BitVec 64) (
     have hd : heapEnd + 32 + 4096 ≤ sp := by
       obtain ⟨E, hE⟩ : ∃ E, heapEnd = E := ⟨_, rfl⟩
       rw [hE] at hlo ⊢; omega
-    refine ⟨c', s', m', out, .up buf pend', H, hret, ⟨.up hs' hu' hb, ?_, hout, fun c hc _ => hc, fun _ h => .inl h, fun _ => ⟨_, _, rfl⟩, ?_⟩⟩
+    refine ⟨c', s', m', out, .up buf pend', H, hret, ⟨.up hs' hu' hb (hR.congrT fun a ha => by
+        have := ha.range; have := hb.lo
+        have : heapStart = 0x8006ecd0 := rfl; have : errnoAddr = 0x8005d408 := rfl
+        stdio_nums
+        exact hk.keep_lo a (by omega) (by omega) (by omega) (by omega)), ?_, hout, fun c hc _ => hc, fun _ h => .inl h, fun _ => ⟨_, _, rfl⟩, ?_⟩⟩
     · exact hheap.ofStdioKeep hb.block hb.lo hd fun a h1 h2 h3 h4 =>
         (hk.keep_lo a h1 h2 h3 h4).trans (bytesT1_fill m a).symm
     · intro a ha

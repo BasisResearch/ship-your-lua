@@ -64,7 +64,8 @@ theorem StdoutFresh.below {m m' : Mem} (hF : StdoutFresh m) (h : ∀ a, a < stdo
     (bT2_congr fun i _ => h _ (by omega)).trans hF.flags, (bT2_congr fun i _ => h _ (by omega)).trans hF.file,
     (bT4_congr fun i _ => h _ (by omega)).trans hF.pad, (bT8_congr fun i _ => h _ (by omega)).trans hF.base,
     (bT8_congr fun i _ => h _ (by omega)).trans hF.cookie, (bT8_congr fun i _ => h _ (by omega)).trans hF.write,
-    (bT4_congr fun i _ => h _ (by omega)).trans hF.flags2, (bT4_congr fun i _ => h _ (by omega)).trans hF.fs⟩
+    (bT4_congr fun i _ => h _ (by omega)).trans hF.flags2, (bT4_congr fun i _ => h _ (by omega)).trans hF.fs,
+    hF.tail.congrT fun a _ h2 => bT1_congr (h a (by omega))⟩
 
 theorem StdoutFresh.impure' {m : Mem} (h : StdoutFresh m) : bytesT8 m 0x8005d398 = 0x8005d1b8#64 := h.impure
 theorem StdoutFresh.flags' {m : Mem} (h : StdoutFresh m) : bytesT2 m 0x8005e678 = 0x2009#16 := h.flags
@@ -194,7 +195,8 @@ theorem fwrite_boot0 (sp src : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o 
     (hra : r.toNat % 4 = 0) (hlo : 0x8005e7d8 + 64 + 112 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
     (hB : StdioBoot (Vsa.Densify.fillZeroMem m)) (hMf : MemfsBoot (Vsa.Densify.fillZeroMem m)) :
     Triple (SegSt 0x800342e4#64 (fwPre src 0 sp r f) (ArmPay m o))
-      (fun c => ∃ M, wrRet r sp 0 f M o c ∧ StdoutFresh M ∧ Agree (fun a => SinitW a ∨ Below sp 176 a) m M) := by
+      (fun c => ∃ M, wrRet r sp 0 f M o c ∧ StdoutFresh M ∧ Agree (fun a => SinitW a ∨ Below sp 176 a) m M ∧
+      StdioRest M) := by
   intro c h
   obtain ⟨c1, s1, M, h1, mid⟩ := fws_pre sp src 0 r f m o hra hlo hhi hal hB (bT4_of_fill (bytesT4_of_rd32 hMf.ready)) c h
   obtain ⟨c2, s2, h2⟩ := sfv_empty (sp - 112) (sp - 72) 0x800341f8#64 (fwFrame f 0) M o (by decide)
@@ -203,13 +205,13 @@ theorem fwrite_boot0 (sp src : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o 
       rw [show sp - 72 + 16 = sp - 56 by omega] at this ⊢; exact this) c1 h1
   have hfr : FwFrame M sp 0 r f := ⟨mid.frame.ra, mid.frame.s0, mid.frame.s1, mid.frame.s2, mid.frame.s3, mid.frame.n⟩
   obtain ⟨c3, s3, h3⟩ := fwf_post sp 0 r f M o hra (by omega) hhi hal hfr mid.fresh.flags' mid.fresh.flags2' c2 h2
-  exact ⟨c3, s1.trans (s2.trans s3), M, h3, mid.fresh, mid.agree⟩
+  exact ⟨c3, s1.trans (s2.trans s3), M, h3, mid.fresh, mid.agree, mid.rest⟩
 
 /-- **The first non-empty `fwrite` from the fresh stream** (after an empty
 first write): as `StdoutSetup_Statement` from boot, without `__sinit`. -/
 theorem stdoutSetup_fresh (hM : MallocR_Statement) (sp src n top brk : Nat) (chunks : List Chunk)
     (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
-    (hF : StdoutFresh m) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins)
+    (hF : StdoutFresh m) (hR : StdioRest m) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins)
     (hra : r.toNat % 4 = 0) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0) (hlo : heapEnd + 8192 ≤ sp)
     (hroom : brk + 1024 + 16384 ≤ heapEnd) (hn : 1 ≤ n) (hsl : SrcLo src n) (hsh : src + n + 4096 ≤ sp)
     (hsf : src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src)
@@ -256,8 +258,13 @@ theorem stdoutSetup_fresh (hM : MallocR_Statement) (sp src n top brk : Nat) (chu
   have hfr' : FwFrame m' sp n r f := hfrM.keep (by omega) fun a h1 h2 => FW.keep.keep_hi a h1 h2
   obtain ⟨c3, s3, h3⟩ := fwu_post sp n r f m' (pushes o out) hra (by omega) hhi hal hfr' FW.stdout.flags'
     FW.up.flags2' c2 hret
+  have hR3 : StdioRest (Lua.Vm.AtF.FwriteFresh.m3 (fwCx sp src n r f m o)) :=
+    hR.congrT fun a ha => bT1_congr (hM3 a (by
+      have : symSglue = 0x8005cee0 := rfl
+      have : symStdioExitHandler = 0x8005d3e0 := rfl
+      simp only [RestFoot, stdinFile, stderrFile] at ha; omega))
   refine ⟨c3, s1.trans (s2.trans s3), M, m', out, pend', buf, top', brk', chunks', bins', h3,
-    ⟨FW.stdout, FW.up, ?_, FW.grant, ?_, FW.keep, FW.src_buf⟩⟩
+    ⟨FW.stdout, FW.up, ?_, FW.grant, ?_, FW.keep, FW.src_buf, hR3.of_first FW (by omega)⟩⟩
   · rw [FW.out]
     exact bytesAt_congr fun i hi => bT1_congr (hM3 (src + i) (by omega))
   · have k : Agree (Below sp 112) m (Lua.Vm.AtF.FwriteFresh.m3 (fwCx sp src n r f m o)) :=

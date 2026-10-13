@@ -567,7 +567,9 @@ theorem StdioUp.congr' {m m' : Mem} (hu : StdioUp m)
   stdio_nums
   have : errnoAddr = 0x8005d408 := rfl
   refine ⟨(bT8_congr fun i _ => h _ (by omega) (by omega) (by omega)).trans hu.impure, ?_,
-    (bT4_congr fun i _ => h _ (by omega) (by omega) (by omega)).trans hu.flags2⟩
+    (bT4_congr fun i _ => h _ (by omega) (by omega) (by omega)).trans hu.flags2,
+    hu.tail.congrT fun a h1 h2 => bT1_congr (h a (by omega) (by omega) (by omega)),
+    hu.fds.congrT fun a h1 h2 => bT1_congr (h a (by omega) (by omega) (by omega))⟩
   rw [bT8_congr fun i _ => h _ (by omega) (by omega) (by omega)]; exact hu.init
 
 theorem bytesAt_length (m : Mem) (a k : Nat) : (bytesAt m a k).length = k := by simp [bytesAt]

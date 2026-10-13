@@ -40,6 +40,7 @@ structure StdoutSet (m : Mem) (buf : Nat) : Prop where
   lbf : bytesT4 m (stdoutFile + 40) = 0#32 - 1024#32
   ready : bytesT4 m symFsReady = 1#32
   console : bytesT4 m (symFds + 24) = 2#32
+  fds : FdsStd m
 
 /-- What `__swsetup_r` leaves. -/
 structure SwsetupPost (m m' : Mem) (sp buf brk : Nat) (chunks : List Chunk) (top' brk' : Nat)
@@ -144,13 +145,14 @@ theorem swsetup_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List C
     c1 (hr1.repin (by pins_of hr1))
   obtain ⟨k2, w2, l2⟩ := sws_m2 X1
   refine ⟨_, s0.trans (s1.trans s2), Lua.Vm.AtF.Swsetup_r.m2 X1, buf, top', brk', chunks', bins',
-    h2.repin (by pins_of h2), ⟨⟨?_, ?_, w2, ?_, ?_, l2, ?_, ?_⟩, ⟨?_, P.brk_le, P.lo, by omega, ?_, P.fresh, P.kept⟩, ?_⟩⟩
+    h2.repin (by pins_of h2), ⟨⟨?_, ?_, w2, ?_, ?_, l2, ?_, ?_, ?_⟩, ⟨?_, P.brk_le, P.lo, by omega, ?_, P.fresh, P.kept⟩, ?_⟩⟩
   · exact (k2.b2 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.flags
   · exact (k2.b8 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.p
   · exact (k2.b8 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.base
   · exact (k2.b4 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.size
   · exact (k2.b4 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.ready
   · exact (k2.b4 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.console
+  · exact P.fds.congrT fun a h1 h2 => k2.t1 (by simp only [Rng, not_or, not_and]; omega)
   · exact P.heap.congr fun a ha => fill_congr <| k2.get (by simp only [HeapReads] at ha; simp only [Rng, not_or, not_and]; omega)
   · obtain ⟨sz, h1, h2⟩ := P.block; exact ⟨sz, h1, by omega⟩
   · intro a ha

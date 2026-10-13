@@ -1095,7 +1095,7 @@ theorem StdoutIn.buf_inUse {m : Mem} {H : HeapIx} {ph : StdoutPh} {a : Nat} (h :
   cases h with
   | boot => exact hb.elim
   | fresh => exact hb.elim
-  | up _ _ ho =>
+  | up _ _ ho _ =>
     obtain ⟨sz, hc, hsz⟩ := ho.block
     have hl := ho.lo
     simp only [StdoutPh.Buf, Rng] at hb

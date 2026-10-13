@@ -213,7 +213,7 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
   have hP := h.st.keep fun a _ => bytesT1_fill m a
   have hio : StdoutIn (fillZeroMem m) (w.rt.withHeap H).hix (.up buf []) := by
     cases hP.io with
-    | up a b c => exact .up a b ⟨c.block, c.lo, c.hi⟩
+    | up a b c d => exact .up a b ⟨c.block, c.lo, c.hi⟩ d
   have hheap : HeapAt (fillZeroMem m) (w.rt.withHeap H).top (w.rt.withHeap H).brkv (w.rt.withHeap H).chunks
       (fun i => (w.rt.withHeap H).bins.getD i []) := h.st.heap.toBinsList
   have kept' : ∀ {a}, Kept w.rt.hix ph a → Kept (w.rt.withHeap H).hix (.up buf []) a := fun ha =>
