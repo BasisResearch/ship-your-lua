@@ -545,4 +545,16 @@ macro "sf_reload" : tactic => `(tactic| (
   try simp (disch := omega) only [Lua.Vm.Sim.bytesT8_wm8_same, Lua.Vm.Sim.bytesT8_wm8_far]
   try simp (disch := omega) only [BitVec.add_zero, sext_eq, BitVec.reduceSignExtend, nf_clz]))
 
+/-- `sf_close` for a stage whose reference rounds at biased exponent `0`:
+the literal `(0 - 1) · 2^52` is evaluated before the final `omega`. -/
+macro "sf_close0" "[" packs:ident,* "]" : tactic => `(tactic| (
+  try simp (disch := omega) only [$[$packs:ident],*]
+  all_goals sf_ref
+  all_goals (repeat' split) <;> (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true,
+    not_true_eq_false] at *) <;> (try (exfalso; omega)) <;> sf_ref2 <;>
+  (try simp only [Nat.zero_sub, Nat.zero_mul, Nat.zero_add]) <;>
+  (repeat' split) <;> (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true,
+    not_true_eq_false, Bool.false_eq_true] at *) <;>
+    (first | (exfalso; omega) | (refine congrArg (BitVec.ofNat 64) ?_; omega))))
+
 end Lua.Vm.Fn.SfLens
