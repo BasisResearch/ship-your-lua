@@ -292,10 +292,31 @@ SUMMARISED |= {"luaD_precall"}
 CALL_ARGS = {"luaD_precall": {"x10", "x11", "x12"}}
 HELPERS += [("luaD_precall", "LuaD_precall", 0x8000aab4, 0x8000ae3c, [22, 26], [0x8000ac8c],
              [0x8000aae0, 0x8000abe4, 0x8000ace0])]
+# lane F1-12: `luaL_tolstring` on its nil and boolean paths (no metatable:
+# `luaL_callmeta` → `lua_getmetatable` → 0; `lua_type`; `lua_toboolean`; the
+# literal through `lua_pushstring`, a call node; the tail `j lua_tolstring`),
+# its callees on a positive index into the C frame, and `lua_tolstring` of the
+# top's short string (index -1). The stops: a metamethod (`0x80021b68`,
+# `0x80021a70`), the number, string, other and error paths of
+# `luaL_tolstring`; pseudo-indices, absent slots, tables and full userdata;
+# a non-string or long string at the top
+HELPERS += [("luaL_tolstring", "LuaL_tolstring", 0x80021b2c, 0x80021d90, [22, 26], [],
+             [0x80021b68, 0x80021bec, 0x80021c0c, 0x80021c44, 0x80021c5c]),
+            ("lua_absindex", "Lua_absindex", 0x80001b7c, 0x80001bb4, [22, 26], [], []),
+            ("luaL_callmeta", "LuaL_callmeta", 0x80021a24, 0x80021ac0, [22, 26], [], [0x80021a70]),
+            ("lua_getmetatable", "Lua_getmetatable", 0x80003788, 0x8000388c, [22, 26], [],
+             [0x80003804, 0x8000382c, 0x80003844, 0x800037c0]),
+            ("lua_type", "Lua_type", 0x80002068, 0x8000211c, [22, 26], [], [0x800020c8, 0x80002084]),
+            ("lua_toboolean", "Lua_toboolean", 0x800028ec, 0x80002994, [22, 26], [],
+             [0x80002924, 0x8000294c]),
+            ("lua_tolstring", "Lua_tolstring", 0x80002994, 0x80002b00, [22, 26], [],
+             [0x800029a0, 0x80002a60, 0x800029c4, 0x80002abc, 0x80002a7c])]
 # the argument registers of a callee with no segments of its own (a call node
 # whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
 # idx, &len)`; lane F1-12: `luaE_extendCI(L)`)
-CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}, 0x80016a5c: {"x10"}}
+CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}, 0x80016a5c: {"x10"},
+                # lane F1-12: `lua_pushstring(L, s)`
+                0x80002fe4: {"x10", "x11"}}
 # a `ret` (by its address) that also returns into its own helper's code (an
 # internal `jalr`: `memset`'s `sb` chain): its live-out includes the code
 # after that call
@@ -344,7 +365,9 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
            "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),
-           "luaD_precall": {"x10"}}
+           "luaD_precall": {"x10"}, "luaL_tolstring": {"x10"}, "lua_absindex": {"x10"},
+           "luaL_callmeta": {"x10"}, "lua_getmetatable": {"x10"}, "lua_type": {"x10"},
+           "lua_toboolean": {"x10"}, "lua_tolstring": {"x10"}}
 
 
 def helper_cfg(lo, hi):

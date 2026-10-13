@@ -25,9 +25,8 @@ Paths not followed:
 
 * `seg_8000aab4_8000aae0_n`: infeasible
 * `seg_8000abcc_8000abe4_n`: stop 0x8000abe4
-* `seg_8000ac4c_8000ac5c_t`: no path on
+* `seg_8000ac4c_8000ac5c_t`: infeasible
 * `seg_8000ac5c_8000ac80_t`: infeasible
-* `seg_8000acb0_8000acc8`: no segment at 0x80016a5c
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
