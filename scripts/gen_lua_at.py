@@ -2339,10 +2339,10 @@ EXT_OK = ["sp_lo : 0x87800000 + 4096 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp
     "ci_lo : 0x8005c6d0 ≤ X.n 3", "ci_hi : X.n 3 + 64 ≤ 2 ^ 32", "ci_al : X.n 3 % 8 = 0",
     "n_lo : 0x8006ecd0 + 16 ≤ X.n 4", "n_hi : X.n 4 + 64 ≤ 2 ^ 32", "n_al : X.n 4 % 16 = 0",
     # the objects lie in the arena, below the stack
-    "L_he : X.n 1 + 256 ≤ 0x87800000", "g_he : X.n 2 + 64 ≤ 0x87800000",
+    "L_he : X.n 1 + 200 ≤ 0x87800000", "g_he : X.n 2 + 64 ≤ 0x87800000",
     "ci_he : X.n 3 + 64 ≤ 0x87800000", "n_he : X.n 4 + 64 ≤ 0x87800000",
     # `L` apart from `g->GCdebt`, which `luaM_malloc_` writes before `L->ci`, `L->nci` are read
-    "L_g : X.n 1 + 256 ≤ X.n 2 + 24 ∨ X.n 2 + 32 ≤ X.n 1"]
+    "L_g : X.n 1 + 200 ≤ X.n 2 + 24 ∨ X.n 2 + 32 ≤ X.n 1"]
 
 
 FNS = {

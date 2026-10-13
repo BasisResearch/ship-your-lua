@@ -1,6 +1,7 @@
 import Lua.Vm.Sim.Kit.CallClose
 import Lua.Vm.Sim.Kit.ExitUp
 import Lua.Vm.Sim.Kit.PoscallN
+import Lua.Vm.Sim.Kit.ExtendCI
 
 /-!
 # `PrintCall_Statement CallInv` from `CALL`'s open parts (lane F1-13)
@@ -1202,9 +1203,15 @@ theorem join_ext {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
       g_w := ?_
       hook_w := ?_
       mt_w := fun t ht => ?_
-      st := hX.stdio ph (printSt_head cx hI kHE) fun _ => by
-        have h1 := hI.room (.inr hnext0); have h2 : H'.brk ≤ w.rt.brkv + extRoom := hX.brk
-        simp only [firstRoom, extRoom] at h1 h2; omega
+      st := hX.stdio ph (printSt_head cx hI kHE) (fun a hb ho => by
+          rcases ho with ha | ha | ha
+          · exact (hI.L_in a ha.1 ha.2).nbuf hb
+          · exact (hI.ci_in a ha.1 ha.2).nbuf hb
+          · exact (hI.g_in a (by simp only [Rng, gGCdebtOff] at ha; omega)
+              (by simp only [Rng, gGCdebtOff, gEnd, gStrcacheOff, strcacheN, strcacheM] at ha ⊢; omega)).nbuf hb)
+        fun _ => by
+          have h1 := hI.room (.inr hnext0); have h2 : H'.brk ≤ w.rt.brkv + extRoom := hX.brk
+          simp only [firstRoom, extRoom] at h1 h2; omega
       kept := hX.kept
       brk := hX.brk
       lits := hI.lits.trans fun a ha => ?_
@@ -1458,6 +1465,7 @@ theorem printCall_room (O : CallOpen) :
         g_hi := by have := hg2; have : heapEnd = 0x87800000 := rfl; omega
         g_al := hI.g_al
         L_g := by simp only [stateSize, gGCdebtOff]; omega
+        L_ci := hr.L_sep_ci
         live := fun a ha => by
           rcases ha with ha | ha | ha
           · exact (hI.L_in a ha.1 ha.2).inuse

@@ -49,11 +49,11 @@ structure Ok (X : FCx) : Prop where
   n_lo : 0x8006ecd0 + 16 ≤ X.n 4
   n_hi : X.n 4 + 64 ≤ 2 ^ 32
   n_al : X.n 4 % 16 = 0
-  L_he : X.n 1 + 256 ≤ 0x87800000
+  L_he : X.n 1 + 200 ≤ 0x87800000
   g_he : X.n 2 + 64 ≤ 0x87800000
   ci_he : X.n 3 + 64 ≤ 0x87800000
   n_he : X.n 4 + 64 ≤ 0x87800000
-  L_g : X.n 1 + 256 ≤ X.n 2 + 24 ∨ X.n 2 + 32 ≤ X.n 1
+  L_g : X.n 1 + 200 ≤ X.n 2 + 24 ∨ X.n 2 + 32 ≤ X.n 1
 
 @[at_row] abbrev m0 (X : FCx) : Mem :=
   writeMap8 (writeMap8 (X.m) (X.n 0 - 16) (sdData_val (X.b 1))) (X.n 0 - 8) (sdData_val (X.b 0))

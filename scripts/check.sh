@@ -630,6 +630,12 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Ret.poscallN
 #print axioms Lua.Vm.Sim.Ret.pn_loop
 #print axioms Lua.Vm.Sim.Ret.pcw_post
+#print axioms Lua.Vm.Sim.Kit.extendCI_of_malloc
+#print axioms Lua.Vm.Sim.Kit.CallOpen.extendCI
+#print axioms Lua.Vm.Sim.Kit.lalloc_sum
+#print axioms Lua.Vm.Sim.Kit.ext_post
+#print axioms Lua.Vm.Sim.Kit.ext_ret
+#print axioms Lua.Vm.Sim.Kit.StdoutIn.congrA
 #print axioms Lua.Num.F64.unpack_eq
 #print axioms Lua.Num.F64.pack_cls
 #print axioms Lua.Num.F64.round_eq_model

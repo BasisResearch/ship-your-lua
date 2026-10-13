@@ -306,7 +306,23 @@ namespace Kit
 handlers, `__sf`. -/
 def StdioGlob (a : Nat) : Prop := 0x8005cee0 ≤ a ∧ a < 0x8005e7d8
 
-theorem _root_.Lua.Vm.StdioBoot.congr {m m' : Mem} (h : StdioBoot m) (hk : ∀ a, StdioGlob a → m'[a]? = m[a]?) :
+/-- (lane F1-14) **The allocator's words among the stdio globals**
+(`__malloc_sbrk_base`, `brk.0`, `__malloc_max_total_mem`,
+`__malloc_max_sbrked_mem`, `__malloc_top_pad`, `errno`,
+`__malloc_current_mallinfo`): `_malloc_r` writes them, no stdio state reads
+them. -/
+def AllocWords (a : Nat) : Prop :=
+  (0x8005d388 ≤ a ∧ a < 0x8005d390) ∨ (0x8005d3b8 ≤ a ∧ a < 0x8005d3c0) ∨ (0x8005d3c8 ≤ a ∧ a < 0x8005d3e0) ∨
+    (0x8005d408 ≤ a ∧ a < 0x8005d40c) ∨ (0x8005e560 ≤ a ∧ a < 0x8005e5b0)
+
+/-- **What the stdio state reads** among the stdio globals: all but the
+allocator's words, so it is kept across a `_malloc_r`. -/
+def StdioFoot (a : Nat) : Prop := StdioGlob a ∧ ¬ AllocWords a
+
+/-- A stdio word off the allocator's words, for `omega`. -/
+macro "aw_off" : tactic => `(tactic| (simp only [AllocWords]; omega))
+
+theorem _root_.Lua.Vm.StdioBoot.congrF {m m' : Mem} (h : StdioBoot m) (hk : ∀ a, StdioFoot a → m'[a]? = m[a]?) :
     StdioBoot m' := by
   have : symStdioExitHandler = 0x8005d3e0 := rfl
   have : symImpurePtr = 0x8005d398 := rfl
@@ -322,11 +338,12 @@ theorem _root_.Lua.Vm.StdioBoot.congr {m m' : Mem} (h : StdioBoot m) (hk : ∀ a
   have : glueNextOff = 0 := rfl
   have : glueNiobsOff = 8 := rfl
   have : glueIobsOff = 16 := rfl
-  have r : ∀ {a n : Nat}, StdioGlob a → StdioGlob (a + n - 1) → 0 < n → rdLE m' a n = rdLE m a n :=
-    fun {a n} h1 h2 _ => rdLE_congr fun i hi => hk _ ⟨by have := h1.1; omega, by have := h2.2; omega⟩
+  have r : ∀ {a n : Nat}, StdioGlob a → StdioGlob (a + n - 1) → 0 < n → (∀ i, i < n → ¬ AllocWords (a + i)) →
+      rdLE m' a n = rdLE m a n :=
+    fun {a n} h1 h2 _ h3 => rdLE_congr fun i hi => hk _ ⟨⟨by have := h1.1; omega, by have := h2.2; omega⟩, h3 i hi⟩
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun i hi => ?_, ?_, ?_⟩
   all_goals first
-    | (simp only [rd64, rd32]; rw [r ⟨by omega, by omega⟩ ⟨by omega, by omega⟩ (by omega)])
+    | (simp only [rd64, rd32]; rw [r ⟨by omega, by omega⟩ ⟨by omega, by omega⟩ (by omega) fun i hi => by aw_off])
     | skip
   · exact h.exit_handler
   · exact h.impure_ptr
@@ -336,22 +353,28 @@ theorem _root_.Lua.Vm.StdioBoot.congr {m m' : Mem} (h : StdioBoot m) (hk : ∀ a
   · exact h.glue_next
   · exact h.glue_niobs
   · exact h.glue_iobs
-  · exact (hk _ ⟨by omega, by omega⟩).trans (h.files i hi)
+  · exact (hk _ ⟨⟨by omega, by omega⟩, by aw_off⟩).trans (h.files i hi)
   · exact h.atexit
   · exact h.cleanup
 
-theorem _root_.Lua.Vm.MemfsBoot.congr {m m' : Mem} (h : MemfsBoot m) (hk : ∀ a, StdioGlob a → m'[a]? = m[a]?) :
+theorem _root_.Lua.Vm.StdioBoot.congr {m m' : Mem} (h : StdioBoot m) (hk : ∀ a, StdioGlob a → m'[a]? = m[a]?) :
+    StdioBoot m' := h.congrF fun a ha => hk a ha.1
+
+theorem _root_.Lua.Vm.MemfsBoot.congrF {m m' : Mem} (h : MemfsBoot m) (hk : ∀ a, StdioFoot a → m'[a]? = m[a]?) :
     MemfsBoot m' := by
   have : symFsReady = 0x8005d3c0 := rfl
   have : symFds = 0x8005d460 := rfl
   have : symFdsSize = 768 := rfl
   have : symFiles = 0x8005d760 := rfl
   have : symFilesSize = 3584 := rfl
-  refine ⟨?_, fun i hi => (hk _ ⟨by omega, by omega⟩).trans (h.fds i hi),
-    fun i hi => (hk _ ⟨by omega, by omega⟩).trans (h.files i hi)⟩
+  refine ⟨?_, fun i hi => (hk _ ⟨⟨by omega, by omega⟩, by aw_off⟩).trans (h.fds i hi),
+    fun i hi => (hk _ ⟨⟨by omega, by omega⟩, by aw_off⟩).trans (h.files i hi)⟩
   simp only [rd32]
-  rw [rdLE_congr fun i hi => hk _ ⟨by omega, by omega⟩]
+  rw [rdLE_congr fun i hi => hk _ ⟨⟨by omega, by omega⟩, by aw_off⟩]
   exact h.ready
+
+theorem _root_.Lua.Vm.MemfsBoot.congr {m m' : Mem} (h : MemfsBoot m) (hk : ∀ a, StdioGlob a → m'[a]? = m[a]?) :
+    MemfsBoot m' := h.congrF fun a ha => hk a ha.1
 
 end Kit
 

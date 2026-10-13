@@ -131,8 +131,10 @@ structure ExtPost (M m' : Mem) (sp L ci g : Nat) (H H' : HeapIx) (nci : Nat) : P
   /-- (lane F1-14) also off `g->GCdebt`, which `luaM_malloc_` advances -/
   keep : ∀ a, ¬ (MallocW H.chunks a ∨ (nci ≤ a ∧ a < nci + ciSize) ∨ Rng (ci + ciNextOff) 8 a ∨
     Rng (L + stateNciOff) 2 a ∨ Below (sp - 96) 4096 a ∨ Rng (g + gGCdebtOff) 8 a) → bytesT1 m' a = bytesT1 M a
-  stdio : ∀ ph, PrintSt M ph H → ((∀ buf pend, ph ≠ .up buf pend) → H'.brk + 1024 + 16384 ≤ heapEnd) →
-    PrintSt m' ph H'
+  /-- (lane F1-14) given `stdout`'s buffer apart from the objects written -/
+  stdio : ∀ ph, PrintSt M ph H →
+    (∀ a, ph.Buf a → ¬ (Rng L stateSize a ∨ Rng ci ciSize a ∨ Rng (g + gGCdebtOff) 8 a)) →
+    ((∀ buf pend, ph ≠ .up buf pend) → H'.brk + 1024 + 16384 ≤ heapEnd) → PrintSt m' ph H'
 
 /-- **Where `luaE_extendCI`'s objects lie** (lane F1-14): the `lua_State`,
 the `CallInfo` and `g` in the arena, aligned, `L` apart from `g->GCdebt`
@@ -149,6 +151,8 @@ structure ExtCx (L ci g : Nat) (H : HeapIx) : Prop where
   g_hi : g + 64 ≤ heapEnd
   g_al : g % 8 = 0
   L_g : L + stateSize ≤ g + gGCdebtOff ∨ g + gGCdebtOff + 8 ≤ L
+  /-- `L` apart from the `CallInfo` (`ci->next` is written before `L->nci`) -/
+  L_ci : L + stateSize ≤ ci ∨ ci + ciSize ≤ L
   live : ∀ a, Rng L stateSize a ∨ Rng ci ciSize a ∨ Rng (g + gGCdebtOff) 8 a → InUse H.chunks a
 
 /-- **Named premise: `luaE_extendCI(L)`** (`0x80016a5c`, from `next_ci` with
@@ -157,8 +161,9 @@ its `next` NULL, no hook, `G(L) = g` with `g->frealloc` main.c's `l_alloc`
 (`luaM_malloc_` calls it through a `jalr`), `_impure_ptr` (`realloc`'s
 `_REENT`), and the `lua_State`, the `CallInfo` and `g->GCdebt` (read or
 written after the allocation) in chunks in use: `PcExt` with
-`ExtPost`. Open: its at-lemmas and `luaM_malloc_` → `l_alloc` → `realloc` →
-`_realloc_r(NULL)` → `_malloc_r` (`MallocR_Statement`). Lane F1-14: the earlier
+`ExtPost`. Proved from `MallocR_Statement` (`extendCI_of_malloc`,
+`Kit/ExtendCI.lean`: `luaM_malloc_` → `l_alloc` → `realloc` →
+`_realloc_r(NULL)` → `_malloc_r`). Lane F1-14: the earlier
 form did not constrain `g->frealloc` and claimed `g->GCdebt` kept, so it
 was false. -/
 def ExtendCI_Statement : Prop :=
@@ -246,7 +251,9 @@ def ExitUp_Statement : Prop :=
 /-- **`OP_CALL print`'s open parts** on the `CALL` invariant (lane F1-13). -/
 structure CallOpen : Prop where
   print : PrintRel_Statement
-  extendCI : ExtendCI_Statement
+  /-- (lane F1-14) `_malloc_r` (A0): `luaE_extendCI`'s allocation
+  (`CallOpen.extendCI`, `Kit/ExtendCI.lean`) -/
+  mallocR : MallocR_Statement
   freeR : FreeR_Statement
 
 /-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the

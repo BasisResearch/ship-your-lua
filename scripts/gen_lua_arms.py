@@ -353,8 +353,8 @@ HELPERS += [("luaE_extendCI", "LuaE_extendCI", 0x80016a5c, 0x80016aa8, [22, 26],
 CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}, 0x80016a5c: {"x10"},
                 # lane F1-12: `lua_pushstring(L, s)`
                 0x80002fe4: {"x10", "x11"},
-                # lane F1-14: `_free_r(ptr, p)`, `_malloc_r(ptr, n)`
-                0x8003be24: {"x10", "x11"}, 0x8002fa34: {"x10", "x11"}}
+                # lane F1-14: `_free_r(ptr, p)`, `_malloc_r(ptr, n)` (with `ra`: `_realloc_r` tail-jumps to it)
+                0x8003be24: {"x10", "x11"}, 0x8002fa34: {"x1", "x10", "x11"}}
 # a `ret` (by its address) that also returns into its own helper's code (an
 # internal `jalr`: `memset`'s `sb` chain): its live-out includes the code
 # after that call
