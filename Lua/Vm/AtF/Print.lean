@@ -73,7 +73,7 @@ structure Ok_L (X : FCx) : Prop where
   L_lo : 0x8005c6d0 ≤ X.n 1
   L_hi : X.n 1 + 256 ≤ 2 ^ 32
   L_al : X.n 1 % 8 = 0
-  i_ge : 2 ≤ X.n 5
+  i_ge : 1 ≤ X.n 5
   i_le : X.n 5 ≤ X.n 2
   n_lt : X.n 2 < 2 ^ 31
 

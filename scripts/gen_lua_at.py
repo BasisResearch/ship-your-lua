@@ -2303,7 +2303,8 @@ FNS = {
     # lane F1-11: `luaB_print(L)`: X.n 1 = L; `lua_gettop`'s result X.n 2 = n,
     # `luaL_tolstring`'s X.n 3 = the string, its length X.n 4 (written to the
     # frame, `8(sp)`); the loop head `0x80022f68` (`luaL_tolstring(L, i, &l)`
-    # for `i ≥ 2`, X.n 5 = i) a root; the callees are call nodes (`lua_gettop`,
+    # for `i ≥ 2`, X.n 5 = i) a root (its facts `1 ≤ i`: the first argument's
+    # string write, `0x80022f8c`, is run on the loop's rows with `i = 1`); the callees are call nodes (`lua_gettop`,
     # `luaL_tolstring`, `fwrite`, `lua_settop`, `fflush`)
     "luaB_print": dict(
         mod="Print", entry=0x80022f18,
@@ -2314,9 +2315,9 @@ FNS = {
         calls={0x80001bb4: dict(ret={10: N((2, 1))}), 0x80021b2c: dict(ret={10: N((3, 1))}),
                0x800342e4: dict(ret={}), 0x80001bd4: dict(ret={}), 0x80032a1c: dict(ret={10: ("lit", 0)})},
         loops={0x80022f68: dict(name="L", row=PRINT_LOOP_ROW,
-                                ok=PRINT_OK + ["i_ge : 2 ≤ X.n 5", "i_le : X.n 5 ≤ X.n 2",
+                                ok=PRINT_OK + ["i_ge : 1 ≤ X.n 5", "i_le : X.n 5 ≤ X.n 2",
                                                "n_lt : X.n 2 < 2 ^ 31"],
-                                lb={**LUA_LB, 5: 2, 2: 2})},
+                                lb={**LUA_LB, 5: 1, 2: 1})},
         doc="`luaB_print(L)`: each argument's `luaL_tolstring`, `fwrite` of a tab "
             "between them and of each string, `lua_pop`; then `fwrite` of the newline "
             "and `fflush(stdout)`."),
