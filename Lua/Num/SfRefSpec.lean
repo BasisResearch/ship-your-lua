@@ -359,4 +359,106 @@ theorem addAligned_eq (neg : Bool) (E A B k : Nat) (hE1 : 1 ≤ E) (hE : E ≤ 2
         · rw [target_work h0 (by omega) (fun h => by have := hA2 h; omega)]; omega)]
     try rw [show wsc E - (k : Int) + k - k = wsc E - k by omega]
 
+theorem round_scale' (neg : Bool) (n j : Nat) (e : Int) :
+    round neg n e false false = round neg (n * 2 ^ j) (e - j) false false := (round_scale neg n j e).symm
+
+/-- A difference, rounded or renormalised, is `F64.round` of it. -/
+theorem subPack_eq (neg : Bool) (E S : Nat) (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hS0 : 0 < S) (hS : S < 2 ^ 56) :
+    subPack neg E S = round neg S (wsc E) false false := by
+  unfold subPack
+  split
+  · rename_i h
+    rw [roundPack_eq neg E S hS (fun _ => h)]
+  · rename_i h
+    have hL : S.log2 < 55 := (Nat.log2_lt (by omega)).2 (by omega)
+    have hN := norm_bounds hS0 hS
+    unfold normPack
+    dsimp only
+    split
+    · rename_i hz
+      rw [roundPack_eq neg (E - (55 - S.log2)) _ hN.2 (fun _ => hN.1),
+        round_scale' neg S (55 - S.log2) (wsc E)]
+      congr 1; simp only [wsc]; omega
+    · rename_i hz
+      have hlt : S * 2 ^ (E - 1) < 2 ^ 56 := by
+        have h1 : S < 2 ^ (S.log2 + 1) := Nat.lt_log2_self
+        have h2 : S * 2 ^ (E - 1) < 2 ^ (S.log2 + 1) * 2 ^ (E - 1) :=
+          Nat.mul_lt_mul_of_pos_right h1 (Nat.two_pow_pos _)
+        rw [← Nat.pow_add] at h2
+        exact Nat.lt_of_lt_of_le h2 (Nat.pow_le_pow_right (by decide) (by omega))
+      rw [roundPack_eq neg 0 _ hlt (fun h => by omega), round_scale' neg S (E - 1) (wsc E)]
+      congr 1; simp only [wsc]; omega
+
+theorem rto_sub_even (A B k : Nat) (hA : A % 2 = 0) (hAB : B < A * 2 ^ k) :
+    A - rto B k = rto (A * 2 ^ k - B) k := by
+  have hP := Nat.two_pow_pos k
+  have hB := Nat.div_add_mod B (2 ^ k)
+  have hr := Nat.mod_lt B hP
+  have hq : B / 2 ^ k < A := by
+    rw [Nat.div_lt_iff_lt_mul hP]; exact hAB
+  have hP1 : 2 ^ (k + 1) = 2 ^ k * 2 := by rw [Nat.pow_succ]
+  by_cases h0 : B % 2 ^ k = 0
+  · have hN : A * 2 ^ k - B = (A - B / 2 ^ k) * 2 ^ k := by
+      rw [Nat.sub_mul]; rw [h0, Nat.add_zero] at hB; rw [Nat.mul_comm (B / 2 ^ k)]; omega
+    have h1 : rto B k = B / 2 ^ k := rto_exact h0
+    have h2 : rto (A * 2 ^ k - B) k = A - B / 2 ^ k := by
+      rw [rto_exact (by rw [hN]; exact Nat.mul_mod_left _ _), hN, Nat.mul_div_cancel _ hP]
+    rw [h1, h2]
+  · have hN : A * 2 ^ k - B = (A - B / 2 ^ k - 1) * 2 ^ k + (2 ^ k - B % 2 ^ k) := by
+      have e : (A - B / 2 ^ k - 1) * 2 ^ k + 2 ^ k = (A - B / 2 ^ k) * 2 ^ k := by
+        rw [← Nat.succ_mul]; congr 1; omega
+      have e2 : (A - B / 2 ^ k) * 2 ^ k + B / 2 ^ k * 2 ^ k = A * 2 ^ k := by
+        rw [← Nat.add_mul]; congr 1; omega
+      rw [Nat.mul_comm (2 ^ k) (B / 2 ^ k)] at hB
+      omega
+    have hm : (A * 2 ^ k - B) % 2 ^ k = 2 ^ k - B % 2 ^ k := by
+      rw [hN, Nat.add_comm, Nat.add_mul_mod_self_right, Nat.mod_eq_of_lt (by omega)]
+    have hd1 : (A * 2 ^ k - B) / 2 ^ k = A - B / 2 ^ k - 1 := by
+      rw [hN, Nat.add_comm, Nat.add_mul_div_right _ _ hP,
+        Nat.div_eq_of_lt (by omega : 2 ^ k - B % 2 ^ k < 2 ^ k), Nat.zero_add]
+    have hd : (A * 2 ^ k - B) / 2 ^ (k + 1) = (A - B / 2 ^ k - 1) / 2 := by
+      rw [hP1, ← Nat.div_div_eq_div_mul, hd1]
+    have hdB : B / 2 ^ (k + 1) = B / 2 ^ k / 2 := by rw [hP1, Nat.div_div_eq_div_mul]
+    unfold rto
+    rw [if_neg h0, if_neg (by omega), hd, hdB]
+    omega
+
+/-- Different signs, `A · 2^k > B`: `subMag` rounds the exact aligned difference. -/
+theorem subMag_eq (neg : Bool) (E A B k : Nat) (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hAe : A % 2 = 0)
+    (hB8 : B % 8 = 0) (hA : A < 2 ^ 56) (hB : B < 2 ^ 56) (hAB : B < A * 2 ^ k)
+    (hk1 : 1 ≤ k → 2 ^ 55 ≤ A) :
+    subMag neg E A B k = round neg (A * 2 ^ k - B) (wsc E - k) false false := by
+  unfold subMag
+  have hS := rto_sub_even A B k hAe hAB
+  by_cases hk : k ≤ 3
+  · have hex : B % 2 ^ k = 0 := by
+      have : 2 ^ k ∣ 8 := ⟨2 ^ (3 - k), by rw [← Nat.pow_add, show k + (3 - k) = 3 by omega]⟩
+      rw [← Nat.mod_mod_of_dvd B this, hB8, Nat.zero_mod]
+    have h1 : rto B k = B / 2 ^ k := rto_exact hex
+    have hS0 : 0 < A - B / 2 ^ k := by
+      have : B / 2 ^ k < A := by rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos k)]; exact hAB
+      omega
+    rw [h1, subPack_eq neg E _ hE1 hE hS0 (by omega), round_scale' neg _ k (wsc E)]
+    congr 2
+    rw [Nat.sub_mul, Nat.div_mul_cancel (Nat.dvd_of_mod_eq_zero hex)]
+  · have hR := rto_le_half (n := B) (k := k) (by omega)
+    have hR4 : rto B k ≤ B / 16 + 1 := by
+      have := rto_le B k
+      have : B / 2 ^ k ≤ B / 16 := Nat.div_le_div_left (by
+        calc 16 = 2 ^ 4 := rfl
+          _ ≤ 2 ^ k := Nat.pow_le_pow_right (by decide) (by omega)) (by decide)
+      omega
+    have hA55 := hk1 (by omega)
+    have hS0 : 2 ^ 54 ≤ A - rto B k := by omega
+    rw [subPack_eq neg E _ hE1 hE (by omega) (by omega), hS,
+      show wsc E = (wsc E - k) + k by omega]
+    rw [round_rto neg _ k _ (by
+      rw [← hS, show wsc E - k + k = wsc E by omega]
+      have hl : 54 ≤ (A - rto B k).log2 := by
+        by_cases hc : (A - rto B k).log2 < 54
+        · have := (Nat.log2_lt (n := A - rto B k) (k := 54) (by omega)).1 hc; omega
+        · omega
+      unfold target; omega)]
+    try rw [show wsc E - (k : Int) + k - k = wsc E - k by omega]
+
 end Lua.Num.SfRef
