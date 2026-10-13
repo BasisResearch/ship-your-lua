@@ -328,7 +328,7 @@ theorem g_d854 (m : Mem) (s : Nat) (r : BitVec 64) {z F E S : Nat} (hz : E ≤ z
 open Lua.Num in
 /-- The clz renormalisation (`0x8002d820`): `__clzdi2` (`clz64`) across the
 frame spills, then the normal (`0x8002da50`) or subnormal (`0x8002d854`) round. -/
-theorem g_d820 (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32)
+theorem g_d820 (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32)
     (hf0 : 0 < f) (hf : f < 2 ^ 55) (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hS : S < 2) :
     N_8002d820 m s r (BitVec.ofNat 64 f) (BitVec.ofNat 64 E) (BitVec.ofNat 64 S) = SfRef.normPack (S = 1) E f := by
   have hL : f.log2 < 55 := (Nat.log2_lt (by omega)).2 hf
@@ -347,7 +347,7 @@ open Lua.Num in
 /-- The difference stage (`0x8002db28`): the machine's `f` is `S - 2^55` modulo
 `2^64` (the hidden bit kept out); bit 55 set is the cancellation, renormalised
 by `0x8002d820`; else `_FP_ROUND` (`0x8002db30`). -/
-theorem g_db28 (m : Mem) (s : Nat) (r : BitVec 64) {f E Sg : Nat} (S : Nat) (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32)
+theorem g_db28 (m : Mem) (s : Nat) (r : BitVec 64) {f E Sg : Nat} (S : Nat) (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32)
     (hS0 : 0 < S) (hS : S < 2 ^ 56) (hS8 : S % 8 = 0 ∨ S + 8 < 2 ^ 56) (hf : f < 2 ^ 64)
     (hfS : (f + 2 ^ 55) % 2 ^ 64 = S)
     (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hSg : Sg < 2) :
@@ -358,7 +358,7 @@ theorem g_db28 (m : Mem) (s : Nat) (r : BitVec 64) {f E Sg : Nat} (S : Nat) (hs1
 
 open Lua.Num in
 /-- The difference stage on the machine's `X - R` (a borrow wraps). -/
-theorem g_db28s (m : Mem) (s : Nat) (r : BitVec 64) {X R E Sg : Nat} (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32)
+theorem g_db28s (m : Mem) (s : Nat) (r : BitVec 64) {X R E Sg : Nat} (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32)
     (hR : R < 2 ^ 55 + X) (hS : 2 ^ 55 + X - R < 2 ^ 56) (hS8 : (2 ^ 55 + X - R) % 8 = 0 ∨ 2 ^ 55 + X - R + 8 < 2 ^ 56)
     (hX : X < 2 ^ 64) (hR2 : R ≤ 2 ^ 64) (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hSg : Sg < 2) :
     N_8002db28 m s r (BitVec.ofNat 64 X - BitVec.ofNat 64 R) (BitVec.ofNat 64 E) (BitVec.ofNat 64 Sg) =
@@ -372,7 +372,7 @@ theorem g_db28s (m : Mem) (s : Nat) (r : BitVec 64) {X R E Sg : Nat} (hs1 : 48 �
 open Lua.Num in
 /-- Different signs, both exponents all ones. -/
 theorem ch_sub_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 2047) (h2 : eb = 2047) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 2047) (h2 : eb = 2047) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -384,7 +384,7 @@ theorem ch_sub_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat)
 open Lua.Num in
 /-- Different signs, `eb < ea = 2047`. -/
 theorem ch_sub_gt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb < ea) (h2 : ea = 2047) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb < ea) (h2 : ea = 2047) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -397,7 +397,7 @@ theorem ch_sub_gt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : N
 open Lua.Num in
 /-- Different signs, `1 ≤ eb < ea ≤ 2046`: `A − rto B k`. -/
 theorem ch_sub_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ eb) (h2 : eb < ea) (h3 : ea ≤ 2046) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ eb) (h2 : eb < ea) (h3 : ea ≤ 2046) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -415,7 +415,7 @@ theorem ch_sub_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) 
 open Lua.Num in
 /-- Different signs, equal normal exponents, equal fractions: `+0`. -/
 theorem ch_sub_eq_z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fa = fb) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fa = fb) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -429,7 +429,7 @@ theorem ch_sub_eq_z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat
 open Lua.Num in
 /-- Different signs, equal normal exponents, `fb < fa`. -/
 theorem ch_sub_eq_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fb < fa) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fb < fa) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -443,7 +443,7 @@ theorem ch_sub_eq_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Na
 open Lua.Num in
 /-- Different signs, equal normal exponents, `fa < fb`: the sign of `b`. -/
 theorem ch_sub_eq_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fa < fb) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fa < fb) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -457,7 +457,7 @@ theorem ch_sub_eq_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Na
 open Lua.Num in
 /-- Different signs, both subnormal or zero, equal fractions: `+0`. -/
 theorem ch_sub0_z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fa = fb) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fa = fb) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -471,7 +471,7 @@ theorem ch_sub0_z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) 
 open Lua.Num in
 /-- Different signs, both subnormal, `fb < fa`. -/
 theorem ch_sub0_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fb < fa) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fb < fa) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -485,7 +485,7 @@ theorem ch_sub0_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat)
 open Lua.Num in
 /-- Different signs, both subnormal, `fa < fb`. -/
 theorem ch_sub0_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fa < fb) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fa < fb) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -499,7 +499,7 @@ theorem ch_sub0_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat)
 open Lua.Num in
 /-- Different signs, `ea < eb = 2047`. -/
 theorem ch_sub_lt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea < eb) (h2 : eb = 2047) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea < eb) (h2 : eb = 2047) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -512,7 +512,7 @@ theorem ch_sub_lt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : N
 open Lua.Num in
 /-- Different signs, `eb = 0 < ea`, `b = 0`. -/
 theorem ch_sub_gt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : 0 < ea) (h3 : ea ≤ 2046) (hb : fb = 0) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : 0 < ea) (h3 : ea ≤ 2046) (hb : fb = 0) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -527,7 +527,7 @@ theorem ch_sub_gt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat
 open Lua.Num in
 /-- Different signs, `eb = 0`, `ea = 1`, `fb ≤ fa`. -/
 theorem ch_sub_gt0a_ge (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : ea = 1) (hb : 0 < fb) (hf : fb ≤ fa) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : ea = 1) (hb : 0 < fb) (hf : fb ≤ fa) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -542,7 +542,7 @@ theorem ch_sub_gt0a_ge (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : 
 open Lua.Num in
 /-- Different signs, `eb = 0`, `ea = 1`, `fa < fb`: the cancellation. -/
 theorem ch_sub_gt0a_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : ea = 1) (hf : fa < fb) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : ea = 1) (hf : fa < fb) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -557,7 +557,7 @@ theorem ch_sub_gt0a_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : 
 open Lua.Num in
 /-- Different signs, `eb = 0`, `2 ≤ ea`: `b` subnormal, aligned by `ea - 1`. -/
 theorem ch_sub_gt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : 2 ≤ ea) (h3 : ea ≤ 2046) (hb : 0 < fb) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : 2 ≤ ea) (h3 : ea ≤ 2046) (hb : 0 < fb) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -575,7 +575,7 @@ theorem ch_sub_gt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat
 open Lua.Num in
 /-- Different signs, `1 ≤ ea < eb ≤ 2046`: `B − rto A k`, the sign of `b`. -/
 theorem ch_sub_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea < eb) (h3 : eb ≤ 2046) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea < eb) (h3 : eb ≤ 2046) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -592,7 +592,7 @@ theorem ch_sub_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) 
 open Lua.Num in
 /-- Different signs, `ea = 0 < eb`, `a = 0`. -/
 theorem ch_sub_lt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : 0 < eb) (h3 : eb ≤ 2046) (ha : fa = 0) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : 0 < eb) (h3 : eb ≤ 2046) (ha : fa = 0) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -607,7 +607,7 @@ theorem ch_sub_lt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat
 open Lua.Num in
 /-- Different signs, `ea = 0`, `eb = 1`, `fa ≤ fb`. -/
 theorem ch_sub_lt0a_ge (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : eb = 1) (ha : 0 < fa) (hf : fa ≤ fb) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : eb = 1) (ha : 0 < fa) (hf : fa ≤ fb) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -622,7 +622,7 @@ theorem ch_sub_lt0a_ge (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : 
 open Lua.Num in
 /-- Different signs, `ea = 0`, `eb = 1`, `fb < fa`: the cancellation. -/
 theorem ch_sub_lt0a_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : eb = 1) (hf : fb < fa) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : eb = 1) (hf : fb < fa) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -637,7 +637,7 @@ theorem ch_sub_lt0a_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : 
 open Lua.Num in
 /-- Different signs, `ea = 0`, `2 ≤ eb`: `a` subnormal, aligned by `eb - 1`. -/
 theorem ch_sub_lt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
-    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : 2 ≤ eb) (h3 : eb ≤ 2046) (ha : 0 < fa) :
+    (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : 2 ≤ eb) (h3 : eb ≤ 2046) (ha : 0 < fa) :
     N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
           (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
           (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
@@ -651,5 +651,122 @@ theorem ch_sub_lt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat
   sf_go [N_8002db28, N_8002d92c, N_8002d820]
   all_goals (try simp (disch := omega) only [g_db28s, g_d820])
   all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+/-! ## The chamber cover -/
+
+/-- The reference's branches, with the fields' classes decided. -/
+macro "sf_rhs" : tactic => `(tactic| (
+  unfold Lua.Num.SfRef.addFields
+  dsimp only
+  try simp only [eq_self_iff_true, ite_true, ite_false, decide_eq_decide]
+  try simp (disch := omega) only [if_pos, if_neg]
+  try simp only [Lua.Num.SfRef.mant]
+  try simp (disch := omega) only [if_pos, if_neg, Nat.max_eq_left, Nat.max_eq_right]))
+
+open Lua.Num in
+/-- **(b1) for `__adddf3`**: below the unpacking, the lifted function is the
+reference on the operands' fields, chamber by chamber. -/
+theorem cover (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2)
+    (hea : ea < 2048) (heb : eb < 2048) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (hs1 : 48 ≤ s) (hs2 : s ≤ 2 ^ 32) :
+    (if sa = sb then
+        N_8002d904 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 (2 ^ 52 - 1)) (BitVec.ofNat 64 (8 * fa))
+          (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea) (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 (8 * fb))
+      else
+        N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb))) =
+      SfRef.addFields (sa = 1) ea fa (sb = 1) eb fb := by
+  by_cases hss : sa = sb
+  · subst hss
+    rw [if_pos rfl]
+    rcases Nat.lt_trichotomy ea eb with h | h | h
+    · by_cases hb : eb = 2047
+      · rw [ch_add_lt_nan m s r sa ea fa eb fb hs hfa hfb h hb]; sf_rhs
+      by_cases ha : ea = 0
+      · by_cases hfa0 : fa = 0
+        · subst hfa0; rw [ch_add_lt0z m s r sa ea eb fb hs hfb ha (by omega) (by omega)]; sf_rhs
+        by_cases he1 : eb = 1
+        · rw [ch_add_lt0a m s r sa ea fa eb fb hs hfa hfb (by omega) ha he1]; sf_rhs
+        · rw [ch_add_lt0b m s r sa ea fa eb fb hs hfa hfb (by omega) ha (by omega) (by omega)]; sf_rhs
+      · rw [ch_add_lt m s r sa ea fa eb fb hs hfa hfb (by omega) h (by omega)]; sf_rhs
+    · subst h
+      by_cases ha : ea = 2047
+      · rw [ch_add_nan m s r sa ea fa ea fb hs hfa hfb ha ha]; sf_rhs
+      by_cases ha0 : ea = 0
+      · rw [ch_add_sub0 m s r sa ea fa ea fb hs hfa hfb ha0 ha0]; sf_rhs
+      · rw [ch_eq_norm m s r sa ea fa fb hs (by omega) (by omega) hfa hfb]; sf_rhs
+    · by_cases ha : ea = 2047
+      · rw [ch_add_gt_nan m s r sa ea fa eb fb hs hfa hfb h ha]; sf_rhs
+      by_cases hb : eb = 0
+      · by_cases hfb0 : fb = 0
+        · subst hfb0; rw [ch_add_gt0z m s r sa ea fa eb hs hfa hb (by omega) (by omega)]; sf_rhs
+        by_cases he1 : ea = 1
+        · rw [ch_add_gt0a m s r sa ea fa eb fb hs hfa hfb (by omega) hb he1]; sf_rhs
+        · rw [ch_add_gt0b m s r sa ea fa eb fb hs hfa hfb (by omega) hb (by omega) (by omega)]; sf_rhs
+      · rw [ch_add_gt m s r sa ea fa eb fb hs (by omega) h (by omega) hfa hfb]; sf_rhs
+  · rw [if_neg hss]
+    rcases Nat.lt_trichotomy ea eb with h | h | h
+    · by_cases hb : eb = 2047
+      · rw [ch_sub_lt_nan m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb h hb]; sf_rhs
+      by_cases ha : ea = 0
+      · by_cases hfa0 : fa = 0
+        · rw [ch_sub_lt0z m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb ha (by omega) (by omega) hfa0]; sf_rhs
+        by_cases he1 : eb = 1
+        · rcases Nat.lt_or_ge fb fa with hf | hf
+          · rw [ch_sub_lt0a_lt m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb ha he1 hf]; sf_rhs
+          · rw [ch_sub_lt0a_ge m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb ha he1 (by omega) hf]; sf_rhs
+        · rw [ch_sub_lt0b m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb ha (by omega) (by omega) (by omega)]
+          sf_rhs
+      · rw [ch_sub_lt m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb (by omega) h (by omega)]; sf_rhs
+    · subst h
+      by_cases ha : ea = 2047
+      · rw [ch_sub_nan m s r sa ea fa sb ea fb hs hsb hss hs1 hs2 hfa hfb ha ha]; sf_rhs
+      rcases Nat.lt_trichotomy fa fb with hf | hf | hf
+      · by_cases ha0 : ea = 0
+        · rw [ch_sub0_lt m s r sa ea fa sb ea fb hs hsb hss hs1 hs2 hfa hfb ha0 ha0 hf]; sf_rhs
+        · rw [ch_sub_eq_lt m s r sa ea fa sb ea fb hs hsb hss hs1 hs2 hfa hfb (by omega) (by omega) rfl hf]; sf_rhs
+      · subst hf
+        by_cases ha0 : ea = 0
+        · rw [ch_sub0_z m s r sa ea fa sb ea fa hs hsb hss hs1 hs2 hfa hfb ha0 ha0 rfl]; sf_rhs
+        · rw [ch_sub_eq_z m s r sa ea fa sb ea fa hs hsb hss hs1 hs2 hfa hfb (by omega) (by omega) rfl rfl]; sf_rhs
+      · by_cases ha0 : ea = 0
+        · rw [ch_sub0_gt m s r sa ea fa sb ea fb hs hsb hss hs1 hs2 hfa hfb ha0 ha0 hf]; sf_rhs
+        · rw [ch_sub_eq_gt m s r sa ea fa sb ea fb hs hsb hss hs1 hs2 hfa hfb (by omega) (by omega) rfl hf]; sf_rhs
+    · by_cases ha : ea = 2047
+      · rw [ch_sub_gt_nan m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb h ha]; sf_rhs
+      by_cases hb : eb = 0
+      · by_cases hfb0 : fb = 0
+        · rw [ch_sub_gt0z m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb hb (by omega) (by omega) hfb0]; sf_rhs
+        by_cases he1 : ea = 1
+        · rcases Nat.lt_or_ge fa fb with hf | hf
+          · rw [ch_sub_gt0a_lt m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb hb he1 hf]; sf_rhs
+          · rw [ch_sub_gt0a_ge m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb hb he1 (by omega) hf]; sf_rhs
+        · rw [ch_sub_gt0b m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb hb (by omega) (by omega) (by omega)]
+          sf_rhs
+      · rw [ch_sub_gt m s r sa ea fa sb eb fb hs hsb hss hs1 hs2 hfa hfb (by omega) h (by omega)]; sf_rhs
+
+open Lua.Num in
+theorem sign_nf (a : BitVec 64) : F64.sign a = decide (a.toNat / 2 ^ 63 = 1) := by
+  unfold F64.sign
+  have := a.isLt
+  by_cases h : 2 ^ 63 ≤ a.toNat
+  · rw [decide_eq_true h, decide_eq_true (by omega)]
+  · rw [decide_eq_false h, decide_eq_false (by omega)]
+
+open Lua.Num in
+/-- **Level (b1) for `__adddf3`**: the lifted function is the soft-fp-shaped
+reference `SfRef.add` (on any stack pointer the routine's frame fits below). -/
+theorem F_eq_sfref (m : Mem) (s : Nat) (r a b : BitVec 64) (hsp : Lua.Vm.Sim.FnSp s 48) :
+    F m s r a b = SfRef.add a b := by
+  have hs1 : 48 ≤ s := by have := hsp.lo; omega
+  have hs2 : s ≤ 2 ^ 32 := hsp.hi
+  have ha := a.isLt
+  have hb := b.isLt
+  rw [F_unpack m s r a b (fields a) (fields b)]
+  unfold SfRef.add
+  rw [sign_nf a, sign_nf b]
+  exact cover m s r _ _ _ _ _ _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) hs1 hs2
 
 end Lua.Vm.Fn.Adddf3

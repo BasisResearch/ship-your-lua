@@ -520,7 +520,7 @@ theorem sext64_self (x : BitVec (8 * 8)) : sign_extend (m := 64) x = x := by
 
 /-- A slot of the 48-byte frame below `sp = s` (`FnSp s 48` keeps it in RAM,
 so the address does not wrap). -/
-theorem frame_addr {s : Nat} (o : BitVec 12) (h1 : 48 ≤ s) (h2 : s < 2 ^ 32) (ho : o.toNat < 2048) :
+theorem frame_addr {s : Nat} (o : BitVec 12) (h1 : 48 ≤ s) (h2 : s ≤ 2 ^ 32) (ho : o.toNat < 2048) :
     (BitVec.ofNat 64 s + sign_extend (m := 64) (0xfd0#12) + sign_extend (m := 64) o).toNat = s - 48 + o.toNat := by
   have e1 : (sign_extend (m := 64) (0xfd0#12)).toNat = 2 ^ 64 - 48 := by decide
   have e2 : (sign_extend (m := 64) o).toNat = o.toNat := by
