@@ -52,6 +52,10 @@ theorem ofInt_toNat (i : Int) : ((BitVec.ofInt 64 i).toNat : Int) = i % 2 ^ 64 :
 theorem bmod_small (z : Int) (h1 : -2 ^ 31 ≤ z) (h2 : z < 2 ^ 31) : z.bmod (2 ^ 32) = z := by
   simp only [Int.bmod]; split <;> omega
 
+/-- A word with bit 31 set, sign-extended. -/
+theorem bmod_high' (z : Int) (h1 : 2147483648 ≤ z) (h2 : z < 4294967296) : z.bmod 4294967296 = z - 4294967296 := by
+  simp only [Int.bmod]; split <;> omega
+
 /-- `bmod_small` on the evaluated modulus. -/
 theorem bmod_small' (z : Int) (h1 : -2147483648 ≤ z) (h2 : z < 2147483648) : z.bmod 4294967296 = z :=
   bmod_small z (by omega) (by omega)
