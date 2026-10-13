@@ -56,7 +56,9 @@ theorem StdioUp.below {m m' : Mem} (hu : StdioUp m) (h : ∀ a, a < stdoutFile +
     StdioUp m' := by
   stdio_nums
   refine ⟨(bT8_congr fun i _ => h _ (by omega)).trans hu.impure, ?_,
-    (bT4_congr fun i _ => h _ (by omega)).trans hu.flags2⟩
+    (bT4_congr fun i _ => h _ (by omega)).trans hu.flags2,
+    hu.tail.congrT fun a _ h2 => bT1_congr (h a (by omega)),
+    hu.fds.congrT fun a _ h2 => bT1_congr (h a (by omega))⟩
   rw [bT8_congr fun i _ => h _ (by omega)]; exact hu.init
 
 /-- Reads from byte-wise agreement (`bytesT1`, as the summaries' keep facts state it). -/

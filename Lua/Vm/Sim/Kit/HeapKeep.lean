@@ -40,6 +40,10 @@ theorem Agree.mono {R S : Nat → Prop} {m m' : Mem} (h : Agree R m m') (hRS : �
 theorem Agree.get {R : Nat → Prop} {m m' : Mem} (h : Agree R m m') {a : Nat} (ha : ¬ R a) :
     m'[a]? = m[a]? := h a ha
 
+/-- An agreement read at one byte, totally (lane F1-14). -/
+theorem Agree.t1 {R : Nat → Prop} {m m' : Mem} (h : Agree R m m') {a : Nat} (ha : ¬ R a) :
+    bytesT1 m' a = bytesT1 m a := Lua.Vm.Sim.AtF.bT1_congr (h a ha)
+
 /-- Reads off the region, unchanged. -/
 theorem Agree.b8 {R : Nat → Prop} {m m' : Mem} (h : Agree R m m') {a : Nat} (hn : ∀ i, i < 8 → ¬ R (a + i)) :
     bytesT8 m' a = bytesT8 m a := Lua.Vm.Sim.AtF.bT8_congr fun i hi => h _ (hn i hi)

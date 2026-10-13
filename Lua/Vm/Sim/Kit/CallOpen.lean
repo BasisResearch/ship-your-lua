@@ -22,8 +22,10 @@ premises collected here (`CallOpen`):
 * `PoscallN_Statement`: `luaD_poscall` with `C ≥ 2` (`wanted ≥ 1` nils);
 * `PrintGrow_Statement`: `luaD_precall`'s stack growth (`L->stack_last - L->top
   ≤ LUA_MINSTACK`);
-* `ExitUp_Statement`: `exit(0)` once `stdout` is set up (the post-print
-  `ExitOk`).
+* `FreeR_Statement`: `_free_r` (A0, as `MallocR_Statement`), which `exit`'s
+  `_fclose_r(stdout)` calls on `stdout`'s buffer; `exit(0)` once `stdout` is
+  set up (`ExitUp_Statement`, the post-print `ExitOk`) is proved from it
+  (`exitUp_of_free`, `Kit/ExitUp.lean`, lane F1-14).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -72,7 +74,7 @@ structure PrintIn (L nci func n tbc sl g : Nat) (ls : LitPtrs) (args : List Valu
   lits : ∃ FL, LitsFoot g sl ls H ph D FL M
   keep_in : ∀ a, G a → Kept H ph a ∨ PrintStatic a
   keep_apart : ∀ a, G a → ¬ Rng (L + stateTopOff) 8 a ∧ ¬ (func + 16 * n + 16 ≤ a ∧ a < sl) ∧
-    ¬ Rng g 64 a ∧ ¬ (g + gStrcacheOff ≤ a ∧ a < g + gEnd) ∧ ∀ ts ∈ ls.strs, a ≠ ts + gcMarkedOff
+    ¬ Rng (g + 16) 48 a ∧ ¬ (g + gStrcacheOff ≤ a ∧ a < g + gEnd) ∧ ∀ ts ∈ ls.strs, a ≠ ts + gcMarkedOff
 
 /-- **What `luaB_print` leaves** for its caller: the console's bytes are the
 line, `stdout` set up and flushed with the heap (the chunks in use kept, the
@@ -117,7 +119,7 @@ chunks in use kept, every byte kept off the allocator's writes (`MallocW`),
 the block, `ci->next`, `L->nci` and its callees' stack, and `stdout`'s state
 with the new heap (the allocator's globals lie among the stdio globals, so this
 is the premise's, not a frame lemma's). -/
-structure ExtPost (M m' : Mem) (sp L ci : Nat) (H H' : HeapIx) (nci : Nat) : Prop where
+structure ExtPost (M m' : Mem) (sp L ci g : Nat) (H H' : HeapIx) (nci : Nat) : Prop where
   heap : HeapAt (fillZeroMem m') H'.top H'.brk H'.chunks H'.bins
   brk : H'.brk ≤ H.brk + extRoom
   kept : ∀ c ∈ H.chunks, c.inuse = true → c ∈ H'.chunks
@@ -126,21 +128,53 @@ structure ExtPost (M m' : Mem) (sp L ci : Nat) (H H' : HeapIx) (nci : Nat) : Pro
   next : bytesT8 m' (ci + ciNextOff) = BitVec.ofNat 64 nci
   prev : bytesT8 m' (nci + ciPreviousOff) = BitVec.ofNat 64 ci
   al : nci % 8 = 0
+  /-- (lane F1-14) also off `g->GCdebt`, which `luaM_malloc_` advances -/
   keep : ∀ a, ¬ (MallocW H.chunks a ∨ (nci ≤ a ∧ a < nci + ciSize) ∨ Rng (ci + ciNextOff) 8 a ∨
-    Rng (L + stateNciOff) 2 a ∨ Below (sp - 96) 4096 a) → bytesT1 m' a = bytesT1 M a
-  stdio : ∀ ph, PrintSt M ph H → ((∀ buf pend, ph ≠ .up buf pend) → H'.brk + 1024 + 16384 ≤ heapEnd) →
-    PrintSt m' ph H'
+    Rng (L + stateNciOff) 2 a ∨ Below (sp - 96) 4096 a ∨ Rng (g + gGCdebtOff) 8 a) → bytesT1 m' a = bytesT1 M a
+  /-- (lane F1-14) given `stdout`'s buffer apart from the objects written -/
+  stdio : ∀ ph, PrintSt M ph H →
+    (∀ a, ph.Buf a → ¬ (Rng L stateSize a ∨ Rng ci ciSize a ∨ Rng (g + gGCdebtOff) 8 a)) →
+    ((∀ buf pend, ph ≠ .up buf pend) → H'.brk + 1024 + 16384 ≤ heapEnd) → PrintSt m' ph H'
+
+/-- **Where `luaE_extendCI`'s objects lie** (lane F1-14): the `lua_State`,
+the `CallInfo` and `g` in the arena, aligned, `L` apart from `g->GCdebt`
+(`luaM_malloc_` writes it before `L->ci`, `L->nci` are read), and what is read
+or written after the allocation in chunks in use. -/
+structure ExtCx (L ci g : Nat) (H : HeapIx) : Prop where
+  L_lo : heapStart ≤ L
+  L_hi : L + stateSize ≤ heapEnd
+  L_al : L % 8 = 0
+  ci_lo : heapStart ≤ ci
+  ci_hi : ci + ciSize ≤ heapEnd
+  ci_al : ci % 8 = 0
+  g_lo : heapStart ≤ g
+  g_hi : g + 64 ≤ heapEnd
+  g_al : g % 8 = 0
+  L_g : L + stateSize ≤ g + gGCdebtOff ∨ g + gGCdebtOff + 8 ≤ L
+  /-- `L` apart from the `CallInfo` (`ci->next` is written before `L->nci`) -/
+  L_ci : L + stateSize ≤ ci ∨ ci + ciSize ≤ L
+  live : ∀ a, Rng L stateSize a ∨ Rng ci ciSize a ∨ Rng (g + gGCdebtOff) 8 a → InUse H.chunks a
 
 /-- **Named premise: `luaE_extendCI(L)`** (`0x80016a5c`, from `next_ci` with
 `ci->next` NULL): from the heap with room for one `_malloc_r`, `L->ci = ci`,
-its `next` NULL, no hook: `PcExt` with `ExtPost`. Open: its at-lemmas and
-`luaM_malloc_` → `l_alloc` → `_malloc_r` (`MallocR_Statement`). -/
+its `next` NULL, no hook, `G(L) = g` with `g->frealloc` main.c's `l_alloc`
+(`luaM_malloc_` calls it through a `jalr`), `_impure_ptr` (`realloc`'s
+`_REENT`), and the `lua_State`, the `CallInfo` and `g->GCdebt` (read or
+written after the allocation) in chunks in use: `PcExt` with
+`ExtPost`. Proved from `MallocR_Statement` (`extendCI_of_malloc`,
+`Kit/ExtendCI.lean`: `luaM_malloc_` → `l_alloc` → `realloc` →
+`_realloc_r(NULL)` → `_malloc_r`). Lane F1-14: the earlier
+form did not constrain `g->frealloc` and claimed `g->GCdebt` kept, so it
+was false. -/
 def ExtendCI_Statement : Prop :=
-  ∀ (sp L ci : Nat) (f : AbiFrame) (M : Mem) (o : Array String) (H : HeapIx),
+  ∀ (sp L ci g : Nat) (f : AbiFrame) (M : Mem) (o : Array String) (H : HeapIx),
     HeapAt (fillZeroMem M) H.top H.brk H.chunks H.bins → H.brk + extRoom ≤ heapEnd →
     bytesT8 M (L + stateCiOff) = BitVec.ofNat 64 ci → bytesT8 M (ci + ciNextOff) = 0#64 →
-    bytesT4 M (L + stateHookmaskOff) = 0#32 → heapEnd + 8192 ≤ sp - 96 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
-    PcExt sp L f M o (fun nci m' => ∃ H', ExtPost M m' sp L ci H H' nci)
+    bytesT4 M (L + stateHookmaskOff) = 0#32 →
+    bytesT8 M (L + stateGOff) = BitVec.ofNat 64 g → bytesT8 M g = BitVec.ofNat 64 symLAlloc →
+    bytesT8 M symImpurePtr = BitVec.ofNat 64 symImpureData → ExtCx L ci g H →
+    heapEnd + 8192 ≤ sp - 96 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
+    PcExt sp L f M o (fun nci m' => ∃ H', ExtPost M m' sp L ci g H H' nci)
 
 /-! ## `luaD_poscall` with results -/
 
@@ -170,15 +204,23 @@ structure PcCxW (L ci sp : Nat) (r : BitVec 64) (m : Mem) (w : Nat) : Prop where
   L_al : L % 8 = 0
   hook : bytesT4 m (L + stateHookmaskOff) = 0#32
   nres : bytesT2 m (ci + ciNresultsOff) = BitVec.ofNat 16 w
+  /-- (lane F1-14) the `w` result slots from `res = ci->func`: in RAM, below
+  `luaD_poscall`'s frame, apart from the `CallInfo` and `L->top`/`L->ci` -/
+  res_lo : tohostAddr + 16 ≤ (bytesT8 m (ci + ciFuncOff)).toNat
+  res_hi : (bytesT8 m (ci + ciFuncOff)).toNat + 16 * w + 64 ≤ sp
+  res_ci : (bytesT8 m (ci + ciFuncOff)).toNat + 16 * w ≤ ci ∨ ci + ciSize ≤ (bytesT8 m (ci + ciFuncOff)).toNat
+  res_L : (bytesT8 m (ci + ciFuncOff)).toNat + 16 * w ≤ L ∨ L + stateSize ≤ (bytesT8 m (ci + ciFuncOff)).toNat
 
-/-- **Named premise: `luaD_poscall(L, ci, 0)` with `wanted ≥ 1`** (`C ≥ 2`,
-`moveresults`' fill with nils; `HluaD_poscall` stops at `0x8000a4d8`): the
-summary in `poscall_sum`'s shape, post `PoscallPost`. -/
+/-- **`luaD_poscall(L, ci, 0)` with `wanted ≥ 1`** (`C ≥ 2`, `moveresults`'
+fill with nils after a C function that returned no result, `n = 0`): the
+summary in `poscall_sum`'s shape, post `PoscallPost`. Proved (lane F1-14):
+`poscallN`, `Kit/PoscallN.lean`. With `n ≠ 0` the results would be copied,
+so the statement is stated at `luaB_print`'s `0`. -/
 def PoscallN_Statement : Prop :=
   ∀ {L ci sp w : Nat} {r : BitVec 64} {m : Mem}, PcCxW L ci sp r m w → 1 ≤ w → w < 2 ^ 15 →
-    ∀ (f : Ret.RFrame) (n : BitVec 64) (o : Array String),
+    ∀ (f : Ret.RFrame) (o : Array String),
     Triple (SegSt 0x8000a39c#64 (⟨Register.x10, BitVec.ofNat 64 L⟩ ::
-        ⟨Register.x11, BitVec.ofNat 64 ci⟩ :: ⟨Register.x12, n⟩ ::
+        ⟨Register.x11, BitVec.ofNat 64 ci⟩ :: ⟨Register.x12, 0x0#64⟩ ::
         ⟨Register.x1, r⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins) (ArmPay m o))
       (fun c => ∃ m', SegSt r (⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins) (ArmPay m' o) c ∧
         PoscallPost m m' L ci sp w)
@@ -191,23 +233,42 @@ def PoscallN_Statement : Prop :=
 def PrintGrow_Statement (I : Proto → RelPtrs → Prop) : Prop :=
   PrintCallOn I fun _ w ins => ¬ (w.slot ins.a + 16 * ins.b + 320 < w.rt.stackLast)
 
-/-- **Named premise: `exit(0)` once `stdout` is set up** (after a `print`:
+/-- **`exit(0)` once `stdout` is set up** (after a `print`:
 `__stdio_exit_handler` = `stdio_exit_handler` runs `_fwalk_sglue(_fclose_r)`
 over the standard streams: `__sflush_r` with nothing pending, htif.c's
-`_close`, `_free_r` of the buffer), from `stdout`'s state, the heap and no
-`atexit` handler: `ExitOk`. Its truth needs the other standard streams as
-`__sinit`'s `std()` left them, which `StdoutIn` does not carry yet. -/
+`_close`, `_free_r` of the buffer), from the `CALL` invariant at the phase
+`.up buf []` (`stdout`, the other streams as `__sinit`'s `std()` left them,
+`atexit`, where the Lua objects lie) and the heap: `ExitOk`. Proved from
+`FreeR_Statement` (`exitUp_of_free`, `Kit/ExitUp.lean`). Lane F1-14: the
+earlier form, over `StdoutIn` alone, left `stdin`, `stderr`, `__sglue` and the
+handler unconstrained (`exit` jumps through their hooks), so the invariant
+carries them now (`StdioRest`, `StdoutTail`, `FdsStd`). -/
 def ExitUp_Statement : Prop :=
-  ∀ (p : Proto) (w : RelPtrs) (buf : Nat), StdoutIn w.mo w.rt.hix (.up buf []) →
-    HeapAt w.mo w.rt.top w.rt.brkv w.rt.chunks (fun i => w.rt.bins.getD i []) →
-    bytesT8 w.mo symAtexit = 0#64 → ExitOk p w
+  ∀ (p : Proto) (w : RelPtrs) (buf : Nat) (F FL : Nat → Prop) (ls : LitPtrs),
+    CallInvAt p w (.up buf []) F FL ls →
+    HeapAt w.mo w.rt.top w.rt.brkv w.rt.chunks (fun i => w.rt.bins.getD i []) → ExitOk p w
 
 /-- **`OP_CALL print`'s open parts** on the `CALL` invariant (lane F1-13). -/
 structure CallOpen : Prop where
   print : PrintRel_Statement
-  extendCI : ExtendCI_Statement
-  poscall : PoscallN_Statement
-  grow : PrintGrow_Statement CallInv
-  exitUp : ExitUp_Statement
+  /-- (lane F1-14) `_malloc_r` (A0): `luaE_extendCI`'s allocation
+  (`CallOpen.extendCI`, `Kit/ExtendCI.lean`) -/
+  mallocR : MallocR_Statement
+  freeR : FreeR_Statement
+
+/-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the
+`CALL` invariant keeps `LUA_MINSTACK` slots above the frame (`growFree`, from
+the entry contract's `call_room`), and the call's arguments lie inside the
+frame (`call_bounds`), so the growth path's states do not occur. -/
+theorem printGrow_none : PrintGrow_Statement CallInv := by
+  intro p c s w ins args f o hS hR hI hf hop hb hcc hregs hbud hq
+  obtain ⟨ph, F, FL, ls, hI⟩ := hI
+  have hB := call_bounds hS hf hop hb hcc
+  have h1 := hI.growFree
+  have h2 := hB.ab
+  exact absurd (by simp only [RelPtrs.slot, RelPtrs.base, stackValueSize] at h1 ⊢; omega) hq
+
+/-- `CALL`'s growth path, discharged (lane F1-14). -/
+theorem CallOpen.grow (_O : CallOpen) : PrintGrow_Statement CallInv := printGrow_none
 
 end Lua.Vm.Sim.Kit

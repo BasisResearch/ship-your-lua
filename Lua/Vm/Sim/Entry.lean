@@ -376,7 +376,8 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
     (hst : rt.stack = rt0.stack) (hsl : rt.stackLast = rt0.stackLast) (hg : rt.g = rt0.g)
     (heg : e.g = rt.g) (hesl : e.stackLast = rt.stackLast) (hecl : e.cl = rt.cl) (hfunc : e.func ≤ func)
     (hsp : sp = RuntimeData.spEntry - execFrame)
-    (hfits : func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast) :
+    (hfits : func + stackValueSize * (1 + p.maxstacksize) ≤ rt.stackLast)
+    (hgrow : func + stackValueSize * (1 + p.maxstacksize) + 320 < rt.stackLast) :
     CallInv p ⟨L, ci, func, e.pa, e.code, rt.k, sp, m, ι, rt⟩ := by
   have hvr := hE.vararg_room
   have hsle : rt.stack ≤ e.func := by
@@ -468,6 +469,8 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl; omega⟩
       stat_apart := fun a ha hd => ha.elim (fun ha => hE.foot_apart a ha ?_) fun ha => ?_
       fits := hfits
+      growFree := hgrow
+      g_al := heg ▸ hE.g_al
       kslots := fun j hj => .inl ((hE.foot_k rt.k hka).2 j hj)
       lits := fun M hM => ?_
       lits_in := fun a ha => kept (hpl.litFoot a ha)
@@ -564,7 +567,8 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         hst ▸ rdW (by simp [luaStaticWords]) hlua.tbclist, hst ▸ rdW (by simp [luaStaticWords]) hlua.stack,
         hsl ▸ rdW (by simp [luaStaticWords]) hlua.stack_last, hg ▸ rdW (by simp [luaStaticWords]) hlua.g,
         rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_nil), rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_boolean),
-        rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_number), rdW (by simp [luaStaticWords]) hej.ptr⟩
+        rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_number), rdW (by simp [luaStaticWords]) hej.ptr,
+        rdW (by simp [luaStaticWords]) (heg ▸ hE.frealloc)⟩
   · simp only [CallDirty, EntryDirty] at hd ⊢
     rw [heg, hesl]; omega
   · have := hreg.ci_lo; have := hreg.L_lo; have := hreg.stack_lo
@@ -924,7 +928,8 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
       exact envMem_of_entry hE (fun _ _ => rfl) (by rw [epa]; exact hrg.kArr))
     (fun ι hι => callInv_boot hE hRt.stdio hRt.memfs hM.rodata hRt.error_jmp hlua hRt.heap hcs.dense
       (fun _ _ => rfl) hlua.next (fun a h1 h2 => hcs.dense a h1 h2) hRt.kowned hrg hι hszk (by rw [epa]; exact hrg.kArr) rfl rfl rfl eg esl ecl
-      (Nat.le_refl _) rfl (by rw [← esl]; exact hE.frame_fits))
+      (Nat.le_refl _) rfl (by rw [← esl]; exact hE.frame_fits)
+      (by rw [← esl]; have := hE.call_room; simp only [stackValueSize] at this ⊢; omega))
   have hwo : ∀ {m : Mem} {a x : Nat} {d : BitVec (8 * 8)}, x + 8 ≤ a ∨ a + 8 ≤ x →
       bytesT8 (writeMap8 m a d) x = bytesT8 m x :=
     fun h => bytesT8_congr fun _ _ => getElem?_writeMap8_out _ _ _ _ (by omega)

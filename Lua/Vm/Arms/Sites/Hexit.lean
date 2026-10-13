@@ -2,6 +2,7 @@ import Vsa.Sim.ValueSites
 import Vsa.Sim.DecodeNF
 import Vsa.Sim.RamReadPins
 import Vsa.Sim.ExecLoadTotal
+import Vsa.Sim.SnprintfSitesRet5
 import Lua.Vm.Code.FixedImage_Exit
 import Lua.Vm.Arms.Text
 
@@ -343,6 +344,38 @@ theorem site_8002f878_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstre
       (by rw [get?_afterNextPC σ (0x8002f878#64) _ (by decide) (by decide)]; exact hG.misa)
       (by rw [site_8002f878_taken_tgt]; decide) hv)
     hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) hi
+
+/-- 0x8002f87c: `jalr x1,0x0(x15)` (link `x1 := 0x8002f880`). -/
+-- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries
+theorem site_8002f87c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 : BitVec 64)
+    (hG : GoodState σ) (hpc : σ.regs.get? Register.PC = some pc)
+    (hminstret : σ.regs.get? Register.minstret = some vminstret)
+    (hx15 : σ.regs.get? Register.x15 = some v15)
+    (hmem : Lua.Vm.Arms.TextLoaded σ.mem)
+    (hpcv : pc = (0x8002f87c#64 : BitVec 64))
+    (htgt : (BitVec.update (v15 + sign_extend (m := 64) (0x000#12)) 0 0#1).toNat % 4 = 0)
+    (hi : i < 2) :
+    ∃ (σ' : MState) (i' : Nat),
+      Vsa.Machine.Step ⟨σ, i, u⟩ ⟨σ', i', u + 1⟩ ∧ i' < 2 ∧ GoodState σ' ∧
+      σ'.mem = σ.mem ∧
+      ReadsLikePost σ' (sigmaPost_jalr σ pc vminstret
+          (BitVec.update (v15 + sign_extend (m := 64) (0x000#12)) 0 0#1) Register.x1 (BitVec.addInt pc 4)) := by
+  subst hpcv
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.exit_at_8002f87c (Lua.Vm.Code.textLoaded_ExitLoaded hmem)
+  refine stepObs_jalr σ i u (0x8002f87c#64) vminstret v15 (0x000780e7#32) (0x000#12)
+    (regidx.Regidx 0x0f#5) (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x8002f87c#64) 4)
+    (0xe7#8) (0x80#8) (0x07#8) (0x00#8)
+    hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)
+    (by apply BitVec.eq_of_toNat_eq; decide) (by apply BitVec.eq_of_toNat_eq; decide)
+    (Vsa.Sim.decodeW (w := 0x000780e7#32) (afterPrelude σ)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.misa)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.cur_privilege)
+      (by rw [get?_afterPrelude σ _ (by decide)]; exact hG.mseccfg))
+    (rX_bits_x15 _ v15
+      (by rw [get?_afterNextPC σ (0x8002f87c#64) _ (by decide) (by decide)]; exact hx15))
+    htgt
+    (by decide) (by decide) (by decide) (by decide) (by decide) ?_ hi
+  exact wX_bits_x1 _ (BitVec.addInt (0x8002f87c#64) 4)
 
 /-- 0x8002f880: `addi x10,x8,0x0`. -/
 -- discipline: allow(R1-site-battery) machine-emitted from a TSV by scripts/gen_sites.py; R1 targets HAND-written batteries

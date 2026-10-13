@@ -38,6 +38,49 @@ theorem zero_b4 {m : Mem} {a n : Nat} (h : ZeroAt m a n) {x : Nat} (h1 : a ≤ x
   simp only [Nat.add_zero] at e0
   simp only [bytesT4, e0, e1, e2, e3, Option.getD_some]; decide
 
+theorem zero_b1 {m : Mem} {a n : Nat} (h : ZeroAt m a n) {x : Nat} (h1 : a ≤ x) (h2 : x < a + n) :
+    bytesT1 m x = 0#8 := by
+  have := h (x - a) (by omega); rw [show a + (x - a) = x by omega] at this
+  simp only [bytesT1, this, Option.getD_some]; rfl
+
+/-- Eight zero bytes read `0` (lane F1-14). -/
+theorem b8_zeroT {m : Mem} {a : Nat} (h : ∀ i, i < 8 → bytesT1 m (a + i) = 0#8) : bytesT8 m a = 0#64 := by
+  have h0 := h 0 (by omega); have h1 := h 1 (by omega); have h2 := h 2 (by omega); have h3 := h 3 (by omega)
+  have h4 := h 4 (by omega); have h5 := h 5 (by omega); have h6 := h 6 (by omega); have h7 := h 7 (by omega)
+  simp only [bytesT1, Nat.add_zero] at h0 h1 h2 h3 h4 h5 h6 h7
+  simp only [bytesT8, h0, h1, h2, h3, h4, h5, h6, h7]; decide
+
+/-- Four zero bytes read `0` (lane F1-14). -/
+theorem b4_zeroT {m : Mem} {a : Nat} (h : ∀ i, i < 4 → bytesT1 m (a + i) = 0#8) : bytesT4 m a = 0#32 := by
+  have h0 := h 0 (by omega); have h1 := h 1 (by omega); have h2 := h 2 (by omega); have h3 := h 3 (by omega)
+  simp only [bytesT1, Nat.add_zero] at h0 h1 h2 h3
+  simp only [bytesT4, h0, h1, h2, h3]; decide
+
+theorem b4_lo_of_b8 {m : Mem} {a : Nat} {x : BitVec 64} (h : bytesT8 m a = x) :
+    bytesT4 m a = x.extractLsb' 0 32 := by
+  subst h
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  simp only [bytesT4, bytesT8, BitVec.append_eq, BitVec.getLsbD_append, BitVec.getLsbD_extractLsb']
+  have : i < 8 ∨ (8 ≤ i ∧ i < 16) ∨ (16 ≤ i ∧ i < 24) ∨ (24 ≤ i ∧ i < 32) := by omega
+  rcases this with h | h | h | h <;> simp (disch := omega) only [ite_eq_left, ite_eq_right, decide_true,
+    Bool.true_and, hi] <;> congr 1 <;> omega
+
+/-- **A standard stream after `std()`, quiet** (lane F1-14): `std()`'s
+fields (`FileStd`) and its untouched tail, still zero. -/
+theorem StdQuiet.of_std {M : Mem} {fp : Nat} {fl : BitVec 32} {f16 d16 : BitVec 16} (hS : FileStd M fp fl)
+    (hz : ∀ a, fp + 88 ≤ a → a < fp + 168 → bytesT1 M a = 0#8)
+    (hf : fl.extractLsb' 0 16 = f16) (hd : fl.extractLsb' 16 16 = d16) : StdQuiet M fp f16 d16 := by
+  refine ⟨?_, (b2_lo_of_b4 hS.flags).trans hf, ?_, hS.cookie, hS.close,
+    b8_zeroT fun i _ => hz _ (by omega) (by omega), b4_zeroT fun i _ => hz _ (by omega) (by omega),
+    b8_zeroT fun i _ => hz _ (by omega) (by omega), hS.flags2⟩
+  · rw [b4_lo_of_b8 hS.rw]; decide
+  · rw [show fp + 18 = fp + 16 + 2 by omega]; exact (b2_hi_of_b4 hS.flags).trans hd
+
+/-- **`stdout`'s tail after `std()`** (lane F1-14). -/
+theorem StdoutTail.of_std {M : Mem} {fl : BitVec 32} (hS : FileStd M stdoutFile fl)
+    (hz : ∀ a, stdoutFile + 88 ≤ a → a < stdoutFile + 168 → bytesT1 M a = 0#8) : StdoutTail M :=
+  ⟨hS.close, b8_zeroT fun i _ => hz _ (by omega) (by omega), b8_zeroT fun i _ => hz _ (by omega) (by omega)⟩
+
 /-- What `__sinit` writes outside its frame: the three `FILE`s, `__cleanup`,
 `__stdio_exit_handler`. -/
 def SinitW (a : Nat) : Prop :=
@@ -122,6 +165,8 @@ macro "ssr" : tactic => `(tactic| (
 fresh, the uio on its stack, its frame. -/
 structure FwsMid (m M : Mem) (sp src n : Nat) (r : BitVec 64) (f : AbiFrame) (o : Array String) : Prop where
   fresh : StdoutFresh M
+  /-- (lane F1-14) what `exit` reads of the other streams, as `__sinit` left it -/
+  rest : StdioRest M
   uio : SfvUio M (sp - 72) (sp - 88) src n
   frame : FwsM2 M (fwsX sp src n r f m o)
   agree : Agree (fun a => SinitW a ∨ Below sp 176 a) m M
@@ -179,8 +224,44 @@ theorem fws_pre (sp src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : A
     simp only [Lua.Vm.AtF.FwriteSetup.r5, show X1.n 0 - 112 = sp - 112 from rfl,
       show X1.n 0 - 72 = sp - 72 from rfl] at h2
     exact h2.repin (by pins_of h2)
+  -- the `FILE`s' tails after `std()`: the boot's zeros
+  have hz : ∀ a, StdTail a → bytesT1 m1 a = 0#8 := fun a ha => by
+    obtain ⟨k, hk, h1, h2⟩ := ha
+    have h1' := h1; have h2' := h2
+    simp only [show fileSize = 184 from rfl, show symSf = 0x8005e5b0 from rfl] at h1' h2'
+    rw [bT1_congr (SP.tail a ⟨k, hk, h1, h2⟩), k2'.t1 (by simp only [Below]; omega), ← bytesT1_fill]
+    exact zero_b1 hB.files (by omega) (by simp only [symSfSize]; omega)
+  have k15t : ∀ a, (a < sp - 112 ∨ sp ≤ a) → (a < stdoutFile + 16 ∨ stdoutFile + 18 ≤ a) →
+      (a < stdoutFile + 176 ∨ stdoutFile + 180 ≤ a) → bytesT1 (Lua.Vm.AtF.FwriteSetup.m5 X1) a = bytesT1 m1 a :=
+    fun a h1 h2 h3 => k5'.t1 (by simp only [Rng, not_or, not_and]; omega)
+  have htail : StdoutTail (Lua.Vm.AtF.FwriteSetup.m5 X1) :=
+    (StdoutTail.of_std SP.stdout fun a h1 h2 => hz a ⟨1, by decide, by simp only [stdoutFile, fileSize, symSf] at h1 h2 ⊢; omega,
+      by simp only [stdoutFile, fileSize, symSf] at h1 h2 ⊢; omega⟩).congrT
+      fun a h1 h2 => k15t a (by omega) (by omega) (by omega)
+  have hrest : StdioRest (Lua.Vm.AtF.FwriteSetup.m5 X1) := by
+    have hsg : symSglue = 0x8005cee0 := rfl
+    have e1 : glueNextOff = 0 := rfl
+    have e2 : glueNiobsOff = 8 := rfl
+    have e3 : glueIobsOff = 16 := rfl
+    have g1 := bT8_of_fill (bytesT8_of_rd64 hB.glue_next)
+    have g2 := bT4_of_fill (bytesT4_of_rd32 hB.glue_niobs)
+    have g3 := bT8_of_fill (bytesT8_of_rd64 hB.glue_iobs)
+    rw [e1, Nat.add_zero] at g1
+    rw [e2] at g2
+    rw [e3] at g3
+    refine StdioRest.congrT ⟨SP.handler, ?_, ?_, ?_,
+      StdQuiet.of_std SP.stdin (fun a h1 h2 => hz a ⟨0, by decide, by simp only [stdinFile, fileSize, symSf] at h1 h2 ⊢; omega,
+        by simp only [stdinFile, fileSize, symSf] at h1 h2 ⊢; omega⟩) (by decide) (by decide),
+      StdQuiet.of_std SP.stderr (fun a h1 h2 => hz a ⟨2, by decide, by simp only [stderrFile, fileSize, symSf] at h1 h2 ⊢; omega,
+        by simp only [stderrFile, fileSize, symSf] at h1 h2 ⊢; omega⟩) (by decide) (by decide)⟩
+      fun a ha => ?_
+    · exact (kS.b8 fun i _ => by ssr).trans ((k2'.b8 fun i _ => by ssr).trans g1)
+    · exact (kS.b4 fun i _ => by ssr).trans ((k2'.b4 fun i _ => by ssr).trans g2)
+    · exact (kS.b8 fun i _ => by ssr).trans ((k2'.b8 fun i _ => by ssr).trans g3)
+    · simp only [RestFoot, stdinFile, stderrFile, hsg] at ha
+      exact k15t a (by omega) (by omega) (by omega)
   have hfr : StdoutFresh (Lua.Vm.AtF.FwriteSetup.m5 X1) := by
-    refine ⟨?_, ?_, fl5, ?_, ?_, ?_, ?_, ?_, f25, ?_⟩
+    refine ⟨?_, ?_, fl5, ?_, ?_, ?_, ?_, ?_, f25, ?_, htail⟩
     · exact (k15.b8 (a := symImpurePtr) fun i _ => by ssr).trans
         ((k2'.b8 (a := symImpurePtr) fun i _ => by ssr).trans (bT8_of_fill (bytesT8_of_rd64 hB.impure_ptr)))
     · exact (k5'.b8 (a := symImpureData + reentCleanupOff) fun i _ => by ssr).trans SP.cleanup
@@ -205,7 +286,7 @@ theorem fws_pre (sp src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : A
      (r8 (sp - 40) (by omega) (by omega) (by omega)).trans F2.s3, (r8 (sp - 56) (by omega) (by omega) (by omega)).trans F2.resid,
      (r8 (sp - 72) (by omega) (by omega) (by omega)).trans F2.iov, (r8 (sp - 80) (by omega) (by omega) (by omega)).trans F2.len,
      (r8 (sp - 88) (by omega) (by omega) (by omega)).trans F2.base, n5⟩
-  refine ⟨_, s0.trans (s1.trans s2), Lua.Vm.AtF.FwriteSetup.m5 X1, hcall2, hfr, hio, hfm, ?_⟩
+  refine ⟨_, s0.trans (s1.trans s2), Lua.Vm.AtF.FwriteSetup.m5 X1, hcall2, hfr, hrest, hio, hfm, ?_⟩
   exact (k2'.trans k15).mono fun a ha => by
     simp only [Below, Rng, SinitW] at ha ⊢
     omega
@@ -222,6 +303,26 @@ structure SetupPost (m M m' : Mem) (sp src n buf brk : Nat) (chunks : List Chunk
   agree : Agree (fun a => FsGlobal a ∨ MallocW chunks a ∨ SinitW a ∨ Below sp 1536 a) m M
   keep : SfvKeep M m' (sp - 112) buf (sp - 72)
   src_buf : src + n ≤ buf ∨ buf + 1024 ≤ src
+  /-- (lane F1-14) what `exit` reads of the other streams -/
+  rest : StdioRest m'
+
+/-- **`exit`'s other stdio words across the first write's set-up and loop**
+(lane F1-14): off `stdout`, its buffer, `errno`, htif.c's and the allocator's
+globals and the callees' stack. -/
+theorem StdioRest.of_first {m M m' : Mem} {sp U src n buf brk : Nat} {chunks : List Chunk} {top' brk' : Nat}
+    {chunks' : List Chunk} {bins' : Nat → List Nat} {out pend' : List (BitVec 8)} (h : StdioRest m)
+    (FW : FirstWrite m M m' sp U src n buf brk chunks top' brk' chunks' bins' out pend')
+    (hsp : 0x8005e7d8 + 3072 ≤ sp) : StdioRest m' := by
+  have hb := FW.grant.lo
+  fs_nums
+  have : symSglue = 0x8005cee0 := rfl
+  have : symStdioExitHandler = 0x8005d3e0 := rfl
+  have : symSf = 0x8005e5b0 := rfl
+  have : fileSize = 184 := rfl
+  refine h.congrT fun a ha => ?_
+  simp only [RestFoot, stdinFile, stderrFile] at ha
+  exact (FW.keep.keep_lo a (by omega) (by omega) (by omega) (by omega)).trans
+    (FW.agree.t1 (by simp only [FsGlobal, MallocW, MallocGlobal, Below, Rng, StdoutW, not_or, not_and]; omega))
 
 /-- **The first `fwrite(src, 1, n, stdout)`** from the boot state
 (`StdioBoot`, `MemfsBoot`, the heap with room for the buffer), `n ≥ 1`, the
@@ -277,7 +378,8 @@ theorem stdoutSetup_of_malloc (hM : MallocR_Statement) : StdoutSetup_Statement :
     ((rd (sp - 32) (by omega) (by omega) (by omega)).trans mid.frame.s2) ((rd (sp - 40) (by omega) (by omega) (by omega)).trans mid.frame.s3)
     c2 (hret.repin (by pins_of hret))
   refine ⟨c3, s1.trans (s2.trans s3), M, m', out, pend', buf, top', brk', chunks', bins',
-    h3.repin (by pins_of h3), ⟨FW.stdout, FW.up, ?_, FW.grant, ?_, FW.keep, FW.src_buf⟩⟩
+    h3.repin (by pins_of h3), ⟨FW.stdout, FW.up, ?_, FW.grant, ?_, FW.keep, FW.src_buf,
+      mid.rest.of_first FW (by omega)⟩⟩
   · rw [FW.out]
     refine bytesAt_congr fun i hi => ?_
     have hx := hsrc (src + i) (by omega) (by omega)

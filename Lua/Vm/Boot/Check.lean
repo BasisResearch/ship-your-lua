@@ -783,7 +783,7 @@ theorem containsB_sound {t : RTree} {lo n : Nat} (h : containsB t lo n = true) {
 
 /-- `EntryDirty` as ranges. -/
 def entryDirtyRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
-  [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func), (e.g, 64),
+  [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func), (e.g + 16, 48),
    (e.g + gStrcacheOff, gEnd - gStrcacheOff), (L + stateNciOff, 2)]
 
 theorem entryDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : EntryDirty L ci e a) :
@@ -797,7 +797,7 @@ theorem entryDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : EntryDirty
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _))), h.1, by
       show a < e.func + (e.stackLast - e.func); omega⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)))),
-      h.1, h.2⟩
+      h.1, by show a < e.g + 16 + 48; omega⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
       (List.Mem.head _))))), h.1, by show a < e.g + gStrcacheOff + (gEnd - gStrcacheOff); omega⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
@@ -805,12 +805,13 @@ theorem entryDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : EntryDirty
 
 /-- `LitDirty` as ranges. -/
 def litDirtyRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
-  [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func), (L + stateNciOff, 2)]
+  [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func), (L + stateNciOff, 2),
+   (e.g + gGCdebtOff, 8)]
 
 theorem litDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : LitDirty L ci e a) :
     InList (litDirtyRanges L ci e) a := by
   simp only [LitDirty] at h
-  rcases h with h | h | h | h | h
+  rcases h with h | h | h | h | h | h
   · exact ⟨_, List.Mem.head _, h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.head _), h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)), h.1, h.2⟩
@@ -818,6 +819,8 @@ theorem litDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : LitDirty L c
       show a < e.func + (e.stackLast - e.func); omega⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)))),
       h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
+      (List.Mem.head _))))), h.1, h.2⟩
 
 /-- **A chunk walk is determined by its memory and ends** (`p` up to `top`). -/
 theorem _root_.Lua.Vm.DlHeap.ChunkWalk.le {m : Mem} {p top : Nat} {cs : List DlHeap.Chunk}
@@ -1026,6 +1029,7 @@ def entryBaseCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : P
     (e.pa + protoCodeOff, 8, e.code), (ci + ciSavedpcOff, 8, e.code),
     (e.cl + lclosureUpvalsOff, 8, e.uv), (e.uv + upvalVOff, 8, e.envv),
     (e.envv + tvalueTagOff, 1, vTable), (e.envv + tvalueValOff, 8, e.env), (L + stateGOff, 8, e.g),
+    (e.g, 8, symLAlloc),
     (e.g + gGcstpOff, 1, gcstpUsr), (L + stateStackLastOff, 8, e.stackLast)] &&
   protoCheck v e.pa p &&
   slotCheck v e.env slot.lsz slot.node slot.idx slot.ts &&
@@ -1033,6 +1037,8 @@ def entryBaseCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : P
   printPtrCheck v e.pa p.k.length slot.ts &&
   decide (e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast) &&
   decide (e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast) &&
+  decide (e.func + stackValueSize * (2 + p.maxstacksize) + 320 < e.stackLast) &&
+  decide (e.g % 8 = 0) &&
   protoCheck (v.minus (VarargDirty ci e.func)) e.pa p &&
   readsOk (v.minus (VarargDirty ci e.func)) [(e.pa + protoCodeOff, 8, e.code)] &&
   printPtrCheck (v.minus (VarargDirty ci e.func)) e.pa p.k.length slot.ts &&
@@ -1060,8 +1066,8 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
     {e : EntryPtrs} {slot : PrintSlot} {rt : RtPtrs} (hc : entryCheck v L ci p e slot rt = true) :
     VmEntryData m L ci p e := by
   simp only [entryCheck, entryBaseCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hvp⟩, hvc⟩, hvptr⟩, henv⟩, hfz⟩, hlit⟩,
-    hpl⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hcroom⟩, hgal⟩, hvp⟩, hvc⟩, hvptr⟩, henv⟩,
+    hfz⟩, hlit⟩, hpl⟩ := hc
   simp only [frozenCheck, Bool.and_eq_true, List.all_eq_true] at hfz
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hfp, hfc⟩, hfptr⟩, hfenv⟩, hfk⟩, hflua⟩, hfkp⟩, hfka⟩, hfram⟩, hfap⟩ := hfz
   simp only [litsEntryCheck, Bool.and_eq_true, List.all_eq_true, Bool.not_eq_true',
@@ -1089,10 +1095,13 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
         rw [printPtrCheck_sound (h.minus _ hm) hvptr hka hi ht hx hs]
         exact ⟨_, envGetCheck_sound (h.minus _ hm) henv⟩
       l_G := h.reads hr (by mem_tac)
+      frealloc := h.reads hr (by mem_tac)
       gc_stopped := h.reads hr (by mem_tac)
       stack_last := h.reads hr (by mem_tac)
       frame_fits := hfit
       vararg_room := hroom
+      call_room := hcroom
+      g_al := hgal
       vararg_proto := fun _ hm =>
         ⟨protoCheck_sound (h.minus _ hm) hvp, (h.minus _ hm).reads hvc (by mem_tac)⟩
       frozen := fun M hm =>

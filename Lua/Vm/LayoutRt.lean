@@ -155,5 +155,7 @@ def symFdsSize : Nat := 768
 def symFiles : Nat := 0x8005d760
 /-- `sizeof` of `files` (`nm -S`) -/
 def symFilesSize : Nat := 3584
+/-- `l_alloc` — main.c's allocator, `g->frealloc` (`lua_newstate(l_alloc, NULL)`); lauxlib.c's static `l_alloc` is the other, higher one -/
+def symLAlloc : Nat := 0x8000172c
 
 end Lua.Vm.Layout

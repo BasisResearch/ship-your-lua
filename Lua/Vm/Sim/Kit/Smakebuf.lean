@@ -137,6 +137,7 @@ structure SmakebufPost (m m' : Mem) (sp buf brk : Nat) (chunks : List Chunk) (to
   size : bytesT4 m' (stdoutFile + 32) = 1024#32
   ready : bytesT4 m' symFsReady = 1#32
   console : bytesT4 m' (symFds + 24) = 2#32
+  fds : FdsStd m'
   heap : HeapAt (Vsa.Densify.fillZeroMem m') top' brk' chunks' bins'
   brk_le : brk ≤ brk'
   lo : heapStart + 16 ≤ buf
@@ -167,7 +168,7 @@ theorem smb_pre (sp : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array S
       (fun c => ∃ m1, SegSt 0x8002fa34#64 (Lua.Vm.AtF.Smakebuf_r.r5 (smbX sp 0 r f m1 o))
         (ArmPay (Lua.Vm.AtF.Smakebuf_r.m2 (smbX sp 0 r f m1 o)) o) c ∧
         Agree (fun a => Below sp 192 a ∨ FsGlobal a) m m1 ∧ SmbFrame m1 (smbX sp 0 r f m1 o) ∧
-        bytesT4 m1 symFsReady = 1#32 ∧ bytesT4 m1 (symFds + 24) = 2#32) := by
+        bytesT4 m1 symFsReady = 1#32 ∧ bytesT4 m1 (symFds + 24) = 2#32 ∧ FdsStd m1) := by
   intro c h
   fs_nums
   have hX0 : Ok (smbX sp 0 r f m o) := ⟨show _ ≤ sp by omega, hhi, hal, hra⟩
@@ -199,7 +200,7 @@ theorem smb_pre (sp : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array S
   obtain ⟨c2, s2, h2⟩ := smb_run1 (smbX sp 0 r f m1 o) hX1 fr1.fp
     (by show bytesT4 m1 (sp - 132) = _; rw [show sp - 132 = sp - 160 + 28 by omega]; exact F.mode) c1
     (hr1.repin (by pins_of hr1))
-  exact ⟨c2, s0.trans (s1.trans s2), m1, h2, k1, fr1, F.ready, F.console⟩
+  exact ⟨c2, s0.trans (s1.trans s2), m1, h2, k1, fr1, F.ready, F.console, F.fds⟩
 
 
 /-- The regions of the set-up, unfolded for `omega` (off the chunks in use). -/
@@ -222,7 +223,7 @@ theorem smakebuf_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List 
         SmakebufPost m m' sp buf brk chunks top' brk' chunks' bins') := by
   have q3 : heapEnd + 1024 ≤ sp - 160 := by have := hlo; generalize heapEnd = H at *; omega
   intro c h
-  obtain ⟨c1, s1, m1, h, k1, fr1, rdy, con⟩ := smb_pre sp r f m o hra hlo hhi hal hfl hfile hrd c h
+  obtain ⟨c1, s1, m1, h, k1, fr1, rdy, con, fds⟩ := smb_pre sp r f m o hra hlo hhi hal hfl hfile hrd c h
   fs_nums
   have hX1 : Ok (smbX sp 0 r f m1 o) := ⟨show _ ≤ sp by omega, hhi, hal, hra⟩
   obtain ⟨k2, fp2, s12⟩ := smb_m2 _ hX1
@@ -290,12 +291,13 @@ theorem smakebuf_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List 
   obtain ⟨k6, fl⟩ := smb_m5 X3
   have kS := k5.trans k6
   refine ⟨_, s1.trans (s2.trans (s3.trans (s4.trans s5))), Lua.Vm.AtF.Smakebuf_r.m5 X3, buf, top', brk', chunks',
-    bins', h5.repin (by pins_of h5), ⟨fl, ?_, ?_, ?_, ?_, ?_, ?_, P.brk_le, P.lo, P.hi, P.block, P.fresh, P.kept, ?_⟩⟩
+    bins', h5.repin (by pins_of h5), ⟨fl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, P.brk_le, P.lo, P.hi, P.block, P.fresh, P.kept, ?_⟩⟩
   · exact (kS.b8 (a := 0x8005e668) fun i _ => by rg_simp; omega).trans M4.p
   · exact (kS.b8 (a := 0x8005e680) fun i _ => by rg_simp; omega).trans M4.base
   · exact (kS.b4 (a := 0x8005e688) fun i _ => by rg_simp; omega).trans M4.size
   · exact ((kn.trans k6).b4 fun i _ => by rg_simp; omega).trans rdy
   · exact ((kn.trans k6).b4 fun i _ => by rg_simp; omega).trans con
+  · exact fds.congrT fun a h1 h2 => (kn.trans k6).t1 (by rg_simp; omega)
   · exact P.heap.congr fun a ha => fill_congr <| ((k4'.trans k5).trans k6).get (by simp only [HeapReads] at ha; rg_simp; omega)
   · intro a ha
     by_cases hw : MallocW chunks a

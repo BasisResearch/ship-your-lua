@@ -300,7 +300,11 @@ RT_SYMS = [
     ("symFsReady", "fs_ready", "htif.c"),
     ("symFds", "fds", "htif.c descriptor table"),
     ("symFiles", "files", "htif.c file table"),
+    ("symLAlloc", "l_alloc", "main.c's allocator, `g->frealloc` (`lua_newstate(l_alloc, NULL)`); "
+     "lauxlib.c's static `l_alloc` is the other, higher one"),
 ]
+# a static name defined twice: the lowest address (main.c is linked first)
+RT_LOWEST = {"l_alloc"}
 RT_SIZED = {"symSf", "symFds", "symFiles", "symImpureData", "symSglue"}
 
 def elf_syms_sized():
@@ -308,7 +312,10 @@ def elf_syms_sized():
     tab = {}
     for line in subprocess.run([nm, "-S", ELF], capture_output=True, text=True, check=True).stdout.splitlines():
         f = line.split()
-        if len(f) == 4: tab[f[3]] = (int(f[0], 16), int(f[1], 16))
+        if len(f) == 4:
+            if f[3] in RT_LOWEST and f[3] in tab and tab[f[3]][0] < int(f[0], 16):
+                continue
+            tab[f[3]] = (int(f[0], 16), int(f[1], 16))
         elif len(f) == 3: tab.setdefault(f[2], (int(f[0], 16), None))
     return {n: tab[c] for n, c, _ in RT_SYMS}
 

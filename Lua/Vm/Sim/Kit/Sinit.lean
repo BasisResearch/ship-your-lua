@@ -26,9 +26,6 @@ namespace Lua.Vm.Sim.Kit
 open Lua.Vm.Sim Lua.Vm.Sim.AtF Lua.Vm.Layout
 open Vsa.Machine (Config Steps)
 
-/-- `stdin`, `stderr`: the first and third `FILE` of `__sf`. -/
-abbrev stdinFile : Nat := symSf
-abbrev stderrFile : Nat := symSf + 2 * fileSize
 
 
 /-- **A `FILE` after newlib's `std(fp, flags, file)`**: `fl` the word
@@ -48,6 +45,10 @@ structure FileStd (m : Mem) (fp : Nat) (fl : BitVec 32) : Prop where
   close : bytesT8 m (fp + 80) = 0x80035004#64
   flags2 : bytesT4 m (fp + 176) = 0#32
 
+/-- The bytes of a standard `FILE` that `std()` leaves (`_ub` up to `_lock`,
+offsets `[88, 168)`; lane F1-14). -/
+def StdTail (a : Nat) : Prop := ∃ k, k < 3 ∧ symSf + fileSize * k + 88 ≤ a ∧ a < symSf + fileSize * k + 168
+
 /-- **What `__sinit` leaves**: the hooks installed, the three `FILE`s set up
 by `std()`, everything else but its frame `[sp - 64, sp)` kept. -/
 structure SinitPost (m m' : Mem) (sp : Nat) : Prop where
@@ -58,6 +59,8 @@ structure SinitPost (m m' : Mem) (sp : Nat) : Prop where
   stderr : FileStd m' stderrFile 0x20012#32
   /-- `stdout`'s padding after `_file`, which `std()` leaves -/
   pad : bytesT4 m' (stdoutFile + 20) = bytesT4 m (stdoutFile + 20)
+  /-- (lane F1-14) `std()` leaves each `FILE`'s `_ub` … `_lock` (`.bss` zeros) -/
+  tail : ∀ a, StdTail a → m'[a]? = m[a]?
   keep : ∀ a, (a + 64 < sp ∨ sp ≤ a) → (a < symSf ∨ symSf + 3 * fileSize ≤ a) →
     (a < symImpureData + reentCleanupOff ∨ symImpureData + reentCleanupOff + 8 ≤ a) →
     (a < symStdioExitHandler ∨ symStdioExitHandler + 8 ≤ a) → m'[a]? = m[a]?
@@ -114,6 +117,25 @@ open Lua.Vm.AtF.Sinit in
 theorem sin_keep2 (X : FCx) (a : Nat) (h : a < stderrFile ∨ stderrFile + fileSize ≤ a) :
     (m32 X)[a]? = X.m[a]? := by
   have : stderrFile = 0x8005e720 := rfl; have : fileSize = 184 := rfl
+  simp only [m32]; sin_off
+
+open Lua.Vm.AtF.Sinit in
+/-- **The roots keep the `FILE`s' tails** (lane F1-14). -/
+theorem sin_tail0 (X : FCx) (hX : Ok X) (a : Nat) (h : StdTail a) : (m11 X)[a]? = X.m[a]? := by
+  obtain ⟨k, hk, h1, h2⟩ := h
+  simp only [show symSf = 0x8005e5b0 from rfl, show fileSize = 184 from rfl] at h1 h2; have := hX.sp_lo
+  simp only [m11]; sin_off
+
+open Lua.Vm.AtF.Sinit in
+theorem sin_tail1 (X : FCx) (a : Nat) (h : StdTail a) : (m21 X)[a]? = X.m[a]? := by
+  obtain ⟨k, hk, h1, h2⟩ := h
+  simp only [show symSf = 0x8005e5b0 from rfl, show fileSize = 184 from rfl] at h1 h2
+  simp only [m21]; sin_off
+
+open Lua.Vm.AtF.Sinit in
+theorem sin_tail2 (X : FCx) (a : Nat) (h : StdTail a) : (m32 X)[a]? = X.m[a]? := by
+  obtain ⟨k, hk, h1, h2⟩ := h
+  simp only [show symSf = 0x8005e5b0 from rfl, show fileSize = 184 from rfl] at h1 h2
   simp only [m32]; sin_off
 
 open Lua.Vm.AtF.Sinit in
@@ -213,7 +235,7 @@ theorem sinit_boot (sp : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Arra
   have hm2 : X2.m = Lua.Vm.AtF.Sinit.m21 X1 := rfl
   have hm0 : X0.m = m := rfl
   stdio_nums
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [bT8_congr fun i _ => (k2 _ (by omega)).trans ((congrArg (·[_]?) hm2).trans (k1 _ (by omega)))]
     show bytesT8 (Lua.Vm.AtF.Sinit.m11 X0) _ = _
     simp only [Lua.Vm.AtF.Sinit.m11]; sin_fld
@@ -232,6 +254,8 @@ theorem sinit_boot (sp : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Arra
       bT4_congr fun i _ => k0 _ (by omega) (by omega) (by omega) (by omega)
     show bytesT4 (Lua.Vm.AtF.Sinit.m32 X2) 0x8005e67c = bytesT4 m 0x8005e67c
     rw [p2, hm2, p1, hm1, p0]
+  · intro a ha
+    rw [sin_tail2 X2 a ha, hm2, sin_tail1 X1 a ha, hm1, sin_tail0 X0 hX0 a ha]
   · intro a h1 h2 h3 h4
     rw [k2 a (by omega), hm2, k1 a (by omega), hm1, k0 a (by omega) (by omega) (by omega) (by omega)]
 

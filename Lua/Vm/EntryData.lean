@@ -188,7 +188,7 @@ there), the Lua stack above `ci->func`, `g`'s first words (the GC debt, the
 string table's header) and its string cache, and `L->nci` (`luaE_extendCI`). -/
 def EntryDirty (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
   (L + stateTopOff ≤ a ∧ a < L + stateTopOff + 8) ∨ (L + stateCiOff ≤ a ∧ a < L + stateCiOff + 8) ∨
-  (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) ∨ (e.g ≤ a ∧ a < e.g + 64) ∨
+  (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) ∨ (e.g + 16 ≤ a ∧ a < e.g + 64) ∨
   (e.g + gStrcacheOff ≤ a ∧ a < e.g + gEnd) ∨ (L + stateNciOff ≤ a ∧ a < L + stateNciOff + 2)
 
 /-- **What the literals' facts must stay apart from**: the words
@@ -196,7 +196,8 @@ def EntryDirty (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
 and the Lua stack above `ci->func`. -/
 def LitDirty (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
   (L + stateTopOff ≤ a ∧ a < L + stateTopOff + 8) ∨ (L + stateCiOff ≤ a ∧ a < L + stateCiOff + 8) ∨
-  (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) ∨ (L + stateNciOff ≤ a ∧ a < L + stateNciOff + 2)
+  (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) ∨ (L + stateNciOff ≤ a ∧ a < L + stateNciOff + 2) ∨
+  (e.g + gGCdebtOff ≤ a ∧ a < e.g + gGCdebtOff + 8)
 
 /-- The heap room the first `print` may claim: per first-use allocation
 (`luaE_extendCI`'s `CallInfo`, `stdout`'s buffer, `"__tostring"`, one more)
@@ -205,13 +206,15 @@ def firstRoom : Nat := 4 * (16384 + 4096 + 1024 + 128)
 
 /-- **The static words of the `lua_State` and `g`** a `print` keeps
 (`LuaStateAt`'s `hookmask`, `errfunc`, `nCcalls`, `openupval`, `tbclist`,
-`stack`, `stack_last`, `l_G`, `errorJmp`, `G(L)->mt[nil, boolean, number]`):
+`stack`, `stack_last`, `l_G`, `errorJmp`, `G(L)->mt[nil, boolean, number]`;
+lane F1-14: `g->frealloc`, which `luaE_extendCI`'s `luaM_malloc_` calls):
 `(address, width)`. -/
 def luaStaticWords (L g : Nat) : List (Nat × Nat) :=
   [(L + stateHookmaskOff, 4), (L + stateErrfuncOff, 8), (L + stateNCcallsOff, 4),
    (L + stateOpenupvalOff, 8), (L + stateTbclistOff, 8), (L + stateStackOff, 8),
    (L + stateStackLastOff, 8), (L + stateGOff, 8), (L + stateErrorJmpOff, 8),
-   (g + gMtOff + 8 * luaTnil, 8), (g + gMtOff + 8 * luaTboolean, 8), (g + gMtOff + 8 * luaTnumber, 8)]
+   (g + gMtOff + 8 * luaTnil, 8), (g + gMtOff + 8 * luaTboolean, 8), (g + gMtOff + 8 * luaTnumber, 8),
+   (g, 8)]
 
 /-- **The objects a `CALL print` leaves alone** (lane F1-13), in a memory `M`:
 the prototype, its code pointer, and `_ENV`'s chain to `print` for every
@@ -309,6 +312,8 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
     rd64 m' (ka + tvalueSize * i + tvalueValOff) = some x →
     TStringRepr m' x printKey → ∃ s, EnvGetAt m' L ci e x s
   l_G : rd64 m (L + stateGOff) = some e.g
+  /-- (lane F1-14) `g->frealloc` is main.c's `l_alloc` -/
+  frealloc : rd64 m e.g = some symLAlloc
   gc_stopped : rd8 m (e.g + gGcstpOff) = some gcstpUsr
   stack_last : rd64 m (L + stateStackLastOff) = some e.stackLast
   frame_fits : e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast
@@ -316,6 +321,13 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   with `L->top = func + 1` does not grow the stack (`L->stack_last - L->top >
   maxstacksize + 1` slots) -/
   vararg_room : e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast
+  /-- (lane F1-14) `OP_CALL print` from the frame, before or after
+  `OP_VARARGPREP` (which moves `ci->func` one slot up), does not grow the
+  stack: `luaD_precall`'s `checkstackGCp(L, LUA_MINSTACK)` finds more than 20
+  slots above any `L->top` inside the frame -/
+  call_room : e.func + stackValueSize * (2 + p.maxstacksize) + 320 < e.stackLast
+  /-- (lane F1-14) `g` is 8-aligned (`luaM_malloc_`'s `sd` to `g->GCdebt`) -/
+  g_al : e.g % 8 = 0
   /-- the prototype and its code pointer lie apart from the bytes
   `luaT_adjustvarargs` writes (`VarargDirty`): they hold in every memory that
   agrees with this one elsewhere -/

@@ -220,7 +220,8 @@ theorem sfs_pre (hM : MallocR_Statement) (sp U I src n top brk : Nat) (chunks : 
     · rw [(k2'.b4 (a := symFsReady) fun i _ => by sfr).trans P.set.ready]; decide
     · exact (k2'.b4 (a := symFds + 24) fun i _ => by sfr).trans P.set.console
   have hup : StdioUp (Lua.Vm.AtF.SfvwriteSetup.m2 X1) := by
-    refine ⟨?_, ?_, ?_⟩
+    refine ⟨?_, ?_, ?_, hF.tail.congrT fun a h1 h2 => (k02.t1 (by sfr)).trans (k0'.t1 (by sfr)),
+      P.set.fds.congrT fun a h1 h2 => k2'.t1 (by sfr)⟩
     · exact (k02.b8 (a := symImpurePtr) fun i _ => by sfr).trans
         ((k0'.b8 (a := symImpurePtr) fun i _ => by sfr).trans hF.impure)
     · rw [(k02.b8 (a := symImpureData + reentCleanupOff) fun i _ => by sfr).trans

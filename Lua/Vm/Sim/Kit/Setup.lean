@@ -65,6 +65,8 @@ structure FstatPost (m m' : Mem) (sp : Nat) : Prop where
   mode : bytesT4 m' (sp + 28) = 0x2000#32
   ready : bytesT4 m' symFsReady = 1#32
   console : bytesT4 m' (symFds + 24) = 2#32
+  /-- (lane F1-14) `fds[0]`, `fds[2]` as `fs_init` set them -/
+  fds : FdsStd m'
   agree : Agree (fun a => FsGlobal a ∨ Below sp 32 a ∨ Rng (sp + 24) 104 a) m m'
 
 /-- **`_fstat_r(_REENT, 1, st)`** before `fs_init`, `st = sp + 24` (the
@@ -84,9 +86,11 @@ theorem fstat_sum (sp : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array
   have acc := Steps.refl c
   have hc0 : bytesT4 X.m 0x8005d3c0 = 0x0#32 := hrd
   fat_run Lua.Vm.AtF.Fstat_r h acc
-  refine ⟨_, acc, Lua.Vm.AtF.Fstat_r.m17 X, h.repin (by pins_of h), ?_, ?_, ?_, ?_⟩
+  refine ⟨_, acc, Lua.Vm.AtF.Fstat_r.m17 X, h.repin (by pins_of h), ?_, ?_, ?_, ⟨?_, ?_⟩, ?_⟩
   · simp only [Lua.Vm.AtF.Fstat_r.m17, e0]; fat_rd; decide
   · simp only [Lua.Vm.AtF.Fstat_r.m17, show symFsReady = 0x8005d3c0 from rfl]; fat_rd; decide
+  · simp only [Lua.Vm.AtF.Fstat_r.m17, show symFds = 0x8005d460 from rfl]; fat_rd; decide
+  · simp only [Lua.Vm.AtF.Fstat_r.m17, show symFds = 0x8005d460 from rfl]; fat_rd; decide
   · simp only [Lua.Vm.AtF.Fstat_r.m17, show symFds = 0x8005d460 from rfl]; fat_rd; decide
   · intro a ha
     fs_nums
