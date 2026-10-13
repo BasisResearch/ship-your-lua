@@ -770,37 +770,78 @@ structure AtFin (X : Cx) (M : List Ent) (W : List SlotW) (pc' : Nat) (c : Vsa.Ma
   bound : ∀ e ∈ W, e.j X < X.p.maxstacksize
 
 set_option hygiene false in
+/-- `AtFin.frame`'s goal after `at_unfold`: the path's stores are in the
+slots, `Scratch` or the C frame. -/
+macro "at_fin_frame" : tactic => `(tactic| (
+  intro x h1 h2 h3
+  simp only [Slots, Scratch, CFrame, RelPtrs.slot, ciSavedpcOff, stateTopOff, RuntimeData.spEntry,
+    cStackBudget, execFrame, stackValueSize, not_or, not_and, Nat.not_lt] at h1 h2 h3
+  try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]))
+
+set_option hygiene false in
+/-- `AtFin.keep`'s goal after `at_unfold`: a slot the path did not store. -/
+macro "at_fin_keep" : tactic => `(tactic| (
+  intro x h1 h2
+  simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
+    SlotW.j, Fld.den, Slots, RelPtrs.slot, stackValueSize, Word.a, Word.b, Word.c, Word.field,
+    Nat.shiftRight_eq_div_pow] at h1 h2
+  try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]))
+
+set_option hygiene false in
+/-- The fetch head's pins from the final row `h` (the pc by `slot_arith`). -/
+macro "at_fin_pins" : term => `(⟨by pin_of h, by pin_of h, by pin_of h, by pin_of h,
+    by pin_of h, by pin_of h, by pin_of h, by pin_of h, by pin_of h,
+    pin_eq (by pin_of h) (by apply BitVec.eq_of_toNat_eq; slot_arith)⟩)
+
+set_option hygiene false in
+/-- The stored slots of a fin lemma (`wtag`, `wval`) by forwarding through
+the log, and their bounds. -/
+macro "at_fin_slots" : tactic => `(tactic| (
+  · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
+      SlotW.j, Fld.den, Loc.den, stData_zext]
+    repeat' apply And.intro
+    all_goals at_eq
+  · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
+      SlotW.j, Fld.den, Loc.den]
+    repeat' apply And.intro
+    all_goals at_eq))
+
+set_option hygiene false in
+/-- The bounds of a fin lemma's stored slots. -/
+macro "at_fin_bound" : tactic => `(tactic| (
+  simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
+    SlotW.j, Fld.den, Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow]
+  repeat' apply And.intro
+  all_goals omega))
+
+set_option hygiene false in
+/-- **`at_fin_with fr, kp`**: a fin lemma's proof with its frame and keep
+facts given (`fr`, `kp`: each proved apart, in a declaration of its own, when
+the path stores many slots). -/
+macro "at_fin_with " fr:term "," kp:term : tactic => `(tactic| (
+  have hfr := $fr
+  have hkp := $kp
+  at_facts hX
+  have hseg := Vsa.Sim.SegSt.repin (L' := []) h trivial
+  at_unfold at h
+  refine ⟨hseg, at_fin_pins, hfr, ?_, ?_, hkp, ?_⟩
+  all_goals try at_unfold
+  at_fin_slots
+  at_fin_bound))
+
+set_option hygiene false in
 /-- **`at_fin`**: a fin lemma's proof: the pins by name (the pc by
 `slot_arith`), the frame and the slots by forwarding through the log. -/
 macro "at_fin" : tactic => `(tactic| (
   at_facts hX
   have hseg := Vsa.Sim.SegSt.repin (L' := []) h trivial
   at_unfold at h
-  refine ⟨hseg, ⟨by pin_of h, by pin_of h, by pin_of h, by pin_of h,
-    by pin_of h, by pin_of h, by pin_of h, by pin_of h, by pin_of h,
-    pin_eq (by pin_of h) (by apply BitVec.eq_of_toNat_eq; slot_arith)⟩, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨hseg, at_fin_pins, ?_, ?_, ?_, ?_, ?_⟩
   all_goals try at_unfold
-  · intro x h1 h2 h3
-    simp only [Slots, Scratch, CFrame, RelPtrs.slot, ciSavedpcOff, stateTopOff, RuntimeData.spEntry,
-      cStackBudget, execFrame, stackValueSize, not_or, not_and, Nat.not_lt] at h1 h2 h3
-    try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]
-  · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Loc.den, stData_zext]
-    try refine ⟨?_, ?_⟩
-    all_goals at_eq
-  · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Loc.den]
-    try refine ⟨?_, ?_⟩
-    all_goals at_eq
-  · intro x h1 h2
-    simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Slots, RelPtrs.slot, stackValueSize, Word.a, Word.b, Word.c, Word.field,
-      Nat.shiftRight_eq_div_pow] at h1 h2
-    try simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]
-  · simp only [List.forall_mem_cons, List.not_mem_nil, false_imp_iff, implies_true, and_true,
-      SlotW.j, Fld.den, Word.a, Word.b, Word.c, Word.field, Nat.shiftRight_eq_div_pow]
-    try refine ⟨?_, ?_⟩
-    all_goals omega))
+  · at_fin_frame
+  at_fin_slots
+  · at_fin_keep
+  at_fin_bound))
 
 /-- **The close**: the successor's registers `regs'` are the entry's but at
 the stored slots `W`, each represented by its stored tag and payload. -/

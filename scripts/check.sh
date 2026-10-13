@@ -204,6 +204,13 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.sim_GEI_flt
 #print axioms Lua.Vm.Sim.At.sim_ADDI_flt
 #print axioms Lua.Vm.Sim.At.sim_FORLOOP_flt
+#print axioms Lua.Vm.Sim.At.sim_SUB_flt
+#print axioms Lua.Vm.Sim.At.fp_flt3
+#print axioms Lua.Vm.Sim.At.sim_FORPREP_flt
+#print axioms Lua.Vm.Sim.At.sim_LT_flt
+#print axioms Lua.Vm.Sim.At.model_cmp_swap
+#print axioms Lua.Vm.Sim.At.sgnBound_atoms
+#print axioms Lua.Vm.Sim.At.fits_geu
 #print axioms Lua.Vm.Sim.Kit.sim_MULK
 #print axioms Lua.Vm.Sim.Kit.sim_MODK
 #print axioms Lua.Vm.Sim.Kit.sim_div

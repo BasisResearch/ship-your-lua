@@ -67,17 +67,36 @@ ARMS = {"OP_MODK": ("Modk", 0x8001dad0), "OP_FORPREP": ("Forprep", 0x8001c0f8),
 # the earlier routes, are infeasible here)
 FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               "OP_LTI": ("Lti", 0x8001c46c), "OP_GEI": ("Gei", 0x8001c548),
-              "OP_ADDI": ("Addi", 0x8001ca44), "OP_FORLOOP": ("Forloop", 0x8001c1ec)}
+              "OP_ADDI": ("Addi", 0x8001ca44), "OP_FORLOOP": ("Forloop", 0x8001c1ec),
+              # round 5 (A-JOIN): every path of `op_arith` (no seed: the
+              # operand classes are the hand side's per-operand views)
+              "OP_SUB": ("Sub", 0x8001d964),
+              # round 5 (A-JOIN): FORPREP's float loop (`OP_FORPREP` keeps its
+              # integer paths), over the same segments (`SEG_OP`)
+              "OP_FORPREP_F": ("ForprepF", 0x8001c0f8),
+              # round 5 (A-JOIN): LT's float paths (no seed: every class)
+              "OP_LT_F": ("LtF", 0x8001c894)}
+SEG_OP = {"OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT"}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_GEI": [("tag", "a", 0)], "OP_ADDI": [("tag", "b", 0)],
-              "OP_FORLOOP": [("tag", "a", 2)], "OP_LOADF": []}
+              "OP_FORLOOP": [("tag", "a", 2)], "OP_LOADF": [],
+              "OP_FORPREP_F": [("tag", "a", 0), ("tag", "a", 1), ("tag", "a", 2)]}
 VNUMFLT_ = 19
+# round 5 (A-JOIN): the cut points at the machine's joins. arm -> {join pc:
+# (the joined register, the fork whose two sides meet there)}. A path that
+# reaches a join pc ends there in a join lemma (`join_<pc>`: its row to the
+# join row, the joined register `.fn j<k>` = the side's value under the
+# fork's guard); the tail from the join row is walked, and emitted, once.
+JOINS = {"OP_FORLOOP": {0x8001e194: (15, 0x8001e17c)},
+         "OP_FORPREP_F": {0x8001c1b8: (14, 0x8001c1a0)}}
 # the soft-float call nodes of the float arms: entry -> (module, arguments,
 # frame bytes (0: a leaf helper))
 FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
           0x8002e460: ("Ledf2", 2, 0), 0x8002e3c0: ("Gedf2", 2, 0),
-          0x8002d7a8: ("Adddf3", 2, 48)}
+          0x8002d7a8: ("Adddf3", 2, 48),
+          # round 5 (A-JOIN): `op_arithf`'s conversions and `luai_numsub`
+          0x8002f200: ("Floatdidf", 1, 32), 0x8002e9d0: ("Subdf3", 2, 48)}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
@@ -90,6 +109,8 @@ CUR = [None]
 
 # the library modules an arm's at-lemmas need beyond `At`/`Summaries`
 IMPORTS = {op: ["Lua.Vm.Sim.Kit.AtCond", "Lua.Vm.Sim.Kit.AtFloat"] for op in FLOAT_ARMS}
+IMPORTS["OP_FORLOOP"] = IMPORTS["OP_FORLOOP"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
+IMPORTS["OP_FORPREP_F"] = IMPORTS["OP_FORPREP_F"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
 IMPORTS |= {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_GETTABUP": ["Lua.Vm.Sim.Kit.AtEnv"]}
@@ -236,6 +257,9 @@ def lean_loc(x):
     if k == "fsite":
         # a soft-float call's result: the call site's definition (`fsite_defs`)
         return f"(.fn f{x[1]})"
+    if k == "join":
+        # round 5 (A-JOIN): a register joined at a cut point (`Arm.join_defs`)
+        return f"(.fn j{x[1]})"
     if k in ("add", "sub", "xor", "srem", "sdiv", "udiv", "umod", "and", "or", "sll", "srl",
              "addw", "subw", "slt", "sltu", "addwr"):
         return f"(.{k} {lean_loc(x[1])} {lean_loc(x[2])})"
@@ -292,10 +316,14 @@ class State:
         self.log = list(log)        # newest first: (kind, terms, add, loc)
         self.facts = dict(facts)    # loc -> ("eq"|"ne", value)
         self.bounds = set()         # slots / K touched: ("a", k) or ("K",)
+        self.path = {}              # round 5 (A-JOIN): fork pc -> (guard, taken)
+        self.joined = frozenset()   # the join pcs this path is past
 
     def copy(self):
         s = State(self.regs, self.log, self.facts)
         s.bounds = set(self.bounds)
+        s.path = dict(self.path)
+        s.joined = self.joined
         return s
 
     def get(self, r):
@@ -482,6 +510,8 @@ def step(st, raw):
         st.set(R(o[0]), ("slt" if mnem == "slti" else "sltu", st.get(R(o[1])), ("lit", imm(o[2]) & M64)))
     elif mnem in ("slt", "sltu"):
         st.set(R(o[0]), (mnem, st.get(R(o[1])), st.get(R(o[2]))))
+    elif mnem == "sgtz" and FLOAT_ON[0]:     # round 5: `__gedf2`'s `> 0` idiom
+        st.set(R(o[0]), ("slt", ("lit", 0), st.get(R(o[1]))))
     elif mnem == "not":
         st.set(R(o[0]), ("xor", st.get(R(o[1])), ("lit", M64)))
     elif mnem == "slli":
@@ -583,6 +613,13 @@ def decide(head, x, y, facts, f1=True):
     return None
 
 
+def guard_bool(head, x, y):
+    """A branch's condition as a `Bool` over the locations."""
+    if head in ("==", "!="):
+        return f"({den(x)} {head} {den(y)})"
+    return f"({head} {den(x)} {den(y)})"
+
+
 def guard_text(head, x, y, val):
     b = "true" if val else "false"
     if head in ("==", "!="):
@@ -622,7 +659,7 @@ def seg_meta():
 
 def arm_segments(op):
     for r in csv.DictReader((ln for ln in open(ARMS_TSV) if not ln.startswith("#")), delimiter="\t"):
-        if r["op"] == op:
+        if r["op"] == SEG_OP.get(op, op):
             return r["segments"].split()
     raise SystemExit(f"no arm {op}")
 
@@ -767,6 +804,7 @@ def call_effect(st, callee, ret):
         raise Stop(f"no summary for {callee}")
     proof = "\n  ".join(["at_open"] + [f"obtain ⟨_, h⟩ := {p} h" for p in pins] +
                           [proof.replace("[{pins}] ", "")])
+    post.path, post.joined = dict(st.path), st.joined
     return post, hyps, proof, pre_regs
 
 
@@ -785,6 +823,7 @@ class Arm:
         self.fins = {}
         self.fsites = {}
         self.decls = []
+        self.join_sides, self.join_pending, self.join_defs, self.join_st = {}, [], [], {}
 
     def fsite(self, mod, args, log, ret, frame):
         """The index of a soft-float call site's definitions (`f<k>`, its
@@ -894,6 +933,8 @@ class Arm:
             raise Stop("too deep")
         if pc == HEAD:
             return [lambda: self.emit_fin(st)]
+        if pc in JOINS.get(self.op, {}) and pc not in st.joined:
+            return self.join_arrive(pc, st)
         cands = [n for n in self.segs if int(n[4:12], 16) == pc]
         if not cands:
             raise Stop(f"no segment at 0x{pc:x}")
@@ -931,6 +972,7 @@ class Arm:
                             if len(guards) != 1:
                                 raise Stop(f"guards {guards}")
                             guard.append(f"({guards[0]} : {guard_text(head, x, y, taken)})")
+                            st2.path[a] = (guard_bool(head, x, y), taken)
                         nxt = tgt if taken else hi
                     elif mnem == "j":
                         nxt = int(ops_of(raw)[1][0], 16)
@@ -961,6 +1003,73 @@ class Arm:
             except Stop as e:
                 self.dropped.append((name, str(e)))
         return out
+
+    def join_arrive(self, pc, st):
+        """A side of the fork reaching the join `pc`: recorded, its join
+        lemma emitted once the join row is known."""
+        reg, fork = JOINS[self.op][pc]
+        if fork not in st.path:
+            raise Stop(f"join 0x{pc:x} off its fork")
+        sides = self.join_sides.setdefault(pc, [])
+        if not sides:
+            self.join_pending.append(pc)
+        sides.append(st)
+        return [lambda: self.emit_join(pc, st)]
+
+    def join_state(self, pc):
+        """The join row: the registers both sides agree on, the joined
+        register as `.fn j<k>`, the common log."""
+        reg, fork = JOINS[self.op][pc]
+        sides = self.join_sides[pc]
+        pol = {s.path[fork][1]: s for s in sides}
+        if len(sides) != 2 or set(pol) != {True, False}:
+            raise Stop(f"join 0x{pc:x}: sides {len(sides)}")
+        t, f = pol[True], pol[False]
+        if t.path[fork][0] != f.path[fork][0] or tuple(t.log) != tuple(f.log):
+            raise Stop(f"join 0x{pc:x}: the sides differ")
+        k = len(self.join_defs)
+        self.join_defs.append((t.path[fork][0], t.regs[reg], f.regs[reg], pc, fork, reg))
+        self.decls.append(("join", k))
+        regs = {r: v for r, v in t.regs.items() if r != reg and f.regs.get(r) == v}
+        regs[reg] = ("join", k)
+        st = State(regs, t.log, {l: v for l, v in t.facts.items() if f.facts.get(l) == v})
+        st.path = {a: v for a, v in t.path.items() if a != fork and f.path.get(a) == v}
+        st.joined = t.joined | {pc}
+        self.join_st[pc] = (st, k)
+        return st
+
+    def joins_text(self):
+        """The join pcs, for the hand side's cut (`at_walk`'s `at_cut`)."""
+        if not self.join_st:
+            return ""
+        pcs = ", ".join(f"0x{pc:08x}" for pc in sorted(self.join_st))
+        return (f"\n/-- The cut points (`JOINS`): the tail from each is proved once. -/\n"
+                f"def joinPcs : List Nat := [{pcs}]\n")
+
+    def join_def(self, k):
+        g, vt, vf, pc, fork, reg = self.join_defs[k]
+        return (f"/-- The cut at `0x{pc:x}`: `x{reg}` from the two sides of the fork at "
+                f"`0x{fork:x}`. -/\n"
+                f"@[at_fspec] def j{k} (X : Cx) : BitVec 64 :=\n"
+                f"  if {g} then {den(vt)} else {den(vf)}\n")
+
+    def emit_join(self, pc, st):
+        jst, k = self.join_st[pc]
+        reg, fork = JOINS[self.op][pc]
+        g, taken = st.path[fork]
+        pre_row, log = self.row(st.regs), self.logname(st.log)
+        post_row = self.row(jst.regs)
+        key = ("join", pc, pre_row, log)
+        if key in self.lemmas:
+            return
+        lname = self.name(f"join_{pc:08x}", key)
+        b = "true" if taken else "false"
+        why = "if_pos hg" if taken else "if_neg (by simp only [hg, Bool.false_eq_true, not_false_eq_true])"
+        text = (f"theorem {lname} (X : Cx) (hX : X.Ok) (hg : {g} = {b}) :\n"
+                f"    AtStep X 0x{pc:08x}#64 ({pre_row}) {log} 0x{pc:08x}#64 ({post_row}) {log} := by\n"
+                f"  at_join (show Loc.den X (.fn j{k}) = {den(st.regs[reg])} from {why})\n")
+        self.lemmas[key] = (lname, text)
+        self.order.append(key)
 
     def walk_call(self, entry, ret, st, depth):
         callee = CALLS[entry]
@@ -1058,6 +1167,24 @@ class Arm:
                 f"    (h : At X 0x{HEAD:08x}#64 ({row}) {log} c) :\n"
                 f"    AtFin X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
                 f"  at_fin\n")
+        if len(ws) > 2:
+            # round 5: many stored slots: the frame and keep facts (log-only)
+            # each in a declaration of its own (`at_fin_with`)
+            bs = self.bounds(st)
+            args = " ".join(["X", "hX"] + [re.match(r"\((\w+) :", b).group(1) for b in bs])
+            wl = f"([{', '.join(ws)}] : List SlotW)"
+            text = (f"theorem {lname}_frame {' '.join(['(X : Cx)', '(hX : X.Ok)'] + bs)} :\n"
+                    f"    ∀ x, ¬ Slots X.p X.w x → ¬ Scratch X.w x → ¬ CFrame X.w x →\n"
+                    f"      (Log.den X {log})[x]? = X.c.σ.mem[x]? := by\n"
+                    f"  at_facts hX; try at_unfold\n  at_fin_frame\n\n"
+                    f"theorem {lname}_keep {' '.join(['(X : Cx)', '(hX : X.Ok)'] + bs)} :\n"
+                    f"    ∀ x, Slots X.p X.w x → (∀ e ∈ {wl}, x < X.w.slot (e.j X) ∨\n"
+                    f"      X.w.slot (e.j X) + 16 ≤ x) → (Log.den X {log})[x]? = X.c.σ.mem[x]? := by\n"
+                    f"  at_facts hX; try at_unfold\n  at_fin_keep\n\n"
+                    f"theorem {lname} {' '.join(hs)} {{c : Config}}\n"
+                    f"    (h : At X 0x{HEAD:08x}#64 ({row}) {log} c) :\n"
+                    f"    AtFin X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
+                    f"  at_fin_with ({lname}_frame {args}), ({lname}_keep {args})\n")
         self.lemmas[key] = (lname, text)
         self.order.append(key)
 
@@ -1068,7 +1195,11 @@ class Arm:
         CUR[0] = self
         self.dropped = []
         st = State(HEADROW, [], {loc: ("eq", VNUMFLT_) for loc in FLOAT_SEED.get(self.op, [])})
-        for f in self.walk(self.target, st) or []:
+        thunks = self.walk(self.target, st) or []
+        while self.join_pending:
+            pc = self.join_pending.pop(0)
+            thunks += self.walk(pc, self.join_state(pc)) or []
+        for f in thunks:
             f()
 
     def text(self):
@@ -1081,7 +1212,7 @@ class Arm:
         logs = "\n".join(
             (f"@[at_row] abbrev {self.logs[key]} : List Ent :=\n  [" +
              ",\n   ".join(ent_text(k, t, a, v) for k, t, a, v in key) + "]\n")
-            if kind == "log" else self.fsite_defs(key)
+            if kind == "log" else self.join_def(key) if kind == "join" else self.fsite_defs(key)
             for kind, key in self.decls)
         body = "\n".join(self.lemmas[k][1] for k in self.order)
         first, second = (logs, rows) if self.op in FLOAT_ARMS else (rows, logs)
@@ -1111,7 +1242,7 @@ namespace Lua.Vm.At.{self.op[3:]}
 
 {first}
 {second}
-{body}
+{body}{self.joins_text()}
 end Lua.Vm.At.{self.op[3:]}
 """
 

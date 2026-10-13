@@ -305,7 +305,9 @@ HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
 # float-m0, M1): only there is a call to a soft-float routine a call node (its
 # return address continues the arm), so the other arms' segments stay as they are
 FLOAT_CALLS = {fn for fn, _, _ in FLOAT_HELPERS}
-FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP"}
+FLOAT_UNARY = {"__floatsidf", "__floatdidf", "__fixdfdi", "__clzdi2"}
+FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP",
+              "OP_SUB", "OP_FORPREP", "OP_LT"}  # round 5 (A-JOIN): SUB's, FORPREP's, LT's float paths
 SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
@@ -593,7 +595,15 @@ def collect(only):
                and (re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in SUMMARISED
                     or (n in float_segs
                         and re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in FLOAT_CALLS))}
-    for name, regs in live_keep(arms, specs, sim, jal_end).items():
+    # round 5 (A-JOIN): a soft-float call node reads its arguments (`a0`, and
+    # `a1` for a binary routine), set before the `jal` or carried into it
+    jal_args = {}
+    for n in jal_end & float_segs:
+        lo, hi, path = cuts[n]
+        callee = re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1)
+        if callee in FLOAT_CALLS:
+            jal_args[n] = {"x10"} if callee in FLOAT_UNARY else {"x10", "x11"}
+    for name, regs in live_keep(arms, specs, sim, jal_end, jal_args).items():
         if regs:
             lo, hi, path = cuts[name]
             spec, rows = seg_spec(lo, hi, path, name, True,
@@ -607,7 +617,7 @@ def collect(only):
     return arms, specs, sites
 
 
-def live_keep(arms, specs, sim, jal_end=frozenset()):
+def live_keep(arms, specs, sim, jal_end=frozenset(), jal_args=None):
     """Per SIM segment, the registers a later segment of its arm reads that
     the segment neither reads nor writes (a temporary such as `ADD`'s slot
     of `R[A]`, computed before a branch and stored after it): they are
@@ -630,7 +640,8 @@ def live_keep(arms, specs, sim, jal_end=frozenset()):
         live = {n: set(info[n][0]) for n in names}
 
         def live_out(n):
-            return set().union(*[live[m] for m in names if specs[m][0] == info[n][2]])
+            return set().union(*[live[m] for m in names if specs[m][0] == info[n][2]],
+                               (jal_args or {}).get(n, set()))
         changed = True
         while changed:
             changed = False

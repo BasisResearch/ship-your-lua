@@ -112,7 +112,7 @@ set_option hygiene false in
 macro "at_new" : tactic => `(tactic| (
   intro e he v hv
   simp only [List.mem_cons, List.not_mem_nil, or_false] at he
-  all_goals rcases he with he | he | he <;>
+  all_goals rcases he with he | he | he | he | he | he <;>
   ( try subst he
     try simp only [SlotW.j, Fld.den, Nat.add_zero, Loc.den] at hv
     try simp only [SlotW.j, Fld.den, Nat.add_zero, Loc.den]
