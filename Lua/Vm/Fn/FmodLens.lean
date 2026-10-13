@@ -273,6 +273,39 @@ theorem and_field (a : Int) (m j l : Nat) (ha : 0 ≤ a) (ha2 : a < 2 ^ 63) (hm 
     exact Nat.le_trans (Nat.mul_le_mul_right _ h1) h2
   omega
 
+theorem and_2047 (a : Int) (ha : 0 ≤ a) (ha2 : a < 2 ^ 63) :
+    BitVec.ofInt 64 a &&& BitVec.ofInt 64 2047 = BitVec.ofInt 64 (a % 2048) := by
+  have := and_field a 2047 0 11 ha ha2 (by decide) (by decide)
+  simp only [Int.pow_zero, Int.ediv_one, Int.mul_one] at this
+  exact this
+theorem and_fffff (a : Int) (ha : 0 ≤ a) (ha2 : a < 2 ^ 63) :
+    BitVec.ofInt 64 a &&& BitVec.ofInt 64 1048575 = BitVec.ofInt 64 (a % 1048576) := by
+  have := and_field a 1048575 0 20 ha ha2 (by decide) (by decide)
+  simp only [Int.pow_zero, Int.ediv_one, Int.mul_one] at this
+  exact this
+theorem and_7fffffff (a : Int) (ha : 0 ≤ a) (ha2 : a < 2 ^ 63) :
+    BitVec.ofInt 64 a &&& BitVec.ofInt 64 2147483647 = BitVec.ofInt 64 (a % 2147483648) := by
+  have := and_field a 2147483647 0 31 ha ha2 (by decide) (by decide)
+  simp only [Int.pow_zero, Int.ediv_one, Int.mul_one] at this
+  exact this
+theorem and_7ff00000 (a : Int) (ha : 0 ≤ a) (ha2 : a < 2 ^ 63) :
+    BitVec.ofInt 64 a &&& BitVec.ofInt 64 2146435072 = BitVec.ofInt 64 (a / 1048576 % 2048 * 1048576) :=
+  and_field a 2146435072 20 11 ha ha2 (by decide) (by decide)
+/-- `and` with the sign-extended `0x80000000` (the sign word of a high word). -/
+theorem and_hi31 (a : Int) (ha : 0 ≤ a) (ha2 : a < 2 ^ 32) :
+    BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-2147483648) = BitVec.ofInt 64 (a / 2147483648 * 2147483648) := by
+  obtain ⟨u, rfl⟩ : ∃ u : Nat, a = (u : Int) := ⟨a.toNat, (Int.toNat_of_nonneg ha).symm⟩
+  have hu : u < 2 ^ 32 := by omega
+  have h1 : BitVec.ofInt 64 (-2147483648) = BitVec.ofNat 64 ((2 ^ 33 - 1) * 2 ^ 31) := by decide
+  have e : ((u : Int) / 2147483648 * 2147483648) = ((u / 2 ^ 31 % 2 ^ 33 * 2 ^ 31 : Nat) : Int) := by
+    have : u / 2 ^ 31 % 2 ^ 33 = u / 2 ^ 31 := Nat.mod_eq_of_lt (by omega)
+    rw [this]; omega
+  rw [h1, ofInt_ofNat, e, ofInt_ofNat, ← land_field]
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (by omega : u < 2 ^ 64), Nat.mod_eq_of_lt (by decide : (2 ^ 33 - 1) * 2 ^ 31 < 2 ^ 64)]
+  exact (Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt Nat.and_le_left (by omega))).symm
+
 /-- `or` of disjoint non-negative values: the sum (`b` below `2^k`, `a` a multiple). -/
 theorem or_disj (a b : Int) (k : Nat) (ha : 0 ≤ a) (hb : 0 ≤ b) (hak : a % 2 ^ k = 0) (hbk : b < 2 ^ k)
     (hab : a + b < 2 ^ 64) : BitVec.ofInt 64 a ||| BitVec.ofInt 64 b = BitVec.ofInt 64 (a + b) := by
@@ -305,6 +338,10 @@ theorem or_k31 (a b : Int) (ha : 0 ≤ a) (hb : 0 ≤ b) (hak : a % 2147483648 =
 theorem or_k32 (a b : Int) (ha : 0 ≤ a) (hb : 0 ≤ b) (hak : a % 4294967296 = 0) (hbk : b < 4294967296)
     (hab : a + b < 18446744073709551616) : BitVec.ofInt 64 a ||| BitVec.ofInt 64 b = BitVec.ofInt 64 (a + b) :=
   or_disj a b 32 ha hb (by omega) (by omega) (by omega)
+theorem or_k20' (a b : Int) (ha : 0 ≤ a) (hb : 0 ≤ b) (hak : a % 1048576 = 0) (hbk : b < 1048576)
+    (hab : a + b < 18446744073709551616) : BitVec.ofInt 64 b ||| BitVec.ofInt 64 a = BitVec.ofInt 64 (a + b) :=
+  or_disj' a b 20 ha hb (by omega) (by omega) (by omega)
+
 /-- The sign word or-ed into a packed high word: `a | (sx + b)` (`sx` bit 31). -/
 theorem or_sx (a sx b : Int) (ha : 0 ≤ a) (hb : 0 ≤ b) (hs : sx = 0 ∨ sx = 2147483648)
     (hak : a % 1048576 = 0) (hbk : b < 1048576) (hab : a + b < 2147483648) :
@@ -520,6 +557,8 @@ macro_rules | `(tactic| fm_nf $[$loc]?) => `(tactic| (
     Lua.Vm.Fn.FmodLens.or_beq0, Lua.Vm.Fn.FmodLens.or_bne0,
     Lua.Vm.Fn.FmodLens.or_zero_ofInt, Lua.Vm.Fn.FmodLens.zero_or_ofInt,
     Lua.Vm.Fn.FmodLens.or_k20, Lua.Vm.Fn.FmodLens.or_k31, Lua.Vm.Fn.FmodLens.or_k32, Lua.Vm.Fn.FmodLens.or_sx,
+    Lua.Vm.Fn.FmodLens.or_k20', Lua.Vm.Fn.FmodLens.and_2047, Lua.Vm.Fn.FmodLens.and_fffff,
+    Lua.Vm.Fn.FmodLens.and_7fffffff, Lua.Vm.Fn.FmodLens.and_7ff00000, Lua.Vm.Fn.FmodLens.and_hi31,
     Lua.Vm.Fn.FmodLens.or_shr', Lua.Vm.Fn.FmodLens.or_shr0, Lua.Vm.Fn.FmodLens.or_lo_beq0, Lua.Vm.Fn.FmodLens.or_lo_toInt0,
     Lua.Vm.Fn.FmodLens.add_ofInt0, if_pos, if_neg,
     Int.shiftRight_eq_div_pow,
