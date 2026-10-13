@@ -2071,6 +2071,24 @@ IMPURE_PTR, IMPURE_DATA = 0x8005d398, 0x8005d1b8
 CALLEE_OK = ["sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
              "ra : (X.b 0).toNat % 4 = 0"]
 
+# lane F1-11: a Lua C API call's objects (`L`, its `CallInfo`, the stack) lie
+# in the arena, above `tohost` and below `2 ^ 32`
+LUA_OK = ["L_lo : 0x8005c6d0 ≤ X.n 1", "L_hi : X.n 1 + 256 ≤ 2 ^ 32", "L_al : X.n 1 % 8 = 0"]
+LUA_LB = {1: 0x8005c6d0}
+# `luaB_print`'s frame `[sp - 64, sp)`: its saved `ra`, `s0`-`s4` (`sd ra,
+# 56(sp)`, …), as the caller's words
+PRINT_FRAME = {(((0, 1),), -8): ("bv", 0), (((0, 1),), -16): ("bv", 1), (((0, 1),), -24): ("bv", 2),
+               (((0, 1),), -32): ("bv", 3), (((0, 1),), -40): ("bv", 4), (((0, 1),), -48): ("bv", 5)}
+PRINT_OK = ["sp_lo : 0x8005e720 + 64 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+            "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK
+# the loop head's registers: `sp`, `gp`, `s0` = i (X.n 5), `s1` (dead, X.b 13),
+# `s2` = `&_impure_ptr`, `s3` = L, `s4` = n, `s5`-`s11` the caller's; the
+# call's arguments `a0` = L, `a1` = i, `a2` = `&l`
+PRINT_LOOP_ROW = {2: N((0, 1), add=-64), 3: ("lit", 0x8005ced0), 8: N((5, 1)), 9: ("bv", 13),
+                  18: ("lit", IMPURE_PTR), 19: N((1, 1)), 20: N((2, 1)),
+                  **{r: ("bv", 6 + k) for k, r in enumerate(range(21, 28))},
+                  10: N((1, 1)), 11: N((5, 1)), 12: N((0, 1), add=-56)}
+
 FNS = {
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
@@ -2260,6 +2278,48 @@ FNS = {
         ok=["sp_lo : 0x8005e7d8 + 64 ≤ X.n 0"] + CALLEE_OK,
         cells={(4, 0x8005d3c0): 1, (4, 0x8005d478): 2},
         doc="`_isatty_r(_REENT, 1)` on the console."),
+    # lane F1-11: `lua_gettop(L)`: X.n 1 = L, X.n 2 = L->ci, X.n 3 = ci->func,
+    # X.n 4 = the values above it (`L->top = func + 16 (1 + k)`)
+    "lua_gettop": dict(
+        mod="Lua_gettop", entry=0x80001bb4,
+        row=abi_row({10: N((1, 1))}),
+        ok=LUA_OK + ["ci_lo : 0x8005c6d0 ≤ X.n 2", "ci_hi : X.n 2 + 256 ≤ 2 ^ 32",
+                     "f_hi : X.n 3 + 16 * X.n 4 + 16 ≤ 2 ^ 32", "sp_hi : X.n 0 ≤ 2 ^ 32",
+                     "ra : (X.b 0).toNat % 4 = 0"], lb={**LUA_LB, 2: 0x8005c6d0},
+        rcells={(((1, 1),), 32): N((2, 1)), (((2, 1),), 0): N((3, 1)),
+                (((1, 1),), 16): N((3, 1), (4, 16), add=16)},
+        doc="`lua_gettop(L)`: `L->top - (L->ci->func + 1)`."),
+    # lane F1-11: `lua_settop(L, -2)` (`lua_pop(L, 1)`): X.n 1 = L, X.n 2 =
+    # L->top, X.n 3 = L->tbclist below the new top (the `luaF_close` of a
+    # to-be-closed slot, `0x80001c8c`, a stop)
+    "lua_settop/pop": dict(
+        mod="Lua_settop_pop", entry=0x80001bd4,
+        row=abi_row({10: N((1, 1)), 11: ("lit", (-2) % 2 ** 64)}),
+        ok=LUA_OK + ["t_lo : 0x8005c6d0 + 16 ≤ X.n 2", "t_hi : X.n 2 ≤ 2 ^ 32", "sp_hi : X.n 0 ≤ 2 ^ 32",
+                     "ra : (X.b 0).toNat % 4 = 0"], lb={**LUA_LB, 2: 0x8005c6d0 + 16},
+        rcells={(((1, 1),), 16): N((2, 1)), (((1, 1),), 64): N((3, 1))},
+        stops=[0x80001c8c],
+        doc="`lua_settop(L, -2)` with no to-be-closed slot above the new top."),
+    # lane F1-11: `luaB_print(L)`: X.n 1 = L; `lua_gettop`'s result X.n 2 = n,
+    # `luaL_tolstring`'s X.n 3 = the string, its length X.n 4 (written to the
+    # frame, `8(sp)`); the loop head `0x80022f68` (`luaL_tolstring(L, i, &l)`
+    # for `i ≥ 2`, X.n 5 = i) a root; the callees are call nodes (`lua_gettop`,
+    # `luaL_tolstring`, `fwrite`, `lua_settop`, `fflush`)
+    "luaB_print": dict(
+        mod="Print", entry=0x80022f18,
+        row=abi_row({10: N((1, 1))}),
+        ok=PRINT_OK, lb=LUA_LB,
+        cells={(8, IMPURE_PTR): IMPURE_DATA, (8, IMPURE_DATA + 16): STDOUT},
+        rcells={**PRINT_FRAME, (((0, 1),), -56): N((4, 1))},
+        calls={0x80001bb4: dict(ret={10: N((2, 1))}), 0x80021b2c: dict(ret={10: N((3, 1))}),
+               0x800342e4: dict(ret={}), 0x80001bd4: dict(ret={}), 0x80032a1c: dict(ret={10: ("lit", 0)})},
+        loops={0x80022f68: dict(name="L", row=PRINT_LOOP_ROW,
+                                ok=PRINT_OK + ["i_ge : 2 ≤ X.n 5", "i_le : X.n 5 ≤ X.n 2",
+                                               "n_lt : X.n 2 < 2 ^ 31"],
+                                lb={**LUA_LB, 5: 2, 2: 2})},
+        doc="`luaB_print(L)`: each argument's `luaL_tolstring`, `fwrite` of a tab "
+            "between them and of each string, `lua_pop`; then `fwrite` of the newline "
+            "and `fflush(stdout)`."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
     # in the byte scan, the end); the alignment bytes, the words (the
     # zero-lane test on `word ^ 0x0a…0a`), the bytes, each loop a root

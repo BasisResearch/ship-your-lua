@@ -272,6 +272,17 @@ HELPERS += [("__swsetup_r", "__swsetup_r", 0x8003587c, 0x800359e0, [22, 26], [],
             ("_fstat", "_fstat", 0x80000e9c, 0x80000f58, [22, 26], [], [0x80000f34, 0x80000f44]),
             ("_isatty_r", "_isatty_r", 0x8004a170, 0x8004a1c0, [22, 26], [], [0x8004a1a4]),
             ("_isatty", "_isatty", 0x80001598, 0x80001630, [22, 26], [], [0x800015f8, 0x80001624])]
+# lane F1-11: `luaB_print` (its callees `luaL_tolstring`, `fwrite`, `fflush`
+# abstract: call nodes), `lua_gettop`, `lua_settop` (its `luaF_close` of a
+# to-be-closed slot above the new top, `0x80001c8c`, a stop: `luaB_print`'s
+# pops never reach `L->tbclist`)
+HELPERS += [("luaB_print", "LuaB_print", 0x80022f18, 0x80023010, [22, 26], [], []),
+            ("lua_gettop", "Lua_gettop", 0x80001bb4, 0x80001bd4, [22, 26], [], []),
+            ("lua_settop", "Lua_settop", 0x80001bd4, 0x80001cbc, [22, 26], [], [0x80001c8c])]
+# the argument registers of a callee with no segments of its own (a call node
+# whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
+# idx, &len)`)
+CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}}
 # a `ret` (by its address) that also returns into its own helper's code (an
 # internal `jalr`: `memset`'s `sb` chain): its live-out includes the code
 # after that call
@@ -318,7 +329,8 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__fixdfdi": {"x10"}, "__eqdf2": {"x10"}, "__gedf2": {"x10"}, "__ledf2": {"x10"},
            "__adddf3": {"x10"}, "__subdf3": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
-           "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"}}
+           "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
+           "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set()}
 
 
 def helper_cfg(lo, hi):
@@ -399,6 +411,8 @@ def helper_live(cuts, owner):
             return set().union(*[live[m] for m in cuts
                                  if owner[m] == owner[n] and cuts[m][0] in roots[owner[n]]])
         end = info[n][2]
+        if end in CALLEE_READS:
+            return set(CALLEE_READS[end])
         if end in TOHOST_SEAMS:     # the console store, then the code after it
             return TOHOST_SEAMS[end] | set().union(*[live[m] for m in cuts if cuts[m][0] == end + 4])
         return set().union(*[live[m] for m in cuts if cuts[m][0] == end])

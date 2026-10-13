@@ -80,7 +80,9 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          "__floatsidf", "__floatdidf", "__fixdfdi", "__eqdf2", "__ledf2", "__gedf2",
          "__adddf3", "__subdf3", "__clzdi2",
          # lane F1-10: the rest of the first write's set-up
-         "__swsetup_r", "__smakebuf_r", "_fstat_r", "_fstat", "_isatty_r", "_isatty"]
+         "__swsetup_r", "__smakebuf_r", "_fstat_r", "_fstat", "_isatty_r", "_isatty",
+         # lane F1-11: `luaB_print`'s Lua-API callees
+         "lua_gettop", "lua_settop"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")
