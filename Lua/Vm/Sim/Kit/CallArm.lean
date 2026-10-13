@@ -77,18 +77,46 @@ structure CallOut (p : Proto) (w : RelPtrs) (m0 : Mem) (ins : Word) (args : List
   /-- the closure `luaV_execute` saved at `8(sp)` (`Core.clptr`) -/
   cl : w'.rt.cl = w.rt.cl
 
+/-! ## The heap room of an allocating `print` -/
+
+/-- **An argument whose string `luaL_tolstring` allocates**: an integer or a
+float (`lua_pushfstring` → `luaO_pushvfstring` → `luaS_newlstr` →
+`luaC_newobj`), or a function (`"%s: %p"`). Nil, booleans and strings push
+an interned or the argument's own string. -/
+def Allocates : Value → Prop
+  | .int _ => True
+  | .flt _ _ => True
+  | .builtin _ => True
+  | _ => False
+
+/-- The heap a `print(args)` may claim: per argument and for the first-use
+allocations (the `stdout` buffer, the C `CallInfo`, `"__tostring"`), one
+`_malloc_r` with room for its `_sbrk` (`MallocR_Statement`: the request, the
+16 KiB top pad, a page), and a doubling of the string table
+(`luaS_resize`, 8 bytes per bucket, twice). -/
+def callBudget (args : List Value) (strtSize : Nat) : Nat :=
+  (args.length + 4) * (16384 + 4096 + 128) + 1024 + 16 * strtSize
+
+/-- **The heap has room for this `print`** (the break `callBudget` below
+`__heap_end`): `_malloc_r` never fails, so `luaM_malloc_` never runs the
+emergency `luaC_fullgc`. -/
+def HeapBudget (w : RelPtrs) (args : List Value) : Prop :=
+  w.rt.brkv + callBudget args w.rt.strtSize ≤ DlHeap.heapEnd
+
 /-- **Named premise: `luaD_precall` on `print` from `OP_CALL`**, on states
-with the invariant `I`: from the `jal` (`L`, `ra = R[A]`, `C - 1`), back at
-`0x8001c7d8` with `0` and the frame, the console gaining the line, the
-relation's facts for the memory it leaves (`CallOut`, at the same pointers)
-and `I` again. Supplied by `luaD_precall`'s C path (`precall_reuse`,
-`precall_ext`), `luaB_print` (`print_sum`), `luaD_poscall` and the relation
-facts. -/
+with the invariant `I`, and with the heap room `HeapBudget` when an argument
+allocates (`Allocates`: integers, floats, functions): from the `jal` (`L`,
+`ra = R[A]`, `C - 1`), back at `0x8001c7d8` with `0` and the frame, the
+console gaining the line, the relation's facts for the memory it leaves
+(`CallOut`, at the same pointers) and `I` again. Supplied by
+`luaD_precall`'s C path (`precall_reuse`, `precall_ext`), `luaB_print`
+(`print_sum`), `luaD_poscall` and the relation facts. -/
 def PrintCall_Statement (I : Proto → RelPtrs → Prop) : Prop :=
   ∀ {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
     (f : AbiFrame) (o : Array String),
     Supported p → VmRelAt p c s w → I p w → p.fetch s.pc = some ins → ins.op? = some .CALL →
     ins.b ≠ 0 → ins.c ≠ 0 → (List.range' ins.a ins.b).mapM s.regs = some (.builtin .print :: args) →
+    ((∃ v ∈ args, Allocates v) → HeapBudget w args) →
     Triple (SegSt 0x8000aab4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 w.L⟩,
         ⟨Register.x11, BitVec.ofNat 64 (w.slot ins.a)⟩, ⟨Register.x12, BitVec.ofNat 64 (ins.c - 1)⟩]
         w.sp 0x8001c7d8#64 f) (ArmPay (callMem c.σ.mem w s.pc ins) o))
@@ -109,6 +137,20 @@ theorem _root_.Lua.Vm.Sim.Ranges.after {p : Proto} {w : RelPtrs} (hr : Ranges p 
     hr.L_lo, hr.code_out, hr.ci_out, hr.k_lo, hr.k_hi, hr.k_al, hr.k_out, hr.frame_sep, hr.k_sep,
     hr.ci_sep, hr.L_sep, hr.ci_top, hr.L_top, hr.slots_top, hr.L_al, hr.ci_al, hr.L_sep_ci,
     hr.k_top⟩
+
+/-- **Named premise (A8): `CALL print` beyond the heap room.** An allocating
+argument (`Allocates`) on a state whose heap lacks `HeapBudget`: `_malloc_r`
+fails and `luaM_malloc_` runs the emergency `luaC_fullgc` (the harness's
+`LUA_GCSTOP` does not block it), which frees the strings no register holds;
+the arm still simulates. `HeapBudget` is the premise of the allocating
+classes in `PrintCall_Statement`; removing it needs the collector's phase
+(PHASES A8). -/
+def HeapBudget_Statement (I : Proto → RelPtrs → Prop) : Prop :=
+  ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State} {w : RelPtrs}, VmRelAt p c s w → I p w →
+    ∀ {ins : Word} {args : List Value}, p.fetch s.pc = some ins → ins.op? = some .CALL →
+      Step binaryHost p s s' → (List.range' ins.a ins.b).mapM s.regs = some (.builtin .print :: args) →
+      (∃ v ∈ args, Allocates v) → ¬ HeapBudget w args →
+      ∃ c' n w', 0 < n ∧ StepsN n c c' ∧ VmRelAt p c' s' w' ∧ I p w'
 
 /-- `R[A]`'s address (`RA(i)`: `srliw 7`, `zext.b`, `slli 4`, `add base`). -/
 theorem call_ra (base : Nat) (ins : Word) :
@@ -155,9 +197,16 @@ local macro_rules | `(tactic| kit_guard_ext) => `(tactic| first | exact hgB | de
 dispatch, the arm's `L->top = ra + B` and `savepc`, the `jal`, the summary,
 the `beqz` on its `0` (a C call), `updatetrap` and the jump back to the
 fetch head; the relation at the summary's pointers. -/
-theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I) : SimArmInv .CALL I := by
+theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I)
+    (hG : HeapBudget_Statement I) : SimArmInv .CALL I := by
   intro p hS c s s' w hR hI ins hf hop hstep
-  obtain ⟨args, hb, hcc, hargs, rfl⟩ := call_step hf hop hstep
+  obtain ⟨args, hb, hcc, hargs, hs'⟩ := call_step hf hop hstep
+  by_cases hbud : (∃ v ∈ args, Allocates v) → HeapBudget w args
+  case neg =>
+    have ha : ∃ v ∈ args, Allocates v := Classical.byContradiction fun h => hbud fun h' => absurd h' h
+    have hn : ¬ HeapBudget w args := fun hh => hbud fun _ => hh
+    exact hG hS hR hI hf hop hstep hargs ha hn
+  subst hs'
   have hnum := opNum_of_op? hop
   obtain ⟨c1, hs1, hlt1, hA, hm1⟩ := dispatchM hR hf (by rw [hnum]; decide)
   have hc := hA.core
@@ -197,7 +246,7 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
     BitVec.ofNat 64 (w.code + 4 * (s.pc + 1)), sign_extend (m := 64) ins, 0#64, t22, BitVec.ofNat 64 w.ci,
     BitVec.ofNat 64 Arms.jtBase, BitVec.ofNat 64 w.base, t26, BitVec.ofNat 64 (w.code + 4 * s.pc)⟩
   obtain ⟨c3, s3, m', out, mo, ι, rt, hret, hout, hI'⟩ :=
-    hP f c1.σ.sailOutput hS hR hI hf hop hb hcc hargs _ ((h0.repin (by
+    hP f c1.σ.sailOutput hS hR hI hf hop hb hcc hargs hbud _ ((h0.repin (by
       simp only [callPre, f, AbiFrame.pins, List.cons_append, List.nil_append, RelPtrs.slot]
       pins_of h0)).mem_eq (by rw [hm1]; simp only [callMem, RelPtrs.slot, stateTopOff, ciSavedpcOff, stackValueSize]))
   have acc := acc.trans s3
