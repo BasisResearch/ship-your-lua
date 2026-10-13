@@ -108,6 +108,19 @@ theorem or_one_even (x : BitVec 64) (h : x.toNat % 2 = 0) :
     Nat.and_two_pow_sub_one_eq_mod]
   simpa using h
 
+/-! ship-your-interpreter's allocator proofs saw these `simp` facts through an
+import of `Vsa/Sim/rows/EnvDefineContractUpdate.lean` (private there); here
+they are stated once for the modules that import this kit. -/
+
+@[simp] theorem sext0_64 : (sign_extend (m := 64) (0x000#12) : BitVec 64) = 0#64 := by decide
+@[simp] theorem sext8_64 : (sign_extend (m := 64) (0x008#12) : BitVec 64).toNat = 8 := by decide
+@[simp] theorem sext16_64 : (sign_extend (m := 64) (0x010#12) : BitVec 64).toNat = 16 := by decide
+@[simp] theorem sext24_64 : (sign_extend (m := 64) (0x018#12) : BitVec 64).toNat = 24 := by decide
+@[simp] theorem sext32_64 : (sign_extend (m := 64) (0x020#12) : BitVec 64).toNat = 32 := by decide
+@[simp] theorem sext40_64 : (sign_extend (m := 64) (0x028#12) : BitVec 64).toNat = 40 := by decide
+@[simp] theorem sext48_64 : (sign_extend (m := 64) (0x030#12) : BitVec 64).toNat = 48 := by decide
+@[simp] theorem sext56_64 : (sign_extend (m := 64) (0x038#12) : BitVec 64).toNat = 56 := by decide
+
 end VsaIris.MallocFast
 
 namespace VsaIris.VsaHeap

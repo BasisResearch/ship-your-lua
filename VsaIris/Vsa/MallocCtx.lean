@@ -183,20 +183,24 @@ theorem MHeap.off_stack {C : MCtx} {Mt : Mem} {brkv : Nat} {chunks : List Chunk}
 theorem glob_off_of {H : List (Nat × Nat)} {s : BitVec 64}
     (hd : ∀ a, s.toNat - mHead ≤ a → a < s.toNat → ¬ vsaFoot H a) :
     (s.toNat ≤ 0x8005d1b8 ∨ 0x8005d1bc + mHead ≤ s.toNat) ∧
-      (s.toNat ≤ 0x8005d3b8 ∨ 0x8005d40c + mHead ≤ s.toNat) := by
+      (s.toNat ≤ 0x8005d3b8 ∨ 0x8005d40c + mHead ≤ s.toNat) ∧
+      (s.toNat ≤ 0x8005e560 ∨ 0x8005e5b0 + mHead ≤ s.toNat) := by
   have g : ∀ a, allocGlobal a → ¬ (s.toNat - mHead ≤ a ∧ a < s.toNat) :=
     fun a ha hw => hd a hw.1 hw.2 (.inl ha)
   have h1 := g 0x8005d1b8 (by unfold allocGlobal InRange; omega)
   have h2 := g 0x8005d1bb (by unfold allocGlobal InRange; omega)
   have h4 := g 0x8005d3b8 (by unfold allocGlobal InRange; omega)
   have h5 := g 0x8005d40b (by unfold allocGlobal InRange; omega)
+  have h6 := g 0x8005e560 (by unfold allocGlobal InRange; omega)
+  have h7 := g 0x8005e5af (by unfold allocGlobal InRange; omega)
   unfold mHead at *
   omega
 
 theorem MHeap.glob_off {C : MCtx} {Mt : Mem} {brkv : Nat} {chunks : List Chunk}
     {bins : Nat → List Nat} (Hp : MHeap C Mt brkv chunks bins) :
     (C.s.toNat ≤ 0x8005d1b8 ∨ 0x8005d1bc + mHead ≤ C.s.toNat) ∧
-      (C.s.toNat ≤ 0x8005d3b8 ∨ 0x8005d40c + mHead ≤ C.s.toNat) :=
+      (C.s.toNat ≤ 0x8005d3b8 ∨ 0x8005d40c + mHead ≤ C.s.toNat) ∧
+      (C.s.toNat ≤ 0x8005e560 ∨ 0x8005e5b0 + mHead ≤ C.s.toNat) :=
   glob_off_of Hp.disj
 
 theorem MHeap.off_stack_w {C : MCtx} {Mt : Mem} {brkv : Nat} {chunks : List Chunk}
