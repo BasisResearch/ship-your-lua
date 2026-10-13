@@ -167,6 +167,11 @@ import Lua.Vm.Arms.Segs.Hlua_getmetatable
 import Lua.Vm.Arms.Segs.Hlua_type
 import Lua.Vm.Arms.Segs.Hlua_toboolean
 import Lua.Vm.Arms.Segs.Hlua_tolstring
+import Lua.Vm.Arms.Segs.HluaL_getmetafield_part_0
+import Lua.Vm.Arms.Segs.Hlua_rawget
+import Lua.Vm.Arms.Segs.Hindex2value
+import Lua.Vm.Arms.Segs.HluaH_get
+import Lua.Vm.Arms.Segs.Hlua_pushvalue
 import Lua.Vm.Arms.Segs.Hstdio_exit_handler
 import Lua.Vm.Arms.Segs.Hfwalk_sglue
 import Lua.Vm.Arms.Segs.Hfclose_r

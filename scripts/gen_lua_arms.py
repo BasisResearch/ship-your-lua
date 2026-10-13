@@ -333,16 +333,31 @@ HELPERS += [("luaD_precall", "LuaD_precall", 0x8000aab4, 0x8000ae3c, [22, 26], [
 # `luaL_tolstring`; pseudo-indices, absent slots, tables and full userdata;
 # a non-string or long string at the top
 HELPERS += [("luaL_tolstring", "LuaL_tolstring", 0x80021b2c, 0x80021d90, [22, 26], [],
-             [0x80021b68, 0x80021bec, 0x80021c0c, 0x80021c44, 0x80021c5c]),
+             [0x80021b68, 0x80021bec, 0x80021c0c, 0x80021c5c]),
             ("lua_absindex", "Lua_absindex", 0x80001b7c, 0x80001bb4, [22, 26], [], []),
-            ("luaL_callmeta", "LuaL_callmeta", 0x80021a24, 0x80021ac0, [22, 26], [], [0x80021a70]),
+            ("luaL_callmeta", "LuaL_callmeta", 0x80021a24, 0x80021ac0, [22, 26], [], [0x80021a80]),
             ("lua_getmetatable", "Lua_getmetatable", 0x80003788, 0x8000388c, [22, 26], [],
              [0x80003804, 0x8000382c, 0x80003844, 0x800037c0]),
             ("lua_type", "Lua_type", 0x80002068, 0x8000211c, [22, 26], [], [0x800020c8, 0x80002084]),
             ("lua_toboolean", "Lua_toboolean", 0x800028ec, 0x80002994, [22, 26], [],
              [0x80002924, 0x8000294c]),
             ("lua_tolstring", "Lua_tolstring", 0x80002994, 0x80002b00, [22, 26], [],
-             [0x800029a0, 0x80002a60, 0x800029c4, 0x80002abc, 0x80002a7c])]
+             [0x800029a0, 0x80002a60, 0x800029c4, 0x80002a7c])]
+# lane F1-17: `luaL_tolstring` on a string argument (the `LUA_TSTRING` case
+# `0x80021c44`, `lua_pushvalue`; `0x80002abc` the tail's long string): its
+# `luaL_callmeta` finds the string metatable (`0x80021a70`), then
+# `luaL_getmetafield.part.0`: `lua_pushstring("__tostring")` (a call node),
+# `lua_rawget(L, -2)` → `index2value` (a negative index; pseudo-indices
+# `0x800018d8` a stop), `luaH_get` on the short-string key (the main position,
+# the chain walk `0x80018278` a root; other key types `0x800181b0` a stop), the
+# miss (`absentkey`), `lua_settop(L, -3)`. A metafield found (`0x8002057c`,
+# `0x800035dc`, `0x80021a80`) and a pseudo-index (`0x80001ff0`) are stops
+HELPERS += [("luaL_getmetafield.part.0", "LuaL_getmetafield_part_0", 0x8002052c, 0x800205b0, [22, 26], [],
+             [0x8002057c]),
+            ("lua_rawget", "Lua_rawget", 0x80003584, 0x800035fc, [22, 26], [], [0x800035dc]),
+            ("index2value", "Index2value", 0x800018a0, 0x80001934, [22, 26], [], [0x800018d8]),
+            ("luaH_get", "LuaH_get", 0x800181a0, 0x800182b4, [22, 26], [0x80018278], [0x800181b0]),
+            ("lua_pushvalue", "Lua_pushvalue", 0x80001fb0, 0x80002068, [22, 26], [], [0x80001ff0])]
 # lane F1-14: `exit(0)` once `print` installed `__stdio_exit_handler`: its
 # `jalr a5` (no longer a stop) into `stdio_exit_handler` → `_fwalk_sglue(_REENT,
 # _fclose_r, &__sglue)` (its `jalr s5` into `_fclose_r`) over `__sf`'s three
@@ -529,6 +544,8 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
 RESULTS["longjmp"] = {"x10", "x2", "x8", "x9"} | {f"x{r}" for r in range(18, 28)}
 RESULTS["luaG_errormsg"] = set()
 RESULTS["luaD_throw"] = set()
+RESULTS.update({"luaL_getmetafield.part.0": {"x10"}, "lua_rawget": {"x10"}, "index2value": {"x10"},
+                "luaH_get": {"x10"}, "lua_pushvalue": set()})
 RESULTS.update({"lua_pushstring": {"x10"}, "luaS_new": {"x10"}, "luaS_newlstr": {"x10"},
                 "internshrstr": {"x10"}, "luaC_step": set(), "luaE_setdebt": set()})
 

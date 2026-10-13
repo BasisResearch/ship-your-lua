@@ -2561,6 +2561,39 @@ def tol_lit(mod, tag, what):
             "`lua_tolstring(L, -1, &l)`.")
 
 
+def tol_str(mod, tag, what):
+    """lane F1-17: `luaL_tolstring(L, i, &l)` on a string argument of tag
+    `tag`: the atoms of `tol_lit`, X.n 8 = `G(L)->mt[LUA_TSTRING]` (the string
+    metatable), X.n 9 = the argument's `TString`."""
+    return dict(
+        mod=mod, entry=0x80021b2c,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=TOL_OK + ["mt_lo : 0x8005c6d0 ≤ X.n 8", "s_lo : 0x8005c6d0 ≤ X.n 9", "t_al : X.n 6 % 8 = 0"],
+        lb={**LUA_LB, 2: 1, 4: 0x8005c6d0, 5: 0x8005c6d0, 6: 0x8005c6d0, 7: 0x8005c6d0, 8: 0x8005c6d0,
+            9: 0x8005c6d0},
+        rcells={(((1, 1),), 32): N((4, 1)), (((4, 1),), 0): N((5, 1)), (((1, 1),), 16): N((6, 1)),
+                (((1, 1),), 24): N((7, 1)), (((7, 1),), 512): N((8, 1)), (((2, 16), (5, 1)), 0): N((9, 1)),
+                **TOL_FRAME},
+        rcellsw={(1, ((2, 16), (5, 1)), 8): tag},
+        calls={0x8002052c: dict(ret={10: ("lit", 0)})},
+        stops=[0x80001fcc], ends=[0x80002994],
+        doc=f"`luaL_tolstring(L, i, &l)` on {what} argument, up to its tail "
+            "`lua_tolstring(L, -1, &l)`.")
+
+
+def tol_top(mod, tag, what):
+    """`lua_tolstring(L, -1, &l)` of a string of tag `tag` at the top: X.n 1
+    = L, X.n 2 = &l, X.n 3 = L->top, X.n 4 = the string (its `shrlen` read:
+    a short string's length, or `0xff` and `u.lnglen`)."""
+    return dict(
+        mod=mod, entry=0x80002994,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 2 ** 64 - 1), 12: N((2, 1))}),
+        ok=TOLTOP_OK, lb={**LUA_LB, 2: 0x8005c6d0, 3: 0x8005c6d0 + 16, 4: 0x8005c6d0},
+        rcells={(((1, 1),), 16): N((3, 1)), (((3, 1),), -16): N((4, 1))},
+        rcellsw={(1, ((3, 1),), -8): tag},
+        doc=f"`lua_tolstring(L, -1, &l)` of the {what} string at the top.")
+
+
 # lane F1-14: `exit`'s stdio handler. Its frames lie in the C stack above
 # `__heap_end` (`exit` runs at `__stack_top`)
 EXIT_OK = ["sp_lo : 0x87800000 + 8192 ≤ X.n 0"] + CALLEE_OK
@@ -2650,6 +2683,15 @@ INT_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 + 80 ≤ 2 ^ 32
           "s_lo : 0x80000000 ≤ X.n 2", "s_th : X.n 2 + X.n 3 + 1 ≤ 0x8005c6c0", "l_lo : 1 ≤ X.n 3",
           "l_hi : X.n 3 ≤ 40", "g_lo : 0x8005c6d0 ≤ X.n 4", "g_hi : X.n 4 + 1400 ≤ 0x87800000"]
 INT_LB = {**LUA_LB, 2: 0x80000000, 3: 1, 4: 0x8005c6d0}
+
+
+# lane F1-17: `luaH_get`'s objects: the table `t`, the key `TValue`, its
+# string, above `tohost` and below `2 ^ 32`
+HGET_OK = ["sp_hi : X.n 0 ≤ 2 ^ 32", "ra : (X.b 0).toNat % 4 = 0",
+           "t_lo : 0x8005c6d0 ≤ X.n 1", "t_hi : X.n 1 + 32 ≤ 2 ^ 32",
+           "k_lo : 0x8005c6d0 ≤ X.n 2", "k_hi : X.n 2 + 16 ≤ 2 ^ 32",
+           "s_lo : 0x8005c6d0 ≤ X.n 3", "s_hi : X.n 3 + 16 ≤ 2 ^ 32"]
+HGET_LB = {1: 0x8005c6d0, 2: 0x8005c6d0, 3: 0x8005c6d0, 4: 0x8005c6d0}
 
 
 def lua_s_new(mod, addr, what):
@@ -2954,13 +2996,9 @@ FNS = {
     # lane F1-12: `lua_tolstring(L, -1, &l)` of a short string at the top:
     # X.n 1 = L, X.n 2 = &l, X.n 3 = L->top, X.n 4 = the string; its length
     # stored, its contents returned (`ts + 24`)
-    "lua_tolstring/top": dict(
-        mod="TolTop", entry=0x80002994,
-        row=abi_row({10: N((1, 1)), 11: ("lit", 2 ** 64 - 1), 12: N((2, 1))}),
-        ok=TOLTOP_OK, lb={**LUA_LB, 2: 0x8005c6d0, 3: 0x8005c6d0 + 16, 4: 0x8005c6d0},
-        rcells={(((1, 1),), 16): N((3, 1)), (((3, 1),), -16): N((4, 1))},
-        rcellsw={(1, ((3, 1),), -8): 0x44},
-        doc="`lua_tolstring(L, -1, &l)` of the short string at the top."),
+    "lua_tolstring/top": tol_top("TolTop", 0x44, "short"),
+    # lane F1-17: of a long string at the top (`shrlen` `0xff`: `u.lnglen`)
+    "lua_tolstring/topl": tol_top("TolTopL", 0x54, "long"),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
     # in the byte scan, the end); the alignment bytes, the words (the
     # zero-lane test on `word ^ 0x0a…0a`), the bytes, each loop a root
@@ -3096,6 +3134,44 @@ FNS = {
         stops=[0x8001742c], ends=[0x800173c4],
         doc="`internshrstr(L, str, l)` on an interned short C string: the hash, the "
             "bucket, the chain walk with `memcmp`, `isdead`."),
+    # lane F1-17: `luaH_get(t, key)` on a short-string key that misses (the
+    # string metatable's `"__tostring"`): X.n 1 = t, X.n 2 = key (a `TValue`,
+    # `LUA_VSHRSTR`), X.n 3 = the string, X.n 4 = `t->node`; the chain walk
+    # `0x80018278` a root (X.n 5 the node); `absentkey` returned
+    "luaH_get/miss": dict(
+        mod="LuaHGetMiss", entry=0x800181a0,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1))}),
+        ok=HGET_OK, lb=HGET_LB,
+        rcells={(((2, 1),), 0): N((3, 1)), (((1, 1),), 24): N((4, 1))},
+        rcellsw={(1, ((2, 1),), 8): 0x44},
+        loops={0x80018278: dict(name="C", row={**frame_row(), 10: N((5, 1)), 12: N((3, 1)), 13: ("lit", 68)},
+                                ok=HGET_OK + ["n_lo : 0x8005c6d0 ≤ X.n 5", "n_hi : X.n 5 + 24 ≤ 2 ^ 32"],
+                                lb={**HGET_LB, 5: 0x8005c6d0})},
+        doc="`luaH_get(t, key)` on a short-string key: the main position, the chain "
+            "walk, `absentkey` (other key types, `0x800181b0`, a stop)."),
+    # lane F1-17: `luaL_getmetafield.part.0(L, "__tostring")` with the string
+    # metatable at the top: X.n 1 = L, X.n 2 = `L->top` after the push (the
+    # roots after the calls), X.n 3 = the metatable, X.n 5 = `L->tbclist`;
+    # `lua_pushstring` a call node, `lua_rawget(L, -2)` → `index2value`,
+    # `luaH_get` a call node (`absentkey`), the miss, `lua_settop(L, -3)`
+    "luaL_getmetafield/miss": dict(
+        mod="GmfMiss", entry=0x8002052c,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 0x8004fd20)}),
+        ok=LIT_OK + ["t_lo : 0x8005c6d0 + 32 ≤ X.n 2", "t_hi : X.n 2 + 16 ≤ 2 ^ 32",
+                     "t_he : X.n 2 + 16 ≤ 0x87800000", "t_al : X.n 2 % 8 = 0",
+                     "tL : X.n 2 + 16 ≤ X.n 1 ∨ X.n 1 + 200 + 32 ≤ X.n 2"],
+        lb={**LUA_LB, 2: 0x8005c6d0 + 32, 3: 0x8005c6d0},
+        rcells={(((1, 1),), 16): N((2, 1)), (((2, 1),), -32): N((3, 1)), (((1, 1),), 64): N((5, 1))},
+        cells={(8, 0x80053160): 0, (1, 0x80053168): 0x20},
+        calls={0x80002fe4: dict(ret={}), 0x800181a0: dict(ret={10: ("lit", 0x80053160)})},
+        doc="`luaL_getmetafield.part.0(L, \"__tostring\")` on a metatable that misses: the "
+            "push, `lua_rawget`, `lua_settop(L, -3)`."),
+    # lane F1-17: `luaL_tolstring(L, i, &l)` on a short (long) string argument
+    # (`tol_str`): `luaL_callmeta` → `lua_getmetatable` (the string metatable,
+    # X.n 8, pushed) → `luaL_getmetafield.part.0` (a call node: 0), `lua_type`,
+    # `lua_pushvalue` (X.n 9 the string), up to the tail `lua_tolstring`
+    "luaL_tolstring/str": tol_str("TolStrS", 0x44, "a short string"),
+    "luaL_tolstring/lstr": tol_str("TolStrL", 0x54, "a long string"),
     "_fclose_r/stdin": fclose_std("FcloseIn", 0x8005e5b0, 0x4, 0, 1, "stdin"),
     "_fclose_r/stderr": fclose_std("FcloseErr", 0x8005e720, 0x12, 2, 3, "stderr"),
     # `_fclose_r(_REENT, stdout)` on the set-up, flushed `stdout`: the lock,

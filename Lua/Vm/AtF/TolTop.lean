@@ -14,6 +14,7 @@ Roots (a fresh context each):
 Ends:
 
 * return: `r2`, memory `(m0 X)`
+* return: `r2`, memory `(m1 X)`
 
 Paths not followed:
 
@@ -21,7 +22,6 @@ Paths not followed:
 * `seg_800029b4_800029c4_n`: infeasible
 * `seg_80002a54_80002a60_n`: infeasible
 * `seg_80002a94_80002a9c_t`: infeasible
-* `seg_80002a9c_80002aa8_t`: no segment at 0x80002abc
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -47,6 +47,9 @@ structure Ok (X : FCx) : Prop where
   s_hi : X.n 4 + 64 ≤ 2 ^ 32
 
 @[at_row] abbrev m0 (X : FCx) : Mem :=
+  writeMap8 (X.m) (X.n 2) (sdData_val (bytesT8 X.m (X.n 4 + 16)))
+
+@[at_row] abbrev m1 (X : FCx) : Mem :=
   writeMap8 (X.m) (X.n 2) (sdData_val (zero_extend (m := 64) (bytesT1 X.m (X.n 4 + 11) : BitVec (8 * 1))))
 
 @[at_row] abbrev r0 (X : FCx) : List Pin :=
@@ -77,7 +80,7 @@ structure Ok (X : FCx) : Prop where
    ⟨Register.x9, X.b 2⟩,
    ⟨Register.x10, BitVec.ofNat 64 (X.n 4)⟩,
    ⟨Register.x12, BitVec.ofNat 64 (X.n 2)⟩,
-   ⟨Register.x15, zero_extend (m := 64) (bytesT1 X.m (X.n 4 + 11) : BitVec (8 * 1))⟩,
+   ⟨Register.x15, bytesT8 X.m (X.n 4 + 16)⟩,
    ⟨Register.x18, X.b 3⟩,
    ⟨Register.x19, X.b 4⟩,
    ⟨Register.x20, X.b 5⟩,
@@ -154,6 +157,26 @@ structure Ok (X : FCx) : Prop where
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, X.b 1⟩,
    ⟨Register.x9, X.b 2⟩,
+   ⟨Register.x10, BitVec.ofNat 64 (X.n 4)⟩,
+   ⟨Register.x12, BitVec.ofNat 64 (X.n 2)⟩,
+   ⟨Register.x15, zero_extend (m := 64) (bytesT1 X.m (X.n 4 + 11) : BitVec (8 * 1))⟩,
+   ⟨Register.x18, X.b 3⟩,
+   ⟨Register.x19, X.b 4⟩,
+   ⟨Register.x20, X.b 5⟩,
+   ⟨Register.x21, X.b 6⟩,
+   ⟨Register.x22, X.b 7⟩,
+   ⟨Register.x23, X.b 8⟩,
+   ⟨Register.x24, X.b 9⟩,
+   ⟨Register.x25, X.b 10⟩,
+   ⟨Register.x26, X.b 11⟩,
+   ⟨Register.x27, X.b 12⟩]
+
+@[at_row] abbrev r6 (X : FCx) : List Pin :=
+  [⟨Register.x1, X.b 0⟩,
+   ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x8, X.b 1⟩,
+   ⟨Register.x9, X.b 2⟩,
    ⟨Register.x11, BitVec.ofNat 64 (X.n 3 - 16)⟩,
    ⟨Register.x12, BitVec.ofNat 64 (X.n 2)⟩,
    ⟨Register.x13, 0x4#64⟩,
@@ -169,7 +192,7 @@ structure Ok (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r6 (X : FCx) : List Pin :=
+@[at_row] abbrev r7 (X : FCx) : List Pin :=
   [⟨Register.x1, X.b 0⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -191,7 +214,7 @@ structure Ok (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r7 (X : FCx) : List Pin :=
+@[at_row] abbrev r8 (X : FCx) : List Pin :=
   [⟨Register.x1, X.b 0⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -213,7 +236,7 @@ structure Ok (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r8 (X : FCx) : List Pin :=
+@[at_row] abbrev r9 (X : FCx) : List Pin :=
   [⟨Register.x1, X.b 0⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -245,8 +268,44 @@ theorem at_80002aac_80002ab4 (X : FCx) (hX : Ok X) (hf0 : (X.n 2) ≠ 0) :
   fat_close
 
 theorem at_80002aa8_80002aac (X : FCx) (hX : Ok X) (hf0 : (X.n 2) ≠ 0) :
-    Triple (SegSt 0x80002aa8#64 (r3 X) (ArmPay X.m X.o))
+    Triple (SegSt 0x80002aa8#64 (r1 X) (ArmPay X.m X.o))
       (SegSt (0x80002aac#64) (r1 X) (ArmPay (m0 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80002aa8_80002aac
+  fat_close
+
+theorem at_80002abc_80002ac4 (X : FCx) (hX : Ok X) (hf0 : (X.n 2) ≠ 0) :
+    Triple (SegSt 0x80002abc#64 (r3 X) (ArmPay X.m X.o))
+      (SegSt (0x80002aa8#64) (r1 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80002abc_80002ac4
+  fat_close
+
+theorem at_80002a9c_80002aa8_t (X : FCx) (hX : Ok X) (hf0 : (X.n 2) ≠ 0) (hg_3 : (zero_extend (m := 64) (bytesT1 X.m (X.n 4 + 11) : BitVec (8 * 1)) == 0xff#64) = true) :
+    Triple (SegSt 0x80002a9c#64 (r4 X) (ArmPay X.m X.o))
+      (SegSt (0x80002abc#64) (r3 X) (ArmPay X.m X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80002a9c_80002aa8_t
+  fat_close
+
+theorem at_80002aac_80002ab4_1 (X : FCx) (hX : Ok X) (hf0 : (X.n 2) ≠ 0) :
+    Triple (SegSt 0x80002aac#64 (r5 X) (ArmPay (m1 X) X.o))
+      (SegSt (X.b 0) (r2 X) (ArmPay (m1 X) X.o)) := by
+  intro c h
+  obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fat_seg Lua.Vm.Arms.seg_80002aac_80002ab4
+  fat_close
+
+theorem at_80002aa8_80002aac_1 (X : FCx) (hX : Ok X) (hf0 : (X.n 2) ≠ 0) :
+    Triple (SegSt 0x80002aa8#64 (r3 X) (ArmPay X.m X.o))
+      (SegSt (0x80002aac#64) (r5 X) (ArmPay (m1 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -263,7 +322,7 @@ theorem at_80002a9c_80002aa8_n (X : FCx) (hX : Ok X) (hf0 : (X.n 2) ≠ 0) (hg_3
   fat_close
 
 theorem at_80002a94_80002a9c_n (X : FCx) (hX : Ok X) (hc2 : bytesT8 X.m (X.n 3 - 16) = BitVec.ofNat 64 (X.n 4)) (hg_2 : (BitVec.ofNat 64 (X.n 2) == 0x0#64) = false) :
-    Triple (SegSt 0x80002a94#64 (r5 X) (ArmPay X.m X.o))
+    Triple (SegSt 0x80002a94#64 (r6 X) (ArmPay X.m X.o))
       (SegSt (0x80002a9c#64) (r4 X) (ArmPay X.m X.o)) := by
   intro c h
   obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
@@ -272,8 +331,8 @@ theorem at_80002a94_80002a9c_n (X : FCx) (hX : Ok X) (hc2 : bytesT8 X.m (X.n 3 -
   fat_close
 
 theorem at_800029b4_800029c4_t (X : FCx) (hX : Ok X) (hc1 : bytesT1 X.m (X.n 3 - 8) = 0x44#8) :
-    Triple (SegSt 0x800029b4#64 (r6 X) (ArmPay X.m X.o))
-      (SegSt (0x80002a94#64) (r5 X) (ArmPay X.m X.o)) := by
+    Triple (SegSt 0x800029b4#64 (r7 X) (ArmPay X.m X.o))
+      (SegSt (0x80002a94#64) (r6 X) (ArmPay X.m X.o)) := by
   intro c h
   obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -281,8 +340,8 @@ theorem at_800029b4_800029c4_t (X : FCx) (hX : Ok X) (hc1 : bytesT1 X.m (X.n 3 -
   fat_close
 
 theorem at_80002ae4_80002af4 (X : FCx) (hX : Ok X) (hc0 : bytesT8 X.m (X.n 1 + 16) = BitVec.ofNat 64 (X.n 3)) :
-    Triple (SegSt 0x80002ae4#64 (r7 X) (ArmPay X.m X.o))
-      (SegSt (0x800029b4#64) (r6 X) (ArmPay X.m X.o)) := by
+    Triple (SegSt 0x80002ae4#64 (r8 X) (ArmPay X.m X.o))
+      (SegSt (0x800029b4#64) (r7 X) (ArmPay X.m X.o)) := by
   intro c h
   obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -290,8 +349,8 @@ theorem at_80002ae4_80002af4 (X : FCx) (hX : Ok X) (hc0 : bytesT8 X.m (X.n 1 + 1
   fat_close
 
 theorem at_80002a54_80002a60_t (X : FCx) (hX : Ok X) :
-    Triple (SegSt 0x80002a54#64 (r8 X) (ArmPay X.m X.o))
-      (SegSt (0x80002ae4#64) (r7 X) (ArmPay X.m X.o)) := by
+    Triple (SegSt 0x80002a54#64 (r9 X) (ArmPay X.m X.o))
+      (SegSt (0x80002ae4#64) (r8 X) (ArmPay X.m X.o)) := by
   intro c h
   obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -300,7 +359,7 @@ theorem at_80002a54_80002a60_t (X : FCx) (hX : Ok X) :
 
 theorem at_80002994_800029a0_t (X : FCx) (hX : Ok X) :
     Triple (SegSt 0x80002994#64 (r0 X) (ArmPay X.m X.o))
-      (SegSt (0x80002a54#64) (r8 X) (ArmPay X.m X.o)) := by
+      (SegSt (0x80002a54#64) (r9 X) (ArmPay X.m X.o)) := by
   intro c h
   obtain ⟨hx_sp_hi, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_l_lo, hx_l_hi, hx_l_al, hx_t_lo, hx_t_hi, hx_s_lo, hx_s_hi⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
