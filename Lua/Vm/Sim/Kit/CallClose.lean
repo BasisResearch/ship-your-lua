@@ -163,7 +163,7 @@ theorem _root_.Lua.Vm.Sim.StatFacts.after {p : Proto} {w : RelPtrs} {M : Mem} (h
     (H : HeapIx) : StatFacts p (w.after mo w.ι (w.rt.withHeap H)) M :=
   ⟨h.rodata, h.proto, h.proto_code, h.strs, fun ts ho => (h.env ts ho).mono fun _ _ hr => hr.after _ _ _,
     h.lua.hookmask, h.lua.errfunc, h.lua.nCcalls, h.lua.openupval, h.lua.tbclist, h.lua.stack,
-    h.lua.stack_last, h.lua.g, h.lua.mt_nil, h.lua.mt_boolean, h.lua.mt_number, h.lua.errjmp⟩
+    h.lua.stack_last, h.lua.g, h.lua.mt_nil, h.lua.mt_boolean, h.lua.mt_number, h.lua.errjmp, h.lua.frealloc⟩
 
 /-- **The relation after `CALL print`** (lane F1-13): the run's facts
 (`CloseIn`) give `CallOut` and the `CALL` invariant at the pointers after the

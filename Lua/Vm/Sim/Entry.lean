@@ -566,7 +566,8 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         hst ▸ rdW (by simp [luaStaticWords]) hlua.tbclist, hst ▸ rdW (by simp [luaStaticWords]) hlua.stack,
         hsl ▸ rdW (by simp [luaStaticWords]) hlua.stack_last, hg ▸ rdW (by simp [luaStaticWords]) hlua.g,
         rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_nil), rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_boolean),
-        rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_number), rdW (by simp [luaStaticWords]) hej.ptr⟩
+        rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_number), rdW (by simp [luaStaticWords]) hej.ptr,
+        rdW (by simp [luaStaticWords]) (heg ▸ hE.frealloc)⟩
   · simp only [CallDirty, EntryDirty] at hd ⊢
     rw [heg, hesl]; omega
   · have := hreg.ci_lo; have := hreg.L_lo; have := hreg.stack_lo

@@ -110,7 +110,7 @@ structure PushPost (m m' : Mem) (sp L g top ts len : Nat) : Prop where
   val_w : bytesT8 m' top = BitVec.ofNat 64 ts
   len_w : bytesT1 m' (ts + 11) = BitVec.ofNat 8 len
   keep : ∀ a, sp ≤ a ∨ (a + 16384 ≤ sp ∧ ¬ Rng (L + 16) 8 a ∧ ¬ Rng top 16 a ∧
-      ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧ ¬ Rng g 64 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a) →
+      ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧ ¬ Rng (g + 16) 48 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a) →
     bytesT1 m' a = bytesT1 m a
 
 /-- **Named premise: `lua_pushstring(L, s)` of an interned literal**
@@ -239,7 +239,7 @@ structure TolLitPost (m m' : Mem) (sp L lenp g top ts len : Nat) : Prop where
   val_w : bytesT8 m' top = BitVec.ofNat 64 ts
   len_w : bytesT8 m' lenp = BitVec.ofNat 64 len
   keep : ∀ a, (sp ≤ a ∧ ¬ Rng lenp 8 a) ∨ (a + 16384 + 64 ≤ sp ∧ ¬ Rng (L + 16) 8 a ∧ ¬ Rng top 16 a ∧
-      ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧ ¬ Rng g 64 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a) →
+      ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧ ¬ Rng (g + 16) 48 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a) →
     bytesT1 m' a = bytesT1 m a
 
 set_option hygiene false in
@@ -379,9 +379,9 @@ structure TolLitAt (L nci top g ts len : Nat) (Fa : Nat → Prop) (H : HeapIx) (
   gw : ∀ a, Rng g 64 a → Kept H ph a
   str : ∀ a, ts ≤ a → a < ts + 24 + len + 1 → Kept H ph a
   sep : ∀ a, ApiFoot L nci a ∨ Fa a → ¬ Rng top 16 a ∧ ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧
-    ¬ Rng g 64 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a
+    ¬ Rng (g + 16) 48 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a
   str_sep : ∀ a, ts + 24 ≤ a → a < ts + 24 + len → ¬ Rng (L + 16) 8 a ∧ ¬ Rng top 16 a ∧
-    ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧ ¬ Rng g 64 a
+    ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧ ¬ Rng (g + 16) 48 a
   nci_sep : nci + 8 ≤ L + 16 ∨ L + 24 ≤ nci
 
 /-- A kept byte is below the C stack. -/
@@ -435,7 +435,7 @@ theorem tolPost_of_lit {sp0 L nci func tbc n : Nat} {A : Mem → Prop} {Fa : Nat
       · exact (hS.kept a (.inl (.inl hr))).not_printFoot ha
       · exact (hW.slot a hr).not_printFoot ha
       · exact (hW.cache a hr).not_printFoot ha
-      · exact (hW.gw a hr).not_printFoot ha
+      · exact (hW.gw a (by simp only [Rng] at hr ⊢; omega)).not_printFoot ha
       · simp only [Rng, gcMarkedOff] at hr
         exact (hW.str a (by homega) (by homega)).not_printFoot ha
     · exact hlo.elim

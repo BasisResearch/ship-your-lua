@@ -253,6 +253,7 @@ def evaluate(lay, M, regs, proto):
             need(ts == slot["ts"], "env_print_ptr: the constant \"print\" is _ENV's key pointer")
     e["g"] = rd(L + lay["stateGOff"], 8)
     need(rd(e["g"] + lay["gGcstpOff"], 1) == lay["gcstpUsr"], "gc_stopped")
+    need(rd(e["g"], 8) == lay["symLAlloc"], "frealloc: g->frealloc is main.c's l_alloc")
     e["stackLast"] = rd(L + lay["stateStackLastOff"], 8)
     need(e["func"] + lay["stackValueSize"] * (1 + proto[2]) <= e["stackLast"], "frame_fits")
     # lane F1-14: `OP_CALL print` never grows the stack (`luaD_precall`'s
@@ -666,6 +667,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
               (L + lay["stateOpenupvalOff"], 8), (L + lay["stateTbclistOff"], 8), (L + lay["stateStackOff"], 8),
               (L + lay["stateStackLastOff"], 8), (L + lay["stateGOff"], 8), (L + lay["stateErrorJmpOff"], 8)]
     static += [(g + lay["gMtOff"] + 8 * lay[t], 8) for t in ("luaTnil", "luaTboolean", "luaTnumber")]
+    static += [(g, 8)]      # lane F1-14: `g->frealloc`
     for a, n in static:
         foot.update(range(a, a + n))
     foot.update(range(ka, ka + lay["tvalueSize"] * len(proto[4])))
@@ -675,7 +677,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     g_end = lay["gStrcacheOff"] + 8 * lay["strcacheN"] * lay["strcacheM"]
     dirty = [(L + lay["stateTopOff"], 8), (L + lay["stateCiOff"], 8), (ci, lay["ciSize"]),
              (e["func"], max(0, e["stackLast"] - e["func"]))]
-    apart(foot, dirty + [(g, 64), (g + lay["gStrcacheOff"], g_end - lay["gStrcacheOff"]),
+    apart(foot, dirty + [(g + 16, 48), (g + lay["gStrcacheOff"], g_end - lay["gStrcacheOff"]),
                          (L + lay["stateNciOff"], 2)], "e.foot")
     # ---- the literals
     seed = rd(g + lay["gSeedOff"], 4)
@@ -709,7 +711,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     M.rec = None
     need(all(lo + n <= lay["symTohost"] or in_chunk(lo, n) for lo, n in lit_foot) and
          all(lo >= lay["symTohost"] for lo, _ in lit_foot), "e.litFoot in chunks in use")
-    apart(lit_foot, dirty + [(L + lay["stateNciOff"], 2)], "e.litFoot")
+    apart(lit_foot, dirty + [(L + lay["stateNciOff"], 2), (g + lay["gGCdebtOff"], 8)], "e.litFoot")
     for ts in lits:
         need(not any(lo <= ts + lay["gcMarkedOff"] < lo + n for lo, n in foot), "a literal's mark byte off e.foot")
         need(in_chunk(ts, 30), "a literal's object in a chunk in use")

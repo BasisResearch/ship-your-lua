@@ -350,7 +350,7 @@ def _root_.Lua.Vm.RtPtrs.hix (rt : RtPtrs) : Kit.HeapIx :=
 the relation's pointers). -/
 def CallDirty (w : RelPtrs) (a : Nat) : Prop :=
   (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨ (w.L + stateCiOff ≤ a ∧ a < w.L + stateCiOff + 8) ∨
-  (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast) ∨ (w.rt.g ≤ a ∧ a < w.rt.g + 64) ∨
+  (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast) ∨ (w.rt.g + 16 ≤ a ∧ a < w.rt.g + 64) ∨
   (w.rt.g + gStrcacheOff ≤ a ∧ a < w.rt.g + gEnd) ∨ (w.L + stateNciOff ≤ a ∧ a < w.L + stateNciOff + 2)
 
 /-- **What the literals' facts stay apart from**: `L->top`, `L->ci`, the Lua
@@ -358,7 +358,8 @@ def CallDirty (w : RelPtrs) (a : Nat) : Prop :=
 def CallLitDirty (w : RelPtrs) (a : Nat) : Prop :=
   (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨ (w.L + stateCiOff ≤ a ∧ a < w.L + stateCiOff + 8) ∨
   (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast) ∨
-  (w.L + stateNciOff ≤ a ∧ a < w.L + stateNciOff + 2)
+  (w.L + stateNciOff ≤ a ∧ a < w.L + stateNciOff + 2) ∨
+  (w.rt.g + gGCdebtOff ≤ a ∧ a < w.rt.g + gGCdebtOff + 8)
 
 /-- **The words of the `lua_State` and `g` a `print` keeps** (`LuaStateRel`'s
 `L` and `g` words, and `L->errorJmp`). -/
@@ -375,6 +376,8 @@ structure LuaStatic (M : Mem) (L : Nat) (rt : RtPtrs) : Prop where
   mt_boolean : rd64 M (rt.g + gMtOff + 8 * luaTboolean) = some 0
   mt_number : rd64 M (rt.g + gMtOff + 8 * luaTnumber) = some 0
   errjmp : rd64 M (L + stateErrorJmpOff) = some RuntimeData.ljAddr
+  /-- (lane F1-14) `g->frealloc`, `luaM_malloc_`'s allocator -/
+  frealloc : rd64 M rt.g = some symLAlloc
 
 /-- **The objects a `CALL print` leaves alone**, in a memory `M`: `.rodata`,
 the prototype and its code pointer, the owned strings, `_ENV`'s chain to

@@ -74,7 +74,7 @@ structure PrintIn (L nci func n tbc sl g : Nat) (ls : LitPtrs) (args : List Valu
   lits : ∃ FL, LitsFoot g sl ls H ph D FL M
   keep_in : ∀ a, G a → Kept H ph a ∨ PrintStatic a
   keep_apart : ∀ a, G a → ¬ Rng (L + stateTopOff) 8 a ∧ ¬ (func + 16 * n + 16 ≤ a ∧ a < sl) ∧
-    ¬ Rng g 64 a ∧ ¬ (g + gStrcacheOff ≤ a ∧ a < g + gEnd) ∧ ∀ ts ∈ ls.strs, a ≠ ts + gcMarkedOff
+    ¬ Rng (g + 16) 48 a ∧ ¬ (g + gStrcacheOff ≤ a ∧ a < g + gEnd) ∧ ∀ ts ∈ ls.strs, a ≠ ts + gcMarkedOff
 
 /-- **What `luaB_print` leaves** for its caller: the console's bytes are the
 line, `stdout` set up and flushed with the heap (the chunks in use kept, the
@@ -119,7 +119,7 @@ chunks in use kept, every byte kept off the allocator's writes (`MallocW`),
 the block, `ci->next`, `L->nci` and its callees' stack, and `stdout`'s state
 with the new heap (the allocator's globals lie among the stdio globals, so this
 is the premise's, not a frame lemma's). -/
-structure ExtPost (M m' : Mem) (sp L ci : Nat) (H H' : HeapIx) (nci : Nat) : Prop where
+structure ExtPost (M m' : Mem) (sp L ci g : Nat) (H H' : HeapIx) (nci : Nat) : Prop where
   heap : HeapAt (fillZeroMem m') H'.top H'.brk H'.chunks H'.bins
   brk : H'.brk ≤ H.brk + extRoom
   kept : ∀ c ∈ H.chunks, c.inuse = true → c ∈ H'.chunks
@@ -128,21 +128,30 @@ structure ExtPost (M m' : Mem) (sp L ci : Nat) (H H' : HeapIx) (nci : Nat) : Pro
   next : bytesT8 m' (ci + ciNextOff) = BitVec.ofNat 64 nci
   prev : bytesT8 m' (nci + ciPreviousOff) = BitVec.ofNat 64 ci
   al : nci % 8 = 0
+  /-- (lane F1-14) also off `g->GCdebt`, which `luaM_malloc_` advances -/
   keep : ∀ a, ¬ (MallocW H.chunks a ∨ (nci ≤ a ∧ a < nci + ciSize) ∨ Rng (ci + ciNextOff) 8 a ∨
-    Rng (L + stateNciOff) 2 a ∨ Below (sp - 96) 4096 a) → bytesT1 m' a = bytesT1 M a
+    Rng (L + stateNciOff) 2 a ∨ Below (sp - 96) 4096 a ∨ Rng (g + gGCdebtOff) 8 a) → bytesT1 m' a = bytesT1 M a
   stdio : ∀ ph, PrintSt M ph H → ((∀ buf pend, ph ≠ .up buf pend) → H'.brk + 1024 + 16384 ≤ heapEnd) →
     PrintSt m' ph H'
 
 /-- **Named premise: `luaE_extendCI(L)`** (`0x80016a5c`, from `next_ci` with
 `ci->next` NULL): from the heap with room for one `_malloc_r`, `L->ci = ci`,
-its `next` NULL, no hook: `PcExt` with `ExtPost`. Open: its at-lemmas and
-`luaM_malloc_` → `l_alloc` → `_malloc_r` (`MallocR_Statement`). -/
+its `next` NULL, no hook, `G(L) = g` with `g->frealloc` main.c's `l_alloc`
+(`luaM_malloc_` calls it through a `jalr`), and the words it writes outside the
+new block (`L->nci`, `ci->next`, `g->GCdebt`) in chunks in use: `PcExt` with
+`ExtPost`. Open: its at-lemmas and `luaM_malloc_` → `l_alloc` → `realloc` →
+`_realloc_r(NULL)` → `_malloc_r` (`MallocR_Statement`). Lane F1-14: the earlier
+form did not constrain `g->frealloc` and claimed `g->GCdebt` kept, so it
+was false. -/
 def ExtendCI_Statement : Prop :=
-  ∀ (sp L ci : Nat) (f : AbiFrame) (M : Mem) (o : Array String) (H : HeapIx),
+  ∀ (sp L ci g : Nat) (f : AbiFrame) (M : Mem) (o : Array String) (H : HeapIx),
     HeapAt (fillZeroMem M) H.top H.brk H.chunks H.bins → H.brk + extRoom ≤ heapEnd →
     bytesT8 M (L + stateCiOff) = BitVec.ofNat 64 ci → bytesT8 M (ci + ciNextOff) = 0#64 →
-    bytesT4 M (L + stateHookmaskOff) = 0#32 → heapEnd + 8192 ≤ sp - 96 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
-    PcExt sp L f M o (fun nci m' => ∃ H', ExtPost M m' sp L ci H H' nci)
+    bytesT4 M (L + stateHookmaskOff) = 0#32 →
+    bytesT8 M (L + stateGOff) = BitVec.ofNat 64 g → bytesT8 M g = BitVec.ofNat 64 symLAlloc →
+    (∀ a, Rng (L + stateNciOff) 2 a ∨ Rng (ci + ciNextOff) 8 a ∨ Rng (g + gGCdebtOff) 8 a → InUse H.chunks a) →
+    heapEnd + 8192 ≤ sp - 96 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
+    PcExt sp L f M o (fun nci m' => ∃ H', ExtPost M m' sp L ci g H H' nci)
 
 /-! ## `luaD_poscall` with results -/
 
