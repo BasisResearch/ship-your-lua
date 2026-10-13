@@ -25,25 +25,17 @@ beyond one lemma per `lvm.c` combinator:
 `stuck_cases` packages this: every reachable stuck non-final state is a
 `StuckAt` with a failing `Fault`.
 
-**Not every fault is a Lua error.** The kernel is stuck wherever F1 has no
-value for the result, and in three families Lua 5.4.7 (with the default
-string coercion, `LUA_NOCVTS2N` unset) continues instead (`Fault.Escape`, a
-conservative superset):
-
-* string arithmetic whose operand is a float numeral (`"1.5" + 1`,
-  `lstrlib.c` `arith` → `lua_arith` gives `2.5`), and `-"1.5"`;
-* a numeric `for` whose control values are numerals but not all integers
-  (`for i = 1, "2"`: `forlimit` → `luaV_tointeger` coerces the string; a
-  string `init`/`step` takes `forprep`'s float loop);
-* `OP_FORLOOP` on a non-integer internal register (only hand-written
-  bytecode: `lvm.c` reads `ivalue` without a tag test, or takes
-  `floatforloop`).
-
-`Lua/Programs/Escape.lean` gives three `Supported` programs (from `luac`)
-that reach such a state, and `c/tests/stuck/` their runs on the Sail model
-(exit 0). The rest (`¬ Fault.Escape`) are Lua errors, each raised from the
-C function `Fault.site` names; all of them reach `luaG_errormsg` →
-`luaD_throw`.
+**Every fault but a stuck `OP_FORLOOP` is a Lua error** (`Fault.Escape`,
+exact since floats and the string coercion, `LUA_NOCVTS2N` unset, are in `δ`):
+`lvm.c` continues on a stuck `FORLOOP` (it reads `ivalue` without a tag test,
+or takes `floatforloop`), and a supported program never reaches one
+(`noEscape_of_supported`, by the loop check `loopsOk`). The former escapes
+(`"1.5" + 1`, `for i = 1, "2"`, `-"1.5"`) are `BcSem` outputs
+(`Lua/Programs/Escape.lean`). Every other fault is raised from the C function
+`Fault.site` names (`ErrSite`, checked against `lvm.c`, `ltm.c`, `lstrlib.c`
+and the host `lua` on `c/tests/stuck/`); all of them reach `luaG_errormsg` →
+`luaD_throw`. `site_ops` lists, per site, the opcodes whose stuck states it
+raises.
 -/
 
 namespace Lua.Bytecode
@@ -912,6 +904,18 @@ def zeroStep : Value → Value → Bool
   | .int _, .int c => c == 0
   | _, _ => false
 
+/-- `forprep`'s float loop with a zero step: not the integer loop, the three
+control values convert to floats (`tonumber`: the limit, the step, the initial
+value, in that order), and the step equals `0.0` (`luai_numeq`, so `-0.0`
+too); `forprep` raises `'for' step is zero` (`luaG_runerror`) after the
+conversions. The kernel's own test (`forprepK`). -/
+def fltZeroStep : Value → Value → Value → Bool
+  | .int _, _, .int _ => false
+  | i, l, st =>
+    match l.tonumber?, st.tonumber?, i.tonumber? with
+    | some (.flt _ _), some (.flt fs _), some (.flt _ _) => Float.Model.beq fs Lua.Num.zero
+    | _, _, _ => false
+
 /-- **The faults where Lua 5.4.7 continues** (exact). With floats and string
 coercion in `δ` (`LUA_NOCVTS2N` unset), every failing primitive, `CONCAT`,
 `FORPREP` and `CALL` is a Lua error (`Fault.site`); only `OP_FORLOOP` never
@@ -929,18 +933,19 @@ def Fault.Escape : Fault → List Value → Prop
 message to stderr (`c/src/main.c`). -/
 inductive ErrSite where
   /-- `luaG_runerror`: `luaV_mod`'s `'n%%0'`, `luaV_idiv`'s `'n//0'`,
-  `forprep`'s `'for' step is zero` -/
+  `forprep`'s `'for' step is zero` (integer or float loop) -/
   | runerror
   /-- `luaG_opinterror` (via `luaT_trybinTM`): arithmetic or bitwise on a
   non-number -/
   | opinterror
   /-- `luaG_tointerror` (via `luaT_trybinTM`): a bitwise metamethod event on
-  two numbers (a float without an integer value, or `MMBIN*` reached by a
-  jump) -/
+  two numbers (a float without an integer value: `MMBIN*` after a bitwise
+  operator, `OP_BNOT`) -/
   | tointerror
   /-- string arithmetic: `luaL_error` in `lstrlib.c` `trymt` (an operand that
-  is not a number or numeral), or `luaV_mod`/`luaV_idiv` by zero inside the
-  string metamethod (`luaG_runerror`) -/
+  is not a number or numeral: `MMBIN*` of an arithmetic operator with a
+  string operand, `OP_UNM` of a string), or `luaV_mod`/`luaV_idiv` by zero
+  inside the string metamethod (`luaG_runerror`) -/
   | strarith
   /-- `luaG_typeerror` (via `luaV_objlen`): `#` of a non-string -/
   | typeerror
@@ -948,13 +953,25 @@ inductive ErrSite where
   | ordererror
   /-- `luaG_concaterror` (via `luaT_tryconcatTM`) -/
   | concaterror
-  /-- `luaG_forerror`: a `for` value that is not a number -/
+  /-- `luaG_forerror` (via `forlimit` or `forprep`'s `tonumber`, i.e.
+  `luaV_tonumber_`): a `for` value that does not convert to a number -/
   | forerror
   /-- `luaG_callerror` (via `luaD_tryfuncTM`): a call of a non-function -/
   | callerror
   deriving DecidableEq, Repr
 
-/-- Where Lua raises the error of a non-escaping fault. -/
+/-- **Where Lua raises the error of a non-escaping fault** (`lvm.c`, `ltm.c`
+`luaT_trybinTM`, `lstrlib.c` `trymt`):
+
+* `OP_UNM` of a string that is not a numeral: the string metatable's `__unm`
+  (`arith_unm` → `trymt` → `luaL_error`), not `luaT_trybinTM`'s
+  `luaG_opinterror` (which `UNM` of `nil` or a boolean reaches);
+* `OP_BNOT` of a float without an integer value: `luaT_trybinTM(TM_BNOT)` on
+  two numbers is `luaG_tointerror` (`number has no integer representation`);
+  of a non-number, `luaG_opinterror`;
+* `OP_FORPREP`'s zero step, integer or float (`zeroStep`, `fltZeroStep`), is
+  `luaG_runerror`; any other failure is a control value that does not
+  convert (`luaG_forerror`). -/
 def Fault.site : Fault → List Value → ErrSite
   | .prim (.arith _) _, _ => .runerror
   | .prim (.tm b) os, vs =>
@@ -964,16 +981,56 @@ def Fault.site : Fault → List Value → ErrSite
       else if !b.strMeta && x.isNum && y.isNum then .tointerror
       else .opinterror
     | _ => .opinterror
+  | .prim .unm os, vs =>
+    match Opnd.fill os vs with
+    | [x] => if x.isStr then .strarith else .opinterror
+    | _ => .opinterror
+  | .prim .bnot os, vs =>
+    match Opnd.fill os vs with
+    | [x] => if x.isNum then .tointerror else .opinterror
+    | _ => .opinterror
   | .prim .len _, _ => .typeerror
   | .prim .lt _, _ | .prim .le _, _ => .ordererror
   | .prim _ _, _ => .opinterror
   | .concat, _ => .concaterror
   | .forprep, vs =>
     match vs with
-    | [i, _, st] => if zeroStep i st then .runerror else .forerror
+    | [i, l, st] => if zeroStep i st || fltZeroStep i l st then .runerror else .forerror
     | _ => .forerror
   | .forloop, _ => .runerror
   | .call, _ => .callerror
+
+/-- **The opcodes whose stuck states a site raises** (`site_ops`). -/
+def siteOps : ErrSite → List OpCode
+  | .runerror => [.MOD, .IDIV, .MODK, .IDIVK, .FORPREP]
+  | .opinterror => [.MMBIN, .MMBINI, .MMBINK, .UNM, .BNOT]
+  | .tointerror => [.MMBIN, .MMBINI, .MMBINK, .BNOT]
+  | .strarith => [.MMBIN, .MMBINI, .MMBINK, .UNM]
+  | .typeerror => [.LEN]
+  | .ordererror => [.LT, .LTI, .GTI, .LE, .LEI, .GEI]
+  | .concaterror => [.CONCAT]
+  | .forerror => [.FORPREP]
+  | .callerror => [.CALL]
+
+/-- **The enumeration by site**: a non-escaping stuck state's opcode is one
+of its site's (`siteOps`). -/
+theorem site_ops {p : Proto} {s : State} {w : Word} {o : OpCode} {K : Kernel Value}
+    {vs : List Value} {φ : Fault} (hA : StuckAt p s w o K vs φ) (hne : ¬ φ.Escape vs) :
+    o ∈ siteOps (φ.site vs) := by
+  have hm := hA.mem
+  cases φ with
+  | prim f os =>
+    cases f <;> simp only [Fault.ops, List.mem_cons, List.not_mem_nil, or_false] at hm <;>
+      simp only [Fault.site] <;> (try split) <;> (try split) <;> (try split) <;>
+      rcases hm with rfl | rfl | rfl | rfl | rfl | rfl <;> simp [siteOps]
+  | concat => simp only [Fault.ops, List.mem_cons, List.not_mem_nil, or_false] at hm; subst hm; simp [Fault.site, siteOps]
+  | forprep =>
+    simp only [Fault.ops, List.mem_cons, List.not_mem_nil, or_false] at hm; subst hm
+    simp only [Fault.site]; split
+    · split <;> simp [siteOps]
+    · simp [siteOps]
+  | forloop => exact absurd trivial hne
+  | call => simp only [Fault.ops, List.mem_cons, List.not_mem_nil, or_false] at hm; subst hm; simp [Fault.site, siteOps]
 
 /-- **No reachable stuck state of `p` escapes**: every one is a Lua error. -/
 def NoEscape (H : Host) (p : Proto) : Prop :=

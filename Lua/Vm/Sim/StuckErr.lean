@@ -132,11 +132,11 @@ theorem divK_q {p : Proto} (hS : Supported p) {s : State} {ins : Word} {o : OpCo
   have hC := (hA.core.kconst hkv).tag_of_int
   exact ⟨by simp [hkv], ⟨hB.1, hC.1⟩, hC.2⟩
 
-/-- `forprep`'s zero step, from its stuck state. -/
+/-- `forprep`'s integer zero step, from its stuck state. -/
 theorem forprep_q {p : Proto} (hS : Supported p) {s : State} {ins : Word} {vs : List Value}
     (hf : p.fetch s.pc = some ins) (hop : ins.op? = some .FORPREP)
     (hvs : (forprepK s.pc ins).reads.mapM s.regs = some vs)
-    (hz : Fault.site .forprep vs = .runerror) :
+    (hz : ∀ i l st, vs = [i, l, st] → zeroStep i st = true) :
     ∀ c' w, ArmAt p c' s w ins → FpZero p c' s w ins := by
   intro c' w hA
   have hK : opKernel p s.pc ins .FORPREP = some (forprepK s.pc ins) := rfl
@@ -145,15 +145,44 @@ theorem forprep_q {p : Proto} (hS : Supported p) {s : State} {ins : Word} {vs : 
     simp [h1, h2, h3] at hvs
   subst hvs
   rename_i i _ st
-  simp only [Fault.site] at hz
+  have hz := hz _ _ _ rfl
   cases i <;> cases st <;> simp [zeroStep] at hz
   subst hz
   have hI := (slot_of_read hA hS hf hop hK (by simp [forprepK]) h1).tag_of_int
   have hT := (slot_of_read hA hS hf hop hK (by simp [forprepK]) h3).tag_of_int
   exact ⟨hI.1, hT.1, hT.2⟩
 
+/-- **`forprep`'s float zero step** (`fltZeroStep`: the float loop, `'for'
+step is zero`, `luaG_runerror` after `forprep`'s conversions): at a reachable
+`FORPREP` stuck there, the machine diverges or halts nonzero. -/
+def FpFltZero_Statement : Prop :=
+  ∀ p c s w K vs, Supported p → Reach p s → VmRel p c s → StuckAt p s w .FORPREP K vs .forprep →
+    (∃ i l st, vs = [i, l, st] ∧ fltZeroStep i l st = true) → StuckOut c
+
+/-- `forprep`'s site: a `luaG_runerror` site that is not the integer zero
+step is the float one. -/
+theorem fltZero_of_site {pc : Nat} {ins : Word} {s : State} {vs : List Value}
+    (hvs : (forprepK pc ins).reads.mapM s.regs = some vs) (hsite : Fault.site .forprep vs = .runerror)
+    (hz : ¬ ∀ i l st, vs = [i, l, st] → zeroStep i st = true) :
+    ∃ i l st, vs = [i, l, st] ∧ fltZeroStep i l st = true := by
+  simp only [forprepK, List.mapM_cons, List.mapM_nil] at hvs
+  cases h1 : s.regs ins.a <;> cases h2 : s.regs (ins.a + 1) <;> cases h3 : s.regs (ins.a + 2) <;>
+    simp [h1, h2, h3] at hvs
+  subst hvs
+  rename_i i l st
+  refine ⟨i, l, st, rfl, ?_⟩
+  have hz' : zeroStep i st = false := by
+    cases e : zeroStep i st
+    · rfl
+    · exact absurd (fun i' l' st' h => by simp only [List.cons.injEq] at h; obtain ⟨rfl, -, rfl, -⟩ := h; exact e) hz
+  simp only [Fault.site, hz', Bool.false_or] at hsite
+  split at hsite
+  · assumption
+  · cases hsite
+
 /-- **`luaG_runerror`'s error states, from its throw obligation.** -/
-theorem runerrorSim (hT : ThrowFrom symLuaGRunerror) : ErrorSimAt .runerror := by
+theorem runerrorSim (hT : ThrowFrom symLuaGRunerror) (hFz : FpFltZero_Statement) :
+    ErrorSimAt .runerror := by
   intro p c s w o K vs φ hS hs hR hA hne hsite
   have hf := hA.fetch; have hop := hA.op; have hK := hA.kernel
   cases φ with
@@ -184,7 +213,7 @@ theorem runerrorSim (hT : ThrowFrom symLuaGRunerror) : ErrorSimAt .runerror := b
         · cases hsite
         · split at hsite <;> cases hsite
       · cases hsite
-    all_goals simp [Fault.site] at hsite
+    all_goals (simp only [Fault.site] at hsite; (repeat' split at hsite) <;> cases hsite)
   | concat => simp [Fault.site] at hsite
   | call => simp [Fault.site] at hsite
   | forloop => exact absurd trivial hne
@@ -193,8 +222,10 @@ theorem runerrorSim (hT : ThrowFrom symLuaGRunerror) : ErrorSimAt .runerror := b
     simp only [Fault.ops, List.mem_cons, List.not_mem_nil, or_false] at hm
     subst hm
     simp only [opKernel, Option.some.injEq] at hK; subst hK
-    exact stuckOut_of_armErr (by decide) forprep_err hT hS hs hR hf hop
-      (forprep_q hS hf hop hA.reads hsite)
+    by_cases hz : ∀ i l st, vs = [i, l, st] → zeroStep i st = true
+    · exact stuckOut_of_armErr (by decide) forprep_err hT hS hs hR hf hop
+        (forprep_q hS hf hop hA.reads hz)
+    · exact hFz p c s w _ vs hS hs hR hA (fltZero_of_site hA.reads hsite hz)
 
 /-- **What is left of `ErrorSim`**: `luaG_runerror`'s throw obligation (its
 error states' arm paths are proved, `runerrorSim`), and the other sites,
@@ -204,6 +235,8 @@ whose arms reach the error through a helper that may also return
 structure ErrorSimRest : Prop where
   /-- `luaG_runerror` (0x800092cc) never returns, and the error exits 2 -/
   runerror : ThrowFrom symLuaGRunerror
+  /-- `forprep`'s float zero step (`luaG_runerror` after the conversions) -/
+  fpFltZero : FpFltZero_Statement
   opinterror : ErrorSimAt .opinterror
   tointerror : ErrorSimAt .tointerror
   strarith : ErrorSimAt .strarith
@@ -214,7 +247,7 @@ structure ErrorSimRest : Prop where
   callerror : ErrorSimAt .callerror
 
 theorem errorSim_of_rest (h : ErrorSimRest) : ErrorSim :=
-  ⟨runerrorSim h.runerror, h.opinterror, h.tointerror, h.strarith, h.typeerror, h.ordererror,
+  ⟨runerrorSim h.runerror h.fpFltZero, h.opinterror, h.tointerror, h.strarith, h.typeerror, h.ordererror,
     h.concaterror, h.forerror, h.callerror⟩
 
 /-- **Layer A without escapes, from what is open**: the open arms, the
