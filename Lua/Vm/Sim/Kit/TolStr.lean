@@ -502,22 +502,19 @@ local macro "tol_nums" : tactic => `(tactic| (
 theorem tol_tail_s {sp L i lenp nci func top g sl tbc ts len : Nat} {ls : LitPtrs} {FL : Nat → Prop}
     {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
     (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x44#8)
-    (hlen : bytesT1 M3 (ts + 11) = BitVec.ofNat 8 len) (hl : len < 255)
-    (hsk : ¬ (Rng top 9 (ts + 11) ∨ Rng (L + 16) 8 (ts + 11))) {c2 : Config}
+    (hlen : bytesT1 (TolPushMem M3 L top ts 0x44#64) (ts + 11) = BitVec.ofNat 8 len) (hl : len < 255) {c2 : Config}
     (h : SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
         ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
       (ArmPay (TolPushMem M3 L top ts 0x44#64) o) c2) :
     ∃ c', Steps c2 c' ∧ ∃ m', wrRet r sp (ts + 24) f m' o c' ∧ TolStrPost m m' sp L lenp g top ls len := by
   tol_nums
-  simp only [Rng, not_or, not_and, Nat.not_lt] at hsk
-  have e1 := rng_split hsk.2; have e2 := rng_split hsk.1
   obtain ⟨c3, s3, hret⟩ := toltop_sum (sp := sp) (L := L) (lenp := lenp) (ts := ts) (top := top + 16)
     (len := len) f o
     ⟨by omega, hx.ra, by omega, by omega, hx.L_al, by omega, by omega, hx.l_al, by omega, by omega, hx.s_lo,
       hx.s_hi⟩
     ⟨by rw [fw8_same rfl], by rw [show top + 16 - 8 = top + 8 by omega, fw1_wm8 (by omega), fw1_same rfl]; rfl,
       by rw [show top + 16 - 16 = top by omega, fw8_wm8 (by omega), fw8_ins (by omega), fw8_same rfl],
-      by rw [fw1_wm8 e1, fw1_ins (by omega), fw1_wm8 (by omega)]; exact hlen, hl⟩ _ h
+      hlen, hl⟩ _ h
   exact ⟨c3, s3, _, hret, tolStrPost_of hx hT hmid _⟩
 
 /-- **The tail `lua_tolstring(L, -1, &l)` of a long string** (`toltopl_sum`:
@@ -525,27 +522,20 @@ theorem tol_tail_s {sp L i lenp nci func top g sl tbc ts len : Nat} {ls : LitPtr
 theorem tol_tail_l {sp L i lenp nci func top g sl tbc ts len : Nat} {ls : LitPtrs} {FL : Nat → Prop}
     {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
     (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x54#8)
-    (hshr : bytesT1 M3 (ts + 11) = 0xff#8) (hlen : bytesT8 M3 (ts + 16) = BitVec.ofNat 64 len)
-    (hsk : ∀ a, ts + 11 ≤ a → a < ts + 24 → ¬ (Rng top 9 a ∨ Rng (L + 16) 8 a)) {c2 : Config}
+    (hshr : bytesT1 (TolPushMem M3 L top ts 0x54#64) (ts + 11) = 0xff#8)
+    (hlen : bytesT8 (TolPushMem M3 L top ts 0x54#64) (ts + 16) = BitVec.ofNat 64 len) {c2 : Config}
     (h : SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
         ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
       (ArmPay (TolPushMem M3 L top ts 0x54#64) o) c2) :
     ∃ c', Steps c2 c' ∧ ∃ m', wrRet r sp (ts + 24) f m' o c' ∧ TolStrPost m m' sp L lenp g top ls len := by
   tol_nums
-  have kP : ∀ a, ts + 11 ≤ a → a < ts + 24 → bytesT1 (TolPushMem M3 L top ts 0x54#64) a = bytesT1 M3 a := by
-    intro a h1 h2
-    have := hsk a h1 h2
-    simp only [Rng, not_or, not_and, Nat.not_lt] at this
-    have e1 := rng_split this.2; have e2 := rng_split this.1
-    rw [fw1_wm8 e1, fw1_ins (by omega), fw1_wm8 (by omega)]
   obtain ⟨c3, s3, hret⟩ := toltopl_sum (sp := sp) (L := L) (lenp := lenp) (ts := ts) (top := top + 16)
     (len := len) f o
     ⟨by omega, hx.ra, by omega, by omega, hx.L_al, by omega, by omega, hx.l_al, by omega, by omega, hx.s_lo,
       hx.s_hi⟩
     ⟨by rw [fw8_same rfl], by rw [show top + 16 - 8 = top + 8 by omega, fw1_wm8 (by omega), fw1_same rfl]; rfl,
       by rw [show top + 16 - 16 = top by omega, fw8_wm8 (by omega), fw8_ins (by omega), fw8_same rfl],
-      by rw [kP _ (by omega) (by omega)]; exact hshr,
-      by rw [bytesT8_congrT fun j _ => kP _ (by omega) (by omega)]; exact hlen⟩ _ h
+      hshr, hlen⟩ _ h
   exact ⟨c3, s3, _, hret, tolStrPost_of hx hT hmid _⟩
 
 end Lua.Vm.Sim.Kit
