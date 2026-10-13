@@ -1,5 +1,6 @@
 import Lua.Vm.Sim.Kit.CallClose
 import Lua.Vm.Sim.Kit.ExitUp
+import Lua.Vm.Sim.Kit.PoscallN
 
 /-!
 # `PrintCall_Statement CallInv` from `CALL`'s open parts (lane F1-13)
@@ -506,11 +507,19 @@ theorem call_pos_run (hN : PoscallN_Statement) {p : Proto} {c : Config} {s : Sta
       (by simp only [Ret.RFrame.pins]; exact h.repin (by pins_of h))
     simp only [Ret.RFrame.pins] at h'
     exact ⟨c', s', _, h'.repin (by pins_of h'), pcMem_post m' w.L nci (w.sp - 96) 0x8000ac9c#64⟩
-  · have hx : PcCxW w.L nci (w.sp - 96) 0x8000ac9c#64 m' (ins.c - 1) :=
+  · have hapi := call_api cx hI hJ
+    have hres : (bytesT8 m' (nci + ciFuncOff)).toNat = w.slot ins.a := by
+      rw [bytesT8_congrT (m' := callMC w ins MJ nci) fun i hi =>
+        hout.keep _ (.inr (.inr (.inl ⟨by simp only [ciFuncOff]; omega, by simp only [ciFuncOff, ciSize]; omega⟩))),
+        show nci + ciFuncOff = nci from rfl, hapi.func_w, BitVec.toNat_ofNat]
+      omega
+    have hx : PcCxW w.L nci (w.sp - 96) 0x8000ac9c#64 m' (ins.c - 1) :=
       ⟨by decide, by omega, by omega, by omega, by omega, by simp only [stateSize]; omega, by omega,
-        by simp only [ciSize]; omega, hnal, hLal, hhook, hnres⟩
+        by simp only [ciSize]; omega, hnal, hLal, hhook, hnres, by rw [hres, hslot]; omega,
+        by rw [hres, hslot]; omega, by rw [hres, hslot]; simp only [ciSize]; omega,
+        by rw [hres, hslot]; simp only [stateSize]; omega⟩
     obtain ⟨c', s', m'', h', hpost⟩ := hN hx (by omega) (by omega) ⟨BitVec.ofNat 64 symGlobalPointer,
-      BitVec.ofNat 64 w.L, f.s1, f.s2, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11⟩ 0x0#64 o' c0
+      BitVec.ofNat 64 w.L, f.s1, f.s2, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11⟩ o' c0
       (by simp only [Ret.RFrame.pins]; exact h.repin (by pins_of h))
     simp only [Ret.RFrame.pins] at h'
     exact ⟨c', s', m'', h'.repin (by pins_of h'), hpost⟩

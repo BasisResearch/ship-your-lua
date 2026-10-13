@@ -160,8 +160,12 @@ SUMMARISED |= {"luaF_close", "luaF_closeupval", "luaD_poscall"}
 HELPERS += [("luaF_close", "LuaF_close", 0x8000c224, 0x8000c380, [22, 26], [], [0x8000c264]),
             ("luaF_closeupval", "LuaF_closeupval", 0x8000c114, 0x8000c224, [22, 26], [],
              [0x8000c11c]),
-            ("luaD_poscall", "LuaD_poscall", 0x8000a39c, 0x8000a5e8, [22, 26], [],
-             [0x8000a3bc, 0x8000a4d8]),
+            # lane F1-14: `wanted ≥ 1` (`C ≥ 2`) with no results: `wanted = 1`'s nil
+            # (`0x8000a548`) and the nil-fill loop (`0x8000a4a4`, a root); the
+            # result copies (`0x8000a44c`, `nres > 0`) and the close path
+            # (`0x8000a5e4`, `wanted < -1`) are stops
+            ("luaD_poscall", "LuaD_poscall", 0x8000a39c, 0x8000a5e8, [22, 26], [0x8000a4a4],
+             [0x8000a3bc, 0x8000a44c, 0x8000a5e4]),
             ("luaD_callnoyield", "LuaD_callnoyield", 0x8000b0bc, 0x8000b0e0, [22, 26], [], []),
             ("luaD_rawrunprotected", "LuaD_rawrunprotected", 0x80009c38, 0x80009c60, [22, 26],
              [], []),

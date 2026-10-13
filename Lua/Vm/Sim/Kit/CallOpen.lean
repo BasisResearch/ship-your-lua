@@ -172,15 +172,23 @@ structure PcCxW (L ci sp : Nat) (r : BitVec 64) (m : Mem) (w : Nat) : Prop where
   L_al : L % 8 = 0
   hook : bytesT4 m (L + stateHookmaskOff) = 0#32
   nres : bytesT2 m (ci + ciNresultsOff) = BitVec.ofNat 16 w
+  /-- (lane F1-14) the `w` result slots from `res = ci->func`: in RAM, below
+  `luaD_poscall`'s frame, apart from the `CallInfo` and `L->top`/`L->ci` -/
+  res_lo : tohostAddr + 16 ≤ (bytesT8 m (ci + ciFuncOff)).toNat
+  res_hi : (bytesT8 m (ci + ciFuncOff)).toNat + 16 * w + 64 ≤ sp
+  res_ci : (bytesT8 m (ci + ciFuncOff)).toNat + 16 * w ≤ ci ∨ ci + ciSize ≤ (bytesT8 m (ci + ciFuncOff)).toNat
+  res_L : (bytesT8 m (ci + ciFuncOff)).toNat + 16 * w ≤ L ∨ L + stateSize ≤ (bytesT8 m (ci + ciFuncOff)).toNat
 
-/-- **Named premise: `luaD_poscall(L, ci, 0)` with `wanted ≥ 1`** (`C ≥ 2`,
-`moveresults`' fill with nils; `HluaD_poscall` stops at `0x8000a4d8`): the
-summary in `poscall_sum`'s shape, post `PoscallPost`. -/
+/-- **`luaD_poscall(L, ci, 0)` with `wanted ≥ 1`** (`C ≥ 2`, `moveresults`'
+fill with nils after a C function that returned no result, `n = 0`): the
+summary in `poscall_sum`'s shape, post `PoscallPost`. Proved (lane F1-14):
+`poscallN`, `Kit/PoscallN.lean`. With `n ≠ 0` the results would be copied,
+so the statement is stated at `luaB_print`'s `0`. -/
 def PoscallN_Statement : Prop :=
   ∀ {L ci sp w : Nat} {r : BitVec 64} {m : Mem}, PcCxW L ci sp r m w → 1 ≤ w → w < 2 ^ 15 →
-    ∀ (f : Ret.RFrame) (n : BitVec 64) (o : Array String),
+    ∀ (f : Ret.RFrame) (o : Array String),
     Triple (SegSt 0x8000a39c#64 (⟨Register.x10, BitVec.ofNat 64 L⟩ ::
-        ⟨Register.x11, BitVec.ofNat 64 ci⟩ :: ⟨Register.x12, n⟩ ::
+        ⟨Register.x11, BitVec.ofNat 64 ci⟩ :: ⟨Register.x12, 0x0#64⟩ ::
         ⟨Register.x1, r⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins) (ArmPay m o))
       (fun c => ∃ m', SegSt r (⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins) (ArmPay m' o) c ∧
         PoscallPost m m' L ci sp w)
@@ -212,7 +220,6 @@ def ExitUp_Statement : Prop :=
 structure CallOpen : Prop where
   print : PrintRel_Statement
   extendCI : ExtendCI_Statement
-  poscall : PoscallN_Statement
   freeR : FreeR_Statement
 
 /-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the

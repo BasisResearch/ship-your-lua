@@ -64,6 +64,7 @@ import Lua.Vm.Sim.Kit.Precall
 import Lua.Vm.Sim.Kit.CallArm
 import Lua.Vm.Sim.Kit.CallPrint
 import Lua.Vm.Sim.Kit.ExitUp
+import Lua.Vm.Sim.Kit.PoscallN
 import Lua.Vm.Sim.Kit.PrintS
 import Lua.Vm.Sim.Kit.Tolstring
 
