@@ -343,14 +343,14 @@ def atWalkArgs (n : Name) : TermElabM (Array Term) := do
     return args
 
 /-- The fork guard of an at-lemma at the context `X`, if it has one. -/
-def forkGuard? (n : Name) (X : Expr) : MetaM (Option Expr) := do
+def forkGuard? (n : Name) (X : Expr) (any : Bool := false) : MetaM (Option Expr) := do
   let ci ← getConstInfo n
   forallTelescope ci.type fun xs _ => do
     for x in xs do
       let d ← x.fvarId!.getDecl
       if d.userName.toString.startsWith "hg" then
         let t ← inferType x
-        if isForkGuard t then return some (t.replaceFVar xs[0]! X)
+        if any || isForkGuard t then return some (t.replaceFVar xs[0]! X)
     return none
 
 /-- **`at_step1 ns h acc`**: one at-lemma of `ns` from `h : At X pc …`
@@ -382,19 +382,23 @@ elab "at_step1 " ns:ident h:ident acc:ident : tactic => withMainContext do
           evalTactic (← `(tactic| exact $(mkIdent tn) _ $acc $h))
       return
     s.restore
-  for n in cands do
-    if let some g ← forkGuard? n X then
-      let some (_, lhs, _) := g.eq? | continue
-      -- lane F2: a fork already split here has no at-lemma on this side (a
-      -- path the generator dropped): fail, never split it again
-      for d in ← getLCtx do
-        if let some (_, l, _) := (← instantiateMVars d.type).eq? then
-          if l == lhs then
-            throwError "at_step1: no at-lemma for this side of the fork at 0x{hex8 pc}"
-      let stx ← Term.exprToSyntax lhs
-      let hn := mkIdent (Name.mkSimple s!"hf_{hex8 pc}")
-      evalTactic (← `(tactic| rcases Bool.eq_false_or_eq_true $stx with $hn:ident | $hn:ident))
-      return
+  -- lane F3: then a guard the context does not decide and that is no soft-float
+  -- answer (a residual atom: `OP_SHRI`'s tests of `C`, an integer amount's in
+  -- `OP_SHL`): a fork too, split on its `Bool`
+  for any in [false, true] do
+    for n in cands do
+      if let some g ← forkGuard? n X any then
+        let some (_, lhs, _) := g.eq? | continue
+        -- lane F2: a fork already split here has no at-lemma on this side (a
+        -- path the generator dropped): fail, never split it again
+        for d in ← getLCtx do
+          if let some (_, l, _) := (← instantiateMVars d.type).eq? then
+            if l == lhs then
+              throwError "at_step1: no at-lemma for this side of the fork at 0x{hex8 pc}"
+        let stx ← Term.exprToSyntax lhs
+        let hn := mkIdent (Name.mkSimple s!"hf_{hex8 pc}")
+        evalTactic (← `(tactic| rcases Bool.eq_false_or_eq_true $stx with $hn:ident | $hn:ident))
+        return
   throwError "at_step1: nothing applies at 0x{hex8 pc}"
 
 /-! ## The leaf: one closed `decide` over the pair atoms -/
@@ -533,6 +537,13 @@ elab "split_res_hq" : tactic => withMainContext do
   unless α.isConstOf ``Lua.Num.Res && l.isAppOf ``ite do throwError "split_res_hq: not a kernel result"
   evalTactic (← `(tactic| split at $(mkIdent `hq):ident <;> rename_i $(mkIdent `hqc):ident))
 
+/-- **An extension point of `at_leaf`** (lane F3), tried on the side the close
+takes, before the close: a family whose kernel value tests the very `Bool`s
+the machine forked on (`Kit/AtJoinShift.lean`: a shift's amount) decides them
+by the path's fork facts and the kernel's side facts. Fails by default. -/
+syntax "at_leaf_ext" : tactic
+macro_rules | `(tactic| at_leaf_ext) => `(tactic| fail "at_leaf_ext")
+
 set_option hygiene false in
 /-- **`at_leaf NS`**: at the fetch head, the kernel's outcome: the side of
 its test the path's atoms refute is closed by `at_atoms`, the other by the
@@ -548,6 +559,7 @@ macro "at_leaf " ns:ident : tactic => `(tactic| (
   | (simp at hq; done)
   | (exfalso; at_atoms)
   | (try (simp only [Lua.Num.Res.val.injEq, Lua.Num.Numeral.int.injEq] at hq; cases hq)
+     try at_leaf_ext
      simp [VState.apply, writeDefs, KEdge.kills] at hk
      subst hk
      at_close $ns h0 acc)

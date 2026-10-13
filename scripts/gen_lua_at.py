@@ -90,8 +90,13 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               # lane F3: the K forms' float paths (`K[C]` read back through
               # `floor`'s frame)
               "OP_BANDK_F": ("BandkF", 0x8001d710), "OP_BORK_F": ("BorkF", 0x8001d6b8),
-              "OP_BXORK_F": ("BxorkF", 0x8001d660)}
+              "OP_BXORK_F": ("BxorkF", 0x8001d660),
+              # lane F3: the shifts' float paths (`luaV_shiftl` inlined, on
+              # `tointegerns`'s converted operands)
+              "OP_SHL_F": ("ShlF", 0x8001d5f0), "OP_SHR_F": ("ShrF", 0x8001d57c),
+              "OP_SHLI_F": ("ShliF", 0x8001dd30), "OP_SHRI_F": ("ShriF", 0x8001dd8c)}
 SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
+          **{f"OP_{o}_F": f"OP_{o}" for o in ("SHL", "SHR", "SHLI", "SHRI")},
 "OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
           "OP_LE_F": "OP_LE",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("BNOT", "BAND", "BOR", "BXOR")}}
@@ -102,7 +107,8 @@ FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_FORPREP_F": [("tag", "a", 0), ("tag", "a", 1), ("tag", "a", 2)],
               "OP_LEI": [("tag", "a", 0)], "OP_GTI": [("tag", "a", 0)],
               "OP_UNM_F": [("tag", "b", 0)],
-              "OP_BNOT_F": [("tag", "b", 0)]}
+              "OP_BNOT_F": [("tag", "b", 0)],
+              "OP_SHLI_F": [("tag", "b", 0)], "OP_SHRI_F": [("tag", "b", 0)]}
 VNUMFLT_ = 19
 # round 5 (A-JOIN): the cut points at the machine's joins. arm -> {join pc:
 # (the joined register, the fork whose two sides meet there)}. A path that
