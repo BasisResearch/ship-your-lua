@@ -78,6 +78,18 @@ for f in glob.glob("abstractions/ROUND-*.md"):
 def files(g):
     return sorted(p for p in glob.glob(g, recursive=True) if os.path.isfile(p))
 
+# kind `located`: a top-level user-command invocation is an identifier at
+# column 0 that is not a Lean keyword, followed by its first argument
+CMD = re.compile(r"^([a-z_][A-Za-z0-9_]*)\s+(\S+)")
+KEYWORDS = {"theorem", "lemma", "def", "abbrev", "structure", "inductive", "instance",
+            "example", "namespace", "end", "section", "open", "variable", "set_option",
+            "mutual", "noncomputable", "private", "protected", "macro", "macro_rules",
+            "syntax", "elab", "elab_rules", "import", "attribute", "universe", "class",
+            "opaque", "axiom", "local", "scoped", "partial", "unsafe", "notation",
+            "infix", "infixl", "infixr", "prefix", "postfix", "deriving", "initialize",
+            "register_simp_attr", "declare_syntax_cat", "add_decl_doc", "export", "omit",
+            "include", "termination_by", "decreasing_by"}
+
 failed = False
 for row in open("abstractions/clusters.tsv"):
     if not row.strip() or row.startswith("#"): continue
@@ -99,7 +111,30 @@ for row in open("abstractions/clusters.tsv"):
             print(f"{cid}: generated cases with no ledger row: {missing} (add them to {lp})")
             failed = True
     else:
-        fg, rx = sel.split("::", 1); rx = re.compile(rx)
+        if kind == "located":
+            # every case in the cluster's files, whatever its name: all
+            # theorems/lemmas, and every top-level invocation of a user command
+            # (a declaration-generating command such as `bitwise_flt_arm`)
+            fg = sel.split("::", 1)[0]; rx = re.compile(r".")
+            for p in files(fg):
+                src = open(p, errors="ignore").read()
+                if "GENERATED" in src[:400]: continue
+                lines = src.splitlines()
+                depth = 0  # block-comment nesting (`/- … -/`, doc comments)
+                for i, l in enumerate(lines):
+                    d0 = depth
+                    depth += len(re.findall(r"/-", l)) - len(re.findall(r"-/", l))
+                    if d0 > 0: continue
+                    m = CMD.match(l)
+                    if not m or m.group(1) in KEYWORDS: continue
+                    j = i + 1
+                    while j < len(lines) and lines[j].strip() and lines[j][0].isspace(): j += 1
+                    n = sum(1 for x in lines[i:j] if x.strip() and not x.strip().startswith("--"))
+                    t, c = blame_time(p, i + 1)
+                    cases.append((t, n, f"{p}:{i+1} {m.group(1)} {m.group(2)}"))
+            kind = "theorems"
+        else:
+            fg, rx = sel.split("::", 1); rx = re.compile(rx)
         for p in files(fg):
             src = open(p, errors="ignore").read()
             if "GENERATED" in src[:400]: continue

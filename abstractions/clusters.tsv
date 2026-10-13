@@ -5,6 +5,8 @@
 #   kind = ledger   : hand cost of GENERATED cases, from a ledger TSV (case, hand_lines, source)
 #          in proof order; selector = <ledger.tsv>::<glob of the generated files>. Every generated
 #          case must have a row, so the gate can never be blind to generated work.
+#   kind = located  : every case in the files matching the glob, whatever its name (selector = <file glob>):
+#          all theorems/lemmas and every top-level user-command invocation (e.g. `bitwise_flt_arm`)
 #   kind = arms     : the case arms of the named theorems (one case = one obligation)
 #          selector = <file glob>::<theorem name regex>
 # A cluster is "re-baselined" by a line `baseline <id> <commit>` in an adopted ROUND-<n>.md
@@ -16,4 +18,4 @@ boot-witness	theorems	Lua/Vm/Boot/Witness/**/*.lean::.*	A0.6: per-program facts 
 tv-program	theorems	Lua/Compile/Corpus.lean::.*	B1: per-program translation-validation facts
 os-trace	theorems	Lua/Os/HtifTraces.lean::.*	per-trace facts about the syscall spec
 a1-kit-arm	theorems	Lua/Vm/Sim/Kit/*.lean::^((add|mul|mod|eq|eqk|lt|le|loadnil|forprep|mulk|modk|idiv|idivk|unm|shl|shr|shli|shri|bandk|bork|bxork)_[a-z0-9_]+|sim_[A-Z]+|sim_[A-Z]+_of_[a-z]+)$	A1 (round-3 route): per-path ArmBody lemmas and sim_* proofs written on the kit; callee summaries and the kit library are setup
-a1-float-arm	theorems	Lua/Vm/Sim/Kit/AtFlt[A-Z]*.lean::^([a-z]+_flt_(take|skip)|sim_[A-Z]+_flt)$	A1 float paths (lane float-m0): per-path ArmBody lemmas and sim_*_flt proofs of the arms' float paths on the location-list route (Kit/AtFlt<Op>.lean); the soft-float summaries (Lua/Vm/Fn) and the kit (Kit/AtFlt.lean, FltVal, AtFloat) are setup
+a1-float-arm	located	Lua/Vm/Sim/Kit/AtFlt[A-Z]*.lean	A1 float paths (lane float-m0): per-path ArmBody lemmas and sim_*_flt proofs of the arms' float paths on the location-list route (Kit/AtFlt<Op>.lean); the soft-float summaries (Lua/Vm/Fn) and the kit (Kit/AtFlt.lean, FltVal, AtFloat) are setup
