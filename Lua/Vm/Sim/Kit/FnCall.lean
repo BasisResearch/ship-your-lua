@@ -114,4 +114,68 @@ elab "fn_ra_patch" : tactic => withMainContext do
       evalTactic (← `(tactic| fn_assumption))
       go := false
 
+/-! ## Jump tables (lane float-sf4)
+
+A class switch compiles to `jr` through a table of 32-bit offsets in
+`.rodata` (`__divdf3`'s two). `gen_lua_fn.py` (`JUMPS`) makes the `jr` node
+case on the index the node facts bound: the predecessor's not-taken bound
+check gives `hjt : idx.toNat < n` (`fn_jt_bound`), `fn_jt_split`/`fn_jt_zero`
+enumerate the index, and `fn_jt_tgt` reads entry `k`'s target. -/
+
+/-- Byte `i` of the `.rodata` word at absolute address `a`. -/
+def rodB (a i : Nat) : BitVec 8 := Image.rodataByte (a - Image.rodataBase + i)
+
+/-- The `.rodata` word at absolute address `a`, as `lw` reads it. -/
+def rodWord (a : Nat) : BitVec 32 :=
+  (((rodB a 3).append (rodB a 2)).append (rodB a 1)).append (rodB a 0)
+
+theorem rodWord_eq {m : Mem} (h : RodataRead m) {a : Nat} (hlo : Image.rodataBase ≤ a)
+    (hhi : a + 4 ≤ Image.rodataBase + Image.rodataSize) : bytesT4 m a = rodWord a := by
+  have hb : ∀ i, i < 4 → (m[a + i]?).getD 0 = rodB a i := by
+    intro i hi
+    have := h (a - Image.rodataBase + i) (by omega)
+    rw [show Image.rodataBase + (a - Image.rodataBase + i) = a + i by omega] at this
+    exact this
+  have h0 : (m[a]?).getD 0 = rodB a 0 := hb 0 (by omega)
+  unfold bytesT4 rodWord
+  rw [h0, hb 1 (by omega), hb 2 (by omega), hb 3 (by omega)]
+
+/-- **A jump-table `jr`'s target**: the entry at `a` (`A`, the indexed
+address, evaluated) plus the table base. -/
+theorem fn_jt_tgt {m : Mem} (hrod : RodataRead m) {A tbE t : BitVec 64} {a : Nat}
+    (ha : A.toNat = a) (hlo : Image.rodataBase ≤ a) (hhi : a + 4 ≤ Image.rodataBase + Image.rodataSize)
+    (ht : BitVec.update ((sign_extend (m := 64) (rodWord a) + tbE) + sign_extend (m := 64) (0x000#12)) 0 0#1 = t) :
+    BitVec.update ((sign_extend (m := 64) (bytesT4 m A.toNat : BitVec (8 * 4)) + tbE) +
+      sign_extend (m := 64) (0x000#12)) 0 0#1 = t := by
+  rw [ha, rodWord_eq hrod hlo hhi]; exact ht
+
+/-- The bound check before a table (`bltu a, idx` not taken). -/
+theorem fn_jt_bound {a x : BitVec 64} {n : Nat} (h : zopz0zI_u a x = false) (ha : a.toNat + 1 = n) :
+    x.toNat < n := by
+  unfold zopz0zI_u at h; simp [BitVec.toNatInt] at h; omega
+
+/-- The index enumerated from the top. -/
+theorem fn_jt_split {x : BitVec 64} {n : Nat} (h : x.toNat < n + 1) :
+    x = BitVec.ofNat 64 n ∨ x.toNat < n := by
+  rcases Nat.lt_succ_iff_lt_or_eq.mp h with h | h
+  · exact Or.inr h
+  · exact Or.inl (BitVec.eq_of_toNat_eq (by rw [h]; simp; omega))
+
+theorem fn_jt_zero {x : BitVec 64} (h : x.toNat < 1) : x = BitVec.ofNat 64 0 :=
+  BitVec.eq_of_toNat_eq (by simp; omega)
+
+theorem fn_jt_idx {x : BitVec 64} {k : Nat} (h : x = BitVec.ofNat 64 k) (hk : k < 2 ^ 64) : x.toNat = k := by
+  rw [h]; simp; omega
+
+/-! ## Callee-saved registers spilled mid-body (lane float-sf4)
+
+A routine that saves `s0`… to their slots and reuses them (`__divdf3`'s
+`udiv_qrnnd`) restores them before it returns: the node lemmas carry the
+save slot's fact `hsv<off> : bytesT8 m slot = g.<s>` (as `hra` for `ra`), and
+the restore's load is the caller's value. -/
+
+theorem fn_sv_ld {m : Mem} {a : Nat} {v : BitVec 64} (h : bytesT8 m a = v) :
+    sign_extend (m := 64) (bytesT8 m a : BitVec (8 * 8)) = v := by
+  rw [sext64_id, h]
+
 end Lua.Vm.Sim
