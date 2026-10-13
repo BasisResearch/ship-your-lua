@@ -81,12 +81,12 @@ theorem sl_bz_f {m : Mem} {y k : Nat} (hk : 2048 ≤ k ∧ k < 4096) (hy : 4096 
   simp [hz]
 
 /-- The byte scan's state at `0x8003b7f8`, position `j`. -/
-abbrev slB (P j : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev slB (P j : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x14, BitVec.ofNat 64 (P + j)⟩ :: ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x1, r⟩ ::
     ⟨Register.x2, sp⟩ :: f.pins
 
 /-- The word scan's state at `0x8003b790`, position `i`. -/
-abbrev slW (P i : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev slW (P i : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x14, BitVec.ofNat 64 (P + i)⟩ :: ⟨Register.x13, maskV⟩ :: ⟨Register.x11, onesV⟩ ::
     ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
 
@@ -147,16 +147,16 @@ local macro_rules
 
 /-- The word scan's state after a word with a zero byte (`0x8003b7ac`): `a4`
 past the word. -/
-abbrev slZ (P i : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev slZ (P i : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x14, BitVec.ofNat 64 (P + i + 8)⟩ :: ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x1, r⟩ ::
     ⟨Register.x2, sp⟩ :: f.pins
 
 set_option hygiene false in
 /-- **One exit of the word scan**: the first zero byte at lane `k`. -/
 local macro "sl_lane_thm " n:ident k:num : command => `(
-  theorem $n (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+  theorem $n (P t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
       (hx : SlCtx m P t r) (i : Nat) (e : t = i + $k) :
-      Triple (SegSt 0x8003b7ac#64 (slZ P i r sp f) (ArmPay m o)) (RetAt r sp f m o (BitVec.ofNat 64 t)) := by
+      Triple (SegSt 0x8003b7ac#64 (slZ P i r sp f) (ArmPay m o)) (RetAtS r sp f m o (BitVec.ofNat 64 t)) := by
     intro c h
     have acc := Steps.refl c
     sl_ctx hx
@@ -215,21 +215,21 @@ local macro "sl_lane67" : tactic => `(tactic| (
       (by omega)] at h
   exact ⟨_, acc, h.repin (by pins_of h)⟩))
 
-theorem strlen_lane6 (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strlen_lane6 (P t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : SlCtx m P t r) (i : Nat) (e : t = i + 6) :
-    Triple (SegSt 0x8003b7ac#64 (slZ P i r sp f) (ArmPay m o)) (RetAt r sp f m o (BitVec.ofNat 64 t)) := by
+    Triple (SegSt 0x8003b7ac#64 (slZ P i r sp f) (ArmPay m o)) (RetAtS r sp f m o (BitVec.ofNat 64 t)) := by
   sl_lane67
 
-theorem strlen_lane7 (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strlen_lane7 (P t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : SlCtx m P t r) (i : Nat) (e : t = i + 7) :
-    Triple (SegSt 0x8003b7ac#64 (slZ P i r sp f) (ArmPay m o)) (RetAt r sp f m o (BitVec.ofNat 64 t)) := by
+    Triple (SegSt 0x8003b7ac#64 (slZ P i r sp f) (ArmPay m o)) (RetAtS r sp f m o (BitVec.ofNat 64 t)) := by
   sl_lane67
 
 /-- **The word scan** from position `i` (`0x8003b790`): a word with a zero
 byte relays to its lane (`strlen_lane0` … `strlen_lane7`). -/
-theorem strlen_words (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strlen_words (P t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : SlCtx m P t r) : ∀ i, i < t + 1 → (∀ j, j < i → bytesT1 m (P + j) ≠ 0#8) →
-    Triple (SegSt 0x8003b790#64 (slW P i r sp f) (ArmPay m o)) (RetAt r sp f m o (BitVec.ofNat 64 t)) :=
+    Triple (SegSt 0x8003b790#64 (slW P i r sp f) (ArmPay m o)) (RetAtS r sp f m o (BitVec.ofNat 64 t)) :=
   scan_loop (t + 1) (fun j => bytesT1 m (P + j) ≠ 0#8) fun i hi hok c h => by
     have acc := Steps.refl c
     sl_ctx hx
@@ -260,14 +260,14 @@ theorem strlen_words (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : 
 
 /-- **The byte scan** from position `j` (`0x8003b7f8`) up to the first
 aligned address, relaying to the word scan (`relay`). -/
-theorem strlen_bytes (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strlen_bytes (P t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : SlCtx m P t r) : ∀ j, j < t + 1 → (∀ i, i < j → bytesT1 m (P + i) ≠ 0#8) →
-    Triple (SegSt 0x8003b7f8#64 (slB P j r sp f) (ArmPay m o)) (RetAt r sp f m o (BitVec.ofNat 64 t)) :=
+    Triple (SegSt 0x8003b7f8#64 (slB P j r sp f) (ArmPay m o)) (RetAtS r sp f m o (BitVec.ofNat 64 t)) :=
   fun j hj hok => relay (R := fun i => i < t + 1 ∧ ∀ k, k < i → bytesT1 m (P + k) ≠ 0#8)
     (S := fun i => SegSt 0x8003b790#64 (slW P i r sp f) (ArmPay m o))
     (scan_loop (S := fun j => SegSt 0x8003b7f8#64 (slB P j r sp f) (ArmPay m o))
       (X := fun c => (∃ i, (i < t + 1 ∧ ∀ k, k < i → bytesT1 m (P + k) ≠ 0#8) ∧
-        SegSt 0x8003b790#64 (slW P i r sp f) (ArmPay m o) c) ∨ RetAt r sp f m o (BitVec.ofNat 64 t) c)
+        SegSt 0x8003b790#64 (slW P i r sp f) (ArmPay m o) c) ∨ RetAtS r sp f m o (BitVec.ofNat 64 t) c)
       (t + 1) (fun k => bytesT1 m (P + k) ≠ 0#8) (fun j hj hok c h => by
       have acc := Steps.refl c
       sl_ctx hx
@@ -290,13 +290,13 @@ theorem strlen_bytes (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : 
     (fun i ⟨hi, hok⟩ => strlen_words P t r sp f m o hx i hi hok)
 
 /-- `strlen`'s entry pins. -/
-abbrev slPre (P : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev slPreS (P : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
 
 /-- **`strlen`, the call-node summary**: the index of the first zero byte. -/
-theorem strlen_sum (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strlen_sumS (P t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : SlCtx m P t r) :
-    Triple (SegSt 0x8003b770#64 (slPre P r sp f) (ArmPay m o)) (RetAt r sp f m o (BitVec.ofNat 64 t)) := by
+    Triple (SegSt 0x8003b770#64 (slPreS P r sp f) (ArmPay m o)) (RetAtS r sp f m o (BitVec.ofNat 64 t)) := by
   intro c h
   have acc := Steps.refl c
   sl_ctx hx
@@ -309,5 +309,22 @@ theorem strlen_sum (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Ar
     kit_run h acc until [0x8003b790]
     obtain ⟨c', hs, h'⟩ := strlen_words P t r sp f m o hx 0 (by omega) hnil _ (h.repin (by pins_of h))
     exact ⟨c', acc.trans hs, h'⟩
+
+/-! ## On the arm route's frame (`KFrame`, lane F1-15) -/
+
+/-- `strlen`'s entry pins. -/
+abbrev slPre (P : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+  ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
+
+/-- **`strlen`, the call-node summary** on the arm route's frame. -/
+theorem strlen_sum (P t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : SlCtx m P t r) :
+    Triple (SegSt 0x8003b770#64 (slPre P r sp f) (ArmPay m o)) (RetAt r sp f m o (BitVec.ofNat 64 t)) := by
+  intro c h
+  pin_gpr h 22 Register.x22
+  pin_gpr h 26 Register.x26
+  obtain ⟨c', hs, hret⟩ := strlen_sumS P t r sp (f.ext _ _) m o hx c (h.repin (by pins_of h))
+  dsimp only [RetAtS] at hret
+  exact ⟨c', hs, hret.repin (by pins_of hret)⟩
 
 end Lua.Vm.Sim.Kit

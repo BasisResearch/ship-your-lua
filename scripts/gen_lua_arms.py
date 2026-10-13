@@ -136,11 +136,16 @@ HELPERS += [("luaV_tointeger", "LuaV_tointeger", 0x8001ade8, 0x8001af50, [22, 26
 # (`j strcmp`) and `strlen`.
 SUMMARISED |= {"l_strcmp"}
 HELPERS += [("luaS_eqlngstr", "LuaS_eqlngstr", 0x80017184, 0x800171d4, [], [], []),
-            ("memcmp", "Memcmp", 0x80036198, 0x80036204, [], [], []),
+            ("memcmp", "Memcmp", 0x80036198, 0x80036204, [22, 26], [], []),
             ("l_strcmp", "L_strcmp", 0x8001a704, 0x8001a7e0, [], [], []),
-            ("strcoll", "Strcoll", 0x80036374, 0x80036378, [], [], []),
-            ("strcmp", "Strcmp", 0x8003b920, 0x8003ba4c, [], [], []),
-            ("strlen", "Strlen", 0x8003b770, 0x8003b844, [], [], [])]
+            ("strcoll", "Strcoll", 0x80036374, 0x80036378, [22, 26], [], []),
+            ("strcmp", "Strcmp", 0x8003b920, 0x8003ba4c, [22, 26], [], []),
+            ("strlen", "Strlen", 0x8003b770, 0x8003b844, [22, 26], [], [])]
+# lane F1-15: the string scans keep the caller's `s6`, `s10` (`luaS_new`,
+# `internshrstr` call them from C frames that must return them); their callers
+# on the arm route carry them only where they are live (`PASS_THROUGH`)
+PASS_THROUGH_S = {0x80036198: {"x22", "x26"}, 0x80036374: {"x22", "x26"}, 0x8003b920: {"x22", "x26"},
+                  0x8003b770: {"x22", "x26"}}
 # lane F1-3: `luaT_adjustvarargs(L, 0, ci, p)` at the entry: no fixed
 # parameters (the copy loop `0x80019858` is a stop: `A = 0`, `blez` taken) and
 # room on the stack (the `luaD_growstack` call `0x800198bc` is a stop)
@@ -404,6 +409,7 @@ FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc),
 # inputs: a call to it carries them only where they are live after the
 # return (`helper_live`), so its other callers' segments do not change
 PASS_THROUGH = {0x8002f6c8: {"x6", "x14", "x15", "x16", "x17", "x28", "x29"}}
+PASS_THROUGH.update(PASS_THROUGH_S)
 HELPERS += [(fn, cap, lo, hi, [22, 26], [], []) for fn, cap, lo, hi in FN_HELPERS]
 # the arms whose float paths run through the soft-float call nodes (lane
 # float-m0, M1): only there is a call to a soft-float routine a call node (its

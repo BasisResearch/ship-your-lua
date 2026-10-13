@@ -46,12 +46,7 @@ structure TFrame where
 /-- Kept registers to be read off a call site's pins (`pins_of`). -/
 macro "tframe?" : term => `(TFrame.mk _ _ _ _ _ _ _)
 
-/-- A register's pin `R` (GPR number `n`), at whatever it holds (every GPR
-holds a value, `RegsOk`). -/
-macro "pin_gpr " h:ident n:num R:ident : tactic => `(tactic| (
-  obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp
-    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk $h) $n (by decide) (by decide))
-  have $h := Vsa.Sim.SegSt.repin (L' := ⟨$R, t⟩ :: _) $h ⟨ht, Vsa.Sim.SegSt.pins $h⟩))
+-- `pin_gpr`: `Kit/Run.lean` (lane F1-15).
 
 /-- The loop from its head `0x8002f6d0`, by the measure `a1`. -/
 theorem muldi3_loop (x y r : BitVec 64) (f : HFrame) (t : TFrame) (m : Mem) (o : Array String) :

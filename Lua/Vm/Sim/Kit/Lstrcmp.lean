@@ -339,11 +339,15 @@ local macro "ls_call" ret:term : tactic => `(tactic| (
   have sc : ScCtx mL (P + i) (Q + i) (s1.length - i) $ret := ⟨hM.ro, by decide, by omega, by omega,
     by omega, by omega, by rw [Nat.add_assoc, show i + (s1.length - i) = s1.length by omega,
       hM.c1 _ (Nat.le_refl _), cb_len]⟩
+  kit_run h acc until [0x80036374]
+  -- `strcoll`'s `j strcmp` carries `s6`, `s10` (lane F1-15: the scans keep them)
+  pin_gpr h 22 Register.x22
+  pin_gpr h 26 Register.x26
   kit_run h acc until [0x8003b920]
   obtain ⟨_, acc, ⟨v, h, hv⟩⟩ := h.call acc (by pins_of h)
-    (strcmp_sum (P + i) (Q + i) (s1.length - i) $ret (BitVec.ofNat 64 (sp - 48))
-      (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) mL o sc)
-  dsimp only [RetAt] at h
+    (strcmp_sumS (P + i) (Q + i) (s1.length - i) $ret (BitVec.ofNat 64 (sp - 48))
+      (KFrame.ext (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _ _) mL o sc)
+  dsimp only [RetAtS] at h
   obtain ⟨k, hok, hd | ⟨hv0, hz1, hz2⟩⟩ := ls_ans hM hA hv))
 
 /-- **A chunk from the loop's call site** (`0x8001a790`). -/
@@ -406,12 +410,15 @@ theorem lstrcmp_A (P Q t2 sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o
   have sc : ScCtx mL (P + 0) (Q + 0) (s1.length - 0) 0x8001a754#64 := ⟨hM.ro, by decide, by omega, by omega,
     by omega, by omega, by rw [Nat.add_assoc, show 0 + (s1.length - 0) = s1.length by omega,
       hM.c1 _ (Nat.le_refl _), cb_len]⟩
+  kit_run h acc until [0x80036374]
+  pin_gpr h 22 Register.x22
+  pin_gpr h 26 Register.x26
   kit_run h acc until [0x8003b920]
   have hln' := hln; unfold bytesT8 at hln'; rw [hln'] at h
   obtain ⟨_, acc, ⟨v, h, hv⟩⟩ := h.call acc (by pins_of h)
-    (strcmp_sum (P + 0) (Q + 0) (s1.length - 0) 0x8001a754#64 (BitVec.ofNat 64 (sp - 48))
-      (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) mL o sc)
-  dsimp only [RetAt] at h
+    (strcmp_sumS (P + 0) (Q + 0) (s1.length - 0) 0x8001a754#64 (BitVec.ofNat 64 (sp - 48))
+      (KFrame.ext (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _ _) mL o sc)
+  dsimp only [RetAtS] at h
   obtain ⟨k, hok, hd | ⟨hv0, hz1, hz2⟩⟩ := ls_ans hM hA hv
   · have g : ((v + sign_extend (m := 64) (0x000#12)) != 0#64) = true := by simp [Vsa.Sim.sext_zero, hd.1]
     kit_run h acc until [0x8001a7a8]
