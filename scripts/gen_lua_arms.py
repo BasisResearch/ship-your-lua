@@ -106,7 +106,10 @@ SUMMARISED = {"__muldi3", "__moddi3", "luaV_equalobj", "__divdi3"}
 # lane KIT-2: FORPREP's `forlimit` (`luaV_tointeger` on an integer limit) and
 # its count division
 SUMMARISED |= {"luaV_tointeger", "__hidden___udivdi3"}
-HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26], [], []),
+# lane float-sf3: `__muldf3` keeps a4-a7, t1, t3, t4 live across its four
+# `__muldi3` calls (gcc's -fipa-ra: `__muldi3` writes only a0-a3), so
+# `__muldi3`'s segments carry them too (`PASS_THROUGH`)
+HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26, 6, 14, 15, 16, 17, 28, 29], [], []),
            ("__hidden___udivdi3", "__hidden___udivdi3", 0x8002f734, 0x8002f77c, [5, 22, 26],
             [], []),
            ("__moddi3", "__moddi3", 0x8002f7b0, 0x8002f7e0, [22, 26], [], []),
@@ -339,7 +342,13 @@ HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
 # routines, lifted by `scripts/gen_lua_fn.py` with call nodes to the callees'
 # proved summaries: libm `floor` (`s_floor.c`: `__adddf3`, `__gedf2`). They
 # are not call nodes of the arms (`FLOAT_CALLS`), so no arm segment changes.
-FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc)]
+FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc),
+              # `__muldf3` (`_FP_MUL`: four `__muldi3` partial products, two `__clzdi2`)
+              ("__muldf3", "__muldf3", 0x8002e504, 0x8002e9d0)]
+# a callee's registers carried through its segments without being its
+# inputs: a call to it carries them only where they are live after the
+# return (`helper_live`), so its other callers' segments do not change
+PASS_THROUGH = {0x8002f6c8: {"x6", "x14", "x15", "x16", "x17", "x28", "x29"}}
 HELPERS += [(fn, cap, lo, hi, [22, 26], [], []) for fn, cap, lo, hi in FN_HELPERS]
 # the arms whose float paths run through the soft-float call nodes (lane
 # float-m0, M1): only there is a call to a soft-float routine a call node (its
@@ -373,7 +382,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__retarget_lock_init_recursive": set(),
            "__clzdi2": {"x10"}, "__floatsidf": {"x10"}, "__floatdidf": {"x10"},
            "__fixdfdi": {"x10"}, "__eqdf2": {"x10"}, "__gedf2": {"x10"}, "__ledf2": {"x10"},
-           "__adddf3": {"x10"}, "__subdf3": {"x10"}, "floor": {"x10"},
+           "__adddf3": {"x10"}, "__subdf3": {"x10"}, "floor": {"x10"}, "__muldf3": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
            "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),
@@ -460,6 +469,10 @@ def helper_live(cuts, owner):
             return set().union(*[live[m] for m in cuts
                                  if owner[m] == owner[n] and cuts[m][0] in roots[owner[n]]])
         end = info[n][2]
+        if end in PASS_THROUGH:     # a call: the callee's inputs, and what lives across it
+            pt = PASS_THROUGH[end]
+            after = set().union(*[live[m] for m in cuts if cuts[m][0] == cuts[n][1]])
+            return (set().union(*[live[m] for m in cuts if cuts[m][0] == end]) - pt) | (pt & after)
         if end in CALLEE_READS:
             return set(CALLEE_READS[end])
         if end in TOHOST_SEAMS:     # the console store, then the code after it

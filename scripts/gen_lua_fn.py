@@ -66,6 +66,9 @@ ROUTINES = {
     # 48-byte frame below its 64) and `__gedf2` as call nodes; its window is
     # 64 + 48 bytes (`WINDOW`)
     "floor": ("FloorFn", 0x8002bb14, 64, [10]),
+    # `__muldf3` (`_FP_MUL`): `__muldi3` (its four partial products) and
+    # `__clzdi2` as call nodes, both leaves
+    "__muldf3": ("Muldf3", 0x8002e504, 80, [10, 11]),
 }
 # a framed routine whose framed callees write below its own frame: the bytes
 # below `sp` its summary patches (its frame plus the deepest callee's)
@@ -77,7 +80,7 @@ WINDOW = {"floor": 112}
 # generalised); a reload is that parameter, so a lifted function after a call
 # reads no memory and takes none (`Fn.need_m`): level (b) never carries the
 # frame's stores (ROUND-5 §2, "the frame reloads")
-FORWARD = {"floor"}
+FORWARD = {"floor", "__muldf3"}
 SLOT_RE = r"\(v2 \+ sign_extend \(m := 64\) \((0x[0-9a-f]+)#12\)\)\.toNat"
 LOAD_RE = r"bytesT8 \(m0\) " + SLOT_RE
 MEM_RE = r"\bm\b(?!\s*:=)"
@@ -95,12 +98,15 @@ class Callee:
     * `frame`: a framed callee's frame bytes (its summary's memory is
       `memPatch m (Fm …) (sp - frame) frame`, `{mf}` the `Fm` format), `0`
       for a leaf (the memory kept);
-    * `opaque`: its lifted functions, never unfolded by the caller.
+    * `opaque`: its lifted functions, never unfolded by the caller;
+    * `keeps`: the caller-saved registers its summary keeps (a caller's
+      temporaries live across the call: gcc's `-fipa-ra`).
     """
 
-    def __init__(self, summ, args, val, nargs, frame=0, mf=None, opaque=(), imp=None):
+    def __init__(self, summ, args, val, nargs, frame=0, mf=None, opaque=(), imp=None, keeps=()):
         self.summ, self.args, self.val, self.nargs = summ, args, val, nargs
         self.frame, self.mf, self.opaque, self.imp = frame, mf, opaque, imp
+        self.keeps = keeps
 
 
 # the summarised callees: entry -> `Callee`
@@ -116,6 +122,10 @@ CALLEES = {
     0x8002e3c0: Callee("Lua.Vm.Fn.Gedf2.sum", "_ _ _ hframe? _ _ (by decide)",
                        "Lua.Vm.Fn.Gedf2.F ({a0}) ({a1})", 2, opaque=("Lua.Vm.Fn.Gedf2.F",),
                        imp="Lua.Vm.Fn.Gedf2"),
+    # `__muldi3` with the caller's temporaries kept (`muldi3_sumK`: `__muldf3`)
+    0x8002f6c8: Callee("Lua.Vm.Sim.Kit.muldi3_sumK", "_ _ _ hframe? tframe? _ _ (by decide)",
+                       "({a0}) * ({a1})", 2, imp="Lua.Vm.Sim.Kit.Muldi3",
+                       keeps=(6, 14, 15, 16, 17, 28, 29)),
 }
 
 # the callee-saved registers: register -> field of `HFrame`/`SFrame`
@@ -213,7 +223,10 @@ class Fn:
         self.segs = [Seg(n, a, b, s) for n, a, b, s in gla.helper_specs(fn)]
         # a framed callee's patch: `.rodata` and the saved `ra` read through it
         self.patch = any(s.kind == "call" and s_callee(s).frame for s in self.segs)
-        self.rod, self.ra_t = (("fn_rod_patch", "fn_ra_patch") if self.patch
+        # the syntactic closers (`Kit/FnCall.lean`) where a callee's patch or a
+        # forwarded slot's fact is in scope (`assumption` would unify slot
+        # addresses by `whnf`)
+        self.rod, self.ra_t = (("fn_rod_patch", "fn_ra_patch") if self.patch or fn in FORWARD
                                else ("fn_rod", "fn_ra"))
         self.nodes = {}
         for s in self.segs:
@@ -431,7 +444,8 @@ class Fn:
         mem = self.subst(pc, s.mem)
         if s.kind == "call":
             fmt = self.call_fmt(pc, s, post, mem)
-            post = {10: s_callee(s).val.format(**fmt)}
+            post = {10: s_callee(s).val.format(**fmt),
+                    **{r: post[r] for r in s_callee(s).keeps if r in post}}
             if s_callee(s).frame:
                 c = s_callee(s)
                 mem = (f"memPatch ({mem}) ({c.mf.format(**fmt)}) ({fmt['sp']} - {c.frame}) "
@@ -563,6 +577,10 @@ class Fn:
                    "(by omega) (by omega))")
             if c.frame:
                 out.append(f"{I}have h := h.pin_sp (pin_eq (by pin_of h) {spn})")
+            # a kept register dead here: pinned at whatever it holds
+            for r in c.keeps:
+                if r not in s.post:
+                    out.append(f"{I}pin_gpr h {r} Register.x{r}")
             out.append(f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)")
             out.append(f"{I}  ({c.summ} {args})")
             if c.frame:
@@ -620,7 +638,7 @@ class Fn:
         if self.W != self.F:
             kind += f" ({self.W} bytes with its framed callees' frames)"
         imports = "import Lua.Vm.Sim.Kit.Fn\n"
-        if self.patch:
+        if self.patch or self.fwd:
             imports += "import Lua.Vm.Sim.Kit.FnCall\n"
         callees = sorted({s.callee for s in self.segs if s.kind == "call"})
         for e in callees:

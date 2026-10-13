@@ -73,6 +73,7 @@ import Lua.Vm.Fn.SfRefCmp
 import Lua.Num.SfRefInt
 import Lua.Vm.Fn.SfRefInt
 import Lua.Vm.Fn.SfRefFloorSpec
+import Lua.Vm.Fn.Muldf3
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/
