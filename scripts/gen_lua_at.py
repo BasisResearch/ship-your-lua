@@ -164,7 +164,11 @@ FPROVED = {"Adddf3": "Lua.Vm.Fn.SfRefAdd", "Subdf3": "Lua.Vm.Fn.SfRefSub",
            # lane F1-F5: libm `floor` (`FloorSpec`, proved by lane float-sf3)
            "Floor": "Lua.Vm.Fn.SfRefFloorSpec",
            # lane F1-F6: `__divdf3` (lane float-sf4)
-           "Divdf3": "Lua.Vm.Fn.SfRefDiv"}
+           "Divdf3": "Lua.Vm.Fn.SfRefDiv",
+           # lane float-sf5: `__ieee754_fmod` (`spec_proved` also takes the
+           # image's `RodataRead`, the `Zero[]` table; its call node and the
+           # `fmod` wrapper are an arm lane's)
+           "Ieee754Fmod": "Lua.Vm.Fn.FmodSpec"}
 # lane F1-F6: a framed routine whose frame stores some of the caller's saved
 # registers (its `Fm` takes the caller's `SFrame`): module -> (its summary over
 # `frame4` of those registers, the registers). `__divdf3` saves `s0`-`s3`.

@@ -409,7 +409,15 @@ FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc),
               # lane float-sf4: `__divdf3` (`_FP_DIV`: `udiv_qrnnd` by two `__udivdi3`,
               # two `__umoddi3`, two `__muldi3`; `__clzdi2`; two class-switch jump
               # tables, whose entries are roots: `FN_ROOTS`)
-              ("__divdf3", "__divdf3", 0x8002de30, 0x8002e350)]
+              ("__divdf3", "__divdf3", 0x8002de30, 0x8002e350),
+              # lane float-sf5: libm `fmod` (`w_fmod.c`: `__ieee754_fmod`, `__eqdf2`,
+              # `__unorddf2`, `__errno`, `__divdf3`) and `__ieee754_fmod`
+              # (`e_fmod.c`: six loops; `__muldf3`, `__divdf3` on its NaN path)
+              ("fmod", "Fmod", 0x8002b964, 0x8002b9fc),
+              ("__ieee754_fmod", "__ieee754_fmod", 0x8002bdb4, 0x8002c2a8),
+              # `__unorddf2` (a leaf) and `__errno` (`_impure_ptr`'s load)
+              ("__unorddf2", "__unorddf2", 0x8002f0b0, 0x8002f0f8),
+              ("__errno", "__errno", 0x8003b40c, 0x8003b414)]
 # a lifted routine's computed-jump targets (its jump tables' entries), and
 # cuts between a spill and a reload of another slot (`0x8002e1f0`: the reload
 # then reads the node's memory, a forwarded slot, `gen_lua_fn.py` `FORWARD`)
@@ -472,6 +480,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__clzdi2": {"x10"}, "__floatsidf": {"x10"}, "__floatdidf": {"x10"},
            "__fixdfdi": {"x10"}, "__eqdf2": {"x10"}, "__gedf2": {"x10"}, "__ledf2": {"x10"},
            "__adddf3": {"x10"}, "__subdf3": {"x10"}, "floor": {"x10"}, "__muldf3": {"x10"}, "__divdf3": {"x10"},
+           "fmod": {"x10"}, "__ieee754_fmod": {"x10"}, "__unorddf2": {"x10"}, "__errno": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
            "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),
