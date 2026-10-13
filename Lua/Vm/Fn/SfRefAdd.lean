@@ -656,15 +656,6 @@ theorem ch_sub_lt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat
 
 /-! ## The chamber cover -/
 
-/-- The reference's branches, with the fields' classes decided. -/
-macro "sf_rhs" : tactic => `(tactic| (
-  unfold Lua.Num.SfRef.addFields
-  dsimp only
-  try simp only [eq_self_iff_true, ite_true, ite_false, decide_eq_decide]
-  try simp (disch := omega) only [if_pos, if_neg]
-  try simp only [Lua.Num.SfRef.mant]
-  try simp (disch := omega) only [if_pos, if_neg, Nat.max_eq_left, Nat.max_eq_right]))
-
 open Lua.Num in
 /-- **(b1) for `__adddf3`**: below the unpacking, the lifted function is the
 reference on the operands' fields, chamber by chamber. -/

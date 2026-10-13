@@ -264,6 +264,18 @@ theorem nf_sext32 {x : Nat} (h : x < 2 ^ 31) :
     BitVec.toNat_ofNat, Nat.reduceSub, Nat.reduceAdd]
   have e1 : x % 2 ^ 64 % 2 ^ 32 = x := by omega
   rw [e1]; simp only [Int.bmod]; split <;> omega
+theorem nf_sext32_c {x : Nat} (hx : x < 2048) :
+    BitVec.signExtend 64 (Sail.BitVec.extractLsb (BitVec.ofNat 64 (x + 18446744073709549569)) 31 0) =
+      if x = 2047 then 0#64 else BitVec.ofNat 64 (18446744073709551616 - (2047 - x)) := by
+  split
+  · subst_vars; decide
+  · apply BitVec.eq_of_toInt_eq
+    rw [BitVec.toInt_signExtend_of_le (by decide)]
+    simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_ofNat, Nat.shiftRight_zero, BitVec.toInt_eq_toNat_bmod,
+      BitVec.toNat_ofNat, Nat.reduceSub, Nat.reduceAdd]
+    have e1 : (x + 18446744073709549569) % 2 ^ 64 % 2 ^ 32 = 2 ^ 32 - (2047 - x) := by omega
+    have e2 : (18446744073709551616 - (2047 - x)) % 2 ^ 64 = 18446744073709551616 - (2047 - x) := by omega
+    rw [e1, e2]; simp only [Int.bmod]; split <;> split <;> omega
 theorem nf_wsub {x y : Nat} (hy : y ≤ x) (hx : x < 2 ^ 31) :
     BitVec.signExtend 64 ((Sail.BitVec.extractLsb (BitVec.ofNat 64 x) 31 0) -
       (Sail.BitVec.extractLsb (BitVec.ofNat 64 y) 31 0)) = BitVec.ofNat 64 (x - y) := by
@@ -420,7 +432,7 @@ macro "sf_nfB" : tactic => `(tactic| (
   try simp (disch := omega) only [nf_add, nf_sub, nf_sub_wrap, nf_shr, nf_shl, nf_and7, nf_and15, nf_and2047, nf_and52, nf_and52',
     nf_and55, nf_and2046, nf_beq, nf_bne, nf_ult, nf_sge, nf_slt, nf_bit55_lt, nf_bit55_ge, nf_sext32, nf_wsub,
     nf_ofInt_sub, nf_ofInt_nat, Nat.mul_div_cancel, nf_add_neg, nf_ult_neg, nf_clr55, nf_clr54, nf_and1,
-    nf_or_low, nf_low52, nf_low55, nf_and_b55, nf_and0, nf_ofInt_neg, nf_sge_neg, nf_wneg, nf_not_neg, nf_toNat, Nat.mod_eq_of_lt, nf_sticky, nf_srs, nf_or55, decide_eq_true_eq]
+    nf_or_low, nf_low52, nf_low55, nf_and_b55, nf_and0, nf_ofInt_neg, nf_sge_neg, nf_wneg, nf_not_neg, nf_toNat, Nat.mod_eq_of_lt, nf_sticky, nf_srs, nf_or55, decide_eq_true_eq, nf_sext32_c]
   try simp only [Nat.reducePow, Nat.reduceMul, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, Nat.reduceDiv,
     Nat.sub_zero, Nat.add_zero, Nat.zero_add]
 ))
@@ -556,5 +568,14 @@ macro "sf_close0" "[" packs:ident,* "]" : tactic => `(tactic| (
   (repeat' split) <;> (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true,
     not_true_eq_false, Bool.false_eq_true] at *) <;>
     (first | (exfalso; omega) | (refine congrArg (BitVec.ofNat 64) ?_; omega))))
+
+/-- The reference's branches, with the fields' classes decided. -/
+macro "sf_rhs" : tactic => `(tactic| (
+  unfold Lua.Num.SfRef.addFields
+  dsimp only
+  try simp only [eq_self_iff_true, ite_true, ite_false, decide_eq_decide]
+  try simp (disch := omega) only [if_pos, if_neg]
+  try simp only [Lua.Num.SfRef.mant]
+  try simp (disch := omega) only [if_pos, if_neg, Nat.max_eq_left, Nat.max_eq_right]))
 
 end Lua.Vm.Fn.SfLens
