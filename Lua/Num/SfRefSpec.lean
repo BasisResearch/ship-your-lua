@@ -246,4 +246,58 @@ theorem shr_rto (n k s : Nat) (hs : 2 ≤ s) :
     rw [e1, e2]
     simp only [e3, e4, ne_eq, not_false_eq_true, decide_true]
 
+theorem log2_of_bounds {n L : Nat} (h1 : 2 ^ L ≤ n) (h2 : n < 2 ^ (L + 1)) : n.log2 = L :=
+  (Nat.log2_eq_iff (by have := Nat.two_pow_pos L; omega)).2 ⟨h1, h2⟩
+
+/-- Round to odd keeps the top bit: `log2 (rto n k) + k = log2 n` once `2^k ≤ n`. -/
+theorem log2_rto {n k : Nat} (h : 2 ^ k ≤ n) : (rto n k).log2 + k = n.log2 := by
+  have hq1 : 1 ≤ n / 2 ^ k := (Nat.le_div_iff_mul_le (Nat.two_pow_pos k)).2 (by omega)
+  have hL1 := Nat.log2_self_le (n := n / 2 ^ k) (by omega)
+  have hL2 := Nat.lt_log2_self (n := n / 2 ^ k)
+  have hp : 2 ^ ((n / 2 ^ k).log2 + 1) = 2 * 2 ^ (n / 2 ^ k).log2 := by rw [Nat.pow_succ, Nat.mul_comm]
+  have hR : (rto n k).log2 = (n / 2 ^ k).log2 := by
+    apply log2_of_bounds
+    · unfold rto; split
+      · exact hL1
+      · have : n / 2 ^ (k + 1) = n / 2 ^ k / 2 := by rw [Nat.pow_succ, Nat.div_div_eq_div_mul]
+        omega
+    · unfold rto; split
+      · exact hL2
+      · have : n / 2 ^ (k + 1) = n / 2 ^ k / 2 := by rw [Nat.pow_succ, Nat.div_div_eq_div_mul]
+        omega
+  have hn : n.log2 = (n / 2 ^ k).log2 + k := by
+    apply log2_of_bounds
+    · rw [Nat.pow_add]
+      exact Nat.le_trans (Nat.mul_le_mul_right _ hL1) (Nat.div_mul_le_self n (2 ^ k))
+    · rw [show (n / 2 ^ k).log2 + k + 1 = ((n / 2 ^ k).log2 + 1) + k by omega, Nat.pow_add]
+      have := Nat.lt_mul_div_succ n (Nat.two_pow_pos k)
+      have h3 : (n / 2 ^ k + 1) * 2 ^ k ≤ 2 ^ ((n / 2 ^ k).log2 + 1) * 2 ^ k := Nat.mul_le_mul_right _ hL2
+      rw [Nat.mul_comm (2 ^ k) (n / 2 ^ k + 1)] at this
+      omega
+  omega
+
+theorem target_rto {n k : Nat} {e : Int} (hn : 0 < n) (h : e + k + 2 ≤ target (rto n k) (e + k)) :
+    target n e = target (rto n k) (e + k) := by
+  by_cases hk : 2 ^ k ≤ n
+  · have := log2_rto hk
+    unfold target; omega
+  · have h1 : rto n k = 1 := rto_big hn (by omega)
+    rw [h1] at h ⊢
+    have hl : n.log2 < k := (Nat.log2_lt (by omega)).2 (by omega)
+    unfold target at h ⊢
+    have : (1 : Nat).log2 = 0 := by decide
+    rw [this] at h ⊢
+    omega
+
+/-- **W1**: round to odd at `k` bits, two or more bits below the rounding
+position, rounds as the exact value. -/
+theorem round_rto (neg : Bool) (n k : Nat) (e : Int) (h : e + k + 2 ≤ target (rto n k) (e + k)) :
+    round neg (rto n k) (e + k) false false = round neg n e false false := by
+  rcases Nat.eq_zero_or_pos n with h0 | hn
+  · subst h0; rw [rto_zero_n, round_zero, round_zero]
+  have hT := target_rto hn h
+  unfold round
+  rw [← hT, if_pos (by omega), if_pos (by omega),
+    shr_rto n k _ (by omega), show (target n e - (e + k)).toNat + k = (target n e - e).toNat by omega]
+
 end Lua.Num.SfRef
