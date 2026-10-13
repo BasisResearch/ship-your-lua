@@ -636,4 +636,155 @@ theorem addFields_fin (sa sb : Bool) (ea fa eb fb : Nat) (hea : ea ≤ 2046) (he
         fin_rhs _ _ _ _ _ _ (by omega), sgn_sub _ _ _ (by rw [pow_ce _ _ (by omega)]; exact hm),
         norm_sgn _ _ (by rw [pow_ce _ _ (by omega)]; omega), Int.min_eq_right (ce_le (by omega))]
 
+/-! ## Assembly: `SfRef.add = F64.add` -/
+
+theorem bits_self (x : F64) : bits x.sign x.bexp x.frac = x := by
+  have hb : x.bexp < 2048 := Nat.mod_lt _ (by decide)
+  have hf : x.frac < 2 ^ 52 := Nat.mod_lt _ (by decide)
+  apply BitVec.eq_of_toNat_eq
+  rw [toNat_bits _ _ _ hb hf, toNat_split x]
+
+/-- A representable value rounds to itself. -/
+theorem round_fields (x : F64) (h0 : x.bexp ≠ 0 ∨ x.frac ≠ 0) (h1 : x.bexp ≠ 2047) :
+    round x.sign (cm x.bexp x.frac) (ce x.bexp) false false = x := by
+  have hb : x.bexp < 2048 := Nat.mod_lt _ (by decide)
+  have hf : x.frac < 2 ^ 52 := Nat.mod_lt _ (by decide)
+  have hpos := cm_pos h0
+  have hcb := cm_bounds x.bexp x.frac hf
+  have hT : target (cm x.bexp x.frac) (ce x.bexp) = ce x.bexp := by
+    unfold target
+    by_cases he : x.bexp = 0
+    · have : (cm x.bexp x.frac).log2 < 52 := (Nat.log2_lt (by omega)).2 (by simp only [cm, he]; simp; omega)
+      unfold ce; rw [if_pos he]; omega
+    · rw [log2_of_bounds (hcb.2 he) (by unfold cm; rw [if_neg he]; omega)]
+      unfold ce; rw [if_neg he]; omega
+  unfold round
+  rw [hT, if_pos (Int.le_refl _), Int.sub_self]
+  simp only [Int.toNat_zero, shr, ite_true, rne, Bool.false_and, Bool.false_eq_true, ite_false, finish]
+  rw [if_neg (by omega)]
+  unfold packFin
+  rw [if_neg (by omega), if_neg (by unfold ce; split <;> omega)]
+  conv => rhs; rw [← bits_self x]
+  by_cases he : x.bexp = 0
+  · rw [if_neg (by unfold cm; rw [if_pos he]; omega)]
+    simp only [cm, he, ite_true]
+  · rw [if_pos (hcb.2 he)]
+    unfold cm ce; rw [if_neg he, if_neg he]
+    rw [show ((x.bexp : Int) - 1075 + 1075).toNat = x.bexp by omega, show x.frac + 2 ^ 52 - 2 ^ 52 = x.frac by omega]
+
+theorem sgnApply_zero (s : Bool) : sgnApply s 0 = 0 := by cases s <;> rfl
+theorem ce_ge (e : Nat) : -1074 ≤ ce e := by unfold ce; split <;> omega
+
+theorem addFields_zero_l (sa : Bool) (b : F64) (hb0 : b.bexp ≠ 0 ∨ b.frac ≠ 0) (hb1 : b.bexp ≠ 2047) :
+    addFields sa 0 0 b.sign b.bexp b.frac = b := by
+  have hb : b.bexp < 2048 := Nat.mod_lt _ (by decide)
+  have hf : b.frac < 2 ^ 52 := Nat.mod_lt _ (by decide)
+  have hp := cm_pos hb0
+  rw [addFields_fin _ _ _ _ _ _ (by omega) (by omega) (by decide) hf (Or.inr hb0)]
+  rw [cm_zero, align_eq, Nat.zero_mul, sgnApply_zero, Int.zero_add,
+    show ce 0 = -1074 by rfl, Int.min_eq_left (ce_ge _), align_eq,
+    norm_sgn _ _ (Nat.mul_pos hp (Nat.two_pow_pos _))]
+  have hs := round_scale b.sign (cm b.bexp b.frac) (ce b.bexp - (-1074)).toNat (ce b.bexp)
+  rw [show ce b.bexp - (((ce b.bexp - (-1074)).toNat : Nat) : Int) = -1074 by have := ce_ge b.bexp; omega] at hs
+  rw [hs, round_fields b hb0 hb1]
+
+theorem addFields_zero_r (a : F64) (sb : Bool) (ha0 : a.bexp ≠ 0 ∨ a.frac ≠ 0) (ha1 : a.bexp ≠ 2047) :
+    addFields a.sign a.bexp a.frac sb 0 0 = a := by
+  have ha : a.bexp < 2048 := Nat.mod_lt _ (by decide)
+  have hf : a.frac < 2 ^ 52 := Nat.mod_lt _ (by decide)
+  have hp := cm_pos ha0
+  rw [addFields_fin _ _ _ _ _ _ (by omega) (by omega) hf (by decide) (Or.inl ha0)]
+  rw [cm_zero, align_eq (0 : Nat), Nat.zero_mul, sgnApply_zero, Int.add_zero,
+    show ce 0 = -1074 by rfl, Int.min_eq_right (ce_ge _), align_eq,
+    norm_sgn _ _ (Nat.mul_pos hp (Nat.two_pow_pos _))]
+  have hs := round_scale a.sign (cm a.bexp a.frac) (ce a.bexp - (-1074)).toNat (ce a.bexp)
+  rw [show ce a.bexp - (((ce a.bexp - (-1074)).toNat : Nat) : Int) = -1074 by have := ce_ge a.bexp; omega] at hs
+  rw [hs, round_fields a ha0 ha1]
+
+/-! ### The reference on special operands -/
+
+macro "sf_cases" : tactic => `(tactic| (
+  unfold addFields; dsimp only
+  (repeat' split) <;> (try simp only [decide_eq_true_eq, decide_eq_false_iff_not] at *) <;>
+    first | (with_reducible rfl) | (exfalso; omega) | skip))
+
+theorem addFields_nan_l (sa sb : Bool) (ea fa eb fb : Nat) (h1 : ea = 2047) (h2 : fa ≠ 0) (h3 : eb < 2048) :
+    addFields sa ea fa sb eb fb = qnan := by sf_cases
+theorem addFields_nan_r (sa sb : Bool) (ea fa eb fb : Nat) (h1 : eb = 2047) (h2 : fb ≠ 0) (h3 : ea < 2048) :
+    addFields sa ea fa sb eb fb = qnan := by sf_cases
+theorem addFields_inf_inf (sa sb : Bool) (ea fa eb fb : Nat) (h1 : ea = 2047) (h2 : fa = 0) (h3 : eb = 2047)
+    (h4 : fb = 0) : addFields sa ea fa sb eb fb = if sa = sb then infty sa else qnan := by sf_cases
+theorem addFields_inf_l (sa sb : Bool) (ea fa eb fb : Nat) (h1 : ea = 2047) (h2 : fa = 0) (h3 : eb < 2047) :
+    addFields sa ea fa sb eb fb = infty sa := by sf_cases
+theorem addFields_inf_r (sa sb : Bool) (ea fa eb fb : Nat) (h1 : eb = 2047) (h2 : fb = 0) (h3 : ea < 2047) :
+    addFields sa ea fa sb eb fb = infty sb := by sf_cases
+theorem addFields_zero_zero (sa sb : Bool) (ea fa eb fb : Nat) (h1 : ea = 0) (h2 : fa = 0) (h3 : eb = 0)
+    (h4 : fb = 0) : addFields sa ea fa sb eb fb = zero (sa && sb) := by
+  subst h1 h2 h3 h4
+  by_cases hs : sa = sb
+  · subst hs
+    unfold addFields; dsimp only
+    rw [if_pos rfl, if_pos rfl, if_neg (by decide)]
+    rw [addAligned_eq _ _ _ _ _ (by decide) (by decide) (by decide) (by decide) (by decide) (fun _ => by decide)
+      (fun h => by omega) (fun h => by omega)]
+    simp only [Bool.and_self]
+    rw [show mant 0 0 * 2 ^ 0 + mant 0 0 = 0 by decide, round_zero]
+  · unfold addFields; dsimp only
+    rw [if_neg hs, if_pos rfl, if_neg (by decide), if_pos rfl]
+    cases sa <;> cases sb <;> simp_all
+
+theorem cls_nan' {x : F64} (h1 : x.bexp = 2047) (h2 : x.frac ≠ 0) : x.cls = .nan := by simp [cls, h1, h2]
+theorem cls_inf' {x : F64} (h1 : x.bexp = 2047) (h2 : x.frac = 0) : x.cls = .inf x.sign := by simp [cls, h1, h2]
+theorem cls_zero' {x : F64} (h1 : x.bexp = 0) (h2 : x.frac = 0) : x.cls = .zero x.sign := by simp [cls, h1, h2]
+theorem cls_fin' {x : F64} (h0 : x.bexp ≠ 0 ∨ x.frac ≠ 0) (h1 : x.bexp ≠ 2047) :
+    x.cls = .fin x.sign (cm x.bexp x.frac) (ce x.bexp) := by
+  unfold cls cm ce
+  rw [if_neg h1]
+  by_cases h : x.bexp = 0
+  · rw [if_pos h, if_neg (by omega), if_pos h, if_pos h]
+  · rw [if_neg h, if_neg h, if_neg h]
+
+/-- **(b2) for `__adddf3`**: the soft-fp-shaped reference is the `F64`
+specification. -/
+theorem add_eq (a b : F64) : add a b = F64.add a b := by
+  have hfa : a.frac < 2 ^ 52 := Nat.mod_lt _ (by decide)
+  have hea : a.bexp < 2048 := Nat.mod_lt _ (by decide)
+  have hfb : b.frac < 2 ^ 52 := Nat.mod_lt _ (by decide)
+  have heb : b.bexp < 2048 := Nat.mod_lt _ (by decide)
+  unfold add F64.add
+  by_cases han : a.bexp = 2047 ∧ a.frac ≠ 0
+  · rw [cls_nan' han.1 han.2, addFields_nan_l _ _ _ _ _ _ han.1 han.2 heb]
+  by_cases hbn : b.bexp = 2047 ∧ b.frac ≠ 0
+  · rw [cls_nan' hbn.1 hbn.2, addFields_nan_r _ _ _ _ _ _ hbn.1 hbn.2 hea]
+    cases a.cls <;> rfl
+  by_cases hai : a.bexp = 2047
+  · have hfa0 : a.frac = 0 := by omega
+    rw [cls_inf' hai hfa0]
+    by_cases hbi : b.bexp = 2047
+    · have hfb0 : b.frac = 0 := by omega
+      rw [cls_inf' hbi hfb0, addFields_inf_inf _ _ _ _ _ _ hai hfa0 hbi hfb0]
+    · rw [addFields_inf_l _ _ _ _ _ _ hai hfa0 (by omega)]
+      by_cases hb0 : b.bexp = 0 ∧ b.frac = 0
+      · rw [cls_zero' hb0.1 hb0.2]
+      · rw [cls_fin' (by omega) hbi]
+  by_cases hbi : b.bexp = 2047
+  · have hfb0 : b.frac = 0 := by omega
+    rw [cls_inf' hbi hfb0, addFields_inf_r _ _ _ _ _ _ hbi hfb0 (by omega)]
+    by_cases ha0 : a.bexp = 0 ∧ a.frac = 0
+    · rw [cls_zero' ha0.1 ha0.2]
+    · rw [cls_fin' (by omega) hai]
+  by_cases ha0 : a.bexp = 0 ∧ a.frac = 0
+  · rw [cls_zero' ha0.1 ha0.2]
+    by_cases hb0 : b.bexp = 0 ∧ b.frac = 0
+    · rw [cls_zero' hb0.1 hb0.2, addFields_zero_zero _ _ _ _ _ _ ha0.1 ha0.2 hb0.1 hb0.2]
+    · rw [cls_fin' (by omega) hbi, ha0.1, ha0.2, addFields_zero_l _ b (by omega) hbi]
+  by_cases hb0 : b.bexp = 0 ∧ b.frac = 0
+  · rw [cls_fin' (by omega) hai, cls_zero' hb0.1 hb0.2, hb0.1, hb0.2, addFields_zero_r a _ (by omega) hai]
+  rw [cls_fin' (by omega) hai, cls_fin' (by omega) hbi,
+    addFields_fin _ _ _ _ _ _ (by omega) (by omega) hfa hfb (Or.inl (by omega))]
+
+/-- **(b2) for `__subdf3`**: soft-fp's `_FP_SUB` is the `F64` subtraction. -/
+theorem sub_eq (a b : F64) : sub a b = F64.sub a b := by
+  sorry
+
 end Lua.Num.SfRef
