@@ -356,4 +356,60 @@ theorem g_db28 (m : Mem) (s : Nat) (r : BitVec 64) {f E Sg : Nat} (S : Nat) (hs1
   all_goals (try simp (disch := omega) only [g_d820])
   all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
+open Lua.Num in
+/-- The difference stage on the machine's `X - R` (a borrow wraps). -/
+theorem g_db28s (m : Mem) (s : Nat) (r : BitVec 64) {X R E Sg : Nat} (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32)
+    (hR : R < 2 ^ 55 + X) (hS : 2 ^ 55 + X - R < 2 ^ 56) (hS8 : (2 ^ 55 + X - R) % 8 = 0 ∨ 2 ^ 55 + X - R + 8 < 2 ^ 56)
+    (hX : X < 2 ^ 64) (hR2 : R ≤ 2 ^ 64) (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hSg : Sg < 2) :
+    N_8002db28 m s r (BitVec.ofNat 64 X - BitVec.ofNat 64 R) (BitVec.ofNat 64 E) (BitVec.ofNat 64 Sg) =
+      SfRef.subPack (Sg = 1) E (2 ^ 55 + X - R) := by
+  rcases Nat.lt_or_ge X R with h | h
+  · rw [nf_sub_wrap hR2 h]
+    exact g_db28 m s r _ hs1 hs2 (by omega) hS hS8 (by omega) (by omega) hE1 hE hSg
+  · rw [nf_sub h hX]
+    exact g_db28 m s r _ hs1 hs2 (by omega) hS hS8 (by omega) (by omega) hE1 hE hSg
+
+open Lua.Num in
+/-- Different signs, both exponents all ones. -/
+theorem ch_sub_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 2047) (h2 : eb = 2047) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) = F64.qnan := by
+  sf_go [N_8002d92c]
+  all_goals (try simp (disch := omega) only [g_dbb8])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `eb < ea = 2047`. -/
+theorem ch_sub_gt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb < ea) (h2 : ea = 2047) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      if fa = 0 then F64.infty (sa = 1) else F64.qnan := by
+  sf_go [N_8002d92c]
+  all_goals (try simp (disch := omega) only [g_dbb8])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `1 ≤ eb < ea ≤ 2046`: `A − rto B k`. -/
+theorem ch_sub_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ eb) (h2 : eb < ea) (h3 : ea ≤ 2046) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sa = 1) ea (2 ^ 55 + 8 * fa) (2 ^ 55 + 8 * fb) (ea - eb) := by
+  have hR := SfRef.rto_le_half (n := 2 ^ 55 + 8 * fb) (k := ea - eb) (by omega)
+  have hR0 : 1 ≤ SfRef.rto (2 ^ 55 + 8 * fb) (ea - eb) := SfRef.rto_pos (by omega)
+  have hR1 : 57 ≤ ea - eb → SfRef.rto (2 ^ 55 + 8 * fb) (ea - eb) = 1 := fun h =>
+    SfRef.rto_big (by omega) (Nat.lt_of_lt_of_le (by omega : 2 ^ 55 + 8 * fb < 2 ^ 57)
+      (Nat.pow_le_pow_right (by decide) h))
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
 end Lua.Vm.Fn.Adddf3

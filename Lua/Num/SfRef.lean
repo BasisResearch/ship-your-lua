@@ -208,4 +208,21 @@ theorem norm_bounds {S : Nat} (h0 : 0 < S) (h : S < 2 ^ 56) :
           Nat.mul_lt_mul_of_pos_right h2 (Nat.two_pow_pos _)
       _ = 2 ^ 56 := by rw [← Nat.pow_add]; congr 1; omega
 
+theorem rto_pos {n k : Nat} (h : 0 < n) : 1 ≤ rto n k := by
+  unfold rto; split
+  · rename_i h1
+    have : 2 ^ k ≤ n := by
+      rcases Nat.lt_or_ge n (2 ^ k) with h2 | h2
+      · rw [Nat.mod_eq_of_lt h2] at h1; omega
+      · exact h2
+    exact (Nat.le_div_iff_mul_le (Nat.two_pow_pos k)).2 (by omega)
+  · omega
+
+theorem rto_le_half {n k : Nat} (hk : 1 ≤ k) : rto n k ≤ n / 2 + 1 := by
+  have h1 := rto_le n k
+  have h2 : n / 2 ^ k ≤ n / 2 := Nat.div_le_div_left (by
+    calc 2 = 2 ^ 1 := rfl
+      _ ≤ 2 ^ k := Nat.pow_le_pow_right (by decide) hk) (by decide)
+  omega
+
 end Lua.Num.SfRef
