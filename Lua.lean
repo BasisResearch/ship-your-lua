@@ -76,6 +76,9 @@ import Lua.Vm.Fn.SfRefFloorSpec
 import Lua.Vm.Fn.Muldf3
 import Lua.Num.SfRefMul
 import Lua.Vm.Fn.SfRefMul
+import Lua.Vm.Fn.Divdf3
+import Lua.Num.SfRefDiv
+import Lua.Vm.Fn.SfRefDiv
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/

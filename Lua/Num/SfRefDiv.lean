@@ -44,6 +44,9 @@ open F64
 
 /-! ## `udiv_qrnnd` (`longlong.h` `__udiv_qrnnd_c`) -/
 
+/-- A name for a term (`omega` then sees it as one atom). -/
+theorem name_of {α : Type} (x : α) : ∃ y, x = y := ⟨x, rfl⟩
+
 /-- One digit of `__udiv_qrnnd_c`: `u · 2^32 + t` by the normalised divisor
 `d` (`__q = u / __d1`, `__r = u % __d1`, `__m = __q * __d0`, `__r = __r *
 __ll_B | t`; `__r += d` and `__q--` while `__r < __m`, at most twice, the
@@ -149,15 +152,15 @@ theorem qr_setup {u t d : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64) (hu : u <
     QrSetup u t d := by
   -- the divisor's digits
   have hdd := Nat.div_add_mod d (2 ^ 32)
-  obtain ⟨d1, hD1⟩ : ∃ d1, d / 2 ^ 32 = d1 := ⟨_, rfl⟩
-  obtain ⟨d0, hD0⟩ : ∃ d0, d % 2 ^ 32 = d0 := ⟨_, rfl⟩
+  obtain ⟨d1, hD1⟩ := name_of (d / 2 ^ 32)
+  obtain ⟨d0, hD0⟩ := name_of (d % 2 ^ 32)
   rw [hD1, hD0] at hdd
   have hd0 : d0 < 2 ^ 32 := by rw [← hD0]; exact Nat.mod_lt _ (by decide)
   have hd1lo : 2 ^ 31 ≤ d1 := by omega
   -- the estimate
   have huu := Nat.div_add_mod u d1
-  obtain ⟨q, hQ⟩ : ∃ q, u / d1 = q := ⟨_, rfl⟩
-  obtain ⟨ρ, hR⟩ : ∃ ρ, u % d1 = ρ := ⟨_, rfl⟩
+  obtain ⟨q, hQ⟩ := name_of (u / d1)
+  obtain ⟨ρ, hR⟩ := name_of (u % d1)
   rw [hQ, hR] at huu
   have hρ : ρ < d1 := by rw [← hR]; exact Nat.mod_lt _ (by omega)
   have hq : q ≤ 2 ^ 32 + 1 := by
@@ -184,8 +187,8 @@ theorem qr_setup {u t d : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64) (hu : u <
     have h1 := Nat.mul_le_mul_right (2 ^ 32) (show ρ + 1 ≤ d1 by omega)
     rw [Nat.add_mul, Nat.one_mul] at h1
     rw [← hdd, Nat.mul_comm (2 ^ 32) d1]
-    obtain ⟨X, hX⟩ : ∃ X, ρ * 2 ^ 32 = X := ⟨_, rfl⟩
-    obtain ⟨Y, hY⟩ : ∃ Y, d1 * 2 ^ 32 = Y := ⟨_, rfl⟩
+    obtain ⟨X, hX⟩ := name_of (ρ * 2 ^ 32)
+    obtain ⟨Y, hY⟩ := name_of (d1 * 2 ^ 32)
     rw [hX, hY] at h1; rw [hX, hY]
     omega
   rw [← hm', ← hrr] at hNq
@@ -292,7 +295,7 @@ theorem shr_quot {N D : Nat} (hD : 0 < D) (s : Nat) :
   have hmod : N % (D * 2 ^ s * 2) = N % (D * 2 ^ s) + D * 2 ^ s * (N / (D * 2 ^ s) % 2) := Nat.mod_mul
   have hmodK : N % (D * 2 ^ s) = N % D + D * (N / D % 2 ^ s) := Nat.mod_mul
   have hlt := Nat.mod_lt N hK
-  obtain ⟨K, hKd⟩ : ∃ K, D * 2 ^ s = K := ⟨_, rfl⟩
+  obtain ⟨K, hKd⟩ := name_of (D * 2 ^ s)
   rw [hKd] at hmod hlt hK hmodK ⊢
   rw [Bool.or_assoc, rb_or_st hD]
   unfold rbOf stOf
