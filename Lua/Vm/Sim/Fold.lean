@@ -335,8 +335,11 @@ structure OpenArms : Prop where
   CONCAT : SimArm .CONCAT
   /-- `print`: `luaD_precall` → `luaB_print` → … → HTIF, on the `CALL`
   invariant `Complement.call` (`CallInv`, lane F1-13): `luaD_precall`'s C path
-  on `print` in the relation's terms (`Kit.PrintCall_Statement`) -/
-  CALL_print : Kit.PrintCall_Statement CallInv
+  is proved (`Kit.printCall_of`); open are `luaB_print` on the C frame
+  (`Kit.PrintRel_Statement`), `luaE_extendCI`, `luaD_poscall` with `C ≥ 2`,
+  `luaD_precall`'s stack growth and `exit(0)` once `stdout` is set up
+  (`Kit.CallOpen`) -/
+  CALL_open : Kit.CallOpen
   /-- `CALL print` beyond the heap room (`Kit.HeapBudget_Statement`, A8) -/
   CALL_heap : Kit.HeapBudget_Statement CallInv
 
@@ -493,7 +496,7 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case TESTSET => exact @sim_TESTSET
   case FORPREP => exact SimArm.split At.sim_FORPREP (At.sim_FORPREP_flt hF.soft hF.FORPREP)
   case FORLOOP => exact SimArm.split @sim_FORLOOP (At.sim_FORLOOP_flt hF.soft)
-  case CALL => exact Kit.sim_CALL h.CALL_print h.CALL_heap
+  case CALL => exact Kit.sim_CALL (Kit.printCall_of h.CALL_open) h.CALL_heap
   all_goals simp [armOps, kernelOps] at ho
 
 /-- **`VmSim luaLayout` from the open premises**: the proved arms, the entry
