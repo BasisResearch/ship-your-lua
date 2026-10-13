@@ -322,13 +322,15 @@ theorem T_true (m : Mem) (s : Nat) (r a b : BitVec 64) (hsp : FnSp s 128) (hrod 
 
 open ConcurrencyInterfaceV1 Vsa.Logic in
 /-- **`__ieee754_fmod`'s summary with the reference as its result** (`sum`
-with `T_true` and `spec_proved`); `DivSpec` is `__divdf3`'s summary at the
-NaN path's call (`Lua/Vm/Fn/DivSpec.lean`). -/
-theorem sum_ref (hdiv : DivSpec) (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame)
+with `T_true` and `spec_proved`). It takes no premise: the NaN path's
+`__divdf3` call is a call node of the proved `Divdf3.sum_div`
+(`Lua/Vm/Fn/DivSum.lean`), whose frame stores the caller's `g`, so the memory
+`Fm` takes `g`. -/
+theorem sum_ref (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame)
     (v10 v11 : BitVec 64) (hs : FnSp s 128) (hr : r.toNat % 4 = 0) (hrod : RodataRead m) :
     Triple (SegSt 0x8002bdb4#64 [⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
-      (SegSt r [⟨Register.x10, S v10 v11⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Fm (m) s r v10 v11) (s - 128) 128) o)) := by
-  have h := sum hdiv m o s r g v10 v11 hs hr hrod (T_true m s r v10 v11 hs hrod)
+      (SegSt r [⟨Register.x10, S v10 v11⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch m (Fm (m) s r g v10 v11) (s - 128) 128) o)) := by
+  have h := sum m o s r g v10 v11 hs hr hrod (T_true m s r v10 v11 hs hrod)
   rwa [spec_proved m s r v10 v11 hs hrod] at h
 
 end Lua.Vm.Fn.Ieee754Fmod

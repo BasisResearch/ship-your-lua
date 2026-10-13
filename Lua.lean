@@ -80,6 +80,7 @@ import Lua.Vm.Fn.SfRefMul
 import Lua.Vm.Fn.Divdf3
 import Lua.Num.SfRefDiv
 import Lua.Vm.Fn.SfRefDiv
+import Lua.Vm.Fn.DivSum
 import Lua.Vm.Fn.FloorR
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and

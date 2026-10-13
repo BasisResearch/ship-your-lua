@@ -85,9 +85,8 @@ ROUTINES = {
 # below `sp` its summary patches (its frame plus the deepest callee's)
 WINDOW = {"floor": 112, "__ieee754_fmod": 128}
 # lane float-sf5: the routines whose lifted functions take the memory only
-# where they read it (`Fn.need_m`, as under `FORWARD`): a premise callee's
-# frame contents (`Div.Fm`, chosen from `DivSpec`, noncomputable) stay out of
-# the value functions, which `#eval` runs
+# where they read it (`Fn.need_m`, as under `FORWARD`): a callee's frame
+# contents stay out of the value functions, which `#eval` runs
 MEMLESS = {"__ieee754_fmod"}
 # lane float-sf5: a routine whose addresses `kit_disch` does not fold (a
 # table indexed by a bit: `e_fmod.c`'s `Zero[sx]`) -> its discharger
@@ -117,21 +116,24 @@ class Callee:
 
     * `summ`: its summary, applied as `summ <args>`; `{fr}` in `args` is the
       caller's frame (`hframe?` for a leaf callee, `sframe?` for a framed one),
-      `{sp}` the caller's `sp` as a `Nat` (a framed callee's `s`);
+      `{sp}` the caller's `sp` as a `Nat` (a framed callee's `s`), `{g}` the
+      caller's `SFrame`;
     * `val`: its result, a format over the argument registers `{a0}`, `{a1}`,
       … and, for a framed callee, its entry memory `{m}`, `{sp}` and the
       return address `{r}`;
     * `frame`: a framed callee's frame bytes (its summary's memory is
       `memPatch m (Fm …) (sp - frame) frame`, `{mf}` the `Fm` format), `0`
-      for a leaf (the memory kept);
+      for a leaf (the memory kept); an `Fm` that stores the caller's
+      callee-saved registers (`__divdf3`) takes `{g}`, and the caller's
+      memory functions then take `g` (`Fn.mem_g`);
     * `opaque`: its lifted functions, never unfolded by the caller;
     * `keeps`: the caller-saved registers its summary keeps (a caller's
       temporaries live across the call: gcc's `-fipa-ra`);
     * `clobbers`: caller-saved registers its summary sets beside `a0`, as
       formats like `val` (lane float-sf4: `__umoddi3`'s `t0` is its return
       address `{r}`);
-    * `premise`: a callee summarised by a named premise (lane float-sf5:
-      `DivSpec`), `(hypothesis name, type)`: every node lemma of the caller
+    * `premise`: a callee summarised by a named premise (lane float-sf5;
+      none today), `(hypothesis name, type)`: every node lemma of the caller
       takes it (its first binder) and passes it on; `summ` names it;
     * `noncomp`: its frame contents are chosen from the premise
       (noncomputable), so the caller's memory functions are too.
@@ -172,18 +174,19 @@ CALLEES = {
                        "({a0}) % ({a1})", 2, imp="Lua.Vm.Sim.Kit.Umoddi3",
                        clobbers={5: "{r}"}),
     # lane float-sf5: `__muldf3` (proved: `Muldf3.spec_proved`) and `__divdf3`
-    # (the named premise `DivSpec`, `Lua/Vm/Fn/DivSpec.lean`), framed
+    # (proved: `Divdf3.sum_div`, `Lua/Vm/Fn/DivSum.lean`: `Divdf3.sum` with
+    # `F64.div` as its result by `spec_proved`), framed; `__divdf3`'s frame
+    # stores the caller's `s0`-`s3`, so its `Fm` takes `{g}`
     0x8002e504: Callee("Lua.Vm.Fn.Muldf3.sum",
                        "_ _ {sp} _ sframe? _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)",
                        "Lua.Vm.Fn.Muldf3.F ({m}) {sp} ({r}) ({a0}) ({a1})", 2, 80,
                        "Lua.Vm.Fn.Muldf3.Fm ({m}) {sp} ({r}) ({a0}) ({a1})",
                        ("Lua.Vm.Fn.Muldf3.F", "Lua.Vm.Fn.Muldf3.Fm"), "Lua.Vm.Fn.Muldf3"),
-    0x8002de30: Callee("Lua.Vm.Fn.Div.sum hdiv",
-                       "_ _ {sp} _ sframe? _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)",
+    0x8002de30: Callee("Lua.Vm.Fn.Divdf3.sum_div",
+                       "_ _ {sp} _ {g} _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)",
                        "Lua.Num.F64.div ({a0}) ({a1})", 2, 112,
-                       "Lua.Vm.Fn.Div.Fm ({m}) {sp} ({r}) ({a0}) ({a1})",
-                       ("Lua.Num.F64.div",), "Lua.Vm.Fn.DivSpec",
-                       premise=("hdiv", "DivSpec"), noncomp=True),
+                       "Lua.Vm.Fn.Divdf3.Fm ({m}) {sp} ({r}) {g} ({a0}) ({a1})",
+                       ("Lua.Num.F64.div", "Lua.Vm.Fn.Divdf3.Fm"), "Lua.Vm.Fn.DivSum"),
 }
 
 # the callee-saved registers: register -> field of `HFrame`/`SFrame`
@@ -376,6 +379,10 @@ class Fn:
         self.slots_in = {pc: [] for pc in self.order}
         self.need_m = {pc: True for pc in self.order}
         self.saves()
+        # the memory functions take the caller's frame: they store it (`saves`)
+        # or a callee's frame stores it (`{g}` in `Callee.mf`)
+        self.mem_g = bool(self.sv_slot) or any(
+            s.kind == "call" and "{g}" in (s_callee(s).mf or "") for s in self.segs)
         if self.fwd:
             self.forward()
         elif fn in MEMLESS:
@@ -673,7 +680,7 @@ class Fn:
             mb = "(m : Mem) " if memfn or self.need_m[pc] else ""
             # a memory function stores the caller's callee-saved registers
             # to their save slots (`saves`)
-            gb = " (g : SFrame)" if memfn and self.sv_slot else ""
+            gb = " (g : SFrame)" if memfn and self.mem_g else ""
             return f"{fb}{mb}(s : Nat) (r : BitVec 64){gb}{bv}"
         return (fb + bv.strip()).strip()
 
@@ -690,7 +697,7 @@ class Fn:
         if self.framed():
             f = self.mn(pc) if memfn else self.tn(pc) if tfn else self.dn(pc)
             mm = f"({mem}) " if memfn or self.need_m[pc] else ""
-            gg = "g " if memfn and self.sv_slot else ""
+            gg = "g " if memfn and self.mem_g else ""
             return f"{f} {fa}{mm}s r {gg}{a}".rstrip()
         return f"{self.tn(pc) if tfn else self.dn(pc)} {fa}{a}".rstrip()
 
@@ -763,12 +770,20 @@ class Fn:
         inside = self.inside(pc) if s is None else self.off[pc] - s.sp_delta != 0
         return f"(s - {self.F})" if inside else "s"
 
+    def call_g(self, pc, s):
+        """The caller's frame at a call (`{g}`): its callee-saved registers
+        must be the caller's (none spilled and reassigned there)."""
+        if "{g}" in (s_callee(s).args + (s_callee(s).mf or "")) and self.spilled.get(pc):
+            raise SystemExit(f"{s.name}: a callee stores the caller's frame while it is spilled")
+        return "g"
+
     def call_fmt(self, pc, s, post, mem):
         """The format arguments of a call node's callee."""
         c = s_callee(s)
         fmt = {f"a{i}": post[10 + i] for i in range(c.nargs)}
         fmt["m"], fmt["r"] = mem, f"0x{s.hi:08x}#64"
         fmt["sp"] = self.sp_nat(pc, s) if c.frame else ""
+        fmt["g"] = self.call_g(pc, s)
         return fmt
 
     def ndef(self, pc, memfn=False, tfn=False):
@@ -934,7 +949,7 @@ class Fn:
         framed_call = s.kind == "call" and s_callee(s).frame
         if s.kind == "call":
             c = s_callee(s)
-            args = c.args.format(sp=self.sp_nat(pc, s) if c.frame else "").replace(
+            args = c.args.format(sp=self.sp_nat(pc, s) if c.frame else "", g=self.call_g(pc, s)).replace(
                 "(by fn_rod)", f"(by {self.rod})")
             # a framed callee's `s` is the caller's `sp` as a `Nat`: its pin
             # put in front (`SegSt.pin_sp`), and back after the return

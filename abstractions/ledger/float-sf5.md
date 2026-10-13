@@ -7,14 +7,15 @@ proved at both levels:
 
 - **Level (a).** `Ieee754Fmod.sum` is the routine's summary: 142 segments
   folded into 90 nodes, with 6 cycles. `__muldf3` is a call node.
-  `__divdf3` is a premise call node, `DivSpec`.
+  `__divdf3` is a call node of the proved `Divdf3.sum_div` (since the
+  integration with lane float-sf4; see the end).
 - **(b1).** `Ieee754Fmod.F_eq_ref` gives `F = SfRef.fmod` and `T = true` on
   every pair of operands.
 - **(b2).** `SfRef.fmod_model` shows `SfRef.fmod = Lua.Num.fmod` on the model.
 - **Level-2 equation.** `Ieee754Fmod.spec_proved : F m s r a b = S a b`, with
   `S = SfRef.fmod`, takes `FnSp s 128` and `RodataRead m` (for the `Zero[]`
   table).
-- **Summary on the reference.** `Ieee754Fmod.sum_ref` holds under `DivSpec`.
+- **Summary on the reference.** `Ieee754Fmod.sum_ref` takes no premise.
 
 `Ieee754Fmod` is in `gen_lua_at.py`'s `FPROVED`. `FCALLS`, the call node and
 the MOD/MODK arm wiring are left to an arm lane.
@@ -112,7 +113,7 @@ or equal magnitudes. Four checks run, and each prints `[]` (no mismatches):
 | file | lines | CPU s | peak MB |
 |---|---|---|---|
 | `Lua/Vm/Sim/Kit/FnLoop.lean` | 18 | 1.2 | 1827 |
-| `Lua/Vm/Fn/DivSpec.lean` | 27 | 1.2 | 1831 |
+| `Lua/Vm/Fn/DivSpec.lean` (removed at integration) | 27 | 1.2 | 1831 |
 | `Lua/Vm/Fn/Ieee754Fmod/Defs.lean` (gen) | 1118 | 4.9 | 1954 |
 | `Lua/Vm/Fn/Ieee754Fmod/L0.lean` (gen) | 841 | 77.6 | 2395 |
 | `Lua/Vm/Fn/Ieee754Fmod/L1.lean` (gen) | 850 | 83.4 | 2323 |
@@ -145,9 +146,6 @@ Totals:
 
 ## Open, with evidence
 
-- **`DivSpec`.** This is `__divdf3`'s summary at the NaN path's call
-  (`0x8002de30`). Lane float-sf4's `Divdf3` summary, now on main, discharges
-  it once merged. This branch does not merge main.
 - **The `fmod` wrapper** (`w_fmod.c`, `0x8002b964`, 38 instructions) is not
   lifted. Its value is `__ieee754_fmod(x, y)`, or `0/0 = qnan` when `y = ±0`
   and `x` is not NaN; the routine already returns `qnan` there. Lifting it
@@ -174,3 +172,26 @@ Totals:
     `FmodLens`.
   - Estimate, from this lane's cost: about 4–5k hand lines and 2–3 lane
     sessions, plus `sqrt` (about 1.5k).
+
+## Integration with lane float-sf4 (`DivSpec` removed)
+
+- **`DivSpec` was unsatisfiable as stated.** `Div.Sum Fm` asked for frame
+  contents `Fm m s r a b` that do not depend on the caller's frame `g`. But
+  `__divdf3` saves the caller's `s0`-`s3` to its frame mid-body (lane
+  float-sf4's `saves`), so the patched memory depends on `g`. `sum` and
+  `sum_ref` under it were vacuous.
+- **The call node is now `Divdf3.sum_div`** (`Lua/Vm/Fn/DivSum.lean`):
+  `Divdf3.sum` with its result rewritten by `Divdf3.spec_proved`, so the
+  value is `F64.div` of the arguments. Every value function `N_<pc>` is
+  unchanged, and so is every (b1) lemma. The memory is
+  `Divdf3.Fm m s r g a b`.
+- **Generator change.** A callee's `Fm` format may take `{g}`, and its
+  summary's arguments may take `{g}` in place of `sframe?`. The caller's
+  memory functions then take `g` (`Fn.mem_g`). A call where the caller's
+  callee-saved registers are spilled is refused (`call_g`). The `premise`
+  and `noncomp` fields of `Callee` remain, unused.
+- **`saves` runs on cyclic graphs.** Lane float-sf4's save-slot dataflow is
+  now a fixpoint, so it runs on `__ieee754_fmod`'s cycles. On the acyclic
+  routines its result is unchanged.
+- **Results.** `Ieee754Fmod.sum_ref` takes no premise. `Lua/Vm/Fn/DivSpec.lean`
+  is deleted. `FmodTest` still prints `[]` four times.

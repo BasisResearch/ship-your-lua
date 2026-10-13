@@ -16,7 +16,7 @@ open Vsa.Sim Vsa.Logic
 open Lua.Vm.Sim
 
 -- the callees' lifted functions are their summaries' values, never unfolded
-attribute [local irreducible] Lua.Num.F64.div Lua.Vm.Fn.Muldf3.F Lua.Vm.Fn.Muldf3.Fm
+attribute [local irreducible] Lua.Num.F64.div Lua.Vm.Fn.Divdf3.Fm Lua.Vm.Fn.Muldf3.F Lua.Vm.Fn.Muldf3.Fm
 
 namespace Lua.Vm.Fn.Ieee754Fmod
 
