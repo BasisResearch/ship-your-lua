@@ -100,6 +100,10 @@ structure PrintIn (L nci func n tbc sl g : Nat) (ls : LitPtrs) (args : List Valu
   st : PrintSt M ph H
   pend : ph.pend = []
   len : args.length = n
+  /-- (lane F1-17) the arguments' strings lie in the heap (`Complement.own`:
+  an in-use chunk of the allocator's walk), not in the image -/
+  args_heap : ∀ (i : Nat) (s : List UInt8), args[i]? = some (Value.str s) →
+    heapStart ≤ (slotVal M (func + 16 * (i + 1))).toNat
   /-- (lane F1-15) the arguments, in every memory agreeing on `G` and their slots -/
   args_fz : Frozen (fun a => G a ∨ ArgSlot func n a) (ArgsAt func ι args) M
   args : ArgsAt func ι args M

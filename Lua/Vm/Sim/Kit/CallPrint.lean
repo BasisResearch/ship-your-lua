@@ -333,6 +333,49 @@ theorem call_args {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word
   rw [et, ev]
   exact hv0.transfer SFC.strs
 
+/-- (lane F1-17) A chunk of a walk from `p` starts at or above `p`. -/
+theorem _root_.Lua.Vm.DlHeap.ChunkWalk.addr_lo {m : Mem} {p top : Nat} {cs : List DlHeap.Chunk}
+    (h : DlHeap.ChunkWalk m p top cs) : ∀ c ∈ cs, p ≤ c.addr := by
+  induction h with
+  | top => intro c hc; simp at hc
+  | chunk _ _ _ _ _ _ ih =>
+    intro c hc
+    rcases List.mem_cons.1 hc with rfl | hc
+    · exact Nat.le_refl _
+    · have := ih c hc; omega
+
+/-- (lane F1-17) **The arguments' strings lie in the heap** (`PrintIn.args_heap`):
+the relation owns them (`Complement.own`: an in-use chunk of the allocator's
+walk, which starts at `__heap_start`). -/
+theorem call_args_heap {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) :
+    ∀ (i : Nat) (str : List UInt8), args[i]? = some (Value.str str) →
+      heapStart ≤ (slotVal (callMC w ins MJ nci) (w.slot ins.a + 16 * (i + 1))).toNat := by
+  intro i str hv
+  obtain ⟨hlen, hget⟩ := mapM_range'_get cx.regs
+  have hr1 := hget (i + 1) (.str str) (by simpa using hv)
+  have hi : i < args.length := (List.getElem?_eq_some_iff.1 hv).1
+  call_nums
+  simp only [List.length_cons] at hlen
+  have hv0 := cx.rel.core.stack (ins.a + (i + 1)) (.str str) (by omega) hr1
+  have e : w.slot (ins.a + (i + 1)) = w.slot ins.a + 16 * (i + 1) := by
+    simp only [RelPtrs.slot, stackValueSize]; omega
+  rw [e] at hv0
+  have kb : ∀ j, j < 16 → bytesT1 (callMC w ins MJ nci) (w.slot ins.a + 16 * (i + 1) + j) =
+      bytesT1 c.σ.mem (w.slot ins.a + 16 * (i + 1) + j) := fun j hj =>
+    (callMC_keep (by pcw_omega)).trans (hJ.slots _ (by omega) (by omega))
+  have ev : slotVal (callMC w ins MJ nci) (w.slot ins.a + 16 * (i + 1)) =
+      slotVal c.σ.mem (w.slot ins.a + 16 * (i + 1)) :=
+    bytesT8_congrT fun j hj => by
+      simpa only [Nat.add_assoc] using kb (tvalueValOff + j) (by simp only [tvalueValOff]; omega)
+  rw [ev]
+  obtain ⟨ch, hch⟩ := hv0.owned cx.rel.core.comp
+  have h1 := hch.lo
+  have h2 := cx.rel.core.comp.runtime.heap.walk.addr_lo ch hch.walk
+  omega
+
 /-- **The bytes the caller needs kept** lie in chunks in use (or the static
 image) and apart from what `luaB_print` writes (`PrintIn.keep_in`,
 `keep_apart`). -/
@@ -456,6 +499,7 @@ theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
       pend := hI.pend
       len := by simp only [List.length_cons] at hlen; omega
       args := call_args cx hI hJ
+      args_heap := call_args_heap cx hI hJ
       f_al := by
         have := cx.rel.core.ranges.base_al
         simp only [RelPtrs.slot, stackValueSize]; omega
