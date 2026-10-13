@@ -205,7 +205,7 @@ macro_rules
       refine ValRepr.ofFloat_of (by decide) ?_
       simp (disch := assumption) only [Loc.den, Fld.den, Nat.add_zero, at_fspec, Lua.Vm.Fn.Subdf3.S,
         Lua.Vm.Fn.Adddf3.S, Lua.Vm.Fn.Floatdidf.S, F64.sub_eq_model, F64.add_eq_model, toModel_toBits,
-        toModel_ofInt, ofI, hxm, true_and, and_true]
+        toModel_ofInt, ofI, hxm, true_and, and_true, model_add_comm]
       done))
 
 /-- Two tags compared (`beq a4, a2`: `R[C]`'s tag against `R[B]`'s). -/

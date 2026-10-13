@@ -1,4 +1,4 @@
-import Lua.Vm.Sim.Kit.AtJoin
+import Lua.Vm.Sim.Kit.AtJoinOps
 import Lua.Vm.At.Sub
 
 /-!
@@ -21,17 +21,6 @@ open Vsa.Machine (MState Config Steps StepsN)
 /-- **`OP_SUB` with a float operand** (`FloatArms.SUB`). -/
 theorem sim_SUB_flt (hsf : SoftFloatSpec) : SimArmOn .SUB FltBC :=
   sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
-  kit_setup 0x8001d964
-  kit_bound hAt ins.a; kit_bound hBt ins.b; kit_bound hCt ins.c
-  flt_views
-  refine hT.elim (fun hq => ?fb) (fun hq => ?fc)
-  case' fb => flt_reg_q x ins.b, hq; num_reg ins.c, hn
-  case' fc => flt_reg_q x ins.c, hq; num_reg ins.b, hn
-  all_goals
-    simp only [Opnd.fill, fastArith, hn] at hk
-    simp [Value.toNum?, Lua.Num.rawArith, BinOp.toOp, Lua.Num.numarith, Lua.Num.Numeral.toFloat,
-      Value.ofNum, VState.apply, writeDefs, KEdge.kills] at hk
-    subst hk
-    at_walk Lua.Vm.At.SUB
+  at_jarith 0x8001d964 Lua.Vm.At.SUB
 
 end Lua.Vm.Sim.At

@@ -349,9 +349,10 @@ of `c/tests/float/` (`abstractions/ledger/float-s0a.md`, `float-s1.md`).
 
 The arms proved under `SoftFloatSpec` are joined in `armTable` and have no
 field: `LOADF`, `ADDI`, `LTI`, `GEI` (lane float-m0), `SUB`, `FORLOOP`
-(round 5, A-JOIN). `EQI`, `LT` and `FORPREP` are proved but for the paths
+(round 5, A-JOIN), `LEI`, `GTI`, `ADD`, `ADDK`, `SUBK`, `UNM` (lane F2,
+join route). `EQI`, `LT`, `LE` and `FORPREP` are proved but for the paths
 their fields name (`At.EqiFlt_Statement`, `At.LtF2I_Statement`,
-`At.FpCoerce_Statement`). -/
+`At.LeF2I_Statement`, `At.FpCoerce_Statement`). -/
 structure FloatArms : Prop where
   /-- the soft-float routines' level-2 equations not yet proved
   (`Lua/Vm/Fn/Spec.lean`; `__adddf3`, `__subdf3` are theorems) -/
@@ -364,8 +365,6 @@ structure FloatArms : Prop where
   POW : SimArm .POW
   /-- `OP_POWK` (T4) -/
   POWK : SimArm .POWK
-  /-- `OP_ADD` with a float operand (`luai_numadd`, `__adddf3`; T2) -/
-  ADD : SimArmOn .ADD FltBC
   /-- `OP_MUL` with a float operand (`__muldf3`; T3) -/
   MUL : SimArmOn .MUL FltBC
   /-- `OP_MOD` with a float operand (`luaV_modf`: `fmod`; T4) -/
@@ -382,10 +381,6 @@ structure FloatArms : Prop where
   SHL : SimArmOn .SHL FltBC
   /-- `OP_SHR` with a float operand (T3) -/
   SHR : SimArmOn .SHR FltBC
-  /-- `OP_ADDK` with a float operand (T2) -/
-  ADDK : SimArmOn .ADDK FltBK
-  /-- `OP_SUBK` with a float operand (T2) -/
-  SUBK : SimArmOn .SUBK FltBK
   /-- `OP_MULK` with a float operand (T3) -/
   MULK : SimArmOn .MULK FltBK
   /-- `OP_MODK` with a float operand (T4) -/
@@ -402,8 +397,6 @@ structure FloatArms : Prop where
   SHRI : SimArmOn .SHRI FltB
   /-- `OP_SHLI` with a float `R[B]` (T3) -/
   SHLI : SimArmOn .SHLI FltB
-  /-- `OP_UNM` of a float (`luai_numunm`: the sign bit flipped inline; T0) -/
-  UNM : SimArmOn .UNM FltB
   /-- `OP_BNOT` of a float (`tointegerns`; T3) -/
   BNOT : SimArmOn .BNOT FltB
   /-- `OP_EQ` with a float operand (`luaV_equalobj`: `__eqdf2`, F2Ieq; T3) -/
@@ -412,17 +405,15 @@ structure FloatArms : Prop where
   on an integer outside `l_intfitsf`: `luaV_flttointeger` through `floor`);
   the rest is `At.sim_LT_flt` -/
   LT : At.LtF2I_Statement
-  /-- `OP_LE` with a float operand (`LEnum`; T3) -/
-  LE : SimArmOn .LE FltAB
+  /-- `OP_LE` with a float operand, its f2i paths (`LEintfloat`/`LEfloatint`
+  on an integer outside `l_intfitsf`: `luaV_flttointeger` through `floor`);
+  the rest is `At.sim_LE_flt` -/
+  LE : At.LeF2I_Statement
   /-- `OP_EQK` with a float `R[A]` or `K[B]` (`luaV_rawequalobj`; T3) -/
   EQK : SimArmOn .EQK FltAKb
   /-- `OP_EQI` with a float `R[A]`: `δ .eq` of a float and an 8-bit
   immediate is `Float.Model.beq`; the machine side is `At.sim_EQI_flt` -/
   EQI : At.EqiFlt_Statement
-  /-- `OP_LEI` with a float `R[A]` (T1) -/
-  LEI : SimArmOn .LEI FltA
-  /-- `OP_GTI` with a float `R[A]` (T1) -/
-  GTI : SimArmOn .GTI FltA
   /-- `OP_FORPREP`'s coerced classes, neither three integers nor three floats
   (`forlimit`'s `luaV_tointeger`/`luaV_tonumber_` → `strtod`); the float loop
   is `At.sim_FORPREP_flt` -/
@@ -442,7 +433,7 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case LOADTRUE => exact @sim_LOADTRUE
   case LOADNIL => exact Kit.sim_LOADNIL
   case GETTABUP => exact At.sim_GETTABUP
-  case ADD => exact SimArm.split @sim_ADD hF.ADD
+  case ADD => exact SimArm.split @sim_ADD (At.sim_ADD_flt hF.soft)
   case SUB => exact SimArm.split @sim_SUB (At.sim_SUB_flt hF.soft)
   case MUL => exact SimArm.split Kit.sim_MUL hF.MUL
   case MOD => exact SimArm.split Kit.sim_MOD hF.MOD
@@ -454,8 +445,8 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case SHR => exact SimArm.split At.sim_SHR hF.SHR
   case DIV => exact hF.DIV
   case POW => exact hF.POW
-  case ADDK => exact SimArm.split @sim_ADDK hF.ADDK
-  case SUBK => exact SimArm.split @sim_SUBK hF.SUBK
+  case ADDK => exact SimArm.split @sim_ADDK (At.sim_ADDK_flt hF.soft)
+  case SUBK => exact SimArm.split @sim_SUBK (At.sim_SUBK_flt hF.soft)
   case MULK => exact SimArm.split Kit.sim_MULK hF.MULK
   case MODK => exact SimArm.split At.sim_MODK hF.MODK
   case IDIVK => exact SimArm.split At.sim_IDIVK hF.IDIVK
@@ -470,7 +461,7 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case MMBIN => exact h.MMBIN
   case MMBINI => exact h.MMBINI
   case MMBINK => exact h.MMBINK
-  case UNM => exact SimArm.split (At.sim_UNM_of_str h.UNM_str) hF.UNM
+  case UNM => exact SimArm.split (At.sim_UNM_of_str h.UNM_str) At.sim_UNM_flt
   case BNOT => exact SimArm.split @sim_BNOT hF.BNOT
   case NOT => exact @sim_NOT
   case LEN => exact At.sim_LEN
@@ -480,10 +471,10 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case EQK => exact SimArm.split At.sim_EQK hF.EQK
   case EQI => exact SimArm.split @sim_EQI (At.sim_EQI_flt hF.soft hF.EQI)
   case LT => exact SimArm.split At.sim_LT (At.sim_LT_flt hF.soft hF.LT)
-  case LE => exact SimArm.split At.sim_LE hF.LE
+  case LE => exact SimArm.split At.sim_LE (At.sim_LE_flt hF.soft hF.LE)
   case LTI => exact SimArm.split @sim_LTI (At.sim_LTI_flt hF.soft)
-  case LEI => exact SimArm.split @sim_LEI hF.LEI
-  case GTI => exact SimArm.split @sim_GTI hF.GTI
+  case LEI => exact SimArm.split @sim_LEI (At.sim_LEI_flt hF.soft)
+  case GTI => exact SimArm.split @sim_GTI (At.sim_GTI_flt hF.soft)
   case GEI => exact SimArm.split @sim_GEI (At.sim_GEI_flt hF.soft)
   case TEST => exact @sim_TEST
   case TESTSET => exact @sim_TESTSET
