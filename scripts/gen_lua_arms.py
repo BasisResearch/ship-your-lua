@@ -169,7 +169,7 @@ HELPERS += [("luaF_close", "LuaF_close", 0x8000c224, 0x8000c380, [22, 26], [], [
             ("lua_pcallk", "Lua_pcallk", 0x8000413c, 0x80004154, [22, 26], [], []),
             ("main", "Main", 0x80001808, 0x80001820, [22, 26], [], []),
             ("_start", "_start", 0x80000038, 0x8000003c, [22, 26], [], []),
-            ("exit", "Exit", 0x8002f85c, 0x8002f888, [22, 26], [], [0x8002f87c]),
+            ("exit", "Exit", 0x8002f85c, 0x8002f888, [22, 26], [], []),
             ("__call_exitprocs", "__call_exitprocs", 0x8003bb00, 0x8003bc70, [22, 26], [],
              [0x8003bb3c]),
             ("__retarget_lock_acquire_recursive", "__retarget_lock_acquire_recursive",
@@ -200,7 +200,7 @@ HELPERS += [("__swrite", "__swrite", 0x80034f18, 0x80034fa0, [22, 26], [], [0x80
 # (`0x8003271c`) and the short-write error exit (`0x8003289c`) are stops: the
 # console hook writes everything (`swrite_sum`).
 HELPERS += [("__sflush_r", "__sflush_r", 0x800326f8, 0x80032954, [22, 26], [0x80032894],
-             [0x8003271c, 0x8003289c])]
+             [0x80032734, 0x8003289c])]
 # lane F1-7: `OP_GETTABUP _ENV "print"`'s `luaH_getshortstr` (the chain walk;
 # the `absentkey` return `0x800180ec` is a stop: the walk finds `print`,
 # `EnvMem.found`), and the arm itself on the route (its segments in their
@@ -311,12 +311,34 @@ HELPERS += [("luaL_tolstring", "LuaL_tolstring", 0x80021b2c, 0x80021d90, [22, 26
              [0x80002924, 0x8000294c]),
             ("lua_tolstring", "Lua_tolstring", 0x80002994, 0x80002b00, [22, 26], [],
              [0x800029a0, 0x80002a60, 0x800029c4, 0x80002abc, 0x80002a7c])]
+# lane F1-14: `exit(0)` once `print` installed `__stdio_exit_handler`: its
+# `jalr a5` (no longer a stop) into `stdio_exit_handler` → `_fwalk_sglue(_REENT,
+# _fclose_r, &__sglue)` (its `jalr s5` into `_fclose_r`) over `__sf`'s three
+# streams. `_fclose_r`: the `__sinit` call `0x800326a8` a stop (`StdioUp.init`);
+# `__sflush_r`'s read path (`stdin`, `stderr`; the above: its seek `0x80032734`
+# a stop, nothing read ahead); the `_close` hook `__sclose` → `_close_r` →
+# htif.c's `_close` (stops: the lazy `fs_init` `0x800008b8`, a bad descriptor
+# `0x80000970`, a file `0x8000092c`; `_close_r`'s `errno` path `0x8003afe8`); the
+# no-op locks; `_free_r` of `stdout`'s buffer a call node (`FreeR_Statement`)
+HELPERS += [("stdio_exit_handler", "Stdio_exit_handler", 0x80032af8, 0x80032b0c, [22, 26], [], []),
+            ("_fwalk_sglue", "_fwalk_sglue", 0x8003402c, 0x800340fc, [22, 26], [0x800340b4], []),
+            ("_fclose_r", "_fclose_r", 0x80032580, 0x800326ec, [22, 26], [0x800325e8], [0x800326a8]),
+            ("__sclose", "__sclose", 0x80035004, 0x8003500c, [22, 26], [], []),
+            ("_close_r", "_close_r", 0x8003afb4, 0x8003b004, [22, 26], [], [0x8003afe8]),
+            ("_close", "_close", 0x800008a4, 0x80000984, [22, 26], [],
+             [0x800008b8, 0x80000970, 0x8000092c]),
+            ("__sfp_lock_acquire", "__sfp_lock_acquire", 0x80032f30, 0x80032f38, [22, 26], [], []),
+            ("__sfp_lock_release", "__sfp_lock_release", 0x80032f38, 0x80032f40, [22, 26], [], []),
+            ("__retarget_lock_close_recursive", "__retarget_lock_close_recursive",
+             0x8003b420, 0x8003b424, [22, 26], [], [])]
 # the argument registers of a callee with no segments of its own (a call node
 # whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
 # idx, &len)`; lane F1-12: `luaE_extendCI(L)`)
 CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}, 0x80016a5c: {"x10"},
                 # lane F1-12: `lua_pushstring(L, s)`
-                0x80002fe4: {"x10", "x11"}}
+                0x80002fe4: {"x10", "x11"},
+                # lane F1-14: `_free_r(ptr, p)`
+                0x8003be24: {"x10", "x11"}}
 # a `ret` (by its address) that also returns into its own helper's code (an
 # internal `jalr`: `memset`'s `sb` chain): its live-out includes the code
 # after that call
@@ -324,7 +346,10 @@ RET_TO = {0x8003b5f8: [0x8003b630]}
 # indirect calls whose target the callee rows know (`jalr` through a `FILE`
 # hook): the callee's entry reads flow back into the caller's segments, as a
 # `jal`'s do (`__sfvwrite_r`'s `fp->_write`, `__swrite`, reads `a3`)
-INDIRECT = {0x80033df0: 0x80034f18, 0x8000ac88: 0x80022f18}
+INDIRECT = {0x80033df0: 0x80034f18, 0x8000ac88: 0x80022f18,
+            # lane F1-14: `exit`'s `__stdio_exit_handler`, `_fwalk_sglue`'s
+            # `_fclose_r`, `_fclose_r`'s `_close` hook `__sclose`
+            0x8002f87c: 0x80032af8, 0x800340b0: 0x80032580, 0x800325e4: 0x80035004}
 # lane float-m0: libgcc's soft-float routines of the T1/T2 float paths
 # (FLOAT-DESIGN.md §3, M0), all loop-free but `__clzdi2` (a counted byte scan,
 # unrolled by `scripts/gen_lua_fn.py`); their whole-function summaries are
@@ -369,7 +394,11 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),
            "luaD_precall": {"x10"}, "luaL_tolstring": {"x10"}, "lua_absindex": {"x10"},
            "luaL_callmeta": {"x10"}, "lua_getmetatable": {"x10"}, "lua_type": {"x10"},
-           "lua_toboolean": {"x10"}, "lua_tolstring": {"x10"}}
+           "lua_toboolean": {"x10"}, "lua_tolstring": {"x10"},
+           "stdio_exit_handler": {"x10"}, "_fwalk_sglue": {"x10"}, "_fclose_r": {"x10"},
+           "__sclose": {"x10"}, "_close_r": {"x10"}, "_close": {"x10"},
+           "__sfp_lock_acquire": set(), "__sfp_lock_release": set(),
+           "__retarget_lock_close_recursive": set()}
 
 
 def helper_cfg(lo, hi):

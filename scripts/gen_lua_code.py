@@ -85,7 +85,10 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          "lua_gettop", "lua_settop",
          # lane F1-12: `luaL_tolstring`'s callees on its nil and boolean paths
          "lua_absindex", "luaL_callmeta", "lua_getmetatable", "lua_type", "lua_toboolean",
-         "lua_tolstring"]
+         "lua_tolstring",
+         # lane F1-14: `exit`'s stdio handler (`_fwalk_sglue(_fclose_r)`)
+         "stdio_exit_handler", "_fwalk_sglue", "_fclose_r", "__sclose", "_close_r", "_close",
+         "__sfp_lock_acquire", "__sfp_lock_release", "__retarget_lock_close_recursive"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")

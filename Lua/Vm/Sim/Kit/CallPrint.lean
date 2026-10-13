@@ -1,4 +1,5 @@
 import Lua.Vm.Sim.Kit.CallClose
+import Lua.Vm.Sim.Kit.ExitUp
 
 /-!
 # `PrintCall_Statement CallInv` from `CALL`'s open parts (lane F1-13)

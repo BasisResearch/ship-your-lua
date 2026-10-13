@@ -22,8 +22,10 @@ premises collected here (`CallOpen`):
 * `PoscallN_Statement`: `luaD_poscall` with `C ≥ 2` (`wanted ≥ 1` nils);
 * `PrintGrow_Statement`: `luaD_precall`'s stack growth (`L->stack_last - L->top
   ≤ LUA_MINSTACK`);
-* `ExitUp_Statement`: `exit(0)` once `stdout` is set up (the post-print
-  `ExitOk`).
+* `FreeR_Statement`: `_free_r` (A0, as `MallocR_Statement`), which `exit`'s
+  `_fclose_r(stdout)` calls on `stdout`'s buffer; `exit(0)` once `stdout` is
+  set up (`ExitUp_Statement`, the post-print `ExitOk`) is proved from it
+  (`exitUp_of_free`, `Kit/ExitUp.lean`, lane F1-14).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -191,16 +193,20 @@ def PoscallN_Statement : Prop :=
 def PrintGrow_Statement (I : Proto → RelPtrs → Prop) : Prop :=
   PrintCallOn I fun _ w ins => ¬ (w.slot ins.a + 16 * ins.b + 320 < w.rt.stackLast)
 
-/-- **Named premise: `exit(0)` once `stdout` is set up** (after a `print`:
+/-- **`exit(0)` once `stdout` is set up** (after a `print`:
 `__stdio_exit_handler` = `stdio_exit_handler` runs `_fwalk_sglue(_fclose_r)`
 over the standard streams: `__sflush_r` with nothing pending, htif.c's
-`_close`, `_free_r` of the buffer), from `stdout`'s state, the heap and no
-`atexit` handler: `ExitOk`. Its truth needs the other standard streams as
-`__sinit`'s `std()` left them, which `StdoutIn` does not carry yet. -/
+`_close`, `_free_r` of the buffer), from the `CALL` invariant at the phase
+`.up buf []` (`stdout`, the other streams as `__sinit`'s `std()` left them,
+`atexit`, where the Lua objects lie) and the heap: `ExitOk`. Proved from
+`FreeR_Statement` (`exitUp_of_free`, `Kit/ExitUp.lean`). Lane F1-14: the
+earlier form, over `StdoutIn` alone, left `stdin`, `stderr`, `__sglue` and the
+handler unconstrained (`exit` jumps through their hooks), so the invariant
+carries them now (`StdioRest`, `StdoutTail`, `FdsStd`). -/
 def ExitUp_Statement : Prop :=
-  ∀ (p : Proto) (w : RelPtrs) (buf : Nat), StdoutIn w.mo w.rt.hix (.up buf []) →
-    HeapAt w.mo w.rt.top w.rt.brkv w.rt.chunks (fun i => w.rt.bins.getD i []) →
-    bytesT8 w.mo symAtexit = 0#64 → ExitOk p w
+  ∀ (p : Proto) (w : RelPtrs) (buf : Nat) (F FL : Nat → Prop) (ls : LitPtrs),
+    CallInvAt p w (.up buf []) F FL ls →
+    HeapAt w.mo w.rt.top w.rt.brkv w.rt.chunks (fun i => w.rt.bins.getD i []) → ExitOk p w
 
 /-- **`OP_CALL print`'s open parts** on the `CALL` invariant (lane F1-13). -/
 structure CallOpen : Prop where
@@ -208,6 +214,6 @@ structure CallOpen : Prop where
   extendCI : ExtendCI_Statement
   poscall : PoscallN_Statement
   grow : PrintGrow_Statement CallInv
-  exitUp : ExitUp_Statement
+  freeR : FreeR_Statement
 
 end Lua.Vm.Sim.Kit

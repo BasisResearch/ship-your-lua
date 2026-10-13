@@ -221,6 +221,38 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
   have keptH : ∀ {a}, Kept H (.up buf []) a → Kept (w.rt.withHeap H).hix (.up buf []) a := fun ha =>
     ⟨ha.inuse, ha.lo, ha.hi, ha.nbuf⟩
   -- the new complement
+  -- the `CALL` invariant at the pointers after the call (`exit` needs it too)
+  have hI' : CallInvAt p (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) (.up buf []) F FL ls :=
+    { dense := fun a h1 h2 => by rw [fill_get m h1 (by omega)]; rfl
+      io := hio
+      pend := rfl
+      cells := hP.cells
+      room := fun hh => hh.elim (fun hb => absurd rfl (hb buf [])) fun h0 => by
+        have e := Option.some.inj (hnext.symm.trans h0); have := h.nci_lo
+        simp only [symEnd] at this; omega
+      atexit := hatx
+      stat := (hI.stat.trans fun a ha => (bytesT1_fill m a).trans (h.foot a ha)).conseq
+        fun M hM => hM.after (fillZeroMem m) H
+      stat_in := fun a ha => (hI.stat_in a ha).imp kept' id
+      stat_apart := hI.stat_apart
+      fits := hI.fits
+      kslots := hI.kslots
+      lits := h.lits.facts.trans fun a _ => bytesT1_fill m a
+      lits_in := fun a ha => keptH (h.lits.kept a ha)
+      lits_apart := fun a ha hd => h.lits.apart a ha (.inl hd)
+      lit_strs := fun ts hts a h1 h2 => keptH (h.lits.strs ts hts a h1 h2)
+      marks := hI.marks
+      L_in := fun a h1 h2 => kept' (hI.L_in a h1 h2)
+      g_in := fun a h1 h2 => kept' (hI.g_in a h1 h2)
+      ci_in := fun a h1 h2 => kept' (hI.ci_in a h1 h2)
+      stack_in := fun a h1 h2 => kept' (hI.stack_in a h1 h2)
+      nci := fun n hn h0 => by
+        obtain rfl : n = nci := Option.some.inj (hn.symm.trans hnext)
+        exact ⟨fun a h1 h2 => keptH (h.nci_kept a h1 h2).1,
+          fun a h1 h2 => ⟨(h.nci_kept a h1 h2).2, fun hf => h.lits.apart a hf (.inr ⟨h1, h2⟩)⟩,
+          h.nci_L, h.nci_g, h.nci_ci, h.nci_stack, h.nci_lits⟩
+      objs := ⟨hI.objs.g_L, hI.objs.g_ci, hI.objs.g_stack, hI.objs.ci_stack, hI.objs.lit_L,
+        hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack⟩ }
   have comp : Complement p (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) := by
     obtain ⟨hsz, hwords⟩ := SF.proto.code SF.proto_code
     refine
@@ -241,7 +273,7 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
         own := fun ts s ho => ?_
         callers := fun sg hs i hi => ?_
         callerL := fun a ha => ?_
-        exit := hX p _ buf hio hheap hatx
+        exit := hX p _ buf F FL ls hI' hheap
         env := (SF.after (fillZeroMem m) H).env
         call := ?_ }
     · -- the Lua state
@@ -293,37 +325,7 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
     · have := callerLSlots_above a ha
       exact (bytesT8_congrT fun j _ => (bytesT1_fill m _).trans (upT _ (by omega))).trans (hc.comp.callerL a ha)
     · -- the `CALL` invariant again
-      refine ⟨.up buf [], F, FL, ls,
-        { dense := fun a h1 h2 => by rw [fill_get m h1 (by omega)]; rfl
-          io := hio
-          pend := rfl
-          cells := hP.cells
-          room := fun hh => hh.elim (fun hb => absurd rfl (hb buf [])) fun h0 => by
-            have e := Option.some.inj (hnext.symm.trans h0); have := h.nci_lo
-            simp only [symEnd] at this; omega
-          atexit := hatx
-          stat := (hI.stat.trans fun a ha => (bytesT1_fill m a).trans (h.foot a ha)).conseq
-            fun M hM => hM.after (fillZeroMem m) H
-          stat_in := fun a ha => (hI.stat_in a ha).imp kept' id
-          stat_apart := hI.stat_apart
-          fits := hI.fits
-          kslots := hI.kslots
-          lits := h.lits.facts.trans fun a _ => bytesT1_fill m a
-          lits_in := fun a ha => keptH (h.lits.kept a ha)
-          lits_apart := fun a ha hd => h.lits.apart a ha (.inl hd)
-          lit_strs := fun ts hts a h1 h2 => keptH (h.lits.strs ts hts a h1 h2)
-          marks := hI.marks
-          L_in := fun a h1 h2 => kept' (hI.L_in a h1 h2)
-          g_in := fun a h1 h2 => kept' (hI.g_in a h1 h2)
-          ci_in := fun a h1 h2 => kept' (hI.ci_in a h1 h2)
-          stack_in := fun a h1 h2 => kept' (hI.stack_in a h1 h2)
-          nci := fun n hn h0 => ?_
-          objs := ⟨hI.objs.g_L, hI.objs.g_ci, hI.objs.g_stack, hI.objs.ci_stack, hI.objs.lit_L,
-            hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack⟩ }⟩
-      obtain rfl : n = nci := Option.some.inj (hn.symm.trans hnext)
-      exact ⟨fun a h1 h2 => keptH (h.nci_kept a h1 h2).1,
-        fun a h1 h2 => ⟨(h.nci_kept a h1 h2).2, fun hf => h.lits.apart a hf (.inr ⟨h1, h2⟩)⟩,
-        h.nci_L, h.nci_g, h.nci_ci, h.nci_stack, h.nci_lits⟩
+      exact ⟨.up buf [], F, FL, ls, hI'⟩
   refine ⟨{ line := h.line
             comp := comp
             frame := fun a _ => (bytesT1_fill m a).symm

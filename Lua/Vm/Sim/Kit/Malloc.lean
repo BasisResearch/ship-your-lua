@@ -90,4 +90,25 @@ def MallocR_Statement : Prop :=
       (fun c => ∃ m' p top' brk' chunks' bins', wrRet r sp p f m' o c ∧
         MallocPost m m' sp n p brk chunks top' brk' chunks' bins')
 
+/-- `_free_r`'s entry. -/
+abbrev symFreeR : Nat := 0x8003be24
+
+/-- **`_free_r(_REENT, p)`** (lane F1-14; named premise, PHASES A0: the
+dlmalloc proof is ship-your-interpreter's, at its WHILE addresses, as
+`MallocR_Statement`'s): on a heap of the shape `HeapAt` (of the zero fill),
+`p` the payload of a chunk in use in the arena, it returns (no result) with
+the caller's frame, writing nothing but its globals (`MallocGlobal`: the bins,
+`_malloc_trim_r`'s `_sbrk`), the arena and its stack below `sp` (1 KiB).
+`exit`'s `_fclose_r(stdout)` frees `stdout`'s buffer through it. -/
+def FreeR_Statement : Prop :=
+  ∀ (sp p top brk : Nat) (chunks : List Chunk) (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame)
+    (m : Mem) (o : Array String),
+    HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins → r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
+    heapEnd + 1024 ≤ sp → (∃ sz, (⟨p - 16, sz, true⟩ : Chunk) ∈ chunks) → heapStart + 16 ≤ p →
+    Triple (SegSt (BitVec.ofNat 64 symFreeR) (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
+        ⟨Register.x11, BitVec.ofNat 64 p⟩] sp r f) (ArmPay m o))
+      (fun c => ∃ m', SegSt r (⟨Register.x2, BitVec.ofNat 64 sp⟩ ::
+          ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩ :: f.pins) (ArmPay m' o) c ∧
+        ∀ a, ¬ MallocGlobal a → (a < heapStart ∨ heapEnd ≤ a) → (a + 1024 ≤ sp ∨ sp ≤ a) → m'[a]? = m[a]?)
+
 end Lua.Vm.Sim.Kit

@@ -2307,6 +2307,29 @@ def tol_lit(mod, tag, what):
             "`lua_tolstring(L, -1, &l)`.")
 
 
+# lane F1-14: `exit`'s stdio handler. Its frames lie in the C stack above
+# `__heap_end` (`exit` runs at `__stack_top`)
+EXIT_OK = ["sp_lo : 0x87800000 + 8192 ≤ X.n 0"] + CALLEE_OK
+SYM_FDS, SCLOSE, FCLOSE = 0x8005d460, 0x80035004, 0x80032580
+
+
+def fclose_std(mod, fp, fl, fd, kind, what):
+    """`_fclose_r(_REENT, fp)` on a standard stream `exit` closes quietly
+    (`StdQuiet`: `_flags` `fl`, `_file` `fd`, `fds[fd].kind` `kind`): the
+    lock, `__sflush_r`'s read path (nothing read ahead), the `_close` hook
+    `__sclose` → `_close_r` → `_close` (`fs_ready` a guard: `StdoutAtW.ready`),
+    no buffer to free, `_flags` cleared, the unlocks; `CHECK_INIT`'s
+    `__cleanup` a guard (`StdioUp.init`)."""
+    return dict(
+        mod=mod, entry=FCLOSE,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", fp)}),
+        ok=EXIT_OK, depth=120,
+        cells={(4, fp + 176): 0, (2, fp + 16): fl, (2, fp + 18): fd, (4, fp + 8): 0, (4, fp + 112): 0,
+               (8, fp + 48): fp, (8, fp + 80): SCLOSE, (8, fp + 88): 0, (8, fp + 120): 0,
+               (4, SYM_FDS + 24 * fd): kind},
+        doc=f"`_fclose_r(_REENT, {what})` at `exit`.")
+
+
 FNS = {
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
@@ -2644,6 +2667,32 @@ FNS = {
                              lb={**MM_LB, 3: 1})},
         doc="`memmove(dst, src, n)` on disjoint ranges (the backward copy "
             "`0x8003b450` is a stop)."),
+    # lane F1-14: `exit`'s stdio handler: `stdio_exit_handler` → `_fwalk_sglue(_REENT,
+    # _fclose_r, &__sglue)` over `__sf`'s three streams (`_fclose_r` a call node:
+    # a root after each, its `s0` the stream), `__sglue`'s one array
+    "stdio_exit_handler": dict(
+        mod="ExitHandler", entry=0x80032af8,
+        row=abi_row({}),
+        ok=EXIT_OK,
+        cells={(4, 0x8005cee8): 3, (8, 0x8005cef0): 0x8005e5b0, (8, 0x8005cee0): 0,
+               (2, 0x8005e5c0): 0x4, (2, 0x8005e5c2): 0, (2, STDOUT + 16): 0x2889, (2, STDOUT + 18): 1,
+               (2, 0x8005e730): 0x12, (2, 0x8005e732): 2},
+        calls={FCLOSE: dict(ret={10: ("lit", 0)})},
+        doc="`stdio_exit_handler()` → `_fwalk_sglue(_REENT, _fclose_r, &__sglue)`."),
+    "_fclose_r/stdin": fclose_std("FcloseIn", 0x8005e5b0, 0x4, 0, 1, "stdin"),
+    "_fclose_r/stderr": fclose_std("FcloseErr", 0x8005e720, 0x12, 2, 3, "stderr"),
+    # `_fclose_r(_REENT, stdout)` on the set-up, flushed `stdout`: the lock,
+    # `__sflush_r` (a call node: `sflush_sum`), the `_close` hook (walked:
+    # `fds[1]`), `_free_r` of its buffer (`__SMBF`; a call node, `FreeR_Statement`)
+    "_fclose_r/stdout": dict(
+        mod="FcloseOut", entry=FCLOSE,
+        row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", STDOUT)}),
+        ok=EXIT_OK, depth=120,
+        cells={(4, STDOUT + 176): 0, (2, STDOUT + 16): 0x2889, (2, STDOUT + 18): 1, (8, STDOUT + 48): STDOUT,
+               (8, STDOUT + 80): SCLOSE, (8, STDOUT + 88): 0, (8, STDOUT + 120): 0,
+               (4, SYM_FDS + 24): 2},
+        calls={0x800326f8: dict(ret={10: ("lit", 0)}), 0x8003be24: dict(ret={})},
+        doc="`_fclose_r(_REENT, stdout)` at `exit`."),
 }
 
 
