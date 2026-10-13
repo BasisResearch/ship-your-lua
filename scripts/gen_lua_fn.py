@@ -76,10 +76,28 @@ ROUTINES = {
     # `__clzdi2`; two class-switch jump tables (`JUMPS`); s0-s3 saved and
     # reassigned mid-body (`FRAME` registers spilled to their save slots)
     "__divdf3": ("Divdf3", 0x8002de30, 112, [10, 11]),
+    # lane float-sf5: `__ieee754_fmod` (`e_fmod.c`): six loops (`LOOPS`
+    # below), a 16-byte frame on its NaN path only (`(x*y)/(x*y)`: `__muldf3`,
+    # `__divdf3` as call nodes)
+    "__ieee754_fmod": ("Ieee754Fmod", 0x8002bdb4, 16, [10, 11]),
 }
 # a framed routine whose framed callees write below its own frame: the bytes
 # below `sp` its summary patches (its frame plus the deepest callee's)
-WINDOW = {"floor": 112}
+WINDOW = {"floor": 112, "__ieee754_fmod": 128}
+# lane float-sf5: the routines whose lifted functions take the memory only
+# where they read it (`Fn.need_m`, as under `FORWARD`): a callee's frame
+# contents stay out of the value functions, which `#eval` runs
+MEMLESS = {"__ieee754_fmod"}
+# lane float-sf5: a routine whose addresses `kit_disch` does not fold (a
+# table indexed by a bit: `e_fmod.c`'s `Zero[sx]`) -> its discharger
+# (`Kit/FnLoop.lean`'s `fn_disch`: `kit_disch`, else the literal parts reduced)
+DISCH = {"__ieee754_fmod": "fn_disch"}
+# lane float-sf5: segments whose memory side conditions hold only on the paths
+# into them (an address over a register the node does not bound: `e_fmod.c`'s
+# `Zero[(uint32_t)sx>>31]` at `0x8002c1fc`, `sx` masked upstream): they become
+# conjuncts of the node's termination function (`T_<pc>`, `decide`d), proved
+# with it at level (b), never discharged by the generator
+SIDE = {"__ieee754_fmod": {"seg_8002c1fc_8002c214"}}
 # lane float-sf3: the routines whose frame slots are forwarded (store-to-load
 # at generation time): a spill slot stored on every path into a node is a
 # parameter `vs<off>` of the node's lifted function, with the node lemma's
@@ -98,26 +116,35 @@ class Callee:
 
     * `summ`: its summary, applied as `summ <args>`; `{fr}` in `args` is the
       caller's frame (`hframe?` for a leaf callee, `sframe?` for a framed one),
-      `{sp}` the caller's `sp` as a `Nat` (a framed callee's `s`);
+      `{sp}` the caller's `sp` as a `Nat` (a framed callee's `s`), `{g}` the
+      caller's `SFrame`;
     * `val`: its result, a format over the argument registers `{a0}`, `{a1}`,
       … and, for a framed callee, its entry memory `{m}`, `{sp}` and the
       return address `{r}`;
     * `frame`: a framed callee's frame bytes (its summary's memory is
       `memPatch m (Fm …) (sp - frame) frame`, `{mf}` the `Fm` format), `0`
-      for a leaf (the memory kept);
+      for a leaf (the memory kept); an `Fm` that stores the caller's
+      callee-saved registers (`__divdf3`) takes `{g}`, and the caller's
+      memory functions then take `g` (`Fn.mem_g`);
     * `opaque`: its lifted functions, never unfolded by the caller;
     * `keeps`: the caller-saved registers its summary keeps (a caller's
       temporaries live across the call: gcc's `-fipa-ra`);
     * `clobbers`: caller-saved registers its summary sets beside `a0`, as
       formats like `val` (lane float-sf4: `__umoddi3`'s `t0` is its return
-      address `{r}`).
+      address `{r}`);
+    * `premise`: a callee summarised by a named premise (lane float-sf5;
+      none today), `(hypothesis name, type)`: every node lemma of the caller
+      takes it (its first binder) and passes it on; `summ` names it;
+    * `noncomp`: its frame contents are chosen from the premise
+      (noncomputable), so the caller's memory functions are too.
     """
 
     def __init__(self, summ, args, val, nargs, frame=0, mf=None, opaque=(), imp=None, keeps=(),
-                 clobbers=None):
+                 clobbers=None, premise=None, noncomp=False):
         self.summ, self.args, self.val, self.nargs = summ, args, val, nargs
         self.frame, self.mf, self.opaque, self.imp = frame, mf, opaque, imp
         self.keeps, self.clobbers = keeps, clobbers or {}
+        self.premise, self.noncomp = premise, noncomp
 
 
 # the summarised callees: entry -> `Callee`
@@ -146,6 +173,20 @@ CALLEES = {
     0x8002f77c: Callee("Lua.Vm.Sim.Kit.umoddi3_sum", "_ _ _ hframe? _ _ (by decide)",
                        "({a0}) % ({a1})", 2, imp="Lua.Vm.Sim.Kit.Umoddi3",
                        clobbers={5: "{r}"}),
+    # lane float-sf5: `__muldf3` (proved: `Muldf3.spec_proved`) and `__divdf3`
+    # (proved: `Divdf3.sum_div`, `Lua/Vm/Fn/DivSum.lean`: `Divdf3.sum` with
+    # `F64.div` as its result by `spec_proved`), framed; `__divdf3`'s frame
+    # stores the caller's `s0`-`s3`, so its `Fm` takes `{g}`
+    0x8002e504: Callee("Lua.Vm.Fn.Muldf3.sum",
+                       "_ _ {sp} _ sframe? _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)",
+                       "Lua.Vm.Fn.Muldf3.F ({m}) {sp} ({r}) ({a0}) ({a1})", 2, 80,
+                       "Lua.Vm.Fn.Muldf3.Fm ({m}) {sp} ({r}) ({a0}) ({a1})",
+                       ("Lua.Vm.Fn.Muldf3.F", "Lua.Vm.Fn.Muldf3.Fm"), "Lua.Vm.Fn.Muldf3"),
+    0x8002de30: Callee("Lua.Vm.Fn.Divdf3.sum_div",
+                       "_ _ {sp} _ {g} _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)",
+                       "Lua.Num.F64.div ({a0}) ({a1})", 2, 112,
+                       "Lua.Vm.Fn.Divdf3.Fm ({m}) {sp} ({r}) {g} ({a0}) ({a1})",
+                       ("Lua.Num.F64.div", "Lua.Vm.Fn.Divdf3.Fm"), "Lua.Vm.Fn.DivSum"),
 }
 
 # the callee-saved registers: register -> field of `HFrame`/`SFrame`
@@ -310,26 +351,105 @@ class Fn:
                 if s.succ not in self.off:
                     self.off[s.succ] = o
                     work.append(s.succ)
-        # topological order: successors first
-        self.order, seen = [], set()
-
-        def visit(pc):
-            if pc in seen:
-                return
-            seen.add(pc)
-            for s in self.nodes[pc]:
-                if s.kind != "ret":
-                    visit(s.succ)
-            self.order.append(pc)
-        visit(self.entry)
+        # topological order: successors first; a cycle's nodes (a strongly
+        # connected component, Tarjan's order: post-order on a DAG) contiguous
+        self.order, self.scc = [], {}
+        self.tarjan()
+        # lane float-sf5: the nodes on a cycle take fuel (`Kit/FnLoop.lean`);
+        # a node that reaches one takes the termination fact `hT`
+        self.cyc = {pc for pc in self.order
+                    if len(self.scc_nodes(pc)) > 1
+                    or any(s.kind != "ret" and s.succ == pc for s in self.nodes[pc])}
+        if self.entry in self.cyc:
+            raise SystemExit(f"{fn}: the entry is on a cycle")
+        self.need_t = {}
+        for pc in self.order:
+            self.need_t[pc] = pc in self.cyc or any(
+                (s.kind != "ret" and self.need_t.get(s.succ, s.succ in self.cyc)) or self.side(s)
+                for s in self.nodes[pc])
+        # the named premises its callees need (`Callee.premise`)
+        self.prem = []
+        for s in self.segs:
+            if s.kind == "call" and s_callee(s).premise and s_callee(s).premise not in self.prem:
+                self.prem.append(s_callee(s).premise)
+        self.noncomp = any(s.kind == "call" and s_callee(s).noncomp for s in self.segs)
         self.fwd = fn in FORWARD
         # the saved `ra`'s slot (`hra`), never a forwarded slot
         self.ra_off = re.findall(r"\((0x[0-9a-f]+)#12\)", self.ra)[-1] if self.ra else None
         self.slots_in = {pc: [] for pc in self.order}
         self.need_m = {pc: True for pc in self.order}
         self.saves()
+        # the memory functions take the caller's frame: they store it (`saves`)
+        # or a callee's frame stores it (`{g}` in `Callee.mf`)
+        self.mem_g = bool(self.sv_slot) or any(
+            s.kind == "call" and "{g}" in (s_callee(s).mf or "") for s in self.segs)
         if self.fwd:
             self.forward()
+        elif fn in MEMLESS:
+            self.mem_need()
+
+    def side(self, s):
+        """Segment `s`'s side conditions that are conjuncts of `T` (`SIDE`)."""
+        if s.name not in SIDE.get(self.fn, ()):
+            return []
+        return [(h, t) for h, t in s.hyps if re.match(r"h(lo|hi|ht|win|al)_", h)]
+
+    def tarjan(self):
+        """`self.order` (successors first, each cycle contiguous) and
+        `self.scc` (node -> its component's id), by Tarjan's algorithm, the
+        successors visited in segment order (so a DAG's order is the DFS
+        post-order)."""
+        index, low, stack, on = {}, {}, [], set()
+
+        def visit(pc):
+            index[pc] = low[pc] = len(index)
+            stack.append(pc)
+            on.add(pc)
+            for s in self.nodes[pc]:
+                if s.kind == "ret":
+                    continue
+                q = s.succ
+                if q not in index:
+                    visit(q)
+                    low[pc] = min(low[pc], low[q])
+                elif q in on:
+                    low[pc] = min(low[pc], index[q])
+            if low[pc] == index[pc]:
+                comp = []
+                while True:
+                    q = stack.pop()
+                    on.discard(q)
+                    comp.append(q)
+                    if q == pc:
+                        break
+                for q in reversed(comp):
+                    self.scc[q] = pc
+                    self.order.append(q)
+        visit(self.entry)
+
+    def scc_nodes(self, pc):
+        return [q for q in self.order if self.scc[q] == self.scc[pc]]
+
+    def same(self, pc, q):
+        """`q` on the same cycle as `pc` (an edge inside it consumes fuel)."""
+        return pc in self.cyc and q in self.cyc and self.scc[pc] == self.scc[q]
+
+    def mem_need(self):
+        """Which value functions read memory (the entry keeps `m`):
+        `forward`'s last step, without forwarding, as a least fixpoint (a
+        cycle's nodes pass `m` to each other only if one of them reads it)."""
+        self.need_m = {pc: pc == self.entry for pc in self.order}
+        changed = True
+        while changed:
+            changed = False
+            for pc in self.order:
+                if self.need_m[pc]:
+                    continue
+                for s in self.nodes[pc]:
+                    if (re.search(MEM_RE, self.body(pc, s))
+                            or (s.guard and re.search(MEM_RE, self.subst(pc, s.guard[0])))):
+                        self.need_m[pc] = changed = True
+                        break
 
     # ----------------------------------------------------------------------
     def preds(self):
@@ -350,55 +470,66 @@ class Fn:
         restore `ld s<i>, off(sp)` is the caller's value (`fn_sv_ld`)."""
         preds = self.preds()
         self.sv_slot, self.spilled, av_in, out = {}, {}, {}, {}
-        for pc in reversed(self.order):          # the entry first
-            if pc == self.entry:
-                sp, av = frozenset(), frozenset()
-            else:
-                outs = [out[(p, id(s))] for p, s in preds[pc]]
-                if len({o[0] for o in outs}) != 1:
-                    raise SystemExit(f"0x{pc:x}: callee-saved registers spilled on some paths only")
-                sp, av = outs[0][0], frozenset.intersection(*[o[1] for o in outs])
-            self.spilled[pc], av_in[pc] = sp, av
-            for s in self.nodes[pc]:
-                if s.kind == "ret":
-                    if sp:
-                        raise SystemExit(f"{s.name}: returns with {sorted(sp)} not restored")
-                    continue
-                av2 = set(av)
-                if self.inside(pc) and s.mem != "m0" and not s.sp_delta:
-                    for a, d in wm8_chain(s.mem):
-                        m = re.fullmatch(SLOT_RE, a)
-                        if not m:
-                            continue
-                        o, dm = m.group(1), re.fullmatch(r"sdData_val v(\d+)", d)
-                        if dm and int(dm.group(1)) in FRAME and int(dm.group(1)) not in sp:
-                            r = int(dm.group(1))
-                            if self.sv_slot.setdefault(o, r) != r:
-                                raise SystemExit(f"{s.name}: save slot {o} of two registers")
-                            av2.add(o)
-                        elif o in self.sv_slot:
-                            raise SystemExit(f"{s.name}: save slot {o} overwritten")
-                sp2 = set(sp)
-                for r in FRAME:
-                    e = s.post.get(r, f"v{r}")
-                    if e == f"v{r}":
+        # a fixpoint: a cycle's back edges (lane float-sf5) join on a later
+        # pass; without cycles the second pass repeats the first
+        while True:
+            prev = (dict(self.spilled), dict(av_in))
+            for pc in reversed(self.order):          # the entry first
+                if pc == self.entry:
+                    sp, av = frozenset(), frozenset()
+                else:
+                    outs = [out[(p, id(s))] for p, s in preds[pc] if (p, id(s)) in out]
+                    if not outs:                 # every edge in still to come
                         continue
-                    m = re.fullmatch(SV_RE, e)
-                    if m and self.sv_slot.get(m.group(1)) == r and m.group(1) in av:
-                        sp2.discard(r)
-                    elif any(self.sv_slot.get(o) == r for o in av2):
-                        sp2.add(r)
-                    else:
-                        raise SystemExit(f"{s.name}: x{r} reassigned before it is saved")
-                out[(pc, id(s))] = (frozenset(sp2), frozenset(av2))
-        live = {}
-        for pc in self.order:                    # successors first
-            ls = set()
-            for s in self.nodes[pc]:
-                ls |= set(re.findall(SV_RE, " ".join(s.post.values()))) & set(self.sv_slot)
-                if s.kind != "ret":
-                    ls |= live[s.succ]
-            live[pc] = ls
+                    if len({o[0] for o in outs}) != 1:
+                        raise SystemExit(f"0x{pc:x}: callee-saved registers spilled on some paths only")
+                    sp, av = outs[0][0], frozenset.intersection(*[o[1] for o in outs])
+                self.spilled[pc], av_in[pc] = sp, av
+                for s in self.nodes[pc]:
+                    if s.kind == "ret":
+                        if sp:
+                            raise SystemExit(f"{s.name}: returns with {sorted(sp)} not restored")
+                        continue
+                    av2 = set(av)
+                    if self.inside(pc) and s.mem != "m0" and not s.sp_delta:
+                        for a, d in wm8_chain(s.mem):
+                            m = re.fullmatch(SLOT_RE, a)
+                            if not m:
+                                continue
+                            o, dm = m.group(1), re.fullmatch(r"sdData_val v(\d+)", d)
+                            if dm and int(dm.group(1)) in FRAME and int(dm.group(1)) not in sp:
+                                r = int(dm.group(1))
+                                if self.sv_slot.setdefault(o, r) != r:
+                                    raise SystemExit(f"{s.name}: save slot {o} of two registers")
+                                av2.add(o)
+                            elif o in self.sv_slot:
+                                raise SystemExit(f"{s.name}: save slot {o} overwritten")
+                    sp2 = set(sp)
+                    for r in FRAME:
+                        e = s.post.get(r, f"v{r}")
+                        if e == f"v{r}":
+                            continue
+                        m = re.fullmatch(SV_RE, e)
+                        if m and self.sv_slot.get(m.group(1)) == r and m.group(1) in av:
+                            sp2.discard(r)
+                        elif any(self.sv_slot.get(o) == r for o in av2):
+                            sp2.add(r)
+                        else:
+                            raise SystemExit(f"{s.name}: x{r} reassigned before it is saved")
+                    out[(pc, id(s))] = (frozenset(sp2), frozenset(av2))
+            if (self.spilled, av_in) == prev:
+                break
+        live, changed = {}, True
+        while changed:                           # a fixpoint over the cycles
+            changed = False
+            for pc in self.order:                # successors first
+                ls = set()
+                for s in self.nodes[pc]:
+                    ls |= set(re.findall(SV_RE, " ".join(s.post.values()))) & set(self.sv_slot)
+                    if s.kind != "ret":
+                        ls |= live.get(s.succ, set())
+                if live.get(pc) != ls:
+                    live[pc], changed = ls, True
         self.sv_in = {pc: sorted(av_in[pc] & live[pc]) for pc in self.order}
 
     def seg_stores(self, pc, s):
@@ -472,6 +603,23 @@ class Fn:
         """The lemma of node `pc` (`sum` at the entry)."""
         return "sum" if pc == self.entry else f"n_{pc:08x}"
 
+    def tn(self, pc):
+        """The termination function of node `pc` (`T` at the entry)."""
+        return "T" if pc == self.entry else f"T_{pc:08x}"
+
+    def fuel_arg(self, pc, q):
+        """The fuel node `pc` passes its successor `q`: one less inside a
+        cycle (`k`, under `pc`'s `match fuel`), `fnFuel` entering one."""
+        if q not in self.cyc:
+            return None
+        return "k" if self.same(pc, q) else "Lua.Vm.Sim.fnFuel"
+
+    def prem_binders(self):
+        return "".join(f"({h} : {t}) " for h, t in self.prem)
+
+    def prem_args(self):
+        return "".join(f"{h} " for h, _ in self.prem)
+
     def framed(self):
         return self.F > 0
 
@@ -527,25 +675,31 @@ class Fn:
         """The lifted function's parameters (as binders)."""
         vs = " ".join([f"v{r}" for r in self.live(pc)] + [f"vs{o[2:]}" for o in self.slots_in[pc]])
         bv = f" ({vs} : BitVec 64)" if vs else ""
+        fb = "(fuel : Nat) " if pc in self.cyc else ""
         if self.framed():
             mb = "(m : Mem) " if memfn or self.need_m[pc] else ""
             # a memory function stores the caller's callee-saved registers
             # to their save slots (`saves`)
-            gb = " (g : SFrame)" if memfn and self.sv_slot else ""
-            return f"{mb}(s : Nat) (r : BitVec 64){gb}{bv}"
-        return bv.strip()
+            gb = " (g : SFrame)" if memfn and self.mem_g else ""
+            return f"{fb}{mb}(s : Nat) (r : BitVec 64){gb}{bv}"
+        return (fb + bv.strip()).strip()
 
-    def napp(self, pc, mem="m", vals=None, memfn=False, slots=None):
+    def napp(self, pc, mem="m", vals=None, memfn=False, slots=None, fuel=None, tfn=False):
+        """Node `pc`'s lifted function (its memory function `memfn`, its
+        termination function `tfn`) applied; `fuel` on a cycle."""
         vals = vals if vals is not None else {r: f"v{r}" for r in self.live(pc)}
         slots = slots if slots is not None else {o: f"vs{o[2:]}" for o in self.slots_in[pc]}
         args = [vals[r] for r in self.live(pc)] + [slots[o] for o in self.slots_in[pc]]
         a = " ".join(f"({x})" if not re.fullmatch(r"v\d+|vs[0-9a-f]+", x) else x for x in args)
+        fa = f"{fuel} " if pc in self.cyc else ""
+        if pc in self.cyc and fuel is None:
+            raise SystemExit(f"0x{pc:x}: a cycle's node applied without fuel")
         if self.framed():
-            f = self.mn(pc) if memfn else self.dn(pc)
+            f = self.mn(pc) if memfn else self.tn(pc) if tfn else self.dn(pc)
             mm = f"({mem}) " if memfn or self.need_m[pc] else ""
-            gg = "g " if memfn and self.sv_slot else ""
-            return f"{f} {mm}s r {gg}{a}".rstrip()
-        return f"{self.dn(pc)} {a}".rstrip()
+            gg = "g " if memfn and self.mem_g else ""
+            return f"{f} {fa}{mm}s r {gg}{a}".rstrip()
+        return f"{self.tn(pc) if tfn else self.dn(pc)} {fa}{a}".rstrip()
 
     def pins(self, pc):
         """The node lemma's pin list."""
@@ -559,17 +713,25 @@ class Fn:
         return "(" + " :: ".join(out + ["f.pins"]) + ")"
 
     def post(self, pc):
-        app = self.napp(pc)
+        fu = "fuel" if pc in self.cyc else None
+        app = self.napp(pc, fuel=fu)
         if self.framed():
             pins = [f"⟨Register.x10, {app}⟩", "⟨Register.x2, BitVec.ofNat 64 s⟩"]
             pins += [f"⟨Register.x{r}, g.{f}⟩" for r, f in FRAME.items()]
-            mem = f"memPatch m ({self.napp(pc, memfn=True)}) (s - {self.W}) {self.W}"
+            mem = f"memPatch m ({self.napp(pc, memfn=True, fuel=fu)}) (s - {self.W}) {self.W}"
             return f"SegSt r [{', '.join(pins)}] (ArmPay ({mem}) o)"
         return f"SegSt r (⟨Register.x10, {app}⟩ :: f.pins) (ArmPay m o)"
 
     # ----------------------------------------------------------------------
-    def body(self, pc, s, memfn=False):
-        """The lifted function's value (or memory) along polarity `s` of node `pc`."""
+    def body(self, pc, s, memfn=False, tfn=False, sided=True):
+        """The lifted function's value (or memory, or termination) along
+        polarity `s` of node `pc`."""
+        if tfn and sided and self.side(s):
+            base = self.body(pc, s, False, True, False)
+            return "(" + " && ".join([base] + [f"decide ({self.subst(pc, t)})"
+                                               for _, t in self.side(s)]) + ")"
+        if tfn and (s.kind == "ret" or not self.need_t[s.succ]):
+            return "true"
         if s.kind == "ret":
             if memfn:
                 return self.subst(pc, s.mem)
@@ -591,7 +753,8 @@ class Fn:
             if r not in post:
                 raise SystemExit(f"{s.name}: x{r} live at 0x{s.succ:x} but not carried")
             vals[r] = post[r]
-        return self.napp(s.succ, mem, vals, memfn, self.succ_slots(pc, s))
+        return self.napp(s.succ, mem, vals, memfn, self.succ_slots(pc, s),
+                         self.fuel_arg(pc, s.succ), tfn)
 
     def succ_slots(self, pc, s):
         """The values of the successor's slot parameters: a slot this segment
@@ -599,46 +762,69 @@ class Fn:
         st = self.seg_stores(pc, s)
         return {o: (self.subst(pc, st[o]) if o in st else f"vs{o[2:]}") for o in self.slots_in[s.succ]}
 
-    def sp_nat(self, pc):
-        """`sp` at node `pc` as a `Nat` (a framed callee's `s`)."""
+    def sp_nat(self, pc, s=None):
+        """`sp` at node `pc` (after segment `s`'s prologue, if it has one) as
+        a `Nat` (a framed callee's `s`)."""
         if not self.framed():
             raise SystemExit(f"0x{pc:x}: a framed callee needs a framed caller")
-        return f"(s - {self.F})" if self.inside(pc) else "s"
+        inside = self.inside(pc) if s is None else self.off[pc] - s.sp_delta != 0
+        return f"(s - {self.F})" if inside else "s"
+
+    def call_g(self, pc, s):
+        """The caller's frame at a call (`{g}`): its callee-saved registers
+        must be the caller's (none spilled and reassigned there)."""
+        if "{g}" in (s_callee(s).args + (s_callee(s).mf or "")) and self.spilled.get(pc):
+            raise SystemExit(f"{s.name}: a callee stores the caller's frame while it is spilled")
+        return "g"
 
     def call_fmt(self, pc, s, post, mem):
         """The format arguments of a call node's callee."""
         c = s_callee(s)
         fmt = {f"a{i}": post[10 + i] for i in range(c.nargs)}
         fmt["m"], fmt["r"] = mem, f"0x{s.hi:08x}#64"
-        fmt["sp"] = self.sp_nat(pc) if c.frame else ""
+        fmt["sp"] = self.sp_nat(pc, s) if c.frame else ""
+        fmt["g"] = self.call_g(pc, s)
         return fmt
 
-    def ndef(self, pc, memfn=False):
+    def ndef(self, pc, memfn=False, tfn=False):
         ss = self.nodes[pc]
-        ty = "Mem" if memfn else "BitVec 64"
+        ty = "Mem" if memfn else "Bool" if tfn else "BitVec 64"
         if pc in self.jt:
             ix = self.val(pc, self.jt[pc][2])
             b = ""
             for s in ss[:-1]:
-                b += f"if {ix}.toNat = {s.k} then\n    {self.body(pc, s, memfn)}\n  else "
-            b += f"\n    {self.body(pc, ss[-1], memfn)}"
+                b += f"if {ix}.toNat = {s.k} then\n    {self.body(pc, s, memfn, tfn)}\n  else "
+            b += f"\n    {self.body(pc, ss[-1], memfn, tfn)}"
         elif len(ss) == 1:
-            b = self.body(pc, ss[0], memfn)
+            b = self.body(pc, ss[0], memfn, tfn)
         else:
             t = next(s for s in ss if s.guard[1])
             n = next(s for s in ss if not s.guard[1])
-            b = (f"if {self.subst(pc, t.guard[0])} = true then\n    {self.body(pc, t, memfn)}\n"
-                 f"  else\n    {self.body(pc, n, memfn)}")
-        name = self.mn(pc) if memfn else self.dn(pc)
-        return (f"def {name} {self.nargs(pc, memfn)} : {ty} :=\n  {b}\n")
+            b = (f"if {self.subst(pc, t.guard[0])} = true then\n    {self.body(pc, t, memfn, tfn)}\n"
+                 f"  else\n    {self.body(pc, n, memfn, tfn)}")
+        name = self.mn(pc) if memfn else self.tn(pc) if tfn else self.dn(pc)
+        nc = "noncomputable " if memfn and self.noncomp else ""
+        if pc in self.cyc:
+            # lane float-sf5: structural recursion on the fuel (`Kit/FnLoop.lean`)
+            junk = "m" if memfn else "false" if tfn else "0#64"
+            b = b.replace("\n", "\n  ")
+            return (f"{nc}def {name} {self.nargs(pc, memfn)} : {ty} :=\n  match fuel with\n"
+                    f"  | 0 => {junk}\n  | k + 1 =>\n    {b}\n")
+        return (f"{nc}def {name} {self.nargs(pc, memfn)} : {ty} :=\n  {b}\n")
 
     # ----------------------------------------------------------------------
-    def lemma_binders(self, pc, k=None):
+    def lemma_binders(self, pc, k=None, pre_on=True):
         vs = " ".join(f"v{r}" for r in self.live(pc))
         if self.inside(pc) and 1 in self.regs(pc):
             vs = (vs + " v1").strip()
         vs = (vs + " " + " ".join(f"vs{o[2:]}" for o in self.slots_in[pc])).strip()
         bv = f" ({vs} : BitVec 64)" if vs else ""
+        # lane float-sf5: the premises, the fuel on a cycle, the termination fact
+        pre = (self.prem_binders() + ("(fuel : Nat) " if pc in self.cyc else "")) if pre_on else ""
+        ht = ""
+        if self.need_t[pc]:
+            ht = (f"\n    (hT : {self.napp(pc, fuel='fuel' if pc in self.cyc else None, tfn=True)}"
+                  " = true)")
         if self.framed():
             hs = f"(hs : FnSp s {self.W}) (hr : r.toNat % 4 = 0) (hrod : RodataRead m)"
             if self.inside(pc):
@@ -651,12 +837,19 @@ class Fn:
                 hs += f"\n    (hjt : v{self.jt[pc][2]}.toNat < {self.jt[pc][1]})"
             elif pc in self.jt:
                 hs += f"\n    (hk : v{self.jt[pc][2]} = BitVec.ofNat 64 {k})"
-            return f"(m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame){bv}\n    {hs}"
-        return f"(m : Mem) (o : Array String) (r : BitVec 64) (f : HFrame){bv}\n    (hr : r.toNat % 4 = 0)"
+            return f"{pre}(m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame){bv}\n    {hs}{ht}"
+        return f"{pre}(m : Mem) (o : Array String) (r : BitVec 64) (f : HFrame){bv}\n    (hr : r.toNat % 4 = 0){ht}"
 
     def seg_app(self, pc, s, neg):
         args = ["_"] * (s.nvars + 2)
+        sd = [h for h, _ in self.side(s)]
         for h, _ in s.hyps:
+            if h in sd:
+                # the i-th of k side conjuncts of `(R && d₁ && … && d_k)`
+                i, k = sd.index(h), len(sd)
+                args.append("(" + "fn_and_r (" + "fn_and_l (" * (k - 1 - i) + "hTs"
+                            + ")" * (k - 1 - i) + "))")
+                continue
             if h.startswith("hg"):
                 rs = self.guard_slots(pc, s)
                 if rs:
@@ -671,7 +864,7 @@ class Fn:
             elif re.match(r"h(lo|hi|ht|win|al)_", h) and pc in self.jt:
                 args.append("(by first | kit_disch | (rw [hk]; decide +kernel))")
             elif re.match(r"h(lo|hi|ht|win|al)_", h):
-                args.append("(by kit_disch)")
+                args.append(f"(by {DISCH.get(self.fn, 'kit_disch')})")
             else:
                 raise SystemExit(f"{s.name}: hypothesis {h}")
         return f"Lua.Vm.Arms.{s.name} {' '.join(args)}"
@@ -687,12 +880,20 @@ class Fn:
             return []
         return [f"hs{o[2:]}" for o in sorted(set(re.findall(LOAD_RE, s.guard[0])) - {self.ra_off})]
 
-    def succ_app(self, pc, cur=None, seg=None):
+    def succ_app(self, pc, cur=None, seg=None, ht=None):
         n = len(self.live(pc)) + (1 if self.inside(pc) and 1 in self.regs(pc) else 0)
         vs = " ".join(["_"] * n)
         if self.slots_in[pc]:
             sv = self.succ_slots(cur, seg)
             vs = (vs + " " + " ".join(f"({sv[o]})" for o in self.slots_in[pc])).strip()
+        # lane float-sf5: the premises, the fuel (one less on the cycle), the
+        # termination fact (`ht`: the current node's `hT` unfolded)
+        pre = self.prem_args() + (f"{self.fuel_arg(cur, pc)} " if pc in self.cyc else "")
+        name = self.ln(pc)
+        if cur is not None and self.same(cur, pc):
+            # the induction hypothesis of the cycle's block (`cyc_block`)
+            name, pre = f"ih.{self.ln(pc)}", ""
+        post = f" {ht}" if self.need_t[pc] else ""
         if self.framed():
             hs = f"hs hr (by {self.rod})" + (f" (by {self.ra_t})" if self.inside(pc) else "")
             hs += "".join(f" (by {self.ra_t})" for _ in self.slots_in[pc])
@@ -702,13 +903,18 @@ class Fn:
                 if not (seg and seg.guard and not seg.guard[1] and seg.guard[0].startswith("zopz0zI_u ")):
                     raise SystemExit(f"0x{pc:x}: a jump table not reached by its bound check")
                 hs += " (Lua.Vm.Sim.fn_jt_bound (fn_false hg) (by decide))"
-            return f"{self.ln(pc)} _ _ s r g {vs} {hs}".replace("  ", " ")
-        return f"{self.ln(pc)} _ _ r f {vs} hr".replace("  ", " ")
+            return f"{name} {pre}_ _ s r g {vs} {hs}{post}".replace("  ", " ")
+        return f"{name} {pre}_ _ r f {vs} hr{post}".replace("  ", " ")
 
     def branch_proof(self, pc, s, neg, ind):
         I = " " * ind
-        out = [f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)",
-               f"{I}  ({self.seg_app(pc, s, neg)})"]
+        pol = ", if_neg hg" if neg else ", if_pos hg" if s.guard else ""
+        out = []
+        if self.side(s):
+            out.append(f"{I}have hTs := hT")
+            out.append(f"{I}rw [{self.tn(pc)}{pol}] at hTs")
+        out += [f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)",
+                f"{I}  ({self.seg_app(pc, s, neg)})"]
         if self.sv_slot and self.inside(pc):
             sv = sorted(set(re.findall(SV_RE, " ".join(s.post.values()))) & set(self.sv_slot))
             if sv:
@@ -743,7 +949,7 @@ class Fn:
         framed_call = s.kind == "call" and s_callee(s).frame
         if s.kind == "call":
             c = s_callee(s)
-            args = c.args.format(sp=self.sp_nat(pc) if c.frame else "").replace(
+            args = c.args.format(sp=self.sp_nat(pc, s) if c.frame else "", g=self.call_g(pc, s)).replace(
                 "(by fn_rod)", f"(by {self.rod})")
             # a framed callee's `s` is the caller's `sp` as a `Nat`: its pin
             # put in front (`SegSt.pin_sp`), and back after the return
@@ -759,8 +965,13 @@ class Fn:
             out.append(f"{I}  ({c.summ} {args})")
             if c.frame:
                 out.append(f"{I}have h := h.pin_sp (pin_eq (by pin_of h) {spn}.symm)")
+        ht = None
+        if self.need_t[s.succ]:
+            ht = f"(by rw [{self.tn(pc)}{pol}] at hT; exact hT)"
+            if self.side(s):
+                ht = "(" + "fn_and_l (" * len(self.side(s)) + "hTs" + ")" * len(self.side(s)) + ")"
         out.append(f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)")
-        out.append(f"{I}  ({self.succ_app(s.succ, pc, s)})")
+        out.append(f"{I}  ({self.succ_app(s.succ, pc, s, ht)})")
         out.append(f"{I}refine ⟨_, acc, ?_⟩")
         out.append(f"{I}{unfold}")
         if framed_call:
@@ -796,10 +1007,10 @@ class Fn:
 
     def lemma(self, pc):
         ss = self.nodes[pc]
-        L = [(f"/-- **The summary**: the entry node's lemma, the lifted function `F`. -/\n" if pc == self.entry else "") + f"theorem {self.ln(pc)} {self.lemma_binders(pc)} :",
-             f"    Triple (SegSt 0x{pc:08x}#64 {self.pins(pc)} (ArmPay m o))",
-             f"      ({self.post(pc)}) := by",
-             "  intro c h",
+        head = [(f"/-- **The summary**: the entry node's lemma, the lifted function `F`. -/\n" if pc == self.entry else "") + f"theorem {self.ln(pc)} {self.lemma_binders(pc)} :",
+                f"    Triple (SegSt 0x{pc:08x}#64 {self.pins(pc)} (ArmPay m o))",
+                f"      ({self.post(pc)}) := by"]
+        L = ["  intro c h",
              "  have acc := Vsa.Machine.Steps.refl c"]
         if self.framed():
             L.append("  fn_sp_facts")
@@ -811,7 +1022,9 @@ class Fn:
                 L.append("  rcases Lua.Vm.Sim.fn_jt_split hjt with hk | hjt")
                 L.append(f"  · exact {self.ln(pc)}_{s.k} {args} hk c h")
             L.append(f"  exact {self.ln(pc)}_0 {args} (Lua.Vm.Sim.fn_jt_zero hjt) c h")
-            return self.jt_entries(pc) + "\n" + "\n".join(L) + "\n"
+            if pc in self.cyc or self.prem or self.need_t[pc]:
+                raise SystemExit(f"0x{pc:x}: a jump node on a cycle or under a premise")
+            return self.jt_entries(pc) + "\n" + "\n".join(head + L) + "\n"
         elif len(ss) == 1:
             L += self.branch_proof(pc, ss[0], False, 2)
         else:
@@ -824,21 +1037,91 @@ class Fn:
             L += b1[1:]
             L.append("  · " + b2[0].lstrip())
             L += b2[1:]
-        return "\n".join(L) + "\n"
+        if pc in self.cyc:
+            return L
+        return "\n".join(head + L) + "\n"
+
+    def binder_names(self, pc):
+        """The names `lemma_binders` binds (without premises and fuel)."""
+        names = []
+        for grp in re.findall(r"\(([^():]+) : ", self.lemma_binders(pc, pre_on=False)):
+            names += grp.split()
+        return names
+
+    def cyc_block(self, g):
+        """lane float-sf5: the node lemmas of the cycle `g`, by induction on
+        the fuel: a structure `Cyc_<h> fuel` with one field per node (its
+        lemma at that fuel), proved for every fuel by `induction` (fuel 0
+        excluded by `hT`: `T_<pc> 0 … = false`; at `k + 1` each node's proof
+        takes the cycle's successors from the hypothesis `ih` at `k`), then
+        each node lemma as its projection. (A `mutual` block of theorems by
+        structural recursion compiles the proof terms through `transform`,
+        past the heartbeat budget.)"""
+        h = g[0]
+        cn = f"Cyc_{h:08x}"
+        pb, pa = self.prem_binders(), self.prem_args()
+        fields, zero, succ, projs = [], [], [], []
+        for pc in g:
+            st = (f"  {self.ln(pc)} : ∀ {self.lemma_binders(pc, pre_on=False)},\n"
+                  f"    Triple (SegSt 0x{pc:08x}#64 {self.pins(pc)} (ArmPay m o))\n"
+                  f"      ({self.post(pc)})")
+            fields.append(st)
+            names = " ".join(self.binder_names(pc))
+            zero.append(f"    · intro {names}\n      rw [{self.tn(pc)}] at hT; cases hT")
+            body = self.lemma(pc)
+            succ.append(f"    · intro {names}\n" + "\n".join("    " + x for x in body))
+            projs.append(f"theorem {self.ln(pc)} {pb}(fuel : Nat) {self.lemma_binders(pc, pre_on=False)} :\n"
+                         f"    Triple (SegSt 0x{pc:08x}#64 {self.pins(pc)} (ArmPay m o))\n"
+                         f"      ({self.post(pc)}) :=\n"
+                         f"  ({'cyc' + cn[3:]} {pa}fuel).{self.ln(pc)} {names}\n")
+        anon = "⟨" + ", ".join("?_" for _ in g) + "⟩"
+        out = [f"/-- The node lemmas of the cycle at `0x{h:08x}` at fuel `fuel`. -/",
+               f"structure {cn} {pb}(fuel : Nat) : Prop where"] + fields + [
+               "",
+               f"theorem {'cyc' + cn[3:]} {pb}: ∀ fuel, {cn} {pa}fuel := by",
+               "  intro fuel",
+               "  induction fuel with",
+               "  | zero =>",
+               f"    refine {anon}"] + zero + [
+               "  | succ k ih =>",
+               f"    refine {anon}"] + succ + [""] + projs
+        return "\n".join(out)
 
     # ----------------------------------------------------------------------
     def summary(self):
         return ""
+
+    def groups(self):
+        """`self.order` cut into its cycles (one group each) and single nodes."""
+        out = []
+        for pc in self.order:
+            if out and pc in self.cyc and self.same(out[-1][-1], pc):
+                out[-1].append(pc)
+            else:
+                out.append([pc])
+        return out
+
+    @staticmethod
+    def mutual(items):
+        if len(items) == 1 and "match fuel with" not in items[0]:
+            return items[0]
+        return "mutual\n\n" + "\n".join(items) + "\nend\n"
 
     def files(self):
         """{path: text}: one module, or, past `CHUNK` nodes, the lifted
         functions (`<Mod>/Defs`), the node lemmas in chunks of `CHUNK`
         (`<Mod>/L<k>`, in proof order) and the summary (`<Mod>`), so that no
         module's elaboration holds more than `CHUNK` node proofs."""
-        defs = "\n".join(self.ndef(pc) for pc in self.order)
+        # lane float-sf5: a cycle's definitions and lemmas are one `mutual`
+        # block (structural recursion on the fuel); everything else one item
+        groups = self.groups()
+        defs = "\n".join(self.mutual([self.ndef(pc) for pc in g]) for g in groups)
+        if any(self.need_t.values()):
+            defs += "\n" + "\n".join(self.mutual([self.ndef(pc, tfn=True) for pc in g if self.need_t[pc]])
+                                      for g in groups if any(self.need_t[pc] for pc in g))
         if self.framed():
-            defs += "\n" + "\n".join(self.ndef(pc, True) for pc in self.order)
-        lems = [self.lemma(pc) for pc in self.order]
+            defs += "\n" + "\n".join(self.mutual([self.ndef(pc, True) for pc in g]) for g in groups)
+        lems = [self.cyc_block(g) if g[0] in self.cyc else self.lemma(g[0]) for g in groups]
         nseg = len(self.segs)
         kind = (f"a {self.F}-byte frame below `sp`, the memory `memPatch`ed there"
                 if self.framed() else "a leaf: the memory and the caller's frame kept")
@@ -847,6 +1130,8 @@ class Fn:
         imports = "import Lua.Vm.Sim.Kit.Fn\n"
         if self.patch or self.fwd:
             imports += "import Lua.Vm.Sim.Kit.FnCall\n"
+        if self.cyc:
+            imports += "import Lua.Vm.Sim.Kit.FnLoop\n"
         callees = sorted({s.callee for s in self.segs if s.kind == "call"})
         for e in callees:
             imports += f"import {CALLEES[e].imp}\n"
@@ -867,13 +1152,22 @@ class Fn:
         def module(imp, what, body):
             return (f"{imp}\n/-! {HEADER}\n\n{doc}\n\n{what}\n-/\n\n{opens}\n"
                     f"namespace {ns}\n\n{body}\nend {ns}\n")
-        if len(self.order) <= CHUNK:
+        if len(self.order) <= CHUNK and not self.cyc:
             return {OUT / f"{self.mod}.lean": module(
                 imports, "This module: the whole fold.",
                 defs + "\n" + "\n".join(lems) + "\n" + self.summary())}
         out = {OUT / self.mod / "Defs.lean": module(imports, "This module: the lifted functions.", defs)}
         prev = f"{ns}.Defs"
-        chunks = [lems[k:k + CHUNK] for k in range(0, len(lems), CHUNK)]
+        # chunks of at most `CHUNK` node lemmas, a `mutual` block never split
+        chunks, cur, n = [], [], 0
+        for g, lem in zip(groups, lems):
+            if cur and n + len(g) > CHUNK:
+                chunks.append(cur)
+                cur, n = [], 0
+            cur.append(lem)
+            n += len(g)
+        if cur:
+            chunks.append(cur)
         for k, ch in enumerate(chunks):
             out[OUT / self.mod / f"L{k}.lean"] = module(
                 f"import {prev}\n", f"This module: node lemmas, chunk {k} of {len(chunks)}.",
