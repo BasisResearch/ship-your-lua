@@ -278,13 +278,17 @@ structure LuaStateRel (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
   mt_nil : rd64 m (w.g + gMtOff + 8 * luaTnil) = some 0
   mt_boolean : rd64 m (w.g + gMtOff + 8 * luaTboolean) = some 0
   mt_number : rd64 m (w.g + gMtOff + 8 * luaTnumber) = some 0
+  /-- `L->ci` is the Lua `CallInfo` (`VmEntryData.ci_eq`): `luaD_precall`'s
+  C path reads it (`next_ci`), `luaD_poscall` restores it -/
+  lci : rd64 m (L + stateCiOff) = some ci
 
-/-- The relation's Lua state from the boot contract's (`ci->next` NULL). -/
-theorem _root_.Lua.Vm.LuaStateAt.rel {m : Mem} {L ci : Nat} {w : RtPtrs} (h : LuaStateAt m L ci w) :
-    LuaStateRel m L ci w :=
+/-- The relation's Lua state from the boot contract's (`ci->next` NULL) and
+`L->ci = ci`. -/
+theorem _root_.Lua.Vm.LuaStateAt.rel {m : Mem} {L ci : Nat} {w : RtPtrs} (h : LuaStateAt m L ci w)
+    (hci : rd64 m (L + stateCiOff) = some ci) : LuaStateRel m L ci w :=
   ⟨h.hookmask, h.trap, h.errfunc, h.nCcalls, h.openupval, h.tbclist, h.stack, h.stack_last, h.func,
     h.stack_le, h.ci_top, h.ci_top_le, h.callstatus, h.nresults, h.previous, .inl h.next, h.g, h.mt_nil,
-    h.mt_boolean, h.mt_number⟩
+    h.mt_boolean, h.mt_number, hci⟩
 
 /-- The parts of `luaRuntimeReady` that live in memory and that the F1 arms
 keep: the Lua state (with `ci->func = func`; `LuaStateRel`, the parts a
