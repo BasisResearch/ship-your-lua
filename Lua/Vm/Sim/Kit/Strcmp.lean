@@ -39,23 +39,25 @@ structure ScAns (m : Mem) (P Q : Nat) (v : BitVec 64) : Prop where
     CmpObs v (bytesT1 m (P + k)).toNat (bytesT1 m (Q + k)).toNat
 
 /-- A return with `strcmp`'s answer. -/
-structure ScRet (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (P Q : Nat) (c : Config) :
+structure ScRetS (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String) (P Q : Nat) (c : Config) :
     Prop where
   intro ::
-  ret : ∃ v, RetAt r sp f m o v c ∧ ScAns m P Q v
+  ret : ∃ v, RetAtS r sp f m o v c ∧ ScAns m P Q v
 
-/-- The facts every path uses: `P`'s terminator at `t`, the reads in RAM. -/
+/-- The facts every path uses: `P`'s terminator at `t`, the reads in RAM.
+(Lane F1-15: `P` may lie below `tohost`, a C literal in `.rodata`.) -/
 structure ScCtx (m : Mem) (P Q t : Nat) (r : BitVec 64) : Prop where
   ro : RodataRead m
   ra : r.toNat % 4 = 0
-  p_lo : tohostAddr + 16 ≤ P
+  p_lo : 0x80000000 ≤ P
   q_lo : tohostAddr + 16 ≤ Q
   p_hi : P + t + 16 ≤ 2 ^ 32
   q_hi : Q + t + 16 ≤ 2 ^ 32
   term : bytesT1 m (P + t) = 0#8
+  p_th : P + t + 16 ≤ tohostAddr ∨ tohostAddr + 16 ≤ P
 
 /-- The byte loop's state at `0x8003ba04`, position `j`. -/
-abbrev scB (P Q j : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev scB (P Q j : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x10, BitVec.ofNat 64 (P + j)⟩ :: ⟨Register.x11, BitVec.ofNat 64 (Q + j)⟩ ::
     ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
 
@@ -91,7 +93,8 @@ set_option hygiene false in
 /-- The context's numeric facts, for `kit_disch`. -/
 local macro "sc_ctx" hx:ident : tactic => `(tactic| (
   have hTH : tohostAddr = 0x8005c6c0 := rfl
-  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).q_lo; have := ($hx).q_hi))
+  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).q_lo; have := ($hx).q_hi
+  have := ($hx).p_th))
 
 /-- The byte answer: `sub a0, a2, a3` of the two zero-extended bytes. -/
 theorem sc_sub_obs (x y : BitVec 8) :
@@ -101,9 +104,9 @@ theorem sc_sub_obs (x y : BitVec 8) :
   exact cmpObs_sub (by have := x.isLt; omega) (by have := y.isLt; omega)
 
 /-- **The byte loop** from position `j` (`0x8003ba04`), no event before. -/
-theorem strcmp_bytes (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_bytes (P Q t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : ScCtx m P Q t r) : ∀ j, j < t + 1 → (∀ i, i < j → ScOk m P Q i) →
-    Triple (SegSt 0x8003ba04#64 (scB P Q j r sp f) (ArmPay m o)) (ScRet r sp f m o P Q) :=
+    Triple (SegSt 0x8003ba04#64 (scB P Q j r sp f) (ArmPay m o)) (ScRetS r sp f m o P Q) :=
   scan_loop (t + 1) (ScOk m P Q) fun j hj hok c h => by
     have acc := Steps.refl c
     sc_ctx hx
@@ -162,7 +165,7 @@ theorem sc_ans_lane {m : Mem} {P Q i k0 : Nat} {v : BitVec 64} (hok : ∀ j, j <
   · have e := h.1; rw [← Nat.add_assoc, ← Nat.add_assoc] at e; rw [e]
 
 /-- The halfword exit's state at `0x8003b9a0`: the two words. -/
-abbrev scH (x y : BitVec 64) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev scH (x y : BitVec 64) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x12, x⟩ :: ⟨Register.x13, y⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
 
 theorem bne_dec (a b : BitVec 64) : (a != b) = !decide (a = b) := rfl
@@ -231,11 +234,11 @@ local macro "sc_hw_setup" : tactic => `(tactic| (
 abbrev LaneEq (m : Mem) (P Q i k : Nat) : Prop := wb m (P + i) k = wb m (Q + i) k
 
 /-- The halfword exit, the first halfword differing. -/
-theorem strcmp_hw0 (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_hw0 (P Q i : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hok : ∀ j, j < i → ScOk m P Q j)
     (hnz : ∀ k, k < 8 → bytesT1 m (P + i + k) ≠ 0#8) (hd : ¬ (LaneEq m P Q i 0 ∧ LaneEq m P Q i 1)) :
     Triple (SegSt 0x8003b9a0#64 (scH (wordAt m (P + i)) (wordAt m (Q + i)) r sp f) (ArmPay m o))
-      (ScRet r sp f m o P Q) := by
+      (ScRetS r sp f m o P Q) := by
   sc_hw_setup
   simp only [LaneEq, wb, Nat.add_zero] at hd
   by_cases e0 : (bytesT1 m (P + i)).toNat = (bytesT1 m (Q + i)).toNat
@@ -243,12 +246,12 @@ theorem strcmp_hw0 (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : 
   · sc_leaf 0 (cmpObs_lo (hi1 := wb m (P + i) 1) (hi2 := wb m (Q + i) 1))
 
 /-- The second halfword differing. -/
-theorem strcmp_hw1 (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_hw1 (P Q i : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hok : ∀ j, j < i → ScOk m P Q j)
     (hnz : ∀ k, k < 8 → bytesT1 m (P + i + k) ≠ 0#8) (he : LaneEq m P Q i 0 ∧ LaneEq m P Q i 1)
     (hd : ¬ (LaneEq m P Q i 2 ∧ LaneEq m P Q i 3)) :
     Triple (SegSt 0x8003b9a0#64 (scH (wordAt m (P + i)) (wordAt m (Q + i)) r sp f) (ArmPay m o))
-      (ScRet r sp f m o P Q) := by
+      (ScRetS r sp f m o P Q) := by
   sc_hw_setup
   simp only [LaneEq, wb, Nat.add_zero] at hd he
   obtain ⟨e0, e1⟩ := he
@@ -257,13 +260,13 @@ theorem strcmp_hw1 (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : 
   · sc_leaf 2 (cmpObs_lo (hi1 := wb m (P + i) 3) (hi2 := wb m (Q + i) 3))
 
 /-- The third halfword differing. -/
-theorem strcmp_hw2 (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_hw2 (P Q i : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hok : ∀ j, j < i → ScOk m P Q j)
     (hnz : ∀ k, k < 8 → bytesT1 m (P + i + k) ≠ 0#8)
     (he : LaneEq m P Q i 0 ∧ LaneEq m P Q i 1 ∧ LaneEq m P Q i 2 ∧ LaneEq m P Q i 3)
     (hd : ¬ (LaneEq m P Q i 4 ∧ LaneEq m P Q i 5)) :
     Triple (SegSt 0x8003b9a0#64 (scH (wordAt m (P + i)) (wordAt m (Q + i)) r sp f) (ArmPay m o))
-      (ScRet r sp f m o P Q) := by
+      (ScRetS r sp f m o P Q) := by
   sc_hw_setup
   simp only [LaneEq, wb, Nat.add_zero] at hd he
   obtain ⟨e0, e1, e2, e3⟩ := he
@@ -272,14 +275,14 @@ theorem strcmp_hw2 (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : 
   · sc_leaf 4 (cmpObs_lo (hi1 := wb m (P + i) 5) (hi2 := wb m (Q + i) 5))
 
 /-- The last halfword differing. -/
-theorem strcmp_hw3 (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_hw3 (P Q i : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hok : ∀ j, j < i → ScOk m P Q j)
     (hnz : ∀ k, k < 8 → bytesT1 m (P + i + k) ≠ 0#8)
     (he : LaneEq m P Q i 0 ∧ LaneEq m P Q i 1 ∧ LaneEq m P Q i 2 ∧ LaneEq m P Q i 3 ∧
       LaneEq m P Q i 4 ∧ LaneEq m P Q i 5)
     (hd : ¬ (LaneEq m P Q i 6 ∧ LaneEq m P Q i 7)) :
     Triple (SegSt 0x8003b9a0#64 (scH (wordAt m (P + i)) (wordAt m (Q + i)) r sp f) (ArmPay m o))
-      (ScRet r sp f m o P Q) := by
+      (ScRetS r sp f m o P Q) := by
   sc_hw_setup
   simp only [LaneEq, wb, Nat.add_zero] at hd he
   obtain ⟨e0, e1, e2, e3, e4, e5⟩ := he
@@ -289,11 +292,11 @@ theorem strcmp_hw3 (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : 
 
 /-- **The halfword exit**: two differing words, `P`'s without a zero byte;
 the answer is at the first differing lane. -/
-theorem strcmp_hw (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_hw (P Q i : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hok : ∀ j, j < i → ScOk m P Q j)
     (hnz : ∀ k, k < 8 → bytesT1 m (P + i + k) ≠ 0#8) (hne : wordAt m (P + i) ≠ wordAt m (Q + i)) :
     Triple (SegSt 0x8003b9a0#64 (scH (wordAt m (P + i)) (wordAt m (Q + i)) r sp f) (ArmPay m o))
-      (ScRet r sp f m o P Q) := by
+      (ScRetS r sp f m o P Q) := by
   by_cases h01 : LaneEq m P Q i 0 ∧ LaneEq m P Q i 1
   · by_cases h23 : LaneEq m P Q i 2 ∧ LaneEq m P Q i 3
     · by_cases h45 : LaneEq m P Q i 4 ∧ LaneEq m P Q i 5
@@ -405,7 +408,7 @@ theorem sc_ans_zero {m : Mem} {P Q p : Nat} (hok : ∀ j, j < p → ScOk m P Q j
     exact ⟨by simp, by decide, by decide⟩
 
 /-- The word loop's state: `a0 = P + i`, `a1 = Q + i`, the mask and `-1`. -/
-abbrev scW (P Q i : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev scW (P Q i : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x10, BitVec.ofNat 64 (P + i)⟩ :: ⟨Register.x11, BitVec.ofNat 64 (Q + i)⟩ ::
     ⟨Register.x15, maskV⟩ :: ⟨Register.x7, onesV⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
 
@@ -461,10 +464,10 @@ local macro "sc_wstart" : tactic => `(tactic| (
   have hit := sc_le_term hx hok))
 
 /-- **The first word of the loop's body** (`0x8003b938`). -/
-theorem strcmp_w0 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_w0 (P Q t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : ScCtx m P Q t r) (i : Nat) (hok : ∀ j, j < i + 0 → ScOk m P Q j) :
     Triple (SegSt 0x8003b938#64 (scW P Q i r sp f) (ArmPay m o))
-      (fun c => ScRet r sp f m o P Q c ∨
+      (fun c => ScRetS r sp f m o P Q c ∨
         ((∀ j, j < i + 8 → ScOk m P Q j) ∧ SegSt 0x8003b958#64 (scW P Q i r sp f) (ArmPay m o) c)) := by
   sc_wstart
   sc_word 0
@@ -481,10 +484,10 @@ theorem strcmp_w0 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : A
   · sc_zero_exit 0
 
 /-- **The second word** (`0x8003b958`). -/
-theorem strcmp_w1 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_w1 (P Q t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : ScCtx m P Q t r) (i : Nat) (hok : ∀ j, j < i + 8 → ScOk m P Q j) :
     Triple (SegSt 0x8003b958#64 (scW P Q i r sp f) (ArmPay m o))
-      (fun c => ScRet r sp f m o P Q c ∨
+      (fun c => ScRetS r sp f m o P Q c ∨
         ((∀ j, j < i + 16 → ScOk m P Q j) ∧ SegSt 0x8003b978#64 (scW P Q i r sp f) (ArmPay m o) c)) := by
   sc_wstart
   sc_word 8
@@ -501,10 +504,10 @@ theorem strcmp_w1 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : A
   · sc_zero_exit 8
 
 /-- **The third word** (`0x8003b978`), then the loop's back edge. -/
-theorem strcmp_w2 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_w2 (P Q t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : ScCtx m P Q t r) (i : Nat) (hok : ∀ j, j < i + 16 → ScOk m P Q j) :
     Triple (SegSt 0x8003b978#64 (scW P Q i r sp f) (ArmPay m o))
-      (fun c => ScRet r sp f m o P Q c ∨
+      (fun c => ScRetS r sp f m o P Q c ∨
         ((∀ j, j < i + 24 → ScOk m P Q j) ∧ SegSt 0x8003b938#64 (scW P Q (i + 24) r sp f) (ArmPay m o) c)) := by
   sc_wstart
   sc_word 16
@@ -523,9 +526,9 @@ theorem strcmp_w2 (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : A
   · sc_zero_exit 16
 
 /-- **The word loop** (`scan_loop`, 24 bytes a pass). -/
-theorem strcmp_words (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_words (P Q t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : ScCtx m P Q t r) : ∀ i, i < t + 1 → (∀ j, j < i → ScOk m P Q j) →
-    Triple (SegSt 0x8003b938#64 (scW P Q i r sp f) (ArmPay m o)) (ScRet r sp f m o P Q) :=
+    Triple (SegSt 0x8003b938#64 (scW P Q i r sp f) (ArmPay m o)) (ScRetS r sp f m o P Q) :=
   scan_loop (t + 1) (ScOk m P Q) fun i _ hok c h => by
     obtain ⟨c1, hs1, h1⟩ := strcmp_w0 P Q t r sp f m o hx i hok c h
     rcases h1 with h1 | ⟨hok1, h1⟩
@@ -540,15 +543,15 @@ theorem strcmp_words (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o 
       .inl ⟨i + 24, by omega, Nat.lt_succ_of_le (sc_le_term hx hok3), hok3, h3⟩⟩
 
 /-- `strcmp`'s entry pins. -/
-abbrev scPre (P Q : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev scPreS (P Q : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x11, BitVec.ofNat 64 Q⟩ :: ⟨Register.x1, r⟩ ::
     ⟨Register.x2, sp⟩ :: f.pins
 
 /-- **`strcmp`, the call-node summary**: the answer at the first position
 where the strings differ or `P`'s ends, observed by `CmpObs`. -/
-theorem strcmp_sum (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem strcmp_sumS (P Q t : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : ScCtx m P Q t r) :
-    Triple (SegSt 0x8003b920#64 (scPre P Q r sp f) (ArmPay m o)) (ScRet r sp f m o P Q) := by
+    Triple (SegSt 0x8003b920#64 (scPreS P Q r sp f) (ArmPay m o)) (ScRetS r sp f m o P Q) := by
   intro c h
   have acc := Steps.refl c
   sc_ctx hx
@@ -562,5 +565,29 @@ theorem strcmp_sum (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : 
     kit_run h acc until [0x8003b938]
     obtain ⟨c', hs, h'⟩ := strcmp_words P Q t r sp f m o hx 0 (by omega) hnil _ (h.repin (by pins_of h))
     exact ⟨c', acc.trans hs, h'⟩
+
+/-! ## On the arm route's frame (`KFrame`, lane F1-15) -/
+
+/-- A return with `strcmp`'s answer. -/
+structure ScRet (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (P Q : Nat) (c : Config) :
+    Prop where
+  intro ::
+  ret : ∃ v, RetAt r sp f m o v c ∧ ScAns m P Q v
+
+/-- `strcmp`'s entry pins. -/
+abbrev scPre (P Q : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+  ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x11, BitVec.ofNat 64 Q⟩ :: ⟨Register.x1, r⟩ ::
+    ⟨Register.x2, sp⟩ :: f.pins
+
+/-- **`strcmp`, the call-node summary** on the arm route's frame. -/
+theorem strcmp_sum (P Q t : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : ScCtx m P Q t r) :
+    Triple (SegSt 0x8003b920#64 (scPre P Q r sp f) (ArmPay m o)) (ScRet r sp f m o P Q) := by
+  intro c h
+  pin_gpr h 22 Register.x22
+  pin_gpr h 26 Register.x26
+  obtain ⟨c', hs, ⟨v, hret, hv⟩⟩ := strcmp_sumS P Q t r sp (f.ext _ _) m o hx c (h.repin (by pins_of h))
+  dsimp only [RetAtS] at hret
+  exact ⟨c', hs, ⟨v, hret.repin (by pins_of hret), hv⟩⟩
 
 end Lua.Vm.Sim.Kit

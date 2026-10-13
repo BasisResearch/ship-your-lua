@@ -301,10 +301,10 @@ theorem lstrcmp_mid (P Q sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o 
   have := hAk.le1; have := hAk.le2
   have sl1 : SlCtx mL (P + i) k 0x8001a764#64 := ⟨by decide, by omega, by omega,
     by rw [Nat.add_assoc, hM.c1 _ (by omega), hz1],
-    fun j hj => by rw [Nat.add_assoc, hM.c1 _ (by omega)]; exact (hok j hj).2⟩
+    fun j hj => by rw [Nat.add_assoc, hM.c1 _ (by omega)]; exact (hok j hj).2, .inr (by omega)⟩
   have sl2 : SlCtx mL (Q + i) k 0x8001a770#64 := ⟨by decide, by omega, by omega,
     by rw [Nat.add_assoc, hM.c2 _ (by omega), hz2],
-    fun j hj => by rw [Nat.add_assoc, hM.c2 _ (by omega), ← (hok j hj).1]; exact (hok j hj).2⟩
+    fun j hj => by rw [Nat.add_assoc, hM.c2 _ (by omega), ← (hok j hj).1]; exact (hok j hj).2, .inr (by omega)⟩
   kit_run h acc until [0x8003b770]
   obtain ⟨_, acc, h⟩ := h.call acc (by pins_of h)
     (strlen_sum (P + i) k 0x8001a764#64 (BitVec.ofNat 64 (sp - 48)) (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) mL o sl1)
@@ -338,12 +338,16 @@ set_option hygiene false in
 local macro "ls_call" ret:term : tactic => `(tactic| (
   have sc : ScCtx mL (P + i) (Q + i) (s1.length - i) $ret := ⟨hM.ro, by decide, by omega, by omega,
     by omega, by omega, by rw [Nat.add_assoc, show i + (s1.length - i) = s1.length by omega,
-      hM.c1 _ (Nat.le_refl _), cb_len]⟩
+      hM.c1 _ (Nat.le_refl _), cb_len], .inr (by omega)⟩
+  kit_run h acc until [0x80036374]
+  -- `strcoll`'s `j strcmp` carries `s6`, `s10` (lane F1-15: the scans keep them)
+  pin_gpr h 22 Register.x22
+  pin_gpr h 26 Register.x26
   kit_run h acc until [0x8003b920]
   obtain ⟨_, acc, ⟨v, h, hv⟩⟩ := h.call acc (by pins_of h)
-    (strcmp_sum (P + i) (Q + i) (s1.length - i) $ret (BitVec.ofNat 64 (sp - 48))
-      (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) mL o sc)
-  dsimp only [RetAt] at h
+    (strcmp_sumS (P + i) (Q + i) (s1.length - i) $ret (BitVec.ofNat 64 (sp - 48))
+      (KFrame.ext (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _ _) mL o sc)
+  dsimp only [RetAtS] at h
   obtain ⟨k, hok, hd | ⟨hv0, hz1, hz2⟩⟩ := ls_ans hM hA hv))
 
 /-- **A chunk from the loop's call site** (`0x8001a790`). -/
@@ -405,13 +409,16 @@ theorem lstrcmp_A (P Q t2 sp : Nat) (r : BitVec 64) (f : KFrame) (mL m : Mem) (o
   have hA : Agree s1 s2 0 := ⟨Nat.zero_le _, Nat.zero_le _, fun j _ _ hj => absurd hj (Nat.not_lt_zero j)⟩
   have sc : ScCtx mL (P + 0) (Q + 0) (s1.length - 0) 0x8001a754#64 := ⟨hM.ro, by decide, by omega, by omega,
     by omega, by omega, by rw [Nat.add_assoc, show 0 + (s1.length - 0) = s1.length by omega,
-      hM.c1 _ (Nat.le_refl _), cb_len]⟩
+      hM.c1 _ (Nat.le_refl _), cb_len], .inr (by omega)⟩
+  kit_run h acc until [0x80036374]
+  pin_gpr h 22 Register.x22
+  pin_gpr h 26 Register.x26
   kit_run h acc until [0x8003b920]
   have hln' := hln; unfold bytesT8 at hln'; rw [hln'] at h
   obtain ⟨_, acc, ⟨v, h, hv⟩⟩ := h.call acc (by pins_of h)
-    (strcmp_sum (P + 0) (Q + 0) (s1.length - 0) 0x8001a754#64 (BitVec.ofNat 64 (sp - 48))
-      (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) mL o sc)
-  dsimp only [RetAt] at h
+    (strcmp_sumS (P + 0) (Q + 0) (s1.length - 0) 0x8001a754#64 (BitVec.ofNat 64 (sp - 48))
+      (KFrame.ext (KFrame.mk _ _ _ _ _ _ _ _ _ _ _) _ _) mL o sc)
+  dsimp only [RetAtS] at h
   obtain ⟨k, hok, hd | ⟨hv0, hz1, hz2⟩⟩ := ls_ans hM hA hv
   · have g : ((v + sign_extend (m := 64) (0x000#12)) != 0#64) = true := by simp [Vsa.Sim.sext_zero, hd.1]
     kit_run h acc until [0x8001a7a8]

@@ -88,6 +88,22 @@ def KFrame.pins (f : KFrame) : List Pin :=
    ⟨Register.x19, f.s3⟩, ⟨Register.x20, f.s4⟩, ⟨Register.x21, f.s5⟩, ⟨Register.x23, f.s7⟩,
    ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩, ⟨Register.x27, f.s11⟩]
 
+/-- (lane F1-15) **A C caller's frame across a string scan**: `gp` and the
+callee-saved `s0`–`s11` (`KFrame` and `s6`, `s10`: `luaS_new` and
+`internshrstr` call `strcmp`, `strlen`, `memcmp` from frames that return them). -/
+structure ScanFrame where
+  (gp s0 s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 : BitVec 64)
+
+def ScanFrame.pins (f : ScanFrame) : List Pin :=
+  [⟨Register.x3, f.gp⟩, ⟨Register.x8, f.s0⟩, ⟨Register.x9, f.s1⟩, ⟨Register.x18, f.s2⟩,
+   ⟨Register.x19, f.s3⟩, ⟨Register.x20, f.s4⟩, ⟨Register.x21, f.s5⟩, ⟨Register.x22, f.s6⟩,
+   ⟨Register.x23, f.s7⟩, ⟨Register.x24, f.s8⟩, ⟨Register.x25, f.s9⟩, ⟨Register.x26, f.s10⟩,
+   ⟨Register.x27, f.s11⟩]
+
+/-- A `KFrame` with `s6`, `s10`. -/
+def KFrame.ext (f : KFrame) (s6 s10 : BitVec 64) : ScanFrame :=
+  ⟨f.gp, f.s0, f.s1, f.s2, f.s3, f.s4, f.s5, s6, f.s7, f.s8, f.s9, s10, f.s11⟩
+
 /-- Re-pin a segment state (its pins looked up elsewhere). -/
 theorem _root_.Vsa.Sim.SegSt.repin {pc : BitVec 64} {L L' : List Pin} {P : MState → Prop}
     {c : Config} (h : SegSt pc L P c) (hL : PinsHold c.σ L') : SegSt pc L' P c :=
@@ -129,7 +145,7 @@ macro "kit_disch" : tactic => `(tactic| (
 
 /-- The bound of a pin's position. -/
 macro "pin_len" : tactic =>
-  `(tactic| (simp only [armPins, HFrame.pins, KFrame.pins, List.length_cons, List.length_nil]; omega))
+  `(tactic| (simp only [armPins, HFrame.pins, KFrame.pins, ScanFrame.pins, List.length_cons, List.length_nil]; omega))
 
 /-- A register's pin, by name, from a pin list (the first 26 positions). -/
 macro "pin_at " h:term : tactic => `(tactic| first
@@ -444,5 +460,12 @@ elab_rules : tactic
     unless ← kitStep h acc pc do
       throwError "kit_run: no segment starts at 0x{hex8 pc}"
   throwError "kit_run: out of fuel"
+
+/-- A register's pin `R` (GPR number `n`), at whatever it holds (every GPR
+holds a value, `RegsOk`). -/
+macro "pin_gpr " h:ident n:num R:ident : tactic => `(tactic| (
+  obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp
+    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk $h) $n (by decide) (by decide))
+  have $h := Vsa.Sim.SegSt.repin (L' := ⟨$R, t⟩ :: _) $h ⟨ht, Vsa.Sim.SegSt.pins $h⟩))
 
 end Lua.Vm.Sim

@@ -3,6 +3,7 @@ import Lua.Vm.DlHeap
 import Lua.Vm.Image
 import Vsa.Densify.Transport
 import Vsa.Sim.MemLoadTotal
+import Vsa.Sim.RamReadLoad
 
 /-!
 # `VmEntryData`: the Lua-side data at `luaV_execute`'s entry
@@ -31,6 +32,54 @@ namespace Lua.Vm
 open Lua.Bytecode Lua.Vm.Layout
 open Vsa.Densify (fillZeroMem)
 open Vsa.Sim (bytesT4)
+
+/-- `rdLE` byte by byte, from the lowest address. (Lane F1-15: moved here from
+`Lua/Vm/Sim/Env.lean`, for the boot checks' `LitCache`.) -/
+theorem rdLE_succ (m : Mem) (a n : Nat) :
+    rdLE m a (n + 1) = (do
+      let b ← m[a]?
+      let r ← rdLE m (a + 1) n
+      pure (b.toNat + 256 * r)) := by
+  simp only [rdLE, List.range_succ_eq_map, List.foldr_cons, List.foldr_map, Nat.add_zero]
+  congr 1
+  funext b
+  congr 1
+  congr 1
+  funext i acc
+  rw [Nat.add_assoc, Nat.add_comm 1 i]
+
+/-- **A little-endian read is the total read**, and fits its width. -/
+theorem rdLE_spec : ∀ (n : Nat) (m : Mem) (a x : Nat), rdLE m a n = some x →
+    x < 2 ^ (8 * n) ∧ Vsa.Sim.bytesT m a n = BitVec.ofNat (8 * n) x
+  | 0, m, a, x, h => by
+    simp [rdLE] at h
+    subst h
+    exact ⟨by decide, rfl⟩
+  | n + 1, m, a, x, h => by
+    rw [rdLE_succ] at h
+    simp only [Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def, Option.some.injEq] at h
+    obtain ⟨b, hb, r, hr, rfl⟩ := h
+    obtain ⟨hlt, hbt⟩ := rdLE_spec n m (a + 1) r hr
+    have hb8 := b.isLt
+    have hbound : b.toNat + 256 * r < 2 ^ (8 * (n + 1)) := by
+      rw [show 8 * (n + 1) = 8 * n + 8 by omega, Nat.pow_add]
+      have : (r + 1) * 2 ^ 8 ≤ 2 ^ (8 * n) * 2 ^ 8 := Nat.mul_le_mul_right _ hlt
+      simp only [Nat.add_mul, Nat.one_mul] at this
+      omega
+    refine ⟨hbound, ?_⟩
+    simp only [Vsa.Sim.bytesT, hbt, hb, Option.getD_some]
+    apply BitVec.eq_of_toNat_eq
+    show (BitVec.ofNat (8 * n) r ++ b).toNat = _
+    rw [BitVec.toNat_append, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt,
+      ← Nat.shiftLeft_add_eq_or_of_lt hb8, Nat.shiftLeft_eq, BitVec.toNat_ofNat,
+      Nat.mod_eq_of_lt hbound]
+    omega
+
+/-- (lane F1-15) A 64-bit little-endian read is the total eight-byte read. -/
+theorem toNat_bytesT8_of_rd64 {m : Mem} {a x : Nat} (h : rd64 m a = some x) :
+    (Vsa.Sim.bytesT8 m a).toNat = x := by
+  obtain ⟨hlt, hb⟩ := rdLE_spec 8 m a x h
+  rw [← Vsa.Sim.bytesT_eight_eq, hb, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt]
 
 /-- A bucket of the short-string table: interned strings chained by
 `u.hnext`, each in the bucket of its hash (`lmod(h, size)`). -/
@@ -115,21 +164,127 @@ inductive ChainHas (m : Mem) (ts : Nat) : Nat → Prop where
   | here : ChainHas m ts ts
   | next {p nx : Nat} : p ≠ 0 → rd64 m (p + tstringLnglenOff) = some nx → ChainHas m ts nx → ChainHas m ts p
 
+/-- The bytes of `"__tostring"`. -/
+def tosB : List UInt8 := [0x5f, 0x5f, 0x74, 0x6f, 0x73, 0x74, 0x72, 0x69, 0x6e, 0x67]
+
+/-- (lane F1-15) **`internshrstr`'s test fails at `p`** for the bytes `b`: the
+length byte (`lbu a5, 11(s0)`) is not `|b|`, or a content byte differs
+(`memcmp`). -/
+def NoMatch (m : Mem) (p : Nat) (b : List UInt8) : Prop :=
+  rd8 m (p + tstringShrlenOff) ≠ some b.length ∨
+    ∃ i, i < b.length ∧ rd8 m (p + tstringContentsOff + i) ≠ some (b.getD i 0).toNat
+
+/-- (lane F1-15) **`internshrstr`'s walk meets `ts` first**: the chain from `p`
+(`u.hnext`) reaches `ts` through strings, in RAM above the HTIF mailbox, whose
+test fails (`NoMatch`). So the walk returns `ts`, the string interned at boot
+(`ChainHas` only says `ts` is on the chain). -/
+inductive ChainFirst (m : Mem) (b : List UInt8) (ts : Nat) : Nat → Prop where
+  | here : ChainFirst m b ts ts
+  | next {p nx : Nat} : p ≠ 0 → p ≠ ts → symTohost + 16 ≤ p → p + 128 ≤ symHeapEnd →
+      rd64 m (p + tstringLnglenOff) = some nx → NoMatch m p b → ChainFirst m b ts nx → ChainFirst m b ts p
+
 /-- **The literal's string is interned** in `g->strt` (`rt`'s table, of the
 memory's zero fill): the one `TString` `ts` of the short bytes `b`, in the
 chain of the bucket of `b`'s hash with the state's seed. What `luaS_new` →
 `internshrstr` needs to return it without allocating (`luaX_init` interns the
-reserved words `nil`, `true`, `false` at boot; nothing is ever collected); the
-string cache `g->strcache` holds strings (`StrCacheAt`), which a hit
-returns only if equal (`strcmp`). -/
+reserved words `nil`, `true`, `false` at boot; nothing is ever collected).
+Lane F1-15: the walk meets it first (`first`), it lies in RAM, and the string
+cache is no longer read here (`LitCache`, the cache's own fact: `luaS_new`
+writes it). -/
 structure LitInterned (m : Mem) (rt : RtPtrs) (seed : UInt32) (b : List UInt8) (ts : Nat) : Prop where
   repr : TStringRepr (fillZeroMem m) ts b
   short : b.length ≤ maxShortLen
   strt : StrtAt (fillZeroMem m) rt
-  cache : StrCacheAt (fillZeroMem m) rt
   seed_w : rd32 (fillZeroMem m) (rt.g + gSeedOff) = some seed.toNat
   bucket : ∀ (h : (luaHash seed b).toNat % rt.strtSize < rt.strtHeads.length),
     ChainHas (fillZeroMem m) ts rt.strtHeads[(luaHash seed b).toNat % rt.strtSize]
+  /-- (lane F1-15) the walk meets `ts` first -/
+  first : ∀ (h : (luaHash seed b).toNat % rt.strtSize < rt.strtHeads.length),
+    ChainFirst (fillZeroMem m) b ts rt.strtHeads[(luaHash seed b).toNat % rt.strtSize]
+  ts_lo : symTohost + 16 ≤ ts
+  ts_hi : ts + 128 ≤ symHeapEnd
+
+/-! ## The string cache and the C literals (lane F1-15)
+
+`lua_pushstring(L, s)` → `luaS_new(L, s)` looks `s` up in the row
+`point2uint(s) % STRCACHE_N` of `g->strcache` by `strcmp` against each entry's
+contents, and on a miss shifts the row and stores the string `internshrstr`
+returns. So a push of a literal is correct only if no entry of its row other
+than its own string compares equal (`CDiffers`), and every push keeps that:
+the cache's words are always *candidates* of their row (`LitCache`), whose
+contents are frozen with the string table (`CandOk`, in `LitsIn`). -/
+
+/-- **A C string literal `luaL_tolstring` pushes**: its `.rodata` address (the
+`s` that `luaS_new` hashes into the cache), its bytes, its interned `TString`. -/
+structure CLit where
+  addr : Nat
+  bytes : List UInt8
+  ts : Nat
+
+/-- `"nil"` in `.rodata` (`luaL_tolstring`'s `lua_pushliteral(L, "nil")`). -/
+def litNilAddr : Nat := 0x8004f2b8
+/-- `"true"` in `.rodata`. -/
+def litTrueAddr : Nat := 0x8004f2e8
+/-- `"false"` in `.rodata`. -/
+def litFalseAddr : Nat := 0x8004f280
+/-- `"__tostring"` in `.rodata` (`luaL_callmeta(L, idx, "__tostring")`). -/
+def litTosAddr : Nat := 0x8004fd20
+
+/-- **The C literals** `luaL_tolstring` pushes on its nil, boolean and string paths. -/
+def LitPtrs.table (ls : LitPtrs) : List CLit :=
+  [⟨litNilAddr, nilB, ls.nil⟩, ⟨litTrueAddr, trueB, ls.tru⟩, ⟨litFalseAddr, falseB, ls.fls⟩,
+   ⟨litTosAddr, tosB, ls.tos⟩]
+
+/-- **`strcmp(s, getstr(p)) ≠ 0`** for the C string `b` (no NUL inside): the
+contents at `p` and `b` with its terminator agree before some `k ≤ |b|` and
+differ at `k`. -/
+def CDiffers (m : Mem) (p : Nat) (b : List UInt8) : Prop :=
+  ∃ k, k ≤ b.length ∧ (∀ i, i < k → rd8 m (p + tstringContentsOff + i) = some (b.getD i 0).toNat) ∧
+    rd8 m (p + tstringContentsOff + k) ≠ some ((b ++ [0]).getD k 0).toNat
+
+/-- **A candidate `p` of the cache's row `r`**: in RAM above the HTIF mailbox,
+and for every literal of that row, its own string or `strcmp`-different. -/
+structure CandOk (m : Mem) (lits : List CLit) (r p : Nat) : Prop where
+  lo : symTohost + 16 ≤ p
+  hi : p + 64 ≤ symHeapEnd
+  ok : ∀ l ∈ lits, l.addr % strcacheN = r → p = l.ts ∨ CDiffers m p l.bytes
+
+/-- **`g->strcache` holds candidates**: word `i` (row `i / STRCACHE_M`) is the
+pointer of a candidate of its row. Read off the cache's own words (total
+reads), which only `luaS_new` writes. -/
+def LitCache (m : Mem) (g : Nat) (ls : LitPtrs) : Prop :=
+  ∀ i, i < strcacheN * strcacheM →
+    (i / strcacheM, (Vsa.Sim.bytesT8 m (g + gStrcacheOff + 8 * i)).toNat) ∈ ls.cands
+
+/-- **`luaH_getshortstr`'s walk misses `ts`** from node `n` of the array `[lo,
+hi)`: past keys that are not the short string `ts` (`lbu a5, 9(a0)`; `ld a5,
+16(a0)` only on a short-string tag), to a node whose `gnext` is 0
+(`absentkey`). -/
+inductive NodeMiss (m : Mem) (ts lo hi : Nat) : Nat → Prop where
+  | last {n : Nat} : lo ≤ n → n + nodeSize ≤ hi →
+      (rd8 m (n + nodeKeyTtOff) ≠ some vShrStr ∨ ∃ kv, rd64 m (n + nodeKeyValOff) = some kv ∧ kv ≠ ts) →
+      rd32 m (n + nodeNextOff) = some 0 → NodeMiss m ts lo hi n
+  | next {n g : Nat} : lo ≤ n → n + nodeSize ≤ hi →
+      (rd8 m (n + nodeKeyTtOff) ≠ some vShrStr ∨ ∃ kv, rd64 m (n + nodeKeyValOff) = some kv ∧ kv ≠ ts) →
+      rd32 m (n + nodeNextOff) = some g → g ≠ 0 → NodeMiss m ts lo hi (nodeNext n g) → NodeMiss m ts lo hi n
+
+/-- **The string library's metatable has no `"__tostring"`** (lane F1-15):
+`G(L)->mt[LUA_TSTRING]` is the table `smt` (`lstrlib.c`'s `createmetatable`:
+the arithmetic metamethods and `__index`), and `luaH_get(smt, ts)`'s walk from
+`ts`'s main position misses. So `luaL_tolstring`'s `luaL_callmeta(L, idx,
+"__tostring")` on a string returns 0. -/
+structure StrMtMiss (m : Mem) (g ts smt node lsz h : Nat) : Prop where
+  mt_w : rd64 m (g + gMtOff + 8 * luaTstring) = some smt
+  ne : smt ≠ 0
+  lsz_w : rd8 m (smt + tableLsizenodeOff) = some lsz
+  node_w : rd64 m (smt + tableNodeOff) = some node
+  hash_w : rd32 m (ts + tstringHashOff) = some h
+  lsz_lt : lsz < 31
+  smt_lo : symTohost + 16 ≤ smt
+  smt_hi : smt + 32 ≤ 2 ^ 32
+  node_lo : symTohost + 16 ≤ node
+  node_hi : node + nodeSize * 2 ^ lsz ≤ 2 ^ 32
+  miss : NodeMiss m ts node (node + nodeSize * 2 ^ lsz) (node + nodeSize * (h % 2 ^ lsz))
 
 /-- **A `TString` holds one content**: the length (`shrlen`/`lnglen`) and the
 bytes are read off the object, so pointer equality of represented strings is
@@ -175,6 +330,18 @@ structure LitsIn (M : Mem) (g sl : Nat) (ls : LitPtrs) (rt : RtPtrs) : Prop wher
   nil : LitInterned M rt ls.seed nilB ls.nil
   tru : LitInterned M rt ls.seed trueB ls.tru
   fls : LitInterned M rt ls.seed falseB ls.fls
+  /-- (lane F1-15) `"__tostring"` -/
+  tos : LitInterned M rt ls.seed tosB ls.tos
+  /-- (lane F1-15) the string cache's candidates -/
+  cands : ∀ c ∈ ls.cands, CandOk (fillZeroMem M) ls.table c.1 c.2
+  /-- (lane F1-15) the string metatable misses `"__tostring"` -/
+  strmt : StrMtMiss (fillZeroMem M) rt.g ls.tos ls.smt ls.smtNode ls.smtLsz ls.tosHash
+  /-- (lane F1-15) the bucket array in RAM, its size a 32-bit `int` (`internshrstr`'s `lw`) -/
+  hash_lo : symTohost + 16 ≤ rt.strtHash
+  hash_hi : rt.strtHash + 8 * rt.strtSize ≤ symHeapEnd
+  size_hi : rt.strtSize < 2 ^ 30
+  /-- (lane F1-15) every literal's string is a candidate of its row (`luaS_new`'s miss stores it) -/
+  lit_cands : ∀ l ∈ ls.table, (l.addr % strcacheN, l.ts) ∈ ls.cands
 
 /-- **The reserved literals are interned** in `M`, for some string table. -/
 def LitsHold (M : Mem) (g sl : Nat) (ls : LitPtrs) : Prop := ∃ rt, LitsIn M g sl ls rt
@@ -193,11 +360,13 @@ def EntryDirty (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
 
 /-- **What the literals' facts must stay apart from**: the words
 `luaD_precall`/`luaD_poscall` write (`L->top`, `L->ci`, the Lua `CallInfo`)
-and the Lua stack above `ci->func`. -/
+and the Lua stack above `ci->func`; (lane F1-15) what `lua_pushstring` writes
+in `g`: `luaE_setdebt`'s `totalbytes` beside `GCdebt`, and the string cache. -/
 def LitDirty (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
   (L + stateTopOff ≤ a ∧ a < L + stateTopOff + 8) ∨ (L + stateCiOff ≤ a ∧ a < L + stateCiOff + 8) ∨
   (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) ∨ (L + stateNciOff ≤ a ∧ a < L + stateNciOff + 2) ∨
-  (e.g + gGCdebtOff ≤ a ∧ a < e.g + gGCdebtOff + 8)
+  (e.g + gGCdebtOff ≤ a ∧ a < e.g + gGCdebtOff + 8) ∨ (e.g + gTotalbytesOff ≤ a ∧ a < e.g + gTotalbytesOff + 8) ∨
+  (e.g + gStrcacheOff ≤ a ∧ a < e.g + gEnd)
 
 /-- The heap room the first `print` may claim: per first-use allocation
 (`luaE_extendCI`'s `CallInfo`, `stdout`'s buffer, `"__tostring"`, one more)
@@ -214,7 +383,7 @@ def luaStaticWords (L g : Nat) : List (Nat × Nat) :=
    (L + stateOpenupvalOff, 8), (L + stateTbclistOff, 8), (L + stateStackOff, 8),
    (L + stateStackLastOff, 8), (L + stateGOff, 8), (L + stateErrorJmpOff, 8),
    (g + gMtOff + 8 * luaTnil, 8), (g + gMtOff + 8 * luaTboolean, 8), (g + gMtOff + 8 * luaTnumber, 8),
-   (g, 8)]
+   (g, 8), (g + gGcstpOff, 1)]
 
 /-- **The objects a `CALL print` leaves alone** (lane F1-13), in a memory `M`:
 the prototype, its code pointer, and `_ENV`'s chain to `print` for every
@@ -358,6 +527,10 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   lits_apart : ∀ a, InRanges e.litFoot a → ¬ LitDirty L ci e a
   /-- no literal's mark byte (`luaS_new`'s `changewhite`) is in `e.foot` -/
   marks : ∀ ts ∈ e.lits.strs, ¬ InRanges e.foot (ts + gcMarkedOff)
+  /-- (lane F1-15) nor in `e.litFoot` -/
+  lit_marks : ∀ ts ∈ e.lits.strs, ¬ InRanges e.litFoot (ts + gcMarkedOff)
+  /-- (lane F1-15) the string cache holds candidates (`LitCache`) -/
+  lit_cache : LitCache m e.g e.lits
   /-- the objects' chunks (`CallPlaced`), for the heap's chunk walk -/
   placed : ∀ top cs, rd64 m DlHeap.topAddr = some top → DlHeap.ChunkWalk m DlHeap.heapStart top cs →
     CallPlaced cs L ci e

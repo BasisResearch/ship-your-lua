@@ -268,9 +268,22 @@ structure LitPtrs where
   nil : Nat
   tru : Nat
   fls : Nat
+  /-- (lane F1-15) `"__tostring"`'s interned `TString` (`luaopen_io`'s metamethod
+  name), which `luaL_tolstring`'s `luaL_callmeta` pushes -/
+  tos : Nat
+  /-- (lane F1-15) **the string cache's candidates** `(row, pointer)`: what a word
+  of `g->strcache[row]` may hold (`LitCache`): the boot's entries and the
+  literals' own strings -/
+  cands : List (Nat × Nat)
+  /-- (lane F1-15) the string library's metatable `G(L)->mt[LUA_TSTRING]`, its
+  node array, `lsizenode`, and `"__tostring"`'s hash -/
+  smt : Nat
+  smtNode : Nat
+  smtLsz : Nat
+  tosHash : Nat
 
-/-- The three literals' objects. -/
-def LitPtrs.strs (ls : LitPtrs) : List Nat := [ls.nil, ls.tru, ls.fls]
+/-- The literals' objects (lane F1-15: with `"__tostring"`). -/
+def LitPtrs.strs (ls : LitPtrs) : List Nat := [ls.nil, ls.tru, ls.fls, ls.tos]
 
 /-- The pointers `VmEntryData` names. -/
 structure EntryPtrs where

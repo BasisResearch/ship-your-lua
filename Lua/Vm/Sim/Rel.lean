@@ -359,7 +359,19 @@ def CallLitDirty (w : RelPtrs) (a : Nat) : Prop :=
   (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨ (w.L + stateCiOff ≤ a ∧ a < w.L + stateCiOff + 8) ∨
   (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast) ∨
   (w.L + stateNciOff ≤ a ∧ a < w.L + stateNciOff + 2) ∨
-  (w.rt.g + gGCdebtOff ≤ a ∧ a < w.rt.g + gGCdebtOff + 8)
+  (w.rt.g + gGCdebtOff ≤ a ∧ a < w.rt.g + gGCdebtOff + 8) ∨
+  (w.rt.g + gTotalbytesOff ≤ a ∧ a < w.rt.g + gTotalbytesOff + 8) ∨
+  (w.rt.g + gStrcacheOff ≤ a ∧ a < w.rt.g + gEnd)
+
+/-- (lane F1-15) **The string cache's candidates survive** a change off the
+cache's words. -/
+theorem _root_.Lua.Vm.LitCache.congr {m m' : Mem} {g : Nat} {ls : LitPtrs} (h : LitCache m g ls)
+    (hk : ∀ a, g + gStrcacheOff ≤ a → a < g + gEnd → bytesT1 m' a = bytesT1 m a) : LitCache m' g ls := by
+  intro i hi
+  have hgi : g + gStrcacheOff + 8 * i + 8 ≤ g + gEnd := by
+    simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at hi ⊢; omega
+  rw [bytesT8_congrT (m := m') (m' := m) fun j hj => hk _ (by omega) (by omega)]
+  exact h i hi
 
 /-- **The words of the `lua_State` and `g` a `print` keeps** (`LuaStateRel`'s
 `L` and `g` words, and `L->errorJmp`). -/
@@ -378,6 +390,9 @@ structure LuaStatic (M : Mem) (L : Nat) (rt : RtPtrs) : Prop where
   errjmp : rd64 M (L + stateErrorJmpOff) = some RuntimeData.ljAddr
   /-- (lane F1-14) `g->frealloc`, `luaM_malloc_`'s allocator -/
   frealloc : rd64 M rt.g = some symLAlloc
+  /-- (lane F1-15) the collector stopped (`luaC_step`'s `gcrunning` test:
+  `luaE_setdebt(g, -2000)` only) -/
+  gcstp : rd8 M (rt.g + gGcstpOff) = some gcstpUsr
 
 /-- **The objects a `CALL print` leaves alone**, in a memory `M`: `.rodata`,
 the prototype and its code pointer, the owned strings, `_ENV`'s chain to
@@ -402,6 +417,8 @@ structure CallObjs (w : RelPtrs) (ls : LitPtrs) : Prop where
   lit_g : ∀ ts ∈ ls.strs, Apart ts 30 w.rt.g gEnd
   lit_ci : ∀ ts ∈ ls.strs, Apart ts 30 w.ci ciSize
   lit_stack : ∀ ts ∈ ls.strs, Apart ts 30 w.func (w.rt.stackLast - w.func)
+  /-- (lane F1-15) the `lua_State` apart from the Lua stack -/
+  L_stack : Apart w.L stateSize w.func (w.rt.stackLast - w.func)
 
 /-- **The C `CallInfo` `nci` after the Lua one**: in a chunk in use, apart
 from both footprints and from the objects a `CALL` writes. -/
@@ -449,6 +466,10 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   lits_apart : ∀ a, FL a → ¬ CallLitDirty w a
   lit_strs : ∀ ts ∈ ls.strs, ∀ a, ts ≤ a → a < ts + 30 → Kit.Kept w.rt.hix ph a
   marks : ∀ ts ∈ ls.strs, ¬ F (ts + gcMarkedOff)
+  /-- (lane F1-15) nor in `FL` -/
+  lit_marks : ∀ ts ∈ ls.strs, ¬ FL (ts + gcMarkedOff)
+  /-- (lane F1-15) the string cache holds candidates -/
+  cache : LitCache w.mo w.rt.g ls
   /-- the `lua_State`, `g` up to its string cache, the `CallInfo` and the Lua
   stack above `ci->func` in chunks in use -/
   L_in : ∀ a, w.L ≤ a → a < w.L + stateSize → Kit.Kept w.rt.hix ph a

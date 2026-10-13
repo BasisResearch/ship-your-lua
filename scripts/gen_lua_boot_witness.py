@@ -669,6 +669,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
               (L + lay["stateStackLastOff"], 8), (L + lay["stateGOff"], 8), (L + lay["stateErrorJmpOff"], 8)]
     static += [(g + lay["gMtOff"] + 8 * lay[t], 8) for t in ("luaTnil", "luaTboolean", "luaTnumber")]
     static += [(g, 8)]      # lane F1-14: `g->frealloc`
+    static += [(g + lay["gGcstpOff"], 1)]   # lane F1-15: `g->gcstp` (`luaC_step`)
     for a, n in static:
         foot.update(range(a, a + n))
     foot.update(range(ka, ka + lay["tvalueSize"] * len(proto[4])))
@@ -693,36 +694,106 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
             rd(ts + lay["gcTtOff"], 1)
             rd(ts + lay["tstringHashOff"], 4)
             ts = rd(ts + lay["tstringLnglenOff"], 8)
-    for i in range(lay["strcacheN"] * lay["strcacheM"]):
-        rd(rd(g + lay["gStrcacheOff"] + 8 * i, 8) + lay["gcTtOff"], 1)
     rd(g + lay["gSeedOff"], 4)
+    c_off = lay["tstringContentsOff"]
+
+    def in_ram(p):
+        return lay["symTohost"] + 16 <= p and p + 128 <= lay["symHeapEnd"]
+
+    def first_diff(p, b):
+        """`CDiffers`: the first k <= |b| where the contents at p and `b ++ [0]`
+        differ, reading (and recording) the bytes up to it."""
+        bz = list(b) + [0]
+        for k in range(len(bz)):
+            if M.m.get(p + c_off + k) is None:
+                return None
+            if rd(p + c_off + k, 1) != bz[k]:
+                return k
+        return None
+
     lits = []
-    for b in (b"nil", b"true", b"false"):
+    # lane F1-15: `luaL_tolstring`'s C literals (`LitPtrs.table`): `"nil"`,
+    # `"true"`, `"false"` and `"__tostring"`, each the first match of
+    # `internshrstr`'s walk (`ChainFirst`: the nodes before it fail its test,
+    # `NoMatch`, read here)
+    for b in (b"nil", b"true", b"false", b"__tostring"):
         p, found = heads[lua_hash(seed, b) % size], None
         while p:
-            n = M.m.get(p + lay["tstringShrlenOff"])
-            if n == len(b) and bytes(M.m.get(p + lay["tstringContentsOff"] + j, 0) for j in range(n)) == b:
-                found = p
-                break
+            n = rd(p + lay["tstringShrlenOff"], 1)
+            if n == len(b):
+                cont = []
+                for j in range(n):
+                    cont.append(rd(p + c_off + j, 1))
+                    if cont[-1] != b[j]:
+                        break
+                if bytes(cont) == b:
+                    found = p
+                    break
+            need(in_ram(p), f"a chain node before {b!r} in RAM")
             p = rd(p + lay["tstringLnglenOff"], 8)
         need(found is not None, f"the literal {b!r} interned in its bucket")
+        need(in_ram(found), f"the literal {b!r} in RAM")
         check_tstring(lay, M, found, list(b))
         lits.append(found)
+    # lane F1-15: the string cache's candidates (`CandOk`): every entry of the
+    # boot cache and each literal's own string in its row; per literal of the
+    # row, the candidate is its string or `strcmp` differs (`CDiffers`)
+    addrs = [0x8004f2b8, 0x8004f2e8, 0x8004f280, 0x8004fd20]
+    table = list(zip(addrs, (b"nil", b"true", b"false", b"__tostring"), lits))
+    for a, b, _ in table:
+        need(bytes(M.m.get(a + j, 0) for j in range(len(b) + 1)) == b + b"\0", f"{b!r} at {a:#x} in .rodata")
+    n_c, m_c = lay["strcacheN"], lay["strcacheM"]
+    cache = [M.m.get(g + lay["gStrcacheOff"] + 8 * i) is not None and
+             int.from_bytes(bytes(M.m[g + lay["gStrcacheOff"] + 8 * i + j] for j in range(8)), "little")
+             for i in range(n_c * m_c)]
+    need(all(c is not False for c in cache), "the string cache's words present")
+    cands = sorted({(i // m_c, p) for i, p in enumerate(cache)} | {(a % n_c, ts) for a, _, ts in table})
+    for r, p in cands:
+        need(in_ram(p), f"the cache candidate {p:#x} in RAM")
+        for a, b, ts in table:
+            if a % n_c == r and p != ts:
+                need(first_diff(p, b) is not None, f"the cache candidate {p:#x} strcmp-differs from {b!r}")
+    # lane F1-15: the string metatable misses `"__tostring"` (`StrMtMiss`)
+    tos = lits[3]
+    smt = rd(g + lay["gMtOff"] + 8 * lay["luaTstring"], 8)
+    need(smt != 0 and in_ram(smt), "the string metatable")
+    lsz = rd(smt + lay["tableLsizenodeOff"], 1)
+    node = rd(smt + lay["tableNodeOff"], 8)
+    th = rd(tos + lay["tstringHashOff"], 4)
+    need(lsz < 31 and lay["symTohost"] + 16 <= node and node + lay["nodeSize"] * (1 << lsz) <= 1 << 32,
+         "the string metatable's node array")
+    n_ = node + lay["nodeSize"] * (th % (1 << lsz))
+    for _ in range(1 << lsz):
+        need(node <= n_ and n_ + lay["nodeSize"] <= node + lay["nodeSize"] * (1 << lsz), "the walk in the array")
+        kt = rd(n_ + lay["nodeKeyTtOff"], 1)
+        if kt == lay["vShrStr"]:
+            need(rd(n_ + lay["nodeKeyValOff"], 8) != tos, "the string metatable has no __tostring")
+        gn = rd(n_ + lay["nodeNextOff"], 4)
+        if gn == 0:
+            break
+        n_ = (n_ + lay["nodeSize"] * (gn if gn < 1 << 31 else gn - (1 << 32))) % (1 << 64)
+    else:
+        need(False, "the string metatable's walk ends")
     lit_foot = split(ranges_of(M.rec))
     M.rec = None
     need(all(lo + n <= lay["symTohost"] or in_chunk(lo, n) for lo, n in lit_foot) and
          all(lo >= lay["symTohost"] for lo, _ in lit_foot), "e.litFoot in chunks in use")
-    apart(lit_foot, dirty + [(L + lay["stateNciOff"], 2), (g + lay["gGCdebtOff"], 8)], "e.litFoot")
+    apart(lit_foot, dirty + [(L + lay["stateNciOff"], 2), (g + lay["gGCdebtOff"], 8),
+                             (g + lay["gTotalbytesOff"], 8),
+                             (g + lay["gStrcacheOff"], g_end - lay["gStrcacheOff"])], "e.litFoot")
     for ts in lits:
         need(not any(lo <= ts + lay["gcMarkedOff"] < lo + n for lo, n in foot), "a literal's mark byte off e.foot")
+        need(not any(lo <= ts + lay["gcMarkedOff"] < lo + n for lo, n in lit_foot),
+             "a literal's mark byte off e.litFoot")
         need(in_chunk(ts, 30), "a literal's object in a chunk in use")
+    lit_extra = (cands, smt, node, lsz, th)
     # ---- the places and the room
     for lo, n, what in [(L, lay["stateSize"], "L"), (g, g_end, "g"), (ci, lay["ciSize"], "ci"),
                         (e["func"], e["stackLast"] - e["func"], "the Lua stack")]:
         need(in_chunk(lo, n), f"{what} in a chunk in use")
     need(all(in_chunk(lo, n) or lo + n <= lay["symTohost"] for lo, n in foot), "e.foot in chunks in use")
     need(w["brkv"] + FIRST_ROOM <= lay["symHeapEnd"], "room for the first print")
-    return foot, lit_foot, (seed, *lits)
+    return foot, lit_foot, (seed, *lits, *lit_extra)
 
 
 def heap_walk(lay, M):
@@ -971,7 +1042,12 @@ def render_program(lay, name, lean, proto_const, module, chunk, log, entry, e, w
             ] + [f"  {k} := {e[k]:#x}" for k in ("func", "cl", "pa", "code", "uv", "envv", "env", "g", "stackLast")] + [
             f"  foot := {rtree(e['foot'])}",
             f"  litFoot := {rtree(e['litFoot'])}",
-            f"  lits := ⟨{e['lits'][0]:#x}, {e['lits'][1]:#x}, {e['lits'][2]:#x}, {e['lits'][3]:#x}⟩",
+            "  lits :=",
+            f"    {{ seed := {e['lits'][0]:#x}, nil := {e['lits'][1]:#x}, tru := {e['lits'][2]:#x},",
+            f"      fls := {e['lits'][3]:#x}, tos := {e['lits'][4]:#x},",
+            "      cands := [" + ", ".join(f"({r}, {p:#x})" for r, p in e['lits'][5]) + "],",
+            f"      smt := {e['lits'][6]:#x}, smtNode := {e['lits'][7]:#x}, smtLsz := {e['lits'][8]},",
+            f"      tosHash := {e['lits'][9]:#x} }}",
             "",
             "/-- `_ENV.print`'s node: `(lsizenode, node array, index, key string)`. -/",
             f"def printSlot : PrintSlot := ⟨{slot['lsz']}, {slot['node']:#x}, {slot['i']}, {slot['ts']:#x}⟩",

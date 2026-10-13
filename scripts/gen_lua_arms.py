@@ -130,6 +130,7 @@ HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26, 6, 14, 15, 
            # lane float-sf4: from `__umoddi3`'s own entry `0x8002f77c` (`mv t0,ra; jal
            # __udivdi3; mv a0,a1; jr t0`: `__divdf3`'s `udiv_qrnnd` remainders);
            # `__divdi3`'s sign fix-ups `0x8002f78c`, `0x8002f79c` are roots
+           # lane F1-15: from its own entry `0x8002f77c` too (`luaS_new`'s `point2uint(s) % 53`)
            ("__umoddi3", "__umoddi3", 0x8002f77c, 0x8002f7b0, [22, 26], [0x8002f78c, 0x8002f79c], [])]
 # lane KIT-2: `luaV_tointeger` on a non-string, non-float value (the string
 # and float paths `0x8001ae4c`, `0x8001ae98` are stops: F1's limits are
@@ -142,11 +143,16 @@ HELPERS += [("luaV_tointeger", "LuaV_tointeger", 0x8001ade8, 0x8001af50, [22, 26
 # (`j strcmp`) and `strlen`.
 SUMMARISED |= {"l_strcmp"}
 HELPERS += [("luaS_eqlngstr", "LuaS_eqlngstr", 0x80017184, 0x800171d4, [], [], []),
-            ("memcmp", "Memcmp", 0x80036198, 0x80036204, [], [], []),
+            ("memcmp", "Memcmp", 0x80036198, 0x80036204, [22, 26], [], []),
             ("l_strcmp", "L_strcmp", 0x8001a704, 0x8001a7e0, [], [], []),
-            ("strcoll", "Strcoll", 0x80036374, 0x80036378, [], [], []),
-            ("strcmp", "Strcmp", 0x8003b920, 0x8003ba4c, [], [], []),
-            ("strlen", "Strlen", 0x8003b770, 0x8003b844, [], [], [])]
+            ("strcoll", "Strcoll", 0x80036374, 0x80036378, [22, 26], [], []),
+            ("strcmp", "Strcmp", 0x8003b920, 0x8003ba4c, [22, 26], [], []),
+            ("strlen", "Strlen", 0x8003b770, 0x8003b844, [22, 26], [], [])]
+# lane F1-15: the string scans keep the caller's `s6`, `s10` (`luaS_new`,
+# `internshrstr` call them from C frames that must return them); their callers
+# on the arm route carry them only where they are live (`PASS_THROUGH`)
+PASS_THROUGH_S = {0x80036198: {"x22", "x26"}, 0x80036374: {"x22", "x26"}, 0x8003b920: {"x22", "x26"},
+                  0x8003b770: {"x22", "x26"}}
 # lane F1-3: `luaT_adjustvarargs(L, 0, ci, p)` at the entry: no fixed
 # parameters (the copy loop `0x80019858` is a stop: `A = 0`, `blez` taken) and
 # room on the stack (the `luaD_growstack` call `0x800198bc` is a stop)
@@ -369,6 +375,21 @@ HELPERS += [("luaE_extendCI", "LuaE_extendCI", 0x80016a5c, 0x80016aa8, [22, 26],
             ("l_alloc", "L_alloc", 0x8000172c, 0x80001758, [22, 26], [], [0x8000173c]),
             ("realloc", "Realloc", 0x8003030c, 0x80030320, [22, 26], [], []),
             ("_realloc_r", "_realloc_r", 0x80030320, 0x80030518, [22, 26], [], [0x80030324])]
+# lane F1-15: `lua_pushstring(L, s)` of a C literal: `luaS_new` (`__umoddi3`,
+# `strcmp` on the cache's row, on a miss `strlen` and `luaS_newlstr` → `j
+# internshrstr`: the hash loop `0x800173a4`, the chain walk `0x800173f0` with
+# `memcmp`; the creation path `0x8001742c` a stop: the literal is interned),
+# `luaC_step` with the collector stopped (`j luaE_setdebt`; the running path
+# `0x8000ec98` a stop); `lua_pushstring(L, NULL)` (`0x8000304c`) and a long
+# string (`0x8001769c`) stops
+HELPERS += [("lua_pushstring", "Lua_pushstring", 0x80002fe4, 0x8000305c, [22, 26], [], [0x8000304c]),
+            ("luaS_new", "LuaS_new", 0x8001772c, 0x800177f0, [22, 26], [], []),
+            ("luaS_newlstr", "LuaS_newlstr", 0x80017694, 0x8001772c, [22, 26], [], [0x8001769c]),
+            ("internshrstr", "Internshrstr", 0x80017350, 0x8001751c, [22, 26], [0x800173a4, 0x800173f0],
+             [0x8001742c]),
+            ("luaC_step", "LuaC_step", 0x8000ec80, 0x8000f1c8, [22, 26], [], [0x8000ec98]),
+            ("luaE_setdebt", "LuaE_setdebt", 0x80016a20, 0x80016a54, [22, 26], [], [])]
+
 # the argument registers of a callee with no segments of its own (a call node
 # whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
 # idx, &len)`; lane F1-12: `luaE_extendCI(L)`)
@@ -435,6 +456,7 @@ PASS_THROUGH = {0x8002f6c8: {"x6", "x14", "x15", "x16", "x17", "x28", "x29"},
 # the callers a callee's pass-through applies to (default: every caller), so
 # that no other helper's segments change
 PASS_THROUGH_FOR = {0x8002f734: {"__divdf3"}}
+PASS_THROUGH.update(PASS_THROUGH_S)
 HELPERS += [(fn, cap, lo, hi, [22, 26], FN_ROOTS.get(fn, []), []) for fn, cap, lo, hi in FN_HELPERS]
 # the arms whose float paths run through the soft-float call nodes (lane
 # float-m0, M1): only there is a call to a soft-float routine a call node (its
@@ -498,6 +520,8 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
 RESULTS["longjmp"] = {"x10", "x2", "x8", "x9"} | {f"x{r}" for r in range(18, 28)}
 RESULTS["luaG_errormsg"] = set()
 RESULTS["luaD_throw"] = set()
+RESULTS.update({"lua_pushstring": {"x10"}, "luaS_new": {"x10"}, "luaS_newlstr": {"x10"},
+                "internshrstr": {"x10"}, "luaC_step": set(), "luaE_setdebt": set()})
 
 
 def helper_cfg(lo, hi):

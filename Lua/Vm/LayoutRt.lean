@@ -28,6 +28,10 @@ def gStrtSizeOff : Nat := 60
 def gMainthreadOff : Nat := 264
 /-- `offsetof(global_State, strcache)` — `g->strcache[STRCACHE_N][STRCACHE_M]` -/
 def gStrcacheOff : Nat := 552
+/-- `offsetof(global_State, totalbytes)` — `g->totalbytes` (`l_mem`) -/
+def gTotalbytesOff : Nat := 16
+/-- `offsetof(global_State, currentwhite)` — `g->currentwhite` (byte) -/
+def gCurrentwhiteOff : Nat := 100
 /-- `offsetof(struct lua_longjmp, previous)` — ldo.c's `struct lua_longjmp` -/
 def ljPreviousOff : Nat := 0
 /-- `offsetof(struct lua_longjmp, b)` — the `jmp_buf` -/

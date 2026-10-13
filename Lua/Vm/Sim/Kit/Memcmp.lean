@@ -11,7 +11,7 @@ word loop (`0x800361dc`, both pointers 8-aligned and `n > 7`) and the byte
 loop (`0x800361c0`, rotated: entered by `j` into its middle). The word loop
 exits on a differing word *into* the byte loop at that word's position
 (`relay`). The summary is quotiented by what `luaS_eqlngstr` observes
-(`seqz`): `a0 = 0` iff the `n` bytes agree (`ZRet`).
+(`seqz`): `a0 = 0` iff the `n` bytes agree (`ZRetS`).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -24,15 +24,15 @@ open Vsa.Machine (MState Config Steps)
 
 /-- A string helper's return to `r`: `a0 = v`, `sp` and the caller's frame
 `f` kept, memory and console unchanged. -/
-abbrev RetAt (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (v : BitVec 64) :
+abbrev RetAtS (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String) (v : BitVec 64) :
     Config → Prop :=
   SegSt r (⟨Register.x10, v⟩ :: ⟨Register.x2, sp⟩ :: f.pins) (ArmPay m o)
 
 /-- **A return observed through `a0 = 0`**: some `a0`, zero iff `Z`. -/
-structure ZRet (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (Z : Prop) (c : Config) :
+structure ZRetS (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String) (Z : Prop) (c : Config) :
     Prop where
   intro ::
-  ret : ∃ v, RetAt r sp f m o v c ∧ (v = 0#64 ↔ Z)
+  ret : ∃ v, RetAtS r sp f m o v c ∧ (v = 0#64 ↔ Z)
 
 /-- Byte `j` of the two ranges agrees. -/
 def McEq (m : Mem) (P Q j : Nat) : Prop := bytesT1 m (P + j) = bytesT1 m (Q + j)
@@ -45,16 +45,18 @@ theorem addr0 {x : Nat} (h : x < 2 ^ 64) :
   rw [Vsa.Sim.sext_zero, BitVec.add_zero, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h]
 
 /-- The facts every path uses: the two ranges in RAM apart from `tohost`,
-and the return address aligned. -/
+and the return address aligned. (Lane F1-15: the first range may lie below
+`tohost`, `internshrstr`'s C string in `.rodata`.) -/
 structure McCtx (P Q n : Nat) (r : BitVec 64) : Prop where
   ra : r.toNat % 4 = 0
-  p_lo : tohostAddr + 16 ≤ P
+  p_lo : 0x80000000 ≤ P
   p_hi : P + n + 8 ≤ 2 ^ 32
+  p_th : P + n + 8 ≤ tohostAddr ∨ tohostAddr + 16 ≤ P
   q_lo : tohostAddr + 16 ≤ Q
   q_hi : Q + n + 8 ≤ 2 ^ 32
 
 /-- The byte loop's state at `0x800361c0`, position `i`. -/
-abbrev mcB (P Q n i : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev mcB (P Q n i : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x10, BitVec.ofNat 64 (P + i)⟩ :: ⟨Register.x11, BitVec.ofNat 64 (Q + i)⟩ ::
     ⟨Register.x12, BitVec.ofNat 64 (P + n)⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
 
@@ -70,7 +72,7 @@ set_option hygiene false in
 /-- The context's numeric facts, for `kit_disch`. -/
 local macro "mc_ctx" hx:ident : tactic => `(tactic| (
   have hTH : tohostAddr = 0x8005c6c0 := rfl
-  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).q_lo; have := ($hx).q_hi))
+  have hra := ($hx).ra; have := ($hx).p_lo; have := ($hx).p_hi; have := ($hx).p_th; have := ($hx).q_lo; have := ($hx).q_hi))
 
 /-- The byte guard `beq a5, a4` on byte `i`. -/
 theorem mc_byte_guard {m : Mem} {P Q i : Nat} (hp : P + i < 2 ^ 64) (hq : Q + i < 2 ^ 64) :
@@ -93,10 +95,10 @@ theorem mc_end_guard {P n i : Nat} (h : P + n < 2 ^ 64) (hi : i < n) :
 
 /-- **The byte loop** from position `i` (`0x800361c0`), no difference
 before `i`. -/
-theorem memcmp_bytes (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem memcmp_bytes (P Q n : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : McCtx P Q n r) : ∀ i, i < n → (∀ j, j < i → McEq m P Q j) →
     Triple (SegSt 0x800361c0#64 (mcB P Q n i r sp f) (ArmPay m o))
-      (ZRet r sp f m o (∀ j, j < n → McEq m P Q j)) :=
+      (ZRetS r sp f m o (∀ j, j < n → McEq m P Q j)) :=
   scan_loop n (McEq m P Q) fun i hi hok c h => by
     have acc := Steps.refl c
     mc_ctx hx
@@ -133,12 +135,12 @@ theorem memcmp_bytes (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o 
 abbrev seven : BitVec 64 := (0#64) + sign_extend (m := 64) (0x007#12)
 
 /-- The state at `0x800361ac` (the byte loop's set-up), position `i`. -/
-abbrev mcA (P Q n i : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev mcA (P Q n i : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x12, BitVec.ofNat 64 (n - i)⟩ :: ⟨Register.x10, BitVec.ofNat 64 (P + i)⟩ ::
     ⟨Register.x11, BitVec.ofNat 64 (Q + i)⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
 
 /-- The word loop's state at `0x800361dc`, position `i`. -/
-abbrev mcW (P Q n i : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev mcW (P Q n i : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x10, BitVec.ofNat 64 (P + i)⟩ :: ⟨Register.x11, BitVec.ofNat 64 (Q + i)⟩ ::
     ⟨Register.x12, BitVec.ofNat 64 (n - i)⟩ :: ⟨Register.x13, seven⟩ :: ⟨Register.x1, r⟩ ::
     ⟨Register.x2, sp⟩ :: f.pins
@@ -195,10 +197,10 @@ theorem mc_nz_guard {d : Nat} (h : d < 2 ^ 64) : (BitVec.ofNat 64 d != 0#64) = !
 
 /-- **The byte loop's set-up** (`0x800361ac`): the end `P + n`, then the
 byte loop from `i`. -/
-theorem memcmp_tail (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem memcmp_tail (P Q n : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : McCtx P Q n r) (i : Nat) (hi : i < n) (hok : ∀ j, j < i → McEq m P Q j) :
     Triple (SegSt 0x800361ac#64 (mcA P Q n i r sp f) (ArmPay m o))
-      (ZRet r sp f m o (∀ j, j < n → McEq m P Q j)) := by
+      (ZRetS r sp f m o (∀ j, j < n → McEq m P Q j)) := by
   intro c h
   have acc := Steps.refl c
   kit_run h acc until [0x800361c0]
@@ -211,10 +213,10 @@ local macro_rules | `(tactic| kit_norm $h) => `(tactic| simp only [mc_sub8 h8] a
 
 /-- **The word loop** from position `i` (`0x800361dc`): a differing word
 relays to the byte loop at its position (`memcmp_tail`). -/
-theorem memcmp_words (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem memcmp_words (P Q n : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : McCtx P Q n r) : ∀ i, i < n → (∀ j, j < i → McEq m P Q j) →
     Triple (fun c => 8 ≤ n - i ∧ SegSt 0x800361dc#64 (mcW P Q n i r sp f) (ArmPay m o) c)
-      (ZRet r sp f m o (∀ j, j < n → McEq m P Q j)) :=
+      (ZRetS r sp f m o (∀ j, j < n → McEq m P Q j)) :=
   scan_loop n (McEq m P Q) fun i hi hok c ⟨h8, h⟩ => by
     have acc := Steps.refl c
     mc_ctx hx
@@ -253,16 +255,16 @@ theorem memcmp_words (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o 
       exact ⟨c', acc.trans hs, .inr h'⟩
 
 /-- `memcmp`'s entry pins. -/
-abbrev mcPre (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+abbrev mcPreS (P Q n : Nat) (r sp : BitVec 64) (f : ScanFrame) : List Pin :=
   ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x11, BitVec.ofNat 64 Q⟩ ::
     ⟨Register.x12, BitVec.ofNat 64 n⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
 
 /-- **`memcmp`, the call-node summary**: `a0 = 0` iff the `n` bytes at `P`
 and `Q` agree. -/
-theorem memcmp_sum (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+theorem memcmp_sumS (P Q n : Nat) (r sp : BitVec 64) (f : ScanFrame) (m : Mem) (o : Array String)
     (hx : McCtx P Q n r) :
-    Triple (SegSt 0x80036198#64 (mcPre P Q n r sp f) (ArmPay m o))
-      (ZRet r sp f m o (∀ j, j < n → McEq m P Q j)) := by
+    Triple (SegSt 0x80036198#64 (mcPreS P Q n r sp f) (ArmPay m o))
+      (ZRetS r sp f m o (∀ j, j < n → McEq m P Q j)) := by
   intro c h
   have acc := Steps.refl c
   mc_ctx hx
@@ -292,5 +294,40 @@ theorem memcmp_sum (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : 
       kit_run h acc until [0x800361ac]
       obtain ⟨c', hs, h'⟩ := memcmp_tail P Q n r sp f m o hx 0 (by omega) hnil _ (h.repin (by pins_of h))
       exact ⟨c', acc.trans hs, h'⟩
+
+/-! ## On the arm route's frame (`KFrame`, lane F1-15)
+
+The scan's segments carry the caller's `s6`, `s10` (`ScanFrame`); a caller on
+the arm route (`KFrame`, where they are dead) pins them at whatever they hold
+(`pin_gpr`) and forgets them after. -/
+
+/-- A string helper's return to `r`: `a0 = v`, `sp` and the caller's frame
+`f` kept, memory and console unchanged. -/
+abbrev RetAt (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (v : BitVec 64) :
+    Config → Prop :=
+  SegSt r (⟨Register.x10, v⟩ :: ⟨Register.x2, sp⟩ :: f.pins) (ArmPay m o)
+
+/-- **A return observed through `a0 = 0`**: some `a0`, zero iff `Z`. -/
+structure ZRet (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String) (Z : Prop) (c : Config) :
+    Prop where
+  intro ::
+  ret : ∃ v, RetAt r sp f m o v c ∧ (v = 0#64 ↔ Z)
+
+/-- `memcmp`'s entry pins. -/
+abbrev mcPre (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) : List Pin :=
+  ⟨Register.x10, BitVec.ofNat 64 P⟩ :: ⟨Register.x11, BitVec.ofNat 64 Q⟩ ::
+    ⟨Register.x12, BitVec.ofNat 64 n⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, sp⟩ :: f.pins
+
+/-- **`memcmp`, the call-node summary** on the arm route's frame. -/
+theorem memcmp_sum (P Q n : Nat) (r sp : BitVec 64) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : McCtx P Q n r) :
+    Triple (SegSt 0x80036198#64 (mcPre P Q n r sp f) (ArmPay m o))
+      (ZRet r sp f m o (∀ j, j < n → McEq m P Q j)) := by
+  intro c h
+  pin_gpr h 22 Register.x22
+  pin_gpr h 26 Register.x26
+  obtain ⟨c', hs, ⟨v, hret, hv⟩⟩ := memcmp_sumS P Q n r sp (f.ext _ _) m o hx c (h.repin (by pins_of h))
+  dsimp only [RetAtS] at hret
+  exact ⟨c', hs, ⟨v, hret.repin (by pins_of hret), hv⟩⟩
 
 end Lua.Vm.Sim.Kit

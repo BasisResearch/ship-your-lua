@@ -1,4 +1,5 @@
 import Lua.Vm.Sim.Mem
+import Lua.Vm.EntryData
 
 /-!
 # `_ENV.print` as the machine reads it (lane F1-7)
@@ -27,46 +28,7 @@ namespace Lua.Vm.Sim
 
 open Lua.Vm.Layout
 
-/-- `rdLE` byte by byte, from the lowest address. -/
-theorem rdLE_succ (m : Mem) (a n : Nat) :
-    rdLE m a (n + 1) = (do
-      let b ← m[a]?
-      let r ← rdLE m (a + 1) n
-      pure (b.toNat + 256 * r)) := by
-  simp only [rdLE, List.range_succ_eq_map, List.foldr_cons, List.foldr_map, Nat.add_zero]
-  congr 1
-  funext b
-  congr 1
-  congr 1
-  funext i acc
-  rw [Nat.add_assoc, Nat.add_comm 1 i]
-
-/-- **A little-endian read is the total read**, and fits its width. -/
-theorem rdLE_spec : ∀ (n : Nat) (m : Mem) (a x : Nat), rdLE m a n = some x →
-    x < 2 ^ (8 * n) ∧ bytesT m a n = BitVec.ofNat (8 * n) x
-  | 0, m, a, x, h => by
-    simp [rdLE] at h
-    subst h
-    exact ⟨by decide, rfl⟩
-  | n + 1, m, a, x, h => by
-    rw [rdLE_succ] at h
-    simp only [Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def, Option.some.injEq] at h
-    obtain ⟨b, hb, r, hr, rfl⟩ := h
-    obtain ⟨hlt, hbt⟩ := rdLE_spec n m (a + 1) r hr
-    have hb8 := b.isLt
-    have hbound : b.toNat + 256 * r < 2 ^ (8 * (n + 1)) := by
-      rw [show 8 * (n + 1) = 8 * n + 8 by omega, Nat.pow_add]
-      have : (r + 1) * 2 ^ 8 ≤ 2 ^ (8 * n) * 2 ^ 8 := Nat.mul_le_mul_right _ hlt
-      simp only [Nat.add_mul, Nat.one_mul] at this
-      omega
-    refine ⟨hbound, ?_⟩
-    simp only [bytesT, hbt, hb, Option.getD_some]
-    apply BitVec.eq_of_toNat_eq
-    show (BitVec.ofNat (8 * n) r ++ b).toNat = _
-    rw [BitVec.toNat_append, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt,
-      ← Nat.shiftLeft_add_eq_or_of_lt hb8, Nat.shiftLeft_eq, BitVec.toNat_ofNat,
-      Nat.mod_eq_of_lt hbound]
-    omega
+-- `rdLE_succ`, `rdLE_spec`: `Lua/Vm/EntryData.lean` (lane F1-15).
 
 /-- The machine's total reader (`getD 0` bytes, the model's `readByte`), in
 `shrWalk`'s form. -/

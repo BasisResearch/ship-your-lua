@@ -806,12 +806,13 @@ theorem entryDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : EntryDirty
 /-- `LitDirty` as ranges. -/
 def litDirtyRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
   [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func), (L + stateNciOff, 2),
-   (e.g + gGCdebtOff, 8)]
+   (e.g + gGCdebtOff, 8), (e.g + gTotalbytesOff, 8), (e.g + gStrcacheOff, gEnd - gStrcacheOff)]
 
 theorem litDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : LitDirty L ci e a) :
     InList (litDirtyRanges L ci e) a := by
+  have hg : gStrcacheOff ≤ gEnd := by decide
   simp only [LitDirty] at h
-  rcases h with h | h | h | h | h | h
+  rcases h with h | h | h | h | h | h | h | h
   · exact ⟨_, List.Mem.head _, h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.head _), h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)), h.1, h.2⟩
@@ -821,6 +822,11 @@ theorem litDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : LitDirty L c
       h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
       (List.Mem.head _))))), h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
+      (List.Mem.tail _ (List.Mem.head _)))))), h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
+      (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _))))))), h.1, by
+      show a < e.g + gStrcacheOff + (gEnd - gStrcacheOff); omega⟩
 
 /-- **A chunk walk is determined by its memory and ends** (`p` up to `top`). -/
 theorem _root_.Lua.Vm.DlHeap.ChunkWalk.le {m : Mem} {p top : Nat} {cs : List DlHeap.Chunk}
@@ -865,36 +871,213 @@ theorem chainHasCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ts : Nat
         exact .next h0 (h.rd64 hnx) (chainHasCheck_sound h fuel nx hn)
       · cases hn
 
+/-! ### (lane F1-15) `internshrstr`'s first match, the cache's candidates, the string metatable -/
+
+/-- `NoMatch` over the view. -/
+def noMatchCheck (v : View) (p : Nat) (b : List UInt8) : Bool :=
+  match r8 v (p + tstringShrlenOff) with
+  | some n => n != b.length || (List.range b.length).any fun i =>
+      match r8 v (p + tstringContentsOff + i) with
+      | some x => x != (b.getD i 0).toNat
+      | none => false
+  | none => false
+
+theorem noMatchCheck_sound {m : Mem} {v : View} (h : PartialView m v) {p : Nat} {b : List UInt8}
+    (hc : noMatchCheck v p b = true) : NoMatch m p b := by
+  unfold noMatchCheck at hc
+  split at hc
+  · rename_i n hn
+    have hn' := h.rd8 hn
+    simp only [Bool.or_eq_true, bne_iff_ne, ne_eq, List.any_eq_true, List.mem_range] at hc
+    rcases hc with hne | ⟨i, hi, hx⟩
+    · exact .inl fun e => hne (Option.some.inj (hn'.symm.trans e))
+    · split at hx
+      · rename_i x hxv
+        simp only [bne_iff_ne, ne_eq] at hx
+        exact .inr ⟨i, hi, fun e => hx (Option.some.inj ((h.rd8 hxv).symm.trans e))⟩
+      · cases hx
+  · cases hc
+
+/-- `ChainFirst` over the view, with fuel. -/
+def chainFirstCheck (v : View) (b : List UInt8) (ts : Nat) : Nat → Nat → Bool
+  | p, 0 => p == ts
+  | p, fuel + 1 => p == ts || (p != 0 && decide (symTohost + 16 ≤ p ∧ p + 128 ≤ symHeapEnd) && noMatchCheck v p b &&
+      match r64 v (p + tstringLnglenOff) with
+      | some nx => chainFirstCheck v b ts nx fuel
+      | none => false)
+
+theorem chainFirstCheck_sound {m : Mem} {v : View} (h : PartialView m v) {b : List UInt8} {ts : Nat} :
+    ∀ fuel p, chainFirstCheck v b ts p fuel = true → ChainFirst m b ts p
+  | 0, p, hc => by
+    simp only [chainFirstCheck, beq_iff_eq] at hc
+    subst hc; exact .here
+  | fuel + 1, p, hc => by
+    by_cases hp : p = ts
+    · subst hp; exact .here
+    simp only [chainFirstCheck, Bool.or_eq_true, beq_iff_eq, hp, false_or, Bool.and_eq_true, bne_iff_ne, ne_eq,
+      decide_eq_true_eq] at hc
+    obtain ⟨⟨⟨h0, hb1, hb2⟩, hnm⟩, hn⟩ := hc
+    split at hn
+    · rename_i nx hnx
+      exact .next h0 hp hb1 hb2 (h.rd64 hnx) (noMatchCheck_sound h hnm) (chainFirstCheck_sound h fuel nx hn)
+    · cases hn
+
+/-- `CDiffers` over the view. -/
+def cdiffCheck (v : View) (p : Nat) (b : List UInt8) : Bool :=
+  (List.range (b.length + 1)).any fun k =>
+    (List.range k).all (fun i => r8 v (p + tstringContentsOff + i) == some (b.getD i 0).toNat) &&
+    match r8 v (p + tstringContentsOff + k) with
+    | some x => x != ((b ++ [0]).getD k 0).toNat
+    | none => false
+
+theorem cdiffCheck_sound {m : Mem} {v : View} (h : PartialView m v) {p : Nat} {b : List UInt8}
+    (hc : cdiffCheck v p b = true) : CDiffers m p b := by
+  simp only [cdiffCheck, List.any_eq_true, List.mem_range, Bool.and_eq_true, List.all_eq_true,
+    beq_iff_eq] at hc
+  obtain ⟨k, hk, hpre, hx⟩ := hc
+  refine ⟨k, by omega, fun i hi => h.rd8 (hpre i hi), ?_⟩
+  split at hx
+  · rename_i x hxv
+    simp only [bne_iff_ne, ne_eq] at hx
+    exact fun e => hx (Option.some.inj ((h.rd8 hxv).symm.trans e))
+  · cases hx
+
+/-- The cache's candidates over the view. -/
+def candsCheck (v : View) (ls : LitPtrs) : Bool :=
+  ls.cands.all fun c => decide (symTohost + 16 ≤ c.2 ∧ c.2 + 64 ≤ symHeapEnd) &&
+    ls.table.all fun l => l.addr % strcacheN != c.1 || c.2 == l.ts || cdiffCheck v c.2 l.bytes
+
+theorem candsCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ls : LitPtrs}
+    (hc : candsCheck v ls = true) : ∀ c ∈ ls.cands, CandOk m ls.table c.1 c.2 := by
+  intro c hcm
+  have hc1 := List.all_eq_true.mp hc c hcm
+  simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, Bool.or_eq_true, bne_iff_ne, ne_eq,
+    beq_iff_eq] at hc1
+  obtain ⟨⟨hlo, hhi⟩, hall⟩ := hc1
+  refine ⟨hlo, hhi, fun l hl hr => ?_⟩
+  rcases hall l hl with (hne | heq) | hd
+  · exact absurd hr hne
+  · exact .inl heq
+  · exact .inr (cdiffCheck_sound h hd)
+
+/-- A node's key is not the short string `ts`, over the view. -/
+def keyNeCheck (v : View) (n ts : Nat) : Bool :=
+  match r8 v (n + nodeKeyTtOff) with
+  | some tt => tt != vShrStr || (match r64 v (n + nodeKeyValOff) with
+      | some kv => kv != ts
+      | none => false)
+  | none => false
+
+theorem keyNeCheck_sound {m : Mem} {v : View} (h : PartialView m v) {n ts : Nat}
+    (hc : keyNeCheck v n ts = true) :
+    rd8 m (n + nodeKeyTtOff) ≠ some vShrStr ∨ ∃ kv, rd64 m (n + nodeKeyValOff) = some kv ∧ kv ≠ ts := by
+  unfold keyNeCheck at hc
+  split at hc
+  · rename_i tt htt
+    simp only [Bool.or_eq_true, bne_iff_ne, ne_eq] at hc
+    rcases hc with hne | hk
+    · exact .inl fun e => hne (Option.some.inj ((h.rd8 htt).symm.trans e))
+    · split at hk
+      · rename_i kv hkv
+        simp only [bne_iff_ne, ne_eq] at hk
+        exact .inr ⟨kv, h.rd64 hkv, hk⟩
+      · cases hk
+  · cases hc
+
+/-- `NodeMiss` over the view, with fuel. -/
+def nodeMissCheck (v : View) (ts lo hi : Nat) : Nat → Nat → Bool
+  | 0, _ => false
+  | f + 1, n => decide (lo ≤ n ∧ n + nodeSize ≤ hi) && keyNeCheck v n ts &&
+      match r32 v (n + nodeNextOff) with
+      | some g => if g = 0 then true else nodeMissCheck v ts lo hi f (nodeNext n g)
+      | none => false
+
+theorem nodeMissCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ts lo hi : Nat} :
+    ∀ f n, nodeMissCheck v ts lo hi f n = true → NodeMiss m ts lo hi n
+  | 0, n, hc => by simp [nodeMissCheck] at hc
+  | f + 1, n, hc => by
+    simp only [nodeMissCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
+    obtain ⟨⟨⟨hlo, hhi⟩, hk⟩, hn⟩ := hc
+    split at hn
+    · rename_i g hg
+      by_cases g0 : g = 0
+      · subst g0; exact .last hlo hhi (keyNeCheck_sound h hk) (h.rd32 hg)
+      · rw [if_neg g0] at hn
+        exact .next hlo hhi (keyNeCheck_sound h hk) (h.rd32 hg) g0 (nodeMissCheck_sound h f _ hn)
+    · cases hn
+
+/-- `StrMtMiss` over the view. -/
+def strMtCheck (v : View) (g : Nat) (ls : LitPtrs) : Bool :=
+  readsOk v [(g + gMtOff + 8 * luaTstring, 8, ls.smt), (ls.smt + tableLsizenodeOff, 1, ls.smtLsz),
+    (ls.smt + tableNodeOff, 8, ls.smtNode), (ls.tos + tstringHashOff, 4, ls.tosHash)] &&
+  decide (ls.smt ≠ 0 ∧ ls.smtLsz < 31 ∧ symTohost + 16 ≤ ls.smt ∧ ls.smt + 32 ≤ 2 ^ 32 ∧
+    symTohost + 16 ≤ ls.smtNode ∧ ls.smtNode + nodeSize * 2 ^ ls.smtLsz ≤ 2 ^ 32) &&
+  nodeMissCheck v ls.tos ls.smtNode (ls.smtNode + nodeSize * 2 ^ ls.smtLsz) (2 ^ ls.smtLsz + 1)
+    (ls.smtNode + nodeSize * (ls.tosHash % 2 ^ ls.smtLsz))
+
+theorem strMtCheck_sound {m : Mem} {v : View} (h : PartialView m v) {g : Nat} {ls : LitPtrs}
+    (hc : strMtCheck v g ls = true) : StrMtMiss m g ls.tos ls.smt ls.smtNode ls.smtLsz ls.tosHash := by
+  simp only [strMtCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
+  obtain ⟨⟨hr, hne, hl, h1, h2, h3, h4⟩, hm⟩ := hc
+  exact ⟨h.reads hr (by mem_tac), hne, h.reads hr (by mem_tac), h.reads hr (by mem_tac), h.reads hr (by mem_tac),
+    hl, h1, h2, h3, h4, nodeMissCheck_sound h _ _ hm⟩
+
+/-- `LitCache` over the view (of the machine memory). -/
+def litCacheCheck (v : View) (g : Nat) (ls : LitPtrs) : Bool :=
+  (List.range (strcacheN * strcacheM)).all fun i =>
+    match r64 v (g + gStrcacheOff + 8 * i) with
+    | some p => ls.cands.contains (i / strcacheM, p)
+    | none => false
+
+theorem litCacheCheck_sound {m : Mem} {v : View} (h : PartialView m v) {g : Nat} {ls : LitPtrs}
+    (hc : litCacheCheck v g ls = true) : LitCache m g ls := by
+  intro i hi
+  have hc1 := List.all_eq_true.mp hc i (List.mem_range.mpr hi)
+  split at hc1
+  · rename_i p hp
+    rw [toNat_bytesT8_of_rd64 (h.rd64 hp)]
+    simpa using hc1
+  · cases hc1
+
 /-- One literal of `LitInterned` over a view (of the memory's fill), its
-string table and cache aside. -/
+string table aside. -/
 def litCheck (v : View) (rt : RtPtrs) (seed : UInt32) (b : List UInt8) (ts : Nat) : Bool :=
   tstrCheck v ts b && decide (b.length ≤ maxShortLen) && readsOk v [(rt.g + gSeedOff, 4, seed.toNat)] &&
+  decide (symTohost + 16 ≤ ts ∧ ts + 128 ≤ symHeapEnd) &&
   (match rt.strtHeads[(luaHash seed b).toNat % rt.strtSize]? with
-   | some hd => chainHasCheck v ts hd (rt.strtNuse + 1)
+   | some hd => chainHasCheck v ts hd (rt.strtNuse + 1) && chainFirstCheck v b ts hd (rt.strtNuse + 1)
    | none => true)
 
 theorem litCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZeroMem M) v) {rt : RtPtrs}
     {seed : UInt32} {b : List UInt8} {ts : Nat} (hc : litCheck v rt seed b ts = true)
-    (hs : StrtAt (Vsa.Densify.fillZeroMem M) rt) (hk : StrCacheAt (Vsa.Densify.fillZeroMem M) rt) :
-    LitInterned M rt seed b ts := by
+    (hs : StrtAt (Vsa.Densify.fillZeroMem M) rt) : LitInterned M rt seed b ts := by
   simp only [litCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨ht, hshort⟩, hr⟩, hch⟩ := hc
-  refine ⟨tstrCheck_sound h ht, hshort, hs, hk, h.reads hr (by mem_tac), fun hl => ?_⟩
-  rw [List.getElem?_eq_getElem hl] at hch
-  exact chainHasCheck_sound h _ _ hch
+  obtain ⟨⟨⟨⟨ht, hshort⟩, hr⟩, hlo, hhi⟩, hch⟩ := hc
+  have hch' : ∀ (hl : (luaHash seed b).toNat % rt.strtSize < rt.strtHeads.length),
+      chainHasCheck v ts rt.strtHeads[(luaHash seed b).toNat % rt.strtSize] (rt.strtNuse + 1) = true ∧
+      chainFirstCheck v b ts rt.strtHeads[(luaHash seed b).toNat % rt.strtSize] (rt.strtNuse + 1) = true := by
+    intro hl
+    rw [List.getElem?_eq_getElem hl] at hch
+    exact (Bool.and_eq_true _ _).mp hch
+  exact ⟨tstrCheck_sound h ht, hshort, hs, h.reads hr (by mem_tac),
+    fun hl => chainHasCheck_sound h _ _ (hch' hl).1, fun hl => chainFirstCheck_sound h _ _ (hch' hl).2, hlo, hhi⟩
 
 /-- The reserved literals over a view (of the memory's fill). -/
 def litsCheck (v : View) (g sl : Nat) (ls : LitPtrs) (rt : RtPtrs) : Bool :=
-  rt.g == g && rt.stackLast == sl && strtCheck v rt && strcacheCheck v rt &&
-  litCheck v rt ls.seed nilB ls.nil && litCheck v rt ls.seed trueB ls.tru && litCheck v rt ls.seed falseB ls.fls
+  rt.g == g && rt.stackLast == sl && strtCheck v rt &&
+  litCheck v rt ls.seed nilB ls.nil && litCheck v rt ls.seed trueB ls.tru && litCheck v rt ls.seed falseB ls.fls &&
+  litCheck v rt ls.seed tosB ls.tos && candsCheck v ls && strMtCheck v rt.g ls &&
+  decide (symTohost + 16 ≤ rt.strtHash) && decide (rt.strtHash + 8 * rt.strtSize ≤ symHeapEnd) &&
+  decide (rt.strtSize < 2 ^ 30) && ls.table.all (fun l => ls.cands.contains (l.addr % strcacheN, l.ts))
 
 theorem litsCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZeroMem M) v) {g sl : Nat}
     {ls : LitPtrs} {rt : RtPtrs} (hc : litsCheck v g sl ls rt = true) : LitsIn M g sl ls rt := by
-  simp only [litsCheck, Bool.and_eq_true, beq_iff_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨hg, hsl⟩, hst⟩, hca⟩, hn⟩, ht⟩, hf⟩ := hc
+  simp only [litsCheck, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hg, hsl⟩, hst⟩, hn⟩, ht⟩, hf⟩, hto⟩, hca⟩, hsm⟩, hb1⟩, hb2⟩, hb3⟩, hlc⟩ := hc
   have hS := strtCheck_sound h hst
-  have hK := strcacheCheck_sound h hca
-  exact ⟨hg, hsl, litCheck_sound h hn hS hK, litCheck_sound h ht hS hK, litCheck_sound h hf hS hK⟩
+  exact ⟨hg, hsl, litCheck_sound h hn hS, litCheck_sound h ht hS, litCheck_sound h hf hS, litCheck_sound h hto hS,
+    candsCheck_sound h hca, strMtCheck_sound h hsm, hb1, hb2, hb3,
+    fun l hl => by simpa using List.all_eq_true.mp hlc l hl⟩
 
 /-- The string at `ts`'s `n` content bytes, off the view. -/
 def strBytesV (v : View) (ts n : Nat) : List UInt8 :=
@@ -971,7 +1154,9 @@ def litsEntryCheck (v : View) (L ci : Nat) (e : EntryPtrs) (rt : RtPtrs) : Bool 
   litsCheck (v.only e.litFoot) e.g e.stackLast e.lits rt &&
   rangesIn e.litFoot 0x80000000 0x88000000 &&
   rangesApart e.litFoot (litDirtyRanges L ci e) &&
-  e.lits.strs.all (fun ts => !(e.foot.mem (ts + gcMarkedOff)))
+  e.lits.strs.all (fun ts => !(e.foot.mem (ts + gcMarkedOff))) &&
+  e.lits.strs.all (fun ts => !(e.litFoot.mem (ts + gcMarkedOff))) &&
+  litCacheCheck v e.g e.lits
 
 /-- `ObjsApart` (arithmetic). -/
 def objsCheck (L ci : Nat) (e : EntryPtrs) : Bool :=
@@ -1072,7 +1257,7 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hfp, hfc⟩, hfptr⟩, hfenv⟩, hfk⟩, hflua⟩, hfkp⟩, hfka⟩, hfram⟩, hfap⟩ := hfz
   simp only [litsEntryCheck, Bool.and_eq_true, List.all_eq_true, Bool.not_eq_true',
     decide_eq_false_iff_not] at hlit
-  obtain ⟨⟨⟨hlc, hlram⟩, hlap⟩, hmk⟩ := hlit
+  obtain ⟨⟨⟨⟨⟨hlc, hlram⟩, hlap⟩, hmk⟩, hlmk⟩, hcache⟩ := hlit
   obtain ⟨hplaced, hbrk, hobjs⟩ := placedCheck_sound h hpl
   exact
     { ci_eq := h.reads hr (by mem_tac)
@@ -1127,6 +1312,8 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
       lits_ram := fun a ha => rangesIn_sound hlram ha
       lits_apart := fun a ha hd => rangesApart_sound hlap ha (litDirty_ranges hd)
       marks := fun ts hts hin => by have := hmk ts hts; simp_all [InRanges]
+      lit_marks := fun ts hts hin => by have := hlmk ts hts; simp_all [InRanges]
+      lit_cache := litCacheCheck_sound h hcache
       placed := hplaced
       room := hbrk
       objs := hobjs }

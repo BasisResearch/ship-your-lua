@@ -163,7 +163,7 @@ theorem _root_.Lua.Vm.Sim.StatFacts.after {p : Proto} {w : RelPtrs} {M : Mem} (h
     (H : HeapIx) : StatFacts p (w.after mo w.ι (w.rt.withHeap H)) M :=
   ⟨h.rodata, h.proto, h.proto_code, h.strs, fun ts ho => (h.env ts ho).mono fun _ _ hr => hr.after _ _ _,
     h.lua.hookmask, h.lua.errfunc, h.lua.nCcalls, h.lua.openupval, h.lua.tbclist, h.lua.stack,
-    h.lua.stack_last, h.lua.g, h.lua.mt_nil, h.lua.mt_boolean, h.lua.mt_number, h.lua.errjmp, h.lua.frealloc⟩
+    h.lua.stack_last, h.lua.g, h.lua.mt_nil, h.lua.mt_boolean, h.lua.mt_number, h.lua.errjmp, h.lua.frealloc, h.lua.gcstp⟩
 
 /-- **The relation after `CALL print`** (lane F1-13): the run's facts
 (`CloseIn`) give `CallOut` and the `CALL` invariant at the pointers after the
@@ -244,6 +244,8 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
       lits_apart := fun a ha hd => h.lits.apart a ha (.inl hd)
       lit_strs := fun ts hts a h1 h2 => keptH (h.lits.strs ts hts a h1 h2)
       marks := hI.marks
+      lit_marks := h.lits.marks
+      cache := h.lits.cache.congr fun a _ _ => bytesT1_fill m a
       L_in := fun a h1 h2 => kept' (hI.L_in a h1 h2)
       g_in := fun a h1 h2 => kept' (hI.g_in a h1 h2)
       ci_in := fun a h1 h2 => kept' (hI.ci_in a h1 h2)
@@ -254,7 +256,7 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
           fun a h1 h2 => ⟨(h.nci_kept a h1 h2).2, fun hf => h.lits.apart a hf (.inr ⟨h1, h2⟩)⟩,
           h.nci_L, h.nci_g, h.nci_ci, h.nci_stack, h.nci_lits⟩
       objs := ⟨hI.objs.g_L, hI.objs.g_ci, hI.objs.g_stack, hI.objs.ci_stack, hI.objs.lit_L,
-        hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack⟩ }
+        hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack, hI.objs.L_stack⟩ }
   have comp : Complement p (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) := by
     obtain ⟨hsz, hwords⟩ := SF.proto.code SF.proto_code
     refine

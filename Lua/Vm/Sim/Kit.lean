@@ -67,6 +67,7 @@ import Lua.Vm.Sim.Kit.ExitUp
 import Lua.Vm.Sim.Kit.PoscallN
 import Lua.Vm.Sim.Kit.PrintS
 import Lua.Vm.Sim.Kit.Tolstring
+import Lua.Vm.Sim.Kit.PrintRel
 import Lua.Vm.Sim.Kit.AtFltLei
 import Lua.Vm.Sim.Kit.AtFltGti
 import Lua.Vm.Sim.Kit.AtFltAdd
@@ -97,6 +98,7 @@ import Lua.Vm.Sim.Kit.AtFltDiv
 import Lua.Vm.Sim.Kit.AtFltDivk
 import Lua.Vm.Sim.Kit.AtFltIdiv
 import Lua.Vm.Sim.Kit.AtFltIdivk
+import Lua.Vm.Sim.Kit.PushLitProof
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
