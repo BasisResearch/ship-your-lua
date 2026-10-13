@@ -222,6 +222,9 @@ theorem putc_runFact (live : Nat → Prop) (S : TohostSite) (hS : S.Cert) (c : B
   · intro a _
     change (σ'.mem[a]?).getD 0 = (cfg.σ.mem[a]?).getD 0
     rw [hmem']
+  · intro a _
+    change (σ'.mem[a]?).isSome ↔ (cfg.σ.mem[a]?).isSome
+    rw [hmem']
 
 section Wp
 

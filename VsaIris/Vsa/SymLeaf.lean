@@ -41,7 +41,7 @@ theorem LocalRun.frame {ro : List (Nat × BitVec 64)} {text T : List (Nat × Bit
       fun a ha => hmem a (fun h => ha (hS a h)), hout, ?_⟩
     refine LocalRun.frame hT hrs hS rv0 mv0 n _ _ hP ⟨fun x hx hx' => ?_, fun a ha ha' => ?_⟩
     · rw [hreg x hx', hr x hx]; exact hf.1 x hx hx'
-    · rw [hmem a ha', hm a ha]; exact hf.2 a ha ha'
+    · rw [(hmem a ha').1, hm a ha]; exact hf.2 a ha ha'
 
 end VsaIris
 

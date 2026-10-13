@@ -122,7 +122,7 @@ theorem aluStep_of_obs {live : Nat → Prop} {i : Nat} {RR : List (Nat × DFrac 
       hother
   have hrdg : gprGet σ' rd = some val := gprGet_obs_rd rd hrd1 hrd31 hobs
   refine ⟨⟨σ', i', c.steps + 1⟩, hs, ⟨hG', hi', fun n h1 h31 => ?_, fun a ha => ?_, ?_⟩,
-    ?_, ?_, fun k hk1 hk2 => ?_, fun a => ?_, ?_⟩
+    ?_, ?_, fun k hk1 hk2 => ?_, hmem, hobs.2⟩
   · by_cases hn : n = rd
     · subst hn; rw [hrdg]; rfl
     · rw [hgpr n h1 h31 hn]; exact hok.gpr n h1 h31
@@ -145,10 +145,6 @@ theorem aluStep_of_obs {live : Nat → Prop} {i : Nat} {RR : List (Nat × DFrac 
     · change (gprGet σ' k).getD 0 = _
       rw [gprGet_none (by unfold VsaIris.PC at hk1; omega),
         gprGet_none (by unfold VsaIris.PC at hk1; omega)]
-  · change (σ'.mem[a]?).getD 0 = (c.σ.mem[a]?).getD 0
-    rw [hmem]
-  · show Vsa.Machine.output σ' = Vsa.Machine.output c.σ
-    unfold Vsa.Machine.output; rw [hobs.2]
 
 /-- **An observed ALU step in a symbolic run** (`swp_jal`'s twin): the
 destination `rd` takes `val`, the PC advances by four. `ks` are the source

@@ -33,8 +33,7 @@ def JalrStep (live : Nat → Prop) (i : Nat) (RR : List (Nat × DFrac × BitVec 
     ∃ c' : Config, Vsa.Machine.Step c c' ∧ VsaOk live c' ∧
       vsaReg c' VsaIris.PC = tgt ∧ vsaReg c' 1 = link ∧
       (∀ k, k ≠ VsaIris.PC → k ≠ 1 → vsaReg c' k = vsaReg c k) ∧
-      (∀ a, (vsaModel live).mem c' a = (vsaModel live).mem c a) ∧
-      (vsaModel live).out c' = (vsaModel live).out c
+      c'.σ.mem = c.σ.mem ∧ c'.σ.sailOutput = c.σ.sailOutput
 
 /-- **An observed `jalr` as a `JalrStep`.** `hsite` is the observation at
 every well-formed state parked at `i` whose source registers `RR` (GPRs) and
@@ -77,7 +76,7 @@ theorem jalrStep_of_obs {live : Nat → Prop} {i : Nat} {RR : List (Nat × DFrac
   have hrdg : gprGet σ' 1 = some link :=
     obs_jalr_rd hobs (by decide) (by decide) (by decide) (by decide) (by decide)
   refine ⟨⟨σ', i', c.steps + 1⟩, hs, ⟨hG', hi', fun n h1 h31 => ?_, fun a ha => ?_, ?_⟩,
-    ?_, ?_, fun k hk1 hk2 => ?_, fun a => ?_, ?_⟩
+    ?_, ?_, fun k hk1 hk2 => ?_, hmem, hobs.2⟩
   · by_cases hn : n = 1
     · subst hn; rw [hrdg]; rfl
     · rw [hgpr n h1 h31 hn]; exact hok.gpr n h1 h31
@@ -100,10 +99,6 @@ theorem jalrStep_of_obs {live : Nat → Prop} {i : Nat} {RR : List (Nat × DFrac
     · change (gprGet σ' k).getD 0 = _
       rw [gprGet_none (by unfold VsaIris.PC at hk1; omega),
         gprGet_none (by unfold VsaIris.PC at hk1; omega)]
-  · change (σ'.mem[a]?).getD 0 = (c.σ.mem[a]?).getD 0
-    rw [hmem]
-  · show Vsa.Machine.output σ' = Vsa.Machine.output c.σ
-    unfold Vsa.Machine.output; rw [hobs.2]
 
 /-- **An indirect call as a one-step `RunFact`.** -/
 theorem runFact_of_jalrStep {live : Nat → Prop} {i : Nat}
@@ -116,7 +111,8 @@ theorem runFact_of_jalrStep {live : Nat → Prop} {i : Nat}
   have hpc : vsaReg c VsaIris.PC = BitVec.ofNat 64 i := hRW _ List.mem_cons_self
   obtain ⟨c', hstep, hok', hpc', hrd', hframe, hmem, hout⟩ := h c hok hpc hRR hMR
   refine ⟨c', ReachesN.succ (M := vsaModel live) (vsaStep_of_step hstep)
-    (ReachesN.zero (M := vsaModel live) c'), hok', ⟨?_, ?_, ?_, ?_⟩, hout⟩
+    (ReachesN.zero (M := vsaModel live) c'), hok', ⟨?_, ?_, ?_, ?_, ?_⟩,
+    show Vsa.Machine.output c'.σ = Vsa.Machine.output c.σ by unfold Vsa.Machine.output; rw [hout], hout⟩
   · intro q hq
     rcases List.mem_cons.mp hq with rfl | hq
     · exact hpc'
@@ -127,7 +123,8 @@ theorem runFact_of_jalrStep {live : Nat → Prop} {i : Nat}
     exact hframe k (fun e => hk _ List.mem_cons_self e.symm)
       (fun e => hk _ (.tail _ List.mem_cons_self) e.symm)
   · intro q hq; cases hq
-  · intro a _; exact hmem a
+  · intro a _; show (c'.σ.mem[a]?).getD 0 = (c.σ.mem[a]?).getD 0; rw [hmem]
+  · intro a _; show (c'.σ.mem[a]?).isSome ↔ (c.σ.mem[a]?).isSome; rw [hmem]
 
 section SWP
 

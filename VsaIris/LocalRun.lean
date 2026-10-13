@@ -134,7 +134,8 @@ def SegFrom (M : MachineModel) (ro : List (Nat × BitVec 64)) (text : List (Nat 
   ∀ σ, M.ok σ → ROHolds M σ ro text → (∀ r ∈ rs, M.reg σ r = rv r) →
     (∀ a, S a → M.mem σ a = mv a) →
     ∃ σ', ReachesN M (k + 1) σ σ' ∧ M.ok σ' ∧ (∀ key, key ∉ rs → M.reg σ' key = M.reg σ key) ∧
-      (∀ a, ¬ S a → M.mem σ' a = M.mem σ a) ∧ M.out σ' = M.out σ ∧ P (M.reg σ') (M.mem σ')
+      (∀ a, ¬ S a → M.mem σ' a = M.mem σ a ∧ (M.pres σ' a ↔ M.pres σ a)) ∧
+      OutStep (M := M) σ σ' none ∧ P (M.reg σ') (M.mem σ')
 
 /-- A run of at most `n` segments from owned register values `rv` (on `rs`)
 and byte values `mv` (on `S`), each segment confined to the owned cells at its
@@ -249,12 +250,13 @@ theorem SegFrom.lagFoot {ro : List (Nat × BitVec 64)} {text : List (Nat × BitV
       (fun σf => runFoot ro text rs l (M.reg σf) (M.mem σf))
       (fun σ => ROHolds M σ ro text ∧ (∀ r ∈ rs, M.reg σ r = rv r) ∧ (∀ a ∈ l, M.mem σ a = mv a))
       (fun σ σf => (∀ key, key ∉ rs → M.reg σf key = M.reg σ key) ∧
-        (∀ a, ¬ S a → M.mem σf a = M.mem σ a) ∧ M.out σf = M.out σ ∧
-        P (M.reg σf) (M.mem σf)) K :=
+        (∀ a, ¬ S a → M.mem σf a = M.mem σ a ∧ (M.pres σf a ↔ M.pres σ a)) ∧
+        OutStep (M := M) σ σf none ∧ P (M.reg σf) (M.mem σf)) K :=
   LagFoot.ofRM (runFoot_lookup (M := M) · · ro text rs l rv mv)
     (fun σ hok h => hseg σ hok h.1 h.2.1 (fun a ha => h.2.2 a ((hmem a).2 ha)))
-    (fun mr mm _ _ hr hm h => runFoot_update (M := M) mr mm ro text rs l S hmem rv mv hr hm h.1 h.2.1)
-    (fun _ _ h => h.2.2.1)
+    (fun mr mm _ _ hr hm h => runFoot_update (M := M) mr mm ro text rs l S hmem rv mv hr hm h.1
+      (fun a ha => (h.2.1 a ha).1))
+    (fun _ _ h => h.2.2.1.1)
 
 /-- The continuation of a local run, for either WP. -/
 abbrev runKontW (Wp : MachWP (GF := GF) M) (Φ : Nat × String → IProp GF) (rs : List Nat)
@@ -348,7 +350,8 @@ theorem segFrom_of_runFact {ro : List (Nat × BitVec 64)} {text : List (Nat × B
     · obtain ⟨h1, h2⟩ := hMW p hp; rw [hS _ h1, h2]
   obtain ⟨σ', hre, hok', hloc, hout⟩ := hrun σ hok hfoot
   refine ⟨σ', hre, hok', fun key hk => ?_,
-    fun a ha => hloc.mem_frame a fun p hp h => ha (h ▸ (hMW p hp).1), hout, hP _ _ hloc.reg_new
+    fun a ha => ⟨hloc.mem_frame a fun p hp h => ha (h ▸ (hMW p hp).1),
+      hloc.pres_frame a fun p hp h => ha (h ▸ (hMW p hp).1)⟩, hout, hP _ _ hloc.reg_new
     (fun r hr hne => (hloc.reg_frame r hne).trans (hrs r hr)) hloc.mem_new
     (fun a ha hne => (hloc.mem_frame a hne).trans (hS a ha))⟩
   by_cases hin : ∃ p ∈ RW, p.1 = key

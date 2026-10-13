@@ -196,8 +196,7 @@ def AluStep (live : Nat → Prop) (i : Nat) (RR : List (Nat × DFrac × BitVec 6
     ∃ c' : Config, Vsa.Machine.Step c c' ∧ VsaOk live c' ∧
       vsaReg c' VsaIris.PC = BitVec.ofNat 64 (i + 4) ∧ vsaReg c' rd = val ∧
       (∀ k, k ≠ VsaIris.PC → k ≠ rd → vsaReg c' k = vsaReg c k) ∧
-      (∀ a, (vsaModel live).mem c' a = (vsaModel live).mem c a) ∧
-      (vsaModel live).out c' = (vsaModel live).out c
+      c'.σ.mem = c.σ.mem ∧ c'.σ.sailOutput = c.σ.sailOutput
 
 /-- **An observational ALU step as a one-step `RunFact`.** -/
 theorem runFact_of_aluStep {live : Nat → Prop} {i : Nat}
@@ -209,8 +208,8 @@ theorem runFact_of_aluStep {live : Nat → Prop} {i : Nat}
   obtain ⟨hRR, hMR, hRW, _⟩ := hfoot
   have hpc : vsaReg c VsaIris.PC = BitVec.ofNat 64 i := hRW _ List.mem_cons_self
   obtain ⟨c', hstep, hok', hpc', hrd', hframe, hmem, hout⟩ := h c hok hpc hRR hMR
-  refine ⟨c', ReachesN.succ (M := vsaModel live) (vsaStep_of_step hstep) (ReachesN.zero (M := vsaModel live) c'), hok', ⟨?_, ?_, ?_, ?_⟩,
-    hout⟩
+  refine ⟨c', ReachesN.succ (M := vsaModel live) (vsaStep_of_step hstep) (ReachesN.zero (M := vsaModel live) c'), hok', ⟨?_, ?_, ?_, ?_, ?_⟩,
+    show Vsa.Machine.output c'.σ = Vsa.Machine.output c.σ by unfold Vsa.Machine.output; rw [hout], hout⟩
   · intro q hq
     rcases List.mem_cons.mp hq with rfl | hq
     · exact hpc'
@@ -221,7 +220,8 @@ theorem runFact_of_aluStep {live : Nat → Prop} {i : Nat}
     exact hframe k (fun e => hk _ List.mem_cons_self e.symm)
       (fun e => hk _ (.tail _ List.mem_cons_self) e.symm)
   · intro q hq; cases hq
-  · intro a _; exact hmem a
+  · intro a _; show (c'.σ.mem[a]?).getD 0 = (c.σ.mem[a]?).getD 0; rw [hmem]
+  · intro a _; show (c'.σ.mem[a]?).isSome ↔ (c.σ.mem[a]?).isSome; rw [hmem]
 
 /-- Fuel is a bound: a run that finishes in `n` segments finishes in `n+1`. -/
 theorem localRun_succ {ro : List (Nat × BitVec 64)} {text : List (Nat × BitVec 8)}

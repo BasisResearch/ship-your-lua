@@ -63,6 +63,16 @@ structure MachineModel where
   part of the state interpretation, so every step rule must re-establish it.
   Defaults to `True` for models that need none. -/
   ok : State → Prop := fun _ => True
+  /-- (ship-your-lua, lane F1-A0-M) Byte presence beyond the total read `mem`
+  (VSA: the byte is a key of the Sail memory). Every step keeps it on the
+  bytes it does not write (`LocalStep.pres_frame`), so a run's frame is exact
+  at the level of `σ.mem[a]?`, which the Lua route's segment states demand.
+  Defaults to `True`. -/
+  pres : State → Nat → Prop := fun _ _ => True
+  /-- (lane F1-A0-M) A silent run leaves the console exactly as it was (VSA:
+  `sailOutput` unchanged, not only its concatenation `out`); part of
+  `OutStep σ σ' none`. Defaults to `True`. -/
+  quiet : State → State → Prop := fun _ _ => True
 
 variable (M : MachineModel)
 

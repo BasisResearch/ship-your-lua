@@ -63,7 +63,7 @@ theorem SegFrom.toO {ro : List (Nat × BitVec 64)} {text : List (Nat × BitVec 8
     SegFromO M ro text rs S k rv mv (fun o rv' mv' => o = "" ∧ P rv' mv') := by
   intro σ hok hro hrs hS
   obtain ⟨σ', hre, hok', hregs, hmems, hout, hp⟩ := h σ hok hro hrs hS
-  exact ⟨σ', "", hre, hok', hregs, hmems, by rw [hout, String.append_empty], rfl, hp⟩
+  exact ⟨σ', "", hre, hok', hregs, fun a ha => (hmems a ha).1, by rw [hout.1, String.append_empty], rfl, hp⟩
 
 /-- **A printing run** from owned values `rv`/`mv` with the console at `t`:
 the least predicate closed under `Q` (done) and one segment followed by a run
