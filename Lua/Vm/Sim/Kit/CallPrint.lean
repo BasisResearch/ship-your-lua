@@ -341,7 +341,8 @@ theorem call_keep {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word
   have kmono : ∀ {a}, Kept w.rt.hix ph a → Kept H ph a := fun ha => ha.mono hJ.kept fun _ h => .inl h
   call_nums
   have hHE : heapEnd = 0x87800000 := rfl
-  have hHS : heapStart = 0x8006ecd0 := rfl
+  have hHS0 : heapStart = symEnd := rfl
+  have hHS : symEnd = 0x8006ecd0 := rfl
   have hsym : symAtexit = 0x8005d450 := rfl
   have hlk : ∀ ts ∈ ls.strs, 0x8006ecd0 ≤ ts := fun ts hts => by
     have := (hI.lit_strs ts hts ts (Nat.le_refl _) (by omega)).lo; omega
@@ -853,6 +854,37 @@ theorem headNums {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
   exact ⟨by omega, rfl, rfl, by omega, by omega, by omega, by omega,
     by omega, by omega, by omega, by omega, by omega⟩
 
+/-- **`stdout`'s state at a head memory**: any memory agreeing with the
+complement off `L->top`, the `CallInfo`'s `savedpc`, the window and the C
+stack (`stdout`'s footprint lies off all of them). -/
+theorem printSt_head {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {M : Mem} (cx : CallCx p c s w ins args)
+    (hI : CallInvAt p w ph F FL ls)
+    (kH : ∀ a, (a + 1 ≤ w.L + 16 ∨ w.L + 24 ≤ a) → (a + 1 ≤ w.ci + 32 ∨ w.ci + 40 ≤ a) →
+      (a + 1 ≤ w.base ∨ w.base + 16 * p.maxstacksize ≤ a) → a < 0x87fefe20 → bytesT1 M a = bytesT1 w.mo a) :
+    PrintSt M ph w.rt.hix := by
+  have hc := cx.rel.core
+  have hPS : PrintSt w.mo ph w.rt.hix := ⟨hI.io, hc.comp.runtime.heap.ext (fill_ext _), hI.cells⟩
+  obtain ⟨hsp, hbase, hsv, hfits, hL1, hL2, hci1, hci2, hg1, hg2, hsl, hf0⟩ := headNums cx hI
+  have hHE : heapEnd = 0x87800000 := rfl
+  refine hPS.keep fun a ha => ?_
+  have hL : ¬ (w.L ≤ a ∧ a < w.L + 200) := fun h => (hI.L_in a h.1 (by simp only [stateSize]; omega)).not_printFoot ha
+  have hC : ¬ (w.ci ≤ a ∧ a < w.ci + 64) := fun h => (hI.ci_in a h.1 (by simp only [ciSize]; omega)).not_printFoot ha
+  have hS : ¬ (w.func ≤ a ∧ a < w.rt.stackLast) := fun h => (hI.stack_in a h.1 h.2).not_printFoot ha
+  have hlo : a < 0x87fefe20 := by
+    rcases ha with hg | hbf | ⟨hr', _⟩ | hro
+    · simp only [Kit.StdioGlob] at hg; omega
+    · have := hPS.io.buf_hi a hbf; omega
+    · have e4 : symMallocAv = 0x8005c6d0 := rfl
+      have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+      have e6 : symBrk = 0x8005d3b8 := rfl
+      have e7 : symMallocTopPad = 0x8005d3d8 := rfl
+      have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
+      have e9 : symMallocMallinfo = 0x8005e560 := rfl
+      simp only [HeapReads] at hr'; omega
+    · omega
+  exact kH a (by omega) (by omega) (by omega) hlo
+
 /-- **The join when `ci->next` is reused** (`next_ci`'s `ci->next` a
 `CiNext` block): the head's memory with `luaD_precall`'s saved `s0`, `ra`. -/
 theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
@@ -906,9 +938,6 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
       exact (kJ a h1 h2 e1).trans (kM a (nW a e2 e3 e4 e5))
   have hnlo := hn.lo; have hnhi := hn.hi
   simp only [symEnd, ciSize, RuntimeData.spEntry, cStackBudget] at hnlo hnhi
-  -- the bytes `PrintSt` reads lie off the window and the head's stores
-  have hPS : PrintSt w.mo ph w.rt.hix :=
-    ⟨hI.io, hc.comp.runtime.heap.ext (fill_ext _), hI.cells⟩
   refine
     { foot := fun a ha => ?_
       ci := fun a h1 h2 h3 h4 => ?_
@@ -920,7 +949,7 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
       g_w := ?_
       hook_w := ?_
       mt_w := fun t ht => ?_
-      st := hPS.keep fun a ha => ?_
+      st := printSt_head cx hI kH
       kept := fun _ h _ => h
       brk := Nat.le_add_right _ _
       lits := hI.lits.trans fun a ha => ?_
@@ -969,23 +998,6 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
     · exact bytesT8_of_rd64 hlua.mt_nil
     · exact bytesT8_of_rd64 hlua.mt_boolean
     · exact bytesT8_of_rd64 hlua.mt_number
-  · -- `stdout`'s footprint: off the `lua_State`, the `CallInfo` and the stack (in use), below the C stack
-    have hL : ¬ (w.L ≤ a ∧ a < w.L + 200) := fun h => (hI.L_in a h.1 (by simp only [stateSize]; omega)).not_printFoot ha
-    have hC : ¬ (w.ci ≤ a ∧ a < w.ci + 64) := fun h => (hI.ci_in a h.1 (by simp only [ciSize]; omega)).not_printFoot ha
-    have hS : ¬ (w.func ≤ a ∧ a < w.rt.stackLast) := fun h => (hI.stack_in a h.1 h.2).not_printFoot ha
-    have hlo : a < 0x87fefe20 := by
-      rcases ha with hg | hbf | ⟨hr', _⟩ | hro
-      · simp only [Kit.StdioGlob] at hg; omega
-      · have := hPS.io.buf_hi a hbf; omega
-      · have e4 : symMallocAv = 0x8005c6d0 := rfl
-        have e5 : symMallocSbrkBase = 0x8005d388 := rfl
-        have e6 : symBrk = 0x8005d3b8 := rfl
-        have e7 : symMallocTopPad = 0x8005d3d8 := rfl
-        have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
-        have e9 : symMallocMallinfo = 0x8005e560 := rfl
-        simp only [HeapReads] at hr'; omega
-      · omega
-    exact kH a (by omega) (by omega) (by omega) hlo
   · -- the literals
     have hk := hI.lits_in a ha
     have hd := hI.lits_apart a ha
@@ -1001,5 +1013,251 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
     exact bytesT8_of_rd64 hn.previous
   · simp only [pcFrameMem]; exact fw8_same rfl
   · simp only [pcFrameMem]; rw [fw8_wm8 (by omega)]; exact fw8_same rfl
+
+/-! ## The join after `luaE_extendCI` -/
+
+/-- The memory at `luaE_extendCI`'s call from `OP_CALL print`. -/
+abbrev callExtMem (c : Config) (w : RelPtrs) (pc : Nat) (ins : Word) (f : AbiFrame) : Mem :=
+  pcExtMem (callMem c.σ.mem w pc ins) w.sp (w.slot ins.a) (ins.c - 1) (w.slot ins.a + 16 * ins.b) 0x8001c7d8#64 f
+
+/-- The memory at `luaE_extendCI`'s call keeps every byte off its stores. -/
+theorem ext_keep {c : Config} {w : RelPtrs} {pc : Nat} {ins : Word} {f : AbiFrame} {a : Nat}
+    (h1 : a + 1 ≤ w.L + 16 ∨ w.L + 24 ≤ a) (h2 : a + 1 ≤ w.ci + 32 ∨ w.ci + 40 ≤ a)
+    (h3 : a + 1 ≤ w.sp - 96 ∨ w.sp ≤ a) (hsp : 96 ≤ w.sp) :
+    bytesT1 (callExtMem c w pc ins f) a = bytesT1 c.σ.mem a := by
+  apply bT1_congr
+  simp only [callExtMem, pcExtMem, pcFrameMem, callMem, stateTopOff, ciSavedpcOff]
+  rw [getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega),
+    getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega),
+    getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega),
+    getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega)]
+
+/-- A byte of a chunk in use is no byte `_malloc_r` writes. -/
+theorem Kept.not_mallocW {H : HeapIx} {ph : StdoutPh} {a : Nat} (h : Kept H ph a) : ¬ MallocW H.chunks a := by
+  rintro (hg | ⟨-, -, hu⟩)
+  · have := h.lo
+    have e0 : heapStart = symEnd := rfl
+    have e1 : symEnd = 0x8006ecd0 := rfl
+    have e4 : symMallocAv = 0x8005c6d0 := rfl
+    have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+    have e6 : symBrk = 0x8005d3b8 := rfl
+    have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
+    have e9 : symMallocMallinfo = 0x8005e560 := rfl
+    have e10 : errnoAddr = 0x8005d408 := rfl
+    simp only [MallocGlobal] at hg
+    omega
+  · exact hu h.inuse
+
+/-- The bytes below `_malloc_r`'s globals, `__atexit` and the bytes past the
+arena are no bytes `_malloc_r` writes. -/
+theorem not_mallocW_of {chunks : List Chunk} {a : Nat}
+    (h : a < 0x8005c6d0 ∨ (0x8005d450 ≤ a ∧ a < 0x8005d458) ∨ 0x87800000 ≤ a) : ¬ MallocW chunks a := by
+  rintro (hg | ⟨h1, h2, -⟩)
+  · have e0 : heapStart = symEnd := rfl
+    have e1 : symEnd = 0x8006ecd0 := rfl
+    have e4 : symMallocAv = 0x8005c6d0 := rfl
+    have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+    have e6 : symBrk = 0x8005d3b8 := rfl
+    have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
+    have e9 : symMallocMallinfo = 0x8005e560 := rfl
+    have e10 : errnoAddr = 0x8005d408 := rfl
+    simp only [MallocGlobal] at hg
+    omega
+  · have e0 : heapEnd = symHeapEnd := rfl
+    have e1 : symHeapEnd = 0x87800000 := rfl
+    have e2 : heapStart = symEnd := rfl
+    have e3 : symEnd = 0x8006ecd0 := rfl
+    omega
+
+/-- `stdout`'s buffer lies in a chunk in use. -/
+theorem StdoutIn.buf_inUse {m : Mem} {H : HeapIx} {ph : StdoutPh} {a : Nat} (h : StdoutIn m H ph)
+    (hb : ph.Buf a) : InUse H.chunks a := by
+  cases h with
+  | boot => exact hb.elim
+  | fresh => exact hb.elim
+  | up _ _ ho =>
+    obtain ⟨sz, hc, hsz⟩ := ho.block
+    have hl := ho.lo
+    simp only [StdoutPh.Buf, Rng] at hb
+    exact ⟨_, hc, rfl, by dsimp only; omega, by dsimp only; omega⟩
+
+/-- A range of chunks in use lies apart from a range off them. -/
+theorem apart_of_kept {H : HeapIx} {ph : StdoutPh} {x n y k : Nat}
+    (hy : ∀ a, y ≤ a → a < y + k → Kept H ph a) (hx : ∀ a, x ≤ a → a < x + n → ¬ InUse H.chunks a)
+    (hn : 0 < n) (hk : 0 < k) : Apart x n y k := by
+  unfold Apart
+  refine Classical.byContradiction fun hc => ?_
+  simp only [not_or, Nat.not_le] at hc
+  by_cases h : x ≤ y
+  · exact hx y h (by omega) (hy y (Nat.le_refl _) (by omega)).inuse
+  · exact hx x (Nat.le_refl _) (by omega) (hy x (by omega) (by omega)).inuse
+
+/-- **The join when `ci->next` is NULL**: the memory `luaE_extendCI` leaves
+(`ExtPost`), the new `CallInfo` `nci` fresh in the arena. -/
+theorem join_ext {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} (f : AbiFrame) {nci : Nat} {m' : Mem} {H' : HeapIx}
+    (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hnext0 : rd64 w.mo (w.ci + ciNextOff) = some 0)
+    (hX : ExtPost (callExtMem c w s.pc ins f) m' w.sp w.L w.ci w.rt.hix H' nci) :
+    JoinIn p c w ins ph F FL ls 0x8001c7d8#64 f m' nci H' := by
+  have hc := cx.rel.core
+  have hr := hc.ranges
+  have hlua := hc.comp.runtime.lua
+  obtain ⟨hsp, hbase, hsv, hfits, hL1, hL2, hci1, hci2, hg1, hg2, hsl, hf0⟩ := headNums cx hI
+  have hslot : w.slot ins.a + 16 * ins.b ≤ w.base + 16 * p.maxstacksize := by
+    have := cx.ab; simp only [RelPtrs.slot, stackValueSize]; omega
+  have hroom := cx.room
+  have hLci := hr.L_sep_ci; have hcis := hr.ci_sep; have hLs := hr.L_sep
+  have ogL := hI.objs.g_L; have ogci := hI.objs.g_ci; have ogst := hI.objs.g_stack
+  simp only [ciSize, stateSize, stackValueSize] at hLci hcis hLs
+  simp only [Apart, ciSize, stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at ogL ogci ogst
+  have hHE : heapEnd = 0x87800000 := rfl
+  have hHS : heapStart = 0x8006ecd0 := rfl
+  have hsym : symAtexit = 0x8005d450 := rfl
+  -- the new `CallInfo`: fresh in the arena
+  have hfr : ∀ a, nci ≤ a → a < nci + ciSize → ¬ InUse w.rt.hix.chunks a := fun a h1 h2 => (hX.fresh a h1 h2).1
+  have hn1 := (hX.fresh nci (Nat.le_refl _) (by simp only [ciSize]; omega)).2.1
+  have hn2 := (hX.fresh (nci + ciSize - 1) (by simp only [ciSize]; omega) (by simp only [ciSize]; omega)).2.2
+  simp only [ciSize] at hn2
+  -- the head's memory against the complement
+  have kM : ∀ a, ¬ Win p w a → bytesT1 c.σ.mem a = bytesT1 w.mo a := hc.frame
+  have kHE : ∀ a, (a + 1 ≤ w.L + 16 ∨ w.L + 24 ≤ a) → (a + 1 ≤ w.ci + 32 ∨ w.ci + 40 ≤ a) →
+      (a + 1 ≤ w.base ∨ w.base + 16 * p.maxstacksize ≤ a) → a < 0x87fefe20 →
+      bytesT1 (callExtMem c w s.pc ins f) a = bytesT1 w.mo a := fun a h1 h2 h3 h4 => by
+    have hspE : RuntimeData.spEntry - cStackBudget = 0x87fefe20 := rfl
+    have e1 : a + 1 ≤ w.sp - 96 ∨ w.sp ≤ a := by rw [hsp]; omega
+    have e2 : a + 1 ≤ w.base ∨ w.base + stackValueSize * p.maxstacksize ≤ a := by rw [hsv]; exact h3
+    have e3 : a + 1 ≤ w.ci + ciSavedpcOff ∨ w.ci + ciSavedpcOff + 8 ≤ a := by simp only [ciSavedpcOff]; omega
+    have e4 : a + 1 ≤ w.L + stateTopOff ∨ w.L + stateTopOff + 8 ≤ a := by simp only [stateTopOff]; omega
+    have e5 : a < RuntimeData.spEntry - cStackBudget ∨ RuntimeData.spEntry ≤ a := by rw [hspE]; omega
+    exact (ext_keep h1 h2 e1 (by omega)).trans (kM a (notWin_of hr e2 e3 e4 e5))
+  -- `luaE_extendCI`'s memory against its call's
+  have kE : ∀ a, ¬ MallocW w.rt.hix.chunks a → ¬ (nci ≤ a ∧ a < nci + ciSize) → ¬ Rng (w.ci + ciNextOff) 8 a →
+      ¬ Rng (w.L + stateNciOff) 2 a → ¬ Below (w.sp - 96) 4096 a →
+      bytesT1 m' a = bytesT1 (callExtMem c w s.pc ins f) a := fun a h1 h2 h3 h4 h5 =>
+    hX.keep a fun h => by rcases h with h | h | h | h | h <;> contradiction
+  -- a byte of a chunk in use (or below the arena) off `ci->next` and `L->nci`
+  have kKE : ∀ a, (Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost)) → ¬ Rng (w.ci + ciNextOff) 8 a →
+      ¬ Rng (w.L + stateNciOff) 2 a → bytesT1 m' a = bytesT1 (callExtMem c w s.pc ins f) a :=
+    fun a hk h3 h4 => by
+      have hlo : a < 0x87800000 := hk.elim (fun k => hHE ▸ k.hi) fun h => by simp only [symTohost] at h; omega
+      refine kE a (hk.elim Kept.not_mallocW fun h => not_mallocW_of (.inl (by simp only [symTohost] at h; omega)))
+        (fun hn => hk.elim (fun k => hfr a hn.1 hn.2 k.inuse) fun h => ?_) h3 h4
+        (by simp only [Below]; omega)
+      have := (hX.fresh a hn.1 hn.2).2.1; simp only [symTohost] at h; omega
+  have kK : ∀ a, (Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost)) → ¬ Rng (w.ci + ciNextOff) 8 a →
+      ¬ Rng (w.L + stateNciOff) 2 a → (a + 1 ≤ w.L + 16 ∨ w.L + 24 ≤ a) → (a + 1 ≤ w.ci + 32 ∨ w.ci + 40 ≤ a) →
+      (a + 1 ≤ w.base ∨ w.base + 16 * p.maxstacksize ≤ a) → bytesT1 m' a = bytesT1 w.mo a :=
+    fun a hk h3 h4 e1 e2 e3 => by
+      have hlo : a < 0x87800000 := hk.elim (fun k => hHE ▸ k.hi) fun h => by simp only [symTohost] at h; omega
+      exact (kKE a hk h3 h4).trans (kHE a e1 e2 e3 (by omega))
+  -- the words of `L` but `L->top`, `L->nci`
+  have kL : ∀ a, w.L ≤ a → a < w.L + stateSize → (a + 1 ≤ w.L + 12 ∨ w.L + 14 ≤ a) →
+      (a + 1 ≤ w.L + 16 ∨ w.L + 24 ≤ a) → bytesT1 m' a = bytesT1 w.mo a := fun a h1 h2 h3 h4 => by
+    simp only [stateSize] at h2
+    exact kK a (.inl (hI.L_in a h1 (by simp only [stateSize]; omega))) (by simp only [Rng, ciNextOff]; omega)
+      (by simp only [Rng, stateNciOff]; omega) h4 (by omega) (by omega)
+  -- the words of `g`
+  have kG : ∀ a, w.rt.g ≤ a → a < w.rt.g + 1400 → bytesT1 m' a = bytesT1 w.mo a := fun a h1 h2 =>
+    kK a (.inl (hI.g_in a h1 (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega)))
+      (by simp only [Rng, ciNextOff]; omega) (by simp only [Rng, stateNciOff]; omega) (by omega) (by omega)
+      (by omega)
+  -- the bytes of `luaE_extendCI`'s writes off the frame
+  have kF : ∀ a, w.sp - 96 ≤ a → bytesT1 m' a = bytesT1 (callExtMem c w s.pc ins f) a := fun a ha =>
+    kE a (not_mallocW_of (.inr (.inr (by omega)))) (by simp only [ciSize]; omega)
+      (by simp only [Rng, ciNextOff]; omega) (by simp only [Rng, stateNciOff]; omega)
+      (by simp only [Below]; omega)
+  refine
+    { foot := fun a ha => ?_
+      ci := fun a h1 h2 h3 h4 => ?_
+      above := fun a ha => (kF a (by omega)).trans (ext_keep (by omega) (by omega) (.inr ha) (by omega))
+      slots := fun a h1 h2 => ?_
+      atexit := fun j hj => ?_
+      top_w := ?_
+      tbc_w := ?_
+      g_w := ?_
+      hook_w := ?_
+      mt_w := fun t ht => ?_
+      st := hX.stdio ph (printSt_head cx hI kHE) fun _ => by
+        have h1 := hI.room (.inr hnext0); have h2 : H'.brk ≤ w.rt.brkv + extRoom := hX.brk
+        simp only [firstRoom, extRoom] at h1 h2; omega
+      kept := hX.kept
+      brk := hX.brk
+      lits := hI.lits.trans fun a ha => ?_
+      next := hX.next
+      prev := hX.prev
+      nci_lo := by have : symEnd = 0x8006ecd0 := rfl; omega
+      nci_hi := by have : RuntimeData.spEntry - cStackBudget = 0x87fefe20 := rfl; simp only [ciSize]; omega
+      nci_al := hX.al
+      nci_kept := fun a h1 h2 => ?_
+      nci_L := apart_of_kept (fun a h1 h2 => hI.L_in a h1 h2) hfr (by decide) (by decide)
+      nci_g := apart_of_kept (fun a h1 h2 => hI.g_in a h1 h2) hfr (by decide) (by decide)
+      nci_ci := apart_of_kept (fun a h1 h2 => hI.ci_in a h1 h2) hfr (by decide) (by decide)
+      nci_stack := apart_of_kept (fun a h1 h2 => hI.stack_in a h1 (by omega)) hfr (by decide) (by omega)
+      nci_lits := fun ts hts => apart_of_kept (fun a h1 h2 => hI.lit_strs ts hts a h1 h2) hfr (by decide) (by decide)
+      frame_ra := ?_
+      frame_s0 := ?_ }
+  · -- the frozen objects
+    have hd := hI.stat_apart a ha
+    simp only [CallDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
+    obtain ⟨d1, -, d3, d4, -, -, d7⟩ := hd
+    exact kK a (hI.stat_in a ha) (by simp only [Rng, ciNextOff]; omega) (by simp only [Rng, stateNciOff]; omega)
+      (by omega) (by omega) (by omega)
+  · have h2' : a < w.ci + 64 := h2
+    have k := kK a (.inl (hI.ci_in a h1 h2)) h3 (by simp only [Rng, stateNciOff]; omega) (by omega)
+    simp only [Rng, ciNextOff, ciSavedpcOff, ciSize, not_and, Nat.not_lt] at h2 h3 h4
+    exact k (by omega) (by omega)
+  · have hk := hI.stack_in a (by omega) (by omega)
+    refine (kKE a (.inl hk) (by simp only [Rng, ciNextOff]; omega) (by simp only [Rng, stateNciOff]; omega)).trans
+      (ext_keep (by omega) (by omega) (.inl (by omega)) (by omega))
+  · refine (kE _ (not_mallocW_of (.inr (.inl (by omega)))) (by omega) (by simp only [Rng, ciNextOff]; omega)
+      (by simp only [Rng, stateNciOff]; omega) (by simp only [Below]; omega)).trans
+      (kHE _ (by omega) (by omega) (by omega) (by omega))
+  · rw [bytesT8_congrT fun j _ => kKE _ (.inl (hI.L_in _ (by omega) (by simp only [stateTopOff, stateSize]; omega)))
+      (by simp only [Rng, ciNextOff, stateTopOff]; omega) (by simp only [Rng, stateNciOff, stateTopOff]; omega)]
+    simp only [callExtMem, pcExtMem, pcFrameMem, callMem, stateTopOff, ciSavedpcOff]
+    rw [fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega),
+      fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_same rfl]
+  · rw [bytesT8_congrT fun j _ => kL _ (by simp only [stateTbclistOff]; omega)
+      (by simp only [stateTbclistOff, stateSize]; omega) (by simp only [stateTbclistOff]; omega)
+      (by simp only [stateTbclistOff]; omega)]
+    exact bytesT8_of_rd64 hlua.tbclist
+  · rw [bytesT8_congrT fun j _ => kL _ (by simp only [stateGOff]; omega)
+      (by simp only [stateGOff, stateSize]; omega) (by simp only [stateGOff]; omega)
+      (by simp only [stateGOff]; omega)]
+    exact bytesT8_of_rd64 hlua.g
+  · rw [bytesT4_congrT fun j _ => kL _ (by simp only [stateHookmaskOff]; omega)
+      (by simp only [stateHookmaskOff, stateSize]; omega) (by simp only [stateHookmaskOff]; omega)
+      (by simp only [stateHookmaskOff]; omega)]
+    exact bytesT4_of_rd32 hlua.hookmask
+  · have hto : t ≤ 3 := by
+      simp only [List.mem_cons, List.not_mem_nil, or_false, luaTnil, luaTboolean, luaTnumber] at ht; omega
+    rw [bytesT8_congrT fun j _ => kG _ (by simp only [gMtOff]; omega) (by simp only [gMtOff]; omega)]
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at ht
+    rcases ht with rfl | rfl | rfl
+    · exact bytesT8_of_rd64 hlua.mt_nil
+    · exact bytesT8_of_rd64 hlua.mt_boolean
+    · exact bytesT8_of_rd64 hlua.mt_number
+  · -- the literals
+    have hd := hI.lits_apart a ha
+    simp only [CallLitDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
+    obtain ⟨d1, -, d3, d4, d5⟩ := hd
+    exact kK a (.inl (hI.lits_in a ha)) (by simp only [Rng, ciNextOff]; omega)
+      (by simp only [Rng, stateNciOff]; omega) (by omega) (by omega) (by omega)
+  · -- the new `CallInfo`
+    have hf := hX.fresh a h1 h2
+    refine ⟨⟨hX.nci_in a h1 h2, hf.2.1, hf.2.2, fun hb => hf.1 (hI.io.buf_inUse hb)⟩, fun hF => ?_,
+      fun hL => hf.1 (hI.lits_in a hL).inuse⟩
+    rcases hI.stat_in a hF with hk | hk
+    · exact hf.1 hk.inuse
+    · have := hf.2.1; simp only [symTohost] at hk; omega
+  · rw [bytesT8_congrT fun j _ => kF _ (by omega)]
+    simp only [callExtMem, pcExtMem, pcFrameMem]
+    rw [fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega)]
+    exact fw8_same rfl
+  · rw [bytesT8_congrT fun j _ => kF _ (by omega)]
+    simp only [callExtMem, pcExtMem, pcFrameMem]
+    rw [fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega)]
+    exact fw8_same rfl
 
 end Lua.Vm.Sim.Kit

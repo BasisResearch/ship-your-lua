@@ -298,7 +298,9 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
           io := hio
           pend := rfl
           cells := hP.cells
-          room := fun h => absurd rfl (h buf [])
+          room := fun hh => hh.elim (fun hb => absurd rfl (hb buf [])) fun h0 => by
+            have e := Option.some.inj (hnext.symm.trans h0); have := h.nci_lo
+            simp only [symEnd] at this; omega
           atexit := hatx
           stat := (hI.stat.trans fun a ha => (bytesT1_fill m a).trans (h.foot a ha)).conseq
             fun M hM => hM.after (fillZeroMem m) H

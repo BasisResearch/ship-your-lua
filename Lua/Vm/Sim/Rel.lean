@@ -423,7 +423,8 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   pend : ph.pend = []
   cells : Kit.PrintCells w.mo
   /-- before the first `print`, room for its allocations -/
-  room : (∀ buf pend, ph ≠ .up buf pend) → w.rt.brkv + firstRoom ≤ DlHeap.heapEnd
+  room : ((∀ buf pend, ph ≠ .up buf pend) ∨ rd64 w.mo (w.ci + ciNextOff) = some 0) →
+    w.rt.brkv + firstRoom ≤ DlHeap.heapEnd
   /-- no `atexit` handler -/
   atexit : Vsa.Sim.bytesT8 w.mo symAtexit = 0#64
   /-- the objects a `print` leaves alone, frozen on `F` -/
