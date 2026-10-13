@@ -320,9 +320,56 @@ theorem tolS_m2 {sp L i lenp nci func top g smt ts : Nat} {r : BitVec 64} {f : A
     simp (disch := omega) only [fw1_wm8, fw1_ins]
   all_goals fat_rd
 
-/-- **`luaL_tolstring` on a short string, up to the metafield's miss** (the
-root `0x80021a7c`): `lua_absindex`, `luaL_callmeta` → `lua_getmetatable` (the
-string metatable pushed), `luaL_getmetafield.part.0` (`gmf_miss_sum`). -/
+set_option hygiene false in
+/-- **`luaL_tolstring` on a string, up to the metafield's miss** (one tag
+module `ns`, the generator's cells being literals): `lua_absindex`,
+`luaL_callmeta` → `lua_getmetatable` (the string metatable pushed: `tolS_m2`),
+`luaL_getmetafield.part.0` (`gmf_miss_sum`, its facts by `gmfIn_of`), the
+root `0x80021a7c` (`tolSMid_of`). -/
+macro "tol_pre_run " ns:ident : tactic => do
+  let okN := Lean.mkIdent (ns.getId ++ `Ok)
+  let r0N := Lean.mkIdent (ns.getId ++ `r0)
+  let m2N := Lean.mkIdent (ns.getId ++ `m2)
+  `(tactic| (
+    have := hx.sp_lo; have := hx.sp_hi; have := hx.sp_al; have := hx.ra; have := hx.L_lo; have := hx.L_hi
+    have := hx.L_al; have := hx.i_lo; have := hx.i_hi; have := hx.l_lo; have := hx.l_hi; have := hx.l_al
+    have := hx.ci_lo; have := hx.ci_hi; have := hx.f_lo; have := hx.f_top; have := hx.t_hi; have := hx.g_lo
+    have := hx.g_hi; have := hx.L_sp; have := hx.ci_sp; have := hx.t_sp; have := hx.g_sp; have := hx.t_lo
+    have := hx.s_lo; have := hx.s_hi
+    have := hT.sp_big; have := hT.t_al; have := hT.t_lo; have := hT.t_hi; have := hT.L_hi
+    have hHE : heapEnd = 0x87800000 := rfl
+    have hTH : symTohost = 0x8005c6c0 := rfl
+    obtain ⟨hc5, hf1, hsm, hsm'⟩ := hT.smt
+    have : 0x8005c6d0 ≤ ls.smt := by omega
+    have hg_2' : (BitVec.ofNat 64 ls.smt == 0x0#64) = false := ofNat64_beq0 (by omega) hf1
+    have hX : $okN (tsX sp L i lenp nci func top g ls.smt ts r f m o) := by fcx_ok
+    have hc0 := hc.ci_w; have hc1 := hc.func_w; have hc2 := hc.top_w; have hc3 := hc.tag_w; have hc4 := hc.g_w
+    have hc10 := hc.val_w
+    have hf0 : 16 * i + func < top := by omega
+    have hg_6 := absindex_pos i hx.i_lo hx.i_hi
+    have hg_2 := sge0_pos i hx.i_lo (by omega)
+    simp only [callPre, List.cons_append, List.nil_append] at h
+    have h : SegSt 0x80021b2c#64 ($r0N (tsX sp L i lenp nci func top g ls.smt ts r f m o))
+        (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f m o).m
+          (tsX sp L i lenp nci func top g ls.smt ts r f m o).o) c := h.repin (by pins_of h)
+    have acc := Steps.refl c
+    fat_run $ns h acc until [0x8002052c]
+    have hsL := hT.sL; simp only [Apart] at hsL
+    rw [show $m2N (tsX sp L i lenp nci func top g ls.smt ts r f m o) =
+      Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g ls.smt ts r f m o) from rfl] at h
+    obtain ⟨hM2, hfr, htop2, hmt2⟩ := tolS_m2 (sp := sp) (L := L) (i := i) (lenp := lenp) (nci := nci)
+      (func := func) (top := top) (g := g) (smt := ls.smt) (ts := ts) (r := r) (f := f) (m := m) (o := o)
+      (by omega) (by simp only [stateSize] at *; omega) (by omega) (by simp only [stateSize] at hsL; omega) hx.l_lo
+    generalize Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g ls.smt ts r f m o) = M2 at h hM2 hfr htop2 hmt2
+    fcx_unfold at h
+    have hgin := gmfIn_of hT hx.sp_hi hx.sp_al hx.L_al hc.g_w hM2 htop2 hmt2
+    obtain ⟨c1, s1, M3, hret, hgp⟩ := gmf_miss_sum (r := 0x80021a7c#64)
+      ⟨BitVec.ofNat 64 L, BitVec.ofNat 64 i, 0x8004fd20#64, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11⟩
+      o (by decide) hgin _ (by simp only [callPre, List.cons_append, List.nil_append, litTosAddr]; exact h.repin (by pins_of h))
+    simp only [wrRet] at hret
+    exact ⟨c1, acc.trans s1, M3, tolSMid_of hx hc hT hM2 hfr hgp, hret.repin (by pins_of hret)⟩))
+
+/-- **`luaL_tolstring` on a short string, up to the metafield's miss** (`tol_pre_run`). -/
 theorem tol_s_pre {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {FL : Nat → Prop} {r : BitVec 64}
     {f : AbiFrame} {m : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
     (hc : TolSCells m L i nci func top g ts 0x44#8) (hT : TolSIn m sp L i nci func top g sl tbc ls FL) {c : Config}
@@ -332,41 +379,19 @@ theorem tol_s_pre {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {F
       SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrS.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
         (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).m
           (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o) c1 := by
-  have := hx.sp_lo; have := hx.sp_hi; have := hx.sp_al; have := hx.ra; have := hx.L_lo; have := hx.L_hi
-  have := hx.L_al; have := hx.i_lo; have := hx.i_hi; have := hx.l_lo; have := hx.l_hi; have := hx.l_al
-  have := hx.ci_lo; have := hx.ci_hi; have := hx.f_lo; have := hx.f_top; have := hx.t_hi; have := hx.g_lo
-  have := hx.g_hi; have := hx.L_sp; have := hx.ci_sp; have := hx.t_sp; have := hx.g_sp; have := hx.t_lo
-  have := hx.s_lo; have := hx.s_hi
-  have := hT.sp_big; have := hT.t_al; have := hT.t_lo; have := hT.t_hi; have := hT.L_hi
-  have hHE : heapEnd = 0x87800000 := rfl
-  have hTH : symTohost = 0x8005c6c0 := rfl
-  obtain ⟨hc5, hf1, hsm, hsm'⟩ := hT.smt
-  have : 0x8005c6d0 ≤ ls.smt := by omega
-  have hg_2' : (BitVec.ofNat 64 ls.smt == 0x0#64) = false := ofNat64_beq0 (by omega) hf1
-  have hX : Lua.Vm.AtF.TolStrS.Ok (tsX sp L i lenp nci func top g ls.smt ts r f m o) := by fcx_ok
-  have hc0 := hc.ci_w; have hc1 := hc.func_w; have hc2 := hc.top_w; have hc3 := hc.tag_w; have hc4 := hc.g_w
-  have hc10 := hc.val_w
-  have hf0 : 16 * i + func < top := by omega
-  have hg_6 := absindex_pos i hx.i_lo hx.i_hi
-  have hg_2 := sge0_pos i hx.i_lo (by omega)
-  simp only [callPre, List.cons_append, List.nil_append] at h
-  have h : SegSt 0x80021b2c#64 (Lua.Vm.AtF.TolStrS.r0 (tsX sp L i lenp nci func top g ls.smt ts r f m o))
-      (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f m o).m
-        (tsX sp L i lenp nci func top g ls.smt ts r f m o).o) c := h.repin (by pins_of h)
-  have acc := Steps.refl c
-  fat_run Lua.Vm.AtF.TolStrS h acc until [0x8002052c]
-  have hsL := hT.sL; simp only [Apart] at hsL
-  obtain ⟨hM2, hfr, htop2, hmt2⟩ := tolS_m2 (sp := sp) (L := L) (i := i) (lenp := lenp) (nci := nci)
-    (func := func) (top := top) (g := g) (smt := ls.smt) (ts := ts) (r := r) (f := f) (m := m) (o := o)
-    (by omega) (by simp only [stateSize] at *; omega) (by omega) (by simp only [stateSize] at hsL; omega) hx.l_lo
-  generalize Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g ls.smt ts r f m o) = M2 at h hM2 hfr htop2 hmt2
-  fcx_unfold at h
-  have hgin := gmfIn_of hT hx.sp_hi hx.sp_al hx.L_al hc.g_w hM2 htop2 hmt2
-  obtain ⟨c1, s1, M3, hret, hgp⟩ := gmf_miss_sum (r := 0x80021a7c#64)
-    ⟨BitVec.ofNat 64 L, BitVec.ofNat 64 i, 0x8004fd20#64, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11⟩
-    o (by decide) hgin _ (by simp only [callPre, List.cons_append, List.nil_append, litTosAddr]; exact h.repin (by pins_of h))
-  simp only [wrRet] at hret
-  exact ⟨c1, acc.trans s1, M3, tolSMid_of hx hc hT hM2 hfr hgp, hret.repin (by pins_of hret)⟩
+  tol_pre_run Lua.Vm.AtF.TolStrS
+
+/-- **`luaL_tolstring` on a long string, up to the metafield's miss** (`tol_pre_run`). -/
+theorem tol_l_pre {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {FL : Nat → Prop} {r : BitVec 64}
+    {f : AbiFrame} {m : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
+    (hc : TolSCells m L i nci func top g ts 0x54#8) (hT : TolSIn m sp L i nci func top g sl tbc ls FL) {c : Config}
+    (h : SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
+        ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f) (ArmPay m o) c) :
+    ∃ c1, Steps c c1 ∧ ∃ M3, TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x54#8 ∧
+      SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrL.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
+        (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).m
+          (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o) c1 := by
+  tol_pre_run Lua.Vm.AtF.TolStrL
 
 /-- A byte off a range, as the forwarding lemmas take it. -/
 theorem rng_split {a lo n : Nat} (h : lo ≤ a → lo + n ≤ a) : a + 1 ≤ lo ∨ lo + n ≤ a := by
@@ -401,53 +426,126 @@ theorem tolStrPost_of {m M3 : Mem} {sp L i lenp nci func top g sl tbc ts len : N
     have e2 := rng_split h2; have e3 := rng_split h3; have e4 := rng_split h4
     rw [fw1_wm8 e2, fw1_wm8 e3, fw1_ins (by omega), fw1_wm8 (by omega)]
 
-/-- **`luaL_tolstring` on a short string, from the metafield's miss** (the
-root `0x80021a7c`): `luaL_callmeta`'s return, `lua_type`, `lua_pushvalue`,
-the tail `lua_tolstring` (`toltop_sum`). -/
-theorem tol_s_post {sp L i lenp nci func top g sl tbc ts len : Nat} {ls : LitPtrs} {FL : Nat → Prop}
+/-- **`lua_pushvalue`'s stores** of the string `ts` of tag `tag` at `top`. -/
+abbrev TolPushMem (M : Mem) (L top ts : Nat) (tag : BitVec 64) : Mem :=
+  writeMap8 ((writeMap8 M top (sdData_val (BitVec.ofNat 64 ts))).insert (top + 8) (stData 1 tag)) (L + 16)
+    (sdData_val (BitVec.ofNat 64 (top + 16)))
+
+set_option hygiene false in
+/-- **`luaL_tolstring` on a string, from the metafield's miss to the tail**
+(one tag module `ns`): `luaL_callmeta`'s return, `lua_type`, `lua_pushvalue`,
+up to `j lua_tolstring`. -/
+macro "tol_mid_run " ns:ident : tactic => do
+  let okN := Lean.mkIdent (ns.getId ++ `Ok)
+  `(tactic| (
+    have := hx.sp_lo; have := hx.sp_hi; have := hx.sp_al; have := hx.ra; have := hx.L_lo; have := hx.L_hi
+    have := hx.L_al; have := hx.i_lo; have := hx.i_hi; have := hx.l_lo; have := hx.l_hi; have := hx.l_al
+    have := hx.ci_lo; have := hx.ci_hi; have := hx.f_lo; have := hx.f_top; have := hx.t_hi; have := hx.g_lo
+    have := hx.g_hi; have := hx.L_sp; have := hx.ci_sp; have := hx.t_sp; have := hx.g_sp; have := hx.t_lo
+    have := hx.s_lo; have := hx.s_hi
+    have := hT.sp_big; have := hT.t_al; have := hT.t_lo; have := hT.t_hi; have := hT.L_hi
+    obtain ⟨-, -, hsm, -⟩ := hT.smt
+    have hTH : symTohost = 0x8005c6c0 := rfl
+    have : 0x8005c6d0 ≤ ls.smt := by omega
+    have hX : $okN (tsX sp L i lenp nci func top g ls.smt ts r f M3 o) := by fcx_ok
+    have hc0 := hmid.ci_w; have hc1 := hmid.func_w; have hc2 := hmid.top_w; have hc3 := hmid.tag_w
+    have hc10 := hmid.val_w; have hc6 := hmid.cra_w; have hc7 := hmid.cs0_w; have hc8 := hmid.cs1_w
+    have hc9 := hmid.cs2_w; have hc11 := hmid.s0_w; have hc12 := hmid.ra_w; have hc13 := hmid.s1_w
+    have hc14 := hmid.s2_w
+    have hf0 : 16 * i + func < top := by omega
+    have hg_6 := absindex_pos i hx.i_lo hx.i_hi
+    have hg_2 := sge0_pos i hx.i_lo (by omega)
+    have acc := Steps.refl c1
+    fat_run $ns h acc until [0x80002994]
+    fcx_unfold at h
+    exact ⟨_, acc, by simp only [callPre, List.cons_append, List.nil_append]; exact h.repin (by pins_of h)⟩))
+
+/-- **`luaL_tolstring` on a short string, from the metafield's miss to the tail**
+(`tol_mid_run`): the string pushed (`TolPushMem`). -/
+theorem tol_s_mid {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {FL : Nat → Prop}
     {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
     (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x44#8)
-    (hlen : bytesT1 M3 (ts + 11) = BitVec.ofNat 8 len) (hl : len < 255)
-    (hsk : ¬ (Rng top 9 (ts + 11) ∨ Rng (L + 16) 8 (ts + 11))) {c1 : Config}
+    {c1 : Config}
     (h : SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrS.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
         (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).m
           (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o) c1) :
-    ∃ c', Steps c1 c' ∧ ∃ m', wrRet r sp (ts + 24) f m' o c' ∧ TolStrPost m m' sp L lenp g top ls len := by
+    ∃ c2, Steps c1 c2 ∧ SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
+        ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
+      (ArmPay (TolPushMem M3 L top ts 0x44#64) o) c2 := by
+  tol_mid_run Lua.Vm.AtF.TolStrS
+
+/-- **`luaL_tolstring` on a long string, from the metafield's miss to the tail**
+(`tol_mid_run`): the string pushed (`TolPushMem`). -/
+theorem tol_l_mid {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {FL : Nat → Prop}
+    {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
+    (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x54#8)
+    {c1 : Config}
+    (h : SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrL.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
+        (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).m
+          (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o) c1) :
+    ∃ c2, Steps c1 c2 ∧ SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
+        ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
+      (ArmPay (TolPushMem M3 L top ts 0x54#64) o) c2 := by
+  tol_mid_run Lua.Vm.AtF.TolStrL
+
+set_option hygiene false in
+/-- `luaL_tolstring`'s numbers in context (`omega`'s facts). -/
+local macro "tol_nums" : tactic => `(tactic| (
   have := hx.sp_lo; have := hx.sp_hi; have := hx.sp_al; have := hx.ra; have := hx.L_lo; have := hx.L_hi
-  have := hx.L_al; have := hx.i_lo; have := hx.i_hi; have := hx.l_lo; have := hx.l_hi; have := hx.l_al
-  have := hx.ci_lo; have := hx.ci_hi; have := hx.f_lo; have := hx.f_top; have := hx.t_hi; have := hx.g_lo
-  have := hx.g_hi; have := hx.L_sp; have := hx.ci_sp; have := hx.t_sp; have := hx.g_sp; have := hx.t_lo
-  have := hx.s_lo; have := hx.s_hi
+  have := hx.L_al; have := hx.l_lo; have := hx.l_hi; have := hx.l_al; have := hx.t_hi; have := hx.t_lo
+  have := hx.t_sp; have := hx.L_sp; have := hx.s_lo; have := hx.s_hi
   have := hT.sp_big; have := hT.t_al; have := hT.t_lo; have := hT.t_hi; have := hT.L_hi
-  obtain ⟨-, -, hsm, -⟩ := hT.smt
-  have hTH : symTohost = 0x8005c6c0 := rfl
-  have : 0x8005c6d0 ≤ ls.smt := by omega
-  have hX : Lua.Vm.AtF.TolStrS.Ok (tsX sp L i lenp nci func top g ls.smt ts r f M3 o) := by fcx_ok
-  have hc0 := hmid.ci_w; have hc1 := hmid.func_w; have hc2 := hmid.top_w; have hc3 := hmid.tag_w
-  have hc10 := hmid.val_w; have hc6 := hmid.cra_w; have hc7 := hmid.cs0_w; have hc8 := hmid.cs1_w
-  have hc9 := hmid.cs2_w; have hc11 := hmid.s0_w; have hc12 := hmid.ra_w; have hc13 := hmid.s1_w
-  have hc14 := hmid.s2_w
-  have hf0 : 16 * i + func < top := by omega
-  have hg_6 := absindex_pos i hx.i_lo hx.i_hi
-  have hg_2 := sge0_pos i hx.i_lo (by omega)
-  have acc := Steps.refl c1
-  fat_run Lua.Vm.AtF.TolStrS h acc until [0x80002994]
-  have hsL := hT.sL; simp only [Apart, stateSize] at hsL
+  have hsL := hT.sL; simp only [Apart, stateSize] at hsL))
+
+/-- **The tail `lua_tolstring(L, -1, &l)` of a short string** (`toltop_sum`):
+`TolStrPost`. -/
+theorem tol_tail_s {sp L i lenp nci func top g sl tbc ts len : Nat} {ls : LitPtrs} {FL : Nat → Prop}
+    {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
+    (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x44#8)
+    (hlen : bytesT1 M3 (ts + 11) = BitVec.ofNat 8 len) (hl : len < 255)
+    (hsk : ¬ (Rng top 9 (ts + 11) ∨ Rng (L + 16) 8 (ts + 11))) {c2 : Config}
+    (h : SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
+        ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
+      (ArmPay (TolPushMem M3 L top ts 0x44#64) o) c2) :
+    ∃ c', Steps c2 c' ∧ ∃ m', wrRet r sp (ts + 24) f m' o c' ∧ TolStrPost m m' sp L lenp g top ls len := by
+  tol_nums
   simp only [Rng, not_or, not_and, Nat.not_lt] at hsk
-  obtain ⟨c2, s2, hret2⟩ := toltop_sum (sp := sp) (L := L) (lenp := lenp) (ts := ts) (top := top + 16)
-    (len := len) (m := Lua.Vm.AtF.TolStrS.m3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o)) f o
+  have e1 := rng_split hsk.2; have e2 := rng_split hsk.1
+  obtain ⟨c3, s3, hret⟩ := toltop_sum (sp := sp) (L := L) (lenp := lenp) (ts := ts) (top := top + 16)
+    (len := len) f o
     ⟨by omega, hx.ra, by omega, by omega, hx.L_al, by omega, by omega, hx.l_al, by omega, by omega, hx.s_lo,
       hx.s_hi⟩
-    ⟨by fcx_unfold; rw [fw8_same rfl],
-      by fcx_unfold; rw [show top + 16 - 8 = top + 8 by omega, fw1_wm8 (by omega), fw1_same rfl]; rfl,
-      by fcx_unfold; rw [show top + 16 - 16 = top by omega, fw8_wm8 (by omega), fw8_ins (by omega), fw8_same rfl],
-      by
-        fcx_unfold
-        have e1 := rng_split hsk.2; have e2 := rng_split hsk.1
-        rw [fw1_wm8 e1, fw1_ins (by omega), fw1_wm8 (by omega)]
-        exact hlen, hl⟩ _
-    (by fcx_unfold at h; simp only [callPre, List.cons_append, List.nil_append]; exact h.repin (by pins_of h))
-  fcx_unfold at hret2
-  exact ⟨c2, acc.trans s2, _, hret2, tolStrPost_of hx hT hmid _⟩
+    ⟨by rw [fw8_same rfl], by rw [show top + 16 - 8 = top + 8 by omega, fw1_wm8 (by omega), fw1_same rfl]; rfl,
+      by rw [show top + 16 - 16 = top by omega, fw8_wm8 (by omega), fw8_ins (by omega), fw8_same rfl],
+      by rw [fw1_wm8 e1, fw1_ins (by omega), fw1_wm8 (by omega)]; exact hlen, hl⟩ _ h
+  exact ⟨c3, s3, _, hret, tolStrPost_of hx hT hmid _⟩
+
+/-- **The tail `lua_tolstring(L, -1, &l)` of a long string** (`toltopl_sum`:
+`shrlen` `0xff`, `u.lnglen`): `TolStrPost`. -/
+theorem tol_tail_l {sp L i lenp nci func top g sl tbc ts len : Nat} {ls : LitPtrs} {FL : Nat → Prop}
+    {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
+    (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x54#8)
+    (hshr : bytesT1 M3 (ts + 11) = 0xff#8) (hlen : bytesT8 M3 (ts + 16) = BitVec.ofNat 64 len)
+    (hsk : ∀ a, ts + 11 ≤ a → a < ts + 24 → ¬ (Rng top 9 a ∨ Rng (L + 16) 8 a)) {c2 : Config}
+    (h : SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
+        ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
+      (ArmPay (TolPushMem M3 L top ts 0x54#64) o) c2) :
+    ∃ c', Steps c2 c' ∧ ∃ m', wrRet r sp (ts + 24) f m' o c' ∧ TolStrPost m m' sp L lenp g top ls len := by
+  tol_nums
+  have kP : ∀ a, ts + 11 ≤ a → a < ts + 24 → bytesT1 (TolPushMem M3 L top ts 0x54#64) a = bytesT1 M3 a := by
+    intro a h1 h2
+    have := hsk a h1 h2
+    simp only [Rng, not_or, not_and, Nat.not_lt] at this
+    have e1 := rng_split this.2; have e2 := rng_split this.1
+    rw [fw1_wm8 e1, fw1_ins (by omega), fw1_wm8 (by omega)]
+  obtain ⟨c3, s3, hret⟩ := toltopl_sum (sp := sp) (L := L) (lenp := lenp) (ts := ts) (top := top + 16)
+    (len := len) f o
+    ⟨by omega, hx.ra, by omega, by omega, hx.L_al, by omega, by omega, hx.l_al, by omega, by omega, hx.s_lo,
+      hx.s_hi⟩
+    ⟨by rw [fw8_same rfl], by rw [show top + 16 - 8 = top + 8 by omega, fw1_wm8 (by omega), fw1_same rfl]; rfl,
+      by rw [show top + 16 - 16 = top by omega, fw8_wm8 (by omega), fw8_ins (by omega), fw8_same rfl],
+      by rw [kP _ (by omega) (by omega)]; exact hshr,
+      by rw [bytesT8_congrT fun j _ => kP _ (by omega) (by omega)]; exact hlen⟩ _ h
+  exact ⟨c3, s3, _, hret, tolStrPost_of hx hT hmid _⟩
 
 end Lua.Vm.Sim.Kit
