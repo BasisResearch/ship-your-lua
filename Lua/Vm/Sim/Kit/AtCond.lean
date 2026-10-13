@@ -80,14 +80,15 @@ macro "at_scr" : tactic => `(tactic| (
 /-- The run's memory agrees with the entry memory outside `Scratch` and the
 register slots (an arm's stores, a callee's frame and its stores of `R[A]`). -/
 abbrev WinFrame (X : Cx) (m : Mem) : Prop :=
-  ∀ a, ¬ Scratch X.w a → ¬ Slots X.p X.w a → m[a]? = X.c.σ.mem[a]?
+  ∀ a, ¬ Scratch X.w a → ¬ Slots X.p X.w a → ¬ CFrame X.w a → m[a]? = X.c.σ.mem[a]?
 
 set_option hygiene false in
-/-- `WinFrame` of a log of `Scratch` and slot stores (after `at_open`). -/
+/-- `WinFrame` of a log of `Scratch`, slot and C-frame stores (after `at_open`;
+round 5: a float path's spills to `luaV_execute`'s frame). -/
 macro "at_win" : tactic => `(tactic| (
-  intro x hx hx'
-  simp only [Scratch, Slots, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget, not_or,
-    not_and, Nat.not_lt, stackValueSize] at hx hx'
+  intro x hx hx' hx''
+  simp only [Scratch, Slots, CFrame, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget, not_or,
+    not_and, Nat.not_lt, stackValueSize] at hx hx' hx''
   simp (disch := kit_disch) only [getElem?_wm8_out, getElem?_ins_out, getElem?_memPatch_out]))
 
 /-! ## `updatetrap` -/
@@ -101,10 +102,11 @@ theorem trap_ld {X : Cx} (hX : X.Ok) {m : Mem} (hm : WinFrame X m) {a : Nat} (ha
   simp only [ciSize, stateSize, RuntimeData.spEntry, cStackBudget, execFrame, stackValueSize] at *
   have e : bytesT4 m a = 0 := by
     subst ha
-    refine (bytesT4_congr fun i hi => hm _ (fun hs => ?_) fun hs => ?_).trans hc.trap
+    refine (bytesT4_congr fun i hi => hm _ (fun hs => ?_) (fun hs => ?_) fun hs => ?_).trans hc.trap
     · simp only [Scratch, ciSavedpcOff, stateTopOff, RuntimeData.spEntry, cStackBudget] at hs
       omega
     · simp only [Slots, stackValueSize] at hs; omega
+    · simp only [CFrame] at hs; omega
   rw [e]; decide
 
 /-- `sext.w s5, t6` after the reload. -/
@@ -138,7 +140,9 @@ theorem jmp_at {X : Cx} (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) {
   have := hr.code_hi
   have hw : bytesT4 m (X.w.code + 4 * (X.s.pc + 1)) = ni :=
     (bytesT4_congr fun i hi => hm _ (fun hs => hr.code_out _ (by omega) (by omega) (.inr (.inr hs)))
-      fun hs => hr.code_out _ (by omega) (by omega) (.inl hs)).trans (hc.fetch hni)
+      (fun hs => hr.code_out _ (by omega) (by omega) (.inl hs))
+      fun hs => hr.code_out (X.w.code + 4 * (X.s.pc + 1) + i) (by omega) (by omega)
+        (.inr (.inl (by simp only [CFrame] at hs; simp only [execFrame]; omega)))).trans (hc.fetch hni)
   exact nextjump_pc ha hw hjt (by omega) (by omega)
 
 /-! ## `l_strcmp`'s call node at a row -/

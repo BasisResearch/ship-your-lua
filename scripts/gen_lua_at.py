@@ -73,8 +73,10 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               "OP_SUB": ("Sub", 0x8001d964),
               # round 5 (A-JOIN): FORPREP's float loop (`OP_FORPREP` keeps its
               # integer paths), over the same segments (`SEG_OP`)
-              "OP_FORPREP_F": ("ForprepF", 0x8001c0f8)}
-SEG_OP = {"OP_FORPREP_F": "OP_FORPREP"}
+              "OP_FORPREP_F": ("ForprepF", 0x8001c0f8),
+              # round 5 (A-JOIN): LT's float paths (no seed: every class)
+              "OP_LT_F": ("LtF", 0x8001c894)}
+SEG_OP = {"OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT"}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_GEI": [("tag", "a", 0)], "OP_ADDI": [("tag", "b", 0)],

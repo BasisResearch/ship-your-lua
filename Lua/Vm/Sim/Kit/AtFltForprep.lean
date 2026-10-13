@@ -34,4 +34,25 @@ theorem fp_flt3 (hsf : SoftFloatSpec) : ArmBody .FORPREP FpFlt3 := by
   at_walk Lua.Vm.At.FORPREP_F
   all_goals at_leaf Lua.Vm.At.FORPREP_F
 
+/-- `FORPREP`'s coerced classes: not three integers and not three floats (a
+string or integer control value through `luaV_tonumber_`, or an integer loop
+whose limit is coerced by `luaV_tointeger`/`forlimit`). -/
+def FpCoerce (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) : Prop :=
+  ForCoerce p s ins ∧ ¬ FpFlt3 p c s w ins
+
+/-- **Open (round 5): `FORPREP`'s coerced classes.** The machine calls
+`luaV_tonumber_` (`0x8001ab58`: `l_strton` → `strtod` on a string, a
+conversion on an integer) and `luaV_tointeger` on a non-integer limit; their
+call nodes need summaries with their frames' contents (the at-route log
+states the exact memory), which a value-only premise does not give. -/
+def FpCoerce_Statement : Prop := ArmBody .FORPREP FpCoerce
+
+/-- **`OP_FORPREP` off its integer loop** (`FloatArms.FORPREP`), the coerced
+classes open. -/
+theorem sim_FORPREP_flt (hsf : SoftFloatSpec) (hco : FpCoerce_Statement) :
+    SimArmOn .FORPREP ForCoerce :=
+  sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hN =>
+    (Classical.em (FpFlt3 p c s w ins)).elim (fp_flt3 hsf hS hA hf hop hstep)
+      fun h3 => hco hS hA hf hop hstep ⟨hN, h3⟩
+
 end Lua.Vm.Sim.At

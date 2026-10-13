@@ -44,6 +44,9 @@ import Lua.Vm.Sim.Kit.AtFltEqi
 import Lua.Vm.Sim.Kit.AtFltGei
 import Lua.Vm.Sim.Kit.AtFltAddi
 import Lua.Vm.Sim.Kit.AtFltForloop
+import Lua.Vm.Sim.Kit.AtFltSub
+import Lua.Vm.Sim.Kit.AtFltForprep
+import Lua.Vm.Sim.Kit.AtFltLt
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

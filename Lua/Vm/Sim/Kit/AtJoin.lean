@@ -182,6 +182,14 @@ macro "num_reg " j:term "," hn:ident : tactic => `(tactic| (
   rcases hv.numView with ⟨rfl, htn, $hn⟩ | ⟨rfl, htn, $hn⟩ | ⟨$hn, htn, htn'⟩))
 
 set_option hygiene false in
+/-- **`num_regf j, hn`**: `num_reg` for an order test: an integer operand is
+split by the kernel's own `l_intfitsf` (`hfit`; `LTintfloat`'s first test). -/
+macro "num_regf " j:term "," hn:ident : tactic => `(tactic| (
+  kit_reg hr v hv $j
+  rcases hv.numView with ⟨rfl, htn, $hn⟩ | ⟨hvi, htn, $hn⟩ | ⟨$hn, htn, htn'⟩
+  all_goals try (subst hvi; by_cases hfit : intfitsf (slotVal c.σ.mem (w.slot $j)) = true)))
+
+set_option hygiene false in
 /-- A stored float computed by the soft-float call nodes (`luai_numsub`,
 `luai_numadd`, the conversions `__floatdidf`): its bits are the kernel's
 value's, through `F64`'s bridges. -/
@@ -207,6 +215,22 @@ theorem zext_byte_beq (a b : BitVec 8) :
       fun he => h (BitVec.eq_of_toNat_eq (by have := congrArg BitVec.toNat he; rwa [key, key] at this))
     simp [h, hne]
 
+/-- `l_intfitsf` on the machine (`LTintfloat`: `bgeu 2^54, i + 2^53`). -/
+theorem fits_geu (x : BitVec 64) :
+    zopz0zKzJ_u 0x40000000000000#64 (x + 0x20000000000000#64) = intfitsf x := by
+  simp only [zopz0zKzJ_u, BitVec.toNatInt, intfitsf]
+  rw [BitVec.add_comm]
+  apply decide_eq_decide.mpr
+  simp only [BitVec.toNat_add, BitVec.toNat_ofNat, Int.ofNat_eq_natCast, Int.ofNat_le]
+
+theorem fits_ltu (x : BitVec 64) :
+    zopz0zI_u 0x40000000000000#64 (x + 0x20000000000000#64) = !intfitsf x := by
+  simp only [zopz0zI_u, BitVec.toNatInt, intfitsf]
+  rw [BitVec.add_comm, ← decide_not]
+  apply decide_eq_decide.mpr
+  simp only [BitVec.toNat_add, BitVec.toNat_ofNat, Int.ofNat_eq_natCast, Int.ofNat_lt]
+  omega
+
 open Lean Elab Tactic Meta in
 /-- **`at_tags`**: a tag guard from the views' tag facts (whatever their
 names): the operands' tags, a tag against a literal or another tag. -/
@@ -216,10 +240,10 @@ elab "at_tags" : tactic => withMainContext do
     if d.isImplementationDetail || d.userName.hasMacroScopes then continue
     let t ← instantiateMVars d.type
     unless ← Meta.isProp t do continue
-    unless (t.find? fun e => e.isConstOf ``slotTag).isSome do continue
+    unless (t.find? fun e => e.isConstOf ``slotTag || e.isConstOf ``intfitsf).isSome do continue
     if (t.find? fun e => e.isConstOf ``Vsa.Sim.SegSt).isSome then continue
     facts := facts.push (← `(Lean.Parser.Tactic.simpLemma| $(mkIdent d.userName):term))
-  evalTactic (← `(tactic| simp only [Loc.den, Fld.den, Nat.add_zero, zext_byte_beq, bne,
+  evalTactic (← `(tactic| simp only [Loc.den, Fld.den, Nat.add_zero, zext_byte_beq, bne, fits_geu, fits_ltu,
       zext_beq_lit _ 19 (by decide), zext_beq_lit _ vNumInt (by decide), vNumFlt, true_and, and_true,
       decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true', Bool.not_eq_false', $facts,*]))
   unless (← getUnsolvedGoals).isEmpty do evalTactic (← `(tactic| decide))
@@ -311,14 +335,20 @@ elab "at_step1 " ns:ident h:ident acc:ident : tactic => withMainContext do
       return
   throwError "at_step1: nothing applies at 0x{hex8 pc}"
 
+/-- `have h : True` unless a hypothesis `h` exists (the float closers name
+`hnj`: `docondjump`'s jump target where `kit_nj` gave it). -/
+elab "at_ensure " h:ident : tactic => withMainContext do
+  if ((← getLCtx).findFromUserName? h.getId).isNone then
+    evalTactic (← `(tactic| have $h : True := trivial))
+
 set_option hygiene false in
 /-- **`at_walk NS`**: after the arm's setup, the run from the entry to the
 fetch head (or an error exit) in every machine path, split at the forks. -/
 macro "at_walk " ns:ident : tactic => `(tactic| (
   have hX : Cx.Ok ⟨p, c, s, w, ins⟩ := ⟨hc, hf⟩
   have h0 : At ⟨p, c, s, w, ins⟩ _ (headRow ⟨p, c, s, w, ins⟩) [] c := h0
-  have e : True := trivial  -- the float closers' kernel facts: none here (no kernel split)
-  have hnj : True := trivial
+  have e : True := trivial  -- the float closers' kernel fact: none here (no kernel split)
+  at_ensure hnj
   try simp only [stackValueSize] at *
   repeat' at_step1 $ns h0 acc))
 
@@ -358,6 +388,7 @@ elab "at_atoms" : tactic => withMainContext do
   let hids := hs.map mkIdent
   evalTactic (← `(tactic| simp (disch := assumption) only [Loc.den, Fld.den, Nat.add_zero, at_fspec,
       Lua.Vm.Fn.Gedf2.S, Lua.Vm.Fn.Ledf2.S, Lua.Vm.Fn.Eqdf2.S, Lua.Vm.Fn.Adddf3.S, F64.eq,
+      Lua.Vm.Fn.Floatdidf.S, toModel_ofInt, ofI, Value.isFalse,
       F64.compare_eq_model, toModel_add, toModel_toBits, toModel_zero, model_lt_cmp, model_le_cmp,
       model_beq_cmp, sgnBound, true_and, and_true, Bool.not_eq_true, $ms,*] at $hids*))
   if (← getUnsolvedGoals).isEmpty then return
@@ -387,8 +418,23 @@ elab "at_atoms" : tactic => withMainContext do
       let sa ← Term.exprToSyntax a
       let sb ← Term.exprToSyntax b
       evalTactic (← `(tactic| generalize Float.Model.compare $sa $sb = $o:ident at $hids*))
+    -- the Boolean atoms both sides read as they are (`docondjump`'s `k`)
+    let mut bs : Array Ident := #[]
+    for _ in [0:4] do
+      let some kt ← withMainContext do
+          for nm in hs do
+            let some d := (← getLCtx).findFromUserName? nm | continue
+            if let some e := (← instantiateMVars d.type).find? (·.isAppOfArity ``Word.k 1) then
+              return some e
+          return none
+        | break
+      let b := mkIdent (← mkFreshUserName `b)
+      bs := bs.push b
+      let sk ← Term.exprToSyntax kt
+      evalTactic (← `(tactic| generalize $sk:term = $b:ident at $hids*))
     evalTactic (← `(tactic| revert $hids*))
     evalTactic (← `(tactic| revert $os*))
+    unless bs.isEmpty do evalTactic (← `(tactic| revert $bs*))
     evalTactic (← `(tactic| decide))
 
 set_option hygiene false in

@@ -271,7 +271,7 @@ HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
 FLOAT_CALLS = {fn for fn, _, _ in FLOAT_HELPERS}
 FLOAT_UNARY = {"__floatsidf", "__floatdidf", "__fixdfdi", "__clzdi2"}
 FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP",
-              "OP_SUB", "OP_FORPREP"}  # round 5 (A-JOIN): SUB's, FORPREP's float paths
+              "OP_SUB", "OP_FORPREP", "OP_LT"}  # round 5 (A-JOIN): SUB's, FORPREP's, LT's float paths
 SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
