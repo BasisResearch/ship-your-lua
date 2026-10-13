@@ -1447,13 +1447,11 @@ theorem printCall_room (O : CallOpen) :
             (by simp only [stateHookmaskOff]; omega) (by simp only [stateHookmaskOff]; omega)
             (by simp only [stateHookmaskOff]; omega)]
           exact bytesT4_of_rd32 hlua.hookmask)
-      hgw hfra
+      hgw hfra hPS.cells.impure
       (fun a ha => by
         rcases ha with ha | ha | ha
-        · exact (hI.L_in a (by simp only [Rng, stateNciOff] at ha; omega)
-            (by simp only [Rng, stateNciOff, stateSize] at ha ⊢; omega)).inuse
-        · exact (hI.ci_in a (by simp only [Rng, ciNextOff] at ha; omega)
-            (by simp only [Rng, ciNextOff, ciSize] at ha ⊢; omega)).inuse
+        · exact (hI.L_in a ha.1 ha.2).inuse
+        · exact (hI.ci_in a ha.1 ha.2).inuse
         · exact (hI.g_in a (by simp only [Rng, gGCdebtOff] at ha; omega)
             (by simp only [Rng, gGCdebtOff, gEnd, gStrcacheOff, strcacheN, strcacheM] at ha ⊢; omega)).inuse)
       (by have : heapEnd = 0x87800000 := rfl; omega) (by omega) (by omega)

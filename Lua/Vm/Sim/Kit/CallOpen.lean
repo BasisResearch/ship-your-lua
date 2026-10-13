@@ -137,8 +137,9 @@ structure ExtPost (M m' : Mem) (sp L ci g : Nat) (H H' : HeapIx) (nci : Nat) : P
 /-- **Named premise: `luaE_extendCI(L)`** (`0x80016a5c`, from `next_ci` with
 `ci->next` NULL): from the heap with room for one `_malloc_r`, `L->ci = ci`,
 its `next` NULL, no hook, `G(L) = g` with `g->frealloc` main.c's `l_alloc`
-(`luaM_malloc_` calls it through a `jalr`), and the words it writes outside the
-new block (`L->nci`, `ci->next`, `g->GCdebt`) in chunks in use: `PcExt` with
+(`luaM_malloc_` calls it through a `jalr`), `_impure_ptr` (`realloc`'s
+`_REENT`), and the `lua_State`, the `CallInfo` and `g->GCdebt` (read or
+written after the allocation) in chunks in use: `PcExt` with
 `ExtPost`. Open: its at-lemmas and `luaM_malloc_` → `l_alloc` → `realloc` →
 `_realloc_r(NULL)` → `_malloc_r` (`MallocR_Statement`). Lane F1-14: the earlier
 form did not constrain `g->frealloc` and claimed `g->GCdebt` kept, so it
@@ -149,7 +150,8 @@ def ExtendCI_Statement : Prop :=
     bytesT8 M (L + stateCiOff) = BitVec.ofNat 64 ci → bytesT8 M (ci + ciNextOff) = 0#64 →
     bytesT4 M (L + stateHookmaskOff) = 0#32 →
     bytesT8 M (L + stateGOff) = BitVec.ofNat 64 g → bytesT8 M g = BitVec.ofNat 64 symLAlloc →
-    (∀ a, Rng (L + stateNciOff) 2 a ∨ Rng (ci + ciNextOff) 8 a ∨ Rng (g + gGCdebtOff) 8 a → InUse H.chunks a) →
+    bytesT8 M symImpurePtr = BitVec.ofNat 64 symImpureData →
+    (∀ a, Rng L stateSize a ∨ Rng ci ciSize a ∨ Rng (g + gGCdebtOff) 8 a → InUse H.chunks a) →
     heapEnd + 8192 ≤ sp - 96 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
     PcExt sp L f M o (fun nci m' => ∃ H', ExtPost M m' sp L ci g H H' nci)
 
