@@ -102,14 +102,48 @@ def FflushStdout_Statement : Prop :=
 /-- The bytes of `toString i` (`%lld`), one per character. -/
 def intBytes (i : BitVec 64) : List (BitVec 8) := (toString i.toInt).toList.map fun ch => BitVec.ofNat 8 ch.toNat
 
+/-- The static words `snprintf(…, "%lld", …)` reads (lane F1-FMT): `_impure_ptr`,
+the C locale's `decimal_point` (`"."`), its `mbtowc` hook (`__ascii_mbtowc`)
+and `__mb_cur_max`, and `_svfprintf_r`'s conversion-switch words for `'l'`
+and `'d'` (`.rodata`). -/
+structure FmtStatic (m : Mem) : Prop where
+  impure : bytesT8 m 0x8005d398 = 0x8005d1b8#64
+  decpt : bytesT8 m 0x8005d0f0 = 0x8004fb10#64
+  dotw : bytesT8 m 0x8004fb10 = 0x2e#64
+  dot0 : bytesT1 m 0x8004fb10 = 0x2e#8
+  dot1 : bytesT1 m 0x8004fb11 = 0#8
+  mbtowc : bytesT8 m 0x8005d0d8 = 0x8003cd58#64
+  mbmax : bytesT1 m 0x8005d150 = 0x1#8
+  jt_l : bytesT4 m 0x800555f4 = 0xfffee88c#32
+  jt_d : bytesT4 m 0x800555d4 = 0xfffee360#32
+
+/-- **`lua_integer2str`'s call** (`snprintf(buf, 44, "%lld", i)` from
+`tostringbuff`): the format `"%lld"` in `.rodata`, the stack, the buffer
+(`MAXNUMBER2STR` bytes, in the caller's frame above `sp` or well below it),
+the static words. -/
+structure IntFmtIn (m : Mem) (sp buf fmt : Nat) (r : BitVec 64) : Prop where
+  fmt : bytesAt m fmt 5 = [0x25#8, 0x6c#8, 0x6c#8, 0x64#8, 0#8]
+  f_lo : 0x80000000 ≤ fmt
+  f_hi : fmt + 5 ≤ 0x8005c6c0
+  ra : r.toNat % 4 = 0
+  sp_lo : 0x8005e720 + 8192 ≤ sp
+  sp_hi : sp ≤ 2 ^ 32
+  sp_al : sp % 16 = 0
+  b_lo : 0x8005c6d0 ≤ buf
+  b_ap : buf + 44 + 4096 ≤ sp ∨ sp ≤ buf
+  b_hi : buf + 44 ≤ 2 ^ 32
+  stat : FmtStatic m
+
 /-- **`lua_integer2str`**: `snprintf(buf, 44, fmt, i)` with `fmt` the
 `"%lld"` (`LUA_INTEGER_FMT`), `snprintf` at `0x80034de0`, writes the decimal
 digits of `i` and a `'\0'` at `buf` and returns their count (the bytes
-`luaL_tolstring` prints for an integer: `Value.show (.int i) = toString i.toInt`). -/
+`luaL_tolstring` prints for an integer: `Value.show (.int i) = toString i.toInt`).
+Lane F1-FMT restated it: the buffer is `tostringbuff`'s caller's (above `sp`,
+which the earlier `buf + 44 + 4096 ≤ sp` excluded), and the static words
+the routine reads are premises (`IntFmtIn`). -/
 def IntegerToStr_Statement : Prop :=
   ∀ (sp buf fmt : Nat) (i r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String),
-    bytesAt m fmt 5 = [0x25#8, 0x6c#8, 0x6c#8, 0x64#8, 0#8] →
-    r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → 0x80000000 ≤ buf → buf + 44 + 4096 ≤ sp →
+    IntFmtIn m sp buf fmt r →
     Triple (SegSt 0x80034de0#64 (callPre [⟨Register.x10, BitVec.ofNat 64 buf⟩, ⟨Register.x11, BitVec.ofNat 64 44⟩,
         ⟨Register.x12, BitVec.ofNat 64 fmt⟩, ⟨Register.x13, i⟩] sp r f) (ArmPay m o))
       (fun c => ∃ m', wrRet r sp (intBytes i).length f m' o c ∧
