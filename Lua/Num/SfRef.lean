@@ -63,11 +63,13 @@ def normPack (neg : Bool) (E S : Nat) : F64 :=
   let z := 55 - S.log2
   if z < E then roundPack neg (E - z) (S * 2 ^ z) else roundPack neg 0 (S * 2 ^ (E - 1))
 
-/-- Different signs, `|A| > |B|`: `A − rto B k`, renormalised when the
+/-- A difference `0 < S < 2^56` at `E`: round it, or renormalise it when the
 hidden bit cancelled. -/
-def subMag (neg : Bool) (E A B k : Nat) : F64 :=
-  let S := A - rto B k
+def subPack (neg : Bool) (E S : Nat) : F64 :=
   if 2 ^ 55 ≤ S then roundPack neg E S else normPack neg E S
+
+/-- Different signs, `|A| > |B|`: `A − rto B k`. -/
+def subMag (neg : Bool) (E A B k : Nat) : F64 := subPack neg E (A - rto B k)
 
 /-- `__adddf3` as soft-fp's `_FP_ADD_INTERNAL` (semiraw) computes it, over the
 operands' fields. NaN results are the canonical `qnan` (RISC-V
@@ -127,6 +129,10 @@ theorem roundPack_fin {neg : Bool} {E F : Nat} (h : (E - 1) * 2 ^ 52 + rne3 F / 
 theorem roundPack_inf {neg : Bool} {E F : Nat} (h : 2047 * 2 ^ 52 ≤ (E - 1) * 2 ^ 52 + rne3 F / 8) :
     roundPack neg E F = infty neg := by
   simp only [roundPack]; rw [ite_eq_left h]
+theorem np_congr {n : Bool} {E E' S S' : Nat} (h1 : E = E') (h2 : S = S') :
+    normPack n E S = normPack n E' S' := by rw [h1, h2]
+theorem sp_congr {n : Bool} {E E' S S' : Nat} (h1 : E = E') (h2 : S = S') :
+    subPack n E S = subPack n E' S' := by rw [h1, h2]
 theorem cp_congr {n : Bool} {E E' S S' : Nat} (h1 : E = E') (h2 : S = S') :
     carryPack n E S = carryPack n E' S' := by rw [h1, h2]
 

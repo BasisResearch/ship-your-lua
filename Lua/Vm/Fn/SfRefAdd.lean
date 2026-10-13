@@ -343,4 +343,17 @@ theorem g_d820 (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hs1 : 48 ≤ s
   · rw [g_d854 _ _ _ (by omega) (by omega) hE1 hS hN.2, if_neg (by omega),
       SfRef.rto_mul_pow _ _ _ (by omega), show 55 - f.log2 - (55 - f.log2 - E + 1) = E - 1 by omega]
 
+open Lua.Num in
+/-- The difference stage (`0x8002db28`): the machine's `f` is `S - 2^55` modulo
+`2^64` (the hidden bit kept out); bit 55 set is the cancellation, renormalised
+by `0x8002d820`; else `_FP_ROUND` (`0x8002db30`). -/
+theorem g_db28 (m : Mem) (s : Nat) (r : BitVec 64) {f E Sg : Nat} (S : Nat) (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32)
+    (hS0 : 0 < S) (hS : S < 2 ^ 56) (hS8 : S % 8 = 0 ∨ S + 8 < 2 ^ 56) (hf : f < 2 ^ 64)
+    (hfS : (f + 2 ^ 55) % 2 ^ 64 = S)
+    (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hSg : Sg < 2) :
+    N_8002db28 m s r (BitVec.ofNat 64 f) (BitVec.ofNat 64 E) (BitVec.ofNat 64 Sg) = SfRef.subPack (Sg = 1) E S := by
+  sf_go [N_8002d820, N_8002d92c]
+  all_goals (try simp (disch := omega) only [g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
 end Lua.Vm.Fn.Adddf3
