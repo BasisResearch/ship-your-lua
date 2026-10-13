@@ -149,7 +149,7 @@ open Lean Elab Tactic Meta in
 /-- Unfold the node at the head of the goal's left side, unless it is a leaf
 (a pack) or one of the cut nodes `cuts` (a stage with its own lemma). -/
 elab "unfold_node" "[" cuts:ident,* "]" : tactic => do
-  let g ← getMainTarget
+  let g := (← instantiateMVars (← getMainTarget)).consumeMData
   let some (_, lhs, _) := g.eq? | throwError "unfold_node: not an equation"
   let .const n _ := lhs.getAppFn | throwError "unfold_node: the left side's head is not a constant"
   for c in cuts.getElems do
@@ -173,12 +173,34 @@ theorem nf_add (a b : Nat) : BitVec.ofNat 64 a + BitVec.ofNat 64 b = BitVec.ofNa
   apply BitVec.eq_of_toNat_eq; simp
 theorem nf_wrap {a : Nat} (h : 2 ^ 64 ≤ a) : BitVec.ofNat 64 a = BitVec.ofNat 64 (a - 2 ^ 64) := by
   apply BitVec.eq_of_toNat_eq; simp; omega
+theorem nf_mod_lit {a : Nat} (h : 2 ^ 64 ≤ a) : BitVec.ofNat 64 a = BitVec.ofNat 64 (a % 2 ^ 64) := by
+  apply BitVec.eq_of_toNat_eq; simp
 theorem nf_sub {a b : Nat} (h : b ≤ a) (ha : a < 2 ^ 64) :
     BitVec.ofNat 64 a - BitVec.ofNat 64 b = BitVec.ofNat 64 (a - b) := by
   apply BitVec.eq_of_toNat_eq; simp; omega
 theorem nf_shr {a : Nat} (k : Nat) (h : a < 2 ^ 64) : BitVec.ofNat 64 a >>> k = BitVec.ofNat 64 (a / 2 ^ k) := by
   apply BitVec.eq_of_toNat_eq; simp [Nat.shiftRight_eq_div_pow]; rw [Nat.mod_eq_of_lt h]
   exact (Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) h)).symm
+theorem srl_var (x y : BitVec 64) :
+    shift_bits_right x (Sail.BitVec.extractLsb y 5 0) = x >>> (y.toNat % 64) := by
+  simp [shift_bits_right, Sail.BitVec.extractLsb, BitVec.ushiftRight_eq', BitVec.extractLsb, BitVec.extractLsb']
+theorem sll_var (x y : BitVec 64) :
+    shift_bits_left x (Sail.BitVec.extractLsb y 5 0) = x <<< (y.toNat % 64) := by
+  simp [shift_bits_left, Sail.BitVec.extractLsb, BitVec.shiftLeft_eq', BitVec.extractLsb, BitVec.extractLsb']
+theorem nf_toNat {n : Nat} (h : n < 2 ^ 64) : (BitVec.ofNat 64 n).toNat = n := by simp [Nat.mod_eq_of_lt h]
+/-- The sticky test of `_FP_FRAC_SRS`: `x << (64 - d) != 0` is "a dropped bit was set". -/
+theorem nf_sticky {Y d : Nat} (hd : d ≤ 64) :
+    zopz0zI_u (BitVec.ofNat 64 0) (BitVec.ofNat 64 (Y * 2 ^ (64 - d))) = decide (¬ Y % 2 ^ d = 0) := by
+  rw [ult_nat]
+  simp only [BitVec.toNat_ofNat, Nat.zero_mod, decide_eq_decide]
+  have e : (2 : Nat) ^ 64 = 2 ^ d * 2 ^ (64 - d) := by rw [← Nat.pow_add]; congr 1; omega
+  rw [e, Nat.mul_mod_mul_right]
+  have := Nat.two_pow_pos (64 - d)
+  constructor
+  · intro h h0; rw [h0] at h; simp at h
+  · intro h; exact Nat.mul_pos (Nat.pos_of_ne_zero h) this
+theorem nf_low52 (a : Nat) : BitVec.ofNat 64 (a * 4096) >>> 12 = BitVec.ofNat 64 (a % 2 ^ 52) := by
+  apply BitVec.eq_of_toNat_eq; simp [Nat.shiftRight_eq_div_pow]; omega
 theorem nf_shl (a k : Nat) : BitVec.ofNat 64 a <<< k = BitVec.ofNat 64 (a * 2 ^ k) := by
   apply BitVec.eq_of_toNat_eq; simp [Nat.shiftLeft_eq]
 theorem nf_and_mask (a n : Nat) (hn : n ≤ 64) :
@@ -230,8 +252,7 @@ theorem nf_bit55_ge (a : Nat) : zopz0zKzJ_s (BitVec.ofNat 64 (a * 2 ^ 8)) 0#64 =
 theorem nf_zext_bool (b : Bool) : zero_extend (m := 64) (bool_to_bit b) = BitVec.ofNat 64 (if b then 1 else 0) := by
   cases b <;> rfl
 theorem nf_sext32 {x : Nat} (h : x < 2 ^ 31) :
-    sign_extend (m := 64) (Sail.BitVec.extractLsb (BitVec.ofNat 64 x) 31 0) = BitVec.ofNat 64 x := by
-  rw [sext_eq]
+    BitVec.signExtend 64 (Sail.BitVec.extractLsb (BitVec.ofNat 64 x) 31 0) = BitVec.ofNat 64 x := by
   apply BitVec.eq_of_toInt_eq
   rw [toInt_ofNat_small (by omega), BitVec.toInt_signExtend_of_le (by decide)]
   simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_ofNat, Nat.shiftRight_zero, BitVec.toInt_eq_toNat_bmod,
@@ -239,9 +260,9 @@ theorem nf_sext32 {x : Nat} (h : x < 2 ^ 31) :
   have e1 : x % 2 ^ 64 % 2 ^ 32 = x := by omega
   rw [e1]; simp only [Int.bmod]; split <;> omega
 theorem nf_wsub {x y : Nat} (hy : y ≤ x) (hx : x < 2 ^ 31) :
-    sign_extend (m := 64) ((Sail.BitVec.extractLsb (BitVec.ofNat 64 x) 31 0) -
+    BitVec.signExtend 64 ((Sail.BitVec.extractLsb (BitVec.ofNat 64 x) 31 0) -
       (Sail.BitVec.extractLsb (BitVec.ofNat 64 y) 31 0)) = BitVec.ofNat 64 (x - y) := by
-  rw [wsub_ofNat x y hx (by omega)]
+  rw [← sext_eq, wsub_ofNat x y hx (by omega)]
   apply BitVec.eq_of_toInt_eq
   rw [toInt_ofInt_small (by omega) (by omega), toInt_ofNat_small (by omega)]; omega
 theorem nf_ofInt_nat (x : Nat) : BitVec.ofInt 64 (x : Int) = BitVec.ofNat 64 x := by
@@ -259,18 +280,104 @@ theorem nf_ult_neg {x c : Nat} (hc : 2 ^ 63 ≤ c) (hc2 : c < 2 ^ 64) (hx : x < 
 theorem nf_ofInt_zero : BitVec.ofInt 64 0 = 0#64 := by decide
 theorem nf_lit (n : Nat) : (BitVec.ofNat 64 n : BitVec 64) = BitVec.ofNat 64 n := rfl
 
+/-- Clearing bit `j` of a `w`-bit word (soft-fp's `&= ~IMPLBIT`). -/
+theorem land_clear (x j w : Nat) (hj : j < w) (hx : x < 2 ^ w) :
+    x &&& (2 ^ (j + 1) * (2 ^ (w - (j + 1)) - 1) + (2 ^ j - 1)) = 2 ^ (j + 1) * (x / 2 ^ (j + 1)) + x % 2 ^ j := by
+  have hb1 : 2 ^ j - 1 < 2 ^ (j + 1) := by
+    have := Nat.pow_lt_pow_right (a := 2) (by decide) (Nat.lt_succ_self j); omega
+  have hb2 : x % 2 ^ j < 2 ^ (j + 1) := Nat.lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos j))
+    (Nat.pow_le_pow_right (by decide) (Nat.le_succ j))
+  apply Nat.eq_of_testBit_eq; intro i
+  rw [Nat.testBit_and, Nat.testBit_two_pow_mul_add _ hb1, Nat.testBit_two_pow_mul_add _ hb2]
+  by_cases hi : i < j + 1
+  · simp only [hi, ite_true, Nat.testBit_two_pow_sub_one, Nat.testBit_mod_two_pow]
+    by_cases hij : i < j <;> simp [hij]
+  · simp only [hi, ite_false, Nat.testBit_two_pow_sub_one, Nat.testBit_div_two_pow]
+    rw [Nat.sub_add_cancel (by omega)]
+    by_cases hw : i < w
+    · simp [show i - (j + 1) < w - (j + 1) by omega]
+    · have : x.testBit i = false := Nat.testBit_lt_two_pow (Nat.lt_of_lt_of_le hx (Nat.pow_le_pow_right (by decide) (by omega)))
+      simp [this]
+
+theorem nf_clr55 (x : Nat) (hx : x < 2 ^ 64) :
+    BitVec.ofNat 64 x &&& 18410715276690587647#64 = BitVec.ofNat 64 (2 ^ 56 * (x / 2 ^ 56) + x % 2 ^ 55) := by
+  have := land_clear x 55 64 (by decide) hx
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hx]
+  rw [show (18410715276690587647 : Nat) % 2 ^ 64 = 2 ^ (55 + 1) * (2 ^ (64 - (55 + 1)) - 1) + (2 ^ 55 - 1) by decide,
+    this]
+  omega
+theorem nf_clr54 (x : Nat) (hx : x < 2 ^ 63) :
+    BitVec.ofNat 64 x &&& 9205357638345293823#64 = BitVec.ofNat 64 (2 ^ 55 * (x / 2 ^ 55) + x % 2 ^ 54) := by
+  have := land_clear x 54 63 (by decide) hx
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (Nat.lt_trans hx (by decide) : x < 2 ^ 64)]
+  rw [show (9205357638345293823 : Nat) % 2 ^ 64 = 2 ^ (54 + 1) * (2 ^ (63 - (54 + 1)) - 1) + (2 ^ 54 - 1) by decide,
+    this]
+  omega
+theorem nf_and1 (a : Nat) : BitVec.ofNat 64 a &&& 1#64 = BitVec.ofNat 64 (a % 2) := nf_and_mask a 1 (by decide)
+theorem lor_low (a b : Nat) (hb : b < 2) : a ||| b = if b = 0 then a else 2 * (a / 2) + 1 := by
+  split
+  · subst_vars; simp
+  · have hb1 : b = 1 := by omega
+    subst hb1
+    have e : a = (a / 2) * 2 ^ 1 + a % 2 := by omega
+    rcases Nat.mod_two_eq_zero_or_one a with h | h
+    · rw [e, h, Nat.add_zero, or_add _ _ _ (by decide)]; omega
+    · have : a ||| 1 = a := by
+        apply Nat.eq_of_testBit_eq; intro i
+        rw [Nat.testBit_or]
+        rcases i with _ | i
+        · simp [Nat.testBit_zero, h]
+        · simp [Nat.testBit_succ]
+      rw [this]; omega
+theorem nf_or_low (a b : Nat) (ha : a < 2 ^ 64) :
+    BitVec.ofNat 64 a ||| BitVec.ofNat 64 (b % 2) = BitVec.ofNat 64 (if b % 2 = 0 then a else 2 * (a / 2) + 1) := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_or, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha,
+    Nat.mod_eq_of_lt (Nat.lt_trans (Nat.mod_lt b (by decide)) (by decide) : b % 2 < 2 ^ 64)]
+  rw [lor_low a (b % 2) (Nat.mod_lt _ (by decide))]
+  split <;> omega
+
+/-- `_FP_FRAC_SRS`: the shifted word or-ed with the sticky bit is round to odd. -/
+theorem nf_srs {Y d : Nat} {inst : Decidable (¬ Y % 2 ^ d = 0)} (hY0 : Y < 2 ^ 64) :
+    BitVec.ofNat 64 (Y / 2 ^ d) ||| BitVec.ofNat 64 (@ite _ (¬ Y % 2 ^ d = 0) inst 1 0) =
+      BitVec.ofNat 64 (Lua.Num.SfRef.rto Y d) := by
+  have hY : Y / 2 ^ d < 2 ^ 64 := Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hY0
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_or, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hY]
+  by_cases h : Y % 2 ^ d = 0
+  · rw [Lua.Num.SfRef.rto_exact h, if_neg (by simp [h])]
+    simp only [Nat.zero_mod, Nat.or_zero]; exact (Nat.mod_eq_of_lt hY).symm
+  · rw [Lua.Num.SfRef.rto_jam h, if_pos h, show (1 : Nat) % 2 ^ 64 = 1 by decide,
+      lor_low _ 1 (by decide), if_neg (by decide), Nat.pow_succ, ← Nat.div_div_eq_div_mul]
+    omega
+theorem nf_or55 {a : Nat} (h : a < 2 ^ 55) :
+    BitVec.ofNat 64 a ||| 36028797018963968#64 = BitVec.ofNat 64 (2 ^ 55 + a) := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_or, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (by omega : a < 2 ^ 64), show (36028797018963968 : Nat) % 2 ^ 64 = 1 * 2 ^ 55 by decide,
+    add_or _ _ _ h]
+  omega
 /-- The normal form of the goal: literals, then the operations on `ofNat`
 (side conditions by `omega`), then the `Bool` guards to `Prop`. -/
+macro "sf_nfB" : tactic => `(tactic| (
+  try simp (disch := omega) only [nf_add, nf_sub, nf_shr, nf_shl, nf_and7, nf_and15, nf_and2047, nf_and52, nf_and52',
+    nf_and55, nf_and2046, nf_beq, nf_bne, nf_ult, nf_sge, nf_slt, nf_bit55_lt, nf_bit55_ge, nf_sext32, nf_wsub,
+    nf_ofInt_sub, nf_ofInt_nat, Nat.mul_div_cancel, nf_add_neg, nf_ult_neg, nf_clr55, nf_clr54, nf_and1,
+    nf_or_low, nf_low52, nf_toNat, Nat.mod_eq_of_lt, nf_sticky, nf_srs, nf_or55, decide_eq_true_eq]
+  try simp only [Nat.reducePow, Nat.reduceMul, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, Nat.reduceDiv]))
+
 macro "sf_nf" : tactic => `(tactic| (
-  try simp only [sll_lit, srl_lit, sext_eq, BitVec.reduceSignExtend, BitVec.reduceToNat, BitVec.reduceAdd,
+  try simp only [sll_lit, srl_lit, srl_var, sll_var, sext_eq, BitVec.reduceSignExtend, BitVec.reduceToNat, BitVec.reduceAdd,
     BitVec.add_zero, BitVec.zero_add, nf_zext_bool, Bool.false_eq_true, ite_true, ite_false, nf_ofInt_zero,
     Int.sub_self]
   try simp only [BitVec.ofNat_eq_ofNat]
-  try simp (disch := omega) only [nf_add, nf_sub, nf_shr, nf_shl, nf_and7, nf_and15, nf_and2047, nf_and52, nf_and52',
-    nf_and55, nf_and2046, nf_beq, nf_bne, nf_ult, nf_sge, nf_slt, nf_bit55_lt, nf_bit55_ge, nf_sext32, nf_wsub,
-    nf_ofInt_sub, nf_ofInt_nat, Nat.mul_div_cancel, nf_add_neg, nf_ult_neg]
-  try simp only [Nat.reducePow, Nat.reduceMul, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, Nat.reduceDiv,
-    decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true', Bool.not_eq_true, Bool.not_eq_false',
+  try simp (disch := omega) only [nf_mod_lit]
+  try simp only [Nat.reduceMod, Nat.reducePow]
+  sf_nfB
+  sf_nfB
+  try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true', Bool.not_eq_true, Bool.not_eq_false',
     Bool.not_true, Bool.not_false, Bool.not_not, decide_true, decide_false, Bool.false_eq_true]
   try simp (disch := omega) only [if_pos, if_neg]
   try simp only [ite_true, ite_false, ↓reduceIte]))
@@ -282,7 +389,8 @@ macro "sf_step" "[" cuts:ident,* "]" : tactic => `(tactic| first
   | (split <;> (try (exfalso; omega))))
 
 /-- Explore the DAG under the chamber's facts down to its leaves. -/
-macro "sf_go" "[" cuts:ident,* "]" : tactic => `(tactic| (sf_nf; repeat' sf_step [$cuts,*]))
+macro "sf_go" "[" cuts:ident,* "]" : tactic => `(tactic| (
+  (try simp only [Nat.reducePow, Nat.reduceMul, Nat.reduceAdd] at *); sf_nf; repeat' sf_step [$cuts,*]))
 
 /-! ## Leaves -/
 
@@ -307,10 +415,11 @@ theorem bits_nf (neg : Bool) (be f : Nat) :
 `addAligned`/`subMag` unfolded, `rto` at the shifts the path fixed, the
 carry and the rounding by `omega`, `roundPack` to `bits`. -/
 macro "sf_ref" : tactic => `(tactic| (
-  try simp only [Lua.Num.SfRef.addAligned, Lua.Num.SfRef.subMag]
-  try simp (disch := omega) only [Lua.Num.SfRef.rto_zero, Lua.Num.SfRef.rto_one_even, Lua.Num.SfRef.rto_one_odd]
-  try simp (disch := omega) only [if_pos, if_neg]
-  try simp (disch := omega) only [Lua.Num.SfRef.rto_zero, Lua.Num.SfRef.rto_one_even, Lua.Num.SfRef.rto_one_odd]
+  try simp only [Lua.Num.SfRef.addAligned, Lua.Num.SfRef.subMag, Lua.Num.SfRef.carryPack]
+  try simp only [Lua.Num.SfRef.rto_zero, Lua.Num.SfRef.rto_one]))
+
+/-- The reference's `roundPack` at a leaf whose path fixed the rounding. -/
+macro "sf_ref2" : tactic => `(tactic| (
   try simp (disch := omega) only [Lua.Num.SfRef.roundPack_keep, Lua.Num.SfRef.roundPack_up,
     Lua.Num.SfRef.roundPack_inf_keep, Lua.Num.SfRef.roundPack_inf_up, Lua.Num.SfRef.roundPack_inf_any]
   try simp only [bits_nf, Lua.Num.F64.infty, Lua.Num.F64.zero, Lua.Num.F64.qnan]))
@@ -322,9 +431,11 @@ theorem rp_congr {n : Bool} {E E' F F' : Nat} (h1 : E = E') (h2 : F = F') :
 as `ofNat`, or both as `roundPack` (a cut stage's lemma already applied). -/
 macro "sf_close" "[" packs:ident,* "]" : tactic => `(tactic| (
   try simp (disch := omega) only [$[$packs:ident],*]
-  sf_ref
+  all_goals sf_ref
+  all_goals (repeat' split) <;> (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true,
+    not_true_eq_false] at *) <;> (try (exfalso; omega)) <;> sf_ref2 <;>
   (repeat' split) <;> (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true,
     not_true_eq_false] at *) <;>
-    (first | (exfalso; omega) | (refine congrArg (BitVec.ofNat 64) ?_; omega) | (apply rp_congr <;> omega))))
+    (first | (exfalso; omega) | (refine congrArg (BitVec.ofNat 64) ?_; omega) | (apply rp_congr <;> omega) | (apply Lua.Num.SfRef.cp_congr <;> omega))))
 
 end Lua.Vm.Fn.SfLens

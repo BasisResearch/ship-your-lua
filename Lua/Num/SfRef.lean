@@ -47,11 +47,14 @@ def roundPack (neg : Bool) (E F : Nat) : F64 :=
 /-- The semiraw mantissa of fields `(e, f)`, three work bits. -/
 def mant (e f : Nat) : Nat := if e = 0 then 8 * f else 2 ^ 55 + 8 * f
 
-/-- Same signs: `A` at `E` plus `B` aligned by a sticky shift of `k`
-(`_FP_FRAC_SRS`), then the carry renormalisation (`_FP_FRAC_SRS (R, 1)`). -/
-def addAligned (neg : Bool) (E A B k : Nat) : F64 :=
-  let S := A + rto B k
+/-- The carry renormalisation of a sum `S < 2^57` (`_FP_FRAC_SRS (R, 1)`
+when bit 56 is set), then `roundPack`. -/
+def carryPack (neg : Bool) (E S : Nat) : F64 :=
   if 2 ^ 56 ≤ S then roundPack neg (E + 1) (rto S 1) else roundPack neg E S
+
+/-- Same signs: `A` at `E` plus `B` aligned by a sticky shift of `k`
+(`_FP_FRAC_SRS`), then the carry renormalisation. -/
+def addAligned (neg : Bool) (E A B k : Nat) : F64 := carryPack neg E (A + rto B k)
 
 /-- Different signs, `|A| > |B|`: `A − rto B k`, renormalised by the count
 of leading zeros (`__FP_CLZ`, `_FP_FRAC_SLL`); below the least normal
@@ -109,6 +112,10 @@ theorem rto_jam {n k : Nat} (h : n % 2 ^ k ≠ 0) : rto n k = 2 * (n / 2 ^ (k + 
 theorem rto_one_even {n : Nat} (h : n % 2 = 0) : rto n 1 = n / 2 := by simp [rto, h]
 theorem rto_one_odd {n : Nat} (h : n % 2 = 1) : rto n 1 = 2 * (n / 4) + 1 := by
   simp [rto]; omega
+theorem rto_one (n : Nat) : rto n 1 = if n % 2 = 0 then n / 2 else 2 * (n / 4) + 1 := by
+  rcases Nat.mod_two_eq_zero_or_one n with h | h
+  · rw [rto_one_even h, if_pos h]
+  · rw [rto_one_odd h, if_neg (by omega)]
 theorem rne3_keep {f : Nat} (h : f % 8 = 0 ∨ f % 16 = 4) : rne3 f = f := by simp [rne3, h]
 theorem rne3_up {f : Nat} (h1 : f % 8 ≠ 0) (h2 : f % 16 ≠ 4) : rne3 f = f + 4 := by simp [rne3, h1, h2]
 theorem roundPack_fin {neg : Bool} {E F : Nat} (h : (E - 1) * 2 ^ 52 + rne3 F / 8 < 2047 * 2 ^ 52) :
@@ -117,12 +124,8 @@ theorem roundPack_fin {neg : Bool} {E F : Nat} (h : (E - 1) * 2 ^ 52 + rne3 F / 
 theorem roundPack_inf {neg : Bool} {E F : Nat} (h : 2047 * 2 ^ 52 ≤ (E - 1) * 2 ^ 52 + rne3 F / 8) :
     roundPack neg E F = infty neg := by
   simp only [roundPack]; rw [ite_eq_left h]
-theorem addAligned_carry {neg : Bool} {E A B k : Nat} (h : 2 ^ 56 ≤ A + rto B k) :
-    addAligned neg E A B k = roundPack neg (E + 1) (rto (A + rto B k) 1) := by
-  simp only [addAligned]; rw [ite_eq_left h]
-theorem addAligned_nocarry {neg : Bool} {E A B k : Nat} (h : A + rto B k < 2 ^ 56) :
-    addAligned neg E A B k = roundPack neg E (A + rto B k) := by
-  simp only [addAligned]; rw [ite_eq_right (by omega)]
+theorem cp_congr {n : Bool} {E E' S S' : Nat} (h1 : E = E') (h2 : S = S') :
+    carryPack n E S = carryPack n E' S' := by rw [h1, h2]
 
 theorem roundPack_keep {neg : Bool} {E F : Nat} (h0 : F % 8 = 0 ∨ F % 16 = 4)
     (h : (E - 1) * 2 ^ 52 + F / 8 < 2047 * 2 ^ 52) :
@@ -144,6 +147,26 @@ theorem roundPack_inf_any {neg : Bool} {E F : Nat} (h : 2047 * 2 ^ 52 ≤ (E - 1
   apply roundPack_inf
   have : F ≤ rne3 F := by unfold rne3; split <;> omega
   have := Nat.div_le_div_right (c := 8) this
+  omega
+
+theorem rto_big {n k : Nat} (h0 : 0 < n) (h : n < 2 ^ k) : rto n k = 1 := by
+  have h1 : n / 2 ^ (k + 1) = 0 := Nat.div_eq_of_lt (Nat.lt_of_lt_of_le h (Nat.pow_le_pow_right (by decide) (by omega)))
+  unfold rto; rw [Nat.mod_eq_of_lt h, if_neg (by omega), h1]
+theorem rto_le (n k : Nat) : rto n k ≤ n / 2 ^ k + 1 := by
+  unfold rto; split
+  · omega
+  · have : 2 * (n / 2 ^ (k + 1)) ≤ n / 2 ^ k := by
+      rw [Nat.pow_succ, ← Nat.div_div_eq_div_mul]; omega
+    omega
+theorem rto_lt_of {n k m : Nat} (hk : 1 ≤ k) (h : n < 2 ^ (m + 1)) : rto n k < 2 ^ m + 1 := by
+  have h1 := rto_le n k
+  have h2 : n / 2 ^ k < 2 ^ m := by
+    rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos k)]
+    calc n < 2 ^ (m + 1) := h
+      _ = 2 ^ m * 2 := by rw [Nat.pow_succ]
+      _ ≤ 2 ^ m * 2 ^ k := Nat.mul_le_mul_left _ (by
+          calc 2 = 2 ^ 1 := rfl
+            _ ≤ 2 ^ k := Nat.pow_le_pow_right (by decide) hk)
   omega
 
 end Lua.Num.SfRef
