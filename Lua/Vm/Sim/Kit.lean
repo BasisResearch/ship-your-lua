@@ -57,6 +57,9 @@ import Lua.Vm.Sim.Kit.StdoutEmpty
 import Lua.Vm.Sim.Kit.PrintIO
 import Lua.Vm.Sim.Kit.LuaApi
 import Lua.Vm.Sim.Kit.PrintSum
+import Lua.Vm.Sim.Kit.Precall
+import Lua.Vm.Sim.Kit.CallArm
+import Lua.Vm.Sim.Kit.PrintS
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
