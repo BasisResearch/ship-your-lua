@@ -1,5 +1,6 @@
 import Lua.Vm.Fn.Ieee754Fmod
 import Lua.Num.Arith
+import Lua.Num.SfRefFmod
 
 /-!
 # `fmod` by evaluation (lane float-sf5)
@@ -74,5 +75,9 @@ def model (x y : F64) : F64 := (Lua.Num.fmod (F64.toModel x) (F64.toModel y)).to
 #eval (pairs.filter fun (x, y) => !Ieee754Fmod.T mRod sp ra x y).take 5
 -- the machine's `__ieee754_fmod` against the model's `Lua.Num.fmod`
 #eval (pairs.filter fun (x, y) => !agree (Ieee754Fmod.F mRod sp ra x y) (model x y)).take 5
+-- the machine against the reference `SfRef.fmod` (bit for bit)
+#eval (pairs.filter fun (x, y) => Ieee754Fmod.F mRod sp ra x y != SfRef.fmod x y).take 5
+-- the reference against the model (bit for bit: its NaN is the model's `qnan`)
+#eval (pairs.filter fun (x, y) => SfRef.fmod x y != model x y).take 5
 
 end Lua.Vm.Fn.FmodTest
