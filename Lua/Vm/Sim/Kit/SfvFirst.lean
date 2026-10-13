@@ -299,7 +299,7 @@ theorem sfvwrite_first (hM : MallocR_Statement) (sp U I src n top brk : Nat) (ch
     (hF : StdoutFresh m) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins) (hroom : brk + 1024 + 16384 ≤ heapEnd)
     (hio : SfvUio m U I src n) (hi : sp ≤ I) (hiu : I + 16 ≤ U) (huh : U + 24 ≤ sp + 2048)
     (hut : U + 24 ≤ 2 ^ 32) (hua : U % 8 = 0) (hia : I % 8 = 0) (hn : 1 ≤ n)
-    (hsl : errnoAddr + 4 ≤ src) (hsh : src + n + 3072 ≤ sp)
+    (hsl : SrcLo src n) (hsh : src + n + 3072 ≤ sp)
     (hsf : src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src)
     (hsrc : ∀ a, src ≤ a → a < src + n → ¬ FsGlobal a ∧ ¬ MallocW chunks a) :
     Triple (SegSt 0x80033b50#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,

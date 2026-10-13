@@ -66,7 +66,7 @@ structure SfvG.Ok (G : SfvG) : Prop where
   u_top : G.U + 24 ≤ 2 ^ 32
   u_al : G.U % 8 = 0
   i_al : G.I % 8 = 0
-  src_lo : errnoAddr + 4 ≤ G.src
+  src_lo : SrcLo G.src G.n
   src_hi : G.src + G.n + 3072 ≤ G.sp
   src_buf : G.src + G.n ≤ G.buf ∨ G.buf + 1024 ≤ G.src
   src_file : G.src + G.n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ G.src
@@ -77,7 +77,7 @@ macro "sfv_nums " hG:term : tactic => `(tactic| (
   have : errnoAddr = 0x8005d408 := rfl
   have := ($hG).ra; have := ($hG).sp_hi; have := ($hG).sp_al; have := ($hG).buf_lo; have := ($hG).buf_sp
   have := ($hG).i_ge; have := ($hG).i_u; have := ($hG).u_hi; have := ($hG).u_top; have := ($hG).u_al; have := ($hG).i_al
-  have := ($hG).src_lo; have := ($hG).src_hi; have := ($hG).src_buf; have := ($hG).src_file))
+  have := ($hG).src_lo.1; have := ($hG).src_lo.2; have := ($hG).src_hi; have := ($hG).src_buf; have := ($hG).src_file))
 
 /-- A root's context on the run: the atoms the generator fixed. -/
 structure SfvAt (G : SfvG) (X : FCx) : Prop where

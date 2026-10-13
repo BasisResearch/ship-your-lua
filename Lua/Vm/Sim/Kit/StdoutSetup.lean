@@ -232,7 +232,7 @@ def StdoutSetup_Statement : Prop :=
     StdioBoot (Vsa.Densify.fillZeroMem m) → MemfsBoot (Vsa.Densify.fillZeroMem m) →
     HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins →
     r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → heapEnd + 8192 ≤ sp → brk + 1024 + 16384 ≤ heapEnd →
-    1 ≤ n → errnoAddr + 4 ≤ src → src + n + 4096 ≤ sp → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
+    1 ≤ n → SrcLo src n → src + n + 4096 ≤ sp → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
     (∀ a, src ≤ a → a < src + n → ¬ FsGlobal a ∧ ¬ MallocW chunks a ∧ ¬ SinitW a) →
     Triple (SegSt 0x800342e4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 src⟩, ⟨Register.x11, BitVec.ofNat 64 1⟩,
         ⟨Register.x12, BitVec.ofNat 64 n⟩, ⟨Register.x13, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))

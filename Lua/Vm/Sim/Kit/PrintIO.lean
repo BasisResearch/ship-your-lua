@@ -134,7 +134,7 @@ theorem fwrite_print (hM : MallocR_Statement) (sp src n : Nat) (r : BitVec 64) (
     (o : Array String) (ph : StdoutPh) (H : HeapIx)
     (hin : StdoutIn m H ph) (hheap : HeapAt (fillZeroMem m) H.top H.brk H.chunks H.bins)
     (hra : r.toNat % 4 = 0) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0) (hlo : heapEnd + 8192 ≤ sp)
-    (hsl : errnoAddr + 4 ≤ src) (hsh : src + n + 4096 ≤ sp)
+    (hsl : SrcLo src n) (hsh : src + n + 4096 ≤ sp)
     (hsrc : ∀ a, src ≤ a → a < src + n → ¬ FsGlobal a ∧ ¬ MallocW H.chunks a ∧ ¬ SinitW a)
     (hsf : src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src)
     (hsb : ∀ buf pend, ph = .up buf pend → src + n ≤ buf ∨ buf + 1024 ≤ src) :

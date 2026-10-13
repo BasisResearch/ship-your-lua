@@ -50,7 +50,7 @@ def SfvwriteLbf_Statement : Prop :=
     r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → buf + 3584 ≤ sp →
     StdoutAt m buf pend → StdioUp m → SfvUio m U I src n →
     sp ≤ I → I + 16 ≤ U → U + 24 ≤ sp + 2048 → U + 24 ≤ 2 ^ 32 → U % 8 = 0 → I % 8 = 0 →
-    errnoAddr + 4 ≤ src → src + n + 3072 ≤ sp →
+    SrcLo src n → src + n + 3072 ≤ sp →
     (src + n ≤ buf ∨ buf + 1024 ≤ src) → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
     Triple (SegSt 0x80033b50#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
         ⟨Register.x11, BitVec.ofNat 64 stdoutFile⟩, ⟨Register.x12, BitVec.ofNat 64 U⟩] sp r f) (ArmPay m o))

@@ -211,7 +211,7 @@ theorem stdoutSetup_fresh (hM : MallocR_Statement) (sp src n top brk : Nat) (chu
     (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hF : StdoutFresh m) (hheap : HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins)
     (hra : r.toNat % 4 = 0) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0) (hlo : heapEnd + 8192 ≤ sp)
-    (hroom : brk + 1024 + 16384 ≤ heapEnd) (hn : 1 ≤ n) (hsl : errnoAddr + 4 ≤ src) (hsh : src + n + 4096 ≤ sp)
+    (hroom : brk + 1024 + 16384 ≤ heapEnd) (hn : 1 ≤ n) (hsl : SrcLo src n) (hsh : src + n + 4096 ≤ sp)
     (hsf : src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src)
     (hsrc : ∀ a, src ≤ a → a < src + n → ¬ FsGlobal a ∧ ¬ MallocW chunks a) :
     Triple (SegSt 0x800342e4#64 (fwPre src n sp r f) (ArmPay m o))

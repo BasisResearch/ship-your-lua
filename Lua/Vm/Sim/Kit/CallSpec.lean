@@ -69,6 +69,16 @@ structure StdoutKeepD (m m' : Mem) (sp buf d : Nat) : Prop where
   keep_lo : ∀ a, a + d ≤ sp → (a < stdoutFile ∨ stdoutFile + fileSize ≤ a) →
     (a < buf ∨ buf + 1024 ≤ a) → (a < errnoAddr ∨ errnoAddr + 4 ≤ a) → bytesT1 m' a = bytesT1 m a
 
+/-- **Where a written string may lie** (lane F1-11): in RAM, either below the
+HTIF mailbox and shorter than the buffer (`.rodata`'s `"\t"`, `"\n"`: copied
+into the buffer, never written by `__swrite` straight from where it lies,
+whose console loop reads above `tohost`), or above `errno` (the heap, the
+stack). -/
+def SrcLo (src n : Nat) : Prop := 0x80000000 ≤ src ∧ (src + n ≤ 0x8005c6c0 ∧ n < 1024 ∨ errnoAddr + 4 ≤ src)
+
+theorem SrcLo.of_hi {src n : Nat} (h : errnoAddr + 4 ≤ src) : SrcLo src n :=
+  ⟨by have : errnoAddr = 0x8005d408 := rfl; omega, .inr h⟩
+
 /-- A callee's entry pins: the arguments, `ra`, `sp`, `gp`, the caller's frame. -/
 abbrev callPre (args : List Pin) (sp : Nat) (r : BitVec 64) (f : AbiFrame) : List Pin :=
   args ++ ⟨Register.x1, r⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ ::
@@ -83,7 +93,7 @@ final `fflush` needs). The stack below `sp` is the callees' down to 4 KiB
 def FwriteStdout_Statement : Prop :=
   ∀ (sp buf src n : Nat) (pend : List (BitVec 8)) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String),
     StdioCtx sp buf r → StdoutAt m buf pend → StdioUp m → buf + 4096 ≤ sp →
-    errnoAddr + 4 ≤ src → src + n + 4096 ≤ sp →
+    SrcLo src n → src + n + 4096 ≤ sp →
     (src + n ≤ buf ∨ buf + 1024 ≤ src) → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
     Triple (SegSt 0x800342e4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 src⟩, ⟨Register.x11, BitVec.ofNat 64 1⟩,
         ⟨Register.x12, BitVec.ofNat 64 n⟩, ⟨Register.x13, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))
