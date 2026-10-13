@@ -57,21 +57,61 @@ theorem memPatch_patch_in {m M M' : Mem} {lo n lo' n' : Nat} (h1 : lo ≤ lo') (
     · rfl
     · exact getElem?_memPatch_out (by omega)
 
-/-- The saved `ra` read back through the prologue's stores and the framed
-callees' patches below them. -/
-macro "fn_ra_patch" : tactic => `(tactic| (
-  try simp (disch := kit_disch) only [bytesT8_memPatch_out, bytesT8_wm8_far]
-  first
-  | (rw [bytesT8_wm8_same (by kit_disch), sdData_id])
-  | assumption))
+open Lean Elab Tactic Meta in
+/-- `assumption` by syntactic equality (never a definitional unfolding of the
+memory's stores, nor of the reads' addresses). -/
+elab "fn_assumption" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  for d in ← getLCtx do
+    if d.isImplementationDetail then continue
+    if (← instantiateMVars d.type) == t then
+      closeMainGoal `fn_assumption (mkFVar d.fvarId)
+      return
+  throwError "fn_assumption: no hypothesis is the goal"
 
-/-- `.rodata` through the prologue's stores and the framed callees' patches
-(the stores stripped first: `assumption` against an unstripped memory would
-unfold the stores). -/
-macro "fn_rod_patch" : tactic => `(tactic| (
-  repeat (first
-    | (refine RodataRead.wm8 ?_ (by kit_disch))
-    | (refine RodataRead.patch ?_ (by kit_disch)))
-  assumption))
+open Lean Elab Tactic Meta in
+/-- The head of a `RodataRead`/`bytesT8` goal's memory: `0` a store, `1` a
+framed callee's patch, `2` anything else. -/
+def fnMemHead (t : Expr) : MetaM Nat := do
+  let t ← instantiateMVars t
+  let m? : Option Expr :=
+    if t.isAppOfArity ``Lua.Vm.Sim.RodataRead 1 then some t.appArg!
+    else match t.eq? with
+      | some (_, l, _) => if l.isAppOfArity ``Vsa.Sim.bytesT8 2 then some (l.getArg! 0) else none
+      | none => none
+  match m? with
+  | some m =>
+    if m.isAppOfArity ``Vsa.Sim.writeMap8 3 then return 0
+    if m.isAppOfArity ``Lua.Vm.Sim.memPatch 4 then return 1
+    return 2
+  | none => return 2
+
+open Lean Elab Tactic Meta in
+/-- `.rodata` through the stores and the framed callees' patches, stripped by
+their head symbols, then the hypothesis that states it. -/
+elab "fn_rod_patch" : tactic => withMainContext do
+  let mut go := true
+  while go do
+    match ← fnMemHead (← getMainTarget) with
+    | 0 => evalTactic (← `(tactic| refine Lua.Vm.Sim.RodataRead.wm8 ?_ (by kit_disch)))
+    | 1 => evalTactic (← `(tactic| refine Lua.Vm.Sim.RodataRead.patch ?_ (by kit_disch)))
+    | _ => go := false
+  evalTactic (← `(tactic| fn_assumption))
+
+open Lean Elab Tactic Meta in
+/-- A frame slot (the saved `ra`, a forwarded spill) read back through the
+stores and the framed callees' patches after it: the store that wrote it
+(`bytesT8_wm8_same`), or the hypothesis that states it. -/
+elab "fn_ra_patch" : tactic => withMainContext do
+  let mut go := true
+  while go do
+    if (← getUnsolvedGoals).isEmpty then return
+    match ← fnMemHead (← getMainTarget) with
+    | 0 => evalTactic (← `(tactic| simp (disch := kit_disch) only [Lua.Vm.Sim.bytesT8_wm8_same,
+        Lua.Vm.Sim.bytesT8_wm8_far, Lua.Vm.Sim.sdData_id]))
+    | 1 => evalTactic (← `(tactic| simp (disch := kit_disch) only [Lua.Vm.Sim.bytesT8_memPatch_out]))
+    | _ =>
+      evalTactic (← `(tactic| fn_assumption))
+      go := false
 
 end Lua.Vm.Sim

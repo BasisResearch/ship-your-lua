@@ -70,6 +70,17 @@ ROUTINES = {
 # a framed routine whose framed callees write below its own frame: the bytes
 # below `sp` its summary patches (its frame plus the deepest callee's)
 WINDOW = {"floor": 112}
+# lane float-sf3: the routines whose frame slots are forwarded (store-to-load
+# at generation time): a spill slot stored on every path into a node is a
+# parameter `vs<off>` of the node's lifted function, with the node lemma's
+# hypothesis `hs<off> : bytesT8 m <slot> = vs<off>` (the saved `ra`'s `hra`,
+# generalised); a reload is that parameter, so a lifted function after a call
+# reads no memory and takes none (`Fn.need_m`): level (b) never carries the
+# frame's stores (ROUND-5 §2, "the frame reloads")
+FORWARD = {"floor"}
+SLOT_RE = r"\(v2 \+ sign_extend \(m := 64\) \((0x[0-9a-f]+)#12\)\)\.toNat"
+LOAD_RE = r"bytesT8 \(m0\) " + SLOT_RE
+MEM_RE = r"\bm\b(?!\s*:=)"
 
 
 class Callee:
@@ -242,6 +253,72 @@ class Fn:
                     visit(s.succ)
             self.order.append(pc)
         visit(self.entry)
+        self.fwd = fn in FORWARD
+        # the saved `ra`'s slot (`hra`), never a forwarded slot
+        self.ra_off = re.findall(r"\((0x[0-9a-f]+)#12\)", self.ra)[-1] if self.ra else None
+        self.slots_in = {pc: [] for pc in self.order}
+        self.need_m = {pc: True for pc in self.order}
+        if self.fwd:
+            self.forward()
+
+    # ----------------------------------------------------------------------
+    def seg_stores(self, pc, s):
+        """The spill slots segment `s` of node `pc` stores: offset -> datum."""
+        if not self.fwd or not self.inside(pc) or s.sp_delta:
+            return {}
+        out = {}
+        if s.mem != "m0":
+            for a, d in wm8_chain(s.mem):
+                m = re.fullmatch(SLOT_RE, a)
+                if m and d != "sdData_val v1":
+                    out[m.group(1)] = d
+        return out
+
+    def seg_loads(self, pc, s):
+        """The spill slots segment `s` reads (in its post-state and guard)."""
+        if not self.fwd or not self.inside(pc):
+            return set()
+        text = " ".join(list(s.post.values()) + [s.mem] + ([s.guard[0]] if s.guard else []))
+        return set(re.findall(LOAD_RE, text)) - {self.ra_off}
+
+    def forward(self):
+        """The slots available at every node (stored on every path into it)
+        and live there (read by it or after it), and which lifted functions
+        read memory."""
+        preds = {pc: [] for pc in self.order}
+        for pc in self.order:
+            for s in self.nodes[pc]:
+                if s.kind != "ret":
+                    preds[s.succ].append((pc, s))
+        avail = {}
+        for pc in reversed(self.order):          # the entry first
+            if pc == self.entry:
+                avail[pc] = set()
+                continue
+            sets = [avail[p] | set(self.seg_stores(p, s)) for p, s in preds[pc]]
+            avail[pc] = set.intersection(*sets) if sets else set()
+        live = {}
+        for pc in self.order:                    # successors first
+            ls = set()
+            for s in self.nodes[pc]:
+                after = set() if s.kind == "ret" else live[s.succ] - set(self.seg_stores(pc, s))
+                ls |= self.seg_loads(pc, s) | after
+            live[pc] = ls
+        for pc in self.order:
+            self.slots_in[pc] = sorted(avail[pc] & live[pc])
+            for s in self.nodes[pc]:
+                bad = self.seg_loads(pc, s) - avail[pc]
+                if bad:
+                    raise SystemExit(f"{s.name}: reloads {sorted(bad)} not stored on every path")
+        # which value functions read memory (successors first); the entry keeps `m`
+        for pc in self.order:
+            need = pc == self.entry
+            for s in self.nodes[pc]:
+                if re.search(MEM_RE, self.body(pc, s)):
+                    need = True
+                if s.guard and re.search(MEM_RE, self.subst(pc, s.guard[0])):
+                    need = True
+            self.need_m[pc] = need
 
     # ----------------------------------------------------------------------
     def dn(self, pc):
@@ -293,24 +370,34 @@ class Fn:
         return f"v{r}"
 
     def subst(self, pc, text):
+        if self.fwd and self.inside(pc):
+            text = re.sub(LOAD_RE, lambda m: (m.group(0) if m.group(1) == self.ra_off
+                                              else f"vs{m.group(1)[2:]}"), text)
         text = re.sub(r"\bv(\d+)\b", lambda m: self.val(pc, int(m.group(1))), text)
         return re.sub(r"\bm0\b", "m", text)
 
-    def nargs(self, pc):
+    def slot_addr(self, pc, o):
+        """The address of slot `o` inside the frame."""
+        return f"(({self.sp(pc)} + sign_extend (m := 64) ({o}#12)).toNat)"
+
+    def nargs(self, pc, memfn=False):
         """The lifted function's parameters (as binders)."""
-        vs = " ".join(f"v{r}" for r in self.live(pc))
+        vs = " ".join([f"v{r}" for r in self.live(pc)] + [f"vs{o[2:]}" for o in self.slots_in[pc]])
         bv = f" ({vs} : BitVec 64)" if vs else ""
         if self.framed():
-            return f"(m : Mem) (s : Nat) (r : BitVec 64){bv}"
+            mb = "(m : Mem) " if memfn or self.need_m[pc] else ""
+            return f"{mb}(s : Nat) (r : BitVec 64){bv}"
         return bv.strip()
 
-    def napp(self, pc, mem="m", vals=None, memfn=False):
+    def napp(self, pc, mem="m", vals=None, memfn=False, slots=None):
         vals = vals if vals is not None else {r: f"v{r}" for r in self.live(pc)}
-        a = " ".join(f"({vals[r]})" if not re.fullmatch(r"v\d+", vals[r]) else vals[r]
-                     for r in self.live(pc))
+        slots = slots if slots is not None else {o: f"vs{o[2:]}" for o in self.slots_in[pc]}
+        args = [vals[r] for r in self.live(pc)] + [slots[o] for o in self.slots_in[pc]]
+        a = " ".join(f"({x})" if not re.fullmatch(r"v\d+|vs[0-9a-f]+", x) else x for x in args)
         if self.framed():
             f = self.mn(pc) if memfn else self.dn(pc)
-            return f"{f} ({mem}) s r {a}".rstrip()
+            mm = f"({mem}) " if memfn or self.need_m[pc] else ""
+            return f"{f} {mm}s r {a}".rstrip()
         return f"{self.dn(pc)} {a}".rstrip()
 
     def pins(self, pc):
@@ -354,7 +441,13 @@ class Fn:
             if r not in post:
                 raise SystemExit(f"{s.name}: x{r} live at 0x{s.succ:x} but not carried")
             vals[r] = post[r]
-        return self.napp(s.succ, mem, vals, memfn)
+        return self.napp(s.succ, mem, vals, memfn, self.succ_slots(pc, s))
+
+    def succ_slots(self, pc, s):
+        """The values of the successor's slot parameters: a slot this segment
+        stores, its datum; otherwise this node's parameter."""
+        st = self.seg_stores(pc, s)
+        return {o: (self.subst(pc, st[o]) if o in st else f"vs{o[2:]}") for o in self.slots_in[s.succ]}
 
     def sp_nat(self, pc):
         """`sp` at node `pc` as a `Nat` (a framed callee's `s`)."""
@@ -381,18 +474,21 @@ class Fn:
             b = (f"if {self.subst(pc, t.guard[0])} = true then\n    {self.body(pc, t, memfn)}\n"
                  f"  else\n    {self.body(pc, n, memfn)}")
         name = self.mn(pc) if memfn else self.dn(pc)
-        return (f"def {name} {self.nargs(pc)} : {ty} :=\n  {b}\n")
+        return (f"def {name} {self.nargs(pc, memfn)} : {ty} :=\n  {b}\n")
 
     # ----------------------------------------------------------------------
     def lemma_binders(self, pc):
         vs = " ".join(f"v{r}" for r in self.live(pc))
         if self.inside(pc) and 1 in self.regs(pc):
             vs = (vs + " v1").strip()
+        vs = (vs + " " + " ".join(f"vs{o[2:]}" for o in self.slots_in[pc])).strip()
         bv = f" ({vs} : BitVec 64)" if vs else ""
         if self.framed():
             hs = f"(hs : FnSp s {self.W}) (hr : r.toNat % 4 = 0) (hrod : RodataRead m)"
             if self.inside(pc):
                 hs += f" (hra : bytesT8 m ({re.sub(r"\bv2\b", self.sp(self.entry), self.ra)}) = r)"
+            for o in self.slots_in[pc]:
+                hs += f"\n    (hs{o[2:]} : bytesT8 m {self.slot_addr(pc, o)} = vs{o[2:]})"
             return f"(m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame){bv}\n    {hs}"
         return f"(m : Mem) (o : Array String) (r : BitVec 64) (f : HFrame){bv}\n    (hr : r.toNat % 4 = 0)"
 
@@ -400,7 +496,11 @@ class Fn:
         args = ["_"] * (s.nvars + 2)
         for h, _ in s.hyps:
             if h.startswith("hg"):
-                args.append("(fn_false hg)" if neg else "hg")
+                rs = self.guard_slots(pc, s)
+                if rs:
+                    args.append(f"(by rw [{', '.join(rs)}]; exact {'fn_false hg' if neg else 'hg'})")
+                else:
+                    args.append("(fn_false hg)" if neg else "hg")
             elif h.startswith("htgt"):
                 args.append("(by rw [fn_tgt hra hr]; exact hr)" if self.framed() and self.inside(pc)
                             else "(by rw [fn_tgt0 hr]; exact hr)")
@@ -410,11 +510,20 @@ class Fn:
                 raise SystemExit(f"{s.name}: hypothesis {h}")
         return f"Lua.Vm.Arms.{s.name} {' '.join(args)}"
 
-    def succ_app(self, pc):
+    def guard_slots(self, pc, s):
+        if not self.fwd or not s.guard or not self.inside(pc):
+            return []
+        return [f"hs{o[2:]}" for o in sorted(set(re.findall(LOAD_RE, s.guard[0])) - {self.ra_off})]
+
+    def succ_app(self, pc, cur=None, seg=None):
         n = len(self.live(pc)) + (1 if self.inside(pc) and 1 in self.regs(pc) else 0)
         vs = " ".join(["_"] * n)
+        if self.slots_in[pc]:
+            sv = self.succ_slots(cur, seg)
+            vs = (vs + " " + " ".join(f"({sv[o]})" for o in self.slots_in[pc])).strip()
         if self.framed():
             hs = f"hs hr (by {self.rod})" + (f" (by {self.ra_t})" if self.inside(pc) else "")
+            hs += "".join(f" (by {self.ra_t})" for _ in self.slots_in[pc])
             return f"{self.ln(pc)} _ _ s r g {vs} {hs}".replace("  ", " ")
         return f"{self.ln(pc)} _ _ r f {vs} hr".replace("  ", " ")
 
@@ -422,6 +531,10 @@ class Fn:
         I = " " * ind
         out = [f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)",
                f"{I}  ({self.seg_app(pc, s, neg)})"]
+        if self.fwd and self.inside(pc):
+            ld = sorted(set(re.findall(LOAD_RE, " ".join(list(s.post.values()) + [s.mem]))) - {self.ra_off})
+            if ld:
+                out.append(f"{I}rw [{', '.join(f'hs{o[2:]}' for o in ld)}] at h")
         if self.framed():
             unfold = f"rw [{self.dn(pc)}, {self.mn(pc)}]" + (
                 "; simp only [if_neg hg]" if neg else "; simp only [if_pos hg]" if s.guard else "")
@@ -455,7 +568,7 @@ class Fn:
             if c.frame:
                 out.append(f"{I}have h := h.pin_sp (pin_eq (by pin_of h) {spn}.symm)")
         out.append(f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)")
-        out.append(f"{I}  ({self.succ_app(s.succ)})")
+        out.append(f"{I}  ({self.succ_app(s.succ, pc, s)})")
         out.append(f"{I}refine ⟨_, acc, ?_⟩")
         out.append(f"{I}{unfold}")
         if framed_call:
