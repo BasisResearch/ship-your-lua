@@ -169,4 +169,17 @@ theorem rto_lt_of {n k m : Nat} (hk : 1 ≤ k) (h : n < 2 ^ (m + 1)) : rto n k <
             _ ≤ 2 ^ k := Nat.pow_le_pow_right (by decide) hk)
   omega
 
+theorem rto_zero_n (k : Nat) : rto 0 k = 0 := by simp [rto]
+
+theorem rto_le_self (n k : Nat) : rto n k ≤ n := by
+  rcases Nat.eq_zero_or_pos k with hk | hk
+  · subst hk; rw [rto_zero]; exact Nat.le_refl _
+  · rcases Nat.eq_zero_or_pos n with hn | hn
+    · subst hn; rw [rto_zero_n]; exact Nat.le_refl _
+    · have h1 := rto_le n k
+      have h2 : n / 2 ^ k ≤ n / 2 := Nat.div_le_div_left (by
+        calc 2 = 2 ^ 1 := rfl
+          _ ≤ 2 ^ k := Nat.pow_le_pow_right (by decide) hk) (by decide)
+      omega
+
 end Lua.Num.SfRef
