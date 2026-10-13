@@ -124,8 +124,7 @@ theorem StdoutKeep.printW {m m' : Mem} {sp buf : Nat} {H : HeapIx} {pend : List 
 heap). -/
 theorem PrintW.not_above {sp : Nat} {H : HeapIx} {ph : StdoutPh} (hsp : heapEnd ≤ sp)
     (hb : ∀ a, ph.Buf a → a < heapEnd) {a : Nat} (ha : sp ≤ a) : ¬ PrintW sp H ph a := by
-  obtain ⟨E, hE⟩ : ∃ E, heapEnd = E := ⟨_, rfl⟩
-  have hE' : E = 0x87800000 := hE ▸ rfl
+  have hE : heapEnd = 0x87800000 := rfl
   rw [hE] at hsp hb
   intro hw
   pw_nums
@@ -180,8 +179,7 @@ structure PrOk (sp0 L : Nat) (r : BitVec 64) : Prop where
 theorem PrOk.nums {sp0 L : Nat} {r : BitVec 64} (h : PrOk sp0 L r) :
     0x87800000 + 8192 + 64 ≤ sp0 := by
   have h1 := h.sp_lo
-  obtain ⟨E, hE⟩ : ∃ E, heapEnd = E := ⟨_, rfl⟩
-  have h2 : E = 0x87800000 := hE ▸ rfl
+  have hE : heapEnd = 0x87800000 := rfl
   rw [hE] at h1; omega
 
 /-- **`luaB_print`'s tail**: `"\n"` (`fwrite_print`), `fflush(stdout)`, the
@@ -580,6 +578,20 @@ structure PrMid (sp0 n : Nat) (S : Nat → StdoutPh → HeapIx → Mem → Prop)
   kept : ∀ c ∈ H0.chunks, c.inuse = true → c ∈ H.chunks
   above : ∀ a, sp0 ≤ a → bytesT1 m a = bytesT1 m0 a
 
+/-- **`luaB_print` returned**, leaving `PrEnd`. -/
+def PrFin (sp0 n : Nat) (S : Nat → StdoutPh → HeapIx → Mem → Prop) (bs : Nat → List (BitVec 8))
+    (r : BitVec 64) (f : AbiFrame) (m0 : Mem) (o0 : Array String) (ph0 : StdoutPh) (H0 : HeapIx)
+    (c : Config) : Prop :=
+  ∃ m' out, wrRet r sp0 0 f m' (pushes o0 out) c ∧ PrEnd sp0 n S bs m0 ph0 H0 m' out
+
+/-- **At the loop head of argument `i`** (`PrHead`, the machine at `0x80022f68`). -/
+def PrAtHead (L sp0 n : Nat) (S : Nat → StdoutPh → HeapIx → Mem → Prop) (bs : Nat → List (BitVec 8))
+    (r : BitVec 64) (f : AbiFrame) (m0 : Mem) (o0 : Array String) (ph0 : StdoutPh) (H0 : HeapIx) (i : Nat)
+    (c : Config) : Prop :=
+  ∃ (w13 : BitVec 64) (m : Mem) (o : Array String) (ph : StdoutPh) (H : HeapIx),
+    PrHead sp0 n S bs r f m0 o0 ph0 H0 i m o ph H ∧
+    SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 i r w13 0 f m o)) (ArmPay m o) c
+
 /-- The stack at and above the callees' `sp` is no write's. -/
 theorem PrintSt.above {m : Mem} {ph : StdoutPh} {H : HeapIx} (hP : PrintSt m ph H) {sp a : Nat}
     (hsp : heapEnd ≤ sp) (ha : sp ≤ a) : ¬ PrintW sp H ph a :=
@@ -591,13 +603,10 @@ theorem pr_mid (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh �
     {bs : Nat → List (BitVec 8)} (hL : PrintLua L sp0 n S bs) (r : BitVec 64) (f : AbiFrame) (m0 : Mem)
     (o0 : Array String) (ph0 : StdoutPh) (H0 : HeapIx) (hok : PrOk sp0 L r)
     (i s : Nat) (m : Mem) (o : Array String) (ph : StdoutPh) (H : HeapIx)
-    (hm : PrMid sp0 n S bs r f m0 o0 ph0 H0 i s m o ph H) (c : Config)
-    (h : SegSt 0x80022f8c#64 (Lua.Vm.AtF.Print.r20 (prX sp0 L n s (bs i).length i r 0 0 f m o)) (ArmPay m o) c) :
-    ∃ c', Steps c c' ∧
-      ((∃ m' o' ph' H', PrHead sp0 n S bs r f m0 o0 ph0 H0 (i + 1) m' o' ph' H' ∧
-        SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 (i + 1) r (BitVec.ofNat 64 s) 0 f m' o'))
-          (ArmPay m' o') c') ∨
-       (∃ m' out, wrRet r sp0 0 f m' (pushes o0 out) c' ∧ PrEnd sp0 n S bs m0 ph0 H0 m' out)) := by
+    (hm : PrMid sp0 n S bs r f m0 o0 ph0 H0 i s m o ph H) :
+    Triple (SegSt 0x80022f8c#64 (Lua.Vm.AtF.Print.r20 (prX sp0 L n s (bs i).length i r 0 0 f m o)) (ArmPay m o))
+      (fun c' => PrAtHead L sp0 n S bs r f m0 o0 ph0 H0 (i + 1) c' ∨ PrFin sp0 n S bs r f m0 o0 ph0 H0 c') := by
+  intro c h
   have q := hok.nums
   have q2 := hok.sp_hi
   have hhe : heapEnd = 0x87800000 := rfl
@@ -678,7 +687,7 @@ theorem pr_mid (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh �
       rw [sge_ofNat n (i + 1) (by omega) (by omega)]; simp [hni]
     fat_run Lua.Vm.AtF.Print h4 acc until [0x80022f68]
     fcx_unfold at h4
-    refine ⟨_, acc, .inl ⟨m2, pushes o out1, ph1, H1, ⟨by omega, hni, hS2, hP2, hF2,
+    refine ⟨_, acc, .inl ⟨BitVec.ofNat 64 s, m2, pushes o out1, ph1, H1, ⟨by omega, hni, hS2, hP2, hF2,
       ⟨out ++ out1, by rw [ho, pushes_append], by rw [hout1]; rfl⟩,
       fun c hc hu => P1.kept c (hm.kept c hc hu) hu, habove⟩, h4.repin (by pins_of h4)⟩⟩
   · have hni' : i = n := by omega
@@ -720,13 +729,10 @@ theorem pr_step (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh �
     {bs : Nat → List (BitVec 8)} (hL : PrintLua L sp0 n S bs) (r : BitVec 64) (f : AbiFrame) (m0 : Mem)
     (o0 : Array String) (ph0 : StdoutPh) (H0 : HeapIx) (hok : PrOk sp0 L r)
     (i : Nat) (w13 : BitVec 64) (m : Mem) (o : Array String) (ph : StdoutPh) (H : HeapIx)
-    (hh : PrHead sp0 n S bs r f m0 o0 ph0 H0 i m o ph H) (c : Config)
-    (h : SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 i r w13 0 f m o)) (ArmPay m o) c) :
-    ∃ c', Steps c c' ∧
-      ((∃ m' o' ph' H' s', PrHead sp0 n S bs r f m0 o0 ph0 H0 (i + 1) m' o' ph' H' ∧
-        SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 (i + 1) r (BitVec.ofNat 64 s') 0 f m' o'))
-          (ArmPay m' o') c') ∨
-       (∃ m' out, wrRet r sp0 0 f m' (pushes o0 out) c' ∧ PrEnd sp0 n S bs m0 ph0 H0 m' out)) := by
+    (hh : PrHead sp0 n S bs r f m0 o0 ph0 H0 i m o ph H) :
+    Triple (SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 i r w13 0 f m o)) (ArmPay m o))
+      (fun c' => PrAtHead L sp0 n S bs r f m0 o0 ph0 H0 (i + 1) c' ∨ PrFin sp0 n S bs r f m0 o0 ph0 H0 c') := by
+  intro c h
   have q := hok.nums
   have q2 := hok.sp_hi
   have hhe : heapEnd = 0x87800000 := rfl
@@ -824,26 +830,19 @@ theorem pr_step (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh �
       kept := fun c hc hu => P2.kept c (T.kept c (hh.kept c hc hu) hu) hu
       above := fun a ha => (kk2 a (by omega)).trans ((T.frame a (by omega) (by omega)).trans (hh.above a ha)) }
   obtain ⟨c5, s5, hr⟩ := pr_mid hM hL r f m0 o0 ph0 H0 hok i s m2 (pushes o out2) ph2 H2 hm c3 h4
-  refine ⟨c5, acc.trans s5, ?_⟩
-  rcases hr with ⟨m', o', ph', H', hh', h'⟩ | hend
-  · exact .inl ⟨m', o', ph', H', s, hh', h'⟩
-  · exact .inr hend
+  exact ⟨c5, acc.trans s5, hr⟩
 
 /-- **The loop** (`seg_loop` on `n + 1 - i`): from the head of argument `i`,
 the return. -/
 theorem pr_loop (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh → HeapIx → Mem → Prop}
     {bs : Nat → List (BitVec 8)} (hL : PrintLua L sp0 n S bs) (r : BitVec 64) (f : AbiFrame) (m0 : Mem)
     (o0 : Array String) (ph0 : StdoutPh) (H0 : HeapIx) (hok : PrOk sp0 L r) :
-    ∀ a : Nat × BitVec 64 × Mem × Array String × StdoutPh × HeapIx,
-      Triple (fun c => PrHead sp0 n S bs r f m0 o0 ph0 H0 a.1 a.2.2.1 a.2.2.2.1 a.2.2.2.2.1 a.2.2.2.2.2 ∧
-          SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 a.1 r a.2.1 0 f a.2.2.1 a.2.2.2.1))
-            (ArmPay a.2.2.1 a.2.2.2.1) c)
-        (fun c => ∃ m' out, wrRet r sp0 0 f m' (pushes o0 out) c ∧ PrEnd sp0 n S bs m0 ph0 H0 m' out) := by
-  refine seg_loop (fun a => n + 1 - a.1) fun ⟨i, w13, m, o, ph, H⟩ c ⟨hh, h⟩ => ?_
+    ∀ i, Triple (PrAtHead L sp0 n S bs r f m0 o0 ph0 H0 i) (PrFin sp0 n S bs r f m0 o0 ph0 H0) := by
+  refine seg_loop (fun i => n + 1 - i) fun i c ⟨w13, m, o, ph, H, hh, h⟩ => ?_
   obtain ⟨c', s', hr⟩ := pr_step hM hL r f m0 o0 ph0 H0 hok i w13 m o ph H hh c h
   refine ⟨c', s', ?_⟩
-  rcases hr with ⟨m', o', ph', H', s, hh', h'⟩ | hend
-  · exact .inl ⟨⟨i + 1, BitVec.ofNat 64 s, m', o', ph', H'⟩, by have := hh'.i_le; simp only; omega, hh', h'⟩
+  rcases hr with hn | hend
+  · exact .inl ⟨i + 1, by have := hh.i_le; omega, hn⟩
   · exact .inr hend
 
 /-- The memory after stores to `luaB_print`'s own frame `[sp0 - 64, sp0)`. -/
@@ -880,7 +879,7 @@ theorem print_sum (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh
     (o : Array String) (ph : StdoutPh) (H : HeapIx) (hok : PrOk sp0 L r) (hS : S n ph H m)
     (hP : PrintSt m ph H) :
     Triple (SegSt 0x80022f18#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩] sp0 r f) (ArmPay m o))
-      (fun c => ∃ m' out, wrRet r sp0 0 f m' (pushes o out) c ∧ PrEnd sp0 n S bs m ph H m' out) := by
+      (PrFin sp0 n S bs r f m o ph H) := by
   intro c h
   have q := hok.nums
   have q2 := hok.sp_hi
@@ -982,9 +981,9 @@ theorem print_sum (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh
           ((bT1_congr (hM1 a (.inr ha))).trans (habove0 a ha)) }
     obtain ⟨c5, s5, hr⟩ := pr_mid hM hL r f m o ph H hok 1 s m4 o ph H4 hm _ (h4.repin (by pins_of h4))
     have acc := acc.trans s5
-    rcases hr with ⟨m', o', ph', H', hh', h'⟩ | ⟨m', out, hret, hend⟩
-    · obtain ⟨c6, s6, hfin⟩ := pr_loop hM hL r f m o ph H hok ⟨2, BitVec.ofNat 64 s, m', o', ph', H'⟩ _ ⟨hh', h'⟩
+    rcases hr with hn | hend
+    · obtain ⟨c6, s6, hfin⟩ := pr_loop hM hL r f m o ph H hok 2 _ hn
       exact ⟨c6, acc.trans s6, hfin⟩
-    · exact ⟨_, acc, m', out, hret, hend⟩
+    · exact ⟨_, acc, hend⟩
 
 end Lua.Vm.Sim.Kit
