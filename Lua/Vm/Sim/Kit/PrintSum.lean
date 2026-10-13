@@ -289,6 +289,143 @@ theorem pr_tail (hM : MallocR_Statement) (sp0 L : Nat) (r : BitVec 64) (f : AbiF
   · exact (hk2.printW (H := H1) a fun hw => ha (PrintW.anti P1.kept hw)).trans
       (P1.keep a fun hw => ha (PrintW.buf_eq (fun _ => Iff.rfl) hw))
 
+/-! ## What the I/O state reads -/
+
+/-- The stdio globals: `__sglue`, `_impure_data`, htif.c's tables, the
+handlers, `__sf`. -/
+def StdioGlob (a : Nat) : Prop := 0x8005cee0 ≤ a ∧ a < 0x8005e7d8
+
+/-- **What `PrintSt` reads**: the stdio globals, the buffer, the heap off the
+chunks in use, `.rodata`'s literals. -/
+def PrintFoot (ph : StdoutPh) (H : HeapIx) (a : Nat) : Prop :=
+  StdioGlob a ∨ ph.Buf a ∨ (HeapReads a ∧ ¬ InUse H.chunks a) ∨ (0x8004fb48 ≤ a ∧ a < 0x8004ff48)
+
+theorem _root_.Lua.Vm.StdioBoot.congr {m m' : Mem} (h : StdioBoot m) (hk : ∀ a, StdioGlob a → m'[a]? = m[a]?) :
+    StdioBoot m' := by
+  have : symStdioExitHandler = 0x8005d3e0 := rfl
+  have : symImpurePtr = 0x8005d398 := rfl
+  have : symImpureData = 0x8005d1b8 := rfl
+  have : symSglue = 0x8005cee0 := rfl
+  have : symSf = 0x8005e5b0 := rfl
+  have : symSfSize = 552 := rfl
+  have : symAtexit = 0x8005d450 := rfl
+  have : reentCleanupOff = 72 := rfl
+  have : reentStdinOff = 8 := rfl
+  have : reentStdoutOff = 16 := rfl
+  have : reentStderrOff = 24 := rfl
+  have : glueNextOff = 0 := rfl
+  have : glueNiobsOff = 8 := rfl
+  have : glueIobsOff = 16 := rfl
+  have r : ∀ {a n : Nat}, StdioGlob a → StdioGlob (a + n - 1) → 0 < n → rdLE m' a n = rdLE m a n :=
+    fun {a n} h1 h2 _ => rdLE_congr fun i hi => hk _ ⟨by have := h1.1; omega, by have := h2.2; omega⟩
+  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun i hi => ?_, ?_, ?_⟩
+  all_goals first
+    | (simp only [rd64, rd32]; rw [r ⟨by omega, by omega⟩ ⟨by omega, by omega⟩ (by omega)])
+    | skip
+  · exact h.exit_handler
+  · exact h.impure_ptr
+  · exact h.stdin
+  · exact h.stdout
+  · exact h.stderr
+  · exact h.glue_next
+  · exact h.glue_niobs
+  · exact h.glue_iobs
+  · exact (hk _ ⟨by omega, by omega⟩).trans (h.files i hi)
+  · exact h.atexit
+  · exact h.cleanup
+
+theorem _root_.Lua.Vm.MemfsBoot.congr {m m' : Mem} (h : MemfsBoot m) (hk : ∀ a, StdioGlob a → m'[a]? = m[a]?) :
+    MemfsBoot m' := by
+  have : symFsReady = 0x8005d3c0 := rfl
+  have : symFds = 0x8005d460 := rfl
+  have : symFdsSize = 768 := rfl
+  have : symFiles = 0x8005d760 := rfl
+  have : symFilesSize = 3584 := rfl
+  refine ⟨?_, fun i hi => (hk _ ⟨by omega, by omega⟩).trans (h.fds i hi),
+    fun i hi => (hk _ ⟨by omega, by omega⟩).trans (h.files i hi)⟩
+  simp only [rd32]
+  rw [rdLE_congr fun i hi => hk _ ⟨by omega, by omega⟩]
+  exact h.ready
+
+theorem StdoutFresh.congrT {m m' : Mem} (h : StdoutFresh m) (hk : ∀ a, StdioGlob a → bytesT1 m' a = bytesT1 m a) :
+    StdoutFresh m' := by
+  stdio_nums
+  have : symFsReady = 0x8005d3c0 := rfl
+  have : symImpurePtr = 0x8005d398 := rfl
+  have : symImpureData = 0x8005d1b8 := rfl
+  have : reentCleanupOff = 72 := rfl
+  have k8 : ∀ a, StdioGlob a → StdioGlob (a + 7) → bytesT8 m' a = bytesT8 m a := fun a h1 h2 =>
+    bytesT8_congrT fun i _ => hk _ ⟨by have := h1.1; omega, by have := h2.2; omega⟩
+  have k4 : ∀ a, StdioGlob a → StdioGlob (a + 3) → bytesT4 m' a = bytesT4 m a := fun a h1 h2 =>
+    bytesT4_congrT fun i _ => hk _ ⟨by have := h1.1; omega, by have := h2.2; omega⟩
+  have k2 : ∀ a, StdioGlob a → StdioGlob (a + 1) → bytesT2 m' a = bytesT2 m a := fun a h1 h2 =>
+    bT2_congrT fun i _ => hk _ ⟨by have := h1.1; omega, by have := h2.2; omega⟩
+  exact ⟨(k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.impure,
+    (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.cleanup,
+    (k2 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.flags,
+    (k2 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.file,
+    (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.pad,
+    (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.base,
+    (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.cookie,
+    (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.write,
+    (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.flags2,
+    (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.fs⟩
+
+theorem StdoutAtW.congrT {m m' : Mem} {buf : Nat} {pend : List (BitVec 8)} {wv : BitVec 32}
+    (h : StdoutAtW m buf pend wv) (hk : ∀ a, StdioGlob a ∨ Rng buf 1024 a → bytesT1 m' a = bytesT1 m a) :
+    StdoutAtW m' buf pend wv := by
+  stdio_nums
+  have : symFsReady = 0x8005d3c0 := rfl
+  have : symFds = 0x8005d460 := rfl
+  have hr := h.room
+  have k8 : ∀ a, StdioGlob a → StdioGlob (a + 7) → bytesT8 m' a = bytesT8 m a := fun a h1 h2 =>
+    bytesT8_congrT fun i _ => hk _ (.inl ⟨by have := h1.1; omega, by have := h2.2; omega⟩)
+  have k4 : ∀ a, StdioGlob a → StdioGlob (a + 3) → bytesT4 m' a = bytesT4 m a := fun a h1 h2 =>
+    bytesT4_congrT fun i _ => hk _ (.inl ⟨by have := h1.1; omega, by have := h2.2; omega⟩)
+  have k2 : ∀ a, StdioGlob a → StdioGlob (a + 1) → bytesT2 m' a = bytesT2 m a := fun a h1 h2 =>
+    bT2_congrT fun i _ => hk _ (.inl ⟨by have := h1.1; omega, by have := h2.2; omega⟩)
+  refine ⟨(k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.p,
+    (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.w,
+    (k2 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.flags,
+    (k2 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.file,
+    (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.base,
+    (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.size,
+    (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.lbf,
+    (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.cookie,
+    (k8 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.write,
+    ?_, h.room, h.buf_lo, h.buf_hi, ?_, (k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩).trans h.stdout⟩
+  · rw [bytesAt_congr fun i hi => hk _ (.inr ⟨by omega, by omega⟩)]; exact h.bytes
+  · rw [k4 _ ⟨by omega, by omega⟩ ⟨by omega, by omega⟩]; exact h.ready
+
+theorem StdioUp.congrT {m m' : Mem} (h : StdioUp m) (hk : ∀ a, StdioGlob a → bytesT1 m' a = bytesT1 m a) :
+    StdioUp m' := by
+  stdio_nums
+  have : symImpurePtr = 0x8005d398 := rfl
+  have : symImpureData = 0x8005d1b8 := rfl
+  have : reentCleanupOff = 72 := rfl
+  refine ⟨(bytesT8_congrT fun i _ => hk _ ⟨by omega, by omega⟩).trans h.impure, ?_,
+    (bytesT4_congrT fun i _ => hk _ ⟨by omega, by omega⟩).trans h.flags2⟩
+  rw [bytesT8_congrT fun i _ => hk _ ⟨by omega, by omega⟩]; exact h.init
+
+/-- **The I/O state across a change off what it reads.** -/
+theorem PrintSt.keep {m m' : Mem} {ph : StdoutPh} {H : HeapIx} (h : PrintSt m ph H)
+    (hk : ∀ a, PrintFoot ph H a → bytesT1 m' a = bytesT1 m a) : PrintSt m' ph H := by
+  have hg : ∀ a, StdioGlob a → bytesT1 m' a = bytesT1 m a := fun a ha => hk a (.inl ha)
+  have hgf : ∀ a, StdioGlob a → (fillZeroMem m')[a]? = (fillZeroMem m)[a]? := fun a ha =>
+    fill_total ⟨by simp only [ramBase]; have := ha.1; omega, by simp only [ramBase, ramSize]; have := ha.2; omega⟩
+      (hg a ha)
+  refine ⟨?_, h.heap.ofTotal fun a hr hu => (hk a (.inr (.inr (.inl ⟨hr, hu⟩)))).trans (bytesT1_fill m a).symm,
+    ⟨?_, ?_, ?_, ?_⟩⟩
+  · cases h.io with
+    | boot hB hMf hroom => exact .boot (hB.congr hgf) (hMf.congr hgf) hroom
+    | fresh hF hroom => exact .fresh (hF.congrT hg) hroom
+    | up hs hu hb =>
+      exact .up (hs.congrT fun a ha => ha.elim (hg a) fun hb' => hk a (.inr (.inl hb'))) (hu.congrT hg) hb
+  · exact (bytesT8_congrT fun i _ => hg _ ⟨by omega, by omega⟩).trans h.cells.impure
+  · exact (bytesT8_congrT fun i _ => hg _ ⟨by omega, by omega⟩).trans h.cells.stdout
+  · rw [bytesAt_congr fun i hi => hk _ (.inr (.inr (.inr ⟨by omega, by omega⟩)))]; exact h.cells.tab
+  · rw [bytesAt_congr fun i hi => hk _ (.inr (.inr (.inr ⟨by omega, by omega⟩)))]; exact h.cells.nl
+
 /-! ## The Lua side, abstract -/
 
 /-- The line `luaB_print` writes before the newline: the arguments' bytes,
@@ -355,7 +492,8 @@ structure PrintLua (L sp0 n : Nat) (S : Nat → StdoutPh → HeapIx → Mem → 
       (fun c => ∃ m', apiRet r (sp0 - 64) f m' o c ∧ S n ph H m' ∧ PrintSt m' ph H ∧
         ∀ a, sp0 - 64 ≤ a → bytesT1 m' a = bytesT1 m a)
   stable : ∀ (k : Nat) (ph ph' : StdoutPh) (H H' : HeapIx) (m m' : Mem), S k ph H m →
-    (∀ a, ¬ PrintW (sp0 - 64) H ph' a → bytesT1 m' a = bytesT1 m a) → BufFrom ph ph' H →
+    (∀ a, ¬ (PrintW (sp0 - 64) H ph' a ∨ Rng (sp0 - 64) 64 a) → bytesT1 m' a = bytesT1 m a) →
+    BufFrom ph ph' H →
     (∀ c ∈ H.chunks, c.inuse = true → c ∈ H'.chunks) → S k ph' H' m'
 
 /-- `luaB_print`'s saved words (after its first `luaL_tolstring`'s set-up). -/
@@ -491,7 +629,7 @@ theorem pr_mid (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh �
         · exact .inr (Classical.byContradiction fun hn =>
             hm.src_buf s (Nat.le_refl _) (by omega) ⟨by omega, by omega⟩)) _ h1
   have acc := acc.trans s2
-  have hS1 : S (n + 1) ph1 H1 m1 := hL.stable _ _ _ _ _ _ _ hm.lua P1.keep P1.buf_new P1.kept
+  have hS1 : S (n + 1) ph1 H1 m1 := hL.stable _ _ _ _ _ _ _ hm.lua (fun a ha => P1.keep a fun hw => ha (.inl hw)) P1.buf_new P1.kept
   have hbuf1 : ∀ a, ph1.Buf a → 0x8006ecd0 ≤ a := fun a ha => by
     have := P1.phase.buf_lo a ha; have : heapStart = 0x8006ecd0 := rfl; omega
   have hP1 : PrintSt m1 ph1 H1 := ⟨P1.phase, P1.heap, hm.io.cells.keep (by omega) hbuf1 P1.keep⟩
@@ -553,7 +691,7 @@ theorem pr_mid (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh �
     obtain ⟨c5, m3, out2, buf, H2, s5, hret5, hout2, hP3, hk3, hb3, kk3⟩ :=
       pr_tail hM sp0 L r f m2 (pushes o out1) ph1 H1 hok hP2 hF2.ra hF2.s2 hF2.s3 _ (h4.repin (by pins_of h4))
     refine ⟨_, acc.trans s5, .inr ⟨m3, out ++ out1 ++ out2, by rw [pushes_append, pushes_append, ← ho]; exact hret5,
-      ⟨?_, ⟨buf, H2, hP3, hL.stable _ _ _ _ _ _ _ hS2 kk3 hb3 hk3, fun c hc hu => hk3 c (P1.kept c (hm.kept c hc hu) hu) hu⟩,
+      ⟨?_, ⟨buf, H2, hP3, hL.stable _ _ _ _ _ _ _ hS2 (fun a ha => kk3 a fun hw => ha (.inl hw)) hb3 hk3, fun c hc hu => hk3 c (P1.kept c (hm.kept c hc hu) hu) hu⟩,
         fun a ha => ?_⟩⟩⟩
     · rw [hout2, ← List.append_assoc, hout1]
     · exact (kk3 a (PrintW.not_above (sp := sp0 - 64) (by rw [hhe]; omega) hP3.io.buf_hi (by omega))).trans (habove a ha)
