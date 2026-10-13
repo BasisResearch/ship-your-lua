@@ -97,4 +97,5 @@ boot witnesses re-checked with the new `heapCheck`.
 
 ## Gate
 
-`abstractions/gate.py`: see the report. `scripts/check.sh`: see the report.
+`abstractions/gate.py`: ok (`a1-kit-arm` 69 cases, first 1.9, last 4.1).
+`scripts/check.sh` (all stages, the full build and stage-6 axioms): OK.
