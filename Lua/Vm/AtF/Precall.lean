@@ -183,8 +183,7 @@ structure Ok_J (X : FCx) : Prop where
    ⟨Register.x27, X.b 12⟩]
 
 @[at_row] abbrev r4 (X : FCx) : List Pin :=
-  [⟨Register.x1, X.b 0⟩,
-   ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 96)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 1)⟩,
    ⟨Register.x9, X.b 2⟩,

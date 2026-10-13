@@ -2109,10 +2109,10 @@ PRECALL_CELLS = {(((1, 1),), 16): N((4, 1)), (((1, 1),), 40): N((5, 1)),
                  # its frame's saved `ra`, `s0` (the caller's), read by the epilogue
                  (((0, 1),), -8): ("bv", 0), (((0, 1),), -16): ("bv", 1)}
 PRECALL_CELLSW = {(1, ((2, 1),), 8): 0x16, (4, ((1, 1),), 192): 0}
-# the join's registers: `sp` inside the frame, `s0` = L, the caller's `ra`,
+# the join's registers: `sp` inside the frame, `s0` = L, the caller's
 # `s1`-`s11`; `a5` = the C `CallInfo`, `a4` = its top, `a1` = func, `a6` =
 # nresults, `a7` = the C function
-PRECALL_JOIN_ROW = {1: ("bv", 0), 2: N((0, 1), add=-96), 3: ("lit", 0x8005ced0), 8: N((1, 1)),
+PRECALL_JOIN_ROW = {2: N((0, 1), add=-96), 3: ("lit", 0x8005ced0), 8: N((1, 1)),
                     9: ("bv", 2), **{r: ("bv", 3 + k) for k, r in enumerate(range(18, 28))},
                     15: N((7, 1)), 14: N((4, 1), add=320), 11: N((2, 1)), 16: N((3, 1)),
                     17: ("lit", 0x80022f18)}
