@@ -135,3 +135,7 @@ pointer atom decided by its lower bound), `gen_lua_code.py` +5,
 `abstractions/gate.py`: `a1-kit-arm` ok (58 cases, first 2.1, last 2.9;
 `sim_CALL_of` is not matched by the cluster's names). `a1-float-arm` fails
 as on the base (its files unchanged).
+`scripts/check.sh`: stages 1–3b, 4, 5 (the full `lake build Lua Vsa VsaIris`),
+5b and 6 (445 axiom reports, all within `propext`, `Classical.choice`,
+`Quot.sound`) pass (296 s wall for the stages after 3c); 3c is the base's
+float cluster above.
