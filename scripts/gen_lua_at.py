@@ -94,11 +94,14 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               # lane F3: the shifts' float paths (`luaV_shiftl` inlined, on
               # `tointegerns`'s converted operands)
               "OP_SHL_F": ("ShlF", 0x8001d5f0), "OP_SHR_F": ("ShrF", 0x8001d57c),
-              "OP_SHLI_F": ("ShliF", 0x8001dd30), "OP_SHRI_F": ("ShriF", 0x8001dd8c)}
+              "OP_SHLI_F": ("ShliF", 0x8001dd30), "OP_SHRI_F": ("ShriF", 0x8001dd8c),
+              # lane F1-F4: EQ's and EQK's float paths (`luaV_equalobj`'s float
+              # summary `equalobj_flt_sum` as the call node)
+              "OP_EQ_F": ("EqF", 0x8001c690), "OP_EQK_F": ("EqkF", 0x8001c850)}
 SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("SHL", "SHR", "SHLI", "SHRI")},
 "OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
-          "OP_LE_F": "OP_LE",
+          "OP_LE_F": "OP_LE", "OP_EQ_F": "OP_EQ", "OP_EQK_F": "OP_EQK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("BNOT", "BAND", "BOR", "BXOR")}}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
@@ -155,6 +158,9 @@ IMPORTS["OP_FORPREP_F"] = IMPORTS["OP_FORPREP_F"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
 # lane F3: `K[C]`'s address read through a callee's frame (`at_side_ext`, `Kit/AtFrame.lean`)
 for _op in ("OP_BANDK_F", "OP_BORK_F", "OP_BXORK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtFrame"]
+# lane F1-F4: the float call node of `luaV_equalobj` (`Kit/AtEqF.lean`)
+for _op in ("OP_EQ_F", "OP_EQK_F"):
+    IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtEqF"]
 IMPORTS |= {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_GETTABUP": ["Lua.Vm.Sim.Kit.AtEnv"]}
@@ -260,7 +266,7 @@ def lean_aff(terms, add):
 
 # locations whose value is stated over the context `X` (`Kit/AtCond.lean`): printed as
 # `.lit <term over X>`, so they may stand in a row (an abbreviation over `X`) but not in a log
-XLOCS = ("andi", "kbit", "jmp", "strle", "strlt", "streqk")
+XLOCS = ("andi", "kbit", "jmp", "strle", "strlt", "streqk", "eqf")
 
 
 def lean_loc(x):
@@ -278,6 +284,10 @@ def lean_loc(x):
         return f"(.fn fun X => BitVec.ofNat 64 (sOf X .{x[1]}).length)"
     if k == "streqk":
         return "(.lit (if sOf X .a = kOf X then 1#64 else 0#64))"
+    if k == "eqf":
+        # lane F1-F4: `luaV_equalobj`'s answer on the values (`R[B]` or `K[B]`)
+        other = "(vOf X .b)" if x[1] == "b" else "(kvOf X)"
+        return f"(.lit (if Value.rawEq (vOf X .a) {other} then 1#64 else 0#64))"
     if k == "strlt":
         return f"(.lit (if lexLt (sOf X .{x[1]}) (sOf X .{x[2]}) then 1#64 else 0#64))"
     if k == "lit":
@@ -797,6 +807,28 @@ def call_effect(st, callee, ret):
         post.obs = (sa[1], sb[1])
         proof = "at_lstr {obs_seg} {obs_lemma}"
         return post, hyps, "at_open\n  " + proof, pre_regs
+    elif callee == "luaV_equalobj" and CUR[0].op in ("OP_EQ_F", "OP_EQK_F"):
+        # lane F1-F4: `equalobj_flt_sum` (a float among the two values): the
+        # answer `Value.rawEq` as 0/1; the callee frames `[sp - 160, sp)` a
+        # `clob` with content `eqfMem`
+        k = CUR[0].op == "OP_EQK_F"
+        a2 = st.get(12)
+        want = ((("lit", 0), aff({"base": 1, "a": 16}), aff({"k": 1, "b": 16})) if k else
+                (("L",), aff({"base": 1, "a": 16}), aff({"base": 1, "b": 16})))
+        if (a0, a1, a2) != want:
+            raise Stop(f"luaV_equalobj of {a0}, {a1}, {a2}")
+        post = State({r: st.get(r) for r in FRAME if r not in (22, 26)}, st.log, st.facts)
+        post.bounds = {("a", 0)} if k else {("a", 0), ("b", 0)}
+        n2 = "(X.w.k + stackValueSize * X.ins.b)" if k else "(X.w.slot (X.ins.b + 0))"
+        post.log.insert(0, ("clob", (("sp", 1),), -160,
+                            (160, f"fun X M => Lua.Vm.Sim.Kit.eqfMem 0x{ret:x}#64 (Loc.den X .L) "
+                                  f"(X.w.slot (X.ins.a + 0)) {n2} X.w.sp M")))
+        post.set(10, ("eqf", "k" if k else "b"))
+        hyps += ["(hfl : FloorSpec)", "(va vb : Value)", "(hsa : X.s.regs (X.ins.a + 0) = some va)",
+                 "(hky : kval X.p X.ins.b = some vb)" if k else "(hsb : X.s.regs (X.ins.b + 0) = some vb)",
+                 "(hfab : ¬ (va.NotFlt ∧ vb.NotFlt))"]
+        post.path, post.joined = dict(st.path), st.joined
+        return post, hyps, "at_open\n  " + ("at_eqkf" if k else "at_eqf"), pre_regs
     elif callee == "luaV_equalobj":
         # `lngeq_sum`: `luaV_equalobj(NULL, R[A], K[B])` on two long strings;
         # the return memory is the entry's with `ra` saved at `sp - 8`
@@ -1293,7 +1325,7 @@ class Arm:
         proved = sorted({FPROVED[k[0]] for k in self.fsites if k[0] in FPROVED})
         extra = "".join(f"import {m}\n" for m in IMPORTS.get(self.op, []) + proved)
         # a premised routine's result is chosen from its premise (`noncomputable`)
-        prem = any(key[0] in PREMISED for key in self.fsites)
+        prem = any(key[0] in PREMISED for key in self.fsites) or self.op in ("OP_EQ_F", "OP_EQK_F")
         nc_open = "noncomputable section\n" if prem else ""
         nc_close = "end\n" if prem else ""
         return f"""import Lua.Vm.Sim.Kit.At
@@ -1328,7 +1360,9 @@ end Lua.Vm.At.{self.op[3:]}
 def ent_text(k, t, a, v):
     if k == "clob":
         frame, site = v
-        return f".clob ⟨[(1, .sp)], 0, {frame}⟩ {frame} k{site}"
+        # lane F1-F4: a summary's frame contents given as a function text
+        content = f"({site})" if isinstance(site, str) else f"k{site}"
+        return f".clob ⟨[(1, .sp)], 0, {frame}⟩ {frame} {content}"
     return f".{k} {lean_aff(t, a)} {lean_loc(v)}"
 
 
