@@ -91,6 +91,10 @@ structure PrintPost (m m' : Mem) (sp src n : Nat) (ph : StdoutPh) (H : HeapIx) (
   heap : HeapAt (fillZeroMem m') H'.top H'.brk H'.chunks H'.bins
   out : out ++ ph'.pend = ph.pend ++ bytesAt m src n
   kept : ∀ c ∈ H.chunks, c.inuse = true → c ∈ H'.chunks
+  /-- a new buffer is a fresh block of the arena -/
+  buf_new : ∀ a, ph'.Buf a → ph.Buf a ∨ (heapStart ≤ a ∧ a < heapEnd ∧ ¬ InUse H.chunks a)
+  /-- a write of at least one byte leaves `stdout` set up -/
+  up_of : 1 ≤ n → ∃ buf pend, ph' = .up buf pend
   keep : ∀ a, ¬ PrintW sp H ph' a → bytesT1 m' a = bytesT1 m a
 
 /-- The numbers the regions are stated over, for `omega`. -/
@@ -112,7 +116,11 @@ theorem SetupPost.print {m M m' : Mem} {sp src n buf brk : Nat} {chunks : List C
   subst hc
   have hb2 := P.grant.heap.brk_le
   refine ⟨.up P.stdout P.up ⟨P.grant.block, P.grant.lo, Nat.le_trans P.grant.hi hb2⟩, P.heapAfter hsp,
-    by rw [hph, List.nil_append]; exact P.out, hkept, fun a ha => ?_⟩
+    by rw [hph, List.nil_append]; exact P.out, hkept, fun a ha => by
+      have ha' : buf ≤ a ∧ a < buf + 1024 := ha
+      exact .inr ⟨Nat.le_trans (Nat.le_add_right _ _) (Nat.le_trans P.grant.lo ha'.1),
+        Nat.lt_of_lt_of_le ha'.2 (Nat.le_trans P.grant.hi hb2), P.grant.fresh a ha'.1 ha'.2⟩,
+    fun _ => ⟨_, _, rfl⟩, fun a ha => ?_⟩
   simp only [PrintW, StdoutPh.Buf, not_or] at ha
   obtain ⟨hg, hw, hs, hst, hb, hbl⟩ := ha
   have hk : bytesT1 M a = bytesT1 m a := bT1_congr (P.agree a fun h => by
@@ -149,7 +157,7 @@ theorem fwrite_print (hM : MallocR_Statement) (sp src n : Nat) (r : BitVec 64) (
   | boot hB hMf hroom =>
     rcases Nat.eq_zero_or_pos n with rfl | hn
     · obtain ⟨c', s', M, hret, hF, hag⟩ := fwrite_boot0 sp src r f m o hra q.2.1 hhi hal hB hMf c h
-      refine ⟨c', s', M, [], .fresh, H, hret, ⟨.fresh hF hroom, ?_, rfl, fun c hc _ => hc, ?_⟩⟩
+      refine ⟨c', s', M, [], .fresh, H, hret, ⟨.fresh hF hroom, ?_, rfl, fun c hc _ => hc, fun _ h => h.elim, fun h => absurd h (by omega), ?_⟩⟩
       · exact hheap.congr fun a ha => fill_congr (hag a fun hr => by
           pw_nums
           have e9 : symMallocMallinfo = 0x8005e560 := rfl
@@ -173,7 +181,7 @@ theorem fwrite_print (hM : MallocR_Statement) (sp src n : Nat) (r : BitVec 64) (
   | fresh hF hroom =>
     rcases Nat.eq_zero_or_pos n with rfl | hn
     · obtain ⟨c', s', M, hret, hF', hag⟩ := fwrite_fresh0 sp src r f m o hra q.2.2 hhi hal hF c h
-      refine ⟨c', s', M, [], .fresh, H, hret, ⟨.fresh hF' hroom, ?_, rfl, fun c hc _ => hc, ?_⟩⟩
+      refine ⟨c', s', M, [], .fresh, H, hret, ⟨.fresh hF' hroom, ?_, rfl, fun c hc _ => hc, fun _ h => h.elim, fun h => absurd h (by omega), ?_⟩⟩
       · exact hheap.congr fun a ha => fill_congr (hag a fun hr => by
           have e2 : heapStart = 0x8006ecd0 := rfl
           have e3 : heapEnd = 0x87800000 := rfl
@@ -200,7 +208,7 @@ theorem fwrite_print (hM : MallocR_Statement) (sp src n : Nat) (r : BitVec 64) (
     have hd : heapEnd + 32 + 4096 ≤ sp := by
       obtain ⟨E, hE⟩ : ∃ E, heapEnd = E := ⟨_, rfl⟩
       rw [hE] at hlo ⊢; omega
-    refine ⟨c', s', m', out, .up buf pend', H, hret, ⟨.up hs' hu' hb, ?_, hout, fun c hc _ => hc, ?_⟩⟩
+    refine ⟨c', s', m', out, .up buf pend', H, hret, ⟨.up hs' hu' hb, ?_, hout, fun c hc _ => hc, fun _ h => .inl h, fun _ => ⟨_, _, rfl⟩, ?_⟩⟩
     · exact hheap.ofStdioKeep hb.block hb.lo hd fun a h1 h2 h3 h4 =>
         (hk.keep_lo a h1 h2 h3 h4).trans (bytesT1_fill m a).symm
     · intro a ha
