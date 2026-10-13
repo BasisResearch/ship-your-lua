@@ -27,6 +27,17 @@ namespace Lua.Vm.Fn.FmodLens
 set_option linter.unusedSimpArgs false
 set_option linter.deprecated false
 
+/-- Powers of two are monotone (in `Int`). -/
+theorem ipow_mono {k j : Nat} (h : k ≤ j) : (2 : Int) ^ k ≤ 2 ^ j := by
+  obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_le h
+  induction d with
+  | zero => exact Int.le_refl _
+  | succ d ih =>
+    have h1 := ih (by omega)
+    have h2 : (0 : Int) < 2 ^ (k + d) := Int.pow_pos (by decide)
+    rw [show k + (d + 1) = (k + d) + 1 by omega, Int.pow_succ]
+    omega
+
 /-! ## Literals and the normal form -/
 
 theorem lit_pos (n : Nat) (h : n < 2 ^ 63) : BitVec.ofNat 64 n = BitVec.ofInt 64 (n : Int) := by
