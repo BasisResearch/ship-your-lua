@@ -531,4 +531,104 @@ theorem sub_gt (s : Bool) (ea fa eb fb : Nat) (hea : ea ≤ 2046) (hfa : fa < 2 
       rw [ce_wsc]; unfold wsc; omega,
     round_scale, show (ce ea - ce eb).toNat = max ea 1 - max eb 1 by unfold ce; split <;> split <;> omega]
 
+theorem ce_le {ea eb : Nat} (h : ea ≤ eb) : ce ea ≤ ce eb := by unfold ce; split <;> split <;> omega
+theorem cm_pos {e f : Nat} (h : e ≠ 0 ∨ f ≠ 0) : 0 < cm e f := by unfold cm; split <;> omega
+
+/-- The aligned sum of two finite operands, at the smaller exponent `ce eb ≤ ce ea`. -/
+theorem fin_rhs (sa sb : Bool) (ea fa eb fb : Nat) (h : eb ≤ ea) :
+    sgnApply sa (align (cm ea fa) (ce ea) (min (ce ea) (ce eb))) +
+        sgnApply sb (align (cm eb fb) (ce eb) (min (ce ea) (ce eb))) =
+      sgnApply sa (cm ea fa * 2 ^ (ce ea - ce eb).toNat) + sgnApply sb (cm eb fb) := by
+  rw [Int.min_eq_right (ce_le h), align_eq, align_eq, Int.sub_self]; simp
+
+theorem fin_rhs' (sa sb : Bool) (ea fa eb fb : Nat) (h : ea ≤ eb) :
+    sgnApply sa (align (cm ea fa) (ce ea) (min (ce ea) (ce eb))) +
+        sgnApply sb (align (cm eb fb) (ce eb) (min (ce ea) (ce eb))) =
+      sgnApply sb (cm eb fb * 2 ^ (ce eb - ce ea).toNat) + sgnApply sa (cm ea fa) := by
+  rw [Int.min_eq_left (ce_le h), align_eq, align_eq, Int.sub_self, Int.add_comm]; simp
+
+theorem pow_ce (ea eb : Nat) (h : eb ≤ ea) : (ce ea - ce eb).toNat = max ea 1 - max eb 1 := by
+  unfold ce; split <;> split <;> omega
+
+theorem cm_zero (f : Nat) : cm 0 f = f := by simp [cm]
+
+/-- **(b2) on finite operands**: the reference is `F64.add`'s `normalize` of the
+exact aligned sum. -/
+theorem addFields_fin (sa sb : Bool) (ea fa eb fb : Nat) (hea : ea ≤ 2046) (heb : eb ≤ 2046)
+    (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (ha0 : ea ≠ 0 ∨ fa ≠ 0) (hb0 : eb ≠ 0 ∨ fb ≠ 0) :
+    addFields sa ea fa sb eb fb =
+      normalize (sgnApply sa (align (cm ea fa) (ce ea) (min (ce ea) (ce eb))) +
+        sgnApply sb (align (cm eb fb) (ce eb) (min (ce ea) (ce eb)))) (min (ce ea) (ce eb)) false := by
+  have hpa := cm_pos ha0
+  have hpb := cm_pos hb0
+  have hba := cm_bounds ea fa hfa
+  have hbb := cm_bounds eb fb hfb
+  unfold addFields; dsimp only
+  by_cases hs : sa = sb
+  · subst hs; rw [if_pos rfl]
+    rcases Nat.lt_trichotomy ea eb with h | h | h
+    · rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), add_ge _ _ _ _ _ heb hfb hfa (by omega),
+        fin_rhs' _ _ _ _ _ _ (by omega), sgn_add, norm_sgn _ _ (by omega), Nat.add_comm,
+        Int.min_eq_left (ce_le (by omega))]
+    · subst h
+      rw [if_pos rfl, if_neg (by omega), show (0 : Nat) = max ea 1 - max ea 1 by omega,
+        add_ge _ _ _ _ _ hea hfa hfb (by omega), fin_rhs _ _ _ _ _ _ (by omega), sgn_add,
+        norm_sgn _ _ (by omega), Int.min_self]
+    · rw [if_neg (by omega), if_pos h, if_neg (by omega), add_ge _ _ _ _ _ hea hfa hfb (by omega),
+        fin_rhs _ _ _ _ _ _ (by omega), sgn_add, norm_sgn _ _ (by omega), Int.min_eq_right (ce_le (by omega))]
+  · rw [if_neg hs]
+    have hsb : sb = !sa := by cases sa <;> cases sb <;> simp_all
+    subst hsb
+    rcases Nat.lt_trichotomy ea eb with h | h | h
+    · have hm : cm ea fa < cm eb fb * 2 ^ (max eb 1 - max ea 1) := by
+        have hb52 := hbb.2 (by omega)
+        rcases Nat.eq_zero_or_pos (max eb 1 - max ea 1) with hk | hk
+        · have h0 : ea = 0 := by omega
+          subst h0
+          rw [hk, Nat.pow_zero, Nat.mul_one, cm_zero]; omega
+        · have h2 : 2 ≤ 2 ^ (max eb 1 - max ea 1) := by
+            calc 2 = 2 ^ 1 := rfl
+              _ ≤ _ := Nat.pow_le_pow_right (by decide) hk
+          have h3 : cm eb fb * 2 ≤ cm eb fb * 2 ^ (max eb 1 - max ea 1) := Nat.mul_le_mul_left _ h2
+          omega
+      rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), sub_gt _ _ _ _ _ heb hfb hfa (by omega) hm,
+        fin_rhs' _ _ _ _ _ _ (by omega), Int.add_comm, sgn_sub' _ _ _ (by rw [pow_ce _ _ (by omega)]; exact hm),
+        norm_sgn _ _ (by rw [pow_ce _ _ (by omega)]; omega), Int.min_eq_left (ce_le (by omega))]
+    · subst h
+      rw [if_pos rfl, if_neg (by omega)]
+      have hmant : ∀ f g, mant ea f = mant ea g ↔ f = g := fun f g => by unfold mant; split <;> omega
+      have hmant2 : ∀ f g, mant ea f < mant ea g ↔ f < g := fun f g => by unfold mant; split <;> omega
+      have hcm2 : ∀ f g, cm ea f < cm ea g ↔ f < g := fun f g => by unfold cm; split <;> omega
+      rcases Nat.lt_trichotomy fa fb with hf | hf | hf
+      · rw [if_neg (by rw [hmant]; omega), if_neg (by rw [hmant2]; omega),
+          show (0 : Nat) = max ea 1 - max ea 1 by omega,
+          sub_gt _ _ _ _ _ hea hfb hfa (by omega) (by rw [Nat.sub_self, Nat.pow_zero, Nat.mul_one, hcm2]; exact hf),
+          fin_rhs' _ _ _ _ _ _ (by omega), Int.add_comm,
+          sgn_sub' _ _ _ (by rw [Int.sub_self]; simp; rw [hcm2]; exact hf),
+          norm_sgn _ _ (by rw [Int.sub_self]; simp; have := (hcm2 fa fb).2 hf; omega), Int.min_self]
+      · subst hf
+        rw [if_pos rfl, fin_rhs _ _ _ _ _ _ (by omega)]
+        unfold normalize
+        rw [if_pos (by unfold sgnApply; cases sa <;> simp <;> omega)]
+      · rw [if_neg (by rw [hmant]; omega), if_pos (by rw [hmant2]; omega),
+          show (0 : Nat) = max ea 1 - max ea 1 by omega,
+          sub_gt _ _ _ _ _ hea hfa hfb (by omega) (by rw [Nat.sub_self, Nat.pow_zero, Nat.mul_one, hcm2]; exact hf),
+          fin_rhs _ _ _ _ _ _ (by omega),
+          sgn_sub _ _ _ (by rw [Int.sub_self]; simp; rw [hcm2]; exact hf),
+          norm_sgn _ _ (by rw [Int.sub_self]; simp; have := (hcm2 fb fa).2 hf; omega), Int.min_self]
+    · have hm : cm eb fb < cm ea fa * 2 ^ (max ea 1 - max eb 1) := by
+        have ha52 := hba.2 (by omega)
+        rcases Nat.eq_zero_or_pos (max ea 1 - max eb 1) with hk | hk
+        · have h0 : eb = 0 := by omega
+          subst h0
+          rw [hk, Nat.pow_zero, Nat.mul_one, cm_zero]; omega
+        · have h2 : 2 ≤ 2 ^ (max ea 1 - max eb 1) := by
+            calc 2 = 2 ^ 1 := rfl
+              _ ≤ _ := Nat.pow_le_pow_right (by decide) hk
+          have h3 : cm ea fa * 2 ≤ cm ea fa * 2 ^ (max ea 1 - max eb 1) := Nat.mul_le_mul_left _ h2
+          omega
+      rw [if_neg (by omega), if_pos h, if_neg (by omega), sub_gt _ _ _ _ _ hea hfa hfb (by omega) hm,
+        fin_rhs _ _ _ _ _ _ (by omega), sgn_sub _ _ _ (by rw [pow_ce _ _ (by omega)]; exact hm),
+        norm_sgn _ _ (by rw [pow_ce _ _ (by omega)]; omega), Int.min_eq_right (ce_le (by omega))]
+
 end Lua.Num.SfRef
