@@ -279,10 +279,44 @@ HELPERS += [("__swsetup_r", "__swsetup_r", 0x8003587c, 0x800359e0, [22, 26], [],
 HELPERS += [("luaB_print", "LuaB_print", 0x80022f18, 0x80023010, [22, 26], [], []),
             ("lua_gettop", "Lua_gettop", 0x80001bb4, 0x80001bd4, [22, 26], [], []),
             ("lua_settop", "Lua_settop", 0x80001bd4, 0x80001cbc, [22, 26], [], [0x80001c8c])]
+# lane F1-12: `OP_CALL` (its `jal luaD_precall` a call node) and
+# `luaD_precall`'s light-C-function path (`precallC`): the `LUA_VLCF` case, no
+# stack growth (`checkstackGCp`'s `luaD_growstack`, `0x8000abe4`, a stop),
+# `next_ci` (`ci->next` reused, or `luaE_extendCI`: a call node), no call hook
+# (`0x8000ace0` a stop), the C function through `jalr a7` (`luaB_print`), then
+# `luaD_poscall`; the Lua-function and `__call` paths (`0x8000aae0`) are stops
+SIM_OPS |= {"OP_CALL"}
+SUMMARISED |= {"luaD_precall"}
+# the argument registers an arm's summarised call reads (live into its `jal`,
+# beside the registers live at the return address)
+CALL_ARGS = {"luaD_precall": {"x10", "x11", "x12"}}
+HELPERS += [("luaD_precall", "LuaD_precall", 0x8000aab4, 0x8000ae3c, [22, 26], [0x8000ac8c],
+             [0x8000aae0, 0x8000abe4, 0x8000ace0])]
+# lane F1-12: `luaL_tolstring` on its nil and boolean paths (no metatable:
+# `luaL_callmeta` → `lua_getmetatable` → 0; `lua_type`; `lua_toboolean`; the
+# literal through `lua_pushstring`, a call node; the tail `j lua_tolstring`),
+# its callees on a positive index into the C frame, and `lua_tolstring` of the
+# top's short string (index -1). The stops: a metamethod (`0x80021b68`,
+# `0x80021a70`), the number, string, other and error paths of
+# `luaL_tolstring`; pseudo-indices, absent slots, tables and full userdata;
+# a non-string or long string at the top
+HELPERS += [("luaL_tolstring", "LuaL_tolstring", 0x80021b2c, 0x80021d90, [22, 26], [],
+             [0x80021b68, 0x80021bec, 0x80021c0c, 0x80021c44, 0x80021c5c]),
+            ("lua_absindex", "Lua_absindex", 0x80001b7c, 0x80001bb4, [22, 26], [], []),
+            ("luaL_callmeta", "LuaL_callmeta", 0x80021a24, 0x80021ac0, [22, 26], [], [0x80021a70]),
+            ("lua_getmetatable", "Lua_getmetatable", 0x80003788, 0x8000388c, [22, 26], [],
+             [0x80003804, 0x8000382c, 0x80003844, 0x800037c0]),
+            ("lua_type", "Lua_type", 0x80002068, 0x8000211c, [22, 26], [], [0x800020c8, 0x80002084]),
+            ("lua_toboolean", "Lua_toboolean", 0x800028ec, 0x80002994, [22, 26], [],
+             [0x80002924, 0x8000294c]),
+            ("lua_tolstring", "Lua_tolstring", 0x80002994, 0x80002b00, [22, 26], [],
+             [0x800029a0, 0x80002a60, 0x800029c4, 0x80002abc, 0x80002a7c])]
 # the argument registers of a callee with no segments of its own (a call node
 # whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
-# idx, &len)`)
-CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}}
+# idx, &len)`; lane F1-12: `luaE_extendCI(L)`)
+CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}, 0x80016a5c: {"x10"},
+                # lane F1-12: `lua_pushstring(L, s)`
+                0x80002fe4: {"x10", "x11"}}
 # a `ret` (by its address) that also returns into its own helper's code (an
 # internal `jalr`: `memset`'s `sb` chain): its live-out includes the code
 # after that call
@@ -290,7 +324,7 @@ RET_TO = {0x8003b5f8: [0x8003b630]}
 # indirect calls whose target the callee rows know (`jalr` through a `FILE`
 # hook): the callee's entry reads flow back into the caller's segments, as a
 # `jal`'s do (`__sfvwrite_r`'s `fp->_write`, `__swrite`, reads `a3`)
-INDIRECT = {0x80033df0: 0x80034f18}
+INDIRECT = {0x80033df0: 0x80034f18, 0x8000ac88: 0x80022f18}
 # lane float-m0: libgcc's soft-float routines of the T1/T2 float paths
 # (FLOAT-DESIGN.md §3, M0), all loop-free but `__clzdi2` (a counted byte scan,
 # unrolled by `scripts/gen_lua_fn.py`); their whole-function summaries are
@@ -332,7 +366,10 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__adddf3": {"x10"}, "__subdf3": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
-           "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set()}
+           "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),
+           "luaD_precall": {"x10"}, "luaL_tolstring": {"x10"}, "lua_absindex": {"x10"},
+           "luaL_callmeta": {"x10"}, "lua_getmetatable": {"x10"}, "lua_type": {"x10"},
+           "lua_toboolean": {"x10"}, "lua_tolstring": {"x10"}}
 
 
 def helper_cfg(lo, hi):
@@ -595,9 +632,11 @@ def collect(only):
                and (re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in SUMMARISED
                     or (n in float_segs
                         and re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1) in FLOAT_CALLS))}
+    jal_args = {n: CALL_ARGS[re.search(r"<([^>+]+)>", g[cuts[n][1] - 4][0]).group(1)]
+                for n in jal_end
+                if re.search(r"<([^>+]+)>", g[cuts[n][1] - 4][0]).group(1) in CALL_ARGS}
     # round 5 (A-JOIN): a soft-float call node reads its arguments (`a0`, and
     # `a1` for a binary routine), set before the `jal` or carried into it
-    jal_args = {}
     for n in jal_end & float_segs:
         lo, hi, path = cuts[n]
         callee = re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1)

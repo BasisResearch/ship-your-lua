@@ -352,7 +352,7 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
     (hcall : SegsAt m RuntimeData.callerFrames)
     (hcL : ∀ a ∈ RuntimeData.callerLSlots, bytesT8 m a = BitVec.ofNat 64 L)
     (hat : rd64 m symAtexit = some 0) (hsx : rd64 m symStdioExitHandler = some 0)
-    {f0 : Nat} (hf0 : f0 ≤ func)
+    (hci : rd64 m (L + stateCiOff) = some ci) {f0 : Nat} (hf0 : f0 ≤ func)
     (henv : ∀ ts, KStrIn m rt.k p.k.length ts printKey →
       EnvMem m rt.cl ts (HeapApart L ci f0 rt.stackLast)) :
     ∃ ι : Strs, RelParts p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩ := by
@@ -370,7 +370,7 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
   have hsle : rt.stack ≤ func := hfunc ▸ hlua.stack_le
   subst hsp
   refine ⟨⟨ι, KStrIn m rt.k p.k.length⟩, ⟨⟨htext, hro, hpr.proto, hpr.code, fun i ins hf => ?_,
-    ?_, ?_, ⟨hfunc, hlua, hrt.heap, hrt.error_jmp⟩, hkι,
+    ?_, ?_, ⟨hfunc, hlua.rel hci, hrt.heap, hrt.error_jmp⟩, hkι,
     own_of_kowned hrt.kowned rfl esizek rfl hsle hfits, hcall, hcL,
     exitOk_entry hat hsx hrg hfunc hlua.stack_le,
     fun ts hts => (henv ts hts).mono fun _ _ h => heapRead_of_apart h rfl hf0 hfits⟩,
@@ -645,7 +645,7 @@ theorem entry_at {p : Proto} {c : Vsa.Machine.Config} (hL : VmLoaded luaLayout p
     hM.text hM.rodata ⟨hE.proto, hE.proto_code⟩
     ⟨hRt.heap, hlua, hRt.error_jmp, hrg, hRt.interned, hRt.kowned⟩ efunc.symm epa.symm rfl
     (by rw [← esl]; exact hE.frame_fits) hRt.cstack.callers
-    (fun a ha => bytesT8_of_rd64 (hRt.callerL a ha)) hRt.stdio.atexit hRt.stdio.exit_handler
+    (fun a ha => bytesT8_of_rd64 (hRt.callerL a ha)) hRt.stdio.atexit hRt.stdio.exit_handler hE.ci_eq
     (f0 := e.func) (Nat.le_refl _) (by
       rw [← ecl, ← esl]
       exact envMem_of_entry hE (fun _ _ => rfl) (by rw [epa]; exact hrg.kArr))

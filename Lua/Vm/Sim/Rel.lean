@@ -241,13 +241,62 @@ theorem StrOwned.out {p : Proto} {w : RelPtrs} {ts : Nat} {s : List UInt8}
   intro a h1 h2
   exact hc.out a (by have := hc.lo; omega) (by have := hc.hi; omega)
 
+/-- **The `CallInfo` after the Lua one** (`ci->next`, lane F1-12): the C
+`CallInfo` a `CALL` of a C function uses (`next_ci`: reused, or allocated by
+`luaE_extendCI` at the first one), in the arena below the C stack, 8-aligned,
+its `previous` the Lua `CallInfo` (`luaD_poscall` restores `L->ci` from it). -/
+structure CiNext (m : Mem) (ci nci : Nat) : Prop where
+  lo : symEnd ≤ nci
+  hi : nci + ciSize ≤ RuntimeData.spEntry - cStackBudget
+  al : nci % 8 = 0
+  previous : rd64 m (nci + ciPreviousOff) = some ci
+
+/-- **The Lua state the relation keeps** (lane F1-12): `LuaStateAt` but its
+parts a `CALL` changes. `ci->next` is NULL before the first `CALL` of a C
+function (`luaE_extendCI` links a new `CallInfo` there, never freed while the
+collector is stopped) and a `CiNext` block after it; `g->strt` and
+`g->strcache` change with the strings a `print` interns, so they are not the
+relation's (the `CALL` arm's own facts). -/
+structure LuaStateRel (m : Mem) (L ci : Nat) (w : RtPtrs) : Prop where
+  hookmask : rd32 m (L + stateHookmaskOff) = some 0
+  trap : rd32 m (ci + ciTrapOff) = some 0
+  errfunc : rd64 m (L + stateErrfuncOff) = some 0
+  nCcalls : rd32 m (L + stateNCcallsOff) = some RuntimeData.nCcallsEntry
+  openupval : rd64 m (L + stateOpenupvalOff) = some 0
+  tbclist : rd64 m (L + stateTbclistOff) = some w.stack
+  stack : rd64 m (L + stateStackOff) = some w.stack
+  stack_last : rd64 m (L + stateStackLastOff) = some w.stackLast
+  func : rd64 m (ci + ciFuncOff) = some w.func
+  stack_le : w.stack ≤ w.func
+  ci_top : rd64 m (ci + ciTopOff) = some w.ciTop
+  ci_top_le : w.ciTop ≤ w.stackLast
+  callstatus : rd16 m (ci + ciCallstatusOff) = some cistFresh
+  nresults : rd16 m (ci + ciNresultsOff) = some 0
+  previous : rd64 m (ci + ciPreviousOff) = some (L + stateBaseCiOff)
+  next : rd64 m (ci + ciNextOff) = some 0 ∨ ∃ nci, rd64 m (ci + ciNextOff) = some nci ∧ CiNext m ci nci
+  g : rd64 m (L + stateGOff) = some w.g
+  mt_nil : rd64 m (w.g + gMtOff + 8 * luaTnil) = some 0
+  mt_boolean : rd64 m (w.g + gMtOff + 8 * luaTboolean) = some 0
+  mt_number : rd64 m (w.g + gMtOff + 8 * luaTnumber) = some 0
+  /-- `L->ci` is the Lua `CallInfo` (`VmEntryData.ci_eq`): `luaD_precall`'s
+  C path reads it (`next_ci`), `luaD_poscall` restores it -/
+  lci : rd64 m (L + stateCiOff) = some ci
+
+/-- The relation's Lua state from the boot contract's (`ci->next` NULL) and
+`L->ci = ci`. -/
+theorem _root_.Lua.Vm.LuaStateAt.rel {m : Mem} {L ci : Nat} {w : RtPtrs} (h : LuaStateAt m L ci w)
+    (hci : rd64 m (L + stateCiOff) = some ci) : LuaStateRel m L ci w :=
+  ⟨h.hookmask, h.trap, h.errfunc, h.nCcalls, h.openupval, h.tbclist, h.stack, h.stack_last, h.func,
+    h.stack_le, h.ci_top, h.ci_top_le, h.callstatus, h.nresults, h.previous, .inl h.next, h.g, h.mt_nil,
+    h.mt_boolean, h.mt_number, hci⟩
+
 /-- The parts of `luaRuntimeReady` that live in memory and that the F1 arms
-keep: the Lua state (with `ci->func = func`), the heap and the error
-handler. (`StdioBoot`/`MemfsBoot` describe the state before the first
-`print` and belong to the `CALL` arm.) -/
+keep: the Lua state (with `ci->func = func`; `LuaStateRel`, the parts a
+`CALL` keeps), the heap and the error handler. (`StdioBoot`/`MemfsBoot`
+describe the state before the first `print` and belong to the `CALL` arm.) -/
 structure RuntimeMem (m : Mem) (L ci func : Nat) (rt : RtPtrs) : Prop where
   func : rt.func = func
-  lua : LuaStateAt m L ci rt
+  lua : LuaStateRel m L ci rt
   heap : DlHeap.HeapAt m rt.top rt.brkv rt.chunks (fun i => rt.bins.getD i [])
   error_jmp : ErrorJmpAt m L
 

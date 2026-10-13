@@ -60,6 +60,10 @@ import Lua.Vm.Sim.Kit.PrintSum
 import Lua.Vm.Sim.Kit.AtFltSub
 import Lua.Vm.Sim.Kit.AtFltForprep
 import Lua.Vm.Sim.Kit.AtFltLt
+import Lua.Vm.Sim.Kit.Precall
+import Lua.Vm.Sim.Kit.CallArm
+import Lua.Vm.Sim.Kit.PrintS
+import Lua.Vm.Sim.Kit.Tolstring
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

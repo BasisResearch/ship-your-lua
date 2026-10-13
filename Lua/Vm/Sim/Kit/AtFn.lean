@@ -308,10 +308,18 @@ elab "fat_rd" loc:(Lean.Parser.Tactic.location)? : tactic => withMainContext do
       fw4_wm8, fw4_wm4, fw4_wm2, fw4_ins, fw8_wm8, fw8_wm4, fw8_wm2, fw8_ins, $facts,*] $[$loc]?)))
 
 /-- **The loads of the callee rows** (an `at_eq` extension, tried first):
-forwarded and rewritten by `fat_rd`, then closed. -/
+forwarded and rewritten by `fat_rd`, then closed (lane F1-12: a scaled
+index, `slli 4` and `add`, by `shl_ofNat`). -/
+macro "fat_shl" : tactic => `(tactic| (
+  simp only [shl_ofNat _ 4 (by decide), shl_ofNat _ 3 (by decide), Nat.reducePow, BitVec.ofNat_add_ofNat]
+  first | with_reducible rfl | (apply congrArg (BitVec.ofNat 64); omega)))
+
 macro_rules
   | `(tactic| at_eq_ext) => `(tactic| (fat_rd; first | done | with_reducible rfl | decide |
       (apply congrArg (BitVec.ofNat 64); omega)))
+
+macro_rules
+  | `(tactic| at_eq_ext) => `(tactic| (fat_rd; fat_shl))
 
 /-- A post-memory in the row's form: the same stores, the addresses by
 `kit_disch`, the data by `at_eq`. -/

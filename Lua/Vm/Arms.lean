@@ -154,6 +154,14 @@ import Lua.Vm.Arms.Segs.Hisatty
 import Lua.Vm.Arms.Segs.HluaB_print
 import Lua.Vm.Arms.Segs.Hlua_gettop
 import Lua.Vm.Arms.Segs.Hlua_settop
+import Lua.Vm.Arms.Segs.HluaD_precall
+import Lua.Vm.Arms.Segs.HluaL_tolstring
+import Lua.Vm.Arms.Segs.Hlua_absindex
+import Lua.Vm.Arms.Segs.HluaL_callmeta
+import Lua.Vm.Arms.Segs.Hlua_getmetatable
+import Lua.Vm.Arms.Segs.Hlua_type
+import Lua.Vm.Arms.Segs.Hlua_toboolean
+import Lua.Vm.Arms.Segs.Hlua_tolstring
 import Lua.Vm.Arms.Segs.Hclzdi2
 import Lua.Vm.Arms.Segs.Hfloatsidf
 import Lua.Vm.Arms.Segs.Hfloatdidf

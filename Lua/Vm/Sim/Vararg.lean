@@ -211,6 +211,11 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
         simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, symStdioExitHandler,
           symEnd] at b1 b2 ⊢
         omega)).trans hRt.stdio.exit_handler)
+      ((rdLE_congr fun i hi => hdirty _ (by
+        have b1 := hrg.L_sep_ci; have b2 := hrg.L_sep_stack; have b3 := hsle; have b4 := hfits
+        have b5 := hrg.stack_hi
+        simp only [VarargDirty, ciSize, stackValueSize, tvalueTagOff, stateSize, stateCiOff] at b1 b2 b3 b4 ⊢
+        omega)).trans hE.ci_eq)
       (f0 := e.func) (Nat.le_add_right _ _) (by
         have h := envMem_of_entry hE hdirty (k := rt.k) (by
           have := hRt.vararg.regions.kArr

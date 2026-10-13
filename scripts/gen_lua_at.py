@@ -1844,6 +1844,13 @@ class Fn:
                     # end): the constants decide it
                     d = {"zopz0zI_u": x[2] < y[2], "zopz0zKzJ_u": x[2] >= y[2],
                          "==": x[2] == y[2], "!=": x[2] != y[2]}[head]
+                if d is None and head in ("==", "!="):
+                    # lane F1-12: a pointer atom against NULL (`beqz`): its lower
+                    # bound decides it
+                    for u, z in ((x, y), (y, x)):
+                        if litval(z) == 0 and u[0] == "nat" and all(c > 0 for _, c in u[1]) and \
+                                sum(c * self.lb(i) for i, c in u[1]) + u[2] > 0:
+                            d = head == "!="
                 if d is not None and d != taken:
                     raise Stop("infeasible")
                 ground = x[0] == "lit" and y[0] == "lit"
@@ -2227,6 +2234,73 @@ PRINT_LOOP_ROW = {2: N((0, 1), add=-64), 3: ("lit", 0x8005ced0), 8: N((5, 1)), 9
                   **{r: ("bv", 6 + k) for k, r in enumerate(range(21, 28))},
                   10: N((1, 1)), 11: N((5, 1)), 12: N((0, 1), add=-56)}
 
+# lane F1-12: `luaD_precall`'s objects: `L`, the function's slot, the stack
+# top and end, the Lua `CallInfo` and the C one, in the arena (above the
+# allocator's globals, below `2 ^ 32`); the C call needs more than
+# `LUA_MINSTACK` slots of room (`stack_last - top > 320`, else growth: a stop)
+PRECALL_OK = ["sp_lo : 0x8005e7d8 + 4096 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+              "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + [
+              "f_lo : 0x8005c6d0 ≤ X.n 2", "f_hi : X.n 2 + 16 ≤ 2 ^ 32", "f_al : X.n 2 % 8 = 0",
+              "nr_lt : X.n 3 < 2 ^ 15", "t_hi : X.n 4 + 320 < X.n 5", "s_hi : X.n 5 ≤ 2 ^ 32",
+              "ci_lo : 0x8005c6d0 ≤ X.n 6", "ci_hi : X.n 6 + 64 ≤ 2 ^ 32", "ci_al : X.n 6 % 8 = 0",
+              # the objects lie below the frame
+              "L_sp : X.n 1 + 256 + 96 ≤ X.n 0", "f_sp : X.n 2 + 16 + 96 ≤ X.n 0",
+              "ci_sp : X.n 6 + 64 + 96 ≤ X.n 0"]
+PRECALL_LB = {**LUA_LB, 2: 0x8005c6d0, 6: 0x8005c6d0, 7: 0x8005c6d0}
+# the words `luaD_precall` reads: `L->top`, `L->stack_last`, `L->ci`, the
+# function's value (`luaB_print`); its tag (`LUA_VLCF`) and `L->hookmask` (0)
+PRECALL_CELLS = {(((1, 1),), 16): N((4, 1)), (((1, 1),), 40): N((5, 1)),
+                 (((1, 1),), 32): N((6, 1)), (((2, 1),), 0): ("lit", 0x80022f18),
+                 # its frame's saved `ra`, `s0` (the caller's), read by the epilogue
+                 (((0, 1),), -8): ("bv", 0), (((0, 1),), -16): ("bv", 1)}
+PRECALL_CELLSW = {(1, ((2, 1),), 8): 0x16, (4, ((1, 1),), 192): 0}
+# the join's registers: `sp` inside the frame, `s0` = L, the caller's
+# `s1`-`s11`; `a5` = the C `CallInfo`, `a4` = its top, `a1` = func, `a6` =
+# nresults, `a7` = the C function
+PRECALL_JOIN_ROW = {2: N((0, 1), add=-96), 3: ("lit", 0x8005ced0), 8: N((1, 1)),
+                    9: ("bv", 2), **{r: ("bv", 3 + k) for k, r in enumerate(range(18, 28))},
+                    15: N((7, 1)), 14: N((4, 1), add=320), 11: N((2, 1)), 16: N((3, 1)),
+                    17: ("lit", 0x80022f18)}
+PRECALL_JOIN_OK = ["n_lo : 0x8005c6d0 ≤ X.n 7", "n_hi : X.n 7 + 64 ≤ 2 ^ 32", "n_al : X.n 7 % 8 = 0",
+                   "n_sp : X.n 7 + 64 + 96 ≤ X.n 0"]
+
+# lane F1-12: `luaL_tolstring`'s objects: `L`, the C `CallInfo`, the frame's
+# slots up to `L->top` (argument `i` below it), `G(L)`, `&l` in the caller's
+# frame; its own frame `[sp - 48, sp)` (saved `ra`, `s0`-`s2` read back)
+TOL_OK = ["sp_lo : 0x8005e7d8 + 4096 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+          "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + [
+          "i_lo : 1 ≤ X.n 2", "i_hi : X.n 2 < 2 ^ 20", "l_lo : X.n 0 ≤ X.n 3", "l_hi : X.n 3 + 8 ≤ 2 ^ 32",
+          "ci_lo : 0x8005c6d0 ≤ X.n 4", "ci_hi : X.n 4 + 64 ≤ 2 ^ 32",
+          "f_lo : 0x8005c6d0 ≤ X.n 5", "f_top : X.n 5 + 16 * X.n 2 + 16 ≤ X.n 6",
+          "t_hi : X.n 6 + 64 ≤ 2 ^ 32", "g_lo : 0x8005c6d0 ≤ X.n 7", "g_hi : X.n 7 + 1024 ≤ 2 ^ 32",
+          "L_sp : X.n 1 + 256 + 4096 ≤ X.n 0", "ci_sp : X.n 4 + 64 + 4096 ≤ X.n 0",
+          "t_sp : X.n 6 + 64 + 4096 ≤ X.n 0", "g_sp : X.n 7 + 1024 + 4096 ≤ X.n 0"]
+TOL_FRAME = {(((0, 1),), -8): ("bv", 0), (((0, 1),), -16): ("bv", 1), (((0, 1),), -24): ("bv", 2),
+             (((0, 1),), -32): ("bv", 3)}
+TOLTOP_OK = ["sp_hi : X.n 0 ≤ 2 ^ 32", "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + [
+             "l_lo : 0x8005c6d0 ≤ X.n 2", "l_hi : X.n 2 + 8 ≤ 2 ^ 32", "l_al : X.n 2 % 8 = 0",
+             "t_lo : 0x8005c6d0 + 16 ≤ X.n 3", "t_hi : X.n 3 ≤ 2 ^ 32",
+             "s_lo : 0x8005c6d0 ≤ X.n 4", "s_hi : X.n 4 + 64 ≤ 2 ^ 32"]
+
+
+
+def tol_lit(mod, tag, what):
+    """`luaL_tolstring(L, i, &l)` on an argument with the literal tag `tag`:
+    X.n 1 = L, X.n 2 = i, X.n 3 = &l, X.n 4 = L->ci, X.n 5 = ci->func,
+    X.n 6 = L->top, X.n 7 = G(L) (`G(L)->mt[t]` NULL for nil and booleans)."""
+    return dict(
+        mod=mod, entry=0x80021b2c,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=TOL_OK, lb={**LUA_LB, 2: 1, 4: 0x8005c6d0, 5: 0x8005c6d0, 6: 0x8005c6d0, 7: 0x8005c6d0},
+        rcells={(((1, 1),), 32): N((4, 1)), (((4, 1),), 0): N((5, 1)), (((1, 1),), 16): N((6, 1)),
+                (((1, 1),), 24): N((7, 1)), (((7, 1),), 480 + 8 * (tag & 15)): ("lit", 0), **TOL_FRAME},
+        rcellsw={(1, ((2, 16), (5, 1)), 8): tag},
+        calls={0x80002fe4: dict(ret={})},
+        ends=[0x80002994],
+        doc=f"`luaL_tolstring(L, i, &l)` on a {what} argument, up to its tail "
+            "`lua_tolstring(L, -1, &l)`.")
+
+
 FNS = {
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
@@ -2459,6 +2533,54 @@ FNS = {
         doc="`luaB_print(L)`: each argument's `luaL_tolstring`, `fwrite` of a tab "
             "between them and of each string, `lua_pop`; then `fwrite` of the newline "
             "and `fflush(stdout)`."),
+    # lane F1-12: `luaD_precall(L, func, nresults)` on a light C function
+    # (`print`): X.n 1 = L, X.n 2 = func, X.n 3 = nresults, X.n 4 = L->top,
+    # X.n 5 = L->stack_last, X.n 6 = L->ci, X.n 7 = the C `CallInfo` (`ci->next`
+    # reused); the join after `next_ci` (`0x8000ac5c`, X.n 7 the `CallInfo`
+    # either way) a root, so `luaD_precall/ext` hands over there; the C
+    # function (`jalr a7`, `luaB_print`) and `luaD_poscall` are call nodes
+    "luaD_precall": dict(
+        mod="Precall", entry=0x8000aab4,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=PRECALL_OK, lb=PRECALL_LB,
+        rcells={**PRECALL_CELLS, (((6, 1),), 24): N((7, 1))},
+        rcellsw=PRECALL_CELLSW,
+        calls={0x80022f18: dict(ret={10: ("lit", 0)}), 0x8000a39c: dict(ret={})},
+        stops=[0x8000aae0, 0x8000abe4, 0x8000ace0],
+        loops={0x8000ac5c: dict(name="J", row=PRECALL_JOIN_ROW, ok=PRECALL_OK + PRECALL_JOIN_OK,
+                                lb=PRECALL_LB)},
+        doc="`luaD_precall(L, func, nresults)` → `precallC` on `luaB_print`: no stack "
+            "growth, `ci->next` reused, no hook; the join after `next_ci` a root."),
+    # lane F1-12: `luaD_precall` up to the join when `ci->next` is NULL:
+    # `luaE_extendCI` (a call node: the new `CallInfo` X.n 7), a root after it
+    # (the arguments reloaded from the frame), the `j` to the join (an end)
+    "luaD_precall/ext": dict(
+        mod="PrecallExt", entry=0x8000aab4,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=PRECALL_OK, lb=PRECALL_LB,
+        rcells={**PRECALL_CELLS, (((6, 1),), 24): ("lit", 0)},
+        rcellsw=PRECALL_CELLSW,
+        calls={0x80016a5c: dict(ret={10: N((7, 1))})},
+        stops=[0x8000aae0, 0x8000abe4, 0x8000ace0], ends=[0x8000ac5c],
+        doc="`luaD_precall(L, func, nresults)` → `precallC` on `luaB_print` with "
+            "`ci->next` NULL: `luaE_extendCI`, up to the join after `next_ci`."),
+    # lane F1-12: `luaL_tolstring(L, i, &l)` on a nil, `true` or `false`
+    # argument (`tol_lit`): `luaL_callmeta` (no metatable), `lua_type`,
+    # `lua_toboolean`, the literal's `lua_pushstring` (a call node), the tail
+    # `j lua_tolstring` (an end)
+    "luaL_tolstring/nil": tol_lit("TolNil", 0x00, "nil"),
+    "luaL_tolstring/true": tol_lit("TolTrue", 0x11, "`true`"),
+    "luaL_tolstring/false": tol_lit("TolFalse", 0x01, "`false`"),
+    # lane F1-12: `lua_tolstring(L, -1, &l)` of a short string at the top:
+    # X.n 1 = L, X.n 2 = &l, X.n 3 = L->top, X.n 4 = the string; its length
+    # stored, its contents returned (`ts + 24`)
+    "lua_tolstring/top": dict(
+        mod="TolTop", entry=0x80002994,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 2 ** 64 - 1), 12: N((2, 1))}),
+        ok=TOLTOP_OK, lb={**LUA_LB, 2: 0x8005c6d0, 3: 0x8005c6d0 + 16, 4: 0x8005c6d0},
+        rcells={(((1, 1),), 16): N((3, 1)), (((3, 1),), -16): N((4, 1))},
+        rcellsw={(1, ((3, 1),), -8): 0x44},
+        doc="`lua_tolstring(L, -1, &l)` of the short string at the top."),
     # `memchr(s, '\n', n)`: X.n 1 = the position, X.n 2 = the bytes left (or,
     # in the byte scan, the end); the alignment bytes, the words (the
     # zero-lane test on `word ^ 0x0a…0a`), the bytes, each loop a root

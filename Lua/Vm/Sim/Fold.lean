@@ -333,7 +333,14 @@ structure OpenArms : Prop where
   UNM_str : At.UnmStr_Statement
   /-- `luaV_concat` (string creation: `Strs.own` grows) -/
   CONCAT : SimArm .CONCAT
-  /-- `print`: `luaD_precall` → `luaB_print` → … → HTIF (stack reallocation) -/
+  /-- `print`: `luaD_precall` → `luaB_print` → … → HTIF (stack reallocation).
+  Lane F1-12: not satisfiable over the current `VmRel`, which leaves
+  `stdout`'s state, the heap room for its buffer and the separation of the
+  complement's static objects from a `print`'s stores unconstrained; it
+  follows from `Kit.sim_CALL_of` (the arm on an invariant `I` of the relation's
+  pointers, from `PrintCall_Statement I` and `HeapBudget_Statement I`) once
+  `Complement` carries such an `I`, established at the entry from the boot
+  contract (`abstractions/ledger/f1-lane-12.md`, obstacle 1). -/
   CALL : SimArm .CALL
 
 /-- **The float paths** (FLOAT-DESIGN.md §3, tiers T1–T4), one named premise
