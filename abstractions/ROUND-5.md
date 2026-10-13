@@ -801,3 +801,55 @@ not as a named node.**
 - the 3 folded `d ≥ 57` sites per routine need an arithmetic match, not a
   node rewrite;
 - the per-site exponent must be supplied (today a 12-entry hand table).
+
+## 6. Bake-off
+
+The protocol is `bakeoff5/` (scratch protocol `bakeoff5.md`). Builds were capped at 12 GB; agents were staggered, at most 3–4 builders at once. Hand lines are non-blank, non-comment.
+
+### Axis A: float arms
+
+Held-out cases are the `FloatArms` fields LT, SUB and FORPREP, under `SoftFloatSpec`; the refactor is `sim_FORLOOP_flt` (29 lines).
+
+| contender | setup | SUB | LT | FORPREP | FORLOOP | notes |
+|---|---|---|---|---|---|---|
+| A-INC (per-shape hand-offs) | 291 + 51 py | 3 | 91, all classes (`FloorSpec` premise) | **not reached** (`luaV_tonumber_` out-parameter, `luaV_tointeger` float/string) | 29 → 29 | forecast 1,200–1,800 lines for the other 33 fields |
+| **A-JOIN** (pair atoms, Boolean split, join cuts, per-operand views, `sgnBound`) | 432 + 130 py | 14 | 19 + 4 (`LtF2I_Statement`: the f2i class) | **15 + 3** (`FpCoerce_Statement`: the coerced classes) | **29 → 11; 59k → 37.1k hb** | SUB's operand-class joins have different logs, which the join support can't express yet |
+| A-TREE (round 1's 4-way answer trees; control) | 298 + 39 py | 5 | 18 (f2i class open) | **budget blown** (`fin` > 200k) | 29 → 9 lines but **59k → 139.8k hb** | round 2's suffix-replay objection holds by measurement; f2i fields forecast at 256–1,024 leaves |
+
+### Axis B: level (b)
+
+Held-out cases are `SoftFloatSpec`'s `__adddf3` and `__subdf3` fields as theorems. There is no refactor.
+
+| contender | setup | `__adddf3` | `__subdf3` | closed |
+|---|---|---|---|---|
+| B-INC (direct, cell-by-cell) | 325 | 123 + 141 partial | 123 | **no**: the finite chamber is open; forecast ≈ 25k cells per routine (symbolic shifts beyond `omega`) |
+| B-RTO (round-to-odd library and stage lemmas) | 1,025 | 972 | 988 | yes |
+| **B-SFREF** (`SfRef` reference: (b2) `SfRef = F64` once in Nat; (b1) chambers) | 1,317 | **644** | **695** | yes |
+
+## 7. Decision
+
+**Axis A: A-JOIN is adopted.**
+- It is the only contender that reaches all three held-out arms. The two premises it leaves are named, and neither is a cost of the method:
+  - the f2i class needs `floor`, which `gen_lua_fn.py` can't fold yet;
+  - the coerced classes need call-effect kinds.
+- The refactor shrinks in lines (29 → 11) and in heartbeats (59k → 37.1k).
+- A-INC is cheaper on SUB alone (3 vs 14) but cannot reach FORPREP, and its refactor doesn't shrink.
+- A-TREE shrinks lines but more than doubles heartbeats, and blows the budget on FORPREP.
+- A-INC's `FloorSpec` premise and `fixdfdi_model` bridge are kept for the follow-up that closes `LtF2I_Statement`.
+
+**Axis B: B-SFREF is adopted.**
+- Its held-out cost is 1,339 lines against B-RTO's 1,960. B-INC cannot close.
+- (b2) is proved once, and `__subdf3`'s spec half is free (`sub_eq` from `F64.sub_eq_add_neg`).
+- (b2) reuses round-to-odd's laws (`roundPack_eq`, `round_scale`, `round_rto` / W1) unchanged, so mul/div are forecast at ≈ 150 (b2) + 500–600 (b1) lines each.
+- Caveat: 580 of `__subdf3`'s lines came from a throwaway template script and were counted as hand lines.
+
+**The next abstraction both axes point to:**
+- a **chamber/stage generator** for level (b): it would remove ≈ 400 statement lines per routine (B-SFREF, B-RTO);
+- **joins over unequal write logs** for arms (A-JOIN's SUB).
+
+They are recorded as the next round's candidates.
+
+**Enforcement:**
+- CLAUDE.md's A1 float row and its soft-float row name the adopted routes.
+- The `adddf3`/`subdf3` fields leave `SoftFloatSpec`; they are theorems now.
+- The gate is re-baselined at the adoption merge (the line is added by that merge).
