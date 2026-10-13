@@ -89,6 +89,9 @@ def Allocates : Value → Prop
   | .builtin _ => True
   | _ => False
 
+/-- **Some argument allocates.** -/
+def AnyAlloc (args : List Value) : Prop := ∃ v ∈ args, Allocates v
+
 /-- The heap a `print(args)` may claim: per argument and for the first-use
 allocations (the `stdout` buffer, the C `CallInfo`, `"__tostring"`), one
 `_malloc_r` with room for its `_sbrk` (`MallocR_Statement`: the request, the
@@ -116,19 +119,24 @@ def PrintCall_Statement (I : Proto → RelPtrs → Prop) : Prop :=
     (f : AbiFrame) (o : Array String),
     Supported p → VmRelAt p c s w → I p w → p.fetch s.pc = some ins → ins.op? = some .CALL →
     ins.b ≠ 0 → ins.c ≠ 0 → (List.range' ins.a ins.b).mapM s.regs = some (.builtin .print :: args) →
-    ((∃ v ∈ args, Allocates v) → HeapBudget w args) →
+    (AnyAlloc args → HeapBudget w args) →
     Triple (SegSt 0x8000aab4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 w.L⟩,
         ⟨Register.x11, BitVec.ofNat 64 (w.slot ins.a)⟩, ⟨Register.x12, BitVec.ofNat 64 (ins.c - 1)⟩]
         w.sp 0x8001c7d8#64 f) (ArmPay (callMem c.σ.mem w s.pc ins) o))
       (fun c' => ∃ m' out mo ι rt, wrRet 0x8001c7d8#64 w.sp 0 f m' (pushes o out) c' ∧
         CallOut p w c.σ.mem ins args m' out (w.after mo ι rt) ∧ I p (w.after mo ι rt))
 
+/-- **A non-empty run from `c` into the relation with `s'` and the invariant
+`I`.** -/
+abbrev InvRun (p : Proto) (c : Config) (s' : State) (I : Proto → RelPtrs → Prop) : Prop :=
+  ∃ c' n w', 0 < n ∧ StepsN n c c' ∧ VmRelAt p c' s' w' ∧ I p w'
+
 /-- **An arm's simulation on the states with an invariant `I`** of the
 relation's pointers, which it keeps. -/
 def SimArmInv (o : OpCode) (I : Proto → RelPtrs → Prop) : Prop :=
   ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State} {w : RelPtrs}, VmRelAt p c s w → I p w →
     ∀ {ins : Word}, p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
-      ∃ c' n w', 0 < n ∧ StepsN n c c' ∧ VmRelAt p c' s' w' ∧ I p w'
+      InvRun p c s' I
 
 /-- The ranges at the pointers after a call (the window is the pointers'). -/
 theorem _root_.Lua.Vm.Sim.Ranges.after {p : Proto} {w : RelPtrs} (hr : Ranges p w) (mo : Mem) (ι : Strs)
@@ -149,8 +157,7 @@ def HeapBudget_Statement (I : Proto → RelPtrs → Prop) : Prop :=
   ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State} {w : RelPtrs}, VmRelAt p c s w → I p w →
     ∀ {ins : Word} {args : List Value}, p.fetch s.pc = some ins → ins.op? = some .CALL →
       Step binaryHost p s s' → (List.range' ins.a ins.b).mapM s.regs = some (.builtin .print :: args) →
-      (∃ v ∈ args, Allocates v) → ¬ HeapBudget w args →
-      ∃ c' n w', 0 < n ∧ StepsN n c c' ∧ VmRelAt p c' s' w' ∧ I p w'
+      AnyAlloc args → ¬ HeapBudget w args → InvRun p c s' I
 
 /-- `R[A]`'s address (`RA(i)`: `srliw 7`, `zext.b`, `slli 4`, `add base`). -/
 theorem call_ra (base : Nat) (ins : Word) :
@@ -201,9 +208,9 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
     (hG : HeapBudget_Statement I) : SimArmInv .CALL I := by
   intro p hS c s s' w hR hI ins hf hop hstep
   obtain ⟨args, hb, hcc, hargs, hs'⟩ := call_step hf hop hstep
-  by_cases hbud : (∃ v ∈ args, Allocates v) → HeapBudget w args
+  by_cases hbud : AnyAlloc args → HeapBudget w args
   case neg =>
-    have ha : ∃ v ∈ args, Allocates v := Classical.byContradiction fun h => hbud fun h' => absurd h' h
+    have ha : AnyAlloc args := Classical.byContradiction fun h => hbud fun h' => absurd h' h
     have hn : ¬ HeapBudget w args := fun hh => hbud fun _ => hh
     exact hG hS hR hI hf hop hstep hargs ha hn
   subst hs'
@@ -214,7 +221,7 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
   have htop := supported_regTop hS hf
   simp [regTop, kernel, hop, opKernel, Kernel.regTop, callK, hb, hcc] at htop
   have hb1 : ins.a + ins.b ≤ p.maxstacksize := by
-    obtain ⟨b', hb'⟩ : ∃ b', ins.b = b' + 1 := ⟨ins.b - 1, by omega⟩
+    obtain ⟨b', hb'⟩ := Nat.exists_eq_add_one_of_ne_zero hb
     have := foldr_range_top b' ins.a
     rw [hb'] at htop; omega
   have hc1 : ins.a + ins.c - 1 ≤ p.maxstacksize := by omega
