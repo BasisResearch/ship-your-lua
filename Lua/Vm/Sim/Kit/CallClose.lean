@@ -256,7 +256,7 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
           fun a h1 h2 => ⟨(h.nci_kept a h1 h2).2, fun hf => h.lits.apart a hf (.inr ⟨h1, h2⟩)⟩,
           h.nci_L, h.nci_g, h.nci_ci, h.nci_stack, h.nci_lits⟩
       objs := ⟨hI.objs.g_L, hI.objs.g_ci, hI.objs.g_stack, hI.objs.ci_stack, hI.objs.lit_L,
-        hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack⟩ }
+        hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack, hI.objs.L_stack⟩ }
   have comp : Complement p (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) := by
     obtain ⟨hsz, hwords⟩ := SF.proto.code SF.proto_code
     refine

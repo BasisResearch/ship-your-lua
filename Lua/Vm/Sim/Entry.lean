@@ -636,11 +636,12 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
     have hcs := hreg.ci_sep
     refine ⟨by show Apart rt.g _ _ _; rw [← heg]; exact ho.g_L, by show Apart rt.g _ _ _; rw [← heg]; exact ho.g_ci,
       ?_, ?_, ho.lit_L, fun ts hts => by show Apart _ _ rt.g _; rw [← heg]; exact ho.lit_g ts hts, ho.lit_ci,
-      fun ts hts => ?_⟩
+      fun ts hts => ?_, ?_⟩
     · have := ho.g_stack; show Apart rt.g _ _ _; simp only [Apart] at this ⊢; rw [← heg, ← hesl]; omega
     · show Apart _ _ _ (rt.stackLast - func); simp only [Apart]; omega
     · have := ho.lit_stack ts hts; show Apart _ _ _ (rt.stackLast - func); simp only [Apart] at this ⊢
       rw [← hesl]; omega
+    · have := hreg.L_sep_stack; show Apart _ _ _ (rt.stackLast - func); simp only [Apart]; omega
 
 /-- **The relation's complement and ranges**, named (`relParts`). -/
 structure RelParts (p : Proto) (w : RelPtrs) : Prop where

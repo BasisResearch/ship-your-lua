@@ -2,6 +2,7 @@ import Lua.Vm.Sim.Kit.CallClose
 import Lua.Vm.Sim.Kit.ExitUp
 import Lua.Vm.Sim.Kit.PoscallN
 import Lua.Vm.Sim.Kit.ExtendCI
+import Lua.Vm.Sim.Kit.PrintRel
 
 /-!
 # `PrintCall_Statement CallInv` from `CALL`'s open parts (lane F1-13)
@@ -395,6 +396,49 @@ theorem call_lits {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word
   · exact hI.lits_apart a ha (.inr (.inl (by simp only [Rng] at hw; exact hw)))
   · have := (hI.lits_in a ha).hi; simp only [Rng] at hw; omega
 
+/-- (lane F1-15) **Where `luaB_print`'s Lua objects lie, apart**, at the join. -/
+theorem call_objs {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) :
+    PrintObjs w.L nci (w.slot ins.a) w.rt.stackLast w.rt.g ls := by
+  have hs : w.func ≤ w.slot ins.a := by simp only [RelPtrs.slot, RelPtrs.base, stackValueSize]; omega
+  have hsl : w.slot ins.a ≤ w.rt.stackLast := by have := cx.room; omega
+  have g3 := hI.objs.g_stack; have l3 := hI.objs.L_stack; have n4 := hJ.nci_stack
+  simp only [Apart] at g3 l3 n4
+  refine ⟨hI.objs.g_L.symm, hJ.nci_g, ?_, ?_, ?_, hI.objs.lit_L, hI.objs.lit_g,
+    fun ts hts => (hJ.nci_lits ts hts).symm, fun ts hts => ?_⟩
+  · simp only [Apart]; omega
+  · simp only [Apart]; omega
+  · simp only [Apart]; omega
+  · have := hI.objs.lit_stack ts hts; simp only [Apart] at this ⊢; omega
+
+/-- (lane F1-15) **The arguments, frozen** on the bytes the caller keeps and
+their slots, at the join. -/
+theorem call_args_fz {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) :
+    Frozen (fun a => CallG w F ins nci a ∨ ArgSlot (w.slot ins.a) (ins.b - 1) a)
+      (ArgsAt (w.slot ins.a) w.ι args) (callMC w ins MJ nci) := by
+  intro M hM i v hv
+  have h0 := call_args cx hI hJ i v hv
+  have hi : i < args.length := (List.getElem?_eq_some_iff.1 hv).1
+  obtain ⟨hlen, -⟩ := mapM_range'_get cx.regs
+  simp only [List.length_cons] at hlen
+  have kb : ∀ j, j < 16 → bytesT1 M (w.slot ins.a + 16 * (i + 1) + j) =
+      bytesT1 (callMC w ins MJ nci) (w.slot ins.a + 16 * (i + 1) + j) :=
+    fun j hj => hM _ (.inr ⟨by omega, by omega⟩)
+  have et : slotTag M (w.slot ins.a + 16 * (i + 1)) =
+      slotTag (callMC w ins MJ nci) (w.slot ins.a + 16 * (i + 1)) := kb tvalueTagOff (by decide)
+  have ev : slotVal M (w.slot ins.a + 16 * (i + 1)) =
+      slotVal (callMC w ins MJ nci) (w.slot ins.a + 16 * (i + 1)) :=
+    bytesT8_congrT fun j hj => by
+      simpa only [Nat.add_assoc] using kb (tvalueValOff + j) (by simp only [tvalueValOff]; omega)
+  rw [et, ev]
+  have SF := hI.stat M fun a ha => (hM a (.inl (.inl ha))).trans (call_footMC cx hI hJ a ha)
+  exact h0.transfer SF.strs
+
 /-- **`luaB_print`'s entry at the join** (`PrintIn`). -/
 theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
     {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
@@ -404,6 +448,7 @@ theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
       (CallD w nci) (CallG w F ins nci) ph H (callMC w ins MJ nci) := by
   obtain ⟨hlen, -⟩ := mapM_range'_get cx.regs
   have hK := call_keep cx hI hJ
+  have kmono : ∀ {a}, Kept w.rt.hix ph a → Kept H ph a := fun ha => ha.mono hJ.kept fun _ h => .inl h
   call_nums
   refine
     { api := call_api cx hI hJ
@@ -419,7 +464,24 @@ theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
       hook := (bytesT4_congrT fun j _ => callMC_keep (by simp only [stateHookmaskOff]; pcw_omega)).trans hJ.hook_w
       lits := ⟨FL, call_lits cx hI hJ⟩
       keep_in := hK.1
-      keep_apart := hK.2 }
+      keep_apart := hK.2
+      L_in := fun a h1 h2 => kmono (hI.L_in a h1 h2)
+      g_in := fun a h1 h2 => kmono (hI.g_in a h1 h2)
+      nci_in := fun a h1 h2 => (hJ.nci_kept a h1 h2).1
+      stack_in := fun a h1 h2 => kmono (hI.stack_in a (by omega) h2)
+      objs := call_objs cx hI hJ
+      args_fz := call_args_fz cx hI hJ
+      gcstp := by
+        have SF := hI.stat _ (call_footMC cx hI hJ)
+        rw [← bytesT1_fill]; exact bytesT1_of_rd8 SF.lua.gcstp
+      ro := fun o ho => by
+        have SF := hI.stat _ (call_footMC cx hI hJ)
+        rw [← bytesT1_fill]; simp only [bytesT1, SF.rodata o ho, Option.getD_some]
+      g_al := hI.g_al
+      dirty := fun a ha => by
+        simp only [CallD, CallLitDirty, Rng, stateTopOff, gTotalbytesOff, gGCdebtOff] at ha ⊢
+        have : w.func ≤ w.slot ins.a := by simp only [RelPtrs.slot, RelPtrs.base, stackValueSize]; omega
+        omega }
 
 /-- **The C function at the join** (`PcC`): `luaB_print` (`PrintRel_Statement`)
 from the memory `luaD_precall` builds, its entry (`call_printIn`) from the
@@ -435,11 +497,12 @@ theorem call_pcc (hPR : PrintRel_Statement) {p : Proto} {c : Config} {s : State}
   call_nums
   have hNums : PrNums (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) 0x8000ac8c#64 :=
     ⟨⟨by simp only [heapEnd, symHeapEnd]; omega, by omega, by omega, by decide, by omega, by omega, hLal⟩,
-      by omega, by omega, by omega, by omega, by omega, by omega⟩
+      by omega, by omega, by omega, by omega, by omega, by omega,
+      by simp only [heapEnd, symHeapEnd]; omega, by have := cx.b_lt; omega⟩
   have hbr := hJ.brk
   obtain ⟨c', s', m', out, hret, hout⟩ := hPR w.sp w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stack
     w.rt.stackLast w.rt.g w.rt.strtSize ls args w.ι (CallD w nci) (CallG w F ins nci) ph H f
-    (callMC w ins MJ nci) o hIn hNums
+    (callMC w ins MJ nci) o trivial hIn hNums
     (fun ha => by have := hbud ha; simp only [HeapBudget] at this; omega) c0 h
   refine ⟨c', s', m', pushes o out, hret, ?_, out, rfl, hout⟩
   rw [bytesT8_congrT fun i _ => hout.above _ (by omega)]

@@ -417,6 +417,8 @@ structure CallObjs (w : RelPtrs) (ls : LitPtrs) : Prop where
   lit_g : ∀ ts ∈ ls.strs, Apart ts 30 w.rt.g gEnd
   lit_ci : ∀ ts ∈ ls.strs, Apart ts 30 w.ci ciSize
   lit_stack : ∀ ts ∈ ls.strs, Apart ts 30 w.func (w.rt.stackLast - w.func)
+  /-- (lane F1-15) the `lua_State` apart from the Lua stack -/
+  L_stack : Apart w.L stateSize w.func (w.rt.stackLast - w.func)
 
 /-- **The C `CallInfo` `nci` after the Lua one**: in a chunk in use, apart
 from both footprints and from the objects a `CALL` writes. -/

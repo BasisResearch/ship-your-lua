@@ -105,6 +105,10 @@ structure PrNums (sp0 L nci func n : Nat) (r : BitVec 64) : Prop where
   f_lo : 0x8005c6d0 ≤ func
   f_hi : func + 16 * n + 48 ≤ 2 ^ 32
   sep : nci + 8 ≤ L + 16 ∨ L + 24 ≤ nci
+  /-- (lane F1-15) the C stack far above the heap (`lua_pushstring`'s callees) -/
+  sp_big : heapEnd + 32768 ≤ sp0
+  /-- (lane F1-15) `B - 1` arguments -/
+  n_small : n < 256
 
 /-- **`PrintLua` for the concrete state** (`PrS`): `lua_gettop`,
 `lua_settop(L, -2)` and the stability are proved; `luaL_tolstring` of each
