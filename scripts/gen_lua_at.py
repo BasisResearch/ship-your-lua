@@ -82,16 +82,22 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               "OP_LEI": ("Lei", 0x8001c40c), "OP_GTI": ("Gti", 0x8001c5ac),
               "OP_ADD": ("Add", 0x8001d9c8), "OP_ADDK": ("Addk", 0x8001c9d4),
               "OP_SUBK": ("Subk", 0x8001c984), "OP_UNM_F": ("UnmF", 0x8001d8a4),
-              "OP_LE_F": ("LeF", 0x8001c60c)}
+              "OP_LE_F": ("LeF", 0x8001c60c),
+              # lane F2: the bitwise arms' float paths (`luaV_tointegerns`,
+              # F2Ieq: `floor`, `__eqdf2`, the range, `__fixdfdi`)
+              "OP_BNOT_F": ("BnotF", 0x8001df18), "OP_BAND_F": ("BandF", 0x8001de4c),
+              "OP_BOR_F": ("BorF", 0x8001da70), "OP_BXOR_F": ("BxorF", 0x8001da10)}
 SEG_OP = {"OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
-          "OP_LE_F": "OP_LE"}
+          "OP_LE_F": "OP_LE",
+          **{f"OP_{o}_F": f"OP_{o}" for o in ("BNOT", "BAND", "BOR", "BXOR")}}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_GEI": [("tag", "a", 0)], "OP_ADDI": [("tag", "b", 0)],
               "OP_FORLOOP": [("tag", "a", 2)], "OP_LOADF": [],
               "OP_FORPREP_F": [("tag", "a", 0), ("tag", "a", 1), ("tag", "a", 2)],
               "OP_LEI": [("tag", "a", 0)], "OP_GTI": [("tag", "a", 0)],
-              "OP_UNM_F": [("tag", "b", 0)]}
+              "OP_UNM_F": [("tag", "b", 0)],
+              "OP_BNOT_F": [("tag", "b", 0)]}
 VNUMFLT_ = 19
 # round 5 (A-JOIN): the cut points at the machine's joins. arm -> {join pc:
 # (the joined register, the fork whose two sides meet there)}. A path that

@@ -309,7 +309,9 @@ FLOAT_UNARY = {"__floatsidf", "__floatdidf", "__fixdfdi", "__clzdi2", "floor"}
 FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP",
               "OP_SUB", "OP_FORPREP", "OP_LT",  # round 5 (A-JOIN): SUB's, FORPREP's, LT's float paths
               # lane F2: LEI's, GTI's, ADD's, ADDK's, SUBK's, LE's float paths
-              "OP_LEI", "OP_GTI", "OP_ADD", "OP_ADDK", "OP_SUBK", "OP_LE"}
+              "OP_LEI", "OP_GTI", "OP_ADD", "OP_ADDK", "OP_SUBK", "OP_LE",
+              # lane F2: the bitwise arms' `tointegerns` (`floor`, F2Ieq)
+              "OP_BNOT", "OP_BAND", "OP_BOR", "OP_BXOR"}
 SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the

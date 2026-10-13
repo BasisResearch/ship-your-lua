@@ -1,4 +1,4 @@
-import Lua.Vm.Sim.Kit.AtJoinOps
+import Lua.Vm.Sim.Kit.AtJoinF2I
 import Lua.Vm.At.UnmF
 
 /-!
@@ -20,13 +20,6 @@ open Vsa.Machine (MState Config Steps StepsN)
 /-- **`OP_UNM` of a float** (`FloatArms.UNM`). -/
 theorem sim_UNM_flt : SimArmOn .UNM FltB :=
   sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
-  kit_setup 0x8001d8a4
-  simp [setR, Opnd.ports] at htop hk
-  kit_bound hAt ins.a; kit_bound hBt ins.b
-  flt_views
-  flt_reg_s ins.b, hT
-  simp [Opnd.fill, δ, VState.apply, writeDefs, KEdge.kills] at hk
-  subst hk
-  at_walk Lua.Vm.At.UNM_F
+  at_junary 0x8001d8a4 Lua.Vm.At.UNM_F
 
 end Lua.Vm.Sim.At

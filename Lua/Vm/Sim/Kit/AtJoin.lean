@@ -422,7 +422,14 @@ elab "at_atoms" : tactic => withMainContext do
   for d in (← getLCtx) do
     if d.isImplementationDetail then continue
     let nm := d.userName.toString
-    if nm.startsWith "hf_" || nm.startsWith "hq" then
+    -- lane F2: facts only (a Prop, never an equation of kernel values such as
+    -- `Res.val … = Res.val …`, nor a value a `split` named `hq✝`)
+    let t ← instantiateMVars d.type
+    let isFact ← (do
+      unless ← Meta.isProp t do return false
+      if let some (α, _, _) := t.eq? then return !α.isConstOf ``Lua.Num.Res
+      return true : MetaM Bool)
+    if (nm.startsWith "hf_" || nm.startsWith "hq") && isFact then
       let n := Name.mkSimple s!"hpc_{i}"
       i := i + 1
       g ← g.rename d.fvarId n
@@ -516,6 +523,16 @@ elab "at_atoms" : tactic => withMainContext do
     -- is assembled by structure (`atomDec`), each piece searched alone
     evalTactic (← `(tactic| at_atom_decide))
 
+open Lean Elab Tactic Meta in
+/-- lane F2: split the kernel result `hq : (if … then … else …) = r` of type
+`Lua.Num.Res` (`op_bitwise`'s `tointegerns` over the atoms); its conditions
+are named `hqc` (facts of `at_atoms`). Fails on any other `hq`. -/
+elab "split_res_hq" : tactic => withMainContext do
+  let some d := (← getLCtx).findFromUserName? `hq | throwError "split_res_hq: no hq"
+  let some (α, l, _) := (← instantiateMVars d.type).eq? | throwError "split_res_hq: not an equation"
+  unless α.isConstOf ``Lua.Num.Res && l.isAppOf ``ite do throwError "split_res_hq: not a kernel result"
+  evalTactic (← `(tactic| split at $(mkIdent `hq):ident <;> rename_i $(mkIdent `hqc):ident))
+
 set_option hygiene false in
 /-- **`at_leaf NS`**: at the fetch head, the kernel's outcome: the side of
 its test the path's atoms refute is closed by `at_atoms`, the other by the
@@ -523,10 +540,15 @@ close (`at_close`). -/
 macro "at_leaf " ns:ident : tactic => `(tactic| (
   try simp only [sgnBound_eq_true] at hk
   repeat' (split at hk <;> rename_i hq)
+  -- lane F2: a kernel result that is an `if` over the atoms (`op_bitwise`'s
+  -- `tointegerns`): its conditions split too (`hqc`, read by `at_atoms`)
+  all_goals repeat' split_res_hq
   all_goals first
   | (simp at hk; done)
+  | (simp at hq; done)
   | (exfalso; at_atoms)
-  | (simp [VState.apply, writeDefs, KEdge.kills] at hk
+  | (try (simp only [Lua.Num.Res.val.injEq, Lua.Num.Numeral.int.injEq] at hq; cases hq)
+     simp [VState.apply, writeDefs, KEdge.kills] at hk
      subst hk
      at_close $ns h0 acc)
   | at_close $ns h0 acc))
