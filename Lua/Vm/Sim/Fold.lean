@@ -361,10 +361,12 @@ join route), `LT` and `LE` (lane F2: their f2i paths through `floor`),
 `BNOT`, `BAND`, `BOR`, `BXOR` (lane F2: `tointegerns`), `BANDK`, `BORK`,
 `BXORK` (lane F3: `K[C]` read through `floor`'s frame), `SHL`, `SHR`, `SHLI`,
 `SHRI` (lane F3: the shift's tests of `__fixdfdi`'s value as residual atoms),
-`MUL`, `MULK` (lane F1-F5: `__muldf3`, `Muldf3.spec_proved`). libm `floor`'s
-premise `FloorSpec` is `floorSpec_proved` (lane float-sf3), passed by the
-generated at-lemmas (lane F1-F5). `EQI` (lane F1-F5: `At.eqiFlt_proved`). `FORPREP`
-is proved but for the paths its field names (`At.FpCoerce_Statement`). -/
+`MUL`, `MULK` (lane F1-F5: `__muldf3`, `Muldf3.spec_proved`), `EQ`, `EQK` (lane
+F4: `luaV_equalobj`'s float summary `Kit.equalobj_flt_sum` as the call node,
+from the callee-context route). libm `floor`'s premise `FloorSpec` is
+`floorSpec_proved` (lane float-sf3), passed by the generated at-lemmas of both
+routes (lane F1-F5, `PREMISE_PROOF`). `EQI` (lane F1-F5: `At.eqiFlt_proved`).
+`FORPREP` is proved but for the paths its field names (`At.FpCoerce_Statement`). -/
 structure FloatArms : Prop where
   /-- the soft-float routines' level-2 equations not yet proved
   (`Lua/Vm/Fn/Spec.lean`): empty since lane float-sf2, every routine's is a
@@ -386,10 +388,6 @@ structure FloatArms : Prop where
   MODK : SimArmOn .MODK FltBK
   /-- `OP_IDIVK` with a float operand (T4) -/
   IDIVK : SimArmOn .IDIVK FltBK
-  /-- `OP_EQ` with a float operand (`luaV_equalobj`: `__eqdf2`, F2Ieq; T3) -/
-  EQ : SimArmOn .EQ FltAB
-  /-- `OP_EQK` with a float `R[A]` or `K[B]` (`luaV_rawequalobj`; T3) -/
-  EQK : SimArmOn .EQK FltAKb
   /-- `OP_FORPREP`'s coerced classes, neither three integers nor three floats
   (`forlimit`'s `luaV_tointeger`/`luaV_tonumber_` → `strtod`); the float loop
   is `At.sim_FORPREP_flt` -/
@@ -443,8 +441,8 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case LEN => exact At.sim_LEN
   case CONCAT => exact h.CONCAT
   case JMP => exact @sim_JMP
-  case EQ => exact SimArm.split Kit.sim_EQ hF.EQ
-  case EQK => exact SimArm.split At.sim_EQK hF.EQK
+  case EQ => exact SimArm.split Kit.sim_EQ At.sim_EQ_flt
+  case EQK => exact SimArm.split At.sim_EQK At.sim_EQK_flt
   case EQI => exact SimArm.split @sim_EQI (At.sim_EQI_flt hF.soft At.eqiFlt_proved)
   case LT => exact SimArm.split At.sim_LT (At.sim_LT_flt hF.soft (At.lt_flt_f2i hF.soft))
   case LE => exact SimArm.split At.sim_LE (At.sim_LE_flt hF.soft (At.le_flt_f2i hF.soft))

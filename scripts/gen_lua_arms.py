@@ -113,8 +113,12 @@ HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26, 6, 14, 15, 
            ("__hidden___udivdi3", "__hidden___udivdi3", 0x8002f734, 0x8002f77c, [5, 22, 26],
             [], []),
            ("__moddi3", "__moddi3", 0x8002f7b0, 0x8002f7e0, [22, 26], [], []),
+           # lane F1-F4: the float paths are followed (the same-variant float arm
+           # `0x8001b90c`, `__eqdf2`, a root of the jump table; the mixed
+           # integer/float paths from `0x8001b810`, `luaV_tointegerns(F2Ieq)`
+           # inlined: `floor`, `__eqdf2`, the range, `__fixdfdi`)
            ("luaV_equalobj", "LuaV_equalobj", 0x8001b780, 0x8001bad0, [],
-            [0x8001b84c, 0x8001b7f4, 0x8001b8f8], [0x8001b810]),
+            [0x8001b84c, 0x8001b7f4, 0x8001b8f8, 0x8001b90c], []),
            # `__divdi3` (`0x8002f72c`): its sign tests, then either falls through
            # into `__hidden___udivdi3` (`0x8002f734`, its own helper) or branches
            # into the sign fix-ups that objdump labels `__umoddi3+0x10`/`+0x20`
@@ -354,6 +358,14 @@ HELPERS += [("luaE_extendCI", "LuaE_extendCI", 0x80016a5c, 0x80016aa8, [22, 26],
 # whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
 # idx, &len)`; lane F1-12: `luaE_extendCI(L)`)
 CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}, 0x80016a5c: {"x10"},
+                # lane F1-F4: libm `floor(x)` (no segments: `FloorSpec`), from
+                # `luaV_equalobj`'s mixed integer/float paths
+                0x8002bb14: {"x10"},
+                # lane F1-F4: the soft-float routines `luaV_equalobj` calls read only
+                # their arguments (their summaries pin the caller's `HFrame`, `s6` and
+                # `s10` included, which the summary proof pins at the call)
+                0x8002e350: {"x10", "x11"}, 0x8002e3c0: {"x10", "x11"},
+                0x8002e460: {"x10", "x11"}, 0x8002f188: {"x10"},
                 # lane F1-12: `lua_pushstring(L, s)`
                 0x80002fe4: {"x10", "x11"},
                 # lane F1-14: `_free_r(ptr, p)`, `_malloc_r(ptr, n)` (with `ra`: `_realloc_r` tail-jumps to it)
