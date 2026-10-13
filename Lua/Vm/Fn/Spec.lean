@@ -33,7 +33,12 @@ proved (CLAUDE.md law 2), one field per routine; it is supplied by level 2
 (lanes L2-*) and evidenced meanwhile by the Sail vectors of `c/tests/float/`
 (`abstractions/ledger/float-s0a.md`: `+ − × / % //`, `< <= ==`, `i + 0.0`,
 bit for bit against the ELF). `Lua.Vm.Fn.<R>.spec` is the equation the
-arms use, from the premise or from its proof.
+arms use, from the premise.
+
+`__adddf3` and `__subdf3` have no field: their equations are theorems
+(round 5, B-SFREF), `Lua.Vm.Fn.Adddf3.spec_proved` (`Lua/Vm/Fn/SfRefAdd.lean`)
+and `Lua.Vm.Fn.Subdf3.spec_proved` (`Lua/Vm/Fn/SfRefSub.lean`), which the call
+sites use directly (`gen_lua_at.py`'s `FPROVED`).
 -/
 
 namespace Lua.Vm.Fn
@@ -94,8 +99,6 @@ structure SoftFloatSpec : Prop where
   eqdf2 : ∀ a b, Eqdf2.F a b = Eqdf2.S a b
   ledf2 : ∀ a b, Ledf2.F a b = Ledf2.S a b
   gedf2 : ∀ a b, Gedf2.F a b = Gedf2.S a b
-  adddf3 : ∀ m s r a b, FnSp s 48 → Adddf3.F m s r a b = Adddf3.S a b
-  subdf3 : ∀ m s r a b, FnSp s 48 → Subdf3.F m s r a b = Subdf3.S a b
 
 end Lua.Vm.Sim
 
@@ -125,9 +128,5 @@ theorem Fixdfdi.spec (hsf : SoftFloatSpec) (x : BitVec 64) : Fixdfdi.F x = Fixdf
 theorem Eqdf2.spec (hsf : SoftFloatSpec) (a b : BitVec 64) : Eqdf2.F a b = Eqdf2.S a b := hsf.eqdf2 a b
 theorem Ledf2.spec (hsf : SoftFloatSpec) (a b : BitVec 64) : Ledf2.F a b = Ledf2.S a b := hsf.ledf2 a b
 theorem Gedf2.spec (hsf : SoftFloatSpec) (a b : BitVec 64) : Gedf2.F a b = Gedf2.S a b := hsf.gedf2 a b
-theorem Adddf3.spec (hsf : SoftFloatSpec) (m : Mem) (s : Nat) (r a b : BitVec 64) (hs : FnSp s 48) :
-    Adddf3.F m s r a b = Adddf3.S a b := hsf.adddf3 m s r a b hs
-theorem Subdf3.spec (hsf : SoftFloatSpec) (m : Mem) (s : Nat) (r a b : BitVec 64) (hs : FnSp s 48) :
-    Subdf3.F m s r a b = Subdf3.S a b := hsf.subdf3 m s r a b hs
 
 end Lua.Vm.Fn

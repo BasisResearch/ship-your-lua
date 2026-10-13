@@ -97,6 +97,10 @@ FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
           0x8002d7a8: ("Adddf3", 2, 48),
           # round 5 (A-JOIN): `op_arithf`'s conversions and `luai_numsub`
           0x8002f200: ("Floatdidf", 1, 32), 0x8002e9d0: ("Subdf3", 2, 48)}
+# round 5 (B-SFREF, adopted): the routines whose level-2 equation is a
+# theorem (`Lua.Vm.Fn.<R>.spec_proved`), not a `SoftFloatSpec` field:
+# module -> the module of its proof. Their sites' `f<k>_eq` take no premise.
+FPROVED = {"Adddf3": "Lua.Vm.Fn.SfRefAdd", "Subdf3": "Lua.Vm.Fn.SfRefSub"}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
@@ -850,9 +854,11 @@ class Arm:
                 out.append(f"/-- ... its frame. -/\n"
                            f"def k{k} (X : Cx) (M : Mem) : Mem :=\n"
                            f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {xs}\n")
-                out.append(f"@[at_fspec] theorem f{k}_eq (hsf : SoftFloatSpec) (X : Cx) (hX : X.Ok) :\n"
+                hsf, spec = (("", "spec_proved") if mod in FPROVED
+                             else ("(hsf : SoftFloatSpec) ", "spec hsf"))
+                out.append(f"@[at_fspec] theorem f{k}_eq {hsf}(X : Cx) (hX : X.Ok) :\n"
                            f"    f{k} X = Lua.Vm.Fn.{mod}.S {xs} :=\n"
-                           f"  Lua.Vm.Fn.{mod}.spec hsf _ _ _ {' '.join(['_'] * len(args))} (at_fnSp hX)"
+                           f"  Lua.Vm.Fn.{mod}.{spec} _ _ _ {' '.join(['_'] * len(args))} (at_fnSp hX)"
                            + (" (by at_sext)" if mod == "Floatsidf" else "") + "\n")
             else:
                 out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
@@ -1217,7 +1223,8 @@ class Arm:
         body = "\n".join(self.lemmas[k][1] for k in self.order)
         first, second = (logs, rows) if self.op in FLOAT_ARMS else (rows, logs)
         dropped = "\n".join(f"* `{n}`: {why}" for n, why in sorted(set(self.dropped)))
-        extra = "".join(f"import {m}\n" for m in IMPORTS.get(self.op, []))
+        proved = sorted({FPROVED[k[0]] for k in self.fsites if k[0] in FPROVED})
+        extra = "".join(f"import {m}\n" for m in IMPORTS.get(self.op, []) + proved)
         return f"""import Lua.Vm.Sim.Kit.At
 import Lua.Vm.Sim.Kit.Summaries
 {extra}import Lua.Vm.Arms

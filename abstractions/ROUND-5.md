@@ -852,4 +852,8 @@ They are recorded as the next round's candidates.
 **Enforcement:**
 - CLAUDE.md's A1 float row and its soft-float row name the adopted routes.
 - The `adddf3`/`subdf3` fields leave `SoftFloatSpec`; they are theorems now.
-- The gate is re-baselined at the adoption merge (the line is added by that merge).
+- The gate is re-baselined at the adoption merge (`b631db3`, A-JOIN merged after B-SFREF):
+
+```
+baseline a1-float-arm b631db3
+```
