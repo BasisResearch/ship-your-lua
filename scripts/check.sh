@@ -129,7 +129,9 @@ else echo "skipped (no syi checkout)"; fi
 [ "${1:-}" = "--static-only" ] && { echo "check: static stages OK (build and axioms not run)"; exit 0; }
 
 echo "== (5) build"
-lake build Lua Vsa VsaIris 2>&1 | tail -1 | grep -q "Build completed successfully" || fail "lake build"
+blog=$(mktemp); lake build Lua Vsa VsaIris > "$blog" 2>&1
+tail -1 "$blog" | grep -q "Build completed successfully" || { grep -E "^error|^✖" "$blog" | head -20; rm -f "$blog"; fail "lake build"; }
+rm -f "$blog"
 echo "ok"
 
 echo "== (5b) OS-spec traces (tcb/, experiments/os/run.sh --quick)"
