@@ -204,6 +204,11 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Fn.Fixdfdi.spec_proved
 #print axioms Lua.Vm.Fn.Floatdidf.spec_proved
 #print axioms Lua.Vm.Fn.Floatsidf.spec_proved
+#print axioms Lua.Vm.Fn.FloorFn.sum
+#print axioms Lua.Vm.Fn.FloorFn.F_eq_ref
+#print axioms Lua.Num.SfRef.floor_cls
+#print axioms Lua.Num.SfRef.floor_model
+#print axioms Lua.Vm.Sim.floorSpec_proved
 #print axioms Lua.Num.SfRef.cmp_eq
 #print axioms Lua.Num.SfRef.eqv_eq
 #print axioms Lua.Num.SfRef.toInt_eq
