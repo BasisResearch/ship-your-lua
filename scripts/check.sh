@@ -585,6 +585,17 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.call_top
 #print axioms Lua.Vm.Sim.Kit.call_nres
 #print axioms Lua.Vm.Sim.Kit.sim_CALL_of
+#print axioms Lua.Vm.Sim.Kit.sim_CALL
+#print axioms Lua.Vm.Sim.Kit.printCall_of
+#print axioms Lua.Vm.Sim.Kit.printCall_room
+#print axioms Lua.Vm.Sim.Kit.join_reuse
+#print axioms Lua.Vm.Sim.Kit.join_ext
+#print axioms Lua.Vm.Sim.Kit.call_pcc
+#print axioms Lua.Vm.Sim.Kit.call_pcpos
+#print axioms Lua.Vm.Sim.Kit.call_close
+#print axioms Lua.Vm.Sim.Kit.Frozen.trans
+#print axioms Lua.Vm.Sim.callInv_boot
+#print axioms Lua.Vm.Boot.entryCheck_sound
 #print axioms Lua.Vm.Sim.Kit.Kept.not_printW
 #print axioms Lua.Vm.Sim.Kit.Kept.mono
 #print axioms Lua.Vm.Sim.Kit.ApiAt.congrT
