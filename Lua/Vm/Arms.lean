@@ -171,6 +171,7 @@ import Lua.Vm.Arms.Segs.Hgedf2
 import Lua.Vm.Arms.Segs.Hledf2
 import Lua.Vm.Arms.Segs.Hadddf3
 import Lua.Vm.Arms.Segs.Hsubdf3
+import Lua.Vm.Arms.Segs.Hfloor
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

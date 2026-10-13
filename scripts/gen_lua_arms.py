@@ -335,6 +335,12 @@ FLOAT_HELPERS = [("__clzdi2", 0x8002f7ec, 0x8002f844), ("__floatsidf", 0x8002f0f
                  ("__ledf2", 0x8002e460, 0x8002e504), ("__adddf3", 0x8002d7a8, 0x8002de30),
                  ("__subdf3", 0x8002e9d0, 0x8002f0b0)]
 HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
+# lane float-sf3: the routines whose callees are soft-float or soft-int
+# routines, lifted by `scripts/gen_lua_fn.py` with call nodes to the callees'
+# proved summaries: libm `floor` (`s_floor.c`: `__adddf3`, `__gedf2`). They
+# are not call nodes of the arms (`FLOAT_CALLS`), so no arm segment changes.
+FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc)]
+HELPERS += [(fn, cap, lo, hi, [22, 26], [], []) for fn, cap, lo, hi in FN_HELPERS]
 # the arms whose float paths run through the soft-float call nodes (lane
 # float-m0, M1): only there is a call to a soft-float routine a call node (its
 # return address continues the arm), so the other arms' segments stay as they are
@@ -367,7 +373,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__retarget_lock_init_recursive": set(),
            "__clzdi2": {"x10"}, "__floatsidf": {"x10"}, "__floatdidf": {"x10"},
            "__fixdfdi": {"x10"}, "__eqdf2": {"x10"}, "__gedf2": {"x10"}, "__ledf2": {"x10"},
-           "__adddf3": {"x10"}, "__subdf3": {"x10"},
+           "__adddf3": {"x10"}, "__subdf3": {"x10"}, "floor": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
            "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),
