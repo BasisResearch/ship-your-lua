@@ -127,11 +127,26 @@ theorem knuth_num {u t q d d1 d0 ρ : Nat} (hqd : q * d = q * d1 * 2 ^ 32 + q * 
     u * 2 ^ 32 + t + q * d0 = q * d + (ρ * 2 ^ 32 + t) := by
   rw [hqd, hu32]; ac_rfl
 
-/-- **One digit of Knuth's algorithm D** (`__udiv_qrnnd_c`'s half): for a
-normalised divisor and `u < d`, the estimate `u / d1` is at most two too
-large and the corrections leave the exact digit and remainder. -/
-theorem qrHalf_eq {u t d : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64) (hu : u < d) (ht : t < 2 ^ 32) :
-    qrHalf u t d = ((u * 2 ^ 32 + t) / d, (u * 2 ^ 32 + t) % d) ∧ (u * 2 ^ 32 + t) / d < 2 ^ 32 := by
+/-- **The facts of one digit's estimate** (`__udiv_qrnnd_c`'s `__q`, `__r`,
+`__m` for `u < d`, `d` normalised): what the corrections need, and what a
+machine transcription of them reads (lane float-sf4, (b1)). -/
+structure QrSetup (u t d : Nat) : Prop where
+  /-- `__r = __r * __ll_B | t` is below the divisor. -/
+  hR : (u % (d / 2 ^ 32) * 2 ^ 32 % 2 ^ 64 ||| t) < d
+  /-- The estimate is a word. -/
+  hq : u / (d / 2 ^ 32) < 2 ^ 64
+  /-- `__m` does not wrap. -/
+  hm : u / (d / 2 ^ 32) * (d % 2 ^ 32) < 2 ^ 64
+  /-- The remainder estimate is a 32-bit digit. -/
+  hρ : u % (d / 2 ^ 32) < 2 ^ 32
+  /-- `N + __m = __q · d + __r`. -/
+  hNq : u * 2 ^ 32 + t + u / (d / 2 ^ 32) * (d % 2 ^ 32) % 2 ^ 64 =
+    u / (d / 2 ^ 32) * d + (u % (d / 2 ^ 32) * 2 ^ 32 % 2 ^ 64 ||| t)
+  /-- The digit is a 32-bit digit. -/
+  hlt : (u * 2 ^ 32 + t) / d < 2 ^ 32
+
+theorem qr_setup {u t d : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64) (hu : u < d) (ht : t < 2 ^ 32) :
+    QrSetup u t d := by
   -- the divisor's digits
   have hdd := Nat.div_add_mod d (2 ^ 32)
   obtain ⟨d1, hD1⟩ : ∃ d1, d / 2 ^ 32 = d1 := ⟨_, rfl⟩
@@ -163,7 +178,6 @@ theorem qrHalf_eq {u t d : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64) (hu : u 
   have hNlt : u * 2 ^ 32 + t < 2 ^ 32 * d := by
     have := Nat.mul_le_mul_right (2 ^ 32) (show u + 1 ≤ d by omega)
     rw [Nat.add_mul, Nat.mul_comm d] at this; omega
-  refine ⟨?_, (Nat.div_lt_iff_lt_mul (by omega)).2 hNlt⟩
   have hm' : q * d0 % 2 ^ 64 = q * d0 := Nat.mod_eq_of_lt (by omega)
   have hR' : ρ * 2 ^ 32 % 2 ^ 64 ||| t < d := by
     rw [hrr]
@@ -177,8 +191,17 @@ theorem qrHalf_eq {u t d : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64) (hu : u 
   rw [← hm', ← hrr] at hNq
   rw [← hQ, ← hR, ← hD1, ← hD0] at hNq
   rw [← hR, ← hD1] at hR'
-  rw [← hQ, ← hD1] at hq
-  exact qr_fix hd1 hd2 hR' (Nat.mod_lt _ (by decide)) (by omega) hNq
+  have hm2 : u / (d / 2 ^ 32) * (d % 2 ^ 32) < 2 ^ 64 := by rw [hD1, hD0, hQ]; omega
+  exact ⟨hR', by rw [hD1, hQ]; omega, hm2, by rw [hD1, hR]; omega, hNq,
+    (Nat.div_lt_iff_lt_mul (by omega)).2 hNlt⟩
+
+/-- **One digit of Knuth's algorithm D** (`__udiv_qrnnd_c`'s half): for a
+normalised divisor and `u < d`, the estimate `u / d1` is at most two too
+large and the corrections leave the exact digit and remainder. -/
+theorem qrHalf_eq {u t d : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64) (hu : u < d) (ht : t < 2 ^ 32) :
+    qrHalf u t d = ((u * 2 ^ 32 + t) / d, (u * 2 ^ 32 + t) % d) ∧ (u * 2 ^ 32 + t) / d < 2 ^ 32 := by
+  have k := qr_setup hd1 hd2 hu ht
+  exact ⟨qr_fix hd1 hd2 k.hR (Nat.mod_lt _ (by decide)) k.hq k.hNq, k.hlt⟩
 
 /-- `n1 · 2^64 + n0` by 32-bit digits. -/
 theorem split64 (n1 n0 : Nat) : n1 * 2 ^ 64 + n0 = (n1 * 2 ^ 32 + n0 / 2 ^ 32) * 2 ^ 32 + n0 % 2 ^ 32 := by
