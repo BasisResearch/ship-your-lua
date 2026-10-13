@@ -146,7 +146,9 @@ HELPERS += [("luaS_eqlngstr", "LuaS_eqlngstr", 0x80017184, 0x800171d4, [], [], [
             ("l_strcmp", "L_strcmp", 0x8001a704, 0x8001a7e0, [], [], []),
             ("strcoll", "Strcoll", 0x80036374, 0x80036378, [], [], []),
             ("strcmp", "Strcmp", 0x8003b920, 0x8003ba4c, [], [], []),
-            ("strlen", "Strlen", 0x8003b770, 0x8003b844, [], [], [])]
+            # lane F1-FMT: `strlen` keeps `s6`/`s10` (`_svfprintf_r`'s format
+            # cursor and its caller's `s10` live across it; `PASS_THROUGH`)
+            ("strlen", "Strlen", 0x8003b770, 0x8003b844, [22, 26], [], [])]
 # lane F1-3: `luaT_adjustvarargs(L, 0, ci, p)` at the entry: no fixed
 # parameters (the copy loop `0x80019858` is a stop: `A = 0`, `blez` taken) and
 # room on the stack (the `luaD_growstack` call `0x800198bc` is a stop)
@@ -498,6 +500,42 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
 RESULTS["longjmp"] = {"x10", "x2", "x8", "x9"} | {f"x{r}" for r in range(18, 28)}
 RESULTS["luaG_errormsg"] = set()
 RESULTS["luaD_throw"] = set()
+# lane F1-FMT: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)`: `snprintf`
+# (stops: `size > INT_MAX` `0x80034ea4`, `size == 0` `0x80034e64`, an error
+# return `0x80034e94`), `_svfprintf_r` on the paths `"%lld"` takes (its
+# conversion switch's `'l'` and `'d'` targets and the return from the
+# locale's `mbtowc` hook, `jalr s4`, are roots; every successor `"%lld"` never
+# takes is a stop: read off the emulator trace of `print(12345, -7, 0,
+# math.mininteger)`), the locale callees (`_localeconv_r`, `strlen` of the
+# decimal point, `memset` of the `mbstate`, `__locale_mb_cur_max`, the hook
+# `__ascii_mbtowc`), the digit loop's `__umoddi3`/`__udivdi3` (call nodes),
+# and the output `__ssprint_r` -> `__ssputs_r` -> `memmove` on a string
+# `FILE` with room (stops: an empty iov `0x80049724`, the error exit
+# `0x800497a8`, the growth path `0x8004e518`)
+HELPERS += [("snprintf", "Snprintf", 0x80034de0, 0x80034eb4, [22, 26], [],
+             [0x80034e64, 0x80034e94, 0x80034ea4]),
+            ("_svfprintf_r", "_svfprintf_r", 0x80042e70, 0x800460a0, [22, 26],
+             [0x80042f60, 0x80043824, 0x80043d50],
+             [0x80042ecc, 0x80042f70, 0x80043014, 0x80043058, 0x80043098, 0x80043110, 0x80043140,
+              0x80043160, 0x8004318c, 0x800431d4, 0x8004320c, 0x8004331c, 0x80043410, 0x80043508,
+              0x8004361c, 0x8004383c, 0x80043870, 0x800438ac, 0x80043918, 0x80043934, 0x80043b58,
+              0x80043d5c, 0x80043d64, 0x80043ea8, 0x80044454]),
+            ("_localeconv_r", "_localeconv_r", 0x8004a160, 0x8004a168, [22, 26], [], []),
+            ("__locale_mb_cur_max", "__locale_mb_cur_max", 0x8003af90, 0x8003af98, [22, 26], [], []),
+            ("__ascii_mbtowc", "__ascii_mbtowc", 0x8003cd58, 0x8003cdc0, [22, 26], [],
+             [0x8003cd78, 0x8003cda0, 0x8003cdb0]),
+            ("__ssprint_r", "__ssprint_r", 0x800496e4, 0x800497d4, [22, 26], [],
+             [0x80049724, 0x800497a8]),
+            ("__ssputs_r", "__ssputs_r", 0x8004e4b0, 0x8004e644, [22, 26], [], [0x8004e518])]
+RESULTS.update({"snprintf": {"x10"}, "_svfprintf_r": {"x10"}, "_localeconv_r": {"x10"},
+                "__locale_mb_cur_max": {"x10"}, "__ascii_mbtowc": {"x10"},
+                "__ssprint_r": {"x10"}, "__ssputs_r": {"x10"}})
+# the locale's `mbtowc` hook (`__global_locale.mbtowc`, `__ascii_mbtowc`)
+INDIRECT[0x80042f5c] = 0x8003cd58
+# `strlen` carries `s6`/`s10` only for a caller that reads them after it
+PASS_THROUGH[0x8003b770] = {"x22", "x26"}
+# `__udivdi3`'s `t0` is dead after `_svfprintf_r`'s digit-loop call
+PASS_THROUGH_FOR[0x8002f734] = PASS_THROUGH_FOR[0x8002f734] | {"_svfprintf_r"}
 
 
 def helper_cfg(lo, hi):

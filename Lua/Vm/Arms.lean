@@ -193,6 +193,13 @@ import Lua.Vm.Arms.Segs.Hsubdf3
 import Lua.Vm.Arms.Segs.Hfloor
 import Lua.Vm.Arms.Segs.Hmuldf3
 import Lua.Vm.Arms.Segs.Hdivdf3
+import Lua.Vm.Arms.Segs.Hsnprintf
+import Lua.Vm.Arms.Segs.Hsvfprintf_r
+import Lua.Vm.Arms.Segs.Hlocaleconv_r
+import Lua.Vm.Arms.Segs.Hlocale_mb_cur_max
+import Lua.Vm.Arms.Segs.Hascii_mbtowc
+import Lua.Vm.Arms.Segs.Hssprint_r
+import Lua.Vm.Arms.Segs.Hssputs_r
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 
