@@ -93,7 +93,10 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          "stdio_exit_handler", "_fwalk_sglue", "_fclose_r", "__sclose", "_close_r", "_close",
          "__sfp_lock_acquire", "__sfp_lock_release", "__retarget_lock_close_recursive",
          # lane F1-14: `luaE_extendCI` and its allocation (main.c's `l_alloc`)
-         "luaE_extendCI", "luaM_malloc_", "l_alloc", "realloc", "_realloc_r"]
+         "luaE_extendCI", "luaM_malloc_", "l_alloc", "realloc", "_realloc_r",
+         # lane float-sf5: libm `fmod` (`w_fmod.c`) over `__ieee754_fmod`
+         # (`e_fmod.c`), its NaN test `__unorddf2` and `__errno`
+         "fmod", "__ieee754_fmod", "__unorddf2", "__errno"]
 # a static name defined twice whose first (lowest) definition is the one
 # pinned: main.c's `l_alloc` (`g->frealloc`; lauxlib.c's is the second)
 DUP_FIRST = {"l_alloc"}

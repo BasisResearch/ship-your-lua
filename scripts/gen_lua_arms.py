@@ -399,7 +399,15 @@ HELPERS += [(fn, fn, lo, hi, [22, 26], [], []) for fn, lo, hi in FLOAT_HELPERS]
 # are not call nodes of the arms (`FLOAT_CALLS`), so no arm segment changes.
 FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc),
               # `__muldf3` (`_FP_MUL`: four `__muldi3` partial products, two `__clzdi2`)
-              ("__muldf3", "__muldf3", 0x8002e504, 0x8002e9d0)]
+              ("__muldf3", "__muldf3", 0x8002e504, 0x8002e9d0),
+              # lane float-sf5: libm `fmod` (`w_fmod.c`: `__ieee754_fmod`, `__eqdf2`,
+              # `__unorddf2`, `__errno`, `__divdf3`) and `__ieee754_fmod`
+              # (`e_fmod.c`: six loops; `__muldf3`, `__divdf3` on its NaN path)
+              ("fmod", "Fmod", 0x8002b964, 0x8002b9fc),
+              ("__ieee754_fmod", "__ieee754_fmod", 0x8002bdb4, 0x8002c2a8),
+              # `__unorddf2` (a leaf) and `__errno` (`_impure_ptr`'s load)
+              ("__unorddf2", "__unorddf2", 0x8002f0b0, 0x8002f0f8),
+              ("__errno", "__errno", 0x8003b40c, 0x8003b414)]
 # a callee's registers carried through its segments without being its
 # inputs: a call to it carries them only where they are live after the
 # return (`helper_live`), so its other callers' segments do not change
@@ -445,6 +453,7 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__clzdi2": {"x10"}, "__floatsidf": {"x10"}, "__floatdidf": {"x10"},
            "__fixdfdi": {"x10"}, "__eqdf2": {"x10"}, "__gedf2": {"x10"}, "__ledf2": {"x10"},
            "__adddf3": {"x10"}, "__subdf3": {"x10"}, "floor": {"x10"}, "__muldf3": {"x10"},
+           "fmod": {"x10"}, "__ieee754_fmod": {"x10"}, "__unorddf2": {"x10"}, "__errno": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
            "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),

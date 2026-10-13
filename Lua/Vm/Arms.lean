@@ -187,6 +187,10 @@ import Lua.Vm.Arms.Segs.Hadddf3
 import Lua.Vm.Arms.Segs.Hsubdf3
 import Lua.Vm.Arms.Segs.Hfloor
 import Lua.Vm.Arms.Segs.Hmuldf3
+import Lua.Vm.Arms.Segs.Hfmod
+import Lua.Vm.Arms.Segs.Hieee754_fmod
+import Lua.Vm.Arms.Segs.Hunorddf2
+import Lua.Vm.Arms.Segs.Herrno
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 
