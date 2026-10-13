@@ -194,6 +194,10 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Fn.Gedf2.sum
 #print axioms Lua.Vm.Fn.Adddf3.sum
 #print axioms Lua.Vm.Fn.Subdf3.sum
+#print axioms Lua.Vm.Fn.Adddf3.spec_proved
+#print axioms Lua.Vm.Fn.Subdf3.spec_proved
+#print axioms Lua.Num.SfRef.add_eq
+#print axioms Lua.Num.SfRef.sub_eq
 #print axioms Lua.Vm.Sim.At.sim_LOADF_flt
 #print axioms Lua.Vm.Sim.At.sim_LTI_flt
 #print axioms Lua.Vm.Sim.At.sim_EQI_flt
