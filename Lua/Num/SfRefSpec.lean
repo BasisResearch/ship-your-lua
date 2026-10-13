@@ -461,4 +461,74 @@ theorem subMag_eq (neg : Bool) (E A B k : Nat) (hE1 : 1 ≤ E) (hE : E ≤ 2046)
       unfold target; omega)]
     try rw [show wsc E - (k : Int) + k - k = wsc E - k by omega]
 
+/-! ## Finite operands: the reference is `normalize` of the aligned sum -/
+
+/-- The decoded mantissa and exponent of fields `(e, f)` (`F64.cls`). -/
+abbrev cm (e f : Nat) : Nat := if e = 0 then f else f + 2 ^ 52
+abbrev ce (e : Nat) : Int := if e = 0 then -1074 else (e : Int) - 1075
+
+theorem mant_cm (e f : Nat) : mant e f = cm e f * 2 ^ 3 := by unfold mant cm; split <;> omega
+theorem ce_wsc (e : Nat) : ce e = wsc e + 3 := by unfold ce wsc; split <;> omega
+
+theorem sgn_add (s : Bool) (x y : Nat) : sgnApply s x + sgnApply s y = sgnApply s (x + y) := by
+  unfold sgnApply; cases s <;> simp <;> omega
+theorem sgn_sub (s : Bool) (x y : Nat) (h : y < x) : sgnApply s x + sgnApply (!s) y = sgnApply s (x - y) := by
+  unfold sgnApply; cases s <;> simp <;> omega
+theorem sgn_sub' (s : Bool) (x y : Nat) (h : x < y) : sgnApply s x + sgnApply (!s) y = sgnApply (!s) (y - x) := by
+  unfold sgnApply; cases s <;> simp <;> omega
+theorem norm_sgn (s : Bool) (x : Nat) (hx : 0 < x) (t : Int) :
+    normalize (sgnApply s x) t false = round s x t false false := by
+  unfold normalize sgnApply
+  cases s
+  · simp only [Bool.false_eq_true, ite_false]
+    rw [if_neg (by omega)]
+    have : decide ((x : Int) < 0) = false := by simp
+    rw [this]; simp
+  · simp only [ite_true]
+    rw [if_neg (by omega)]
+    have : decide (-(x : Int) < 0) = true := by simp; omega
+    rw [this]; simp
+theorem align_eq (m : Nat) (e t : Int) : align m e t = m * 2 ^ (e - t).toNat := by
+  unfold align; rw [Nat.shiftLeft_eq]
+
+theorem cm_bounds (e f : Nat) (hf : f < 2 ^ 52) : cm e f < 2 ^ 53 ∧ (e ≠ 0 → 2 ^ 52 ≤ cm e f) := by
+  unfold cm; split <;> omega
+
+/-- Same signs, `eb ≤ ea`: the reference rounds the exact sum at `b`'s exponent. -/
+theorem add_ge (s : Bool) (ea fa eb fb : Nat) (hea : ea ≤ 2046) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52)
+    (h : eb ≤ ea) :
+    addAligned s (max ea 1) (mant ea fa) (mant eb fb) (max ea 1 - max eb 1) =
+      round s (cm ea fa * 2 ^ (ce ea - ce eb).toNat + cm eb fb) (ce eb) false false := by
+  have ha := cm_bounds ea fa hfa
+  have hb := cm_bounds eb fb hfb
+  rw [addAligned_eq s _ _ _ _ (by omega) (by omega) (by rw [mant_cm]; omega) (by rw [mant_cm]; omega)
+    (by rw [mant_cm]; omega) (fun _ => by rw [mant_cm, mant_cm]; omega)
+    (fun hk => by rw [mant_cm]; have := ha.2 (by omega); omega)
+    (fun hk => by rw [mant_cm]; have := ha.2 (by omega); omega)]
+  rw [mant_cm, mant_cm, show cm ea fa * 2 ^ 3 * 2 ^ (max ea 1 - max eb 1) + cm eb fb * 2 ^ 3 =
+      (cm ea fa * 2 ^ (max ea 1 - max eb 1) + cm eb fb) * 2 ^ 3 by
+      rw [Nat.add_mul, Nat.mul_assoc, Nat.mul_assoc, Nat.mul_comm (2 ^ 3) (2 ^ (max ea 1 - max eb 1))],
+    show wsc (max ea 1) - ((max ea 1 - max eb 1 : Nat) : Int) = ce eb - ((3 : Nat) : Int) by
+      rw [ce_wsc]; unfold wsc; omega,
+    round_scale, show (ce ea - ce eb).toNat = max ea 1 - max eb 1 by unfold ce; split <;> split <;> omega]
+
+/-- Different signs, `|b| < |a|` (aligned at `b`'s exponent): the reference
+rounds the exact difference, with `a`'s sign. -/
+theorem sub_gt (s : Bool) (ea fa eb fb : Nat) (hea : ea ≤ 2046) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52)
+    (h : eb ≤ ea) (hm : cm eb fb < cm ea fa * 2 ^ (max ea 1 - max eb 1)) :
+    subMag s (max ea 1) (mant ea fa) (mant eb fb) (max ea 1 - max eb 1) =
+      round s (cm ea fa * 2 ^ (ce ea - ce eb).toNat - cm eb fb) (ce eb) false false := by
+  have ha := cm_bounds ea fa hfa
+  have hb := cm_bounds eb fb hfb
+  rw [subMag_eq s _ _ _ _ (by omega) (by omega) (by rw [mant_cm]; omega) (by rw [mant_cm]; omega)
+    (by rw [mant_cm]; omega) (by rw [mant_cm]; omega)
+    (by rw [mant_cm, mant_cm, Nat.mul_assoc, Nat.mul_comm (2 ^ 3), ← Nat.mul_assoc]; exact Nat.mul_lt_mul_of_pos_right hm (by decide))
+    (fun hk => by rw [mant_cm]; have := ha.2 (by omega); omega)]
+  rw [mant_cm, mant_cm, show cm ea fa * 2 ^ 3 * 2 ^ (max ea 1 - max eb 1) - cm eb fb * 2 ^ 3 =
+      (cm ea fa * 2 ^ (max ea 1 - max eb 1) - cm eb fb) * 2 ^ 3 by
+      rw [Nat.sub_mul, Nat.mul_assoc, Nat.mul_assoc, Nat.mul_comm (2 ^ 3) (2 ^ (max ea 1 - max eb 1))],
+    show wsc (max ea 1) - ((max ea 1 - max eb 1 : Nat) : Int) = ce eb - ((3 : Nat) : Int) by
+      rw [ce_wsc]; unfold wsc; omega,
+    round_scale, show (ce ea - ce eb).toNat = max ea 1 - max eb 1 by unfold ce; split <;> split <;> omega]
+
 end Lua.Num.SfRef
