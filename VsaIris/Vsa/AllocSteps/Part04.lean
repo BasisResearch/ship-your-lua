@@ -2,19 +2,13 @@
 import VsaIris.Vsa.AllocRun
 import Vsa.Sim.DecodeNF
 
-/-! The allocator's step table, `0x80030134` to `0x80030310` (one lemma `st_<pc>` per
+/-! The allocator's step table, `0x8003014c` to `0x8003033c` (one lemma `st_<pc>` per
 instruction; see `scripts/syi/gen_alloc_steps.py`). -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail
 
 namespace Vsa.Sim
 
-def ax_80030134 : List BBlock := [{ body := [mkLine 0x80030134#64 0x00c5e5b3#32], term := none }]
-def ax_80030138 : List BBlock := [{ body := [mkLine 0x80030138#64 0x00b83423#32], term := none }]
-def ax_8003013c : List BBlock := [⟨[], some (⟨0x8003013c#64, 0xe15ff06f#32, 0x6f#8, 0xf0#8, 0x5f#8, 0xe1#8, .j, 0, 0, 0x0#13, 0x1ffe14#21, 0#12⟩ : TInstr)⟩]
-def ax_80030140 : List BBlock := [{ body := [mkLine 0x80030140#64 0x00be08b3#32], term := none }]
-def ax_80030144 : List BBlock := [{ body := [mkLine 0x80030144#64 0x411006b3#32], term := none }]
-def ax_80030148 : List BBlock := [{ body := [mkLine 0x80030148#64 0x03469693#32], term := none }]
 def ax_8003014c : List BBlock := [{ body := [mkLine 0x8003014c#64 0x0346d593#32], term := none }]
 def ax_80030150 : List BBlock := [{ body := [mkLine 0x80030150#64 0x00040513#32], term := none }]
 def ax_80030154 : List BBlock := [{ body := [mkLine 0x80030154#64 0x05d13023#32], term := none }]
@@ -132,94 +126,21 @@ def ax_800302fc : List BBlock := [{ body := [mkLine 0x800302fc#64 0x56018513#32]
 def ax_80030300 : List BBlock := [⟨[], some (⟨0x80030300#64, 0x1280b06f#32, 0x6f#8, 0xb0#8, 0x80#8, 0x12#8, .j, 0, 0, 0x0#13, 0xb128#21, 0#12⟩ : TInstr)⟩]
 def ax_80030304 : List BBlock := [{ body := [mkLine 0x80030304#64 0x56018513#32], term := none }]
 def ax_80030308 : List BBlock := [⟨[], some (⟨0x80030308#64, 0x1380b06f#32, 0x6f#8, 0xb0#8, 0x80#8, 0x13#8, .j, 0, 0, 0x0#13, 0xb138#21, 0#12⟩ : TInstr)⟩]
-def ax_8003030c : List BBlock := [{ body := [mkLine 0x8003030c#64 0x00050793#32], term := none }]
-def ax_80030310 : List BBlock := [{ body := [mkLine 0x80030310#64 0x4c81b503#32], term := none }]
+def axT_80030320 : List BBlock := [⟨[], some (⟨0x80030320#64, 0x1e058863#32, 0x63#8, 0x88#8, 0x05#8, 0x1e#8, .br bop.BEQ true, 11, 0, 0x1f0#13, 0x0#21, 0#12⟩ : TInstr)⟩]
+def axF_80030320 : List BBlock := [⟨[], some (⟨0x80030320#64, 0x1e058863#32, 0x63#8, 0x88#8, 0x05#8, 0x1e#8, .br bop.BEQ false, 11, 0, 0x1f0#13, 0x0#21, 0#12⟩ : TInstr)⟩]
+def ax_80030324 : List BBlock := [{ body := [mkLine 0x80030324#64 0xfc010113#32], term := none }]
+def ax_80030328 : List BBlock := [{ body := [mkLine 0x80030328#64 0x02813823#32], term := none }]
+def ax_8003032c : List BBlock := [{ body := [mkLine 0x8003032c#64 0x02913423#32], term := none }]
+def ax_80030330 : List BBlock := [{ body := [mkLine 0x80030330#64 0x00058413#32], term := none }]
+def ax_80030334 : List BBlock := [{ body := [mkLine 0x80030334#64 0x02113c23#32], term := none }]
+def ax_80030338 : List BBlock := [{ body := [mkLine 0x80030338#64 0x00050493#32], term := none }]
+def ax_8003033c : List BBlock := [{ body := [mkLine 0x8003033c#64 0x00c13023#32], term := none }]
 
 end Vsa.Sim
 
 namespace VsaIris.Sym
 
 open Vsa.Sim Vsa.MemRepr VsaIris.Inst VsaIris.MallocFast
-
-theorem st_80030134 {live : Nat → Prop} {S : Nat → Prop}
-    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
-    (hlive : ∀ p ∈ allocText, live p.1)
-    (hk : AW live S Q 0x80030138#64 (upd R 11 ((R 11) ||| (R 12))) Mt) :
-    AW live S Q 0x80030134#64 R Mt :=
-  swp_step ax_80030134 [11, 12] [] [] [] 0 rfl (by decide) (by decide) (by decide)
-    (fun a _ => trivial) hlive
-    (fun m hm hLD => by unfold ax_80030134 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
-    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
-    (fun a h => by cases h) rfl
-    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
-    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 11 ∈ [11, 12])))) rfl hk
-
-theorem st_80030138 {live : Nat → Prop} {S : Nat → Prop}
-    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
-    (hlive : ∀ p ∈ allocText, live p.1)
-    (hea : StOK ((R 16) + sign_extend (m := 64) (0x008#12)).toNat 8)
-    (hS : ∀ b ∈ accAddrs ((R 16) + sign_extend (m := 64) (0x008#12)).toNat 8, S b)
-    (hk : AW live S Q 0x8003013c#64 R (writeLog Mt [(((R 16) + sign_extend (m := 64) (0x008#12)).toNat, 8, (R 11))])) :
-    AW live S Q 0x80030138#64 R Mt :=
-  swp_step ax_80030138 [11, 16] [] [] (accAddrs ((R 16) + sign_extend (m := 64) (0x008#12)).toNat 8) 0 rfl (by decide) (by decide) (by decide)
-    (fun a ha => outL_single _ ha) hlive
-    (fun m hm hLD => by unfold ax_80030138 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_"; exact hea)
-    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
-    hS rfl
-    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
-    (fun _ _ _ _ => rfl) rfl hk
-
-theorem st_8003013c {live : Nat → Prop} {S : Nat → Prop}
-    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
-    (hlive : ∀ p ∈ allocText, live p.1)
-    (hk : AW live S Q 0x8002ff50#64 R Mt) :
-    AW live S Q 0x8003013c#64 R Mt :=
-  swp_step ax_8003013c [] [] [] [] 0 rfl (by decide) (by decide) (by decide)
-    (fun a _ => trivial) hlive
-    (fun m hm hLD => by unfold ax_8003013c ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
-    (by decide) (by decide) (fun h => nomatch h) (by decide) (fun a h => by cases h)
-    (fun a h => by cases h) rfl
-    (fun _ h => nomatch h)
-    (fun _ _ _ _ => rfl) rfl hk
-
-theorem st_80030140 {live : Nat → Prop} {S : Nat → Prop}
-    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
-    (hlive : ∀ p ∈ allocText, live p.1)
-    (hk : AW live S Q 0x80030144#64 (upd R 17 ((R 28) + (R 11))) Mt) :
-    AW live S Q 0x80030140#64 R Mt :=
-  swp_step ax_80030140 [11, 17, 28] [] [] [] 0 rfl (by decide) (by decide) (by decide)
-    (fun a _ => trivial) hlive
-    (fun m hm hLD => by unfold ax_80030140 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
-    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
-    (fun a h => by cases h) rfl
-    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl | rfl <;> first | rfl | exact absurd rfl hg)
-    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 17 ∈ [11, 17, 28])))) rfl hk
-
-theorem st_80030144 {live : Nat → Prop} {S : Nat → Prop}
-    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
-    (hlive : ∀ p ∈ allocText, live p.1)
-    (hk : AW live S Q 0x80030148#64 (upd R 13 ((0#64) - (R 17))) Mt) :
-    AW live S Q 0x80030144#64 R Mt :=
-  swp_step ax_80030144 [13, 17] [] [] [] 0 rfl (by decide) (by decide) (by decide)
-    (fun a _ => trivial) hlive
-    (fun m hm hLD => by unfold ax_80030144 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
-    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
-    (fun a h => by cases h) rfl
-    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
-    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 13 ∈ [13, 17])))) rfl hk
-
-theorem st_80030148 {live : Nat → Prop} {S : Nat → Prop}
-    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
-    (hlive : ∀ p ∈ allocText, live p.1)
-    (hk : AW live S Q 0x8003014c#64 (upd R 13 (shift_bits_left (R 13) (Sail.BitVec.extractLsb (0x34#6) 5 0))) Mt) :
-    AW live S Q 0x80030148#64 R Mt :=
-  swp_step ax_80030148 [13] [] [] [] 0 rfl (by decide) (by decide) (by decide)
-    (fun a _ => trivial) hlive
-    (fun m hm hLD => by unfold ax_80030148 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
-    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
-    (fun a h => by cases h) rfl
-    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl <;> first | rfl | exact absurd rfl hg)
-    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 13 ∈ [13])))) rfl hk
 
 theorem st_8003014c {live : Nat → Prop} {S : Nat → Prop}
     {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
@@ -1865,32 +1786,126 @@ theorem st_80030308 {live : Nat → Prop} {S : Nat → Prop}
     (fun _ h => nomatch h)
     (fun _ _ _ _ => rfl) rfl hk
 
-theorem st_8003030c {live : Nat → Prop} {S : Nat → Prop}
+theorem st_80030320 {live : Nat → Prop} {S : Nat → Prop}
     {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
     (hlive : ∀ p ∈ allocText, live p.1)
-    (hk : AW live S Q 0x80030310#64 (upd R 15 ((R 10) + sign_extend (m := 64) (0x000#12))) Mt) :
-    AW live S Q 0x8003030c#64 R Mt :=
-  swp_step ax_8003030c [10, 15] [] [] [] 0 rfl (by decide) (by decide) (by decide)
+    (hT : (R 11) = (0#64) → AW live S Q 0x80030510#64 R Mt) (hF : ¬ ((R 11) = (0#64)) → AW live S Q 0x80030324#64 R Mt) :
+    AW live S Q 0x80030320#64 R Mt := by
+  by_cases hc : (R 11) = (0#64)
+  · exact
+    swp_step axT_80030320 [11] [] [] [] 0 rfl (by decide) (by decide) (by decide)
+      (fun a _ => trivial) hlive
+      (fun m hm hLD => by unfold axT_80030320 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_"; exact (guard_beq _ _).2 hc)
+      (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
+      (fun a h => by cases h) rfl
+      (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl <;> first | rfl | exact absurd rfl hg)
+      (fun _ _ _ _ => rfl) rfl (hT hc)
+  · exact
+    swp_step axF_80030320 [11] [] [] [] 0 rfl (by decide) (by decide) (by decide)
+      (fun a _ => trivial) hlive
+      (fun m hm hLD => by unfold axF_80030320 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_"; exact (guard_false (guard_beq _ _)).2 hc)
+      (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
+      (fun a h => by cases h) rfl
+      (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl <;> first | rfl | exact absurd rfl hg)
+      (fun _ _ _ _ => rfl) rfl (hF hc)
+
+theorem st_80030324 {live : Nat → Prop} {S : Nat → Prop}
+    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
+    (hlive : ∀ p ∈ allocText, live p.1)
+    (hk : AW live S Q 0x80030328#64 (upd R 2 ((R 2) + sign_extend (m := 64) (0xfc0#12))) Mt) :
+    AW live S Q 0x80030324#64 R Mt :=
+  swp_step ax_80030324 [2] [] [] [] 0 rfl (by decide) (by decide) (by decide)
     (fun a _ => trivial) hlive
-    (fun m hm hLD => by unfold ax_8003030c ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
+    (fun m hm hLD => by unfold ax_80030324 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
+    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
+    (fun a h => by cases h) rfl
+    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl <;> first | rfl | exact absurd rfl hg)
+    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 2 ∈ [2])))) rfl hk
+
+theorem st_80030328 {live : Nat → Prop} {S : Nat → Prop}
+    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
+    (hlive : ∀ p ∈ allocText, live p.1)
+    (hea : StOK ((R 2) + sign_extend (m := 64) (0x030#12)).toNat 8)
+    (hS : ∀ b ∈ accAddrs ((R 2) + sign_extend (m := 64) (0x030#12)).toNat 8, S b)
+    (hk : AW live S Q 0x8003032c#64 R (writeLog Mt [(((R 2) + sign_extend (m := 64) (0x030#12)).toNat, 8, (R 8))])) :
+    AW live S Q 0x80030328#64 R Mt :=
+  swp_step ax_80030328 [2, 8] [] [] (accAddrs ((R 2) + sign_extend (m := 64) (0x030#12)).toNat 8) 0 rfl (by decide) (by decide) (by decide)
+    (fun a ha => outL_single _ ha) hlive
+    (fun m hm hLD => by unfold ax_80030328 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_"; exact hea)
+    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
+    hS rfl
+    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
+    (fun _ _ _ _ => rfl) rfl hk
+
+theorem st_8003032c {live : Nat → Prop} {S : Nat → Prop}
+    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
+    (hlive : ∀ p ∈ allocText, live p.1)
+    (hea : StOK ((R 2) + sign_extend (m := 64) (0x028#12)).toNat 8)
+    (hS : ∀ b ∈ accAddrs ((R 2) + sign_extend (m := 64) (0x028#12)).toNat 8, S b)
+    (hk : AW live S Q 0x80030330#64 R (writeLog Mt [(((R 2) + sign_extend (m := 64) (0x028#12)).toNat, 8, (R 9))])) :
+    AW live S Q 0x8003032c#64 R Mt :=
+  swp_step ax_8003032c [2, 9] [] [] (accAddrs ((R 2) + sign_extend (m := 64) (0x028#12)).toNat 8) 0 rfl (by decide) (by decide) (by decide)
+    (fun a ha => outL_single _ ha) hlive
+    (fun m hm hLD => by unfold ax_8003032c ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_"; exact hea)
+    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
+    hS rfl
+    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
+    (fun _ _ _ _ => rfl) rfl hk
+
+theorem st_80030330 {live : Nat → Prop} {S : Nat → Prop}
+    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
+    (hlive : ∀ p ∈ allocText, live p.1)
+    (hk : AW live S Q 0x80030334#64 (upd R 8 ((R 11) + sign_extend (m := 64) (0x000#12))) Mt) :
+    AW live S Q 0x80030330#64 R Mt :=
+  swp_step ax_80030330 [8, 11] [] [] [] 0 rfl (by decide) (by decide) (by decide)
+    (fun a _ => trivial) hlive
+    (fun m hm hLD => by unfold ax_80030330 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
     (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
     (fun a h => by cases h) rfl
     (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
-    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 15 ∈ [10, 15])))) rfl hk
+    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 8 ∈ [8, 11])))) rfl hk
 
-theorem ldok_80030310 : LdOK ((0x8005ced0#64) + sign_extend (m := 64) (0x4c8#12)).toNat 8 := by decide
-
-theorem st_80030310 {live : Nat → Prop} {S : Nat → Prop}
+theorem st_80030334 {live : Nat → Prop} {S : Nat → Prop}
     {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
     (hlive : ∀ p ∈ allocText, live p.1)
-    (hk : AW live S Q 0x80030314#64 (upd R 10 (bytesVal .ld [0xb8#8, 0xd1#8, 0x05#8, 0x80#8, 0x00#8, 0x00#8, 0x00#8, 0x00#8])) Mt) :
-    AW live S Q 0x80030310#64 R Mt :=
-  swp_step ax_80030310 [3, 10] [[0xb8#8, 0xd1#8, 0x05#8, 0x80#8, 0x00#8, 0x00#8, 0x00#8, 0x00#8]] [] [] 0 rfl (by decide) (by decide) (by decide)
+    (hea : StOK ((R 2) + sign_extend (m := 64) (0x038#12)).toNat 8)
+    (hS : ∀ b ∈ accAddrs ((R 2) + sign_extend (m := 64) (0x038#12)).toNat 8, S b)
+    (hk : AW live S Q 0x80030338#64 R (writeLog Mt [(((R 2) + sign_extend (m := 64) (0x038#12)).toNat, 8, (R 1))])) :
+    AW live S Q 0x80030334#64 R Mt :=
+  swp_step ax_80030334 [1, 2] [] [] (accAddrs ((R 2) + sign_extend (m := 64) (0x038#12)).toNat 8) 0 rfl (by decide) (by decide) (by decide)
+    (fun a ha => outL_single _ ha) hlive
+    (fun m hm hLD => by unfold ax_80030334 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_"; exact hea)
+    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
+    hS rfl
+    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
+    (fun _ _ _ _ => rfl) rfl hk
+
+theorem st_80030338 {live : Nat → Prop} {S : Nat → Prop}
+    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
+    (hlive : ∀ p ∈ allocText, live p.1)
+    (hk : AW live S Q 0x8003033c#64 (upd R 9 ((R 10) + sign_extend (m := 64) (0x000#12))) Mt) :
+    AW live S Q 0x80030338#64 R Mt :=
+  swp_step ax_80030338 [9, 10] [] [] [] 0 rfl (by decide) (by decide) (by decide)
     (fun a _ => trivial) hlive
-    (fun m hm hLD => by unfold ax_80030310 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_"; exact ⟨ldok_80030310, alloc_impure hm⟩)
-    (by decide) (by decide) (fun _ => rfl) (by decide) (fun a h => by cases h)
+    (fun m hm hLD => by unfold ax_80030338 ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_")
+    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
     (fun a h => by cases h) rfl
     (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
-    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 10 ∈ [3, 10])))) rfl hk
+    (fun x _ _ hx => upd_other _ _ (fun e => hx (e ▸ (by decide : 9 ∈ [9, 10])))) rfl hk
+
+theorem st_8003033c {live : Nat → Prop} {S : Nat → Prop}
+    {Q : (Nat → BitVec 64) → (Nat → BitVec 8) → Prop} {R : Nat → BitVec 64} {Mt : Mem}
+    (hlive : ∀ p ∈ allocText, live p.1)
+    (hea : StOK ((R 2) + sign_extend (m := 64) (0x000#12)).toNat 8)
+    (hS : ∀ b ∈ accAddrs ((R 2) + sign_extend (m := 64) (0x000#12)).toNat 8, S b)
+    (hk : AW live S Q 0x80030340#64 R (writeLog Mt [(((R 2) + sign_extend (m := 64) (0x000#12)).toNat, 8, (R 12))])) :
+    AW live S Q 0x8003033c#64 R Mt :=
+  swp_step ax_8003033c [2, 12] [] [] (accAddrs ((R 2) + sign_extend (m := 64) (0x000#12)).toNat 8) 0 rfl (by decide) (by decide) (by decide)
+    (fun a ha => outL_single _ ha) hlive
+    (fun m hm hLD => by unfold ax_8003033c ChainFacts; chain_facts hm with "VsaIris.Sym.alloc_at_"; exact hea)
+    (by decide) (by decide) (fun h => absurd h (by decide)) (by decide) (fun a h => by cases h)
+    hS rfl
+    (by intro x hx hg; simp only [List.mem_cons, List.not_mem_nil, or_false] at hx; rcases hx with rfl | rfl <;> first | rfl | exact absurd rfl hg)
+    (fun _ _ _ _ => rfl) rfl hk
 
 end VsaIris.Sym

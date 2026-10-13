@@ -77,14 +77,11 @@ theorem ext_sbrk {C : MCtx} (O : MOK C) {R Rc : Nat → BitVec 64} {Mt Mp : Mem}
     (Pre : SbrkPre C.S Rc Mp brkv sb)
     (hok : brkv + sb ≤ heapEnd → ∀ R' M, ExtCall C Mt nb topsz (brkv + sb) R' M →
       R' 10 = BitVec.ofNat 64 brkv → AW C.live C.S C.Q 0x8002fd18#64 R' M)
-    (hfail : heapEnd < brkv + sb → ∀ R' M, ExtCall C Mt nb topsz brkv R' M →
-      R' 10 = 18446744073709551615#64 → AW C.live C.S C.Q 0x8002fd18#64 R' M) :
+    (hroom : brkv + sb ≤ heapEnd) :
     AW C.live C.S C.Q 0x8003b308#64 Rc Mp :=
   sbrk_r_run O.live Pre
     (fun hle R' M P' h10 => hc1 ▸ hok hle R' M
-      (ExtCall.of_post O F Hp h8 hc2 hc8 hc9 hc18 hc19 Sp P') h10)
-    (fun hlt R' M P' h10 => hc1 ▸ hfail hlt R' M
-      (ExtCall.of_post O F Hp h8 hc2 hc8 hc9 hc18 hc19 Sp P') h10)
+      (ExtCall.of_post O F Hp h8 hc2 hc8 hc9 hc18 hc19 Sp P') h10) hroom
 
 theorem ext_setup {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
     {brkv : Nat} {chunks : List Chunk} {bins : Nat → List Nat} {nb idx : Nat}
@@ -93,8 +90,7 @@ theorem ext_setup {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
     (hnb31 : nb < 2 ^ 31)
     (hok : brkv + sbReq nb ≤ heapEnd → ∀ R' M, ExtCall C Mt nb (brkv - C.top0) (brkv + sbReq nb) R' M →
       R' 10 = BitVec.ofNat 64 brkv → AW C.live C.S C.Q 0x8002fd18#64 R' M)
-    (hfail : heapEnd < brkv + sbReq nb → ∀ R' M, ExtCall C Mt nb (brkv - C.top0) brkv R' M →
-      R' 10 = 18446744073709551615#64 → AW C.live C.S C.Q 0x8002fd18#64 R' M) :
+    (hroom : brkv + sbReq nb ≤ heapEnd) :
     AW C.live C.S C.Q 0x8002fcd4#64 R Mt := by
   have HH := Hp.heap.heap.heap
   have ha4 := T.a4; have ha5 := T.a5; have ht1 := T.t1; have ha6 := G.a6
@@ -121,7 +117,7 @@ theorem ext_setup {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
     rfl
   have hsbl : sbReq nb ≤ nb + 4127 := by unfold sbReq; omega
   refine ext_sbrk O F Hp h8 ?_ ?_ ?_ ?_ ?_ ?_ ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ hok hfail <;>
+    ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ hok hroom <;>
     try simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]
   all_goals try (simp (disch := sx_addr) only [read64_hit_eq, read64_miss])
   · rw [hSB]
@@ -436,7 +432,16 @@ theorem extend_top {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
     (hnb : NbOK C.n nb) (hnb31 : nb < 2 ^ 31) (hsmall : brkv - C.top0 < nb + 32) :
     AW C.live C.S C.Q 0x8002fcd4#64 R Mt :=
   ext_setup O F Hp G T h8 hnb31
-    (fun hle _ _ E h10 => ext_grow O Hp hnb hnb31 hsmall hle E h10)
-    (fun hlt _ _ E h10 => ext_null O Hp hnb hnb31 hsmall hlt E h10)
+    (fun hle _ _ E h10 => ext_grow O Hp hnb hnb31 hsmall hle E h10) (by
+      -- (lane F1-A0-M) the break is the call's (`MBrk`, the top too small), and the
+      -- context has room for one `_sbrk` (`MOK.room`)
+      have hb := Hp.brk_rel
+      have hP := hnb.eq
+      have hr := O.room
+      have htle := Hp.heap.heap.heap.top_le
+      subst hP
+      rcases hb.once with h | ⟨_, h⟩
+      · rw [h]; exact hr
+      · exfalso; omega)
 
 end VsaIris.VsaHeap

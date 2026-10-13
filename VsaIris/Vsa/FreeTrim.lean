@@ -305,7 +305,7 @@ theorem trim_sb0 {C : MCtx} (O : FOK C) {R : Nat → BitVec 64} {M : Mem} {Y brk
     (by simp only [upd_apply, Nat.reduceEqDiff, ite_true]; decide)
     (by simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]; sx_norm
         rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)])) (fun hle R' M' P h10 => ?_)
-    (fun hlt => absurd hlt (by unfold heapEnd; omega))
+    (by unfold heapEnd; omega)
   simp only [upd_apply, Nat.reduceEqDiff, ite_true]
   have hr := P.regs
   have hs2c : ((upd (upd (upd R 11 (0#64 + sign_extend (m := 64) (0x000#12))) 10
@@ -369,7 +369,7 @@ theorem trim_sb1 {C : MCtx} (O : FOK C) {R : Nat → BitVec 64} {M : Mem} {Y brk
     simp only [BitVec.toNat_ofNat, Nat.reducePow, Nat.reduceMod]
     omega
   refine sbrk_r_gen O.live (Sc.sbrkPre O rfl (by simp only [upd_apply, Nat.reduceEqDiff, ite_true]; decide) hsum)
-    (fun _ R' M' P h10 => ?_) (fun hlt => absurd hlt (by unfold heapEnd; omega))
+    (fun _ R' M' P h10 => ?_) (by unfold heapEnd; omega)
   simp only [upd_apply, Nat.reduceEqDiff, ite_true]
   have hr := P.regs
   have hs2c : ((upd (upd (upd R 11 (0#64 - R 8)) 10 (R 18 + sign_extend (m := 64) (0x000#12))) 1

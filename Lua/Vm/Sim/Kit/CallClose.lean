@@ -90,7 +90,8 @@ theorem _root_.Lua.Vm.DlHeap.HeapAt.toBinsList {m : Mem} {top brk : Nat} {cs : L
     fun i h0 hi => by rw [e i hi]; exact h.bins_list i h0 hi, fun i => ?_,
     fun i q h0 hi hq => by rw [e i hi] at hq; exact h.bin_free i q h0 hi hq, fun c hc hu => ?_,
     by rw [e 1 (by decide)]; exact h.remainder, h.binblocks_present,
-    fun bb hb i h1 hi hn => by rw [e i hi] at hn; exact h.binblocks bb hb i h1 hi hn⟩
+    fun bb hb i h1 hi hn => by rw [e i hi] at hn; exact h.binblocks bb hb i h1 hi hn,
+    h.brk_page, h.top_room, h.bb_lt⟩
   · by_cases hi : i < numBins
     · rw [e i hi]; exact h.bins_nodup i
     · simp [Kit.binsList, List.getD_eq_getElem?_getD, hi]

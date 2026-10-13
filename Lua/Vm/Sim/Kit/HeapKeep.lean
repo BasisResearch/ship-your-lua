@@ -221,6 +221,11 @@ theorem _root_.Lua.Vm.DlHeap.HeapAt.congr {m m' : Mem} {top brk : Nat} {chunks :
         exact h.binblocks_present
       binblocks := fun bb hb => by
         rw [rd64_congr fun i _ => av _ (by omega) (by omega)] at hb
-        exact h.binblocks bb hb }
+        exact h.binblocks bb hb
+      brk_page := h.brk_page
+      top_room := h.top_room
+      bb_lt := fun bb hb => by
+        rw [rd64_congr fun i _ => av _ (by omega) (by omega)] at hb
+        exact h.bb_lt bb hb }
 
 end Lua.Vm.Sim.Kit

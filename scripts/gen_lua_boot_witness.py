@@ -732,6 +732,9 @@ def heap_walk(lay, M):
     top, brkv = rd(av + 16, 8), rd(lay["symBrk"], 8)
     need(rd(lay["symMallocSbrkBase"], 8) == start, "sbrk_base")
     need(top <= brkv <= end and (brkv - top) % 16 == 0, "top/brk")
+    # lane F1-A0-M: the break page-aligned, the top chunk at least MINSIZE / 2,
+    # the binblocks bitmap 32 bits (`HeapAt.brk_page`, `top_room`, `bb_lt`)
+    need(brkv % 4096 == 0 and top + 16 <= brkv and rd(av + 8, 8) < 2 ** 32, "brk page / top room / binblocks")
     need(rd(top + 8, 8) == brkv - top + 1, "top header")
     need(rd(lay["symMallocTopPad"], 8) == 0, "top_pad")
     need(M.present(lay["symMallocMaxSbrked"], 8) and M.present(lay["symMallocMallinfo"], 8), "mallinfo")

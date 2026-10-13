@@ -27,41 +27,4 @@ theorem mHeap_entry {C : MCtx} {m1 : Mem} {s : BitVec 64} {mv : Nat → BitVec 8
   · exact Nat.le_trans (Nat.sub_le_sub_left (by decide : 256 ≤ 512) _) h1
   · rw [Nat.sub_add_cancel hs]; exact h2
 
-theorem malloc_entry {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {brkv : Nat}
-    {chunks : List Chunk} {bins : Nat → List Nat}
-    (hra : R 1 = C.r) (hsp : R 2 = C.s) (ha0 : R 10 = C.n) (h8 : R 8 = C.rv0 8)
-    (h9 : R 9 = C.rv0 9) (h18 : R 18 = C.rv0 18) (h19 : R 19 = C.rv0 19)
-    (Hp : MHeap C C.Mt0 brkv chunks bins) :
-    AW C.live C.S C.Q mallocEntryBV R C.Mt0 := by
-  rw [show mallocEntryBV = 0x8002fa1c#64 from rfl]
-  refine st_8002fa1c O.live ?_
-  refine st_8002fa20 O.live ?_
-  refine st_8002fa24 O.live ?_
-  refine malloc_all O ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ Hp <;>
-    simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]
-  · exact hra
-  · exact hsp
-  · decide
-  · sx_norm; exact ha0
-  · exact h8
-  · exact h9
-  · exact h18
-  · exact h19
-
-theorem mallocLocalRun_proved (live : Nat → Prop) (hl : AllocLive live) :
-    MallocLocalRun (vsaModel live) vsaLayoutP SpOKA mallocEntryBV gpV vsaClob vsaSaved
-      allocHeadroom allocText := by
-  intro H n s r saved rv mv hsv hsp hral he hshape hdisj
-  obtain ⟨hst, m1, top, brkv, chunks, bins, him, hheap⟩ := hshape
-  have O := mOK_loc (H := H) (n := n) (Mt0 := mt0 m1 s mv) (top0 := top) (brk0 := brkv) hl hsv hsp
-    hral he hst
-  have Hp := mHeap_entry (C := mLocCtx live H n r s saved rv (mt0 m1 s mv) top brkv) rfl
-    (by simp only [mLocCtx]) hsp him hheap hdisj rfl
-  have hra : rv 1 = r := he.ra
-  have hsp' : rv 2 = s := he.sp
-  have ha0 : rv 10 = n := he.a0
-  have h := malloc_entry O hra hsp' ha0 rfl rfl rfl rfl Hp
-  simp only [mLocCtx] at h
-  exact aw_run h he.pc him hdisj
-
 end VsaIris.VsaHeap

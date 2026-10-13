@@ -269,7 +269,7 @@ theorem ext_post {sp L ci g p top' brk' : Nat} {chunks' : List Chunk} {bins' : N
   · obtain ⟨sz, hc, hs⟩ := hb.block
     exact ⟨⟨sz, hP.kept _ hc rfl, hs⟩, hb.lo, hb.hi⟩
   · have hc := hPS.cells
-    have kL : ∀ a, a < 0x8005c6d0 ∨ (0x8005cee0 ≤ a ∧ a < 0x8005d388) ∨ (0x8005d390 ≤ a ∧ a < 0x8005d3b8) → bytesT1
+    have kL : ∀ a, a < 0x8005c6d0 ∨ (0x8005d1bc ≤ a ∧ a < 0x8005d388) ∨ (0x8005d398 ≤ a ∧ a < 0x8005d3b8) → bytesT1
         (Lua.Vm.AtF.ExtendCI.m3 (ext1 sp L g ci p f m' o)) a = bytesT1 M a := fun a ha =>
       kOff a (.inl (by omega)) fun h => by
         have : errnoAddr = 0x8005d408 := rfl

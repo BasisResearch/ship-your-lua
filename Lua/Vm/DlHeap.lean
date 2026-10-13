@@ -120,5 +120,14 @@ structure HeapAt (m : Mem) (top brkv : Nat) (chunks : List Chunk) (bins : Nat �
   binblocks_present : (rd64 m binblocksAddr).isSome
   binblocks : ∀ bb, rd64 m binblocksAddr = some bb →
     ∀ i, 1 < i → i < numBins → bins i ≠ [] → bb / 2 ^ (i / 4) % 2 = 1
+  /-- (lane F1-A0-M) the break is page-aligned: `malloc_extend_top`'s first
+  `_sbrk` corrected it, and every later one is page-rounded (the contiguous
+  path; ship-your-interpreter's `PHeapAt.brk_page`) -/
+  brk_page : brkv % 4096 = 0
+  /-- (lane F1-A0-M) the top chunk has room for its header and a link
+  (`BlockHeapAt.top_room`): a split leaves at least `MINSIZE` -/
+  top_room : top + 16 ≤ brkv
+  /-- (lane F1-A0-M) the `binblocks` bitmap has 32 bits (`PHeapAt.bb_lt`) -/
+  bb_lt : ∀ bb, rd64 m binblocksAddr = some bb → bb < 2 ^ 32
 
 end Lua.Vm.DlHeap

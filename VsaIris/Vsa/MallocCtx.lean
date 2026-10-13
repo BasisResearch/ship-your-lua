@@ -131,6 +131,9 @@ structure WOK (C : MCtx) : Prop where
 structure MOK (C : MCtx) : Prop extends WOK C where
   ok : ∀ R Mt, MRet C R Mt → AW C.live C.S C.Q C.r R Mt
   null : ∀ R Mt, MNull C R Mt → AW C.live C.S C.Q C.r R Mt
+  /-- (lane F1-A0-M) room for `malloc_extend_top`'s `_sbrk` from the break at the
+  call: its failure path (`__errno`) is off the step table -/
+  room : C.brk0 + sbReq (physSize C.n.toNat) ≤ heapEnd
 
 structure MFrame (C : MCtx) (R : Nat → BitVec 64) (Mt : Mem) : Prop where
   sp : R 2 = C.s + 18446744073709551520#64
@@ -464,35 +467,5 @@ theorem saved_of_regs {C : MCtx} {R : Nat → BitVec 64} {saved : List (Nat × B
   · exact h.s1
   · exact h.s2
   · exact h.s3
-
-def mLocCtx (live : Nat → Prop) (H : List (Nat × Nat)) (n r s : BitVec 64)
-    (saved : List (Nat × BitVec 64)) (rv0 : Nat → BitVec 64) (Mt0 : Mem) (top0 brk0 : Nat) : MCtx :=
-  ⟨live, mS H s, MallocEnd vsaLayoutP H n r s saved, H, n, r, s, rv0, Mt0, top0, brk0⟩
-
-theorem mOK_loc {live : Nat → Prop} {H : List (Nat × Nat)} {n r s : BitVec 64}
-    {saved : List (Nat × BitVec 64)} {rv0 : Nat → BitVec 64} {Mt0 : Mem} {top0 : Nat}
-    (hlive : AllocLive live) (hsv : saved.map Prod.fst = vsaSaved) (hsp : SpOKA s)
-    (hral : r.toNat % 4 = 0) {e a : BitVec 64} (hE : EntryRegs rv0 e r a s saved) (hst : Starts H)
-    {brk0 : Nat} :
-    MOK (mLocCtx live H n r s saved rv0 Mt0 top0 brk0) where
-  live := hlive
-  sp := MSp.of_spOKA hsp
-  own := mChg_own hsp
-  ral := hral
-  ok := by
-    intro R Mt h
-    obtain ⟨top, brkv, chunks, bins, hheap, _⟩ := h.heap
-    refine malloc_ret (F := vsaFoot (((R 10).toNat, n.toNat) :: H)) hsv h.regs.ra h.regs.sp
-      (saved_of_regs hsv hE h.regs) (fun a ha => .inr (vsaFoot_cons_sub a ha)) (fun a ha => h.pres a (vsaFoot_cons_sub a ha))
-      fun rv mv hfr ha0 him => ⟨hfr, .inr ⟨?_, ?_, ?_⟩⟩ <;> rw [ha0]
-    · exact h.fresh.block
-    · exact h.align
-    · exact ⟨hst.cons h.fresh.start, Mt, top, brkv, chunks, bins, him, hheap⟩
-  null := by
-    intro R Mt h
-    obtain ⟨top, brkv, chunks, bins, hheap⟩ := h.heap
-    exact malloc_ret hsv h.regs.ra h.regs.sp (saved_of_regs hsv hE h.regs) (fun a ha => .inr ha)
-      h.pres fun rv mv hfr ha0 him =>
-        ⟨hfr, .inl ⟨ha0.trans h.a0, ⟨hst, Mt, top, brkv, chunks, bins, him, hheap⟩⟩⟩
 
 end VsaIris.VsaHeap

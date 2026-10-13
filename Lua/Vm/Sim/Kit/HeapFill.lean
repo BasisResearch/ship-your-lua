@@ -104,6 +104,13 @@ theorem _root_.Lua.Vm.DlHeap.HeapAt.ext {m m' : Mem} {top brk : Nat} {chunks : L
     rw [rd64_ext he h0, Option.some.injEq] at hb
     subst hb
     exact h.binblocks b0 h0
+  brk_page := h.brk_page
+  top_room := h.top_room
+  bb_lt := fun bb hb => by
+    obtain ⟨b0, h0⟩ := Option.isSome_iff_exists.1 h.binblocks_present
+    rw [rd64_ext he h0, Option.some.injEq] at hb
+    subst hb
+    exact h.bb_lt b0 h0
 
 /-! ## The zero fill -/
 
@@ -276,7 +283,12 @@ theorem _root_.Lua.Vm.DlHeap.HeapAt.congrU {m m' : Mem} {top brk : Nat} {chunks 
         exact h.binblocks_present
       binblocks := fun bb hb => by
         rw [rd64_congr fun i _ => av _ (by omega) (by omega)] at hb
-        exact h.binblocks bb hb }
+        exact h.binblocks bb hb
+      brk_page := h.brk_page
+      top_room := h.top_room
+      bb_lt := fun bb hb => by
+        rw [rd64_congr fun i _ => av _ (by omega) (by omega)] at hb
+        exact h.bb_lt bb hb }
 
 /-- What `HeapAt` reads lies in RAM. -/
 theorem HeapReads.ram {a : Nat} (h : HeapReads a) : Ram a := by

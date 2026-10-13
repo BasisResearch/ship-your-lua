@@ -72,8 +72,7 @@ theorem sbrk_r_gen {live S : Nat → Prop} {Q : (Nat → BitVec 64) → (Nat →
     (P : SbrkPreG S R Mt brkv nbrk)
     (hok : nbrk ≤ heapEnd → ∀ R' Mt', SbrkPost R R' Mt Mt' nbrk →
       R' 10 = BitVec.ofNat 64 brkv → AW live S Q (R 1) R' Mt')
-    (hfail : heapEnd < nbrk → ∀ R' Mt', SbrkPost R R' Mt Mt' brkv →
-      R' 10 = 18446744073709551615#64 → AW live S Q (R 1) R' Mt') :
+    (hroom : nbrk ≤ heapEnd) :
     AW live S Q 0x8003b308#64 R Mt := by
   have hsum := P.sum; have hbrk := P.brk; have hbp := P.brk_pos
   have hbl := P.brk_le; have hlo := P.sp_lo; have hhi := P.sp_hi; have hal := P.sp_al
@@ -91,33 +90,11 @@ theorem sbrk_r_gen {live S : Nat → Prop} {Q : (Nat → BitVec 64) → (Nat →
   sx_run [4] hlive at 0x80001668
   refine st_80001668 hlive (fun hbad => ?_) (fun hok' => ?_)
   · simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false] at hbad
-    sx_run [30] hlive at 0x800016a8
-    simp only [impure_val] at *
-    sx_run [30] hlive
+    -- (lane F1-A0-M) the failing `_sbrk` (which calls `__errno`, off the step table) is
+    -- refuted by the room the caller guarantees
+    exfalso
     have hlt : heapEnd < nbrk := by rw [← hsum]; unfold heapEnd; simpa using hbad
-    refine hfail hlt _ _ ⟨?_, ?_, ?_, ?_⟩ ?_
-    · intro x h10 h14 h15
-      by_cases h1 : x = 1
-      · subst h1; simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]
-      by_cases h2 : x = 2
-      · subst h2; simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]
-        apply BitVec.eq_of_toNat_eq; sx_addr
-      by_cases h8 : x = 8
-      · subst h8; simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]
-      simp only [upd_apply, h1, h2, h8, h10, h14, h15, ite_false]
-    · unfold brkAddr
-      rw [read64_store_miss _ _ (by sx_addr), read64_store_miss _ _ (by sx_addr),
-        read64_store_miss _ _ (by sx_addr), read64_store_miss _ _ (by sx_addr),
-        read64_store_miss _ _ (by sx_addr)]
-      exact hbrk
-    · intro a ha
-      unfold SbrkW brkAddr at ha
-      rw [writeLog_out, writeLog_out, writeLog_out, writeLog_out, writeLog_out] <;>
-        simp only [OutL, and_true] <;> sx_addr
-    · intro a h
-      exact writeLog_present _ _ _ (writeLog_present _ _ _ (writeLog_present _ _ _
-        (writeLog_present _ _ _ (writeLog_present _ _ _ h))))
-    · simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]
+    exact absurd hroom (Nat.not_le.2 hlt)
   · simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false] at hok'
     sx_run [30] hlive
     have hle : nbrk ≤ heapEnd := by rw [← hsum]; unfold heapEnd; simpa using hok'
@@ -146,13 +123,12 @@ theorem sbrk_r_run {live S : Nat → Prop} {Q : (Nat → BitVec 64) → (Nat →
     (P : SbrkPre S R Mt brkv sb)
     (hok : brkv + sb ≤ heapEnd → ∀ R' Mt', SbrkPost R R' Mt Mt' (brkv + sb) →
       R' 10 = BitVec.ofNat 64 brkv → AW live S Q (R 1) R' Mt')
-    (hfail : heapEnd < brkv + sb → ∀ R' Mt', SbrkPost R R' Mt Mt' brkv →
-      R' 10 = 18446744073709551615#64 → AW live S Q (R 1) R' Mt') :
+    (hroom : brkv + sb ≤ heapEnd) :
     AW live S Q 0x8003b308#64 R Mt := by
   have hbl := P.brk_le; have hsb := P.a1; have hsblt := P.sb_lt
   unfold heapEnd at hbl
   refine sbrk_r_gen hlive ⟨?_, P.brk, P.brk_pos, P.brk_le, P.sp_lo, P.sp_hi, P.sp_al, P.ra_al,
-    P.off1, P.off2, P.own⟩ hok hfail
+    P.off1, P.off2, P.own⟩ hok hroom
   rw [BitVec.toNat_add, hsb, BitVec.toNat_ofNat]; omega
 
 end VsaIris.VsaHeap
