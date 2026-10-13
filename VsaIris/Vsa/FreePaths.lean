@@ -1029,8 +1029,8 @@ theorem free_b2 {C : MCtx} (O : FOK C) {R : Nat → BitVec 64} {Mt Mt1 : Mem} {b
   rw [hEpf, ldv_at hfd _ rfl]
   refine st_8003be98 O.live ?_
   have hb1 : binAt 1 = 2147862240 := rfl
-  have hA0 : (0x8003be88#64 + sign_extend (m := 64) ((0x00014#20) +++ (0x000#12)) +
-      sign_extend (m := 64) (0x96c#12)).toNat = binAt 1 := by rfl
+  have hA0 : (0x8003be88#64 + sign_extend (m := 64) ((0x00021#20) +++ (0x000#12)) +
+      sign_extend (m := 64) (0x858#12)).toNat = binAt 1 := by rfl
   have hi0 := P.i0; have hi := P.i1
 
   have hsm : succP = binAt i ∨ succP ∈ bins i := by
@@ -1070,8 +1070,8 @@ theorem free_b2 {C : MCtx} (O : FOK C) {R : Nat → BitVec 64} {Mt Mt1 : Mem} {b
   simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]
   have hregs : ∀ y, y ≠ 6 → y ≠ 10 → y ≠ 11 → y ≠ 14 → y ≠ 15 →
       (upd (upd (upd (upd (upd (upd R 6 (BitVec.ofNat 64 psz)) 10
-        (0x8003be88#64 + sign_extend (m := 64) ((0x00014#20) +++ (0x000#12)))) 10
-        (0x8003be88#64 + sign_extend (m := 64) ((0x00014#20) +++ (0x000#12)) + sign_extend (m := 64) (0x96c#12)))
+        (0x8003be88#64 + sign_extend (m := 64) ((0x00021#20) +++ (0x000#12)))) 10
+        (0x8003be88#64 + sign_extend (m := 64) ((0x00021#20) +++ (0x000#12)) + sign_extend (m := 64) (0x858#12)))
         14 (R 14 - BitVec.ofNat 64 psz)) 11 (BitVec.ofNat 64 succP)) 15 (R 15 + BitVec.ofNat 64 psz)) y = R y :=
     fun y h6 h10 h11 h14 h15 => by simp only [upd_apply, h6, h10, h11, h14, h15, ite_false]
   have B := hbase _ hregs

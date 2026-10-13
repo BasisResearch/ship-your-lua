@@ -475,7 +475,9 @@ theorem trim_fin {C : MCtx} (O : FOK C) {R : Nat → BitVec 64} {M M' : Mem} {Y 
   refine st_8003bda0 O.live (by sx_norm; decide) (by sx_norm; sx_side) ?_
   sx_norm
   simp (disch := decide) only [ldv_at htpM]
-  refine st_8003bda4 O.live (by sx_norm; sx_side) ?_
+  refine st_8003bda4 O.live ?_
+  refine st_8003bda8 O.live (by sx_norm; sx_side) (by sx_norm; sx_side) ?_
+  sx_norm
   simp (disch := sx_addr) only [ldv_at hmiM]
   refine st_8003bdac O.live ?_
   refine st_8003bdb0 O.live ?_
@@ -487,7 +489,8 @@ theorem trim_fin {C : MCtx} (O : FOK C) {R : Nat → BitVec 64} {M M' : Mem} {Y 
   sx_norm
   refine st_8003bdb8 O.live ?_
   refine st_8003bdbc O.live ?_
-  refine st_8003bdc0 O.live ?_ ?_
+  refine st_8003bdc0 O.live ?_
+  refine st_8003bdc4 O.live (by sx_norm; sx_side) ?_ ?_
   · sx_norm; exact O.foot (a := 0x8005e560) (w := 8)
       (fun k hk => .inl (by unfold allocGlobal InRange; omega))
   sx_norm
