@@ -555,12 +555,17 @@ theorem cm_zero (f : Nat) : cm 0 f = f := by simp [cm]
 /-- **(b2) on finite operands**: the reference is `F64.add`'s `normalize` of the
 exact aligned sum. -/
 theorem addFields_fin (sa sb : Bool) (ea fa eb fb : Nat) (hea : ea ≤ 2046) (heb : eb ≤ 2046)
-    (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (ha0 : ea ≠ 0 ∨ fa ≠ 0) (hb0 : eb ≠ 0 ∨ fb ≠ 0) :
+    (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h0 : (ea ≠ 0 ∨ fa ≠ 0) ∨ (eb ≠ 0 ∨ fb ≠ 0)) :
     addFields sa ea fa sb eb fb =
       normalize (sgnApply sa (align (cm ea fa) (ce ea) (min (ce ea) (ce eb))) +
         sgnApply sb (align (cm eb fb) (ce eb) (min (ce ea) (ce eb)))) (min (ce ea) (ce eb)) false := by
-  have hpa := cm_pos ha0
-  have hpb := cm_pos hb0
+  have hp : 0 < cm ea fa ∨ 0 < cm eb fb := by
+    rcases h0 with h | h
+    · exact Or.inl (cm_pos h)
+    · exact Or.inr (cm_pos h)
+  have hpk : ∀ x k : Nat, 0 < x → 0 < x * 2 ^ k := fun x k hx => Nat.mul_pos hx (Nat.two_pow_pos k)
+  have hpa := fun h => hpk (cm ea fa) ((ce ea - ce eb).toNat) h
+  have hpb := fun h => hpk (cm eb fb) ((ce eb - ce ea).toNat) h
   have hba := cm_bounds ea fa hfa
   have hbb := cm_bounds eb fb hfb
   unfold addFields; dsimp only
