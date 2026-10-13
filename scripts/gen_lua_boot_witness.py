@@ -672,7 +672,8 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     g_end = lay["gStrcacheOff"] + 8 * lay["strcacheN"] * lay["strcacheM"]
     dirty = [(L + lay["stateTopOff"], 8), (L + lay["stateCiOff"], 8), (ci, lay["ciSize"]),
              (e["func"], max(0, e["stackLast"] - e["func"]))]
-    apart(foot, dirty + [(g, 64), (g + lay["gStrcacheOff"], g_end - lay["gStrcacheOff"])], "e.foot")
+    apart(foot, dirty + [(g, 64), (g + lay["gStrcacheOff"], g_end - lay["gStrcacheOff"]),
+                         (L + lay["stateNciOff"], 2)], "e.foot")
     # ---- the literals
     seed = rd(g + lay["gSeedOff"], 4)
     M.rec = set()
@@ -705,7 +706,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     M.rec = None
     need(all(lo + n <= lay["symTohost"] or in_chunk(lo, n) for lo, n in lit_foot) and
          all(lo >= lay["symTohost"] for lo, _ in lit_foot), "e.litFoot in chunks in use")
-    apart(lit_foot, dirty, "e.litFoot")
+    apart(lit_foot, dirty + [(L + lay["stateNciOff"], 2)], "e.litFoot")
     for ts in lits:
         need(not any(lo <= ts + lay["gcMarkedOff"] < lo + n for lo, n in foot), "a literal's mark byte off e.foot")
         need(in_chunk(ts, 30), "a literal's object in a chunk in use")

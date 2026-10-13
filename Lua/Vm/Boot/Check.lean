@@ -784,13 +784,13 @@ theorem containsB_sound {t : RTree} {lo n : Nat} (h : containsB t lo n = true) {
 /-- `EntryDirty` as ranges. -/
 def entryDirtyRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
   [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func), (e.g, 64),
-   (e.g + gStrcacheOff, gEnd - gStrcacheOff)]
+   (e.g + gStrcacheOff, gEnd - gStrcacheOff), (L + stateNciOff, 2)]
 
 theorem entryDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : EntryDirty L ci e a) :
     InList (entryDirtyRanges L ci e) a := by
   have hg : gStrcacheOff ≤ gEnd := by decide
   simp only [EntryDirty] at h
-  rcases h with h | h | h | h | h | h
+  rcases h with h | h | h | h | h | h | h
   · exact ⟨_, List.Mem.head _, h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.head _), h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)), h.1, h.2⟩
@@ -800,20 +800,24 @@ theorem entryDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : EntryDirty
       h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
       (List.Mem.head _))))), h.1, by show a < e.g + gStrcacheOff + (gEnd - gStrcacheOff); omega⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _
+      (List.Mem.tail _ (List.Mem.head _)))))), h.1, h.2⟩
 
 /-- `LitDirty` as ranges. -/
 def litDirtyRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
-  [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func)]
+  [(L + stateTopOff, 8), (L + stateCiOff, 8), (ci, ciSize), (e.func, e.stackLast - e.func), (L + stateNciOff, 2)]
 
 theorem litDirty_ranges {L ci : Nat} {e : EntryPtrs} {a : Nat} (h : LitDirty L ci e a) :
     InList (litDirtyRanges L ci e) a := by
   simp only [LitDirty] at h
-  rcases h with h | h | h | h
+  rcases h with h | h | h | h | h
   · exact ⟨_, List.Mem.head _, h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.head _), h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)), h.1, h.2⟩
   · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _))), h.1, by
       show a < e.func + (e.stackLast - e.func); omega⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)))),
+      h.1, h.2⟩
 
 /-- **A chunk walk is determined by its memory and ends** (`p` up to `top`). -/
 theorem _root_.Lua.Vm.DlHeap.ChunkWalk.le {m : Mem} {p top : Nat} {cs : List DlHeap.Chunk}

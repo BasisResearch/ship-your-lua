@@ -400,7 +400,7 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
   have hLm : ∀ a, InRanges e.litFoot a → m[a]? = m0[a]? := fun a ha => hm a fun hv => hE.lits_apart a ha (by
     rcases hvd a hv with h | h
     · exact .inr (.inr (.inl h))
-    · exact .inr (.inr (.inr h)))
+    · exact .inr (.inr (.inr (.inl h))))
   have hP : ∀ M : Mem, (∀ a, InRanges e.foot a → bytesT1 M a = bytesT1 m a) →
       ∀ a, InRanges e.foot a → (Vsa.Densify.fillZeroMem M)[a]? = m0[a]? := fun M hM a ha => by
     have hr := hE.foot_ram a ha

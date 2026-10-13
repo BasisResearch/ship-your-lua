@@ -298,7 +298,7 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
           io := hio
           pend := rfl
           cells := hP.cells
-          room := fun hb => nomatch hb
+          room := fun h => absurd rfl (h buf [])
           atexit := hatx
           stat := (hI.stat.trans fun a ha => (bytesT1_fill m a).trans (h.foot a ha)).conseq
             fun M hM => hM.after (fillZeroMem m) H

@@ -351,13 +351,14 @@ the relation's pointers). -/
 def CallDirty (w : RelPtrs) (a : Nat) : Prop :=
   (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨ (w.L + stateCiOff ≤ a ∧ a < w.L + stateCiOff + 8) ∨
   (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast) ∨ (w.rt.g ≤ a ∧ a < w.rt.g + 64) ∨
-  (w.rt.g + gStrcacheOff ≤ a ∧ a < w.rt.g + gEnd)
+  (w.rt.g + gStrcacheOff ≤ a ∧ a < w.rt.g + gEnd) ∨ (w.L + stateNciOff ≤ a ∧ a < w.L + stateNciOff + 2)
 
 /-- **What the literals' facts stay apart from**: `L->top`, `L->ci`, the Lua
 `CallInfo` and the Lua stack above `ci->func` (`LitDirty`). -/
 def CallLitDirty (w : RelPtrs) (a : Nat) : Prop :=
   (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨ (w.L + stateCiOff ≤ a ∧ a < w.L + stateCiOff + 8) ∨
-  (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast)
+  (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast) ∨
+  (w.L + stateNciOff ≤ a ∧ a < w.L + stateNciOff + 2)
 
 /-- **The words of the `lua_State` and `g` a `print` keeps** (`LuaStateRel`'s
 `L` and `g` words, and `L->errorJmp`). -/
@@ -422,7 +423,7 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   pend : ph.pend = []
   cells : Kit.PrintCells w.mo
   /-- before the first `print`, room for its allocations -/
-  room : ph = .boot → w.rt.brkv + firstRoom ≤ DlHeap.heapEnd
+  room : (∀ buf pend, ph ≠ .up buf pend) → w.rt.brkv + firstRoom ≤ DlHeap.heapEnd
   /-- no `atexit` handler -/
   atexit : Vsa.Sim.bytesT8 w.mo symAtexit = 0#64
   /-- the objects a `print` leaves alone, frozen on `F` -/

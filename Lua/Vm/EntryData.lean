@@ -185,18 +185,18 @@ def gEnd : Nat := gStrcacheOff + 8 * strcacheN * strcacheM
 /-- **What a `CALL print` writes inside the heap's chunks in use** (lane
 F1-13): `L->top`, `L->ci`, the Lua `CallInfo` (and `OP_VARARGPREP`'s stores
 there), the Lua stack above `ci->func`, `g`'s first words (the GC debt, the
-string table's header) and its string cache. -/
+string table's header) and its string cache, and `L->nci` (`luaE_extendCI`). -/
 def EntryDirty (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
   (L + stateTopOff ≤ a ∧ a < L + stateTopOff + 8) ∨ (L + stateCiOff ≤ a ∧ a < L + stateCiOff + 8) ∨
   (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) ∨ (e.g ≤ a ∧ a < e.g + 64) ∨
-  (e.g + gStrcacheOff ≤ a ∧ a < e.g + gEnd)
+  (e.g + gStrcacheOff ≤ a ∧ a < e.g + gEnd) ∨ (L + stateNciOff ≤ a ∧ a < L + stateNciOff + 2)
 
 /-- **What the literals' facts must stay apart from**: the words
 `luaD_precall`/`luaD_poscall` write (`L->top`, `L->ci`, the Lua `CallInfo`)
 and the Lua stack above `ci->func`. -/
 def LitDirty (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
   (L + stateTopOff ≤ a ∧ a < L + stateTopOff + 8) ∨ (L + stateCiOff ≤ a ∧ a < L + stateCiOff + 8) ∨
-  (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast)
+  (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) ∨ (L + stateNciOff ≤ a ∧ a < L + stateNciOff + 2)
 
 /-- The heap room the first `print` may claim: per first-use allocation
 (`luaE_extendCI`'s `CallInfo`, `stdout`'s buffer, `"__tostring"`, one more)

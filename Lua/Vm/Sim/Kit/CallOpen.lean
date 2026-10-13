@@ -112,18 +112,24 @@ def PrintRel_Statement : Prop :=
 
 /-- **What `luaE_extendCI(L)` leaves** (`ci->next` NULL): a fresh `CallInfo`
 block `nci` of the arena in use, linked after `ci` (`ci->next = nci`,
-`nci->previous = ci`), the heap's shape with at most `extRoom` more break, the
-chunks in use kept, and every byte kept off the allocator's writes, the block,
-`ci->next`, `L->nci` and its callees' stack. -/
-structure ExtPost (M m' : Mem) (sp L ci : Nat) (H : HeapIx) (nci : Nat) : Prop where
-  heap : ∃ H' : HeapIx, HeapAt (fillZeroMem m') H'.top H'.brk H'.chunks H'.bins ∧ H'.brk ≤ H.brk + extRoom ∧
-    (∀ c ∈ H.chunks, c.inuse = true → c ∈ H'.chunks) ∧ ∀ a, nci ≤ a → a < nci + ciSize → InUse H'.chunks a
+`nci->previous = ci`), the heap `H'` with at most `extRoom` more break, the
+chunks in use kept, every byte kept off the allocator's writes (`MallocW`),
+the block, `ci->next`, `L->nci` and its callees' stack, and `stdout`'s state
+with the new heap (the allocator's globals lie among the stdio globals, so this
+is the premise's, not a frame lemma's). -/
+structure ExtPost (M m' : Mem) (sp L ci : Nat) (H H' : HeapIx) (nci : Nat) : Prop where
+  heap : HeapAt (fillZeroMem m') H'.top H'.brk H'.chunks H'.bins
+  brk : H'.brk ≤ H.brk + extRoom
+  kept : ∀ c ∈ H.chunks, c.inuse = true → c ∈ H'.chunks
+  nci_in : ∀ a, nci ≤ a → a < nci + ciSize → InUse H'.chunks a
   fresh : ∀ a, nci ≤ a → a < nci + ciSize → ¬ InUse H.chunks a ∧ heapStart ≤ a ∧ a < heapEnd
   next : bytesT8 m' (ci + ciNextOff) = BitVec.ofNat 64 nci
   prev : bytesT8 m' (nci + ciPreviousOff) = BitVec.ofNat 64 ci
   al : nci % 8 = 0
   keep : ∀ a, ¬ (MallocW H.chunks a ∨ (nci ≤ a ∧ a < nci + ciSize) ∨ Rng (ci + ciNextOff) 8 a ∨
     Rng (L + stateNciOff) 2 a ∨ Below (sp - 96) 4096 a) → bytesT1 m' a = bytesT1 M a
+  stdio : ∀ ph, PrintSt M ph H → ((∀ buf pend, ph ≠ .up buf pend) → H'.brk + 1024 + 16384 ≤ heapEnd) →
+    PrintSt m' ph H'
 
 /-- **Named premise: `luaE_extendCI(L)`** (`0x80016a5c`, from `next_ci` with
 `ci->next` NULL): from the heap with room for one `_malloc_r`, `L->ci = ci`,
@@ -134,7 +140,7 @@ def ExtendCI_Statement : Prop :=
     HeapAt (fillZeroMem M) H.top H.brk H.chunks H.bins → H.brk + extRoom ≤ heapEnd →
     bytesT8 M (L + stateCiOff) = BitVec.ofNat 64 ci → bytesT8 M (ci + ciNextOff) = 0#64 →
     bytesT4 M (L + stateHookmaskOff) = 0#32 → heapEnd + 8192 ≤ sp - 96 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
-    PcExt sp L f M o (fun nci m' => ExtPost M m' sp L ci H nci)
+    PcExt sp L f M o (fun nci m' => ∃ H', ExtPost M m' sp L ci H H' nci)
 
 /-! ## `luaD_poscall` with results -/
 
