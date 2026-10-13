@@ -300,4 +300,63 @@ theorem round_rto (neg : Bool) (n k : Nat) (e : Int) (h : e + k + 2 ≤ target (
   rw [← hT, if_pos (by omega), if_pos (by omega),
     shr_rto n k _ (by omega), show (target n e - (e + k)).toNat + k = (target n e - e).toNat by omega]
 
+/-! ## The aligned sum and difference -/
+
+theorem rto_add_even (A B k : Nat) (hA : A % 2 = 0) : A + rto B k = rto (A * 2 ^ k + B) k := by
+  have h1 : (A * 2 ^ k + B) % 2 ^ k = B % 2 ^ k := by
+    rw [Nat.add_comm, Nat.add_mul_mod_self_right]
+  have h2 : (A * 2 ^ k + B) / 2 ^ k = A + B / 2 ^ k := by
+    rw [Nat.add_comm, Nat.add_mul_div_right _ _ (Nat.two_pow_pos k), Nat.add_comm]
+  have h3 : (A * 2 ^ k + B) / 2 ^ (k + 1) = A / 2 + B / 2 ^ (k + 1) := by
+    have : A * 2 ^ k = (A / 2) * 2 ^ (k + 1) := by
+      rw [Nat.pow_succ, ← Nat.mul_assoc, Nat.mul_comm (A / 2) (2 ^ k), Nat.mul_assoc, Nat.mul_comm]
+      congr 1; omega
+    rw [this, Nat.add_comm, Nat.add_mul_div_right _ _ (Nat.two_pow_pos (k + 1)), Nat.add_comm]
+  unfold rto
+  rw [h1]
+  split
+  · rw [h2]
+  · rw [h3]; omega
+
+/-- The machine's working scale of a biased exponent. -/
+abbrev wsc (E : Nat) : Int := ((max E 1 : Nat) : Int) - 1078
+
+/-- Same signs: `addAligned` rounds the exact aligned sum `A · 2^k + B` at the
+smaller operand's scale. -/
+theorem addAligned_eq (neg : Bool) (E A B k : Nat) (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hAe : A % 2 = 0)
+    (hA : A < 2 ^ 56) (hB : B < 2 ^ 56) (hk : k = 0 → A + B < 2 ^ 57) (hk1 : 1 ≤ k → 2 ^ 55 ≤ A)
+    (hA2 : 2 ≤ E → 2 ^ 55 ≤ A) :
+    addAligned neg E A B k = round neg (A * 2 ^ k + B) (wsc E - k) false false := by
+  have hS := rto_add_even A B k hAe
+  have hSlt : A + rto B k < 2 ^ 57 := by
+    rcases Nat.eq_zero_or_pos k with h | h
+    · subst h; rw [rto_zero]; exact hk rfl
+    · have := rto_le_half (n := B) h; omega
+  unfold addAligned carryPack
+  split
+  · rename_i hc
+    have hr1 : rto (A + rto B k) 1 < 2 ^ 56 := by rw [rto_one]; split <;> omega
+    have hr2 : 2 ^ 55 ≤ rto (A + rto B k) 1 := by rw [rto_one]; split <;> omega
+    rw [roundPack_eq neg (E + 1) _ hr1 (fun _ => hr2)]
+    have e1 : ((max (E + 1) 1 : Nat) : Int) - 1078 = wsc E + 1 := by simp only [wsc]; omega
+    have hw := target_work (E := E + 1) (by omega) hr1 (fun _ => hr2)
+    rw [e1] at hw
+    have h1 := round_rto neg (A + rto B k) 1 (wsc E) (by rw [Int.natCast_one, hw]; omega)
+    rw [Int.natCast_one] at h1
+    rw [e1, h1]
+    rw [hS, show wsc E = (wsc E - k) + k by omega, round_rto neg _ k _ (by
+      rw [← hS, show wsc E - k + k = wsc E by omega]
+      have hl : (A + rto B k).log2 = 56 := log2_of_bounds hc (by omega)
+      unfold target; omega)]
+    try rw [show wsc E - (k : Int) + k - k = wsc E - k by omega]
+  · rename_i hc
+    rw [roundPack_eq neg E _ (by omega) (fun h => by have := hA2 h; omega)]
+    rw [hS, show ((max E 1 : Nat) : Int) - 1078 = (wsc E - k) + k by simp only [wsc]; omega,
+      round_rto neg _ k _ (by
+        rw [← hS, show wsc E - k + k = ((max E 1 : Nat) : Int) - 1078 by simp only [wsc]; omega]
+        rcases Nat.eq_zero_or_pos (A + rto B k) with h0 | h0
+        · unfold target; omega
+        · rw [target_work h0 (by omega) (fun h => by have := hA2 h; omega)]; omega)]
+    try rw [show wsc E - (k : Int) + k - k = wsc E - k by omega]
+
 end Lua.Num.SfRef
