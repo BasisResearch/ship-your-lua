@@ -70,18 +70,24 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               "OP_ADDI": ("Addi", 0x8001ca44), "OP_FORLOOP": ("Forloop", 0x8001c1ec),
               # round 5 (A-JOIN): every path of `op_arith` (no seed: the
               # operand classes are the hand side's per-operand views)
-              "OP_SUB": ("Sub", 0x8001d964)}
+              "OP_SUB": ("Sub", 0x8001d964),
+              # round 5 (A-JOIN): FORPREP's float loop (`OP_FORPREP` keeps its
+              # integer paths), over the same segments (`SEG_OP`)
+              "OP_FORPREP_F": ("ForprepF", 0x8001c0f8)}
+SEG_OP = {"OP_FORPREP_F": "OP_FORPREP"}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_GEI": [("tag", "a", 0)], "OP_ADDI": [("tag", "b", 0)],
-              "OP_FORLOOP": [("tag", "a", 2)], "OP_LOADF": []}
+              "OP_FORLOOP": [("tag", "a", 2)], "OP_LOADF": [],
+              "OP_FORPREP_F": [("tag", "a", 0), ("tag", "a", 1), ("tag", "a", 2)]}
 VNUMFLT_ = 19
 # round 5 (A-JOIN): the cut points at the machine's joins. arm -> {join pc:
 # (the joined register, the fork whose two sides meet there)}. A path that
 # reaches a join pc ends there in a join lemma (`join_<pc>`: its row to the
 # join row, the joined register `.fn j<k>` = the side's value under the
 # fork's guard); the tail from the join row is walked, and emitted, once.
-JOINS = {"OP_FORLOOP": {0x8001e194: (15, 0x8001e17c)}}
+JOINS = {"OP_FORLOOP": {0x8001e194: (15, 0x8001e17c)},
+         "OP_FORPREP_F": {0x8001c1b8: (14, 0x8001c1a0)}}
 # the soft-float call nodes of the float arms: entry -> (module, arguments,
 # frame bytes (0: a leaf helper))
 FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
@@ -102,6 +108,7 @@ CUR = [None]
 # the library modules an arm's at-lemmas need beyond `At`/`Summaries`
 IMPORTS = {op: ["Lua.Vm.Sim.Kit.AtCond", "Lua.Vm.Sim.Kit.AtFloat"] for op in FLOAT_ARMS}
 IMPORTS["OP_FORLOOP"] = IMPORTS["OP_FORLOOP"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
+IMPORTS["OP_FORPREP_F"] = IMPORTS["OP_FORPREP_F"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
 IMPORTS |= {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_GETTABUP": ["Lua.Vm.Sim.Kit.AtEnv"]}
@@ -501,6 +508,8 @@ def step(st, raw):
         st.set(R(o[0]), ("slt" if mnem == "slti" else "sltu", st.get(R(o[1])), ("lit", imm(o[2]) & M64)))
     elif mnem in ("slt", "sltu"):
         st.set(R(o[0]), (mnem, st.get(R(o[1])), st.get(R(o[2]))))
+    elif mnem == "sgtz" and FLOAT_ON[0]:     # round 5: `__gedf2`'s `> 0` idiom
+        st.set(R(o[0]), ("slt", ("lit", 0), st.get(R(o[1]))))
     elif mnem == "not":
         st.set(R(o[0]), ("xor", st.get(R(o[1])), ("lit", M64)))
     elif mnem == "slli":
@@ -648,7 +657,7 @@ def seg_meta():
 
 def arm_segments(op):
     for r in csv.DictReader((ln for ln in open(ARMS_TSV) if not ln.startswith("#")), delimiter="\t"):
-        if r["op"] == op:
+        if r["op"] == SEG_OP.get(op, op):
             return r["segments"].split()
     raise SystemExit(f"no arm {op}")
 
@@ -1148,6 +1157,24 @@ class Arm:
                 f"    (h : At X 0x{HEAD:08x}#64 ({row}) {log} c) :\n"
                 f"    AtFin X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
                 f"  at_fin\n")
+        if len(ws) > 2:
+            # round 5: many stored slots: the frame and keep facts (log-only)
+            # each in a declaration of its own (`at_fin_with`)
+            bs = self.bounds(st)
+            args = " ".join(["X", "hX"] + [re.match(r"\((\w+) :", b).group(1) for b in bs])
+            wl = f"([{', '.join(ws)}] : List SlotW)"
+            text = (f"theorem {lname}_frame {' '.join(['(X : Cx)', '(hX : X.Ok)'] + bs)} :\n"
+                    f"    ∀ x, ¬ Slots X.p X.w x → ¬ Scratch X.w x → ¬ CFrame X.w x →\n"
+                    f"      (Log.den X {log})[x]? = X.c.σ.mem[x]? := by\n"
+                    f"  at_facts hX; try at_unfold\n  at_fin_frame\n\n"
+                    f"theorem {lname}_keep {' '.join(['(X : Cx)', '(hX : X.Ok)'] + bs)} :\n"
+                    f"    ∀ x, Slots X.p X.w x → (∀ e ∈ {wl}, x < X.w.slot (e.j X) ∨\n"
+                    f"      X.w.slot (e.j X) + 16 ≤ x) → (Log.den X {log})[x]? = X.c.σ.mem[x]? := by\n"
+                    f"  at_facts hX; try at_unfold\n  at_fin_keep\n\n"
+                    f"theorem {lname} {' '.join(hs)} {{c : Config}}\n"
+                    f"    (h : At X 0x{HEAD:08x}#64 ({row}) {log} c) :\n"
+                    f"    AtFin X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
+                    f"  at_fin_with ({lname}_frame {args}), ({lname}_keep {args})\n")
         self.lemmas[key] = (lname, text)
         self.order.append(key)
 

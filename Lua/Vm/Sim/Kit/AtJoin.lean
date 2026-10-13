@@ -122,6 +122,18 @@ macro "flt_reg_q " x:ident j:term "," hq:term : tactic => `(tactic| (
   clear hta' hxm'))
 
 set_option hygiene false in
+/-- **`flt_reg_s j, hT`**: `flt_reg_q`, the value substituted by its view
+(`.flt (F64.toModel x) x.msb`, `x` the payload): the kernel then reads the
+payloads themselves. -/
+macro "flt_reg_s " j:term "," hq:term : tactic => `(tactic| (
+  kit_reg hr v hv $j
+  obtain ⟨_, _, hst⟩ := $hq
+  rw [hst] at hr; cases hr
+  obtain ⟨hta', rfl, rfl⟩ := hv.flt_parts
+  have hta := And.intro hta' hta
+  clear hta'))
+
+set_option hygiene false in
 /-- **`flt_reg x j`**: register `j`, a float by the kernel's float clause
 (every other value refuted by `hk`). -/
 macro "flt_reg " x:ident j:term : tactic => `(tactic| (
@@ -214,6 +226,14 @@ elab "at_tags" : tactic => withMainContext do
 
 /-- The tag guards of the per-operand views, tried first. -/
 macro_rules | `(tactic| at_hyp) => `(tactic| at_tags)
+
+/-- A stored float tag over an entry payload (`setfltvalue` of a register's own
+float, `forprep`'s float loop). -/
+theorem _root_.Lua.Vm.Sim.ValRepr.flt_lit {mo : Mem} {ι : Strs} {x : BitVec 64} :
+    ValRepr mo ι (stData 1 (0x13#64 : BitVec 64)) x (.flt (F64.toModel x) x.msb) := by
+  rw [show stData 1 (0x13#64 : BitVec 64) = BitVec.ofNat 8 vNumFlt by decide]; exact .flt
+
+macro_rules | `(tactic| at_new_ext) => `(tactic| exact ValRepr.flt_lit)
 
 /-! ## The run: Boolean forks -/
 
@@ -378,6 +398,7 @@ close (`at_close`). -/
 macro "at_leaf " ns:ident : tactic => `(tactic| (
   repeat' (split at hk <;> rename_i hq)
   all_goals first
+  | (simp at hk; done)
   | (exfalso; at_atoms)
   | (simp [VState.apply, writeDefs, KEdge.kills] at hk
      subst hk
