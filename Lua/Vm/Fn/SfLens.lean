@@ -396,12 +396,13 @@ macro "sf_nfB" : tactic => `(tactic| (
     nf_ofInt_sub, nf_ofInt_nat, Nat.mul_div_cancel, nf_add_neg, nf_ult_neg, nf_clr55, nf_clr54, nf_and1,
     nf_or_low, nf_low52, nf_ofInt_neg, nf_sge_neg, nf_wneg, nf_not_neg, nf_toNat, Nat.mod_eq_of_lt, nf_sticky, nf_srs, nf_or55, decide_eq_true_eq]
   try simp only [Nat.reducePow, Nat.reduceMul, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, Nat.reduceDiv,
-    Nat.sub_zero, Nat.add_zero, Nat.zero_add]))
+    Nat.sub_zero, Nat.add_zero, Nat.zero_add]
+))
 
 macro "sf_nf" : tactic => `(tactic| (
   try simp only [sll_lit, srl_lit, srl_var, sll_var, sext_eq, BitVec.reduceSignExtend, BitVec.reduceToNat, BitVec.reduceAdd,
     BitVec.add_zero, BitVec.zero_add, nf_zext_bool, Bool.false_eq_true, ite_true, ite_false, nf_ofInt_zero,
-    Int.sub_self]
+    Int.sub_self, BitVec.reduceHShiftLeft, BitVec.reduceHShiftRight]
   try simp only [BitVec.ofNat_eq_ofNat]
   try simp (disch := omega) only [nf_mod_lit]
   try simp only [Nat.reduceMod, Nat.reducePow]

@@ -56,15 +56,18 @@ def carryPack (neg : Bool) (E S : Nat) : F64 :=
 (`_FP_FRAC_SRS`), then the carry renormalisation. -/
 def addAligned (neg : Bool) (E A B k : Nat) : F64 := carryPack neg E (A + rto B k)
 
-/-- Different signs, `|A| > |B|`: `A − rto B k`, renormalised by the count
-of leading zeros (`__FP_CLZ`, `_FP_FRAC_SLL`); below the least normal
-exponent the result is subnormal (`R_e <= diff`). -/
+/-- The renormalisation of a working mantissa `0 < S < 2^55` at `E ≥ 1` by
+its count of leading zeros (`__FP_CLZ`, `_FP_FRAC_SLL`); below the least
+normal exponent the result is subnormal (`R_e <= diff`). -/
+def normPack (neg : Bool) (E S : Nat) : F64 :=
+  let z := 55 - S.log2
+  if z < E then roundPack neg (E - z) (S * 2 ^ z) else roundPack neg 0 (S * 2 ^ (E - 1))
+
+/-- Different signs, `|A| > |B|`: `A − rto B k`, renormalised when the
+hidden bit cancelled. -/
 def subMag (neg : Bool) (E A B k : Nat) : F64 :=
   let S := A - rto B k
-  if 2 ^ 55 ≤ S then roundPack neg E S
-  else
-    let z := 55 - S.log2
-    if z < E then roundPack neg (E - z) (S * 2 ^ z) else roundPack neg 0 (S * 2 ^ (E - 1))
+  if 2 ^ 55 ≤ S then roundPack neg E S else normPack neg E S
 
 /-- `__adddf3` as soft-fp's `_FP_ADD_INTERNAL` (semiraw) computes it, over the
 operands' fields. NaN results are the canonical `qnan` (RISC-V

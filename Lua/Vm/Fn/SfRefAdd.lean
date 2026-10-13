@@ -60,6 +60,9 @@ theorem nf_da9c (m : Mem) (s : Nat) (r : BitVec 64) {E F S : Nat} (hE : E < 2048
       BitVec.ofNat 64 (S * 2 ^ 63 + E * 2 ^ 52 + F) := by
   unfold N_8002da9c; exact pack_eq hE hF hS
 
+theorem nf_dae0 (m : Mem) (s : Nat) (r : BitVec 64) : N_8002dae0 m s r = BitVec.ofNat 64 9221120237041090560 := by
+  unfold N_8002dae0; decide
+
 /-! ## The pack join (`_FP_PACK_SEMIRAW`'s pack, `0x8002d92c`) -/
 
 theorem nf_d92c_inf (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hE : E = 2047) (hf : f / 8 = 0) (hS : S < 2) :
@@ -89,7 +92,7 @@ theorem g_dc60 (m : Mem) (s : Nat) (r : BitVec 64) {E fa S fb : Nat} (hE1 : 1 �
     N_8002dc60 m s r (BitVec.ofNat 64 E) (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 S) (BitVec.ofNat 64 (8 * fb)) =
       SfRef.roundPack (S = 1) E (2 ^ 55 + (8 * fa + 8 * fb) / 2) := by
   sf_go [N_8002d92c]
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- `_FP_ROUND` with the carry out of the mantissa (`0x8002dd48`). -/
@@ -98,7 +101,7 @@ theorem g_dd48 (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hE1 : 1 ≤ E)
     N_8002dd48 m s r (BitVec.ofNat 64 f) (BitVec.ofNat 64 E) (BitVec.ofNat 64 S) =
       SfRef.roundPack (S = 1) E (2 ^ 55 + f) := by
   sf_go [N_8002d92c]
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- The carry renormalisation then `_FP_ROUND` (`0x8002dbcc`). -/
@@ -107,7 +110,7 @@ theorem g_dbcc (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hE1 : 2 ≤ E)
     N_8002dbcc m s r (BitVec.ofNat 64 f) (BitVec.ofNat 64 E) (BitVec.ofNat 64 S) =
       SfRef.roundPack (S = 1) E (SfRef.rto (2 ^ 55 + f) 1) := by
   sf_go [N_8002d92c]
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- The aligned-sum stage (`0x8002dbb8`): bit 55 set is the carry (`_FP_FRAC_SRS (R, 1)`,
@@ -118,7 +121,7 @@ theorem g_dbb8 (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hE1 : 1 ≤ E)
       SfRef.carryPack (S = 1) E (2 ^ 55 + f) := by
   sf_go [N_8002dd48, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dd48, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 theorem ch_eq_norm (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa fb : Nat) (hs : sa < 2) (he1 : 1 ≤ ea) (he2 : ea ≤ 2046)
@@ -159,7 +162,7 @@ theorem ch_add_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (h
       if fa = 0 ∧ fb = 0 then F64.infty (sa = 1) else F64.qnan := by
   sf_go [N_8002d92c]
   all_goals (try simp (disch := omega) only [g_dbb8])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, both subnormal or zero. -/
@@ -171,7 +174,7 @@ theorem ch_add_sub0 (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (
       SfRef.addAligned (sa = 1) 1 (8 * fa) (8 * fb) 0 := by
   sf_go [N_8002d92c]
   all_goals (try simp (disch := omega) only [g_dbb8])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `eb < ea = 2047`. -/
@@ -183,7 +186,7 @@ theorem ch_add_gt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat)
       if fa = 0 then F64.infty (sa = 1) else F64.qnan := by
   sf_go [N_8002d92c]
   all_goals (try simp (disch := omega) only [g_dbb8])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `0 = eb < ea`, `b = 0`. -/
@@ -196,7 +199,7 @@ theorem ch_add_gt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb : Nat) (hs 
   try simp only [Nat.mul_zero, SfRef.rto_zero_n]
   sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `eb = 0 < ea = 1`: `b` subnormal, no shift. -/
@@ -209,7 +212,7 @@ theorem ch_add_gt0a (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (
   subst h2; simp only [Nat.sub_self, SfRef.rto_zero]
   sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `eb = 0`, `2 ≤ ea`: `b` subnormal, aligned by `ea - 1`. -/
@@ -225,7 +228,7 @@ theorem ch_add_gt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (
     SfRef.rto_big (by omega) (Nat.lt_of_lt_of_le (by omega : 8 * fb < 2 ^ 57) (Nat.pow_le_pow_right (by decide) h))
   sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `ea < eb = 2047`. -/
@@ -238,7 +241,7 @@ theorem ch_add_lt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat)
   subst h2
   sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `1 ≤ ea < eb ≤ 2046`: `A` aligned by `_FP_FRAC_SRS`. -/
@@ -254,7 +257,7 @@ theorem ch_add_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (hs
       (Nat.pow_le_pow_right (by decide) h))
   sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `ea = 0 < eb`, `a = 0`. -/
@@ -268,7 +271,7 @@ theorem ch_add_lt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea eb fb : Nat) (hs 
   try simp only [Nat.mul_zero, SfRef.rto_zero_n]
   sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `ea = 0`, `eb = 1`: `a` subnormal, no shift. -/
@@ -282,7 +285,7 @@ theorem ch_add_lt0a (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (
   rw [hk]
   sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 open Lua.Num in
 /-- Same signs, `ea = 0`, `2 ≤ eb`: `a` subnormal, aligned by `eb - 1`. -/
@@ -298,6 +301,29 @@ theorem ch_add_lt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (
     SfRef.rto_big (by omega) (Nat.lt_of_lt_of_le (by omega : 8 * fa < 2 ^ 57) (Nat.pow_le_pow_right (by decide) h))
   sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
-  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+/-! ## Different signs: the renormalisation stages -/
+
+open Lua.Num in
+/-- `_FP_ROUND` after the clz renormalisation (`0x8002da50`): `F` with its hidden
+bit at `E - z`. -/
+theorem g_da50 (m : Mem) (s : Nat) (r : BitVec 64) {z F E S : Nat} (hz : z < E) (hE : E ≤ 2046) (hS : S < 2)
+    (hF1 : 2 ^ 55 ≤ F) (hF : F < 2 ^ 56) :
+    N_8002da50 m s r (BitVec.ofNat 64 z) (BitVec.ofNat 64 F) (BitVec.ofNat 64 E) (BitVec.ofNat 64 S) =
+      SfRef.roundPack (S = 1) (E - z) F := by
+  sf_go []
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- The subnormal result after the clz renormalisation (`0x8002d854`): a second
+`_FP_FRAC_SRS` by `z - E + 1`, then `_FP_ROUND` at exponent `0`. -/
+theorem g_d854 (m : Mem) (s : Nat) (r : BitVec 64) {z F E S : Nat} (hz : E ≤ z) (hz2 : z ≤ 55) (hE1 : 1 ≤ E)
+    (hS : S < 2) (hF : F < 2 ^ 56) :
+    N_8002d854 m s r (BitVec.ofNat 64 z) (BitVec.ofNat 64 F) (BitVec.ofNat 64 E) (BitVec.ofNat 64 S) =
+      SfRef.roundPack (S = 1) 0 (SfRef.rto F (z - E + 1)) := by
+  have hR := SfRef.rto_lt_of (n := F) (k := z - E + 1) (m := 55) (by omega) (by omega)
+  sf_go []
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
 end Lua.Vm.Fn.Adddf3
