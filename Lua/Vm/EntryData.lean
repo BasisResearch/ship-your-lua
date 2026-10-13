@@ -326,6 +326,8 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   stack: `luaD_precall`'s `checkstackGCp(L, LUA_MINSTACK)` finds more than 20
   slots above any `L->top` inside the frame -/
   call_room : e.func + stackValueSize * (2 + p.maxstacksize) + 320 < e.stackLast
+  /-- (lane F1-14) `g` is 8-aligned (`luaM_malloc_`'s `sd` to `g->GCdebt`) -/
+  g_al : e.g % 8 = 0
   /-- the prototype and its code pointer lie apart from the bytes
   `luaT_adjustvarargs` writes (`VarargDirty`): they hold in every memory that
   agrees with this one elsewhere -/

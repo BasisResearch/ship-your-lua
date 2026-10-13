@@ -134,6 +134,23 @@ structure ExtPost (M m' : Mem) (sp L ci g : Nat) (H H' : HeapIx) (nci : Nat) : P
   stdio : ∀ ph, PrintSt M ph H → ((∀ buf pend, ph ≠ .up buf pend) → H'.brk + 1024 + 16384 ≤ heapEnd) →
     PrintSt m' ph H'
 
+/-- **Where `luaE_extendCI`'s objects lie** (lane F1-14): the `lua_State`,
+the `CallInfo` and `g` in the arena, aligned, `L` apart from `g->GCdebt`
+(`luaM_malloc_` writes it before `L->ci`, `L->nci` are read), and what is read
+or written after the allocation in chunks in use. -/
+structure ExtCx (L ci g : Nat) (H : HeapIx) : Prop where
+  L_lo : heapStart ≤ L
+  L_hi : L + stateSize ≤ heapEnd
+  L_al : L % 8 = 0
+  ci_lo : heapStart ≤ ci
+  ci_hi : ci + ciSize ≤ heapEnd
+  ci_al : ci % 8 = 0
+  g_lo : heapStart ≤ g
+  g_hi : g + 64 ≤ heapEnd
+  g_al : g % 8 = 0
+  L_g : L + stateSize ≤ g + gGCdebtOff ∨ g + gGCdebtOff + 8 ≤ L
+  live : ∀ a, Rng L stateSize a ∨ Rng ci ciSize a ∨ Rng (g + gGCdebtOff) 8 a → InUse H.chunks a
+
 /-- **Named premise: `luaE_extendCI(L)`** (`0x80016a5c`, from `next_ci` with
 `ci->next` NULL): from the heap with room for one `_malloc_r`, `L->ci = ci`,
 its `next` NULL, no hook, `G(L) = g` with `g->frealloc` main.c's `l_alloc`
@@ -150,8 +167,7 @@ def ExtendCI_Statement : Prop :=
     bytesT8 M (L + stateCiOff) = BitVec.ofNat 64 ci → bytesT8 M (ci + ciNextOff) = 0#64 →
     bytesT4 M (L + stateHookmaskOff) = 0#32 →
     bytesT8 M (L + stateGOff) = BitVec.ofNat 64 g → bytesT8 M g = BitVec.ofNat 64 symLAlloc →
-    bytesT8 M symImpurePtr = BitVec.ofNat 64 symImpureData →
-    (∀ a, Rng L stateSize a ∨ Rng ci ciSize a ∨ Rng (g + gGCdebtOff) 8 a → InUse H.chunks a) →
+    bytesT8 M symImpurePtr = BitVec.ofNat 64 symImpureData → ExtCx L ci g H →
     heapEnd + 8192 ≤ sp - 96 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
     PcExt sp L f M o (fun nci m' => ∃ H', ExtPost M m' sp L ci g H H' nci)
 

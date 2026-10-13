@@ -65,6 +65,11 @@ structure MallocPost (m m' : Mem) (sp n p : Nat) (brk : Nat) (chunks : List Chun
     (top' brk' : Nat) (chunks' : List Chunk) (bins' : Nat → List Nat) : Prop where
   heap : HeapAt (Vsa.Densify.fillZeroMem m') top' brk' chunks' bins'
   brk_le : brk ≤ brk'
+  /-- (lane F1-14) the break grows by at most the request, the 16 KiB of
+  room the call has for `top_pad` (0: `HeapAt.top_pad`) and `MINSIZE`, and a
+  page of rounding (`malloc_extend_top`: one page-rounded `_sbrk` and one
+  alignment correction) -/
+  brk_hi : brk' ≤ brk + n + 16384 + 4096
   lo : heapStart + 16 ≤ p
   hi : p + n ≤ brk'
   al : p % 16 = 0

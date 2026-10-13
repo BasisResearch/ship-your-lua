@@ -470,6 +470,7 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
       stat_apart := fun a ha hd => ha.elim (fun ha => hE.foot_apart a ha ?_) fun ha => ?_
       fits := hfits
       growFree := hgrow
+      g_al := heg ▸ hE.g_al
       kslots := fun j hj => .inl ((hE.foot_k rt.k hka).2 j hj)
       lits := fun M hM => ?_
       lits_in := fun a ha => kept (hpl.litFoot a ha)

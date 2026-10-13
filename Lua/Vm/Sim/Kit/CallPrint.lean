@@ -1448,12 +1448,22 @@ theorem printCall_room (O : CallOpen) :
             (by simp only [stateHookmaskOff]; omega)]
           exact bytesT4_of_rd32 hlua.hookmask)
       hgw hfra hPS.cells.impure
-      (fun a ha => by
-        rcases ha with ha | ha | ha
-        · exact (hI.L_in a ha.1 ha.2).inuse
-        · exact (hI.ci_in a ha.1 ha.2).inuse
-        · exact (hI.g_in a (by simp only [Rng, gGCdebtOff] at ha; omega)
-            (by simp only [Rng, gGCdebtOff, gEnd, gStrcacheOff, strcacheN, strcacheM] at ha ⊢; omega)).inuse)
+      { L_lo := by have := hL1; have : heapStart = 0x8006ecd0 := rfl; omega
+        L_hi := by have := hL2; have : heapEnd = 0x87800000 := rfl; simp only [stateSize]; omega
+        L_al := hr.L_al
+        ci_lo := by have := hci1; have : heapStart = 0x8006ecd0 := rfl; omega
+        ci_hi := by have := hci2; have : heapEnd = 0x87800000 := rfl; simp only [ciSize]; omega
+        ci_al := hr.ci_al
+        g_lo := by have := hg1; have : heapStart = 0x8006ecd0 := rfl; omega
+        g_hi := by have := hg2; have : heapEnd = 0x87800000 := rfl; omega
+        g_al := hI.g_al
+        L_g := by simp only [stateSize, gGCdebtOff]; omega
+        live := fun a ha => by
+          rcases ha with ha | ha | ha
+          · exact (hI.L_in a ha.1 ha.2).inuse
+          · exact (hI.ci_in a ha.1 ha.2).inuse
+          · exact (hI.g_in a (by simp only [Rng, gGCdebtOff] at ha; omega)
+              (by simp only [Rng, gGCdebtOff, gEnd, gStrcacheOff, strcacheN, strcacheM] at ha ⊢; omega)).inuse }
       (by have : heapEnd = 0x87800000 := rfl; omega) (by omega) (by omega)
     obtain ⟨c', st, nci, m'', o', hret, hq⟩ :=
       precall_ext (Q := fun nci => JoinQ p c w ins args ph F FL ls f nci o)

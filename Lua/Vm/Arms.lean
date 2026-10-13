@@ -171,6 +171,11 @@ import Lua.Vm.Arms.Segs.Hclose
 import Lua.Vm.Arms.Segs.Hsfp_lock_acquire
 import Lua.Vm.Arms.Segs.Hsfp_lock_release
 import Lua.Vm.Arms.Segs.Hretarget_lock_close_recursive
+import Lua.Vm.Arms.Segs.HluaE_extendCI
+import Lua.Vm.Arms.Segs.HluaM_malloc_
+import Lua.Vm.Arms.Segs.Hl_alloc
+import Lua.Vm.Arms.Segs.Hrealloc
+import Lua.Vm.Arms.Segs.Hrealloc_r
 import Lua.Vm.Arms.Segs.Hclzdi2
 import Lua.Vm.Arms.Segs.Hfloatsidf
 import Lua.Vm.Arms.Segs.Hfloatdidf

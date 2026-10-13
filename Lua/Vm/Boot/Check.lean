@@ -1038,6 +1038,7 @@ def entryBaseCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : P
   decide (e.func + stackValueSize * (1 + p.maxstacksize) ≤ e.stackLast) &&
   decide (e.func + stackValueSize * (3 + p.maxstacksize) ≤ e.stackLast) &&
   decide (e.func + stackValueSize * (2 + p.maxstacksize) + 320 < e.stackLast) &&
+  decide (e.g % 8 = 0) &&
   protoCheck (v.minus (VarargDirty ci e.func)) e.pa p &&
   readsOk (v.minus (VarargDirty ci e.func)) [(e.pa + protoCodeOff, 8, e.code)] &&
   printPtrCheck (v.minus (VarargDirty ci e.func)) e.pa p.k.length slot.ts &&
@@ -1065,8 +1066,8 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
     {e : EntryPtrs} {slot : PrintSlot} {rt : RtPtrs} (hc : entryCheck v L ci p e slot rt = true) :
     VmEntryData m L ci p e := by
   simp only [entryCheck, entryBaseCheck, Bool.and_eq_true, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hcroom⟩, hvp⟩, hvc⟩, hvptr⟩, henv⟩, hfz⟩,
-    hlit⟩, hpl⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hr, hp⟩, hslot⟩, hkey⟩, hptr⟩, hfit⟩, hroom⟩, hcroom⟩, hgal⟩, hvp⟩, hvc⟩, hvptr⟩, henv⟩,
+    hfz⟩, hlit⟩, hpl⟩ := hc
   simp only [frozenCheck, Bool.and_eq_true, List.all_eq_true] at hfz
   obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨hfp, hfc⟩, hfptr⟩, hfenv⟩, hfk⟩, hflua⟩, hfkp⟩, hfka⟩, hfram⟩, hfap⟩ := hfz
   simp only [litsEntryCheck, Bool.and_eq_true, List.all_eq_true, Bool.not_eq_true',
@@ -1100,6 +1101,7 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
       frame_fits := hfit
       vararg_room := hroom
       call_room := hcroom
+      g_al := hgal
       vararg_proto := fun _ hm =>
         ⟨protoCheck_sound (h.minus _ hm) hvp, (h.minus _ hm).reads hvc (by mem_tac)⟩
       frozen := fun M hm =>

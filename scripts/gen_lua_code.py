@@ -88,7 +88,12 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          "lua_tolstring",
          # lane F1-14: `exit`'s stdio handler (`_fwalk_sglue(_fclose_r)`)
          "stdio_exit_handler", "_fwalk_sglue", "_fclose_r", "__sclose", "_close_r", "_close",
-         "__sfp_lock_acquire", "__sfp_lock_release", "__retarget_lock_close_recursive"]
+         "__sfp_lock_acquire", "__sfp_lock_release", "__retarget_lock_close_recursive",
+         # lane F1-14: `luaE_extendCI` and its allocation (main.c's `l_alloc`)
+         "luaE_extendCI", "luaM_malloc_", "l_alloc", "realloc", "_realloc_r"]
+# a static name defined twice whose first (lowest) definition is the one
+# pinned: main.c's `l_alloc` (`g->frealloc`; lauxlib.c's is the second)
+DUP_FIRST = {"l_alloc"}
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")
@@ -119,7 +124,8 @@ def disasm() -> dict:
             cur = m.group(2)
             if cur in funcs:        # two local symbols of one name: unusable
                 cur = f"{cur}@dup{len(funcs)}"
-                funcs[m.group(2)] = None
+                if m.group(2) not in DUP_FIRST:
+                    funcs[m.group(2)] = None
             funcs[cur] = []
             continue
         m = INST_RE.match(line)

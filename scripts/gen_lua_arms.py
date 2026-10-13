@@ -335,14 +335,26 @@ HELPERS += [("stdio_exit_handler", "Stdio_exit_handler", 0x80032af8, 0x80032b0c,
             ("__sfp_lock_release", "__sfp_lock_release", 0x80032f38, 0x80032f40, [22, 26], [], []),
             ("__retarget_lock_close_recursive", "__retarget_lock_close_recursive",
              0x8003b420, 0x8003b424, [22, 26], [], [])]
+# lane F1-14: `luaE_extendCI(L)` (`luaD_precall`'s `next_ci` with `ci->next`
+# NULL): `luaM_malloc_(L, 64, 0)` (its `jalr a5` through `g->frealloc` a call
+# node, the return `0x800110c0` a root; stops: `size == 0` `0x800110ec`, the
+# allocation failing `0x800110f4`), then the links; main.c's `l_alloc` →
+# `realloc` → `_realloc_r` with `ptr` NULL (stops: `free` `0x8000173c`,
+# `_realloc_r` of a block `0x80030324`), its tail `j _malloc_r` a call node
+HELPERS += [("luaE_extendCI", "LuaE_extendCI", 0x80016a5c, 0x80016aa8, [22, 26], [], []),
+            ("luaM_malloc_", "LuaM_malloc_", 0x80011084, 0x80011118, [22, 26], [0x800110c0],
+             [0x800110ec, 0x800110f4]),
+            ("l_alloc", "L_alloc", 0x8000172c, 0x80001758, [22, 26], [], [0x8000173c]),
+            ("realloc", "Realloc", 0x8003030c, 0x80030320, [22, 26], [], []),
+            ("_realloc_r", "_realloc_r", 0x80030320, 0x80030518, [22, 26], [], [0x80030324])]
 # the argument registers of a callee with no segments of its own (a call node
 # whose summary is a named premise): live into the `jal` (`luaL_tolstring(L,
 # idx, &len)`; lane F1-12: `luaE_extendCI(L)`)
 CALLEE_READS = {0x80021b2c: {"x10", "x11", "x12"}, 0x80016a5c: {"x10"},
                 # lane F1-12: `lua_pushstring(L, s)`
                 0x80002fe4: {"x10", "x11"},
-                # lane F1-14: `_free_r(ptr, p)`
-                0x8003be24: {"x10", "x11"}}
+                # lane F1-14: `_free_r(ptr, p)`, `_malloc_r(ptr, n)`
+                0x8003be24: {"x10", "x11"}, 0x8002fa34: {"x10", "x11"}}
 # a `ret` (by its address) that also returns into its own helper's code (an
 # internal `jalr`: `memset`'s `sb` chain): its live-out includes the code
 # after that call
@@ -353,7 +365,9 @@ RET_TO = {0x8003b5f8: [0x8003b630]}
 INDIRECT = {0x80033df0: 0x80034f18, 0x8000ac88: 0x80022f18,
             # lane F1-14: `exit`'s `__stdio_exit_handler`, `_fwalk_sglue`'s
             # `_fclose_r`, `_fclose_r`'s `_close` hook `__sclose`
-            0x8002f87c: 0x80032af8, 0x800340b0: 0x80032580, 0x800325e4: 0x80035004}
+            0x8002f87c: 0x80032af8, 0x800340b0: 0x80032580, 0x800325e4: 0x80035004,
+            # `luaM_malloc_`'s `g->frealloc` (main.c's `l_alloc`)
+            0x800110bc: 0x8000172c}
 # lane float-m0: libgcc's soft-float routines of the T1/T2 float paths
 # (FLOAT-DESIGN.md §3, M0), all loop-free but `__clzdi2` (a counted byte scan,
 # unrolled by `scripts/gen_lua_fn.py`); their whole-function summaries are
@@ -402,7 +416,9 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "stdio_exit_handler": {"x10"}, "_fwalk_sglue": {"x10"}, "_fclose_r": {"x10"},
            "__sclose": {"x10"}, "_close_r": {"x10"}, "_close": {"x10"},
            "__sfp_lock_acquire": set(), "__sfp_lock_release": set(),
-           "__retarget_lock_close_recursive": set()}
+           "__retarget_lock_close_recursive": set(),
+           "luaE_extendCI": {"x10"}, "luaM_malloc_": {"x10"}, "l_alloc": {"x10"}, "realloc": {"x10"},
+           "_realloc_r": {"x10"}}
 
 
 def helper_cfg(lo, hi):

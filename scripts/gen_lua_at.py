@@ -2330,6 +2330,21 @@ def fclose_std(mod, fp, fl, fd, kind, what):
         doc=f"`_fclose_r(_REENT, {what})` at `exit`.")
 
 
+# lane F1-14: `luaE_extendCI(L)`: X.n 1 = L, X.n 2 = g = L->l_G, X.n 3 = ci =
+# L->ci, X.n 4 = the block `l_alloc` returns (a call node: `l_alloc` →
+# `realloc` → `_realloc_r(NULL)` → `_malloc_r`, `lalloc_sum`)
+EXT_OK = ["sp_lo : 0x87800000 + 4096 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+          "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + [
+    "g_lo : 0x8005c6d0 ≤ X.n 2", "g_hi : X.n 2 + 64 ≤ 2 ^ 32", "g_al : X.n 2 % 8 = 0",
+    "ci_lo : 0x8005c6d0 ≤ X.n 3", "ci_hi : X.n 3 + 64 ≤ 2 ^ 32", "ci_al : X.n 3 % 8 = 0",
+    "n_lo : 0x8006ecd0 + 16 ≤ X.n 4", "n_hi : X.n 4 + 64 ≤ 2 ^ 32", "n_al : X.n 4 % 16 = 0",
+    # the objects lie in the arena, below the stack
+    "L_he : X.n 1 + 256 ≤ 0x87800000", "g_he : X.n 2 + 64 ≤ 0x87800000",
+    "ci_he : X.n 3 + 64 ≤ 0x87800000", "n_he : X.n 4 + 64 ≤ 0x87800000",
+    # `L` apart from `g->GCdebt`, which `luaM_malloc_` writes before `L->ci`, `L->nci` are read
+    "L_g : X.n 1 + 256 ≤ X.n 2 + 24 ∨ X.n 2 + 32 ≤ X.n 1"]
+
+
 FNS = {
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
@@ -2679,6 +2694,15 @@ FNS = {
                (2, 0x8005e730): 0x12, (2, 0x8005e732): 2},
         calls={FCLOSE: dict(ret={10: ("lit", 0)})},
         doc="`stdio_exit_handler()` → `_fwalk_sglue(_REENT, _fclose_r, &__sglue)`."),
+    "luaE_extendCI": dict(
+        mod="ExtendCI", entry=0x80016a5c,
+        row=abi_row({10: N((1, 1))}),
+        ok=EXT_OK, lb={1: 0x8005c6d0, 2: 0x8005c6d0, 3: 0x8005c6d0, 4: 0x8006ece0},
+        rcells={(((1, 1),), 24): N((2, 1)), (((2, 1),), 0): ("lit", 0x8000172c),
+                (((1, 1),), 32): N((3, 1))},
+        calls={0x8000172c: dict(ret={10: N((4, 1))})},
+        doc="`luaE_extendCI(L)`: `luaM_malloc_(L, sizeof(CallInfo), 0)` (its "
+            "`g->frealloc` a call node), the links, `L->nci++`."),
     "_fclose_r/stdin": fclose_std("FcloseIn", 0x8005e5b0, 0x4, 0, 1, "stdin"),
     "_fclose_r/stderr": fclose_std("FcloseErr", 0x8005e720, 0x12, 2, 3, "stderr"),
     # `_fclose_r(_REENT, stdout)` on the set-up, flushed `stdout`: the lock,
