@@ -58,6 +58,5 @@ theorem sim_LT_flt (hsf : SoftFloatSpec) (hf2i : LtF2I_Statement) : SimArmOn .LT
         | exact .inr ⟨_, _, _, ‹_›, ‹_›, by simpa using hfit⟩)
     | skip
   all_goals at_walk Lua.Vm.At.LT_F
-  all_goals at_leaf Lua.Vm.At.LT_F
 
 end Lua.Vm.Sim.At

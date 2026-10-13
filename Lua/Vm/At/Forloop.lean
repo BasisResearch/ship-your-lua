@@ -491,4 +491,7 @@ theorem fin_1 (X : Cx) (hX : X.Ok) {c : Config}
     AtFin X m0 [] (X.s.pc + 1) c := by
   at_fin
 
+/-- The cut points (`JOINS`): the tail from each is proved once. -/
+def joinPcs : List Nat := [0x8001e194]
+
 end Lua.Vm.At.FORLOOP

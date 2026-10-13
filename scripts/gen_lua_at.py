@@ -1038,6 +1038,14 @@ class Arm:
         self.join_st[pc] = (st, k)
         return st
 
+    def joins_text(self):
+        """The join pcs, for the hand side's cut (`at_walk`'s `at_cut`)."""
+        if not self.join_st:
+            return ""
+        pcs = ", ".join(f"0x{pc:08x}" for pc in sorted(self.join_st))
+        return (f"\n/-- The cut points (`JOINS`): the tail from each is proved once. -/\n"
+                f"def joinPcs : List Nat := [{pcs}]\n")
+
     def join_def(self, k):
         g, vt, vf, pc, fork, reg = self.join_defs[k]
         return (f"/-- The cut at `0x{pc:x}`: `x{reg}` from the two sides of the fork at "
@@ -1234,7 +1242,7 @@ namespace Lua.Vm.At.{self.op[3:]}
 
 {first}
 {second}
-{body}
+{body}{self.joins_text()}
 end Lua.Vm.At.{self.op[3:]}
 """
 

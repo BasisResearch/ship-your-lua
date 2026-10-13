@@ -93,6 +93,13 @@ theorem forprep_sgnBound (fs fl fi : Float.Model) :
     (if Float.Model.lt Lua.Num.zero fs then Float.Model.lt fl fi else Float.Model.lt fi fl) =
       sgnBound Float.Model.lt fs fl fi := rfl
 
+/-- A kernel's test in `sgnBound`'s shape (as `simp` leaves `forloopK`'s and
+`forprepK`'s float clauses): one Boolean, so the leaf splits it once. -/
+theorem sgnBound_eq_true (R : Float.Model → Float.Model → Bool) (st a b : Float.Model) :
+    (if Float.Model.lt Lua.Num.zero st = true then R a b = true else R b a = true) ↔
+      sgnBound R st a b = true := by
+  unfold sgnBound; split <;> simp
+
 /-- **`sgnBound` on its two pair atoms** `{0, st}` and `{a, b}`, for a
 relation that reads one answer (`lt`, `le`). -/
 theorem sgnBound_atoms (R : Float.Model → Float.Model → Bool) (ρ : Option Ordering → Bool)
@@ -324,7 +331,13 @@ elab "at_step1 " ns:ident h:ident acc:ident : tactic => withMainContext do
           obtain ⟨_, $acc, $h⟩ := At.run $acc $h $lem))
         pure true)
       (fun _ => pure false)
-    if ok then return
+    if ok then
+      -- a join lemma: the tail from the join row is the cut's (`at_cut`)
+      let tn := Name.mkSimple s!"tail_{hex8 pc}"
+      if n.getString!.startsWith "join_" then
+        if ((← getLCtx).findFromUserName? tn).isSome then
+          evalTactic (← `(tactic| exact $(mkIdent tn) _ $acc $h))
+      return
     s.restore
   for n in cands do
     if let some g ← forkGuard? n X then
@@ -334,23 +347,6 @@ elab "at_step1 " ns:ident h:ident acc:ident : tactic => withMainContext do
       evalTactic (← `(tactic| rcases Bool.eq_false_or_eq_true $stx with $hn:ident | $hn:ident))
       return
   throwError "at_step1: nothing applies at 0x{hex8 pc}"
-
-/-- `have h : True` unless a hypothesis `h` exists (the float closers name
-`hnj`: `docondjump`'s jump target where `kit_nj` gave it). -/
-elab "at_ensure " h:ident : tactic => withMainContext do
-  if ((← getLCtx).findFromUserName? h.getId).isNone then
-    evalTactic (← `(tactic| have $h : True := trivial))
-
-set_option hygiene false in
-/-- **`at_walk NS`**: after the arm's setup, the run from the entry to the
-fetch head (or an error exit) in every machine path, split at the forks. -/
-macro "at_walk " ns:ident : tactic => `(tactic| (
-  have hX : Cx.Ok ⟨p, c, s, w, ins⟩ := ⟨hc, hf⟩
-  have h0 : At ⟨p, c, s, w, ins⟩ _ (headRow ⟨p, c, s, w, ins⟩) [] c := h0
-  have e : True := trivial  -- the float closers' kernel fact: none here (no kernel split)
-  at_ensure hnj
-  try simp only [stackValueSize] at *
-  repeat' at_step1 $ns h0 acc))
 
 /-! ## The leaf: one closed `decide` over the pair atoms -/
 
@@ -442,6 +438,7 @@ set_option hygiene false in
 its test the path's atoms refute is closed by `at_atoms`, the other by the
 close (`at_close`). -/
 macro "at_leaf " ns:ident : tactic => `(tactic| (
+  try simp only [sgnBound_eq_true] at hk
   repeat' (split at hk <;> rename_i hq)
   all_goals first
   | (simp at hk; done)
@@ -450,5 +447,56 @@ macro "at_leaf " ns:ident : tactic => `(tactic| (
      subst hk
      at_close $ns h0 acc)
   | at_close $ns h0 acc))
+
+/-- **`at_cut NS h acc`**: for each cut point `J` of `NS` (`joinPcs`), the
+tail from the join row proved once, as `tail_<J> : ∀ c₁, Steps c c₁ →
+At X J row log c₁ → goal` (the run from `J`, then the leaves); a side
+reaching `J` ends in its join lemma and `tail_<J>` (`at_step1`). -/
+elab "at_cut " ns:ident h:ident acc:ident : tactic => withMainContext do
+  let some jc := (← getEnv).find? (ns.getId ++ `joinPcs) | return
+  let some v := jc.value? | return
+  let pcs ← (← listElems (← whnf v)).filterMapM fun e => (Meta.evalNat e).run
+  let some hd := (← getLCtx).findFromUserName? h.getId | throwError "at_cut: no {h}"
+  let some ad := (← getLCtx).findFromUserName? acc.getId | throwError "at_cut: no {acc}"
+  let X := (← instantiateMVars hd.type).getAppArgs[0]!
+  let c0 := (← instantiateMVars ad.type).getAppArgs[0]!
+  let T ← instantiateMVars (← getMainTarget)
+  for J in pcs do
+    let jn := ns.getId ++ Name.mkSimple s!"join_{hex8 J}"
+    let ci ← getConstInfo jn
+    let (pcE, L, M) ← forallTelescope ci.type fun xs body => do
+      let a := body.getAppArgs
+      return (a[4]!.replaceFVar xs[0]! X, a[5]!.replaceFVar xs[0]! X, a[6]!.replaceFVar xs[0]! X)
+    let tailTy ← withLocalDeclD `c₁ (mkConst ``Vsa.Machine.Config) fun c1 => do
+      let st := mkApp2 (mkConst ``Vsa.Machine.Steps) c0 c1
+      let at_ := mkAppN (mkConst ``At) #[X, pcE, L, M, c1]
+      mkForallFVars #[c1] (← mkArrow st (← mkArrow at_ T))
+    let stx ← Term.exprToSyntax tailTy
+    let tn := mkIdent (Name.mkSimple s!"tail_{hex8 J}")
+    evalTactic (← `(tactic| have $tn : $stx := by
+      intro c₁ $acc $h
+      repeat' at_step1 $ns $h $acc
+      all_goals at_leaf $ns))
+
+/-- `have h : True` unless a hypothesis `h` exists (the float closers name
+`hnj`: `docondjump`'s jump target where `kit_nj` gave it). -/
+elab "at_ensure " h:ident : tactic => withMainContext do
+  if ((← getLCtx).findFromUserName? h.getId).isNone then
+    evalTactic (← `(tactic| have $h : True := trivial))
+
+set_option hygiene false in
+/-- **`at_walk NS`**: after the arm's setup, the run from the entry to the
+fetch head (or an error exit) in every machine path, split at the forks,
+the tails from the cut points proved once (`at_cut`), each leaf by
+`at_leaf`. -/
+macro "at_walk " ns:ident : tactic => `(tactic| (
+  have hX : Cx.Ok ⟨p, c, s, w, ins⟩ := ⟨hc, hf⟩
+  have h0 : At ⟨p, c, s, w, ins⟩ _ (headRow ⟨p, c, s, w, ins⟩) [] c := h0
+  have e : True := trivial  -- the float closers' kernel fact: none here (no kernel split)
+  at_ensure hnj
+  try simp only [stackValueSize] at *
+  at_cut $ns h0 acc
+  repeat' at_step1 $ns h0 acc
+  all_goals at_leaf $ns))
 
 end Lua.Vm.Sim.At

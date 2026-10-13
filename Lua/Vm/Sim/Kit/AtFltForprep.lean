@@ -32,7 +32,6 @@ theorem fp_flt3 (hsf : SoftFloatSpec) : ArmBody .FORPREP FpFlt3 := by
   flt_views; flt_reg_s ins.a, hq0; flt_reg_s (ins.a + 1), hq1; flt_reg_s (ins.a + 2), hq2
   simp [Value.tonumber?] at hk
   at_walk Lua.Vm.At.FORPREP_F
-  all_goals at_leaf Lua.Vm.At.FORPREP_F
 
 /-- `FORPREP`'s coerced classes: not three integers and not three floats (a
 string or integer control value through `luaV_tonumber_`, or an integer loop
