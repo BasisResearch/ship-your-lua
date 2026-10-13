@@ -481,4 +481,37 @@ macro "sf_close" "[" packs:ident,* "]" : tactic => `(tactic| (
     not_true_eq_false] at *) <;>
     (first | (exfalso; omega) | (refine congrArg (BitVec.ofNat 64) ?_; omega) | (apply rp_congr <;> omega) | (apply Lua.Num.SfRef.cp_congr <;> omega))))
 
+/-! ## Frame reloads (`reload_forward`): a reload of the routine's own spill
+reads the stored word through the later stores of the frame. -/
+
+theorem sext64_self (x : BitVec (8 * 8)) : sign_extend (m := 64) x = x := by
+  simp only [sign_extend, Sail.BitVec.signExtend, BitVec.signExtend_eq]
+
+/-- A slot of the 48-byte frame below `sp = s` (`FnSp s 48` keeps it in RAM,
+so the address does not wrap). -/
+theorem frame_addr {s : Nat} (o : BitVec 12) (h1 : 48 ≤ s) (h2 : s < 2 ^ 32) (ho : o.toNat < 2048) :
+    (BitVec.ofNat 64 s + sign_extend (m := 64) (0xfd0#12) + sign_extend (m := 64) o).toNat = s - 48 + o.toNat := by
+  have e1 : (sign_extend (m := 64) (0xfd0#12)).toNat = 2 ^ 64 - 48 := by decide
+  have e2 : (sign_extend (m := 64) o).toNat = o.toNat := by
+    rw [sext_eq, BitVec.toNat_signExtend, BitVec.msb_eq_decide]
+    have : ¬ 2 ^ (12 - 1) ≤ o.toNat := by omega
+    simp [this]; omega
+  rw [BitVec.toNat_add, BitVec.toNat_add, e1, e2, BitVec.toNat_ofNat]
+  omega
+
+/-- `__clzdi2`'s summary on a normal-form word. -/
+theorem nf_clz {f : Nat} (h0 : 0 < f) (h : f < 2 ^ 64) :
+    Lua.Vm.Sim.clz64 (BitVec.ofNat 64 f) = BitVec.ofNat 64 (63 - f.log2) := by
+  unfold Lua.Vm.Sim.clz64 Lua.Vm.Sim.bitlen
+  rw [nf_toNat h, if_neg (by omega)]
+  congr 1; omega
+
+/-- Forward every reload through the frame's stores (addresses by `frame_addr`). -/
+macro "sf_reload" : tactic => `(tactic| (
+  try simp only [sext64_self, Lua.Vm.Sim.sdData_id]
+  try simp (disch := first | omega | decide) only [frame_addr]
+  try simp only [BitVec.reduceToNat]
+  try simp (disch := omega) only [Lua.Vm.Sim.bytesT8_wm8_same, Lua.Vm.Sim.bytesT8_wm8_far]
+  try simp (disch := omega) only [BitVec.add_zero, sext_eq, BitVec.reduceSignExtend, nf_clz]))
+
 end Lua.Vm.Fn.SfLens

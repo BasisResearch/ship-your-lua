@@ -65,16 +65,15 @@ theorem nf_dae0 (m : Mem) (s : Nat) (r : BitVec 64) : N_8002dae0 m s r = BitVec.
 
 /-! ## The pack join (`_FP_PACK_SEMIRAW`'s pack, `0x8002d92c`) -/
 
-theorem nf_d92c_inf (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hE : E = 2047) (hf : f / 8 = 0) (hS : S < 2) :
+theorem nf_d92c_inf (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hE : E = 2047) (hf : f / 8 = 0)
+    (hf2 : f < 2 ^ 64) (hS : S < 2) :
     N_8002d92c m s r (BitVec.ofNat 64 f) (BitVec.ofNat 64 E) (BitVec.ofNat 64 S) =
       BitVec.ofNat 64 (S * 2 ^ 63 + 2047 * 2 ^ 52) := by
-  subst hE
   sf_go []
   all_goals sf_close [nf_db68]
 theorem nf_d92c_nan (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hE : E = 2047) (hf : f / 8 ≠ 0)
     (hf2 : f < 2 ^ 64) (hS : S < 2) :
     N_8002d92c m s r (BitVec.ofNat 64 f) (BitVec.ofNat 64 E) (BitVec.ofNat 64 S) = 9221120237041090560#64 := by
-  subst hE
   sf_go []
   all_goals sf_close [nf_db68]
 theorem nf_d92c (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hE : E ≤ 2046) (hf : f < 2 ^ 64)
@@ -325,5 +324,23 @@ theorem g_d854 (m : Mem) (s : Nat) (r : BitVec 64) {z F E S : Nat} (hz : E ≤ z
   have hR := SfRef.rto_lt_of (n := F) (k := z - E + 1) (m := 55) (by omega) (by omega)
   sf_go []
   all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- The clz renormalisation (`0x8002d820`): `__clzdi2` (`clz64`) across the
+frame spills, then the normal (`0x8002da50`) or subnormal (`0x8002d854`) round. -/
+theorem g_d820 (m : Mem) (s : Nat) (r : BitVec 64) {f E S : Nat} (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32)
+    (hf0 : 0 < f) (hf : f < 2 ^ 55) (hE1 : 1 ≤ E) (hE : E ≤ 2046) (hS : S < 2) :
+    N_8002d820 m s r (BitVec.ofNat 64 f) (BitVec.ofNat 64 E) (BitVec.ofNat 64 S) = SfRef.normPack (S = 1) E f := by
+  have hL : f.log2 < 55 := (Nat.log2_lt (by omega)).2 hf
+  have hN := SfRef.norm_bounds hf0 (by omega)
+  unfold N_8002d820 N_8002d83c
+  sf_reload
+  sf_nf
+  rw [show 63 - f.log2 - 8 = 55 - f.log2 by omega]
+  unfold SfRef.normPack
+  split
+  · rw [g_da50 _ _ _ (by omega) hE hS hN.1 hN.2, if_pos (by omega)]
+  · rw [g_d854 _ _ _ (by omega) (by omega) hE1 hS hN.2, if_neg (by omega),
+      SfRef.rto_mul_pow _ _ _ (by omega), show 55 - f.log2 - (55 - f.log2 - E + 1) = E - 1 by omega]
 
 end Lua.Vm.Fn.Adddf3

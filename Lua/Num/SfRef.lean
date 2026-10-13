@@ -185,4 +185,21 @@ theorem rto_le_self (n k : Nat) : rto n k ≤ n := by
           _ ≤ 2 ^ k := Nat.pow_le_pow_right (by decide) hk) (by decide)
       omega
 
+theorem rto_mul_pow (f z k : Nat) (h : k ≤ z) : rto (f * 2 ^ z) k = f * 2 ^ (z - k) := by
+  have e : f * 2 ^ z = f * 2 ^ (z - k) * 2 ^ k := by rw [Nat.mul_assoc, ← Nat.pow_add, Nat.sub_add_cancel h]
+  rw [rto_exact (by rw [e]; exact Nat.mul_mod_left _ _), e, Nat.mul_div_cancel _ (Nat.two_pow_pos k)]
+
+/-- The clz-normalised mantissa of `0 < S < 2^56` has its top bit at 55. -/
+theorem norm_bounds {S : Nat} (h0 : 0 < S) (h : S < 2 ^ 56) :
+    2 ^ 55 ≤ S * 2 ^ (55 - S.log2) ∧ S * 2 ^ (55 - S.log2) < 2 ^ 56 := by
+  have hL : S.log2 < 56 := (Nat.log2_lt (by omega)).2 h
+  have h1 : 2 ^ S.log2 ≤ S := Nat.log2_self_le (by omega)
+  have h2 : S < 2 ^ (S.log2 + 1) := Nat.lt_log2_self
+  constructor
+  · calc 2 ^ 55 = 2 ^ S.log2 * 2 ^ (55 - S.log2) := by rw [← Nat.pow_add]; congr 1; omega
+      _ ≤ S * 2 ^ (55 - S.log2) := Nat.mul_le_mul_right _ h1
+  · calc S * 2 ^ (55 - S.log2) < 2 ^ (S.log2 + 1) * 2 ^ (55 - S.log2) :=
+          Nat.mul_lt_mul_of_pos_right h2 (Nat.two_pow_pos _)
+      _ = 2 ^ 56 := by rw [← Nat.pow_add]; congr 1; omega
+
 end Lua.Num.SfRef
