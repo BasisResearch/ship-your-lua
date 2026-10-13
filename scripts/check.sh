@@ -211,6 +211,9 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.floorSpec_proved
 #print axioms Lua.Vm.Sim.Kit.muldi3_sumK
 #print axioms Lua.Vm.Fn.Muldf3.sum
+#print axioms Lua.Num.SfRef.mul_eq
+#print axioms Lua.Vm.Fn.Muldf3.F_eq_ref
+#print axioms Lua.Vm.Fn.Muldf3.spec_proved
 #print axioms Lua.Num.SfRef.cmp_eq
 #print axioms Lua.Num.SfRef.eqv_eq
 #print axioms Lua.Num.SfRef.toInt_eq

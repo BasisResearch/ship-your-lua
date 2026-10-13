@@ -4,6 +4,24 @@ import Lua.Num.SfRefMul
 
 /-!
 # `__muldf3` against `SfRef.mul` (lane float-sf3, (b1))
+
+The lifted function `Lua.Vm.Fn.Muldf3.F` (`scripts/gen_lua_fn.py`: 76 nodes,
+`__muldi3`/`__clzdi2` as call nodes; `Muldf3.sum` says the machine computes
+it) is `SfRef.mul` (`Lua/Num/SfRefMul.lean`, soft-fp's `_FP_MUL`); with (b2)
+`SfRef.mul_eq` it is `F64.mul` (`spec_proved`).
+
+* **The `Nat` lens** (`MulLens`): `SfLens`'s normal form plus the exponent
+  words `ew` (a signed `Int` as a machine word, opaque to unification; its
+  steps `nf_ew_*`), the denormalisation's word arithmetic, the sticky shifts
+  (`nf_sticky9`, `nf_sticky63`, `nf_srs1`), `umul_ppmm` (`nf_lo64`,
+  `nf_mul_lt`, `umul_eq`), `_FP_FRAC_SRS_2` (`nf_umul_srs`).
+* **Stages**: the canonical pack (`g_e8ec`, `g_e660`, `g_e7a4`:
+  `SfRef.packCanon`), the product join (`g_e628`), the product stage
+  (`g_e5bc`: the four partial products, the sticky shift by 55, the overflow
+  renormalisation, the pack).
+* **Chambers**: one per pair of operand classes, emitted by the class-pair
+  chamber generator `smc_chambers` (`smc_spec` for a special operand,
+  `smc_fin` through `g_e5bc`), the cover `G_eq` and `F_eq_ref`.
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail Vsa
@@ -24,11 +42,16 @@ theorem ew_def (x : Int) : ew x = BitVec.ofInt 64 x := rfl
 attribute [irreducible] ew
 
 /-- An exponent word plus a literal. -/
-theorem nf_ew_addc (x : Int) (c : Nat) : ew x + BitVec.ofNat 64 c = ew (x + c) := by
+theorem nf_ew_addc' (x : Int) (c : Nat) : ew x + BitVec.ofNat 64 c = ew (x + c) := by
   rw [ew_def, ew_def, ← nf_ofInt_nat c]
   apply BitVec.eq_of_toInt_eq
   simp only [BitVec.toInt_add, BitVec.toInt_ofInt]
   rw [Int.add_bmod_bmod, Int.bmod_add_bmod]
+
+/-- An exponent word plus a small literal (a large one is a negative literal,
+`nf_ew_add_lit`). -/
+theorem nf_ew_addc (x : Int) (c : Nat) (_h : c < 2 ^ 62) : ew x + BitVec.ofNat 64 c = ew (x + c) :=
+  nf_ew_addc' x c
 
 /-- A non-negative exponent word in the `ofNat` normal form. -/
 theorem nf_ew_nn (x : Int) (h : 0 ≤ x) : ew x = BitVec.ofNat 64 x.toNat := by
@@ -219,12 +242,15 @@ theorem argF12_P {s e f : Nat} (hs : s < 2) (he : e < 2048) (hf : f < 2 ^ 52) :
   omega
 
 /-- An operand's fields read off its `ofNat` normal form. -/
-theorem fs_nat {s e f : Nat} (hs : s < 2) (he : e < 2048) (hf : f < 2 ^ 52) :
+theorem fs_nat {s e f : Nat} (_hs : s < 2) (he : e < 2048) (hf : f < 2 ^ 52) :
     (s * 9223372036854775808 + e * 4503599627370496 + f) / 9223372036854775808 = s := by omega
-theorem fe_nat {s e f : Nat} (hs : s < 2) (he : e < 2048) (hf : f < 2 ^ 52) :
+theorem fe_nat {s e f : Nat} (_hs : s < 2) (he : e < 2048) (hf : f < 2 ^ 52) :
     (s * 9223372036854775808 + e * 4503599627370496 + f) / 4503599627370496 % 2048 = e := by omega
-theorem ff_nat {s e f : Nat} (hs : s < 2) (he : e < 2048) (hf : f < 2 ^ 52) :
+theorem ff_nat {s e f : Nat} (_hs : s < 2) (_he : e < 2048) (hf : f < 2 ^ 52) :
     (s * 9223372036854775808 + e * 4503599627370496 + f) % 4503599627370496 = f := by omega
+theorem nf_ofNat_ew (c : Nat) (x : Int) : BitVec.ofNat 64 c + ew x = ew (c + x) := by
+  rw [BitVec.add_comm, nf_ew_addc', Int.add_comm]
+
 /-- The product's sign (`xor`). -/
 theorem nf_xor01 {a b : Nat} (ha : a < 2) (hb : b < 2) :
     BitVec.ofNat 64 a ^^^ BitVec.ofNat 64 b = BitVec.ofNat 64 ((a + b) % 2) := by
@@ -249,9 +275,21 @@ theorem nf_ew_sub (x : Int) (c : Nat) : ew x - BitVec.ofNat 64 c = ew (x - c) :=
   rw [ew_def, ew_def, ← nf_ofInt_nat c]; apply BitVec.eq_of_toInt_eq
   simp only [BitVec.toInt_sub, BitVec.toInt_ofInt]
   rw [Int.sub_bmod_bmod, Int.bmod_sub_bmod]
+/-- `li a4, -1011; sub a4, a4, a0`: a subnormal operand's exponent word. -/
+theorem nf_ew_lit_sub (x : BitVec 64) :
+    (18446744073709550605#64 : BitVec 64) - x = ew (-1011 - (x.toNat : Int)) := by
+  have hx : x = BitVec.ofNat 64 x.toNat := by simp
+  conv => lhs; rw [hx]
+  rw [show (18446744073709550605#64 : BitVec 64) = ew (-1011) by rw [ew_def]; decide, nf_ew_sub]
+/-- `addi a4, a4, -1011` on an exponent word. -/
+theorem nf_ew_add_lit (x : Int) : ew x + 18446744073709550605#64 = ew (x - 1011) := by
+  rw [show (18446744073709550605#64 : BitVec 64) = ew (-1011) by rw [ew_def]; decide, nf_ew_add]
+  congr 1
+theorem sext64_id (x : BitVec 64) : BitVec.signExtend 64 x = x := BitVec.signExtend_eq x
+
 /-- The exponent-word and mantissa-word steps `sf_nf` does not know. -/
 macro "sm_own" : tactic => `(tactic| (
-  try simp only [Lua.Vm.Fn.MulLens.nf_ew_addc]
+  try simp (disch := omega) only [Lua.Vm.Fn.MulLens.nf_ew_addc]
   try simp only [Lua.Vm.Fn.MulLens.ew_lin_d]
   try simp (disch := omega) only [Lua.Vm.Fn.MulLens.nf_ew_nn]
   try simp (disch := omega) only [Lua.Vm.Fn.MulLens.toNat_E, Lua.Vm.Fn.MulLens.toNat_E0, Lua.Vm.Fn.MulLens.toNat_E2]
@@ -271,8 +309,15 @@ macro "sm_own" : tactic => `(tactic| (
 /-- The unpack's steps: the operands' fields off their normal form, the
 product's sign, the exponent words. -/
 macro "sm_ownU" : tactic => `(tactic| (
+  try simp only [Lua.Vm.Sim.sdData_id, Lua.Vm.Fn.MulLens.sext64_id]
+  try simp only [Lua.Vm.Fn.MulLens.nf_ew_lit_sub, Lua.Vm.Fn.MulLens.nf_ew_add_lit]
+  try simp (disch := omega) only [Lua.Vm.Fn.SfLens.nf_clz]
+  try simp only [BitVec.reduceAnd, BitVec.reduceOr, BitVec.reduceXOr, BitVec.reduceBNe, BitVec.reduceBEq,
+    BitVec.reduceAdd, BitVec.reduceHShiftLeft, BitVec.reduceSignExtend, Bool.false_eq_true, ite_true, ite_false,
+    ↓reduceIte]
   try simp (disch := omega) only [Lua.Vm.Fn.MulLens.fs_nat, Lua.Vm.Fn.MulLens.fe_nat, Lua.Vm.Fn.MulLens.ff_nat,
     Lua.Vm.Fn.MulLens.nf_xor01]
+  try simp only [Lua.Vm.Fn.MulLens.nf_ofNat_ew]
   try simp (disch := omega) only [Lua.Vm.Fn.MulLens.nf_ew_bias]
   try simp only [Lua.Vm.Fn.MulLens.nf_ew_add, Lua.Vm.Fn.MulLens.nf_ew_sub]))
 
@@ -439,7 +484,7 @@ theorem rto_div2 (n k : Nat) : SfRef.rto n k / 2 = n / 2 ^ (k + 1) := by
 high word `h + mid / 2^32` and low word) sticky-shifted by 55
 (`_FP_FRAC_SRS_2`), renormalised on bit 56 (`_FP_FRAC_OVERP`), packed. -/
 theorem g_e628 (s : Nat) (r : BitVec 64) {t h mid S : Nat} (e : Int) (P : Nat) (hS : S < 2)
-    (ht : t < 2 ^ 64) (hh : h < 2 ^ 48) (hm : mid < 2 ^ 58)
+    (_ht : t < 2 ^ 64) (_hh : h < 2 ^ 48) (hm : mid < 2 ^ 58)
     (hP : (mid / 4294967296 + h) * 18446744073709551616 + (mid % 4294967296 * 4294967296 + t % 4294967296) = P)
     (hP1 : 2 ^ 110 ≤ P) (hP2 : P < 2 ^ 112) (he1 : -2 ^ 19 ≤ e) (he2 : e ≤ 2 ^ 19) :
     N_8002e628 s r (BitVec.ofNat 64 t) (BitVec.ofNat 64 h) (ew e) (BitVec.ofNat 64 mid) (BitVec.ofNat 64 S) =
@@ -487,24 +532,158 @@ theorem g_e5bc (s : Nat) (r : BitVec 64) {X Y S : Nat} (e : Int) (hS : S < 2)
     rw [g_e628 s r e (X * Y) hS (by omega) (by omega) (by omega) (umul_eq X Y) hP1 hP2 he1 he2]
     split <;> first | rfl | (exfalso; omega)
 
--- CHAMBER TESTS
-example (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hsa : sa < 2) (hsb : sb < 2)
-    (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (ha1 : 1 ≤ ea) (ha2 : ea ≤ 2046) (hb1 : 1 ≤ eb) (hb2 : eb ≤ 2046) :
-    F m s r (Lua.Vm.Fn.SfCmpLens.P sa ea fa) (Lua.Vm.Fn.SfCmpLens.P sb eb fb) =
-      SfRef.mulFields (decide (sa = 1)) ea fa (decide (sb = 1)) eb fb := by
+/-- The canonical NaN leaf. -/
+theorem nf_e8c0 (s : Nat) (r : BitVec 64) : N_8002e8c0 s r = BitVec.ofNat 64 9221120237041090560 := by
+  unfold N_8002e8c0; decide
+/-- The signed infinity leaf. -/
+theorem nf_e928 (s : Nat) (r : BitVec 64) {S : Nat} (hS : S < 2) :
+    N_8002e928 s r (BitVec.ofNat 64 S) = BitVec.ofNat 64 (S * 2 ^ 63 + 2047 * 2 ^ 52 + 0) := by
+  unfold N_8002e928
+  rw [show ((0#64) + sign_extend (m := 64) (0x7ff#12) : BitVec 64) = BitVec.ofNat 64 2047 by decide,
+    show ((0#64) + sign_extend (m := 64) (0x000#12) : BitVec 64) = BitVec.ofNat 64 0 by decide, add0]
+  exact pack_eq (by decide) (by decide) hS
+
+/-- Two `_FP_MUL` results that differ in the form of their operands. -/
+theorem mul_congr {b b' : Bool} {e e' : Int} (P P' : Nat) (hb : b = b') (hP : P = P')
+    (he : e = e') :
+    (if 2 ^ 56 ≤ SfRef.rto P 55 then SfRef.packCanon b (e + 1) (SfRef.rto (SfRef.rto P 55) 1)
+      else SfRef.packCanon b e (SfRef.rto P 55)) =
+    (if 2 ^ 56 ≤ SfRef.rto P' 55 then SfRef.packCanon b' (e' + 1) (SfRef.rto (SfRef.rto P' 55) 1)
+      else SfRef.packCanon b' e' (SfRef.rto P' 55)) := by
+  subst hb hP he; rfl
+
+theorem nat_sub_cast (a b : Nat) (h : b ≤ a) : ((a - b : Nat) : Int) = (a : Int) - b := by omega
+
+theorem sign_xor (sa sb : Nat) (ha : sa < 2) (hb : sb < 2) :
+    decide ((sa + sb) % 2 = 1) = (decide (sa = 1) ^^ decide (sb = 1)) := by
+  rcases (by omega : sa = 0 ∨ sa = 1) with rfl | rfl <;> rcases (by omega : sb = 0 ∨ sb = 1) with rfl | rfl <;> rfl
+
+set_option hygiene false in
+/-- A chamber's set-up: the operands' fields (`argA_P`, `argE_P`, `argF12_P`). -/
+macro "smc_setup" : tactic => `(tactic| (
   unfold F
-  have hea : ea < 2048 := by omega
-  have heb : eb < 2048 := by omega
-  simp only [argF12_P hsa hea hfa, argF12_P hsb heb hfb, Lua.Vm.Fn.SfCmpLens.argE_P hsa hea hfa,
-    Lua.Vm.Fn.SfCmpLens.argE_P hsb heb hfb, Lua.Vm.Fn.SfCmpLens.argA_P hsa hea hfa,
-    Lua.Vm.Fn.SfCmpLens.argA_P hsb heb hfb]
+  simp only [Lua.Vm.Fn.MulLens.argF12_P hsa hea hfa, Lua.Vm.Fn.MulLens.argF12_P hsb heb hfb,
+    Lua.Vm.Fn.SfCmpLens.argE_P hsa hea hfa, Lua.Vm.Fn.SfCmpLens.argE_P hsb heb hfb,
+    Lua.Vm.Fn.SfCmpLens.argA_P hsa hea hfa, Lua.Vm.Fn.SfCmpLens.argA_P hsb heb hfb]))
+
+set_option hygiene false in
+/-- A chamber with a special operand: the leaves (NaN, ±∞, ±0, packs of the
+special results) against `mulFields`'s class cases. -/
+macro "smc_spec" : tactic => `(tactic| (
+  smc_setup
+  smu_go []
+  all_goals (try simp (disch := omega) only [Lua.Vm.Fn.Muldf3.nf_e8c0, Lua.Vm.Fn.Muldf3.nf_e928,
+    Lua.Vm.Fn.Muldf3.nf_e77c])
+  all_goals (unfold Lua.Num.SfRef.mulFields)
+  all_goals (simp only [true_and, and_true, true_or, or_true, ne_eq, not_false_eq_true, not_true_eq_false,
+    false_and, and_false, or_false, false_or])
+  all_goals (simp (disch := omega) only [if_pos, if_neg])
+  all_goals (try simp only [Lua.Vm.Fn.SfLens.qnan_nf, Lua.Vm.Fn.SfLens.infty_nf, Lua.Num.F64.zero,
+    Lua.Vm.Fn.SfLens.bits_nf])
+  all_goals (obtain hsa' | hsa' : sa = 0 ∨ sa = 1 := by omega)
+  all_goals (obtain hsb' | hsb' : sb = 0 ∨ sb = 1 := by omega)
+  all_goals (subst hsa' hsb')
+  all_goals (simp only [Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceMod, Nat.reduceMul,
+    Nat.reducePow, decide_true, decide_false, Bool.xor_true, Bool.xor_false, Bool.true_xor, Bool.false_xor,
+    Nat.zero_mul, Nat.one_mul, Nat.zero_add, Nat.add_zero, ite_true, ite_false, Bool.not_true, Bool.not_false])
+  all_goals (first | (refine congrArg (BitVec.ofNat 64) ?_; omega) | rfl)))
+
+set_option hygiene false in
+/-- A chamber of two finite nonzero operands: the product stage `g_e5bc`,
+then `mulFields`'s normal case unfolded and matched (`mul_congr`). -/
+macro "smc_fin" : tactic => `(tactic| (
+  smc_setup
   smu_go [N_8002e5bc]
-  rw [g_e5bc s r _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)]
-  have hsg : decide ((sa + sb) % 2 = 1) = (decide (sa = 1) ^^ decide (sb = 1)) := by
-    rcases (by omega : sa = 0 ∨ sa = 1) with rfl | rfl <;> rcases (by omega : sb = 0 ∨ sb = 1) with rfl | rfl <;> rfl
-  unfold SfRef.mulFields SfRef.mulNorm SfRef.unpackF SfRef.unpackE
-  simp (disch := omega) only [if_neg]
-  rw [hsg, show 2 ^ 55 + 8 * fa = 36028797018963968 + fa * 8 by omega,
-    show 2 ^ 55 + 8 * fb = 36028797018963968 + fb * 8 by omega]
+  all_goals (try simp only [show ∀ l : Nat, 63 - l - 8 = 55 - l from fun l => by omega] at *)
+  all_goals (try simp (disch := omega) only [Lua.Vm.Fn.Muldf3.nat_sub_cast])
+  rw [Lua.Vm.Fn.Muldf3.g_e5bc s r _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)]
+  unfold Lua.Num.SfRef.mulFields Lua.Num.SfRef.mulNorm Lua.Num.SfRef.unpackF Lua.Num.SfRef.unpackE
+  simp (disch := omega) only [if_neg, if_pos, ite_true, ite_false]
+  exact Lua.Vm.Fn.Muldf3.mul_congr _ _ (Lua.Vm.Fn.Muldf3.sign_xor sa sb hsa hsb) (by congr 1 <;> omega) (by omega)))
+
+open Lean in
+set_option hygiene false in
+/-- **The class-pair chamber generator** of `__muldf3`: one chamber
+`ch_<ca>_<cb>` per pair of operand classes (`nan`, `inf`, `zero`, `sub`:
+subnormal, `norm`), proved by `smc_spec` (a special operand) or `smc_fin`
+(both finite and nonzero, through the product stage); the cover `G_eq` and
+`F_eq_ref : F m s r a b = SfRef.mul a b`. -/
+macro "smc_chambers" : command => do
+  let mut cmds : Array (TSyntax `command) := #[]
+  let classes := ["nan", "inf", "zero", "sub", "norm"]
+  let hyps (c : String) (e f : Ident) (h1 h2 : Ident) : MacroM (Array (TSyntax `Lean.Parser.Term.bracketedBinder)) := do
+    match c with
+    | "nan" => return #[← `(bracketedBinder| ($h1 : $e = 2047)), ← `(bracketedBinder| ($h2 : $f ≠ 0))]
+    | "inf" => return #[← `(bracketedBinder| ($h1 : $e = 2047)), ← `(bracketedBinder| ($h2 : $f = 0))]
+    | "zero" => return #[← `(bracketedBinder| ($h1 : $e = 0)), ← `(bracketedBinder| ($h2 : $f = 0))]
+    | "sub" => return #[← `(bracketedBinder| ($h1 : $e = 0)), ← `(bracketedBinder| ($h2 : $f ≠ 0))]
+    | _ => return #[← `(bracketedBinder| ($h1 : 1 ≤ $e)), ← `(bracketedBinder| ($h2 : $e ≤ 2046))]
+  let prep (c : String) (f h1 h2 hl hX : Ident) : MacroM (TSyntax `tactic) := do
+    match c with
+    | "sub" => `(tactic| (have $hl:ident : Nat.log2 $f < 52 := (Nat.log2_lt $h2).2 (by omega)
+                          have $hX:ident := Lua.Num.SfRef.norm_bounds (S := $f) (by omega) (by omega)))
+    | _ => `(tactic| skip)
+  for ca in classes do
+    for cb in classes do
+      let ha ← hyps ca (mkIdent `ea) (mkIdent `fa) (mkIdent `ha1) (mkIdent `ha2)
+      let hb ← hyps cb (mkIdent `eb) (mkIdent `fb) (mkIdent `hb1) (mkIdent `hb2)
+      let pa ← prep ca (mkIdent `fa) (mkIdent `ha1) (mkIdent `ha2) (mkIdent `hla) (mkIdent `hXa)
+      let pb ← prep cb (mkIdent `fb) (mkIdent `hb1) (mkIdent `hb2) (mkIdent `hlb) (mkIdent `hXb)
+      let fin := (ca == "sub" || ca == "norm") && (cb == "sub" || cb == "norm")
+      let close ← if fin then `(tactic| smc_fin) else `(tactic| smc_spec)
+      cmds := cmds.push (← `(command|
+        theorem $(mkIdent (Name.mkSimple s!"ch_{ca}_{cb}")) (m : Mem) (s : Nat) (r : BitVec 64)
+            (sa ea fa sb eb fb : Nat) (hsa : sa < 2) (hsb : sb < 2) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52)
+            (hea : ea < 2048) (heb : eb < 2048) $ha* $hb* :
+            F m s r (Lua.Vm.Fn.SfCmpLens.P sa ea fa) (Lua.Vm.Fn.SfCmpLens.P sb eb fb) =
+              Lua.Num.SfRef.mulFields (decide (sa = 1)) ea fa (decide (sb = 1)) eb fb := by
+          $pa:tactic
+          $pb:tactic
+          $close:tactic))
+  -- the cover: each operand's class decided in `mulFields`'s order
+  let cls (e f h7 h0 hf : Ident) (k : String → MacroM (TSyntax `tactic)) : MacroM (TSyntax `tactic) := do
+    let tn ← k "nan"; let ti ← k "inf"; let tz ← k "zero"; let ts ← k "sub"; let to ← k "norm"
+    `(tactic| (
+      by_cases $h7:ident : $e = 2047
+      · by_cases $hf:ident : $f = 0
+        · $ti:tactic
+        · $tn:tactic
+      · by_cases $h0:ident : $e = 0
+        · by_cases $hf:ident : $f = 0
+          · $tz:tactic
+          · $ts:tactic
+        · $to:tactic))
+  let tac ← cls (mkIdent `ea) (mkIdent `fa) (mkIdent `hA7) (mkIdent `hA0) (mkIdent `hAf) fun ca => do
+    cls (mkIdent `eb) (mkIdent `fb) (mkIdent `hB7) (mkIdent `hB0) (mkIdent `hBf) fun cb => do
+      let ch := mkIdent (Name.mkSimple s!"ch_{ca}_{cb}")
+      `(tactic| exact $ch m s r sa ea fa sb eb fb hsa hsb hfa hfb hea heb (by omega) (by omega)
+          (by omega) (by omega))
+  cmds := cmds.push (← `(command|
+    theorem G_eq (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hsa : sa < 2) (hsb : sb < 2)
+        (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (hea : ea < 2048) (heb : eb < 2048) :
+        F m s r (Lua.Vm.Fn.SfCmpLens.P sa ea fa) (Lua.Vm.Fn.SfCmpLens.P sb eb fb) =
+          Lua.Num.SfRef.mulFields (decide (sa = 1)) ea fa (decide (sb = 1)) eb fb := by
+      $tac:tactic))
+  cmds := cmds.push (← `(command|
+    theorem F_eq_ref (m : Mem) (s : Nat) (r : BitVec 64) (a b : BitVec 64) :
+        F m s r a b = Lua.Num.SfRef.mul a b := by
+      have ha := a.isLt
+      have hb := b.isLt
+      conv => lhs; rw [Lua.Vm.Fn.SfCmpLens.P_fields a, Lua.Vm.Fn.SfCmpLens.P_fields b]
+      rw [G_eq m s r _ _ _ _ _ _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)]
+      unfold Lua.Num.SfRef.mul
+      rw [Lua.Vm.Fn.SfCmpLens.sign_fields, Lua.Vm.Fn.SfCmpLens.sign_fields]
+      rfl))
+  return ⟨mkNullNode cmds⟩
+
+smc_chambers
+
+/-- `SfRef.mul`'s specification (`F64.mul`, equal to `Float.Model`'s by lane float-s0a). -/
+abbrev S (a b : BitVec 64) : BitVec 64 := Lua.Num.F64.mul a b
+
+/-- **`__muldf3`, level (b)**: (b1) `F_eq_ref`, then (b2) `SfRef.mul_eq`. -/
+theorem spec_proved (m : Mem) (s : Nat) (r a b : BitVec 64) (_hsp : Lua.Vm.Sim.FnSp s 80) :
+    F m s r a b = S a b := by
+  rw [F_eq_ref m s r a b, SfRef.mul_eq]
 
 end Lua.Vm.Fn.Muldf3

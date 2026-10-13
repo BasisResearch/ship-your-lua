@@ -126,7 +126,10 @@ FPROVED = {"Adddf3": "Lua.Vm.Fn.SfRefAdd", "Subdf3": "Lua.Vm.Fn.SfRefSub",
            # lane float-sf2: the comparisons and the conversions
            "Eqdf2": "Lua.Vm.Fn.SfRefCmp", "Ledf2": "Lua.Vm.Fn.SfRefCmp", "Gedf2": "Lua.Vm.Fn.SfRefCmp",
            "Floatsidf": "Lua.Vm.Fn.SfRefInt", "Floatdidf": "Lua.Vm.Fn.SfRefInt",
-           "Fixdfdi": "Lua.Vm.Fn.SfRefInt"}
+           "Fixdfdi": "Lua.Vm.Fn.SfRefInt",
+           # lane float-sf3: `__muldf3` (its call node, `0x8002e504`, enters
+           # `FCALLS` with the MUL/MULK arms' float paths)
+           "Muldf3": "Lua.Vm.Fn.SfRefMul"}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
