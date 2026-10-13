@@ -143,4 +143,61 @@ theorem d_c0e8 {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
   fm_cover dc0e8 iy 32 53 at hY1 hY2 hlow using hro s r sx ix hx ly h5 hx0 hx1 hm0 hm2 hY1 hY2 hix hix2 hlow
 
 
+
+open Lean in
+set_option hygiene false in
+/-- **The chamber generator for `0x8002c0d8`** (`e_fmod.c:84-87`, `x` deep:
+`hx = lx << (n - 32)`, `n = -1022 - ix ≥ 32`), then `d_c0e8` (`y` is deeper
+still, `iy ≤ ix`). -/
+macro "fm_dc0d8_chambers " lo:num hi:num : command => do
+  let mut cmds : Array (TSyntax `command) := #[]
+  for n in List.range' lo.getNat (hi.getNat - lo.getNat) do
+    let il := Syntax.mkNumLit (toString (1022 + n))
+    let nl := Syntax.mkNumLit (toString n)
+    let hxw ← if n = 32 then `(lx) else `(lx * 2 ^ ($nl - 32))
+    cmds := cmds.push (← `(command|
+      theorem $(mkIdent (Name.mkSimple s!"dc0d8_{n}")) {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
+          (iy sx lx ly : Int) (v14 : BitVec 64) (h5 : sx = 0 ∨ sx = 2 ^ 31) (hl0 : 0 ≤ lx)
+          (hX1 : 2 ^ 52 ≤ lx * 2 ^ $nl) (hX2 : lx * 2 ^ $nl < 2 ^ 53)
+          (hm0 : 0 ≤ ly) (hm2 : ly < 2 ^ 31) (hiy1 : -1074 ≤ iy) (hiy2 : iy ≤ -$il)
+          (hY1 : 2 ^ 52 ≤ ly * 2 ^ (-1022 - iy).toNat) (hY2 : ly * 2 ^ (-1022 - iy).toNat < 2 ^ 53)
+          (hlow : LowOk iy (((lx * 2 ^ $nl * 2 ^ (-$il - iy).toNat) % (ly * 2 ^ (-1022 - iy).toNat)).toNat)) :
+          N_8002c0d8 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 (-$il))
+              v14 (BitVec.ofInt 64 ly) (BitVec.ofInt 64 (-1053)) =
+            outv sx iy (((lx * 2 ^ $nl * 2 ^ (-$il - iy).toNat) % (ly * 2 ^ (-1022 - iy).toNat)).toNat) ∧
+          T_8002c0d8 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 (-$il))
+              v14 (BitVec.ofInt 64 ly) (BitVec.ofInt 64 (-1053)) = true := by
+        have hXe : lx * 2 ^ $nl = ($hxw) * 2 ^ 32 := by (try simp only [Int.reducePow, Nat.reduceSub]) <;> omega
+        rw [hXe] at hlow hX1 hX2 ⊢
+        have h := d_c0e8 hro s r iy sx (-$il) ($hxw) ly h5 (by (try simp only [Int.reducePow, Nat.reduceSub] at hX1 ⊢) <;> omega)
+          (by (try simp only [Int.reducePow, Nat.reduceSub] at hX2 ⊢) <;> omega) hm0 hm2 hiy1 (by omega) hY1 hY2
+          (by omega) (by omega) hlow
+        unfold N_8002c0d8 T_8002c0d8
+        fm_nf
+        simp only [Int.reducePow, Nat.reduceSub] at h ⊢
+        exact h))
+  return ⟨mkNullNode cmds⟩
+
+fm_dc0d8_chambers 32 53
+
+/-- **`x` deep** (`0x8002c0d8`, `e_fmod.c:84-87`: `hx = lx << (n - 32)`, then
+`y`'s set-up `d_c0e8`). -/
+theorem d_c0d8 {m : Mem} (hro : RodataRead m) (s : Nat) (r : BitVec 64)
+    (iy sx ix lx ly : Int) (v14 : BitVec 64) (h5 : sx = 0 ∨ sx = 2 ^ 31) (hl0 : 0 ≤ lx)
+    (hix1 : -1074 ≤ ix) (hix2 : ix ≤ -1054)
+    (hX1 : 2 ^ 52 ≤ lx * 2 ^ (-1022 - ix).toNat) (hX2 : lx * 2 ^ (-1022 - ix).toNat < 2 ^ 53)
+    (hm0 : 0 ≤ ly) (hm2 : ly < 2 ^ 31) (hiy1 : -1074 ≤ iy) (hiy2 : iy ≤ ix)
+    (hY1 : 2 ^ 52 ≤ ly * 2 ^ (-1022 - iy).toNat) (hY2 : ly * 2 ^ (-1022 - iy).toNat < 2 ^ 53)
+    (hlow : LowOk iy (((lx * 2 ^ (-1022 - ix).toNat * 2 ^ (ix - iy).toNat) %
+      (ly * 2 ^ (-1022 - iy).toNat)).toNat)) :
+    N_8002c0d8 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
+        v14 (BitVec.ofInt 64 ly) (BitVec.ofInt 64 (-1053)) =
+      outv sx iy (((lx * 2 ^ (-1022 - ix).toNat * 2 ^ (ix - iy).toNat) % (ly * 2 ^ (-1022 - iy).toNat)).toNat) ∧
+    T_8002c0d8 m s r (BitVec.ofInt 64 iy) (BitVec.ofInt 64 sx) (BitVec.ofInt 64 lx) (BitVec.ofInt 64 ix)
+        v14 (BitVec.ofInt 64 ly) (BitVec.ofInt 64 (-1053)) = true := by
+  fm_cover dc0d8 ix 32 53 at hX1 hX2 hlow using
+    hro s r iy sx lx ly v14 h5 hl0 hX1 hX2 hm0 hm2 hiy1 hiy2 hY1 hY2 hlow
+
+#print axioms d_c0d8
+
 end Lua.Vm.Fn.Ieee754Fmod
