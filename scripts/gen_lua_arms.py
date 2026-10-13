@@ -180,8 +180,10 @@ HELPERS += [("luaF_close", "LuaF_close", 0x8000c224, 0x8000c380, [22, 26], [], [
             ("luaD_poscall", "LuaD_poscall", 0x8000a39c, 0x8000a5e8, [22, 26], [0x8000a4a4],
              [0x8000a3bc, 0x8000a44c, 0x8000a5e4]),
             ("luaD_callnoyield", "LuaD_callnoyield", 0x8000b0bc, 0x8000b0e0, [22, 26], [], []),
-            ("luaD_rawrunprotected", "LuaD_rawrunprotected", 0x80009c38, 0x80009c60, [22, 26],
-             [], []),
+            # lane F1-16: from `setjmp`'s return (`0x80009c24`), where `longjmp`
+            # lands with `a0 = 1`; the `a0 = 0` path (the protected call) a stop
+            ("luaD_rawrunprotected", "LuaD_rawrunprotected", 0x80009c24, 0x80009c60, [22, 26],
+             [], [0x80009c28]),
             ("luaD_pcall", "LuaD_pcall", 0x8000b4c0, 0x8000b4f0, [22, 26], [], []),
             ("lua_pcallk", "Lua_pcallk", 0x8000413c, 0x80004154, [22, 26], [], []),
             ("main", "Main", 0x80001808, 0x80001820, [22, 26], [], []),
@@ -194,6 +196,13 @@ HELPERS += [("luaF_close", "LuaF_close", 0x8000c224, 0x8000c380, [22, 26], [], [
             ("__retarget_lock_release_recursive", "__retarget_lock_release_recursive",
              0x8003b440, 0x8003b444, [22, 26], [], []),
             ("_exit", "_exit", 0x8000063c, 0x8000064c, [22, 26], [], [])]
+# lane F1-16: the throw: `luaG_errormsg` with no error handler (`L->errfunc =
+# 0`; the handler call `0x80009280` a stop), `luaD_throw` with an error jump
+# (`L->errorJmp` set; the `0x80009a60` path, no handler, a stop), newlib's
+# `longjmp` (its `ret` into the `jmp_buf`'s `ra`)
+HELPERS += [("luaG_errormsg", "LuaG_errormsg", 0x80009260, 0x800092cc, [22, 26], [], [0x80009280]),
+            ("luaD_throw", "LuaD_throw", 0x80009a40, 0x80009ac4, [22, 26], [], [0x80009a60]),
+            ("longjmp", "Longjmp", 0x8003ba8c, 0x8003bad0, [22, 26], [], [])]
 # helper modules whose `H<name>` would collide (`exit`, `_exit`)
 HMOD = {"_exit": "HUexit"}
 # lane F1-6: htif.c's `_write` on a console descriptor (`getfd`, the
@@ -484,6 +493,11 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__retarget_lock_close_recursive": set(),
            "luaE_extendCI": {"x10"}, "luaM_malloc_": {"x10"}, "l_alloc": {"x10"}, "realloc": {"x10"},
            "_realloc_r": {"x10"}}
+# lane F1-16: `longjmp` "returns" into the `jmp_buf`'s `ra` with the status in
+# `a0` and the `jmp_buf`'s `sp` and `s0`-`s11`
+RESULTS["longjmp"] = {"x10", "x2", "x8", "x9"} | {f"x{r}" for r in range(18, 28)}
+RESULTS["luaG_errormsg"] = set()
+RESULTS["luaD_throw"] = set()
 
 
 def helper_cfg(lo, hi):
