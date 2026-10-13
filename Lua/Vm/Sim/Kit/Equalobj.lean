@@ -195,20 +195,27 @@ theorem eqo_pay (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : A
 string, `print`. -/
 abbrev f1Tags : List (BitVec 8) := [0#8, 1#8, 17#8, 3#8, 68#8, 84#8, 22#8]
 
-theorem diff_var : ∀ t1 ∈ f1Tags, ∀ t2 ∈ f1Tags, t1 ≠ t2 →
+/-- Every register tag (`ValRepr`), the float's (`LUA_VNUMFLT`) too. -/
+abbrev allTags : List (BitVec 8) := 19#8 :: f1Tags
+
+/-- Two numbers of different variants (`LUA_VNUMINT`, `LUA_VNUMFLT`). -/
+abbrev MixTags (t1 t2 : BitVec 8) : Prop := (t1 = 3#8 ∧ t2 = 19#8) ∨ (t1 = 19#8 ∧ t2 = 3#8)
+
+theorem diff_var : ∀ t1 ∈ allTags, ∀ t2 ∈ allTags, t1 ≠ t2 →
     ((zero_extend (m := 64) (t1 : BitVec (8 * 1)) ^^^ zero_extend (m := 64) (t2 : BitVec (8 * 1))) &&&
       sign_extend (m := 64) (0x03f#12) == 0#64) = false := by decide +kernel
 
-theorem diff_num : ∀ t1 ∈ f1Tags, ∀ t2 ∈ f1Tags, t1 ≠ t2 →
+theorem diff_num : ∀ t1 ∈ allTags, ∀ t2 ∈ allTags, t1 ≠ t2 → ¬ MixTags t1 t2 →
     ((zero_extend (m := 64) (t1 : BitVec (8 * 1)) ^^^ zero_extend (m := 64) (t2 : BitVec (8 * 1))) &&&
       sign_extend (m := 64) (0x00f#12) != 0#64) = false →
     ((zero_extend (m := 64) (t1 : BitVec (8 * 1)) &&& sign_extend (m := 64) (0x00f#12)) ==
       (0#64 + sign_extend (m := 64) (0x003#12))) = false := by decide +kernel
 
-/-- Different variants: not equal (`0x8001b7b8`). -/
-theorem eqo_diff (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
-    (hx : EqCtx m n1 n2 sp r) (ht1 : slotTag m n1 ∈ f1Tags) (ht2 : slotTag m n2 ∈ f1Tags)
-    (hne : slotTag m n1 ≠ slotTag m n2) :
+/-- **Different types** (`0x8001b7b8`): not equal; any two tags but an
+integer and a float (lane F1-F4: a float against another type too). -/
+theorem eqo_diff_gen (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : EqCtx m n1 n2 sp r) (ht1 : slotTag m n1 ∈ allTags) (ht2 : slotTag m n2 ∈ allTags)
+    (hne : slotTag m n1 ≠ slotTag m n2) (hmix : ¬ MixTags (slotTag m n1) (slotTag m n2)) :
     Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
       (SegSt r (⟨Register.x10, 0#64⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins)
         (ArmPay (eqMem(m, sp, r)) o)) := by
@@ -220,7 +227,7 @@ theorem eqo_diff (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : 
   by_cases g2 : ((zero_extend (m := 64) (slotTag m n1 : BitVec (8 * 1)) ^^^
       zero_extend (m := 64) (slotTag m n2 : BitVec (8 * 1))) &&& sign_extend (m := 64) (0x00f#12)
         != 0#64) = false
-  · have g3 := diff_num _ ht1 _ ht2 hne g2
+  · have g3 := diff_num _ ht1 _ ht2 hne hmix g2
     kit_run h acc
     have h := h.at (pc' := r) (by rw [ld_ra]; exact Vsa.Sim.ret_tgt r hra)
     simp only [sp_back, Vsa.Sim.sext_zero, BitVec.zero_add] at h
@@ -230,6 +237,20 @@ theorem eqo_diff (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : 
     have h := h.at (pc' := r) (by rw [ld_ra]; exact Vsa.Sim.ret_tgt r hra)
     simp only [sp_back, Vsa.Sim.sext_zero, BitVec.zero_add] at h
     exact ⟨_, acc, h.repin (by pins_of h)⟩
+
+/-- Different variants of F1's values: not equal (`0x8001b7b8`). -/
+theorem eqo_diff (L r : BitVec 64) (n1 n2 sp : Nat) (f : KFrame) (m : Mem) (o : Array String)
+    (hx : EqCtx m n1 n2 sp r) (ht1 : slotTag m n1 ∈ f1Tags) (ht2 : slotTag m n2 ∈ f1Tags)
+    (hne : slotTag m n1 ≠ slotTag m n2) :
+    Triple (SegSt 0x8001b780#64 (eqPre L r n1 n2 sp f) (ArmPay m o))
+      (SegSt r (⟨Register.x10, 0#64⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ :: f.pins)
+        (ArmPay (eqMem(m, sp, r)) o)) :=
+  eqo_diff_gen L r n1 n2 sp f m o hx (List.mem_cons_of_mem _ ht1) (List.mem_cons_of_mem _ ht2) hne
+    fun hm => by
+      have h19 : (19#8 : BitVec 8) ∉ f1Tags := by decide
+      rcases hm with ⟨-, e⟩ | ⟨e, -⟩
+      · exact h19 (e ▸ ht2)
+      · exact h19 (e ▸ ht1)
 
 /-! ## M2: what the tag says about the value -/
 
