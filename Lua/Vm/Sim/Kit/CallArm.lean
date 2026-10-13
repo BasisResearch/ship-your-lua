@@ -204,6 +204,22 @@ theorem call_nres (ins : Word) (hc : ins.c ≠ 0) :
 set_option hygiene false in
 local macro_rules | `(tactic| kit_guard_ext) => `(tactic| first | exact hgB | decide)
 
+/-- **`OP_CALL`'s register ranges** fit the frame (`Supported`'s `regTop`):
+`R[A .. A+B-1]` and the `C - 1` results. -/
+structure CallBounds (p : Proto) (ins : Word) : Prop where
+  ab : ins.a + ins.b ≤ p.maxstacksize
+  ac : ins.a + ins.c - 1 ≤ p.maxstacksize
+
+theorem call_bounds {p : Proto} {pc : Nat} {ins : Word} (hS : Supported p) (hf : p.fetch pc = some ins)
+    (hop : ins.op? = some .CALL) (hb : ins.b ≠ 0) (hcc : ins.c ≠ 0) : CallBounds p ins := by
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, Kernel.regTop, callK, hb, hcc] at htop
+  have hb1 : ins.a + ins.b ≤ p.maxstacksize := by
+    obtain ⟨b', hb'⟩ := Nat.exists_eq_add_one_of_ne_zero hb
+    have := foldr_range_top b' ins.a
+    rw [hb'] at htop; omega
+  exact ⟨hb1, by omega⟩
+
 /-- **`OP_CALL print` on the states with the invariant `I`**, from
 `luaD_precall`'s summary in the relation's terms (`PrintCall_Statement I`):
 dispatch, the arm's `L->top = ra + B` and `savepc`, the `jal`, the summary,
@@ -223,13 +239,7 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
   obtain ⟨c1, hs1, hlt1, hA, hm1⟩ := dispatchM hR hf (by rw [hnum]; decide)
   have hc := hA.core
   have hr := hc.ranges
-  have htop := supported_regTop hS hf
-  simp [regTop, kernel, hop, opKernel, Kernel.regTop, callK, hb, hcc] at htop
-  have hb1 : ins.a + ins.b ≤ p.maxstacksize := by
-    obtain ⟨b', hb'⟩ := Nat.exists_eq_add_one_of_ne_zero hb
-    have := foldr_range_top b' ins.a
-    rw [hb'] at htop; omega
-  have hc1 : ins.a + ins.c - 1 ≤ p.maxstacksize := by omega
+  obtain ⟨hb1, hc1⟩ := call_bounds hS hf hop hb hcc
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have := hr.base_lo; have := hr.base_hi; have := hr.base_al; have := hr.ci_lo
   have := hr.ci_hi; have := hr.code_hi; have := hr.code_lo; have := fetch_lt hf
