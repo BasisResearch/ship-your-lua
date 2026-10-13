@@ -433,6 +433,18 @@ theorem or_lo_beq0 (a b : Int) :
   have eb : b % 2 ^ 64 % 2 ^ 32 = b % 2 ^ 32 := Int.emod_emod_of_dvd _ (by decide)
   omega
 
+/-- `or_lo_beq0` in the normal form `fm_nf` reaches (the sign extension by `sext64`). -/
+theorem or_lo_toInt0 (a b : Int) :
+    ((Sail.BitVec.extractLsb (BitVec.ofInt 64 a ||| BitVec.ofInt 64 b) 31 0).toInt % 18446744073709551616 = 0) =
+      (a % 4294967296 = 0 ∧ b % 4294967296 = 0) := by
+  have h := or_lo_beq0 a b
+  rw [sext64 _ (by decide), beq_ofInt] at h
+  have e : ∀ p q : Prop, [Decidable p] → [Decidable q] → decide p = decide q → p = q := by
+    intro p q _ _ hpq; exact propext (decide_eq_decide.1 hpq)
+  have := e _ _ h
+  rw [show (0 : Int) % 2 ^ 64 = 0 by decide] at this
+  simpa using this
+
 theorem add_ofInt0 (x : BitVec 64) : x + BitVec.ofInt 64 0 = x := by
   rw [show BitVec.ofInt 64 0 = 0#64 by decide, BitVec.add_zero]
 
@@ -464,12 +476,21 @@ theorem ext6_toNat (k : BitVec 6) : (Sail.BitVec.extractLsb k 5 0).toNat = k.toN
 
 /-! ## The normal form -/
 
+open Lean Elab Tactic Meta in
+/-- Fail unless the goal is closed (no free variable): `decide` only there. -/
+elab "fm_ground" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  if t.hasFVar || t.hasMVar then throwError "fm_ground: an open goal"
+
+/-- The side conditions of `fm_nf`'s rewrites. -/
+macro "fm_disch" : tactic => `(tactic| first | omega | (fm_ground; decide))
+
 /-- **The normal form**, to its fixpoint: literals to `ofInt`, words through
 `ofInt (31 - 0 + 1)` and back by `sext64`, the operations on `Int`, the guards
 to `decide` over `Int` (side conditions by `omega`). -/
 syntax "fm_nf" (Lean.Parser.Tactic.location)? : tactic
 macro_rules | `(tactic| fm_nf $[$loc]?) => `(tactic| (
-  simp (config := { failIfUnchanged := false }) (disch := first | decide | omega) only [
+  simp (config := { failIfUnchanged := false }) (disch := fm_disch) only [
     Lua.Vm.Fn.FmodLens.sext64, Lua.Vm.Fn.FmodLens.lo_ofInt, Lua.Vm.Fn.FmodLens.lo5_ofInt,
     Lua.Vm.Fn.FmodLens.sub32, Lua.Vm.Fn.FmodLens.add32, Lua.Vm.Fn.FmodLens.sll32,
     Lua.Vm.Fn.FmodLens.srl32, Lua.Vm.Fn.FmodLens.sra32, Lua.Vm.Fn.FmodLens.add64,
@@ -484,7 +505,7 @@ macro_rules | `(tactic| fm_nf $[$loc]?) => `(tactic| (
     Lua.Vm.Fn.FmodLens.or_beq0, Lua.Vm.Fn.FmodLens.or_bne0,
     Lua.Vm.Fn.FmodLens.or_zero_ofInt, Lua.Vm.Fn.FmodLens.zero_or_ofInt,
     Lua.Vm.Fn.FmodLens.or_k20, Lua.Vm.Fn.FmodLens.or_k31, Lua.Vm.Fn.FmodLens.or_k32, Lua.Vm.Fn.FmodLens.or_sx,
-    Lua.Vm.Fn.FmodLens.or_shr', Lua.Vm.Fn.FmodLens.or_shr0, Lua.Vm.Fn.FmodLens.or_lo_beq0,
+    Lua.Vm.Fn.FmodLens.or_shr', Lua.Vm.Fn.FmodLens.or_shr0, Lua.Vm.Fn.FmodLens.or_lo_beq0, Lua.Vm.Fn.FmodLens.or_lo_toInt0,
     Lua.Vm.Fn.FmodLens.add_ofInt0, if_pos, if_neg,
     Int.shiftRight_eq_div_pow,
     BitVec.reduceToInt, BitVec.reduceToNat, BitVec.reduceAppend, BitVec.reduceSignExtend,
