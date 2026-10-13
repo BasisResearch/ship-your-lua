@@ -349,6 +349,27 @@ theorem nf_clr54 (x : Nat) (hx : x < 2 ^ 63) :
   rw [show (9205357638345293823 : Nat) % 2 ^ 64 = 2 ^ (54 + 1) * (2 ^ (63 - (54 + 1)) - 1) + (2 ^ 54 - 1) by decide,
     this]
   omega
+theorem land_b55 (x : Nat) : x &&& 2 ^ 55 = (x / 2 ^ 55 % 2) * 2 ^ 55 := by
+  apply Nat.eq_of_testBit_eq; intro i
+  rw [Nat.testBit_and, Nat.testBit_two_pow]
+  by_cases hi : 55 = i
+  · subst hi
+    rcases Nat.mod_two_eq_zero_or_one (x / 2 ^ 55) with h | h <;>
+      simp [h, Nat.testBit_eq_decide_div_mod_eq, Nat.testBit_two_pow]
+  · simp only [hi, decide_false, Bool.and_false]
+    rcases Nat.mod_two_eq_zero_or_one (x / 2 ^ 55) with h | h
+    · simp [h]
+    · rw [h, Nat.one_mul, Nat.testBit_two_pow]; simp [hi]
+theorem nf_and_b55 (a : Nat) :
+    BitVec.ofNat 64 a &&& 36028797018963968#64 = BitVec.ofNat 64 (a / 2 ^ 55 % 2 * 2 ^ 55) := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
+  rw [show (36028797018963968 : Nat) % 2 ^ 64 = 2 ^ 55 by decide]
+  have := land_b55 (a % 2 ^ 64)
+  rw [this]
+  have : a % 2 ^ 64 / 2 ^ 55 % 2 = a / 2 ^ 55 % 2 := by omega
+  rw [this]; omega
+theorem nf_and0 (a : BitVec 64) : a &&& 0#64 = 0#64 := BitVec.and_zero
 theorem nf_and1 (a : Nat) : BitVec.ofNat 64 a &&& 1#64 = BitVec.ofNat 64 (a % 2) := nf_and_mask a 1 (by decide)
 theorem lor_low (a b : Nat) (hb : b < 2) : a ||| b = if b = 0 then a else 2 * (a / 2) + 1 := by
   split
@@ -399,7 +420,7 @@ macro "sf_nfB" : tactic => `(tactic| (
   try simp (disch := omega) only [nf_add, nf_sub, nf_sub_wrap, nf_shr, nf_shl, nf_and7, nf_and15, nf_and2047, nf_and52, nf_and52',
     nf_and55, nf_and2046, nf_beq, nf_bne, nf_ult, nf_sge, nf_slt, nf_bit55_lt, nf_bit55_ge, nf_sext32, nf_wsub,
     nf_ofInt_sub, nf_ofInt_nat, Nat.mul_div_cancel, nf_add_neg, nf_ult_neg, nf_clr55, nf_clr54, nf_and1,
-    nf_or_low, nf_low52, nf_low55, nf_ofInt_neg, nf_sge_neg, nf_wneg, nf_not_neg, nf_toNat, Nat.mod_eq_of_lt, nf_sticky, nf_srs, nf_or55, decide_eq_true_eq]
+    nf_or_low, nf_low52, nf_low55, nf_and_b55, nf_and0, nf_ofInt_neg, nf_sge_neg, nf_wneg, nf_not_neg, nf_toNat, Nat.mod_eq_of_lt, nf_sticky, nf_srs, nf_or55, decide_eq_true_eq]
   try simp only [Nat.reducePow, Nat.reduceMul, Nat.reduceAdd, Nat.reduceSub, Nat.reduceMod, Nat.reduceDiv,
     Nat.sub_zero, Nat.add_zero, Nat.zero_add]
 ))
@@ -416,7 +437,11 @@ macro "sf_nf" : tactic => `(tactic| (
   try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true', Bool.not_eq_true, Bool.not_eq_false',
     Bool.not_true, Bool.not_false, Bool.not_not, decide_true, decide_false, Bool.false_eq_true]
   try simp (disch := omega) only [if_pos, if_neg]
-  try simp only [ite_true, ite_false, ↓reduceIte]))
+  try simp only [ite_true, ite_false, ↓reduceIte]
+  sf_nfB
+  try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true', Bool.not_eq_true, Bool.not_eq_false',
+    Bool.not_true, Bool.not_false, Bool.not_not, decide_true, decide_false, Bool.false_eq_true]
+  try simp (disch := omega) only [if_pos, if_neg]))
 
 /-- One exploration step: unfold the head node, or split its guard and drop
 a side the chamber's facts refute. -/
@@ -467,6 +492,7 @@ macro "sf_ref" : tactic => `(tactic| (
 
 /-- The reference's `roundPack` at a leaf whose path fixed the rounding. -/
 macro "sf_ref2" : tactic => `(tactic| (
+  try simp (disch := omega) only [Lua.Num.SfRef.normPack_one]
   try simp (disch := sf_omega) only [Lua.Num.SfRef.roundPack_keep, Lua.Num.SfRef.roundPack_up,
     Lua.Num.SfRef.roundPack_inf_keep, Lua.Num.SfRef.roundPack_inf_up, Lua.Num.SfRef.roundPack_inf_any]
   try simp only [Lua.Vm.Fn.SfLens.infty_nf, Lua.Vm.Fn.SfLens.qnan_nf, Lua.Num.F64.zero]
@@ -483,7 +509,7 @@ macro "sf_close" "[" packs:ident,* "]" : tactic => `(tactic| (
   all_goals (repeat' split) <;> (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true,
     not_true_eq_false] at *) <;> (try (exfalso; omega)) <;> sf_ref2 <;>
   (repeat' split) <;> (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, Bool.not_eq_true,
-    not_true_eq_false] at *) <;>
+    not_true_eq_false, Bool.false_eq_true] at *) <;>
     (first | (exfalso; omega) | (refine congrArg (BitVec.ofNat 64) ?_; omega) | (apply rp_congr <;> omega) | (apply Lua.Num.SfRef.cp_congr <;> omega) | (apply Lua.Num.SfRef.sp_congr <;> omega) | (apply Lua.Num.SfRef.np_congr <;> omega))))
 
 /-! ## Frame reloads (`reload_forward`): a reload of the routine's own spill

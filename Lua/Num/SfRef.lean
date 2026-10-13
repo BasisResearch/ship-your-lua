@@ -225,4 +225,7 @@ theorem rto_le_half {n k : Nat} (hk : 1 ≤ k) : rto n k ≤ n / 2 + 1 := by
       _ ≤ 2 ^ k := Nat.pow_le_pow_right (by decide) hk) (by decide)
   omega
 
+theorem normPack_one {neg : Bool} {S : Nat} (h : S.log2 < 55) : normPack neg 1 S = roundPack neg 0 S := by
+  unfold normPack; rw [if_neg (by omega)]; simp
+
 end Lua.Num.SfRef

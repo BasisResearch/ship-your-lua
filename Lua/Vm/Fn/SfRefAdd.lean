@@ -412,4 +412,244 @@ theorem ch_sub_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) 
   all_goals (try simp (disch := omega) only [g_db28s, g_d820])
   all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
+open Lua.Num in
+/-- Different signs, equal normal exponents, equal fractions: `+0`. -/
+theorem ch_sub_eq_z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fa = fb) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      F64.zero false := by
+  subst he hf
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, equal normal exponents, `fb < fa`. -/
+theorem ch_sub_eq_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fb < fa) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sa = 1) ea (2 ^ 55 + 8 * fa) (2 ^ 55 + 8 * fb) 0 := by
+  subst he
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, equal normal exponents, `fa < fb`: the sign of `b`. -/
+theorem ch_sub_eq_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea ≤ 2046) (he : ea = eb) (hf : fa < fb) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sb = 1) eb (2 ^ 55 + 8 * fb) (2 ^ 55 + 8 * fa) 0 := by
+  subst he
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, both subnormal or zero, equal fractions: `+0`. -/
+theorem ch_sub0_z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fa = fb) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      F64.zero false := by
+  subst hf
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, both subnormal, `fb < fa`. -/
+theorem ch_sub0_gt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fb < fa) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sa = 1) 1 (8 * fa) (8 * fb) 0 := by
+  have hlog : (8 * fa - 8 * fb).log2 < 55 := (Nat.log2_lt (by omega)).2 (by omega)
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, both subnormal, `fa < fb`. -/
+theorem ch_sub0_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (he : eb = 0) (hf : fa < fb) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sb = 1) 1 (8 * fb) (8 * fa) 0 := by
+  have hlog : (8 * fb - 8 * fa).log2 < 55 := (Nat.log2_lt (by omega)).2 (by omega)
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `ea < eb = 2047`. -/
+theorem ch_sub_lt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea < eb) (h2 : eb = 2047) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      if fb = 0 then F64.infty (sb = 1) else F64.qnan := by
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `eb = 0 < ea`, `b = 0`. -/
+theorem ch_sub_gt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : 0 < ea) (h3 : ea ≤ 2046) (hb : fb = 0) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sa = 1) ea (2 ^ 55 + 8 * fa) (8 * fb) (ea - 1) := by
+  subst hb
+  simp only [Nat.mul_zero, SfRef.rto_zero_n]
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `eb = 0`, `ea = 1`, `fb ≤ fa`. -/
+theorem ch_sub_gt0a_ge (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : ea = 1) (hb : 0 < fb) (hf : fb ≤ fa) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sa = 1) ea (2 ^ 55 + 8 * fa) (8 * fb) (ea - 1) := by
+  have hk : ea - 1 = 0 := by omega
+  rw [hk]
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `eb = 0`, `ea = 1`, `fa < fb`: the cancellation. -/
+theorem ch_sub_gt0a_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : ea = 1) (hf : fa < fb) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sa = 1) ea (2 ^ 55 + 8 * fa) (8 * fb) (ea - 1) := by
+  have hk : ea - 1 = 0 := by omega
+  rw [hk]
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `eb = 0`, `2 ≤ ea`: `b` subnormal, aligned by `ea - 1`. -/
+theorem ch_sub_gt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : eb = 0) (h2 : 2 ≤ ea) (h3 : ea ≤ 2046) (hb : 0 < fb) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sa = 1) ea (2 ^ 55 + 8 * fa) (8 * fb) (ea - 1) := by
+  subst h1
+  have hR := SfRef.rto_le_half (n := 8 * fb) (k := ea - 1) (by omega)
+  have hR0 : 1 ≤ SfRef.rto (8 * fb) (ea - 1) := SfRef.rto_pos (by omega)
+  have hR1 : 57 ≤ ea - 1 → SfRef.rto (8 * fb) (ea - 1) = 1 := fun h =>
+    SfRef.rto_big (by omega) (Nat.lt_of_lt_of_le (by omega : 8 * fb < 2 ^ 57) (Nat.pow_le_pow_right (by decide) h))
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `1 ≤ ea < eb ≤ 2046`: `B − rto A k`, the sign of `b`. -/
+theorem ch_sub_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea < eb) (h3 : eb ≤ 2046) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sb = 1) eb (2 ^ 55 + 8 * fb) (2 ^ 55 + 8 * fa) (eb - ea) := by
+  have hR := SfRef.rto_le_half (n := 2 ^ 55 + 8 * fa) (k := eb - ea) (by omega)
+  have hR0 : 1 ≤ SfRef.rto (2 ^ 55 + 8 * fa) (eb - ea) := SfRef.rto_pos (by omega)
+  have hR1 : 57 ≤ eb - ea → SfRef.rto (2 ^ 55 + 8 * fa) (eb - ea) = 1 := fun h =>
+    SfRef.rto_big (by omega) (Nat.lt_of_lt_of_le (by omega : 2 ^ 55 + 8 * fa < 2 ^ 57) (Nat.pow_le_pow_right (by decide) h))
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `ea = 0 < eb`, `a = 0`. -/
+theorem ch_sub_lt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : 0 < eb) (h3 : eb ≤ 2046) (ha : fa = 0) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sb = 1) eb (2 ^ 55 + 8 * fb) (8 * fa) (eb - 1) := by
+  subst ha
+  simp only [Nat.mul_zero, SfRef.rto_zero_n]
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `ea = 0`, `eb = 1`, `fa ≤ fb`. -/
+theorem ch_sub_lt0a_ge (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : eb = 1) (ha : 0 < fa) (hf : fa ≤ fb) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sb = 1) eb (2 ^ 55 + 8 * fb) (8 * fa) (eb - 1) := by
+  have hk : eb - 1 = 0 := by omega
+  rw [hk]
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `ea = 0`, `eb = 1`, `fb < fa`: the cancellation. -/
+theorem ch_sub_lt0a_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : eb = 1) (hf : fb < fa) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sb = 1) eb (2 ^ 55 + 8 * fb) (8 * fa) (eb - 1) := by
+  have hk : eb - 1 = 0 := by omega
+  rw [hk]
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Different signs, `ea = 0`, `2 ≤ eb`: `a` subnormal, aligned by `eb - 1`. -/
+theorem ch_sub_lt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hs : sa < 2) (hsb : sb < 2) (hss : sa ≠ sb)
+    (hs1 : 48 ≤ s) (hs2 : s < 2 ^ 32) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : 2 ≤ eb) (h3 : eb ≤ 2046) (ha : 0 < fa) :
+    N_8002d7e4 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 sb) (BitVec.ofNat 64 (2 ^ 52 - 1))
+          (BitVec.ofNat 64 (8 * fa)) (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea)
+          (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.subMag (sb = 1) eb (2 ^ 55 + 8 * fb) (8 * fa) (eb - 1) := by
+  subst h1
+  have hR := SfRef.rto_le_half (n := 8 * fa) (k := eb - 1) (by omega)
+  have hR0 : 1 ≤ SfRef.rto (8 * fa) (eb - 1) := SfRef.rto_pos (by omega)
+  have hR1 : 57 ≤ eb - 1 → SfRef.rto (8 * fa) (eb - 1) = 1 := fun h =>
+    SfRef.rto_big (by omega) (Nat.lt_of_lt_of_le (by omega : 8 * fa < 2 ^ 57) (Nat.pow_le_pow_right (by decide) h))
+  sf_go [N_8002db28, N_8002d92c, N_8002d820]
+  all_goals (try simp (disch := omega) only [g_db28s, g_d820])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_dae0, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
 end Lua.Vm.Fn.Adddf3
