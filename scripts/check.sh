@@ -596,6 +596,16 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.vm_refinement_ne_of_open'
 #print axioms Lua.Vm.Sim.vm_refinement_ne_of_rest'
 #print axioms Lua.Vm.Sim.runerrorSim
+#print axioms Lua.Bytecode.site_ops
+#print axioms Lua.Vm.Sim.At.Log.den_out
+#print axioms Lua.Vm.Sim.Kit.throw_land
+#print axioms Lua.Vm.Sim.Kit.throw_callers
+#print axioms Lua.Vm.Sim.Kit.throwMem_of
+#print axioms Lua.Vm.Sim.Kit.errorTail_of_unwind
+#print axioms Lua.Vm.Sim.Kit.throwFrom_of
+#print axioms Lua.Vm.Sim.errorSimAt_of_head
+#print axioms Lua.Vm.Sim.errorSim_of_rest
+#print axioms Lua.Vm.Sim.fltZero_of_site
 #print axioms Lua.Vm.Sim.stuckOut_of_armErr
 #print axioms Lua.Vm.Sim.At.idiv_err
 #print axioms Lua.Vm.Sim.At.mod_err

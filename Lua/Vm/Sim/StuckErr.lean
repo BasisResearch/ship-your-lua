@@ -1,21 +1,25 @@
 import Lua.Vm.Sim.Stuck
 import Lua.Vm.Sim.Kit.AtErr
+import Lua.Vm.Sim.Kit.ErrTail
 
 /-!
-# `luaG_runerror`'s error states: the arms' paths, and the throw obligation
+# The error sites: the arms' paths, the heads, and the shared tail
 
 The site `ErrSite.runerror` collects the stuck states of `n % 0`, `n // 0`
 (`OP_MOD`, `OP_IDIV`, `OP_MODK`, `OP_IDIVK`) and `'for' step is zero`
-(`OP_FORPREP`). For each, the machine runs from the fetch head through
-dispatch and the arm's error path (`Kit/AtErr.lean`, the generated at-lemmas)
-to the entry of `luaG_runerror`. What remains is that entry's summary,
-`ThrowFrom symLuaGRunerror`: `luaG_runerror` formats the message
-(`luaO_pushvfstring`, `luaG_addinfo`) and calls `luaG_errormsg` →
-`luaD_throw` → `longjmp`; `lua_pcallk` returns `LUA_ERRRUN`, and `main`
-prints the message to stderr and returns 2 (`c/src/main.c`), so `exit(2)`.
+(`OP_FORPREP`, integer or float loop). For each, the machine runs from the
+fetch head through dispatch and the arm's error path (`Kit/AtErr.lean`, the
+generated at-lemmas) to the entry of `luaG_runerror` with the message in
+`a1` (`ErrIn`). What remains is that entry's summary, `ThrowFrom
+symLuaGRunerror msg` (`Kit/ErrTail.lean`): `luaG_runerror` formats the
+message (`RunerrorHead_Statement`) and calls `luaG_errormsg`, the shared
+tail: the throw (`Kit.throw_land`, proved) and the unwind to `exit(2)`
+(`Kit.Unwind_Statement`).
 
-`runerrorSim : ThrowFrom symLuaGRunerror → ErrorSimAt .runerror`, and
-`ErrorSimRest`, what is left of `ErrorSim` (`vm_refinement_ne_of_rest`).
+`runerrorSim : RunerrorThrow → FpFltZero_Statement → ErrorSimAt .runerror`;
+every other site is its head into the shared tail (`SiteHead_Statement`,
+`errorSimAt_of_head`); `ErrorSimRest` is what is left of `ErrorSim`
+(`vm_refinement_of_open'`).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -25,29 +29,6 @@ namespace Lua.Vm.Sim
 
 open Lua.Bytecode Lua.Vm.Layout Lua.Vm.Sim.At Lua.Vm.Sim.Kit
 open Vsa.Machine (Config Steps)
-
-/-- **The throw obligation at the error exit `f` with the message `msg`**:
-from the exit's entry as an arm's error path reaches it (`ErrIn`: the call's
-pins, the arm's entry memory but `savestate`'s words and the C frame's
-spills), for an arm context whose relation facts hold (`Core`) at a
-reachable state, the machine diverges or halts with a nonzero code. `f` does
-not return; its summary is the error path `luaG_errormsg` → `luaD_throw` →
-`longjmp` → `luaD_rawrunprotected` returns → `lua_pcallk` returns
-`LUA_ERRRUN` → `main` returns 2 → `exit(2)`.
-
-(Lane F1-16: the earlier form keyed the obligation by the entry pc alone,
-`Steps c c' → ErrAt f c' → StuckOut c'` from a related `c`: nothing about
-the registers or the memory at `c'` was given, so no summary of `f` could
-discharge it locally.) -/
-def ThrowFrom (f msg : Nat) : Prop :=
-  ∀ (X : At.Cx) c, Supported X.p → Reach X.p X.s → Core X.p X.c X.s X.w → ErrIn X f msg c → StuckOut c
-
-/-- The messages the F1 arms call `luaG_runerror` with (`luaV_idiv`,
-`luaV_mod`, `forprep`; `Lua/Vm/LayoutErr.lean`). -/
-def runerrMsgs : List Nat := [msgIdiv0, msgMod0, msgForZero]
-
-/-- **`luaG_runerror`'s throw obligation**, for each of its messages. -/
-def RunerrorThrow : Prop := ∀ msg ∈ runerrMsgs, ThrowFrom symLuaGRunerror msg
 
 /-- **An error state by an arm's error path**: dispatch, the arm's run into
 `f` (`ArmErr`), then `f`'s throw obligation. -/
@@ -167,25 +148,33 @@ theorem forprep_q {p : Proto} (hS : Supported p) {s : State} {ins : Word} {vs : 
   have hT := (slot_of_read hA hS hf hop hK (by simp [forprepK]) h3).tag_of_int
   exact ⟨hI.1, hT.1, hT.2⟩
 
-/-- **`forprep`'s float zero step** (`fltZeroStep`: the float loop, `'for'
-step is zero`, `luaG_runerror` after `forprep`'s conversions): at a reachable
-`FORPREP` stuck there, the machine diverges or halts nonzero. -/
-def FpFltZero_Statement : Prop :=
-  ∀ p c s w K vs, Supported p → Reach p s → VmRel p c s → StuckAt p s w .FORPREP K vs .forprep →
-    (∃ i l st, vs = [i, l, st] ∧ fltZeroStep i l st = true) → StuckOut c
+/-- `forprep`'s float zero step at the arm's entry: the three control values,
+`fltZeroStep` (the float loop, `'for' step is zero`). -/
+def FpFltZ (_p : Proto) (_c : Config) (s : State) (_w : RelPtrs) (ins : Word) : Prop :=
+  ∃ i l st, s.regs ins.a = some i ∧ s.regs (ins.a + 1) = some l ∧ s.regs (ins.a + 2) = some st ∧
+    fltZeroStep i l st = true
+
+/-- **Open: `forprep`'s float zero step's arm path** into `luaG_runerror`
+with `'for' step is zero` (after `forprep`'s conversions: `luaV_tonumber_`
+for a control value that is not a float, `__eqdf2` against `0.0`). The
+three-float case is on the at-lemma route (`Lua/Vm/At/ForprepF.lean` reaches
+`0x800092cc` with the message, its log inside `ErrW`); the coerced classes
+call `luaV_tonumber_` (`FpCoerce_Statement`'s call node). -/
+def FpFltZero_Statement : Prop := ArmErr .FORPREP FpFltZ symLuaGRunerror msgForZero
 
 /-- `forprep`'s site: a `luaG_runerror` site that is not the integer zero
 step is the float one. -/
 theorem fltZero_of_site {pc : Nat} {ins : Word} {s : State} {vs : List Value}
     (hvs : (forprepK pc ins).reads.mapM s.regs = some vs) (hsite : Fault.site .forprep vs = .runerror)
     (hz : ¬ ∀ i l st, vs = [i, l, st] → zeroStep i st = true) :
-    ∃ i l st, vs = [i, l, st] ∧ fltZeroStep i l st = true := by
+    ∀ p c' w, FpFltZ p c' s w ins := by
+  intro p c' w
   simp only [forprepK, List.mapM_cons, List.mapM_nil] at hvs
   cases h1 : s.regs ins.a <;> cases h2 : s.regs (ins.a + 1) <;> cases h3 : s.regs (ins.a + 2) <;>
     simp [h1, h2, h3] at hvs
   subst hvs
   rename_i i l st
-  refine ⟨i, l, st, rfl, ?_⟩
+  refine ⟨i, l, st, h1, h2, h3, ?_⟩
   have hz' : zeroStep i st = false := by
     cases e : zeroStep i st
     · rfl
@@ -240,30 +229,63 @@ theorem runerrorSim (hT : RunerrorThrow) (hFz : FpFltZero_Statement) :
     by_cases hz : ∀ i l st, vs = [i, l, st] → zeroStep i st = true
     · exact stuckOut_of_armErr (by decide) forprep_err (hT _ (by simp [runerrMsgs])) hS hs hR hf hop
         (forprep_q hS hf hop hA.reads hz)
-    · exact hFz p c s w _ vs hS hs hR hA (fltZero_of_site hA.reads hsite hz)
+    · exact stuckOut_of_armErr (by decide) hFz (hT _ (by simp [runerrMsgs])) hS hs hR hf hop
+        (fun c' w' _ => fltZero_of_site hA.reads hsite hz p c' w')
 
-/-- **What is left of `ErrorSim`**: `luaG_runerror`'s throw obligation (its
-error states' arm paths are proved, `runerrorSim`), and the other sites,
-whose arms reach the error through a helper that may also return
-(`luaT_trybinTM`, `luaV_objlen`, `luaT_callorderTM`, `luaV_concat`,
-`luaD_precall`, `luaV_tonumber_`). -/
+/-- **Open: an error site's head**: from the relation at a stuck state the
+site `e` raises, the machine reaches `luaG_errormsg` with the formatted
+message pushed (`Kit.ErrMsgIn`, relative to the fetch head's context): the
+arm's path to its helper (`luaT_trybinTM`, `luaV_objlen`,
+`luaT_callorderTM`/`luaT_callorderiTM`, `luaV_concat` → `luaT_tryconcatTM`,
+`forprep`'s `luaV_tonumber_`, `luaD_precall` → `luaD_tryfuncTM`), the
+helper on the failing operands (no metamethod: the basic types' metatables
+are `NULL`, the string metatable has no bitwise or order events), the
+`luaG_*error` call (`varinfo`, `luaG_typeerror`, `luaG_runerror`'s
+formatting; `lstrlib.c`'s `trymt` → `luaL_error` → `lua_error`). -/
+def SiteHead_Statement (e : ErrSite) : Prop :=
+  ∀ p c s w ins o K vs φ, Supported p → Reach p s → VmRelAt p c s w → StuckAt p s ins o K vs φ →
+    ¬ φ.Escape vs → φ.site vs = e → ∃ c', Steps c c' ∧ Kit.ErrMsgIn ⟨p, c, s, w, ins⟩ c'
+
+/-- **A site from its head and the shared tail.** -/
+theorem errorSimAt_of_head {e : ErrSite} (hH : SiteHead_Statement e) (hT : Kit.ErrorTail_Statement) :
+    ErrorSimAt e := by
+  intro p c s ins o K vs φ hS hs ⟨w, hR⟩ hA hne hsite
+  obtain ⟨c', hst, hM⟩ := hH p c s w ins o K vs φ hS hs hR hA hne hsite
+  exact StuckOut.of_steps hst (hT ⟨p, c, s, w, ins⟩ c' hS hs hR.core hM)
+
+/-- **What is left of `ErrorSim`** (lane F1-16): every site ends in the
+shared tail from `luaG_errormsg` (`Kit.ErrorTail_Statement`), whose throw is
+proved (`Kit.throw_land`) and whose unwind is `unwind`. `luaG_runerror`'s
+sites have their arm paths proved (`runerrorSim`) but the float zero step's
+(`fpFltZero`) and its formatting is `runerrorHead`; each other site is its
+head into the tail (`SiteHead_Statement`). -/
 structure ErrorSimRest : Prop where
-  /-- `luaG_runerror` (0x800092cc) never returns, and the error exits 2 -/
-  runerror : RunerrorThrow
-  /-- `forprep`'s float zero step (`luaG_runerror` after the conversions) -/
+  /-- `luaG_runerror`'s formatting (0x800092cc to `luaG_errormsg`), per message -/
+  runerrorHead : ∀ msg ∈ runerrMsgs, Kit.RunerrorHead_Statement symLuaGRunerror msg
+  /-- the tail after the throw: `luaD_pcall`'s error branch → `main`'s
+  `fprintf(stderr)` → `exit(2)` -/
+  unwind : Kit.Unwind_Statement
+  /-- `forprep`'s float zero step's arm path -/
   fpFltZero : FpFltZero_Statement
-  opinterror : ErrorSimAt .opinterror
-  tointerror : ErrorSimAt .tointerror
-  strarith : ErrorSimAt .strarith
-  typeerror : ErrorSimAt .typeerror
-  ordererror : ErrorSimAt .ordererror
-  concaterror : ErrorSimAt .concaterror
-  forerror : ErrorSimAt .forerror
-  callerror : ErrorSimAt .callerror
+  opinterror : SiteHead_Statement .opinterror
+  tointerror : SiteHead_Statement .tointerror
+  strarith : SiteHead_Statement .strarith
+  typeerror : SiteHead_Statement .typeerror
+  ordererror : SiteHead_Statement .ordererror
+  concaterror : SiteHead_Statement .concaterror
+  forerror : SiteHead_Statement .forerror
+  callerror : SiteHead_Statement .callerror
+
+/-- The shared tail of `ErrorSimRest`. -/
+theorem ErrorSimRest.tail (h : ErrorSimRest) : Kit.ErrorTail_Statement :=
+  Kit.errorTail_of_unwind h.unwind
 
 theorem errorSim_of_rest (h : ErrorSimRest) : ErrorSim :=
-  ⟨runerrorSim h.runerror h.fpFltZero, h.opinterror, h.tointerror, h.strarith, h.typeerror, h.ordererror,
-    h.concaterror, h.forerror, h.callerror⟩
+  ⟨runerrorSim (fun msg hm => Kit.throwFrom_of (h.runerrorHead msg hm) h.tail) h.fpFltZero,
+    errorSimAt_of_head h.opinterror h.tail, errorSimAt_of_head h.tointerror h.tail,
+    errorSimAt_of_head h.strarith h.tail, errorSimAt_of_head h.typeerror h.tail,
+    errorSimAt_of_head h.ordererror h.tail, errorSimAt_of_head h.concaterror h.tail,
+    errorSimAt_of_head h.forerror h.tail, errorSimAt_of_head h.callerror h.tail⟩
 
 /-- **Layer A without escapes, from what is open**: the open arms, the
 float paths, the return chain, and `ErrorSimRest`. -/
