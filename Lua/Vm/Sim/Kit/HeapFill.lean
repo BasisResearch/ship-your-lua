@@ -113,11 +113,6 @@ def Ram (a : Nat) : Prop := ramBase ≤ a ∧ a < ramBase + ramSize
 /-- The fill extends the memory. -/
 theorem fill_ext (m : Mem) : Ext m (fillZeroMem m) := fun _ _ h => fillZeroMem_some h
 
-/-- The fill reads totally as the memory: a complement for `Core.frame`. -/
-theorem bytesT1_fill (m : Mem) (a : Nat) : bytesT1 (fillZeroMem m) a = bytesT1 m a := by
-  simp only [bytesT1, fillZeroMem_get]
-  split <;> simp
-
 /-- **A total keep is a presence keep of the fills** at a RAM byte. -/
 theorem fill_total {m m' : Mem} {a : Nat} (hr : Ram a) (h : bytesT1 m' a = bytesT1 m a) :
     (fillZeroMem m')[a]? = (fillZeroMem m)[a]? := by

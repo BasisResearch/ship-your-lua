@@ -130,7 +130,7 @@ structure FwsMid (m M : Mem) (sp src n : Nat) (r : BitVec 64) (f : AbiFrame) (o 
 `__sinit`, the lock, `ORIENT`. -/
 theorem fws_pre (sp src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hlo : 0x8005e7d8 + 64 + 112 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
-    (hB : StdioBoot m) (hfs : bytesT4 m symFsReady = 0#32) :
+    (hB : StdioBoot (Vsa.Densify.fillZeroMem m)) (hfs : bytesT4 m symFsReady = 0#32) :
     Triple (SegSt 0x800342e4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 src⟩, ⟨Register.x11, BitVec.ofNat 64 1⟩,
         ⟨Register.x12, BitVec.ofNat 64 n⟩, ⟨Register.x13, BitVec.ofNat 64 stdoutFile⟩] sp r f) (ArmPay m o))
       (fun c => ∃ M, SegSt 0x80033b50#64 (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
@@ -145,8 +145,8 @@ theorem fws_pre (sp src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : A
   let X0 := fwsX sp src n r f m o
   have hX0 : Lua.Vm.AtF.FwriteSetup.Ok X0 := ⟨show _ ≤ sp by omega, hhi, hal, hra⟩
   simp only [callPre, List.cons_append, List.nil_append] at h
-  have hc0 : bytesT8 X0.m 0x8005d398 = 0x8005d1b8#64 := bytesT8_of_rd64 hB.impure_ptr
-  have hc1 : bytesT8 X0.m 0x8005d200 = 0x0#64 := bytesT8_of_rd64 hB.cleanup
+  have hc0 : bytesT8 X0.m 0x8005d398 = 0x8005d1b8#64 := bT8_of_fill (bytesT8_of_rd64 hB.impure_ptr)
+  have hc1 : bytesT8 X0.m 0x8005d200 = 0x0#64 := bT8_of_fill (bytesT8_of_rd64 hB.cleanup)
   obtain ⟨c0, s0, h0⟩ := fws_run0 X0 hX0 hc0 hc1 c (h.repin (by pins_of h))
   obtain ⟨k2, F2⟩ := fws_m2 X0 hX0
   have k2' : Agree (Below sp 112) m (Lua.Vm.AtF.FwriteSetup.m2 X0) := k2
@@ -156,8 +156,8 @@ theorem fws_pre (sp src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : A
     exact h0.repin (by pins_of h0)
   obtain ⟨c1, s1, m1, hv1, SP⟩ := sinit_boot (sp - 112) 0x800342cc#64 (fwFrame f n) _ o (by decide)
     (by omega) (by omega) (by omega)
-    ((k2'.b8 (a := symImpureData + reentCleanupOff) fun i _ => by ssr).trans (bytesT8_of_rd64 hB.cleanup))
-    ((k2'.b8 (a := symStdioExitHandler) fun i _ => by ssr).trans (bytesT8_of_rd64 hB.exit_handler)) c0 hcall
+    ((k2'.b8 (a := symImpureData + reentCleanupOff) fun i _ => by ssr).trans (bT8_of_fill (bytesT8_of_rd64 hB.cleanup)))
+    ((k2'.b8 (a := symStdioExitHandler) fun i _ => by ssr).trans (bT8_of_fill (bytesT8_of_rd64 hB.exit_handler))) c0 hcall
   have kS : Agree (fun a => Below (sp - 112) 64 a ∨ SinitW a) (Lua.Vm.AtF.FwriteSetup.m2 X0) m1 := by
     intro a ha
     simp only [Below, SinitW, Rng, not_or, not_and] at ha
@@ -182,12 +182,12 @@ theorem fws_pre (sp src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : A
   have hfr : StdoutFresh (Lua.Vm.AtF.FwriteSetup.m5 X1) := by
     refine ⟨?_, ?_, fl5, ?_, ?_, ?_, ?_, ?_, f25, ?_⟩
     · exact (k15.b8 (a := symImpurePtr) fun i _ => by ssr).trans
-        ((k2'.b8 (a := symImpurePtr) fun i _ => by ssr).trans (bytesT8_of_rd64 hB.impure_ptr))
+        ((k2'.b8 (a := symImpurePtr) fun i _ => by ssr).trans (bT8_of_fill (bytesT8_of_rd64 hB.impure_ptr)))
     · exact (k5'.b8 (a := symImpureData + reentCleanupOff) fun i _ => by ssr).trans SP.cleanup
     · rw [k5'.b2 (a := stdoutFile + 18) fun i _ => by ssr]
       rw [show stdoutFile + 18 = stdoutFile + 16 + 2 from rfl, b2_hi_of_b4 SP.stdout.flags]; decide
     · rw [k5'.b4 (a := stdoutFile + 20) fun i _ => by ssr, SP.pad, k2'.b4 (a := stdoutFile + 20) fun i _ => by ssr]
-      exact zero_b4 hB.files (by omega) (by simp only [symSfSize]; omega)
+      exact bT4_of_fill (zero_b4 hB.files (by omega) (by simp only [symSfSize]; omega))
     · exact (k5'.b8 (a := stdoutFile + 24) fun i _ => by ssr).trans SP.stdout.base
     · exact (k5'.b8 (a := stdoutFile + 48) fun i _ => by ssr).trans SP.stdout.cookie
     · exact (k5'.b8 (a := stdoutFile + 64) fun i _ => by ssr).trans SP.stdout.write
@@ -229,7 +229,8 @@ structure SetupPost (m M m' : Mem) (sp src n buf brk : Nat) (chunks : List Chunk
 def StdoutSetup_Statement : Prop :=
   ∀ (sp src n top brk : Nat) (chunks : List Chunk) (bins : Nat → List Nat) (r : BitVec 64)
     (f : AbiFrame) (m : Mem) (o : Array String),
-    StdioBoot m → MemfsBoot m → HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins →
+    StdioBoot (Vsa.Densify.fillZeroMem m) → MemfsBoot (Vsa.Densify.fillZeroMem m) →
+    HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins →
     r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 → heapEnd + 8192 ≤ sp → brk + 1024 + 16384 ≤ heapEnd →
     1 ≤ n → errnoAddr + 4 ≤ src → src + n + 4096 ≤ sp → (src + n ≤ stdoutFile ∨ stdoutFile + fileSize ≤ src) →
     (∀ a, src ≤ a → a < src + n → ¬ FsGlobal a ∧ ¬ MallocW chunks a ∧ ¬ SinitW a) →
@@ -249,7 +250,7 @@ theorem stdoutSetup_of_malloc (hM : MallocR_Statement) : StdoutSetup_Statement :
   stdio_nums
   have : symSf = 0x8005e5b0 := rfl
   have : symStdioExitHandler = 0x8005d3e0 := rfl
-  have hfs : bytesT4 m symFsReady = 0#32 := bytesT4_of_rd32 hMf.ready
+  have hfs : bytesT4 m symFsReady = 0#32 := bT4_of_fill (bytesT4_of_rd32 hMf.ready)
   obtain ⟨c1, s1, M5, h1, mid⟩ := fws_pre sp src n r f m o hra q.2 hhi hal hB hfs c h
   have hH5 : HeapAt (Vsa.Densify.fillZeroMem M5) top brk chunks bins :=
     hheap.congr fun a ha => fill_congr <| mid.agree.get (by simp only [HeapReads] at ha; ssr)

@@ -192,11 +192,11 @@ theorem fwrite_fresh0 (sp src : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o
 marks the stream, `__sfvwrite_r` returns at once; `stdout` is fresh. -/
 theorem fwrite_boot0 (sp src : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hra : r.toNat % 4 = 0) (hlo : 0x8005e7d8 + 64 + 112 ≤ sp) (hhi : sp ≤ 2 ^ 32) (hal : sp % 16 = 0)
-    (hB : StdioBoot m) (hMf : MemfsBoot m) :
+    (hB : StdioBoot (Vsa.Densify.fillZeroMem m)) (hMf : MemfsBoot (Vsa.Densify.fillZeroMem m)) :
     Triple (SegSt 0x800342e4#64 (fwPre src 0 sp r f) (ArmPay m o))
       (fun c => ∃ M, wrRet r sp 0 f M o c ∧ StdoutFresh M ∧ Agree (fun a => SinitW a ∨ Below sp 176 a) m M) := by
   intro c h
-  obtain ⟨c1, s1, M, h1, mid⟩ := fws_pre sp src 0 r f m o hra hlo hhi hal hB (bytesT4_of_rd32 hMf.ready) c h
+  obtain ⟨c1, s1, M, h1, mid⟩ := fws_pre sp src 0 r f m o hra hlo hhi hal hB (bT4_of_fill (bytesT4_of_rd32 hMf.ready)) c h
   obtain ⟨c2, s2, h2⟩ := sfv_empty (sp - 112) (sp - 72) 0x800341f8#64 (fwFrame f 0) M o (by decide)
     (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by
       have := mid.uio.resid

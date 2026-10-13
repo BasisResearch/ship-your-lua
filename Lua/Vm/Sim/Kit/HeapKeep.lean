@@ -92,6 +92,18 @@ theorem fill_congr {m m' : Mem} {a : Nat} (h : m'[a]? = m[a]?) :
     (Vsa.Densify.fillZeroMem m')[a]? = (Vsa.Densify.fillZeroMem m)[a]? := by
   simp only [Vsa.Densify.fillZeroMem_get, h]
 
+/-- The fill reads totally as the memory (a complement for `Core.frame`). -/
+theorem bytesT1_fill (m : Mem) (a : Nat) : bytesT1 (Vsa.Densify.fillZeroMem m) a = bytesT1 m a := by
+  simp only [bytesT1, Vsa.Densify.fillZeroMem_get]
+  split <;> simp
+
+/-- Total reads of the fill are the memory's: a presence-level fact stated
+of the fill (`StdioBoot`, `MemfsBoot`, `ZeroAt`) gives the machine's reads. -/
+theorem bT8_of_fill {m : Mem} {a : Nat} {v : BitVec 64} (h : bytesT8 (Vsa.Densify.fillZeroMem m) a = v) :
+    bytesT8 m a = v := (bytesT8_congrT fun i _ => (bytesT1_fill m _).symm).trans h
+theorem bT4_of_fill {m : Mem} {a : Nat} {v : BitVec 32} (h : bytesT4 (Vsa.Densify.fillZeroMem m) a = v) :
+    bytesT4 m a = v := (bytesT4_congrT fun i _ => (bytesT1_fill m _).symm).trans h
+
 /-! ## What `HeapAt` reads -/
 
 /-- The bytes `HeapAt` reads: the arena (and a header's width past its end),
