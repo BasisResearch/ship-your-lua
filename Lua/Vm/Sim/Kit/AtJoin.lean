@@ -78,6 +78,49 @@ instance decForallAtom (P : Option Ordering → Prop) [DecidablePred P] : Decida
     ⟨fun ⟨a, b, c, d⟩ o => by rcases o with _ | _ | _ | _ <;> assumption,
      fun h => ⟨h _, h _, h _, h _⟩⟩
 
+/-- `Decidable` of an implication, named (`atomDec`). -/
+def decImp {p q : Prop} (hp : Decidable p) (hq : Decidable q) : Decidable (p → q) := inferInstance
+
+/-- `Decidable` of a statement over a Boolean atom, named (`atomDec`). -/
+def decForallBool (P : Bool → Prop) (h : DecidablePred P) : Decidable (∀ b, P b) := inferInstance
+
+open Lean Meta in
+/-- **The leaf's `Decidable` instance by the statement's structure**: an
+atom's four answers (`decForallAtom`), a Boolean atom (`decForallBool`), an
+implication (`decImp`), a negation; every other piece by instance search,
+alone (lane F2: one search over a leaf with many atoms exceeds its size). -/
+partial def atomDec (P : Expr) : MetaM Expr := do
+  let P ← instantiateMVars P
+  match P with
+  | .forallE n t b bi =>
+    if b.hasLooseBVars then
+      let mk (c : Name) : MetaM Expr := withLocalDecl n bi t fun x => do
+        let i ← atomDec (b.instantiate1 x)
+        return mkApp2 (mkConst c) (.lam n t b bi) (← mkLambdaFVars #[x] i)
+      if t.isConstOf ``Bool then mk ``decForallBool
+      else if t == mkApp (mkConst ``Option [0]) (mkConst ``Ordering) then mk ``decForallAtom
+      else synthInstance (mkApp (mkConst ``Decidable) P)
+    else if ← isProp t then
+      return mkApp4 (mkConst ``decImp) t b (← atomDec t) (← atomDec b)
+    else synthInstance (mkApp (mkConst ``Decidable) P)
+  | _ =>
+    if P.isAppOfArity ``Not 1 then
+      return mkApp2 (mkConst ``instDecidableNot) P.appArg! (← atomDec P.appArg!)
+    synthInstance (mkApp (mkConst ``Decidable) P)
+
+open Lean Elab Tactic Meta in
+/-- **`at_atom_decide`**: `decide` with the instance of `atomDec`: the
+statement evaluated to `true` (else a failure, as `decide`'s). -/
+elab "at_atom_decide" : tactic => withMainContext do
+  let g ← getMainGoal
+  let P ← instantiateMVars (← g.getType)
+  let inst ← atomDec P
+  let d := mkApp2 (mkConst ``Decidable.decide) P inst
+  let r ← ofExceptKernelException (Kernel.whnf (← getEnv) (← getLCtx) d)
+  unless r.isConstOf ``Bool.true do throwError "at_atom_decide: the statement is false"
+  g.assign (mkApp3 (mkConst ``of_decide_eq_true) P inst (mkApp2 (mkConst ``Eq.refl [1]) (mkConst ``Bool) (mkConst ``Bool.true)))
+  replaceMainGoal []
+
 /-! ## The signed bound -/
 
 /-- **`luai_numlt(0, step) ? R(a, b) : R(b, a)`**: `floatforloop`'s and
@@ -205,7 +248,7 @@ macro_rules
       refine ValRepr.ofFloat_of (by decide) ?_
       simp (disch := assumption) only [Loc.den, Fld.den, Nat.add_zero, at_fspec, Lua.Vm.Fn.Subdf3.S,
         Lua.Vm.Fn.Adddf3.S, Lua.Vm.Fn.Floatdidf.S, F64.sub_eq_model, F64.add_eq_model, toModel_toBits,
-        toModel_ofInt, ofI, hxm, true_and, and_true]
+        toModel_ofInt, ofI, hxm, true_and, and_true, model_add_comm]
       done))
 
 /-- Two tags compared (`beq a4, a2`: `R[C]`'s tag against `R[B]`'s). -/
@@ -342,6 +385,12 @@ elab "at_step1 " ns:ident h:ident acc:ident : tactic => withMainContext do
   for n in cands do
     if let some g ← forkGuard? n X then
       let some (_, lhs, _) := g.eq? | continue
+      -- lane F2: a fork already split here has no at-lemma on this side (a
+      -- path the generator dropped): fail, never split it again
+      for d in ← getLCtx do
+        if let some (_, l, _) := (← instantiateMVars d.type).eq? then
+          if l == lhs then
+            throwError "at_step1: no at-lemma for this side of the fork at 0x{hex8 pc}"
       let stx ← Term.exprToSyntax lhs
       let hn := mkIdent (Name.mkSimple s!"hf_{hex8 pc}")
       evalTactic (← `(tactic| rcases Bool.eq_false_or_eq_true $stx with $hn:ident | $hn:ident))
@@ -373,7 +422,14 @@ elab "at_atoms" : tactic => withMainContext do
   for d in (← getLCtx) do
     if d.isImplementationDetail then continue
     let nm := d.userName.toString
-    if nm.startsWith "hf_" || nm.startsWith "hq" then
+    -- lane F2: facts only (a Prop, never an equation of kernel values such as
+    -- `Res.val … = Res.val …`, nor a value a `split` named `hq✝`)
+    let t ← instantiateMVars d.type
+    let isFact ← (do
+      unless ← Meta.isProp t do return false
+      if let some (α, _, _) := t.eq? then return !α.isConstOf ``Lua.Num.Res
+      return true : MetaM Bool)
+    if (nm.startsWith "hf_" || nm.startsWith "hq") && isFact then
       let n := Name.mkSimple s!"hpc_{i}"
       i := i + 1
       g ← g.rename d.fvarId n
@@ -386,7 +442,10 @@ elab "at_atoms" : tactic => withMainContext do
       Lua.Vm.Fn.Gedf2.S, Lua.Vm.Fn.Ledf2.S, Lua.Vm.Fn.Eqdf2.S, Lua.Vm.Fn.Adddf3.S, F64.eq,
       Lua.Vm.Fn.Floatdidf.S, toModel_ofInt, ofI, Value.isFalse,
       F64.compare_eq_model, toModel_add, toModel_toBits, toModel_zero, model_lt_cmp, model_le_cmp,
-      model_beq_cmp, sgnBound, true_and, and_true, Bool.not_eq_true, $ms,*] at $hids*))
+      model_beq_cmp, sgnBound, true_and, and_true, Bool.not_eq_true,
+      -- lane F2: `op_orderI`'s immediate through `__floatsidf` (`sb_fsi`, `toInt_imm`)
+      Aff.den, Aff.sum, Atom.den, Nat.one_mul, Nat.zero_add, Nat.sub_zero, Lua.Vm.Fn.Floatsidf.S,
+      sb_fsi, toInt_imm, at_atom_simp, $ms,*] at $hids*))
   if (← getUnsolvedGoals).isEmpty then return
   withMainContext do
     -- the pair atoms: the kernel's test (`hq`) names the orientation first
@@ -428,10 +487,51 @@ elab "at_atoms" : tactic => withMainContext do
       bs := bs.push b
       let sk ← Term.exprToSyntax kt
       evalTactic (← `(tactic| generalize $sk:term = $b:ident at $hids*))
-    evalTactic (← `(tactic| revert $hids*))
-    evalTactic (← `(tactic| revert $os*))
-    unless bs.isEmpty do evalTactic (← `(tactic| revert $bs*))
-    evalTactic (← `(tactic| decide))
+    -- lane F2: the residual Boolean atoms, read off values the pair atoms do
+    -- not decide (an integer compare of `__fixdfdi`'s result, `decide (i <
+    -- fi)` in the kernel): each a `decide` or a signed `slt` over neither
+    -- a pair atom nor a Boolean atom, generalised as it stands
+    for _ in [0:8] do
+      let some rt ← withMainContext do
+          let lctx ← getLCtx
+          let ids := (os ++ bs).filterMap fun i => (lctx.findFromUserName? i.getId).map (·.fvarId)
+          for nm in hs do
+            let some d := lctx.findFromUserName? nm | continue
+            let ty ← instantiateMVars d.type
+            if let some e := ty.find? (fun e =>
+                (e.isAppOfArity ``Decidable.decide 2 ||
+                  e.isAppOfArity ``LeanRV64DExecutable.Functions.zopz0zI_s 3) &&
+                e.hasFVar && !(ids.any fun f => e.containsFVar f)) then
+              return some e
+          return none
+        | break
+      let b := mkIdent (← mkFreshUserName `b)
+      bs := bs.push b
+      let sr ← Term.exprToSyntax rt
+      evalTactic (← `(tactic| generalize $sr:term = $b:ident at $hids*))
+    -- lane F2: each atom reverted with the facts that read it (`revert`
+    -- takes the dependents along), innermost first, so a fact is evaluated
+    -- as soon as its atoms are bound and a false one prunes the rest
+    for v in (os ++ bs).reverse do
+      evalTactic (← `(tactic| revert $v:ident))
+    for h in hids do
+      withMainContext do
+        if ((← getLCtx).findFromUserName? h.getId).isSome then
+          evalTactic (← `(tactic| revert $h:ident))
+    -- lane F2: a leaf with many atoms (the f2i chain) exceeds the instance
+    -- search's size for one `Decidable` over every atom; there the instance
+    -- is assembled by structure (`atomDec`), each piece searched alone
+    evalTactic (← `(tactic| at_atom_decide))
+
+open Lean Elab Tactic Meta in
+/-- lane F2: split the kernel result `hq : (if … then … else …) = r` of type
+`Lua.Num.Res` (`op_bitwise`'s `tointegerns` over the atoms); its conditions
+are named `hqc` (facts of `at_atoms`). Fails on any other `hq`. -/
+elab "split_res_hq" : tactic => withMainContext do
+  let some d := (← getLCtx).findFromUserName? `hq | throwError "split_res_hq: no hq"
+  let some (α, l, _) := (← instantiateMVars d.type).eq? | throwError "split_res_hq: not an equation"
+  unless α.isConstOf ``Lua.Num.Res && l.isAppOf ``ite do throwError "split_res_hq: not a kernel result"
+  evalTactic (← `(tactic| split at $(mkIdent `hq):ident <;> rename_i $(mkIdent `hqc):ident))
 
 set_option hygiene false in
 /-- **`at_leaf NS`**: at the fetch head, the kernel's outcome: the side of
@@ -440,10 +540,15 @@ close (`at_close`). -/
 macro "at_leaf " ns:ident : tactic => `(tactic| (
   try simp only [sgnBound_eq_true] at hk
   repeat' (split at hk <;> rename_i hq)
+  -- lane F2: a kernel result that is an `if` over the atoms (`op_bitwise`'s
+  -- `tointegerns`): its conditions split too (`hqc`, read by `at_atoms`)
+  all_goals repeat' split_res_hq
   all_goals first
   | (simp at hk; done)
+  | (simp at hq; done)
   | (exfalso; at_atoms)
-  | (simp [VState.apply, writeDefs, KEdge.kills] at hk
+  | (try (simp only [Lua.Num.Res.val.injEq, Lua.Num.Numeral.int.injEq] at hq; cases hq)
+     simp [VState.apply, writeDefs, KEdge.kills] at hk
      subst hk
      at_close $ns h0 acc)
   | at_close $ns h0 acc))

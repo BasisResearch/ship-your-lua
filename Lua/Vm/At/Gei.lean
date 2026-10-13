@@ -24,7 +24,7 @@ open Lua.Vm.Sim Lua.Vm.Sim.At Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (Config)
 
 -- the lifted functions are compared by their arguments, never unfolded
-attribute [local irreducible] Lua.Vm.Fn.Floatsidf.F Lua.Vm.Fn.Floatsidf.Fm Lua.Vm.Fn.Eqdf2.F Lua.Vm.Fn.Ledf2.F Lua.Vm.Fn.Gedf2.F Lua.Vm.Fn.Adddf3.F Lua.Vm.Fn.Adddf3.Fm Lua.Vm.Fn.Floatdidf.F Lua.Vm.Fn.Floatdidf.Fm Lua.Vm.Fn.Subdf3.F Lua.Vm.Fn.Subdf3.Fm
+attribute [local irreducible] Lua.Vm.Fn.Floatsidf.F Lua.Vm.Fn.Floatsidf.Fm Lua.Vm.Fn.Eqdf2.F Lua.Vm.Fn.Ledf2.F Lua.Vm.Fn.Gedf2.F Lua.Vm.Fn.Adddf3.F Lua.Vm.Fn.Adddf3.Fm Lua.Vm.Fn.Floatdidf.F Lua.Vm.Fn.Floatdidf.Fm Lua.Vm.Fn.Subdf3.F Lua.Vm.Fn.Subdf3.Fm Lua.Vm.Fn.Fixdfdi.F Lua.Vm.Fn.Floor.F Lua.Vm.Fn.Floor.Fm
 
 namespace Lua.Vm.At.GEI
 

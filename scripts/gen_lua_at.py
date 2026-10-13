@@ -75,13 +75,29 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               # integer paths), over the same segments (`SEG_OP`)
               "OP_FORPREP_F": ("ForprepF", 0x8001c0f8),
               # round 5 (A-JOIN): LT's float paths (no seed: every class)
-              "OP_LT_F": ("LtF", 0x8001c894)}
-SEG_OP = {"OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT"}
+              "OP_LT_F": ("LtF", 0x8001c894),
+              # lane F2 (A-JOIN route): `op_orderI`'s LEI/GTI on a float
+              # `R[A]`; `op_arith(K)`'s ADD/ADDK/SUBK (every path); UNM's
+              # inline sign flip and LE's float paths over the arms' segments
+              "OP_LEI": ("Lei", 0x8001c40c), "OP_GTI": ("Gti", 0x8001c5ac),
+              "OP_ADD": ("Add", 0x8001d9c8), "OP_ADDK": ("Addk", 0x8001c9d4),
+              "OP_SUBK": ("Subk", 0x8001c984), "OP_UNM_F": ("UnmF", 0x8001d8a4),
+              "OP_LE_F": ("LeF", 0x8001c60c),
+              # lane F2: the bitwise arms' float paths (`luaV_tointegerns`,
+              # F2Ieq: `floor`, `__eqdf2`, the range, `__fixdfdi`)
+              "OP_BNOT_F": ("BnotF", 0x8001df18), "OP_BAND_F": ("BandF", 0x8001de4c),
+              "OP_BOR_F": ("BorF", 0x8001da70), "OP_BXOR_F": ("BxorF", 0x8001da10)}
+SEG_OP = {"OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
+          "OP_LE_F": "OP_LE",
+          **{f"OP_{o}_F": f"OP_{o}" for o in ("BNOT", "BAND", "BOR", "BXOR")}}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_GEI": [("tag", "a", 0)], "OP_ADDI": [("tag", "b", 0)],
               "OP_FORLOOP": [("tag", "a", 2)], "OP_LOADF": [],
-              "OP_FORPREP_F": [("tag", "a", 0), ("tag", "a", 1), ("tag", "a", 2)]}
+              "OP_FORPREP_F": [("tag", "a", 0), ("tag", "a", 1), ("tag", "a", 2)],
+              "OP_LEI": [("tag", "a", 0)], "OP_GTI": [("tag", "a", 0)],
+              "OP_UNM_F": [("tag", "b", 0)],
+              "OP_BNOT_F": [("tag", "b", 0)]}
 VNUMFLT_ = 19
 # round 5 (A-JOIN): the cut points at the machine's joins. arm -> {join pc:
 # (the joined register, the fork whose two sides meet there)}. A path that
@@ -96,7 +112,13 @@ FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
           0x8002e460: ("Ledf2", 2, 0), 0x8002e3c0: ("Gedf2", 2, 0),
           0x8002d7a8: ("Adddf3", 2, 48),
           # round 5 (A-JOIN): `op_arithf`'s conversions and `luai_numsub`
-          0x8002f200: ("Floatdidf", 1, 32), 0x8002e9d0: ("Subdf3", 2, 48)}
+          0x8002f200: ("Floatdidf", 1, 32), 0x8002e9d0: ("Subdf3", 2, 48),
+          # lane F2 (ported from round 5's A-INC, branch
+          # worktree-agent-af308d3f0fd62a0df): `luaV_flttointeger`'s chain
+          0x8002f188: ("Fixdfdi", 1, 0), 0x8002bb14: ("Floor", 1, 112)}
+# libm `floor` is a named premise (`FloorSpec`, `Lua/Vm/Fn/Floor.lean`): its
+# summary and its result's model take it
+PREMISED = {"Floor": "hfl"}
 # round 5 (B-SFREF, adopted): the routines whose level-2 equation is a
 # theorem (`Lua.Vm.Fn.<R>.spec_proved`), not a `SoftFloatSpec` field:
 # module -> the module of its proof. Their sites' `f<k>_eq` take no premise.
@@ -449,6 +471,9 @@ def step(st, raw):
         st.set(R(o[0]), ("lit", (v | (M64 ^ 0xffffffff)) if v >> 31 else v))
     elif mnem == "sext.w":
         x = st.get(R(o[1]))
+        if litval(x) is None and FLOAT_ON[0]:
+            st.set(R(o[0]), ("addw", x, ("lit", 0)))     # `addiw rd, rs, 0`
+            return
         if litval(x) is None:
             raise Stop("sext.w of a symbolic value")
         v = litval(x) & 0xffffffff
@@ -522,6 +547,8 @@ def step(st, raw):
         st.set(R(o[0]), ("slt", ("lit", 0), st.get(R(o[1]))))
     elif mnem == "not":
         st.set(R(o[0]), ("xor", st.get(R(o[1])), ("lit", M64)))
+    elif mnem == "xori" and FLOAT_ON[0]:     # lane F2: `LEintfloat`'s `!(fi < i)`
+        st.set(R(o[0]), ("xor", st.get(R(o[1])), ("lit", imm(o[2]) & M64)))
     elif mnem == "slli":
         x, k = st.get(R(o[1])), imm(o[2])
         if litval(x) is not None:
@@ -713,9 +740,12 @@ def call_effect(st, callee, ret):
         k = CUR[0].fsite(mod, args, tuple(st.log), ret, frame)
         post.set(10, ("fsite", k))
         vs = " ".join(["_"] * nargs)
+        pre = f"{PREMISED[mod]} " if mod in PREMISED else ""
+        if mod in PREMISED:
+            hyps.append(f"({PREMISED[mod]} : {mod}Spec)")
         if frame:
             post.log.insert(0, ("clob", (("sp", 1),), -frame, (frame, k)))
-            proof = (f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum _ _ _ _ sframe? {vs} (at_fnSp hX) "
+            proof = (f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum {pre}_ _ _ _ sframe? {vs} (at_fnSp hX) "
                      f"(by decide) (by at_rod))")
         else:
             proof = f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum _ _ _ hframe? {vs} (by decide))"
@@ -851,7 +881,18 @@ class Arm:
                 continue
             xs = " ".join(f"(Loc.den X {lean_loc(y)})" for y in args)
             r = f"(0x{ret:x}#64)"
-            if frame:
+            if mod in PREMISED:
+                h = PREMISED[mod]
+                out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
+                           f"noncomputable def f{k} (X : Cx) : BitVec 64 :=\n"
+                           f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {xs}\n")
+                out.append(f"/-- ... its frame. -/\n"
+                           f"noncomputable def k{k} (X : Cx) (M : Mem) : Mem :=\n"
+                           f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {xs}\n")
+                out.append(f"@[at_fspec] theorem f{k}_eq ({h} : {mod}Spec) (X : Cx) (hX : X.Ok) :\n"
+                           f"    Lua.Num.F64.toModel (f{k} X) = Lua.Num.floor (Lua.Num.F64.toModel {xs}) :=\n"
+                           f"  Lua.Vm.Fn.{mod}.spec {h} _ _ _ _ (at_fnSp hX)\n")
+            elif frame:
                 out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
                            f"def f{k} (X : Cx) : BitVec 64 :=\n"
                            f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {xs}\n")
@@ -992,6 +1033,12 @@ class Arm:
                         callee = int(ops_of(raw)[1][0], 16)
                         st2.set(1, ("lit", a + 4))
                         nxt = callee
+                    elif mnem == "auipc" and FLOAT_ON[0]:
+                        # a `.rodata` constant's address (`ld` next: the cell)
+                        _, ao = ops_of(raw)
+                        v = (imm(ao[1]) << 12) & 0xffffffff
+                        v = v - (1 << 32) if v >> 31 else v
+                        st2.set(ABI[ao[0]], ("lit", (a + v) & M64))
                     elif mnem in ("ret", "jr"):
                         raise Stop("return")
                     else:
@@ -1231,6 +1278,10 @@ class Arm:
         dropped = "\n".join(f"* `{n}`: {why}" for n, why in sorted(set(self.dropped)))
         proved = sorted({FPROVED[k[0]] for k in self.fsites if k[0] in FPROVED})
         extra = "".join(f"import {m}\n" for m in IMPORTS.get(self.op, []) + proved)
+        # a premised routine's result is chosen from its premise (`noncomputable`)
+        prem = any(key[0] in PREMISED for key in self.fsites)
+        nc_open = "noncomputable section\n" if prem else ""
+        nc_close = "end\n" if prem else ""
         return f"""import Lua.Vm.Sim.Kit.At
 import Lua.Vm.Sim.Kit.Summaries
 {extra}import Lua.Vm.Arms
@@ -1252,10 +1303,10 @@ open Lua.Vm.Sim Lua.Vm.Sim.At Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (Config)
 {FOPAQUE if self.op in FLOAT_ARMS else ""}
 namespace Lua.Vm.At.{self.op[3:]}
-
+{nc_open}
 {first}
 {second}
-{body}{self.joins_text()}
+{body}{self.joins_text()}{nc_close}
 end Lua.Vm.At.{self.op[3:]}
 """
 

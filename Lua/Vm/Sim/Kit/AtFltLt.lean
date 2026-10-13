@@ -1,4 +1,4 @@
-import Lua.Vm.Sim.Kit.AtJoin
+import Lua.Vm.Sim.Kit.AtJoinOps
 import Lua.Vm.At.LtF
 
 /-!
@@ -29,34 +29,13 @@ namespace Lua.Vm.Sim.At
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
-/-- `LT` on an integer outside `l_intfitsf` and a float. -/
-def LtF2I (_p : Proto) (_c : Config) (s : State) (_w : RelPtrs) (ins : Word) : Prop :=
-  (∃ i x n, s.regs ins.a = some (.int i) ∧ s.regs ins.b = some (.flt x n) ∧ intfitsf i = false) ∨
-  (∃ i x n, s.regs ins.a = some (.flt x n) ∧ s.regs ins.b = some (.int i) ∧ intfitsf i = false)
-
 /-- **Open (round 5): `LT`'s `luaV_flttointeger` paths** (see the module
-doc). Supplied by `floor`'s summary and the chain's value equation. -/
-def LtF2I_Statement : Prop := ArmBody .LT LtF2I
+doc; `FltF2I`). Supplied by `floor`'s summary and the chain's value equation. -/
+def LtF2I_Statement : Prop := ArmBody .LT FltF2I
 
 /-- **`OP_LT` with a float operand** (`FloatArms.LT`), its f2i paths open. -/
 theorem sim_LT_flt (hsf : SoftFloatSpec) (hf2i : LtF2I_Statement) : SimArmOn .LT FltAB :=
   sim_arm_on (by decide) fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
-  kit_setup 0x8001c894
-  kit_nj
-  kit_bound hAt ins.a; kit_bound hBt ins.b
-  flt_views
-  refine hT.elim (fun hq => ?fa) (fun hq => ?fb)
-  case' fa => flt_reg_s ins.a, hq; num_regf ins.b, hn
-  case' fb => num_regf ins.a, hn; all_goals flt_reg_s ins.b, hq
-  all_goals simp only [Opnd.fill] at hk
-  all_goals try (rcases v with _ | _ | _ | _ | _ | _ <;> simp [δ, Value.toNum?] at hk hn <;> done)
-  all_goals simp [δ, Value.toNum?, ltNum, ltIntFloat, ltFloatInt] at hk
-  all_goals try simp only [hfit, ite_true] at hk
-  all_goals first
-    | exact hf2i hS hA hf hop hstep (by first
-        | exact .inl ⟨_, _, _, ‹_›, ‹_›, by simpa using hfit⟩
-        | exact .inr ⟨_, _, _, ‹_›, ‹_›, by simpa using hfit⟩)
-    | skip
-  all_goals at_walk Lua.Vm.At.LT_F
+  at_jorder 0x8001c894 Lua.Vm.At.LT_F hf2i
 
 end Lua.Vm.Sim.At

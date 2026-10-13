@@ -2,6 +2,7 @@ import Lua.Vm.Sim.Kit.At
 import Lua.Vm.Sim.Kit.Summaries
 import Lua.Vm.Sim.Kit.AtCond
 import Lua.Vm.Sim.Kit.AtFloat
+import Lua.Vm.Fn.SfRefAdd
 import Lua.Vm.Fn.SfRefCmp
 import Lua.Vm.Fn.SfRefInt
 import Lua.Vm.Arms
@@ -15,8 +16,6 @@ summarised calls, and to the entry of an error exit (`luaG_runerror`, …).
 Paths not followed:
 
 * `seg_8001c8e8_8001c8f8`: call to 0x800196c4
-* `seg_8001f900_8001f908`: call to 0x8002bb14
-* `seg_8001fb00_8001fb08`: call to 0x8002bb14
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -25,9 +24,10 @@ open Lua.Vm.Sim Lua.Vm.Sim.At Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (Config)
 
 -- the lifted functions are compared by their arguments, never unfolded
-attribute [local irreducible] Lua.Vm.Fn.Floatsidf.F Lua.Vm.Fn.Floatsidf.Fm Lua.Vm.Fn.Eqdf2.F Lua.Vm.Fn.Ledf2.F Lua.Vm.Fn.Gedf2.F Lua.Vm.Fn.Adddf3.F Lua.Vm.Fn.Adddf3.Fm Lua.Vm.Fn.Floatdidf.F Lua.Vm.Fn.Floatdidf.Fm Lua.Vm.Fn.Subdf3.F Lua.Vm.Fn.Subdf3.Fm
+attribute [local irreducible] Lua.Vm.Fn.Floatsidf.F Lua.Vm.Fn.Floatsidf.Fm Lua.Vm.Fn.Eqdf2.F Lua.Vm.Fn.Ledf2.F Lua.Vm.Fn.Gedf2.F Lua.Vm.Fn.Adddf3.F Lua.Vm.Fn.Adddf3.Fm Lua.Vm.Fn.Floatdidf.F Lua.Vm.Fn.Floatdidf.Fm Lua.Vm.Fn.Subdf3.F Lua.Vm.Fn.Subdf3.Fm Lua.Vm.Fn.Fixdfdi.F Lua.Vm.Fn.Floor.F Lua.Vm.Fn.Floor.Fm
 
 namespace Lua.Vm.At.LT_F
+noncomputable section
 
 /-- `Ledf2` returning to `0x8001fa6c`: its result. -/
 def f0 (X : Cx) : BitVec 64 :=
@@ -37,61 +37,217 @@ def f0 (X : Cx) : BitVec 64 :=
     f0 X = Lua.Vm.Fn.Ledf2.S (Loc.den X (.val .a 0)) (Loc.den X (.val .b 0)) :=
   Lua.Vm.Fn.Ledf2.spec_proved _ _
 
+/-- `Floor` returning to `0x8001f908`: its result. -/
+noncomputable def f1 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Floor.F (Log.den X []) X.w.sp (0x8001f908#64) (Loc.den X (.val .a 0))
+
+/-- ... its frame. -/
+noncomputable def k1 (X : Cx) (M : Mem) : Mem :=
+  Lua.Vm.Fn.Floor.Fm M X.w.sp (0x8001f908#64) (Loc.den X (.val .a 0))
+
+@[at_fspec] theorem f1_eq (hfl : FloorSpec) (X : Cx) (hX : X.Ok) :
+    Lua.Num.F64.toModel (f1 X) = Lua.Num.floor (Lua.Num.F64.toModel (Loc.den X (.val .a 0))) :=
+  Lua.Vm.Fn.Floor.spec hfl _ _ _ _ (at_fnSp hX)
+
+@[at_row] abbrev m0 : List Ent :=
+  [.sd ⟨[(1, .sp)], 16, 0⟩ (.fn f1),
+   .clob ⟨[(1, .sp)], 0, 112⟩ 112 k1]
+
+/-- `Gedf2` returning to `0x8001f918`: its result. -/
+def f2 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Gedf2.F (Loc.den X (.fn f1)) (Loc.den X (.cell ⟨[], 2147861624, 0⟩))
+
+@[at_fspec] theorem f2_eq (X : Cx) :
+    f2 X = Lua.Vm.Fn.Gedf2.S (Loc.den X (.fn f1)) (Loc.den X (.cell ⟨[], 2147861624, 0⟩)) :=
+  Lua.Vm.Fn.Gedf2.spec_proved _ _
+
+/-- `Ledf2` returning to `0x8001f998`: its result. -/
+def f3 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Ledf2.F (Loc.den X (.val .a 0)) (Loc.den X (.lit 0x0#64))
+
+@[at_fspec] theorem f3_eq (X : Cx) :
+    f3 X = Lua.Vm.Fn.Ledf2.S (Loc.den X (.val .a 0)) (Loc.den X (.lit 0x0#64)) :=
+  Lua.Vm.Fn.Ledf2.spec_proved _ _
+
+/-- `Ledf2` returning to `0x8001f92c`: its result. -/
+def f4 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Ledf2.F (Loc.den X (.fn f1)) (Loc.den X (.cell ⟨[], 2147861632, 0⟩))
+
+@[at_fspec] theorem f4_eq (X : Cx) :
+    f4 X = Lua.Vm.Fn.Ledf2.S (Loc.den X (.fn f1)) (Loc.den X (.cell ⟨[], 2147861632, 0⟩)) :=
+  Lua.Vm.Fn.Ledf2.spec_proved _ _
+
+/-- `Fixdfdi` returning to `0x8001f938`: its result. -/
+def f5 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Fixdfdi.F (Loc.den X (.fn f1))
+
+@[at_fspec] theorem f5_eq (X : Cx) :
+    f5 X = Lua.Vm.Fn.Fixdfdi.S (Loc.den X (.fn f1)) :=
+  Lua.Vm.Fn.Fixdfdi.spec_proved _
+
 /-- `Floatdidf` returning to `0x8001f108`: its result. -/
-def f1 (X : Cx) : BitVec 64 :=
+def f6 (X : Cx) : BitVec 64 :=
   Lua.Vm.Fn.Floatdidf.F (Log.den X []) X.w.sp (0x8001f108#64) (Loc.den X (.val .b 0))
 
 /-- ... its frame. -/
-def k1 (X : Cx) (M : Mem) : Mem :=
+def k6 (X : Cx) (M : Mem) : Mem :=
   Lua.Vm.Fn.Floatdidf.Fm M X.w.sp (0x8001f108#64) (Loc.den X (.val .b 0))
 
-@[at_fspec] theorem f1_eq (X : Cx) (hX : X.Ok) :
-    f1 X = Lua.Vm.Fn.Floatdidf.S (Loc.den X (.val .b 0)) :=
+@[at_fspec] theorem f6_eq (X : Cx) (hX : X.Ok) :
+    f6 X = Lua.Vm.Fn.Floatdidf.S (Loc.den X (.val .b 0)) :=
   Lua.Vm.Fn.Floatdidf.spec_proved _ _ _ _ (at_fnSp hX)
 
-@[at_row] abbrev m0 : List Ent :=
-  [.clob ⟨[(1, .sp)], 0, 32⟩ 32 k1]
+@[at_row] abbrev m1 : List Ent :=
+  [.clob ⟨[(1, .sp)], 0, 32⟩ 32 k6]
 
 /-- `Ledf2` returning to `0x8001f114`: its result. -/
-def f2 (X : Cx) : BitVec 64 :=
-  Lua.Vm.Fn.Ledf2.F (Loc.den X (.val .a 0)) (Loc.den X (.fn f1))
+def f7 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Ledf2.F (Loc.den X (.val .a 0)) (Loc.den X (.fn f6))
 
-@[at_fspec] theorem f2_eq (X : Cx) :
-    f2 X = Lua.Vm.Fn.Ledf2.S (Loc.den X (.val .a 0)) (Loc.den X (.fn f1)) :=
+@[at_fspec] theorem f7_eq (X : Cx) :
+    f7 X = Lua.Vm.Fn.Ledf2.S (Loc.den X (.val .a 0)) (Loc.den X (.fn f6)) :=
   Lua.Vm.Fn.Ledf2.spec_proved _ _
 
-@[at_row] abbrev m1 : List Ent :=
+@[at_row] abbrev m2 : List Ent :=
   [.sd ⟨[(1, .sp)], 16, 0⟩ (.val .b 0)]
 
 /-- `Floatdidf` returning to `0x8001eae0`: its result. -/
-def f3 (X : Cx) : BitVec 64 :=
-  Lua.Vm.Fn.Floatdidf.F (Log.den X m1) X.w.sp (0x8001eae0#64) (Loc.den X (.val .a 0))
+def f8 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Floatdidf.F (Log.den X m2) X.w.sp (0x8001eae0#64) (Loc.den X (.val .a 0))
 
 /-- ... its frame. -/
-def k3 (X : Cx) (M : Mem) : Mem :=
+def k8 (X : Cx) (M : Mem) : Mem :=
   Lua.Vm.Fn.Floatdidf.Fm M X.w.sp (0x8001eae0#64) (Loc.den X (.val .a 0))
 
-@[at_fspec] theorem f3_eq (X : Cx) (hX : X.Ok) :
-    f3 X = Lua.Vm.Fn.Floatdidf.S (Loc.den X (.val .a 0)) :=
+@[at_fspec] theorem f8_eq (X : Cx) (hX : X.Ok) :
+    f8 X = Lua.Vm.Fn.Floatdidf.S (Loc.den X (.val .a 0)) :=
   Lua.Vm.Fn.Floatdidf.spec_proved _ _ _ _ (at_fnSp hX)
 
-@[at_row] abbrev m2 : List Ent :=
-  [.clob ⟨[(1, .sp)], 0, 32⟩ 32 k3,
+@[at_row] abbrev m3 : List Ent :=
+  [.clob ⟨[(1, .sp)], 0, 32⟩ 32 k8,
    .sd ⟨[(1, .sp)], 16, 0⟩ (.val .b 0)]
 
 /-- `Gedf2` returning to `0x8001eaec`: its result. -/
-def f4 (X : Cx) : BitVec 64 :=
-  Lua.Vm.Fn.Gedf2.F (Loc.den X (.val .b 0)) (Loc.den X (.fn f3))
+def f9 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Gedf2.F (Loc.den X (.val .b 0)) (Loc.den X (.fn f8))
 
-@[at_fspec] theorem f4_eq (X : Cx) :
-    f4 X = Lua.Vm.Fn.Gedf2.S (Loc.den X (.val .b 0)) (Loc.den X (.fn f3)) :=
+@[at_fspec] theorem f9_eq (X : Cx) :
+    f9 X = Lua.Vm.Fn.Gedf2.S (Loc.den X (.val .b 0)) (Loc.den X (.fn f8)) :=
   Lua.Vm.Fn.Gedf2.spec_proved _ _
 
-@[at_row] abbrev m3 : List Ent :=
+/-- `Floor` returning to `0x8001fb08`: its result. -/
+noncomputable def f10 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Floor.F (Log.den X m2) X.w.sp (0x8001fb08#64) (Loc.den X (.val .b 0))
+
+/-- ... its frame. -/
+noncomputable def k10 (X : Cx) (M : Mem) : Mem :=
+  Lua.Vm.Fn.Floor.Fm M X.w.sp (0x8001fb08#64) (Loc.den X (.val .b 0))
+
+@[at_fspec] theorem f10_eq (hfl : FloorSpec) (X : Cx) (hX : X.Ok) :
+    Lua.Num.F64.toModel (f10 X) = Lua.Num.floor (Lua.Num.F64.toModel (Loc.den X (.val .b 0))) :=
+  Lua.Vm.Fn.Floor.spec hfl _ _ _ _ (at_fnSp hX)
+
+@[at_row] abbrev m4 : List Ent :=
+  [.clob ⟨[(1, .sp)], 0, 112⟩ 112 k10,
+   .sd ⟨[(1, .sp)], 16, 0⟩ (.val .b 0)]
+
+/-- `Eqdf2` returning to `0x8001fb18`: its result. -/
+def f11 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Eqdf2.F (Loc.den X (.val .b 0)) (Loc.den X (.fn f10))
+
+@[at_fspec] theorem f11_eq (X : Cx) :
+    f11 X = Lua.Vm.Fn.Eqdf2.S (Loc.den X (.val .b 0)) (Loc.den X (.fn f10)) :=
+  Lua.Vm.Fn.Eqdf2.spec_proved _ _
+
+/-- `Gedf2` returning to `0x8001fb40`: its result. -/
+def f12 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Gedf2.F (Loc.den X (.fn f10)) (Loc.den X (.cell ⟨[], 2147861624, 0⟩))
+
+@[at_fspec] theorem f12_eq (X : Cx) :
+    f12 X = Lua.Vm.Fn.Gedf2.S (Loc.den X (.fn f10)) (Loc.den X (.cell ⟨[], 2147861624, 0⟩)) :=
+  Lua.Vm.Fn.Gedf2.spec_proved _ _
+
+/-- `Gedf2` returning to `0x8001fb88`: its result. -/
+def f13 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Gedf2.F (Loc.den X (.val .b 0)) (Loc.den X (.lit 0x0#64))
+
+@[at_fspec] theorem f13_eq (X : Cx) :
+    f13 X = Lua.Vm.Fn.Gedf2.S (Loc.den X (.val .b 0)) (Loc.den X (.lit 0x0#64)) :=
+  Lua.Vm.Fn.Gedf2.spec_proved _ _
+
+/-- `Ledf2` returning to `0x8001fb54`: its result. -/
+def f14 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Ledf2.F (Loc.den X (.fn f10)) (Loc.den X (.cell ⟨[], 2147861632, 0⟩))
+
+@[at_fspec] theorem f14_eq (X : Cx) :
+    f14 X = Lua.Vm.Fn.Ledf2.S (Loc.den X (.fn f10)) (Loc.den X (.cell ⟨[], 2147861632, 0⟩)) :=
+  Lua.Vm.Fn.Ledf2.spec_proved _ _
+
+/-- `Fixdfdi` returning to `0x8001fb60`: its result. -/
+def f15 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Fixdfdi.F (Loc.den X (.fn f10))
+
+@[at_fspec] theorem f15_eq (X : Cx) :
+    f15 X = Lua.Vm.Fn.Fixdfdi.S (Loc.den X (.fn f10)) :=
+  Lua.Vm.Fn.Fixdfdi.spec_proved _
+
+/-- `Adddf3` returning to `0x8001fb2c`: its result. -/
+def f16 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Adddf3.F (Log.den X m4) X.w.sp (0x8001fb2c#64) (Loc.den X (.fn f10)) (Loc.den X (.cell ⟨[], 2147861640, 0⟩))
+
+/-- ... its frame. -/
+def k16 (X : Cx) (M : Mem) : Mem :=
+  Lua.Vm.Fn.Adddf3.Fm M X.w.sp (0x8001fb2c#64) (Loc.den X (.fn f10)) (Loc.den X (.cell ⟨[], 2147861640, 0⟩))
+
+@[at_fspec] theorem f16_eq (X : Cx) (hX : X.Ok) :
+    f16 X = Lua.Vm.Fn.Adddf3.S (Loc.den X (.fn f10)) (Loc.den X (.cell ⟨[], 2147861640, 0⟩)) :=
+  Lua.Vm.Fn.Adddf3.spec_proved _ _ _ _ _ (at_fnSp hX)
+
+@[at_row] abbrev m5 : List Ent :=
+  [.clob ⟨[(1, .sp)], 0, 48⟩ 48 k16,
+   .clob ⟨[(1, .sp)], 0, 112⟩ 112 k10,
+   .sd ⟨[(1, .sp)], 16, 0⟩ (.val .b 0)]
+
+/-- `Gedf2` returning to `0x8001fb40`: its result. -/
+def f17 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Gedf2.F (Loc.den X (.fn f16)) (Loc.den X (.cell ⟨[], 2147861624, 0⟩))
+
+@[at_fspec] theorem f17_eq (X : Cx) :
+    f17 X = Lua.Vm.Fn.Gedf2.S (Loc.den X (.fn f16)) (Loc.den X (.cell ⟨[], 2147861624, 0⟩)) :=
+  Lua.Vm.Fn.Gedf2.spec_proved _ _
+
+/-- `Gedf2` returning to `0x8001fb88`: its result. -/
+def f18 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Gedf2.F (Loc.den X (.val .b 0)) (Loc.den X (.lit 0x0#64))
+
+@[at_fspec] theorem f18_eq (X : Cx) :
+    f18 X = Lua.Vm.Fn.Gedf2.S (Loc.den X (.val .b 0)) (Loc.den X (.lit 0x0#64)) :=
+  Lua.Vm.Fn.Gedf2.spec_proved _ _
+
+/-- `Ledf2` returning to `0x8001fb54`: its result. -/
+def f19 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Ledf2.F (Loc.den X (.fn f16)) (Loc.den X (.cell ⟨[], 2147861632, 0⟩))
+
+@[at_fspec] theorem f19_eq (X : Cx) :
+    f19 X = Lua.Vm.Fn.Ledf2.S (Loc.den X (.fn f16)) (Loc.den X (.cell ⟨[], 2147861632, 0⟩)) :=
+  Lua.Vm.Fn.Ledf2.spec_proved _ _
+
+/-- `Fixdfdi` returning to `0x8001fb60`: its result. -/
+def f20 (X : Cx) : BitVec 64 :=
+  Lua.Vm.Fn.Fixdfdi.F (Loc.den X (.fn f16))
+
+@[at_fspec] theorem f20_eq (X : Cx) :
+    f20 X = Lua.Vm.Fn.Fixdfdi.S (Loc.den X (.fn f16)) :=
+  Lua.Vm.Fn.Fixdfdi.spec_proved _
+
+@[at_row] abbrev m6 : List Ent :=
+  [.clob ⟨[(1, .sp)], 0, 112⟩ 112 k1]
+
+@[at_row] abbrev m7 : List Ent :=
   [.sd ⟨[(1, .L)], 16, 0⟩ (.cell ⟨[(1, .ci)], 8, 0⟩),
    .sd ⟨[(1, .ci)], 32, 0⟩ (.pc 1)]
 
-@[at_row] abbrev m4 : List Ent :=
+@[at_row] abbrev m8 : List Ent :=
   [.sd ⟨[(1, .sp)], 0, 48⟩ .insw,
    .sd ⟨[(1, .sp)], 0, 40⟩ (.pc 1),
    .sd ⟨[(1, .sp)], 0, 32⟩ (.lit (BitVec.ofNat 64 vNumInt)),
@@ -305,12 +461,12 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
 @[at_row] abbrev r12 (X : Cx) : List Pin :=
-  [⟨Register.x1, (Loc.den X (.lit 0x8001f108#64))⟩,
+  [⟨Register.x1, (Loc.den X (.lit 0x8001f908#64))⟩,
    ⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
-   ⟨Register.x10, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x10, (Loc.den X (.val .a 0))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
@@ -340,17 +496,18 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
 @[at_row] abbrev r14 (X : Cx) : List Pin :=
-  [⟨Register.x1, (Loc.den X (.lit 0x8001f114#64))⟩,
+  [⟨Register.x1, (Loc.den X (.lit 0x8001f918#64))⟩,
    ⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
-   ⟨Register.x10, (Loc.den X (.val .a 0))⟩,
-   ⟨Register.x11, (Loc.den X (.fn f1))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f1))⟩,
+   ⟨Register.x11, (Loc.den X (.cell ⟨[], 2147861624, 0⟩))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
    ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
    ⟨Register.x23, (Loc.den X .ci)⟩,
    ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
    ⟨Register.x25, (Loc.den X .base)⟩,
@@ -367,6 +524,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
    ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
    ⟨Register.x23, (Loc.den X .ci)⟩,
    ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
    ⟨Register.x25, (Loc.den X .base)⟩,
@@ -378,7 +536,57 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
-   ⟨Register.x10, (Loc.den X (.slt (.fn f2) (.lit 0x0#64)))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f2))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r17 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001f998#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x11, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r18 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f3))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r19 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.srl (.fn f3) (.lit 0x3f#64)) (.lit 0x0#64)))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
@@ -388,12 +596,12 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r17 (X : Cx) : List Pin :=
+@[at_row] abbrev r20 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
-   ⟨Register.x10, (Loc.den X (.slt (.fn f2) (.lit 0x0#64)))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.srl (.fn f3) (.lit 0x3f#64)) (.lit 0x0#64)))⟩,
    ⟨Register.x15, (Loc.den X (.lit (if X.ins.k then 1#64 else 0#64)))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
@@ -404,7 +612,240 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r18 (X : Cx) : List Pin :=
+@[at_row] abbrev r21 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001f92c#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f1))⟩,
+   ⟨Register.x11, (Loc.den X (.cell ⟨[], 2147861632, 0⟩))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r22 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f4))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r23 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f4))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r24 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f4))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r25 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001f938#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f1))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r26 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f5))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r27 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.fn f5) (.val .b 0)) (.lit 0x0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r28 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.fn f5) (.val .b 0)) (.lit 0x0#64)))⟩,
+   ⟨Register.x15, (Loc.den X (.lit (if X.ins.k then 1#64 else 0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r29 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001f108#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r30 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f6))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r31 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001f114#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x11, (Loc.den X (.fn f6))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r32 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f7))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r33 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.slt (.fn f7) (.lit 0x0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r34 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.slt (.fn f7) (.lit 0x0#64)))⟩,
+   ⟨Register.x15, (Loc.den X (.lit (if X.ins.k then 1#64 else 0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r35 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -423,7 +864,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r19 (X : Cx) : List Pin :=
+@[at_row] abbrev r36 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -441,7 +882,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r20 (X : Cx) : List Pin :=
+@[at_row] abbrev r37 (X : Cx) : List Pin :=
   [⟨Register.x1, (Loc.den X (.lit 0x8001e260#64))⟩,
    ⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
@@ -460,7 +901,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r21 (X : Cx) : List Pin :=
+@[at_row] abbrev r38 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -475,7 +916,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r22 (X : Cx) : List Pin :=
+@[at_row] abbrev r39 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -491,7 +932,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x27, (Loc.den X (.pc 0))⟩,
    ⟨Register.x31, (Loc.den X (.lit 0x0#64))⟩]
 
-@[at_row] abbrev r23 (X : Cx) : List Pin :=
+@[at_row] abbrev r40 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -507,7 +948,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r24 (X : Cx) : List Pin :=
+@[at_row] abbrev r41 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -523,7 +964,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r25 (X : Cx) : List Pin :=
+@[at_row] abbrev r42 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -540,7 +981,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r26 (X : Cx) : List Pin :=
+@[at_row] abbrev r43 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -556,7 +997,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r27 (X : Cx) : List Pin :=
+@[at_row] abbrev r44 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -573,7 +1014,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r28 (X : Cx) : List Pin :=
+@[at_row] abbrev r45 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
@@ -592,7 +1033,7 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r29 (X : Cx) : List Pin :=
+@[at_row] abbrev r46 (X : Cx) : List Pin :=
   [⟨Register.x1, (Loc.den X (.lit 0x8001eae0#64))⟩,
    ⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
@@ -609,12 +1050,12 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r30 (X : Cx) : List Pin :=
+@[at_row] abbrev r47 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
-   ⟨Register.x10, (Loc.den X (.fn f3))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f8))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
@@ -625,14 +1066,14 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r31 (X : Cx) : List Pin :=
+@[at_row] abbrev r48 (X : Cx) : List Pin :=
   [⟨Register.x1, (Loc.den X (.lit 0x8001eaec#64))⟩,
    ⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
    ⟨Register.x10, (Loc.den X (.val .b 0))⟩,
-   ⟨Register.x11, (Loc.den X (.fn f3))⟩,
+   ⟨Register.x11, (Loc.den X (.fn f8))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
@@ -642,12 +1083,12 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r32 (X : Cx) : List Pin :=
+@[at_row] abbrev r49 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
-   ⟨Register.x10, (Loc.den X (.fn f4))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f9))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
@@ -657,12 +1098,12 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r33 (X : Cx) : List Pin :=
+@[at_row] abbrev r50 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
-   ⟨Register.x10, (Loc.den X (.slt (.lit 0x0#64) (.fn f4)))⟩,
+   ⟨Register.x10, (Loc.den X (.slt (.lit 0x0#64) (.fn f9)))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
@@ -672,12 +1113,596 @@ def f4 (X : Cx) : BitVec 64 :=
    ⟨Register.x25, (Loc.den X .base)⟩,
    ⟨Register.x27, (Loc.den X (.pc 0))⟩]
 
-@[at_row] abbrev r34 (X : Cx) : List Pin :=
+@[at_row] abbrev r51 (X : Cx) : List Pin :=
   [⟨Register.x2, (Loc.den X .sp)⟩,
    ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
-   ⟨Register.x10, (Loc.den X (.slt (.lit 0x0#64) (.fn f4)))⟩,
+   ⟨Register.x10, (Loc.den X (.slt (.lit 0x0#64) (.fn f9)))⟩,
+   ⟨Register.x15, (Loc.den X (.lit (if X.ins.k then 1#64 else 0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r52 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r53 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb08#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r54 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r55 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb18#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x11, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r56 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f11))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r57 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb40#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x11, (Loc.den X (.cell ⟨[], 2147861624, 0⟩))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r58 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f12))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r59 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f12))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r60 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb88#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.val .b 0))⟩,
+   ⟨Register.x11, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r61 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f13))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r62 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.lit 0x0#64) (.fn f13)) (.lit 0x0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r63 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.lit 0x0#64) (.fn f13)) (.lit 0x0#64)))⟩,
+   ⟨Register.x15, (Loc.den X (.lit (if X.ins.k then 1#64 else 0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r64 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb54#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x11, (Loc.den X (.cell ⟨[], 2147861632, 0⟩))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r65 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f14))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r66 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f14))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r67 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb60#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r68 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f15))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r69 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.val .a 0) (.fn f15)) (.lit 0x0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r70 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.val .a 0) (.fn f15)) (.lit 0x0#64)))⟩,
+   ⟨Register.x15, (Loc.den X (.lit (if X.ins.k then 1#64 else 0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r71 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb2c#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x11, (Loc.den X (.cell ⟨[], 2147861640, 0⟩))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r72 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f10))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r73 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r74 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb40#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x11, (Loc.den X (.cell ⟨[], 2147861624, 0⟩))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r75 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f17))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r76 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f17))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r77 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f18))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r78 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.lit 0x0#64) (.fn f18)) (.lit 0x0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r79 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.lit 0x0#64) (.fn f18)) (.lit 0x0#64)))⟩,
+   ⟨Register.x15, (Loc.den X (.lit (if X.ins.k then 1#64 else 0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r80 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb54#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x11, (Loc.den X (.cell ⟨[], 2147861632, 0⟩))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r81 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f19))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r82 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f19))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r83 (X : Cx) : List Pin :=
+  [⟨Register.x1, (Loc.den X (.lit 0x8001fb60#64))⟩,
+   ⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r84 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.fn f20))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x26, (Loc.den X (.fn f16))⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r85 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.val .a 0) (.fn f20)) (.lit 0x0#64)))⟩,
+   ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
+   ⟨Register.x19, (Loc.den X (.pc 1))⟩,
+   ⟨Register.x20, (Loc.den X .insw)⟩,
+   ⟨Register.x21, (Loc.den X (.lit 0x0#64))⟩,
+   ⟨Register.x22, (Loc.den X (.val .a 0))⟩,
+   ⟨Register.x23, (Loc.den X .ci)⟩,
+   ⟨Register.x24, (Loc.den X (.lit (BitVec.ofNat 64 Arms.jtBase)))⟩,
+   ⟨Register.x25, (Loc.den X .base)⟩,
+   ⟨Register.x27, (Loc.den X (.pc 0))⟩]
+
+@[at_row] abbrev r86 (X : Cx) : List Pin :=
+  [⟨Register.x2, (Loc.den X .sp)⟩,
+   ⟨Register.x3, (Loc.den X (.lit (BitVec.ofNat 64 symGlobalPointer)))⟩,
+   ⟨Register.x8, (Loc.den X .L)⟩,
+   ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
+   ⟨Register.x10, (Loc.den X (.addw (.slt (.val .a 0) (.fn f20)) (.lit 0x0#64)))⟩,
    ⟨Register.x15, (Loc.den X (.lit (if X.ins.k then 1#64 else 0#64)))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
@@ -757,39 +1782,52 @@ theorem at_8001f0dc_8001f0e8_n (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.m
     AtStep X 0x8001f0dc#64 (r3 X) [] 0x8001f0e8#64 (r4 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001f0dc_8001f0e8_n
 
-theorem at_8001f0e8_8001f100_n (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hg_6 : zopz0zI_u (Loc.den X (.lit 0x40000000000000#64)) (Loc.den X (.add (.val .b 0) (.lit 0x20000000000000#64))) = false) :
-    AtStep X 0x8001f0e8#64 (r4 X) [] 0x8001f100#64 (r11 X) [] := by
-  at_seg Lua.Vm.Arms.seg_8001f0e8_8001f100_n
+theorem at_8001f0e8_8001f100_t (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hg_6 : zopz0zI_u (Loc.den X (.lit 0x40000000000000#64)) (Loc.den X (.add (.val .b 0) (.lit 0x20000000000000#64))) = true) :
+    AtStep X 0x8001f0e8#64 (r4 X) [] 0x8001f900#64 (r11 X) [] := by
+  at_seg Lua.Vm.Arms.seg_8001f0e8_8001f100_t
 
-theorem at_8001f100_8001f108 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001f100#64 (r11 X) [] 0x8002f200#64 (r12 X) [] := by
-  at_seg Lua.Vm.Arms.seg_8001f100_8001f108
+theorem at_8001f900_8001f908 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f900#64 (r11 X) [] 0x8002bb14#64 (r12 X) [] := by
+  at_seg Lua.Vm.Arms.seg_8001f900_8001f908
 
-theorem call_8001f108 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8002f200#64 (r12 X) [] 0x8001f108#64 (r13 X) m0 := by
+theorem call_8001f908 (X : Cx) (hX : X.Ok) (hfl : FloorSpec) :
+    AtStep X 0x8002bb14#64 (r12 X) [] 0x8001f908#64 (r13 X) m6 := by
   at_open
-  at_call (Lua.Vm.Fn.Floatdidf.sum _ _ _ _ sframe? _ (at_fnSp hX) (by decide) (by at_rod))
+  at_call (Lua.Vm.Fn.Floor.sum hfl _ _ _ _ sframe? _ (at_fnSp hX) (by decide) (by at_rod))
 
-theorem at_8001f108_8001f114 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001f108#64 (r13 X) m0 0x8002e460#64 (r14 X) m0 := by
-  at_seg Lua.Vm.Arms.seg_8001f108_8001f114
+theorem at_8001f908_8001f918 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f908#64 (r13 X) m6 0x8002e3c0#64 (r14 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f908_8001f918
 
-theorem call_8001f114 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8002e460#64 (r14 X) m0 0x8001f114#64 (r15 X) m0 := by
+theorem call_8001f918 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e3c0#64 (r14 X) m0 0x8001f918#64 (r15 X) m0 := by
+  at_open
+  at_call (Lua.Vm.Fn.Gedf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001f918_8001f91c_t (X : Cx) (hX : X.Ok) (hg_1 : zopz0zI_s (Loc.den X (.fn f2)) (Loc.den X (.lit 0x0#64)) = true) :
+    AtStep X 0x8001f918#64 (r15 X) m0 0x8001f98c#64 (r16 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f918_8001f91c_t
+
+theorem at_8001f98c_8001f998 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f98c#64 (r16 X) m0 0x8002e460#64 (r17 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f98c_8001f998
+
+theorem call_8001f998 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e460#64 (r17 X) m0 0x8001f998#64 (r18 X) m0 := by
   at_open
   obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin22 h
   at_call (Lua.Vm.Fn.Ledf2.sum _ _ _ hframe? _ _ (by decide))
 
-theorem at_8001f114_8001f11c (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001f114#64 (r15 X) m0 0x8001c900#64 (r16 X) m0 := by
-  at_seg Lua.Vm.Arms.seg_8001f114_8001f11c
+theorem at_8001f998_8001f9a4 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f998#64 (r18 X) m0 0x8001c900#64 (r19 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f998_8001f9a4
 
-theorem at_8001c900_8001c90c_t_1 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.fn f2) (.lit 0x0#64)))) = true) :
-    AtStep X 0x8001c900#64 (r16 X) m0 0x8001c910#64 (r17 X) m0 := by
+theorem at_8001c900_8001c90c_t_1 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.srl (.fn f3) (.lit 0x3f#64)) (.lit 0x0#64)))) = true) :
+    AtStep X 0x8001c900#64 (r19 X) m0 0x8001c910#64 (r20 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
 
 theorem at_8001c910_8001c918_1 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c910#64 (r17 X) m0 0x8001bfe4#64 (r9 X) m0 := by
+    AtStep X 0x8001c910#64 (r20 X) m0 0x8001bfe4#64 (r9 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001c910_8001c918
 
 theorem fin_2 (X : Cx) (hX : X.Ok) {c : Config}
@@ -797,12 +1835,12 @@ theorem fin_2 (X : Cx) (hX : X.Ok) {c : Config}
     AtFin X m0 [] (X.s.pc + 2) c := by
   at_fin
 
-theorem at_8001c900_8001c90c_n_1 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.fn f2) (.lit 0x0#64)))) = false) :
-    AtStep X 0x8001c900#64 (r16 X) m0 0x8001c90c#64 (r17 X) m0 := by
+theorem at_8001c900_8001c90c_n_1 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.srl (.fn f3) (.lit 0x3f#64)) (.lit 0x0#64)))) = false) :
+    AtStep X 0x8001c900#64 (r19 X) m0 0x8001c90c#64 (r20 X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
 
 theorem at_8001c90c_8001c910_1 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c90c#64 (r17 X) m0 0x8001eaf4#64 (headRow X) m0 := by
+    AtStep X 0x8001c90c#64 (r20 X) m0 0x8001eaf4#64 (headRow X) m0 := by
   at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
 
 theorem at_8001eaf4_8001eb1c_1 (X : Cx) (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) :
@@ -815,6 +1853,119 @@ theorem fin_3 (X : Cx) (hX : X.Ok) {c : Config}
     AtFin X m0 [] (jmpPc X) c := by
   at_fin
 
+theorem at_8001f918_8001f91c_n (X : Cx) (hX : X.Ok) (hg_1 : zopz0zI_s (Loc.den X (.fn f2)) (Loc.den X (.lit 0x0#64)) = false) :
+    AtStep X 0x8001f918#64 (r15 X) m0 0x8001f91c#64 (r15 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f918_8001f91c_n
+
+theorem at_8001f91c_8001f92c (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f91c#64 (r15 X) m0 0x8002e460#64 (r21 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f91c_8001f92c
+
+theorem call_8001f92c (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e460#64 (r21 X) m0 0x8001f92c#64 (r22 X) m0 := by
+  at_open
+  at_call (Lua.Vm.Fn.Ledf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001f92c_8001f930_t (X : Cx) (hX : X.Ok) (hg_1 : zopz0zKzJ_s (Loc.den X (.fn f4)) (Loc.den X (.lit 0x0#64)) = true) :
+    AtStep X 0x8001f92c#64 (r22 X) m0 0x8001f98c#64 (r23 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f92c_8001f930_t
+
+theorem at_8001f98c_8001f998_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f98c#64 (r23 X) m0 0x8002e460#64 (r17 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f98c_8001f998
+
+theorem at_8001f92c_8001f930_n (X : Cx) (hX : X.Ok) (hg_1 : zopz0zKzJ_s (Loc.den X (.fn f4)) (Loc.den X (.lit 0x0#64)) = false) :
+    AtStep X 0x8001f92c#64 (r22 X) m0 0x8001f930#64 (r24 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f92c_8001f930_n
+
+theorem at_8001f930_8001f938 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f930#64 (r24 X) m0 0x8002f188#64 (r25 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f930_8001f938
+
+theorem call_8001f938 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002f188#64 (r25 X) m0 0x8001f938#64 (r26 X) m0 := by
+  at_open
+  obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin26 h
+  at_call (Lua.Vm.Fn.Fixdfdi.sum _ _ _ hframe? _ (by decide))
+
+theorem at_8001f938_8001f944 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f938#64 (r26 X) m0 0x8001c900#64 (r27 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001f938_8001f944
+
+theorem at_8001c900_8001c90c_t_2 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.fn f5) (.val .b 0)) (.lit 0x0#64)))) = true) :
+    AtStep X 0x8001c900#64 (r27 X) m0 0x8001c910#64 (r28 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
+
+theorem at_8001c910_8001c918_2 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r28 X) m0 0x8001bfe4#64 (r9 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001c910_8001c918
+
+theorem at_8001c900_8001c90c_n_2 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.fn f5) (.val .b 0)) (.lit 0x0#64)))) = false) :
+    AtStep X 0x8001c900#64 (r27 X) m0 0x8001c90c#64 (r28 X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
+
+theorem at_8001c90c_8001c910_2 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r28 X) m0 0x8001eaf4#64 (headRow X) m0 := by
+  at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
+
+theorem at_8001f0e8_8001f100_n (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hg_6 : zopz0zI_u (Loc.den X (.lit 0x40000000000000#64)) (Loc.den X (.add (.val .b 0) (.lit 0x20000000000000#64))) = false) :
+    AtStep X 0x8001f0e8#64 (r4 X) [] 0x8001f100#64 (r11 X) [] := by
+  at_seg Lua.Vm.Arms.seg_8001f0e8_8001f100_n
+
+theorem at_8001f100_8001f108 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f100#64 (r11 X) [] 0x8002f200#64 (r29 X) [] := by
+  at_seg Lua.Vm.Arms.seg_8001f100_8001f108
+
+theorem call_8001f108 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002f200#64 (r29 X) [] 0x8001f108#64 (r30 X) m1 := by
+  at_open
+  at_call (Lua.Vm.Fn.Floatdidf.sum _ _ _ _ sframe? _ (at_fnSp hX) (by decide) (by at_rod))
+
+theorem at_8001f108_8001f114 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f108#64 (r30 X) m1 0x8002e460#64 (r31 X) m1 := by
+  at_seg Lua.Vm.Arms.seg_8001f108_8001f114
+
+theorem call_8001f114 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e460#64 (r31 X) m1 0x8001f114#64 (r32 X) m1 := by
+  at_open
+  obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin22 h
+  at_call (Lua.Vm.Fn.Ledf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001f114_8001f11c (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001f114#64 (r32 X) m1 0x8001c900#64 (r33 X) m1 := by
+  at_seg Lua.Vm.Arms.seg_8001f114_8001f11c
+
+theorem at_8001c900_8001c90c_t_3 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.fn f7) (.lit 0x0#64)))) = true) :
+    AtStep X 0x8001c900#64 (r33 X) m1 0x8001c910#64 (r34 X) m1 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
+
+theorem at_8001c910_8001c918_3 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r34 X) m1 0x8001bfe4#64 (r9 X) m1 := by
+  at_seg Lua.Vm.Arms.seg_8001c910_8001c918
+
+theorem fin_4 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r9 X) m1 c) :
+    AtFin X m1 [] (X.s.pc + 2) c := by
+  at_fin
+
+theorem at_8001c900_8001c90c_n_3 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.fn f7) (.lit 0x0#64)))) = false) :
+    AtStep X 0x8001c900#64 (r33 X) m1 0x8001c90c#64 (r34 X) m1 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
+
+theorem at_8001c90c_8001c910_3 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r34 X) m1 0x8001eaf4#64 (headRow X) m1 := by
+  at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
+
+theorem at_8001eaf4_8001eb1c_2 (X : Cx) (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) :
+    AtStep X 0x8001eaf4#64 (headRow X) m1 0x8001bfe4#64 (r10 X) m1 := by
+  have := jmp_lt hj
+  at_seg Lua.Vm.Arms.seg_8001eaf4_8001eb1c
+
+theorem fin_5 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r10 X) m1 c) :
+    AtFin X m1 [] (jmpPc X) c := by
+  at_fin
+
 theorem at_8001c8c0_8001c8c8_n (X : Cx) (hX : X.Ok) (hg_2 : ((Loc.den X (.lit ((Loc.den X (.tag .a 0)) &&& (Loc.den X (.lit 0xf#64))))) == (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))) = false) :
     AtStep X 0x8001c8c0#64 (r0 X) [] 0x8001c8c8#64 (r1 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001c8c0_8001c8c8_n
@@ -824,55 +1975,55 @@ theorem at_8001c8c8_8001c8cc (X : Cx) (hX : X.Ok) :
   at_seg Lua.Vm.Arms.seg_8001c8c8_8001c8cc
 
 theorem at_8001e22c_8001e240_t (X : Cx) (hX : X.Ok) (hg_5 : ((Loc.den X (.lit ((Loc.den X (.tag .a 0)) &&& (Loc.den X (.lit 0xf#64))))) == (Loc.den X (.lit 0x4#64))) = true) :
-    AtStep X 0x8001e22c#64 (r1 X) [] 0x8001e244#64 (r18 X) m3 := by
+    AtStep X 0x8001e22c#64 (r1 X) [] 0x8001e244#64 (r35 X) m7 := by
   at_seg Lua.Vm.Arms.seg_8001e22c_8001e240_t
 
 theorem at_8001e244_8001e250_t (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hg_3 : ((Loc.den X (.lit ((Loc.den X (.tag .b 0)) &&& (Loc.den X (.lit 0xf#64))))) == (Loc.den X (.lit ((Loc.den X (.tag .a 0)) &&& (Loc.den X (.lit 0xf#64)))))) = true) :
-    AtStep X 0x8001e244#64 (r18 X) m3 0x8001e254#64 (r19 X) m3 := by
+    AtStep X 0x8001e244#64 (r35 X) m7 0x8001e254#64 (r36 X) m7 := by
   at_seg Lua.Vm.Arms.seg_8001e244_8001e250_t
 
 theorem at_8001e254_8001e260 (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) :
-    AtStep X 0x8001e254#64 (r19 X) m3 0x8001a704#64 (r20 X) m3 := by
+    AtStep X 0x8001e254#64 (r36 X) m7 0x8001a704#64 (r37 X) m7 := by
   at_seg Lua.Vm.Arms.seg_8001e254_8001e260
 
 theorem call_8001e260 (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (x y : List UInt8) (hsa : X.s.regs (X.ins.a + 0) = some (.str x)) (hsb : X.s.regs (X.ins.b + 0) = some (.str y)) :
-    AtStep X 0x8001a704#64 (r20 X) m3 0x8001c8f8#64 (r21 X) m4 := by
+    AtStep X 0x8001a704#64 (r37 X) m7 0x8001c8f8#64 (r38 X) m8 := by
   at_open
   at_lstr Lua.Vm.Arms.seg_8001e260_8001e268 Lua.Vm.Sim.At.obs_lt
 
 theorem at_8001c8f8_8001c900 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c8f8#64 (r21 X) m4 0x8001c900#64 (r22 X) m4 := by
+    AtStep X 0x8001c8f8#64 (r38 X) m8 0x8001c900#64 (r39 X) m8 := by
   at_seg Lua.Vm.Arms.seg_8001c8f8_8001c900
 
-theorem at_8001c900_8001c90c_t_2 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.lit (if lexLt (sOf X .a) (sOf X .b) then 1#64 else 0#64)))) = true) :
-    AtStep X 0x8001c900#64 (r22 X) m4 0x8001c910#64 (r23 X) m4 := by
+theorem at_8001c900_8001c90c_t_4 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.lit (if lexLt (sOf X .a) (sOf X .b) then 1#64 else 0#64)))) = true) :
+    AtStep X 0x8001c900#64 (r39 X) m8 0x8001c910#64 (r40 X) m8 := by
   at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
 
-theorem at_8001c910_8001c918_2 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c910#64 (r23 X) m4 0x8001bfe4#64 (r9 X) m4 := by
+theorem at_8001c910_8001c918_4 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r40 X) m8 0x8001bfe4#64 (r9 X) m8 := by
   at_seg Lua.Vm.Arms.seg_8001c910_8001c918
 
-theorem fin_4 (X : Cx) (hX : X.Ok) {c : Config}
-    (h : At X 0x8001bfe4#64 (r9 X) m4 c) :
-    AtFin X m4 [] (X.s.pc + 2) c := by
+theorem fin_6 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r9 X) m8 c) :
+    AtFin X m8 [] (X.s.pc + 2) c := by
   at_fin
 
-theorem at_8001c900_8001c90c_n_2 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.lit (if lexLt (sOf X .a) (sOf X .b) then 1#64 else 0#64)))) = false) :
-    AtStep X 0x8001c900#64 (r22 X) m4 0x8001c90c#64 (r23 X) m4 := by
+theorem at_8001c900_8001c90c_n_4 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.lit (if lexLt (sOf X .a) (sOf X .b) then 1#64 else 0#64)))) = false) :
+    AtStep X 0x8001c900#64 (r39 X) m8 0x8001c90c#64 (r40 X) m8 := by
   at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
 
-theorem at_8001c90c_8001c910_2 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c90c#64 (r23 X) m4 0x8001eaf4#64 (headRow X) m4 := by
+theorem at_8001c90c_8001c910_4 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r40 X) m8 0x8001eaf4#64 (headRow X) m8 := by
   at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
 
-theorem at_8001eaf4_8001eb1c_2 (X : Cx) (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) :
-    AtStep X 0x8001eaf4#64 (headRow X) m4 0x8001bfe4#64 (r10 X) m4 := by
+theorem at_8001eaf4_8001eb1c_3 (X : Cx) (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) :
+    AtStep X 0x8001eaf4#64 (headRow X) m8 0x8001bfe4#64 (r10 X) m8 := by
   have := jmp_lt hj
   at_seg Lua.Vm.Arms.seg_8001eaf4_8001eb1c
 
-theorem fin_5 (X : Cx) (hX : X.Ok) {c : Config}
-    (h : At X 0x8001bfe4#64 (r10 X) m4 c) :
-    AtFin X m4 [] (jmpPc X) c := by
+theorem fin_7 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r10 X) m8 c) :
+    AtFin X m8 [] (jmpPc X) c := by
   at_fin
 
 theorem at_8001c894_8001c8bc_n (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) (hg_10 : ((Loc.den X (.tag .a 0)) != (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))) = false) :
@@ -880,99 +2031,374 @@ theorem at_8001c894_8001c8bc_n (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.m
   at_seg Lua.Vm.Arms.seg_8001c894_8001c8bc_n
 
 theorem at_8001c8bc_8001c8c0 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c8bc#64 (r0 X) [] 0x8001eaa0#64 (r24 X) [] := by
+    AtStep X 0x8001c8bc#64 (r0 X) [] 0x8001eaa0#64 (r41 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001c8bc_8001c8c0
 
 theorem at_8001eaa0_8001eaa8_t (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hg_2 : ((Loc.den X (.tag .b 0)) == (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))) = true) :
-    AtStep X 0x8001eaa0#64 (r24 X) [] 0x8001efec#64 (r3 X) [] := by
+    AtStep X 0x8001eaa0#64 (r41 X) [] 0x8001efec#64 (r3 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001eaa0_8001eaa8_t
 
 theorem at_8001efec_8001effc (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) :
-    AtStep X 0x8001efec#64 (r3 X) [] 0x8001c900#64 (r25 X) [] := by
+    AtStep X 0x8001efec#64 (r3 X) [] 0x8001c900#64 (r42 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001efec_8001effc
 
-theorem at_8001c900_8001c90c_t_3 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.val .a 0) (.val .b 0)))) = true) :
-    AtStep X 0x8001c900#64 (r25 X) [] 0x8001c910#64 (r26 X) [] := by
+theorem at_8001c900_8001c90c_t_5 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.val .a 0) (.val .b 0)))) = true) :
+    AtStep X 0x8001c900#64 (r42 X) [] 0x8001c910#64 (r43 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
 
-theorem at_8001c910_8001c918_3 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c910#64 (r26 X) [] 0x8001bfe4#64 (r9 X) [] := by
+theorem at_8001c910_8001c918_5 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r43 X) [] 0x8001bfe4#64 (r9 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001c910_8001c918
 
-theorem at_8001c900_8001c90c_n_3 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.val .a 0) (.val .b 0)))) = false) :
-    AtStep X 0x8001c900#64 (r25 X) [] 0x8001c90c#64 (r26 X) [] := by
+theorem at_8001c900_8001c90c_n_5 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.val .a 0) (.val .b 0)))) = false) :
+    AtStep X 0x8001c900#64 (r42 X) [] 0x8001c90c#64 (r43 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
 
-theorem at_8001c90c_8001c910_3 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c90c#64 (r26 X) [] 0x8001eaf4#64 (headRow X) [] := by
+theorem at_8001c90c_8001c910_5 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r43 X) [] 0x8001eaf4#64 (headRow X) [] := by
   at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
 
 theorem at_8001eaa0_8001eaa8_n (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hg_2 : ((Loc.den X (.tag .b 0)) == (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))) = false) :
-    AtStep X 0x8001eaa0#64 (r24 X) [] 0x8001eaa8#64 (r3 X) [] := by
+    AtStep X 0x8001eaa0#64 (r41 X) [] 0x8001eaa8#64 (r3 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001eaa0_8001eaa8_n
 
 theorem at_8001eaa8_8001eab0_t (X : Cx) (hX : X.Ok) (hg_2 : ((Loc.den X (.lit ((Loc.den X (.tag .b 0)) &&& (Loc.den X (.lit 0xf#64))))) == (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))) = true) :
-    AtStep X 0x8001eaa8#64 (r3 X) [] 0x8001eab4#64 (r27 X) [] := by
+    AtStep X 0x8001eaa8#64 (r3 X) [] 0x8001eab4#64 (r44 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001eaa8_8001eab0_t
 
 theorem at_8001eab4_8001ead4_t (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hg_8 : zopz0zKzJ_u (Loc.den X (.lit 0x40000000000000#64)) (Loc.den X (.add (.val .a 0) (.lit 0x20000000000000#64))) = true) :
-    AtStep X 0x8001eab4#64 (r27 X) [] 0x8001ead8#64 (r28 X) m1 := by
+    AtStep X 0x8001eab4#64 (r44 X) [] 0x8001ead8#64 (r45 X) m2 := by
   at_seg Lua.Vm.Arms.seg_8001eab4_8001ead4_t
 
 theorem at_8001ead8_8001eae0 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001ead8#64 (r28 X) m1 0x8002f200#64 (r29 X) m1 := by
+    AtStep X 0x8001ead8#64 (r45 X) m2 0x8002f200#64 (r46 X) m2 := by
   at_seg Lua.Vm.Arms.seg_8001ead8_8001eae0
 
 theorem call_8001eae0 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8002f200#64 (r29 X) m1 0x8001eae0#64 (r30 X) m2 := by
+    AtStep X 0x8002f200#64 (r46 X) m2 0x8001eae0#64 (r47 X) m3 := by
   at_open
   obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin26 h
   at_call (Lua.Vm.Fn.Floatdidf.sum _ _ _ _ sframe? _ (at_fnSp hX) (by decide) (by at_rod))
 
 theorem at_8001eae0_8001eaec (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001eae0#64 (r30 X) m2 0x8002e3c0#64 (r31 X) m2 := by
+    AtStep X 0x8001eae0#64 (r47 X) m3 0x8002e3c0#64 (r48 X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001eae0_8001eaec
 
 theorem call_8001eaec (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8002e3c0#64 (r31 X) m2 0x8001eaec#64 (r32 X) m2 := by
+    AtStep X 0x8002e3c0#64 (r48 X) m3 0x8001eaec#64 (r49 X) m3 := by
   at_open
   obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin22 h
   obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin26 h
   at_call (Lua.Vm.Fn.Gedf2.sum _ _ _ hframe? _ _ (by decide))
 
 theorem at_8001eaec_8001eaf4 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001eaec#64 (r32 X) m2 0x8001c900#64 (r33 X) m2 := by
+    AtStep X 0x8001eaec#64 (r49 X) m3 0x8001c900#64 (r50 X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001eaec_8001eaf4
 
-theorem at_8001c900_8001c90c_t_4 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.lit 0x0#64) (.fn f4)))) = true) :
-    AtStep X 0x8001c900#64 (r33 X) m2 0x8001c910#64 (r34 X) m2 := by
+theorem at_8001c900_8001c90c_t_6 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.lit 0x0#64) (.fn f9)))) = true) :
+    AtStep X 0x8001c900#64 (r50 X) m3 0x8001c910#64 (r51 X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
 
-theorem at_8001c910_8001c918_4 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c910#64 (r34 X) m2 0x8001bfe4#64 (r9 X) m2 := by
+theorem at_8001c910_8001c918_6 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r51 X) m3 0x8001bfe4#64 (r9 X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001c910_8001c918
 
-theorem fin_6 (X : Cx) (hX : X.Ok) {c : Config}
-    (h : At X 0x8001bfe4#64 (r9 X) m2 c) :
-    AtFin X m2 [] (X.s.pc + 2) c := by
+theorem fin_8 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r9 X) m3 c) :
+    AtFin X m3 [] (X.s.pc + 2) c := by
   at_fin
 
-theorem at_8001c900_8001c90c_n_4 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.lit 0x0#64) (.fn f4)))) = false) :
-    AtStep X 0x8001c900#64 (r33 X) m2 0x8001c90c#64 (r34 X) m2 := by
+theorem at_8001c900_8001c90c_n_6 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.slt (.lit 0x0#64) (.fn f9)))) = false) :
+    AtStep X 0x8001c900#64 (r50 X) m3 0x8001c90c#64 (r51 X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
 
-theorem at_8001c90c_8001c910_4 (X : Cx) (hX : X.Ok) :
-    AtStep X 0x8001c90c#64 (r34 X) m2 0x8001eaf4#64 (headRow X) m2 := by
+theorem at_8001c90c_8001c910_6 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r51 X) m3 0x8001eaf4#64 (headRow X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
 
-theorem at_8001eaf4_8001eb1c_3 (X : Cx) (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) :
-    AtStep X 0x8001eaf4#64 (headRow X) m2 0x8001bfe4#64 (r10 X) m2 := by
+theorem at_8001eaf4_8001eb1c_4 (X : Cx) (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) :
+    AtStep X 0x8001eaf4#64 (headRow X) m3 0x8001bfe4#64 (r10 X) m3 := by
   have := jmp_lt hj
   at_seg Lua.Vm.Arms.seg_8001eaf4_8001eb1c
 
-theorem fin_7 (X : Cx) (hX : X.Ok) {c : Config}
-    (h : At X 0x8001bfe4#64 (r10 X) m2 c) :
-    AtFin X m2 [] (jmpPc X) c := by
+theorem fin_9 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r10 X) m3 c) :
+    AtFin X m3 [] (jmpPc X) c := by
   at_fin
+
+theorem at_8001eab4_8001ead4_n (X : Cx) (hX : X.Ok) (hs_a0 : X.ins.a + 0 < X.p.maxstacksize) (hs_b0 : X.ins.b + 0 < X.p.maxstacksize) (hg_8 : zopz0zKzJ_u (Loc.den X (.lit 0x40000000000000#64)) (Loc.den X (.add (.val .a 0) (.lit 0x20000000000000#64))) = false) :
+    AtStep X 0x8001eab4#64 (r44 X) [] 0x8001ead4#64 (r45 X) m2 := by
+  at_seg Lua.Vm.Arms.seg_8001eab4_8001ead4_n
+
+theorem at_8001ead4_8001ead8 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001ead4#64 (r45 X) m2 0x8001fb00#64 (r52 X) m2 := by
+  at_seg Lua.Vm.Arms.seg_8001ead4_8001ead8
+
+theorem at_8001fb00_8001fb08 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb00#64 (r52 X) m2 0x8002bb14#64 (r53 X) m2 := by
+  at_seg Lua.Vm.Arms.seg_8001fb00_8001fb08
+
+theorem call_8001fb08 (X : Cx) (hX : X.Ok) (hfl : FloorSpec) :
+    AtStep X 0x8002bb14#64 (r53 X) m2 0x8001fb08#64 (r54 X) m4 := by
+  at_open
+  obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin26 h
+  at_call (Lua.Vm.Fn.Floor.sum hfl _ _ _ _ sframe? _ (at_fnSp hX) (by decide) (by at_rod))
+
+theorem at_8001fb08_8001fb18 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb08#64 (r54 X) m4 0x8002e350#64 (r55 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb08_8001fb18
+
+theorem call_8001fb18 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e350#64 (r55 X) m4 0x8001fb18#64 (r56 X) m4 := by
+  at_open
+  at_call (Lua.Vm.Fn.Eqdf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001fb18_8001fb1c_t (X : Cx) (hX : X.Ok) (hg_1 : ((Loc.den X (.fn f11)) == (Loc.den X (.lit 0x0#64))) = true) :
+    AtStep X 0x8001fb18#64 (r56 X) m4 0x8001fb30#64 (r56 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb18_8001fb1c_t
+
+theorem at_8001fb30_8001fb40 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb30#64 (r56 X) m4 0x8002e3c0#64 (r57 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb30_8001fb40
+
+theorem call_8001fb40 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e3c0#64 (r57 X) m4 0x8001fb40#64 (r58 X) m4 := by
+  at_open
+  at_call (Lua.Vm.Fn.Gedf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001fb40_8001fb44_t (X : Cx) (hX : X.Ok) (hg_1 : zopz0zI_s (Loc.den X (.fn f12)) (Loc.den X (.lit 0x0#64)) = true) :
+    AtStep X 0x8001fb40#64 (r58 X) m4 0x8001fb7c#64 (r59 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb40_8001fb44_t
+
+theorem at_8001fb7c_8001fb88 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb7c#64 (r59 X) m4 0x8002e3c0#64 (r60 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb7c_8001fb88
+
+theorem call_8001fb88 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e3c0#64 (r60 X) m4 0x8001fb88#64 (r61 X) m4 := by
+  at_open
+  obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin22 h
+  obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin26 h
+  at_call (Lua.Vm.Fn.Gedf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001fb88_8001fb94 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb88#64 (r61 X) m4 0x8001c900#64 (r62 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb88_8001fb94
+
+theorem at_8001c900_8001c90c_t_7 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.lit 0x0#64) (.fn f13)) (.lit 0x0#64)))) = true) :
+    AtStep X 0x8001c900#64 (r62 X) m4 0x8001c910#64 (r63 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
+
+theorem at_8001c910_8001c918_7 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r63 X) m4 0x8001bfe4#64 (r9 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001c910_8001c918
+
+theorem fin_10 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r9 X) m4 c) :
+    AtFin X m4 [] (X.s.pc + 2) c := by
+  at_fin
+
+theorem at_8001c900_8001c90c_n_7 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.lit 0x0#64) (.fn f13)) (.lit 0x0#64)))) = false) :
+    AtStep X 0x8001c900#64 (r62 X) m4 0x8001c90c#64 (r63 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
+
+theorem at_8001c90c_8001c910_7 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r63 X) m4 0x8001eaf4#64 (headRow X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
+
+theorem at_8001eaf4_8001eb1c_5 (X : Cx) (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) :
+    AtStep X 0x8001eaf4#64 (headRow X) m4 0x8001bfe4#64 (r10 X) m4 := by
+  have := jmp_lt hj
+  at_seg Lua.Vm.Arms.seg_8001eaf4_8001eb1c
+
+theorem fin_11 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r10 X) m4 c) :
+    AtFin X m4 [] (jmpPc X) c := by
+  at_fin
+
+theorem at_8001fb40_8001fb44_n (X : Cx) (hX : X.Ok) (hg_1 : zopz0zI_s (Loc.den X (.fn f12)) (Loc.den X (.lit 0x0#64)) = false) :
+    AtStep X 0x8001fb40#64 (r58 X) m4 0x8001fb44#64 (r58 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb40_8001fb44_n
+
+theorem at_8001fb44_8001fb54 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb44#64 (r58 X) m4 0x8002e460#64 (r64 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb44_8001fb54
+
+theorem call_8001fb54 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e460#64 (r64 X) m4 0x8001fb54#64 (r65 X) m4 := by
+  at_open
+  at_call (Lua.Vm.Fn.Ledf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001fb54_8001fb58_t (X : Cx) (hX : X.Ok) (hg_1 : zopz0zKzJ_s (Loc.den X (.fn f14)) (Loc.den X (.lit 0x0#64)) = true) :
+    AtStep X 0x8001fb54#64 (r65 X) m4 0x8001fb7c#64 (r66 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb54_8001fb58_t
+
+theorem at_8001fb7c_8001fb88_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb7c#64 (r66 X) m4 0x8002e3c0#64 (r60 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb7c_8001fb88
+
+theorem at_8001fb54_8001fb58_n (X : Cx) (hX : X.Ok) (hg_1 : zopz0zKzJ_s (Loc.den X (.fn f14)) (Loc.den X (.lit 0x0#64)) = false) :
+    AtStep X 0x8001fb54#64 (r65 X) m4 0x8001fb58#64 (r65 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb54_8001fb58_n
+
+theorem at_8001fb58_8001fb60 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb58#64 (r65 X) m4 0x8002f188#64 (r67 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb58_8001fb60
+
+theorem call_8001fb60 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002f188#64 (r67 X) m4 0x8001fb60#64 (r68 X) m4 := by
+  at_open
+  at_call (Lua.Vm.Fn.Fixdfdi.sum _ _ _ hframe? _ (by decide))
+
+theorem at_8001fb60_8001fb6c (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb60#64 (r68 X) m4 0x8001c900#64 (r69 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb60_8001fb6c
+
+theorem at_8001c900_8001c90c_t_8 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.val .a 0) (.fn f15)) (.lit 0x0#64)))) = true) :
+    AtStep X 0x8001c900#64 (r69 X) m4 0x8001c910#64 (r70 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
+
+theorem at_8001c910_8001c918_8 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r70 X) m4 0x8001bfe4#64 (r9 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001c910_8001c918
+
+theorem at_8001c900_8001c90c_n_8 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.val .a 0) (.fn f15)) (.lit 0x0#64)))) = false) :
+    AtStep X 0x8001c900#64 (r69 X) m4 0x8001c90c#64 (r70 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
+
+theorem at_8001c90c_8001c910_8 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r70 X) m4 0x8001eaf4#64 (headRow X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
+
+theorem at_8001fb18_8001fb1c_n (X : Cx) (hX : X.Ok) (hg_1 : ((Loc.den X (.fn f11)) == (Loc.den X (.lit 0x0#64))) = false) :
+    AtStep X 0x8001fb18#64 (r56 X) m4 0x8001fb1c#64 (r56 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb18_8001fb1c_n
+
+theorem at_8001fb1c_8001fb2c (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb1c#64 (r56 X) m4 0x8002d7a8#64 (r71 X) m4 := by
+  at_seg Lua.Vm.Arms.seg_8001fb1c_8001fb2c
+
+theorem call_8001fb2c (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002d7a8#64 (r71 X) m4 0x8001fb2c#64 (r72 X) m5 := by
+  at_open
+  at_call (Lua.Vm.Fn.Adddf3.sum _ _ _ _ sframe? _ _ (at_fnSp hX) (by decide) (by at_rod))
+
+theorem at_8001fb2c_8001fb30 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb2c#64 (r72 X) m5 0x8001fb30#64 (r73 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb2c_8001fb30
+
+theorem at_8001fb30_8001fb40_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb30#64 (r73 X) m5 0x8002e3c0#64 (r74 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb30_8001fb40
+
+theorem call_8001fb40_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e3c0#64 (r74 X) m5 0x8001fb40#64 (r75 X) m5 := by
+  at_open
+  at_call (Lua.Vm.Fn.Gedf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001fb40_8001fb44_t_1 (X : Cx) (hX : X.Ok) (hg_1 : zopz0zI_s (Loc.den X (.fn f17)) (Loc.den X (.lit 0x0#64)) = true) :
+    AtStep X 0x8001fb40#64 (r75 X) m5 0x8001fb7c#64 (r76 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb40_8001fb44_t
+
+theorem at_8001fb7c_8001fb88_2 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb7c#64 (r76 X) m5 0x8002e3c0#64 (r60 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb7c_8001fb88
+
+theorem call_8001fb88_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e3c0#64 (r60 X) m5 0x8001fb88#64 (r77 X) m5 := by
+  at_open
+  obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin22 h
+  obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin26 h
+  at_call (Lua.Vm.Fn.Gedf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001fb88_8001fb94_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb88#64 (r77 X) m5 0x8001c900#64 (r78 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb88_8001fb94
+
+theorem at_8001c900_8001c90c_t_9 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.lit 0x0#64) (.fn f18)) (.lit 0x0#64)))) = true) :
+    AtStep X 0x8001c900#64 (r78 X) m5 0x8001c910#64 (r79 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
+
+theorem at_8001c910_8001c918_9 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r79 X) m5 0x8001bfe4#64 (r9 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001c910_8001c918
+
+theorem fin_12 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r9 X) m5 c) :
+    AtFin X m5 [] (X.s.pc + 2) c := by
+  at_fin
+
+theorem at_8001c900_8001c90c_n_9 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.lit 0x0#64) (.fn f18)) (.lit 0x0#64)))) = false) :
+    AtStep X 0x8001c900#64 (r78 X) m5 0x8001c90c#64 (r79 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
+
+theorem at_8001c90c_8001c910_9 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r79 X) m5 0x8001eaf4#64 (headRow X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
+
+theorem at_8001eaf4_8001eb1c_6 (X : Cx) (hX : X.Ok) (hj : (nextJump X.p X.s.pc).isSome = true) :
+    AtStep X 0x8001eaf4#64 (headRow X) m5 0x8001bfe4#64 (r10 X) m5 := by
+  have := jmp_lt hj
+  at_seg Lua.Vm.Arms.seg_8001eaf4_8001eb1c
+
+theorem fin_13 (X : Cx) (hX : X.Ok) {c : Config}
+    (h : At X 0x8001bfe4#64 (r10 X) m5 c) :
+    AtFin X m5 [] (jmpPc X) c := by
+  at_fin
+
+theorem at_8001fb40_8001fb44_n_1 (X : Cx) (hX : X.Ok) (hg_1 : zopz0zI_s (Loc.den X (.fn f17)) (Loc.den X (.lit 0x0#64)) = false) :
+    AtStep X 0x8001fb40#64 (r75 X) m5 0x8001fb44#64 (r75 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb40_8001fb44_n
+
+theorem at_8001fb44_8001fb54_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb44#64 (r75 X) m5 0x8002e460#64 (r80 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb44_8001fb54
+
+theorem call_8001fb54_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002e460#64 (r80 X) m5 0x8001fb54#64 (r81 X) m5 := by
+  at_open
+  at_call (Lua.Vm.Fn.Ledf2.sum _ _ _ hframe? _ _ (by decide))
+
+theorem at_8001fb54_8001fb58_t_1 (X : Cx) (hX : X.Ok) (hg_1 : zopz0zKzJ_s (Loc.den X (.fn f19)) (Loc.den X (.lit 0x0#64)) = true) :
+    AtStep X 0x8001fb54#64 (r81 X) m5 0x8001fb7c#64 (r82 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb54_8001fb58_t
+
+theorem at_8001fb7c_8001fb88_3 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb7c#64 (r82 X) m5 0x8002e3c0#64 (r60 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb7c_8001fb88
+
+theorem at_8001fb54_8001fb58_n_1 (X : Cx) (hX : X.Ok) (hg_1 : zopz0zKzJ_s (Loc.den X (.fn f19)) (Loc.den X (.lit 0x0#64)) = false) :
+    AtStep X 0x8001fb54#64 (r81 X) m5 0x8001fb58#64 (r81 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb54_8001fb58_n
+
+theorem at_8001fb58_8001fb60_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb58#64 (r81 X) m5 0x8002f188#64 (r83 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb58_8001fb60
+
+theorem call_8001fb60_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8002f188#64 (r83 X) m5 0x8001fb60#64 (r84 X) m5 := by
+  at_open
+  at_call (Lua.Vm.Fn.Fixdfdi.sum _ _ _ hframe? _ (by decide))
+
+theorem at_8001fb60_8001fb6c_1 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001fb60#64 (r84 X) m5 0x8001c900#64 (r85 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001fb60_8001fb6c
+
+theorem at_8001c900_8001c90c_t_10 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.val .a 0) (.fn f20)) (.lit 0x0#64)))) = true) :
+    AtStep X 0x8001c900#64 (r85 X) m5 0x8001c910#64 (r86 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_t
+
+theorem at_8001c910_8001c918_10 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c910#64 (r86 X) m5 0x8001bfe4#64 (r9 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001c910_8001c918
+
+theorem at_8001c900_8001c90c_n_10 (X : Cx) (hX : X.Ok) (hg_3 : ((Loc.den X (.lit (if X.ins.k then 1#64 else 0#64))) != (Loc.den X (.addw (.slt (.val .a 0) (.fn f20)) (.lit 0x0#64)))) = false) :
+    AtStep X 0x8001c900#64 (r85 X) m5 0x8001c90c#64 (r86 X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001c900_8001c90c_n
+
+theorem at_8001c90c_8001c910_10 (X : Cx) (hX : X.Ok) :
+    AtStep X 0x8001c90c#64 (r86 X) m5 0x8001eaf4#64 (headRow X) m5 := by
+  at_seg Lua.Vm.Arms.seg_8001c90c_8001c910
+end
 
 end Lua.Vm.At.LT_F

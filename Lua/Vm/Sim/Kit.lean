@@ -65,6 +65,18 @@ import Lua.Vm.Sim.Kit.CallArm
 import Lua.Vm.Sim.Kit.CallPrint
 import Lua.Vm.Sim.Kit.PrintS
 import Lua.Vm.Sim.Kit.Tolstring
+import Lua.Vm.Sim.Kit.AtFltLei
+import Lua.Vm.Sim.Kit.AtFltGti
+import Lua.Vm.Sim.Kit.AtFltAdd
+import Lua.Vm.Sim.Kit.AtFltAddk
+import Lua.Vm.Sim.Kit.AtFltSubk
+import Lua.Vm.Sim.Kit.AtFltUnm
+import Lua.Vm.Sim.Kit.AtFltLe
+import Lua.Vm.Sim.Kit.AtFltF2I
+import Lua.Vm.Sim.Kit.AtFltBnot
+import Lua.Vm.Sim.Kit.AtFltBand
+import Lua.Vm.Sim.Kit.AtFltBor
+import Lua.Vm.Sim.Kit.AtFltBxor
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
