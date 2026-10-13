@@ -1,4 +1,4 @@
-# Lane F1-14: `CallOpen`'s fields (`exit` after a `print`, `luaD_poscall` with results, the stack growth)
+# Lane F1-14: `CallOpen`'s fields (`exit` after a `print`, `luaE_extendCI`, `luaD_poscall` with results, the stack growth)
 
 Base: `fdee414` (merge of lane F1-13). Route: CLAUDE.md's A1 rows: the
 callee-context at-lemmas (`gen_lua_at.py --fn`, `fat_run`), the kit route
@@ -13,12 +13,12 @@ file with `-DmaxHeartbeats` 50k and 100k (never raised; default 200k).
 | target | status | theorem / file |
 |---|---|---|
 | 1. `exitUp : ExitUp_Statement` | **proved from `FreeR_Statement`** | `exitUp_of_free` (`Kit/ExitUp.lean`); `CallOpen.exitUp` is the theorem, `CallOpen.freeR : FreeR_Statement` the remaining premise (`Kit/Malloc.lean`, A0 like `MallocR_Statement`) |
-| 2. `extendCI : ExtendCI_Statement` | open | see obstacle 2 |
+| 2. `extendCI : ExtendCI_Statement` | **proved from `MallocR_Statement`** | `extendCI_of_malloc` (`Kit/ExtendCI.lean`); `CallOpen.extendCI` is the theorem, `CallOpen.mallocR : MallocR_Statement` the premise (A0) |
 | 3. `poscall : PoscallN_Statement` | **proved** | `Ret.poscallN` (`Kit/PoscallN.lean`); `CallOpen.poscall` is the theorem |
 | 4. `grow : PrintGrow_Statement CallInv` | **proved vacuous** | `printGrow_none` (`Kit/CallOpen.lean`), from the invariant's `growFree` and `call_bounds`; `CallOpen.grow` is the theorem |
 | 5. `print : PrintRel_Statement` | open | see obstacle 3 |
 
-`CallOpen` is now `print`, `extendCI`, `freeR`.
+`CallOpen` is now `print`, `mallocR`, `freeR`: besides `PrintRel_Statement`, only the two A0 allocator premises.
 
 ## 1. `exit(0)` once `stdout` is set up
 
@@ -70,6 +70,51 @@ invariant at the new pointers before the complement and hands it to `exit`.
   (`kit_run` through `exit` and `__call_exitprocs` to the handler, then to
   `_exit`'s store, `Ret.exit_halt`), `exitUp_of_free`.
 
+## 2. `luaE_extendCI` with `ci->next` NULL
+
+**True or false.** As lane F1-13 stated it, false: `luaM_malloc_` adds the
+block's size to `g->GCdebt` (`sd a5,24(s0)`, `s0 = G(L)`) before it returns,
+and `ExtPost.keep` claimed every byte off the allocator's region, the block,
+`ci->next`, `L->nci` and the stack kept. And `luaM_malloc_` calls
+`g->frealloc` through a `jalr`, which nothing constrained.
+
+**The statement and the invariant fixed.** `ExtPost.keep` is also off
+`g->GCdebt`; `g->frealloc` (main.c's `l_alloc`, `0x8000172c`) is frozen in
+`LuaStatic` (`luaStaticWords` gains `(g, 8)`, boot-checked by
+`entryBaseCheck`), so `EntryDirty`/`CallDirty`'s `[g, g + 64)` is narrowed to
+`[g + 16, g + 64)` (a `print` never writes `frealloc`/`ud`) and the keeps
+that stated `¬ Rng g 64` with it (`PrintIn.keep_apart`, `PushPost`,
+`TolLitPost`, `TolLitAt`, `call_keep`); `g->GCdebt` joins `CallLitDirty`;
+`ExtCx` places the `lua_State`, the `CallInfo` and `g` (aligned: the entry
+contract's and the invariant's `g_al`; `L` apart from `g->GCdebt` and from the
+`CallInfo`; all three in chunks in use); `ExtPost.stdio` takes `stdout`'s
+buffer apart from the links (at the call site from `Kept.nbuf`).
+`MallocPost.brk_hi` bounds the break's growth (a strengthening of the A0
+premise; dlmalloc's `malloc_extend_top` makes one page-rounded `_sbrk` and at
+most one correction), which `ExtPost.brk` needs.
+
+**The proof.**
+
+* generated: `gen_lua_arms.py` helpers `luaE_extendCI`, `luaM_malloc_` (root
+  `0x800110c0`, stops `size == 0` and the allocation failing), `l_alloc`
+  (main.c's: `gen_lua_code.py`'s `DUP_FIRST` pins the first of the two static
+  `l_alloc`s), `realloc`, `_realloc_r` (stop: a non-NULL `ptr`); `INDIRECT`
+  `0x800110bc → 0x8000172c`; `_malloc_r` a call node reading `ra` too
+  (`CALLEE_READS`: `_realloc_r` tail-jumps to it). `gen_lua_at.py --fn
+  luaE_extendCI` (`AtF/ExtendCI`: two roots, the call node `0x8000172c`).
+* hand: `lalloc_sum` (`kit_run` to `_malloc_r`, `MallocR_Statement`),
+  `ext_ret` (root 3 to the return), `ext_post` (the post-memory facts),
+  `extendCI_of_malloc` (root 0, the call, the slots read back); the stdio
+  congruences generalised to `StdioFoot` (the stdio globals but the
+  allocator's words, `AllocWords`): `StdioBoot.congrF`, `MemfsBoot.congrF`,
+  `StdoutFresh.congrA`, `StdoutAtW.congrA`, `StdioUp.congrA`,
+  `StdoutIn.congrA` (the old `congr`/`congrT` are one-line instances;
+  `PrintSt.keep` goes through `StdoutIn.congrA`).
+* One elaboration trap, recorded: `omega` and `assumption` recurse past
+  `maxRecDepth` on `sp - 96 - 64` against literals when defeq unfolds
+  `Nat.sub`; the proof keeps such terms out of the context (numeric facts
+  normalised to literals first, `sp - 96 - 64` only in goals).
+
 ## 3. `luaD_poscall` with `C ≥ 2`
 
 `HluaD_poscall` regenerated past `0x8000a4d8` (stops: the result copies
@@ -108,6 +153,8 @@ entry contract.
 | `Kit/PoscallN.lean` | 235 | segments +1,734 (`HluaD_poscall`) | 29.7 s | 2.4 GB | `pos_one`, `posN_head` (100k, 200k]; `posN_tail` (50k, 100k] |
 | the invariant (`StdioState`, `Stdio`, `Sinit`, `Setup`, `Smakebuf`, `Swsetup`, `SfvFirst`, `StdoutSetup`, `StdoutEmpty`, `Sfvwrite`, `Fflush`, `PrintIO`, `PrintSum`, `CallClose`, `HeapKeep`) | +≈330 | — | — | — | < 50k |
 | `printGrow_none`, `call_room`/`growFree` (`CallOpen`, `EntryData`, `Boot/Check`, `Entry`, `Vararg`, `Rel`) | +≈35 | — | — | — | < 50k |
+| `Kit/ExtendCI.lean` | 369 (with doc comments) | at-lemmas 259 (`AtF/ExtendCI`); segments and sites 4,101 (five helpers) | 25.0 s | 2.8 GB | `ext_post`, `extendCI_of_malloc` (50k, 100k]; `ext_ret`, `lalloc_sum` < 50k |
+| the `ExtendCI` statement and invariant (`CallOpen`, `Rel`, `EntryData`, `Boot/Check`, `Entry`, `CallPrint`, `Tolstring`, `StdioState`, `PrintSum`, `Malloc`, generators) | +≈190 | boot witnesses regenerated | — | — | < 50k |
 
 Full `lake build Lua`: 1,263 jobs, successful, the boot witnesses re-checked
 in the kernel after `entryBaseCheck`'s new conjunct.
@@ -118,18 +165,9 @@ in the kernel after `entryBaseCheck`'s new conjunct.
    (section 1, section 3): fixed by carrying the missing facts in the
    invariant and by stating `luaD_poscall` at `print`'s zero results with the
    result slots placed, never by weakening the conclusion.
-2. **`ExtendCI_Statement` is false as stated, and its proof needs a new
-   invariant fact.** `luaE_extendCI` → `luaM_malloc_` adds the block's size
-   to `g->GCdebt` (`sd a5,24(s0)`, `s0 = G(L)`), which `ExtPost.keep` claims
-   kept (it excludes only the allocator's region, the block, `ci->next`,
-   `L->nci` and the stack). And `luaM_malloc_` calls `g->frealloc` through a
-   `jalr` (`l_alloc` at `0x8000172c`, then `realloc` → `_realloc_r(NULL)` →
-   `_malloc_r`), so the proof needs `g->frealloc` in the `CALL` invariant:
-   in `LuaStatic` (frozen, boot-checked through `luaStaticWords`), which
-   requires `CallDirty`/`EntryDirty`'s `[g, g + 64)` (lane F1-13) narrowed to
-   `[g + 16, g + 64)` (a `print` never writes `frealloc`/`ud`), and the
-   keeps that state `¬ Rng g 64` (`PrintIn.keep_apart`, `PushPost`,
-   `TolLitPost`, `TolLitAt`, `call_keep`) narrowed with it. Not done in this
-   lane.
+2. **`ExtendCI_Statement` was false as stated** (section 2): fixed by
+   freezing `g->frealloc`, narrowing the dirty region of `g`, adding
+   `g->GCdebt` to the keep's exceptions and placing the objects (`ExtCx`);
+   proved from `MallocR_Statement`, whose post gained `brk_hi`.
 3. **`PrintRel_Statement`** (target 5) is lane F1-13's obstacle 1 unchanged:
    not attempted.
