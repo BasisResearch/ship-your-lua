@@ -68,6 +68,10 @@ import Lua.Num.Arith
 import Lua.Num.SfRefSpec
 import Lua.Vm.Fn.SfRefAdd
 import Lua.Vm.Fn.SfRefSub
+import Lua.Num.SfRefCmp
+import Lua.Vm.Fn.SfRefCmp
+import Lua.Num.SfRefInt
+import Lua.Vm.Fn.SfRefInt
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/

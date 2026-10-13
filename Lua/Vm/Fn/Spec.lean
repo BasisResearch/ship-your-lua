@@ -28,17 +28,17 @@ routine's specification is `S` below, in the form the arms consume:
 | `__adddf3` | `F64.add` | `soft-fp/adddf3.c` |
 | `__subdf3` | `F64.sub` | `soft-fp/subdf3.c` |
 
-**`SoftFloatSpec`** is the named premise of the level-2 equations not yet
-proved (CLAUDE.md law 2), one field per routine; it is supplied by level 2
-(lanes L2-*) and evidenced meanwhile by the Sail vectors of `c/tests/float/`
-(`abstractions/ledger/float-s0a.md`: `+ − × / % //`, `< <= ==`, `i + 0.0`,
-bit for bit against the ELF). `Lua.Vm.Fn.<R>.spec` is the equation the
-arms use, from the premise.
+**`SoftFloatSpec`** was the named premise of the level-2 equations, one field
+per routine; every field has left it, its equation proved on the `SfRef` route
+(`Lua.Vm.Fn.<R>.spec_proved`), which the call sites use directly
+(`gen_lua_at.py`'s `FPROVED`):
 
-`__adddf3` and `__subdf3` have no field: their equations are theorems
-(round 5, B-SFREF), `Lua.Vm.Fn.Adddf3.spec_proved` (`Lua/Vm/Fn/SfRefAdd.lean`)
-and `Lua.Vm.Fn.Subdf3.spec_proved` (`Lua/Vm/Fn/SfRefSub.lean`), which the call
-sites use directly (`gen_lua_at.py`'s `FPROVED`).
+* `__adddf3`, `__subdf3` (round 5, B-SFREF): `Lua/Vm/Fn/SfRef{Add,Sub}.lean`;
+* `__eqdf2`, `__ledf2`, `__gedf2` (lane float-sf2): `Lua/Vm/Fn/SfRefCmp.lean`;
+* `__fixdfdi`, `__floatdidf`, `__floatsidf` (lane float-sf2):
+  `Lua/Vm/Fn/SfRefInt.lean`.
+
+The structure stays, empty, while the arms (`FloatArms.soft`) still name it.
 -/
 
 namespace Lua.Vm.Fn
@@ -85,20 +85,9 @@ open Lua.Num
 
 open Lua.Vm.Fn
 
-/-- **The level-2 premise**: each routine's lifted function is its
-specification (`Lua.Vm.Fn.<R>.S`). Supplied by level 2; a field leaves this
-structure when its equation is proved. -/
-structure SoftFloatSpec : Prop where
-  /-- on a canonical `int` argument (the upper word the low word's sign, as
-  RV64 keeps a 32-bit value): `__floatsidf` tests all of `a0` for zero, so a
-  zero low word under a nonzero upper word is not `0.0` (`SpecTest.lean`). -/
-  floatsidf : ∀ m s r x, FnSp s 32 → (x.setWidth 32).signExtend 64 = x →
-    Floatsidf.F m s r x = Floatsidf.S x
-  floatdidf : ∀ m s r x, FnSp s 32 → Floatdidf.F m s r x = Floatdidf.S x
-  fixdfdi : ∀ x, Fixdfdi.F x = Fixdfdi.S x
-  eqdf2 : ∀ a b, Eqdf2.F a b = Eqdf2.S a b
-  ledf2 : ∀ a b, Ledf2.F a b = Ledf2.S a b
-  gedf2 : ∀ a b, Gedf2.F a b = Gedf2.S a b
+/-- **The level-2 premise**, now empty: every routine's equation is a theorem
+(`Lua.Vm.Fn.<R>.spec_proved`). Kept while `FloatArms.soft` names it. -/
+structure SoftFloatSpec : Prop
 
 end Lua.Vm.Sim
 
@@ -106,10 +95,6 @@ namespace Lua.Vm.Fn
 open Lua.Num
 
 open Lua.Vm.Sim
-
-theorem Floatsidf.spec (hsf : SoftFloatSpec) (m : Mem) (s : Nat) (r x : BitVec 64) (hs : FnSp s 32)
-    (hx : (x.setWidth 32).signExtend 64 = x) :
-    Floatsidf.F m s r x = Floatsidf.S x := hsf.floatsidf m s r x hs hx
 
 /-- A sign-extended word is a canonical `int` argument. -/
 theorem sext32_canon (y : BitVec 32) :
@@ -122,11 +107,5 @@ theorem sext32_canon (y : BitVec 32) :
     simp [BitVec.getLsbD_signExtend, hi]
     intro; omega
   rw [e]; rfl
-theorem Floatdidf.spec (hsf : SoftFloatSpec) (m : Mem) (s : Nat) (r x : BitVec 64) (hs : FnSp s 32) :
-    Floatdidf.F m s r x = Floatdidf.S x := hsf.floatdidf m s r x hs
-theorem Fixdfdi.spec (hsf : SoftFloatSpec) (x : BitVec 64) : Fixdfdi.F x = Fixdfdi.S x := hsf.fixdfdi x
-theorem Eqdf2.spec (hsf : SoftFloatSpec) (a b : BitVec 64) : Eqdf2.F a b = Eqdf2.S a b := hsf.eqdf2 a b
-theorem Ledf2.spec (hsf : SoftFloatSpec) (a b : BitVec 64) : Ledf2.F a b = Ledf2.S a b := hsf.ledf2 a b
-theorem Gedf2.spec (hsf : SoftFloatSpec) (a b : BitVec 64) : Gedf2.F a b = Gedf2.S a b := hsf.gedf2 a b
 
 end Lua.Vm.Fn

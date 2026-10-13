@@ -100,7 +100,11 @@ FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
 # round 5 (B-SFREF, adopted): the routines whose level-2 equation is a
 # theorem (`Lua.Vm.Fn.<R>.spec_proved`), not a `SoftFloatSpec` field:
 # module -> the module of its proof. Their sites' `f<k>_eq` take no premise.
-FPROVED = {"Adddf3": "Lua.Vm.Fn.SfRefAdd", "Subdf3": "Lua.Vm.Fn.SfRefSub"}
+FPROVED = {"Adddf3": "Lua.Vm.Fn.SfRefAdd", "Subdf3": "Lua.Vm.Fn.SfRefSub",
+           # lane float-sf2: the comparisons and the conversions
+           "Eqdf2": "Lua.Vm.Fn.SfRefCmp", "Ledf2": "Lua.Vm.Fn.SfRefCmp", "Gedf2": "Lua.Vm.Fn.SfRefCmp",
+           "Floatsidf": "Lua.Vm.Fn.SfRefInt", "Floatdidf": "Lua.Vm.Fn.SfRefInt",
+           "Fixdfdi": "Lua.Vm.Fn.SfRefInt"}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
@@ -864,9 +868,11 @@ class Arm:
                 out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
                            f"def f{k} (X : Cx) : BitVec 64 :=\n"
                            f"  Lua.Vm.Fn.{mod}.F {xs}\n")
-                out.append(f"@[at_fspec] theorem f{k}_eq (hsf : SoftFloatSpec) (X : Cx) :\n"
+                hsf, spec = (("", "spec_proved") if mod in FPROVED
+                             else ("(hsf : SoftFloatSpec) ", "spec hsf"))
+                out.append(f"@[at_fspec] theorem f{k}_eq {hsf}(X : Cx) :\n"
                            f"    f{k} X = Lua.Vm.Fn.{mod}.S {xs} :=\n"
-                           f"  Lua.Vm.Fn.{mod}.spec hsf {' '.join(['_'] * len(args))}\n")
+                           f"  Lua.Vm.Fn.{mod}.{spec} {' '.join(['_'] * len(args))}\n")
         return "\n".join(out)
 
     def row(self, regs):
