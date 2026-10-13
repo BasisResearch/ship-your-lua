@@ -190,4 +190,60 @@ theorem round_scale (neg : Bool) (n j : Nat) (e : Int) :
     · rw [if_neg h2, Nat.shiftLeft_eq, Nat.shiftLeft_eq, Nat.mul_assoc, ← Nat.pow_add]
       congr 3; omega
 
+/-! ## Round to odd two bits below the rounding position (W1) -/
+
+theorem div_pow_add (n a b : Nat) : n / 2 ^ a / 2 ^ b = n / 2 ^ (a + b) := by
+  rw [Nat.div_div_eq_div_mul, ← Nat.pow_add]
+
+theorem shr_rto (n k s : Nat) (hs : 2 ≤ s) :
+    shr (rto n k) false false s = shr n false false (s + k) := by
+  unfold shr
+  rw [if_neg (by omega), if_neg (by omega)]
+  simp only [Bool.or_false]
+  unfold rto
+  split
+  · rename_i h
+    obtain ⟨q, hq⟩ : ∃ q, n = q * 2 ^ k := ⟨n / 2 ^ k, by
+      have := Nat.div_add_mod n (2 ^ k); rw [h] at this; rw [Nat.mul_comm]; omega⟩
+    subst hq
+    rw [Nat.mul_div_cancel _ (Nat.two_pow_pos k), div_scale, show s + k - 1 = (s - 1) + k by omega,
+      div_scale, mod_scale]
+    have : (q % 2 ^ (s - 1) * 2 ^ k ≠ 0) ↔ (q % 2 ^ (s - 1) ≠ 0) := by
+      constructor
+      · intro h h'; rw [h'] at h; simp at h
+      · intro h; exact Nat.mul_ne_zero h (Nat.ne_of_gt (Nat.two_pow_pos k))
+    simp only [decide_eq_decide.mpr this]
+  · rename_i h
+    have hq := Nat.div_add_mod n (2 ^ (k + 1))
+    obtain ⟨s', rfl⟩ : ∃ s', s = s' + 2 := ⟨s - 2, by omega⟩
+    have hA : ∀ a b : Nat, a / 2 ^ (b + 1) = a / 2 / 2 ^ b := by
+      intro a b; rw [Nat.div_div_eq_div_mul, Nat.pow_succ, Nat.mul_comm]
+    have hq2 : (2 * (n / 2 ^ (k + 1)) + 1) / 2 = n / 2 ^ (k + 1) := by omega
+    have e1 : (2 * (n / 2 ^ (k + 1)) + 1) / 2 ^ (s' + 2) = n / 2 ^ (s' + 2 + k) := by
+      have l : (2 * (n / 2 ^ (k + 1)) + 1) / 2 ^ (s' + 2) = n / 2 ^ (k + 1) / 2 ^ (s' + 1) := by
+        rw [hA, hq2]
+      have r : n / 2 ^ (s' + 2 + k) = n / 2 ^ (k + 1) / 2 ^ (s' + 1) := by
+        rw [div_pow_add]; congr 2; omega
+      rw [l, r]
+    have e2 : (2 * (n / 2 ^ (k + 1)) + 1) / 2 ^ (s' + 2 - 1) = n / 2 ^ (s' + 2 + k - 1) := by
+      have l : (2 * (n / 2 ^ (k + 1)) + 1) / 2 ^ (s' + 2 - 1) = n / 2 ^ (k + 1) / 2 ^ s' := by
+        rw [show s' + 2 - 1 = s' + 1 by omega, hA, hq2]
+      have r : n / 2 ^ (s' + 2 + k - 1) = n / 2 ^ (k + 1) / 2 ^ s' := by
+        rw [div_pow_add]; congr 2; omega
+      rw [l, r]
+    have e3 : (2 * (n / 2 ^ (k + 1)) + 1) % 2 ^ (s' + 2 - 1) ≠ 0 := by
+      rw [show s' + 2 - 1 = s' + 1 by omega]
+      intro h0
+      have hd : 2 ∣ 2 ^ (s' + 1) := ⟨2 ^ s', by rw [Nat.pow_succ, Nat.mul_comm]⟩
+      have := Nat.mod_mod_of_dvd (2 * (n / 2 ^ (k + 1)) + 1) hd
+      rw [h0, Nat.zero_mod] at this
+      omega
+    have e4 : n % 2 ^ (s' + 2 + k - 1) ≠ 0 := by
+      intro h0
+      apply h
+      have hd : 2 ^ k ∣ 2 ^ (s' + 2 + k - 1) := Nat.pow_dvd_pow 2 (by omega)
+      rw [← Nat.mod_mod_of_dvd n hd, h0, Nat.zero_mod]
+    rw [e1, e2]
+    simp only [e3, e4, ne_eq, not_false_eq_true, decide_true]
+
 end Lua.Num.SfRef
