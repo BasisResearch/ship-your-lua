@@ -4,6 +4,7 @@ import Lua.Vm.Sim.Kit.AtCond
 import Lua.Vm.Sim.Kit.AtFloat
 import Lua.Vm.Sim.Kit.AtFrame
 import Lua.Vm.Fn.SfRefCmp
+import Lua.Vm.Fn.SfRefFloorSpec
 import Lua.Vm.Fn.SfRefInt
 import Lua.Vm.Arms
 
@@ -24,7 +25,7 @@ open Lua.Vm.Sim Lua.Vm.Sim.At Lua.Bytecode Lua.Vm.Layout
 open Vsa.Machine (Config)
 
 -- the lifted functions are compared by their arguments, never unfolded
-attribute [local irreducible] Lua.Vm.Fn.Floatsidf.F Lua.Vm.Fn.Floatsidf.Fm Lua.Vm.Fn.Eqdf2.F Lua.Vm.Fn.Ledf2.F Lua.Vm.Fn.Gedf2.F Lua.Vm.Fn.Adddf3.F Lua.Vm.Fn.Adddf3.Fm Lua.Vm.Fn.Floatdidf.F Lua.Vm.Fn.Floatdidf.Fm Lua.Vm.Fn.Subdf3.F Lua.Vm.Fn.Subdf3.Fm Lua.Vm.Fn.Fixdfdi.F Lua.Vm.Fn.Floor.F Lua.Vm.Fn.Floor.Fm
+attribute [local irreducible] Lua.Vm.Fn.Floatsidf.F Lua.Vm.Fn.Floatsidf.Fm Lua.Vm.Fn.Eqdf2.F Lua.Vm.Fn.Ledf2.F Lua.Vm.Fn.Gedf2.F Lua.Vm.Fn.Adddf3.F Lua.Vm.Fn.Adddf3.Fm Lua.Vm.Fn.Floatdidf.F Lua.Vm.Fn.Floatdidf.Fm Lua.Vm.Fn.Subdf3.F Lua.Vm.Fn.Subdf3.Fm Lua.Vm.Fn.Fixdfdi.F Lua.Vm.Fn.Floor.F Lua.Vm.Fn.Floor.Fm Lua.Vm.Fn.Muldf3.F Lua.Vm.Fn.Muldf3.Fm
 
 namespace Lua.Vm.At.BXORK_F
 noncomputable section
@@ -37,9 +38,9 @@ noncomputable def f0 (X : Cx) : BitVec 64 :=
 noncomputable def k0 (X : Cx) (M : Mem) : Mem :=
   Lua.Vm.Fn.Floor.Fm M X.w.sp (0x8001fce4#64) (Loc.den X (.val .b 0))
 
-@[at_fspec] theorem f0_eq (hfl : FloorSpec) (X : Cx) (hX : X.Ok) :
+@[at_fspec] theorem f0_eq (X : Cx) (hX : X.Ok) :
     Lua.Num.F64.toModel (f0 X) = Lua.Num.floor (Lua.Num.F64.toModel (Loc.den X (.val .b 0))) :=
-  Lua.Vm.Fn.Floor.spec hfl _ _ _ _ (at_fnSp hX)
+  Lua.Vm.Fn.Floor.spec Lua.Vm.Sim.floorSpec_proved _ _ _ _ (at_fnSp hX)
 
 @[at_row] abbrev m0 : List Ent :=
   [.clob ⟨[(1, .sp)], 0, 112⟩ 112 k0]
@@ -479,11 +480,11 @@ theorem at_8001fcd8_8001fce4 (X : Cx) (hX : X.Ok) (hs_b0 : X.ins.b + 0 < X.p.max
     AtStep X 0x8001fcd8#64 (r3 X) [] 0x8002bb14#64 (r4 X) [] := by
   at_seg Lua.Vm.Arms.seg_8001fcd8_8001fce4
 
-theorem call_8001fce4 (X : Cx) (hX : X.Ok) (hfl : FloorSpec) :
+theorem call_8001fce4 (X : Cx) (hX : X.Ok) :
     AtStep X 0x8002bb14#64 (r4 X) [] 0x8001fce4#64 (r5 X) m0 := by
   at_open
   obtain ⟨_, h⟩ := Vsa.Sim.SegSt.pin22 h
-  at_call (Lua.Vm.Fn.Floor.sum hfl _ _ _ _ sframe? _ (at_fnSp hX) (by decide) (by at_rod))
+  at_call (Lua.Vm.Fn.Floor.sum Lua.Vm.Sim.floorSpec_proved _ _ _ _ sframe? _ (at_fnSp hX) (by decide) (by at_rod))
 
 theorem at_8001fce4_8001fcf4 (X : Cx) (hX : X.Ok) :
     AtStep X 0x8001fce4#64 (r5 X) m0 0x8002e350#64 (r6 X) m0 := by

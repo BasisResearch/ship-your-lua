@@ -94,7 +94,9 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               # lane F3: the shifts' float paths (`luaV_shiftl` inlined, on
               # `tointegerns`'s converted operands)
               "OP_SHL_F": ("ShlF", 0x8001d5f0), "OP_SHR_F": ("ShrF", 0x8001d57c),
-              "OP_SHLI_F": ("ShliF", 0x8001dd30), "OP_SHRI_F": ("ShriF", 0x8001dd8c)}
+              "OP_SHLI_F": ("ShliF", 0x8001dd30), "OP_SHRI_F": ("ShriF", 0x8001dd8c),
+              # lane F1-F5: `op_arithf(K)`'s `luai_nummul` by `__muldf3` (every path)
+              "OP_MUL": ("Mul", 0x8001dcc8), "OP_MULK": ("Mulk", 0x8001db3c)}
 SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("SHL", "SHR", "SHLI", "SHRI")},
 "OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
@@ -126,10 +128,17 @@ FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
           0x8002f200: ("Floatdidf", 1, 32), 0x8002e9d0: ("Subdf3", 2, 48),
           # lane F2 (ported from round 5's A-INC, branch
           # worktree-agent-af308d3f0fd62a0df): `luaV_flttointeger`'s chain
-          0x8002f188: ("Fixdfdi", 1, 0), 0x8002bb14: ("Floor", 1, 112)}
-# libm `floor` is a named premise (`FloorSpec`, `Lua/Vm/Fn/Floor.lean`): its
-# summary and its result's model take it
-PREMISED = {"Floor": "hfl"}
+          0x8002f188: ("Fixdfdi", 1, 0), 0x8002bb14: ("Floor", 1, 112),
+          # lane F1-F5: `luai_nummul` (`Muldf3.spec_proved`, lane float-sf3)
+          0x8002e504: ("Muldf3", 2, 80)}
+# a routine whose summary and result model are stated through a premise
+# structure (`FloorSpec`, `Lua/Vm/Fn/Floor.lean`): module -> the premise's
+# hypothesis name while it is open (`PREMISED`), or the theorem passed in its
+# place once proved (`PREMISE_PROOF`; the module is then in `FPROVED`)
+PREMISED = {}
+# lane F1-F5: libm `floor`'s premise is `floorSpec_proved` (lane float-sf3)
+PREMISE_PROOF = {"Floor": "Lua.Vm.Sim.floorSpec_proved"}
+PREMISE_FORM = set(PREMISED) | set(PREMISE_PROOF)
 # round 5 (B-SFREF, adopted): the routines whose level-2 equation is a
 # theorem (`Lua.Vm.Fn.<R>.spec_proved`), not a `SoftFloatSpec` field:
 # module -> the module of its proof. Their sites' `f<k>_eq` take no premise.
@@ -140,7 +149,9 @@ FPROVED = {"Adddf3": "Lua.Vm.Fn.SfRefAdd", "Subdf3": "Lua.Vm.Fn.SfRefSub",
            "Fixdfdi": "Lua.Vm.Fn.SfRefInt",
            # lane float-sf3: `__muldf3` (its call node, `0x8002e504`, enters
            # `FCALLS` with the MUL/MULK arms' float paths)
-           "Muldf3": "Lua.Vm.Fn.SfRefMul"}
+           "Muldf3": "Lua.Vm.Fn.SfRefMul",
+           # lane F1-F5: libm `floor` (`FloorSpec`, proved by lane float-sf3)
+           "Floor": "Lua.Vm.Fn.SfRefFloorSpec"}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
@@ -757,7 +768,8 @@ def call_effect(st, callee, ret):
         k = CUR[0].fsite(mod, args, tuple(st.log), ret, frame)
         post.set(10, ("fsite", k))
         vs = " ".join(["_"] * nargs)
-        pre = f"{PREMISED[mod]} " if mod in PREMISED else ""
+        pre = (f"{PREMISED[mod]} " if mod in PREMISED else
+               f"{PREMISE_PROOF[mod]} " if mod in PREMISE_PROOF else "")
         if mod in PREMISED:
             hyps.append(f"({PREMISED[mod]} : {mod}Spec)")
         if frame:
@@ -898,17 +910,19 @@ class Arm:
                 continue
             xs = " ".join(f"(Loc.den X {lean_loc(y)})" for y in args)
             r = f"(0x{ret:x}#64)"
-            if mod in PREMISED:
-                h = PREMISED[mod]
+            if mod in PREMISE_FORM:
+                h = PREMISED.get(mod)
+                hyp = f"({h} : {mod}Spec) " if h else ""
+                arg = h or PREMISE_PROOF[mod]
                 out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
                            f"noncomputable def f{k} (X : Cx) : BitVec 64 :=\n"
                            f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {xs}\n")
                 out.append(f"/-- ... its frame. -/\n"
                            f"noncomputable def k{k} (X : Cx) (M : Mem) : Mem :=\n"
                            f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {xs}\n")
-                out.append(f"@[at_fspec] theorem f{k}_eq ({h} : {mod}Spec) (X : Cx) (hX : X.Ok) :\n"
+                out.append(f"@[at_fspec] theorem f{k}_eq {hyp}(X : Cx) (hX : X.Ok) :\n"
                            f"    Lua.Num.F64.toModel (f{k} X) = Lua.Num.floor (Lua.Num.F64.toModel {xs}) :=\n"
-                           f"  Lua.Vm.Fn.{mod}.spec {h} _ _ _ _ (at_fnSp hX)\n")
+                           f"  Lua.Vm.Fn.{mod}.spec {arg} _ _ _ _ (at_fnSp hX)\n")
             elif frame:
                 out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
                            f"def f{k} (X : Cx) : BitVec 64 :=\n"
@@ -1296,7 +1310,7 @@ class Arm:
         proved = sorted({FPROVED[k[0]] for k in self.fsites if k[0] in FPROVED})
         extra = "".join(f"import {m}\n" for m in IMPORTS.get(self.op, []) + proved)
         # a premised routine's result is chosen from its premise (`noncomputable`)
-        prem = any(key[0] in PREMISED for key in self.fsites)
+        prem = any(key[0] in PREMISE_FORM for key in self.fsites)
         nc_open = "noncomputable section\n" if prem else ""
         nc_close = "end\n" if prem else ""
         return f"""import Lua.Vm.Sim.Kit.At

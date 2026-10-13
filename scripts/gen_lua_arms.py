@@ -407,6 +407,10 @@ FLOAT_ARMS = {"OP_LOADF", "OP_EQI", "OP_LTI", "OP_GEI", "OP_ADDI", "OP_FORLOOP",
               # lane F3: the shifts' `tointegerns` (a converted operand live across
               # the calls: `s10`)
               "OP_SHL", "OP_SHR", "OP_SHLI", "OP_SHRI"}
+# lane F1-F5: `luai_nummul` by `__muldf3` (proved: `Muldf3.spec_proved`), a
+# call node of MUL's and MULK's float paths
+FLOAT_CALLS |= {"__muldf3"}
+FLOAT_ARMS |= {"OP_MUL", "OP_MULK"}
 SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the

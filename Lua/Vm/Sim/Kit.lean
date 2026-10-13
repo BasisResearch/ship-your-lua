@@ -86,6 +86,9 @@ import Lua.Vm.Sim.Kit.AtFltShl
 import Lua.Vm.Sim.Kit.AtFltShr
 import Lua.Vm.Sim.Kit.AtFltShli
 import Lua.Vm.Sim.Kit.AtFltShri
+import Lua.Vm.Sim.Kit.AtFltMul
+import Lua.Vm.Sim.Kit.AtFltMulk
+import Lua.Vm.Sim.Kit.FltEqi
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

@@ -18,7 +18,7 @@ namespace Lua.Vm.Sim.At
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
--- **`OP_SHLI` with a float `R[B]`** (`FloatArms.SHLI`), under `floor`'s premise.
+-- **`OP_SHLI` with a float `R[B]`** (`FloatArms.SHLI`) (`floor` by `floorSpec_proved`).
 shift_flt_arm sim_SHLI_flt .SHLI 0x8001dd30 Lua.Vm.At.SHLI_F
 
 end Lua.Vm.Sim.At

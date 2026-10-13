@@ -18,7 +18,7 @@ namespace Lua.Vm.Sim.At
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout Lua.Num
 open Vsa.Machine (MState Config Steps StepsN)
 
--- **`OP_BOR` with a float operand** (`FloatArms.BOR`), under `floor`'s premise.
+-- **`OP_BOR` with a float operand** (`FloatArms.BOR`) (`floor` by `floorSpec_proved`).
 bitwise_flt_arm sim_BOR_flt .BOR 0x8001da70 Lua.Vm.At.BOR_F
 
 end Lua.Vm.Sim.At

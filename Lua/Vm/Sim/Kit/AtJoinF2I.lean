@@ -6,7 +6,7 @@ import Lua.Vm.Sim.Kit.FltValLt
 
 `op_order` on an integer outside `l_intfitsf` and a float (`LTintfloat`,
 `LEintfloat`, `LTfloatint`, `LEfloatint`): the machine calls `floor`
-(`FloorSpec`), compares `n` with it (`__eqdf2`), adds `1.0` for `F2Iceil`,
+(`FloorSpec`, `floorSpec_proved`), compares `n` with it (`__eqdf2`), adds `1.0` for `F2Iceil`,
 range-checks against the `.rodata` constants `(double)LUA_MININTEGER` and
 `-(double)LUA_MININTEGER`, converts by `__fixdfdi` and compares integers;
 out of range it compares the float with `0`.
@@ -326,7 +326,7 @@ macro "at_jbit " pc:num ns:ident j:term "," k:term : tactic => `(tactic| (
 
 /-- **`bitwise_flt_arm name OP pc NS`**: an `op_bitwise` arm's float paths
 as one declaration per (float operand, the other's class) (`at_jbit`), and
-`name : SoftFloatSpec → FloorSpec → SimArmOn OP FltBC` from them. -/
+`name : SoftFloatSpec → SimArmOn OP FltBC` from them. -/
 syntax "bitwise_flt_arm " ident term:max num ident : command
 
 set_option hygiene false in
@@ -336,14 +336,14 @@ macro_rules
     let one (side cls : String) : Lean.MacroM (Lean.TSyntax `command) := do
       let (j, k) ← if side == "b" then pure ((← `(ins.b)), (← `(ins.c))) else pure ((← `(ins.c)), (← `(ins.b)))
       let n := Lean.Syntax.mkNumLit cls
-      `(theorem $(mk s!"_{side}{cls}") (hsf : SoftFloatSpec) (hfl : FloorSpec) :
+      `(theorem $(mk s!"_{side}{cls}") (hsf : SoftFloatSpec) :
           ArmBody $op fun _ _ s _ ins => FltReg s $j ∧ RegCls $n s $k :=
         fun {p} hS {c s s' w ins} hA hf hop hstep hT => by at_jbit $pc $ns $j, $k)
     let cmds ← ["b", "c"].flatMap (fun side => ["0", "1", "2"].map (side, ·)) |>.mapM fun (side, cls) => one side cls
-    let fin ← `(theorem $nm (hsf : SoftFloatSpec) (hfl : FloorSpec) : SimArmOn $op FltBC :=
+    let fin ← `(theorem $nm (hsf : SoftFloatSpec) : SimArmOn $op FltBC :=
         sim_on_or (by decide)
-          (armBody_cls (·.c) ($(mk "_b0") hsf hfl) ($(mk "_b1") hsf hfl) ($(mk "_b2") hsf hfl))
-          (armBody_cls (·.b) ($(mk "_c0") hsf hfl) ($(mk "_c1") hsf hfl) ($(mk "_c2") hsf hfl)))
+          (armBody_cls (·.c) ($(mk "_b0") hsf) ($(mk "_b1") hsf) ($(mk "_b2") hsf))
+          (armBody_cls (·.b) ($(mk "_c0") hsf) ($(mk "_c1") hsf) ($(mk "_c2") hsf)))
     return Lean.mkNullNode (cmds.toArray.push fin)
 
 end Lua.Vm.Sim.At

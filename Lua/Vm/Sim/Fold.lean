@@ -357,22 +357,19 @@ of `c/tests/float/` (`abstractions/ledger/float-s0a.md`, `float-s1.md`).
 The arms proved under `SoftFloatSpec` are joined in `armTable` and have no
 field: `LOADF`, `ADDI`, `LTI`, `GEI` (lane float-m0), `SUB`, `FORLOOP`
 (round 5, A-JOIN), `LEI`, `GTI`, `ADD`, `ADDK`, `SUBK`, `UNM` (lane F2,
-join route), `LT` and `LE` (lane F2: their f2i paths under `floor`,
-`FloorSpec`), `BNOT`, `BAND`, `BOR`, `BXOR` (lane F2: `tointegerns` under
-`FloorSpec`), `BANDK`, `BORK`, `BXORK` (lane F3: `K[C]` read through
-`floor`'s frame, under `FloorSpec`), `SHL`, `SHR`, `SHLI`, `SHRI` (lane F3: the
-shift's tests of `__fixdfdi`'s value as residual atoms, under `FloorSpec`).
-`EQI` and `FORPREP` are proved but for
-the paths their fields name (`At.EqiFlt_Statement`, `At.FpCoerce_Statement`). -/
+join route), `LT` and `LE` (lane F2: their f2i paths through `floor`),
+`BNOT`, `BAND`, `BOR`, `BXOR` (lane F2: `tointegerns`), `BANDK`, `BORK`,
+`BXORK` (lane F3: `K[C]` read through `floor`'s frame), `SHL`, `SHR`, `SHLI`,
+`SHRI` (lane F3: the shift's tests of `__fixdfdi`'s value as residual atoms),
+`MUL`, `MULK` (lane F1-F5: `__muldf3`, `Muldf3.spec_proved`). libm `floor`'s
+premise `FloorSpec` is `floorSpec_proved` (lane float-sf3), passed by the
+generated at-lemmas (lane F1-F5). `EQI` (lane F1-F5: `At.eqiFlt_proved`). `FORPREP`
+is proved but for the paths its field names (`At.FpCoerce_Statement`). -/
 structure FloatArms : Prop where
   /-- the soft-float routines' level-2 equations not yet proved
   (`Lua/Vm/Fn/Spec.lean`): empty since lane float-sf2, every routine's is a
   theorem `Lua.Vm.Fn.<R>.spec_proved`; kept while the arms name it -/
   soft : SoftFloatSpec
-  /-- libm `floor`'s summary and result model (`Lua/Vm/Fn/Floor.lean`): the
-  f2i paths of `LT` and `LE` (`At.lt_flt_f2i`, `At.le_flt_f2i`) and the
-  bitwise arms' `tointegerns` (`At.sim_BAND_flt`, …) -/
-  floor : FloorSpec
   /-- `OP_DIV` (`op_arithf`: `__floatdidf`, `__divdf3`; T3) -/
   DIV : SimArm .DIV
   /-- `OP_DIVK` (`op_arithfK`; T3) -/
@@ -381,14 +378,10 @@ structure FloatArms : Prop where
   POW : SimArm .POW
   /-- `OP_POWK` (T4) -/
   POWK : SimArm .POWK
-  /-- `OP_MUL` with a float operand (`__muldf3`; T3) -/
-  MUL : SimArmOn .MUL FltBC
   /-- `OP_MOD` with a float operand (`luaV_modf`: `fmod`; T4) -/
   MOD : SimArmOn .MOD FltBC
   /-- `OP_IDIV` with a float operand (`luai_numidiv`: `__divdf3`, `floor`; T4) -/
   IDIV : SimArmOn .IDIV FltBC
-  /-- `OP_MULK` with a float operand (T3) -/
-  MULK : SimArmOn .MULK FltBK
   /-- `OP_MODK` with a float operand (T4) -/
   MODK : SimArmOn .MODK FltBK
   /-- `OP_IDIVK` with a float operand (T4) -/
@@ -397,9 +390,6 @@ structure FloatArms : Prop where
   EQ : SimArmOn .EQ FltAB
   /-- `OP_EQK` with a float `R[A]` or `K[B]` (`luaV_rawequalobj`; T3) -/
   EQK : SimArmOn .EQK FltAKb
-  /-- `OP_EQI` with a float `R[A]`: `δ .eq` of a float and an 8-bit
-  immediate is `Float.Model.beq`; the machine side is `At.sim_EQI_flt` -/
-  EQI : At.EqiFlt_Statement
   /-- `OP_FORPREP`'s coerced classes, neither three integers nor three floats
   (`forlimit`'s `luaV_tointeger`/`luaV_tonumber_` → `strtod`); the float loop
   is `At.sim_FORPREP_flt` -/
@@ -421,43 +411,43 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case GETTABUP => exact At.sim_GETTABUP
   case ADD => exact SimArm.split @sim_ADD (At.sim_ADD_flt hF.soft)
   case SUB => exact SimArm.split @sim_SUB (At.sim_SUB_flt hF.soft)
-  case MUL => exact SimArm.split Kit.sim_MUL hF.MUL
+  case MUL => exact SimArm.split Kit.sim_MUL At.sim_MUL_flt
   case MOD => exact SimArm.split Kit.sim_MOD hF.MOD
   case IDIV => exact SimArm.split At.sim_IDIV hF.IDIV
-  case BAND => exact SimArm.split @sim_BAND (At.sim_BAND_flt hF.soft hF.floor)
-  case BOR => exact SimArm.split @sim_BOR (At.sim_BOR_flt hF.soft hF.floor)
-  case BXOR => exact SimArm.split @sim_BXOR (At.sim_BXOR_flt hF.soft hF.floor)
-  case SHL => exact SimArm.split At.sim_SHL (At.sim_SHL_flt hF.soft hF.floor)
-  case SHR => exact SimArm.split At.sim_SHR (At.sim_SHR_flt hF.soft hF.floor)
+  case BAND => exact SimArm.split @sim_BAND (At.sim_BAND_flt hF.soft)
+  case BOR => exact SimArm.split @sim_BOR (At.sim_BOR_flt hF.soft)
+  case BXOR => exact SimArm.split @sim_BXOR (At.sim_BXOR_flt hF.soft)
+  case SHL => exact SimArm.split At.sim_SHL (At.sim_SHL_flt hF.soft)
+  case SHR => exact SimArm.split At.sim_SHR (At.sim_SHR_flt hF.soft)
   case DIV => exact hF.DIV
   case POW => exact hF.POW
   case ADDK => exact SimArm.split @sim_ADDK (At.sim_ADDK_flt hF.soft)
   case SUBK => exact SimArm.split @sim_SUBK (At.sim_SUBK_flt hF.soft)
-  case MULK => exact SimArm.split Kit.sim_MULK hF.MULK
+  case MULK => exact SimArm.split Kit.sim_MULK At.sim_MULK_flt
   case MODK => exact SimArm.split At.sim_MODK hF.MODK
   case IDIVK => exact SimArm.split At.sim_IDIVK hF.IDIVK
   case DIVK => exact hF.DIVK
   case POWK => exact hF.POWK
-  case BANDK => exact SimArm.split At.sim_BANDK (At.sim_BANDK_flt hF.soft hF.floor)
-  case BORK => exact SimArm.split At.sim_BORK (At.sim_BORK_flt hF.soft hF.floor)
-  case BXORK => exact SimArm.split At.sim_BXORK (At.sim_BXORK_flt hF.soft hF.floor)
+  case BANDK => exact SimArm.split At.sim_BANDK (At.sim_BANDK_flt hF.soft)
+  case BORK => exact SimArm.split At.sim_BORK (At.sim_BORK_flt hF.soft)
+  case BXORK => exact SimArm.split At.sim_BXORK (At.sim_BXORK_flt hF.soft)
   case ADDI => exact SimArm.split @sim_ADDI (At.sim_ADDI_flt hF.soft)
-  case SHRI => exact SimArm.split At.sim_SHRI (At.sim_SHRI_flt hF.soft hF.floor)
-  case SHLI => exact SimArm.split At.sim_SHLI (At.sim_SHLI_flt hF.soft hF.floor)
+  case SHRI => exact SimArm.split At.sim_SHRI (At.sim_SHRI_flt hF.soft)
+  case SHLI => exact SimArm.split At.sim_SHLI (At.sim_SHLI_flt hF.soft)
   case MMBIN => exact h.MMBIN
   case MMBINI => exact h.MMBINI
   case MMBINK => exact h.MMBINK
   case UNM => exact SimArm.split (At.sim_UNM_of_str h.UNM_str) At.sim_UNM_flt
-  case BNOT => exact SimArm.split @sim_BNOT (At.sim_BNOT_flt hF.soft hF.floor)
+  case BNOT => exact SimArm.split @sim_BNOT (At.sim_BNOT_flt hF.soft)
   case NOT => exact @sim_NOT
   case LEN => exact At.sim_LEN
   case CONCAT => exact h.CONCAT
   case JMP => exact @sim_JMP
   case EQ => exact SimArm.split Kit.sim_EQ hF.EQ
   case EQK => exact SimArm.split At.sim_EQK hF.EQK
-  case EQI => exact SimArm.split @sim_EQI (At.sim_EQI_flt hF.soft hF.EQI)
-  case LT => exact SimArm.split At.sim_LT (At.sim_LT_flt hF.soft (At.lt_flt_f2i hF.soft hF.floor))
-  case LE => exact SimArm.split At.sim_LE (At.sim_LE_flt hF.soft (At.le_flt_f2i hF.soft hF.floor))
+  case EQI => exact SimArm.split @sim_EQI (At.sim_EQI_flt hF.soft At.eqiFlt_proved)
+  case LT => exact SimArm.split At.sim_LT (At.sim_LT_flt hF.soft (At.lt_flt_f2i hF.soft))
+  case LE => exact SimArm.split At.sim_LE (At.sim_LE_flt hF.soft (At.le_flt_f2i hF.soft))
   case LTI => exact SimArm.split @sim_LTI (At.sim_LTI_flt hF.soft)
   case LEI => exact SimArm.split @sim_LEI (At.sim_LEI_flt hF.soft)
   case GTI => exact SimArm.split @sim_GTI (At.sim_GTI_flt hF.soft)

@@ -306,7 +306,7 @@ macro "at_jshiftI " pc:num ns:ident : tactic => `(tactic| (
 
 /-- **`shift_flt_arm name OP pc NS`**: a shift arm with a float `R[B]` as
 one declaration per `F2Ieq` outcome (`at_jshiftI`), and
-`name : SoftFloatSpec → FloorSpec → SimArmOn OP FltB` from them. -/
+`name : SoftFloatSpec → SimArmOn OP FltB` from them. -/
 syntax "shift_flt_arm " ident term:max num ident : command
 
 set_option hygiene false in
@@ -315,11 +315,11 @@ macro_rules
     let mk (s : String) : Lean.Ident := Lean.mkIdent (nm.getId.appendAfter s)
     let one (ok : String) : Lean.MacroM (Lean.TSyntax `command) := do
       let b ← if ok == "1" then `(true) else `(false)
-      `(theorem $(mk s!"_{ok}") (hsf : SoftFloatSpec) (hfl : FloorSpec) :
+      `(theorem $(mk s!"_{ok}") (hsf : SoftFloatSpec) :
           ArmBody $op fun _ _ s _ ins => FltReg s ins.b ∧ F2IC $b ins.b s :=
         fun {p} hS {c s s' w ins} hA hf hop hstep hT => by at_jshiftI $pc $ns)
-    let fin ← `(theorem $nm (hsf : SoftFloatSpec) (hfl : FloorSpec) : SimArmOn $op FltB :=
-        sim_arm_on (by decide) (armBody_f2ic (·.b) ($(mk "_1") hsf hfl) ($(mk "_0") hsf hfl) id))
+    let fin ← `(theorem $nm (hsf : SoftFloatSpec) : SimArmOn $op FltB :=
+        sim_arm_on (by decide) (armBody_f2ic (·.b) ($(mk "_1") hsf) ($(mk "_0") hsf) id))
     return Lean.mkNullNode #[← one "1", ← one "0", fin]
 
 set_option hygiene false in
@@ -358,7 +358,7 @@ macro "at_jshift2f " pc:num ns:ident j:term "," k:term : tactic => `(tactic| (
 /-- **`shift2_flt_arm name OP pc NS`**: `OP_SHL`/`OP_SHR`'s float paths as
 one declaration per (float operand and its `F2Ieq` outcome, the other's
 class, and its outcome if a float) (`at_jshift2`, `at_jshift2f`), and
-`name : SoftFloatSpec → FloorSpec → SimArmOn OP FltBC` from them
+`name : SoftFloatSpec → SimArmOn OP FltBC` from them
 (`armBody_f2ic`, `armBody_cls`, `sim_on_or`). -/
 syntax "shift2_flt_arm " ident term:max num ident : command
 
@@ -376,30 +376,28 @@ macro_rules
       for cls in ["1", "2"] do
         for ok in ["1", "0"] do
           let n := Lean.Syntax.mkNumLit cls
-          cmds := cmds.push (← `(theorem $(mk s!"_{side}{cls}_{ok}") (hsf : SoftFloatSpec)
-              (hfl : FloorSpec) :
+          cmds := cmds.push (← `(theorem $(mk s!"_{side}{cls}_{ok}") (hsf : SoftFloatSpec) :
               ArmBody $op fun _ _ s _ ins => (FltReg s $j ∧ RegCls $n s $k) ∧ F2IC $(← bool ok) $j s :=
             fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
               at_jshift2 $pc $ns $j, $k (have hqc_cls2 : True := trivial)))
       -- the other a float: per outcome of each
       for ok in ["1", "0"] do
         for ok' in ["1", "0"] do
-          cmds := cmds.push (← `(theorem $(mk s!"_{side}0_{ok}{ok'}") (hsf : SoftFloatSpec)
-              (hfl : FloorSpec) :
+          cmds := cmds.push (← `(theorem $(mk s!"_{side}0_{ok}{ok'}") (hsf : SoftFloatSpec) :
               ArmBody $op fun _ _ s _ ins =>
                 ((FltReg s $j ∧ RegCls 0 s $k) ∧ F2IC $(← bool ok) $j s) ∧ F2IC $(← bool ok') $k s :=
             fun {p} hS {c s s' w ins} hA hf hop hstep hT => by at_jshift2f $pc $ns $j, $k))
     let cl (side cls : String) : Lean.MacroM Lean.Term := do
       let (j, _) ← regs side
-      `(armBody_f2ic (fun ins => $j) ($(mk s!"_{side}{cls}_1") hsf hfl) ($(mk s!"_{side}{cls}_0") hsf hfl)
+      `(armBody_f2ic (fun ins => $j) ($(mk s!"_{side}{cls}_1") hsf) ($(mk s!"_{side}{cls}_0") hsf)
           (fun h => h.1))
     let cl0 (side : String) : Lean.MacroM Lean.Term := do
       let (j, k) ← regs side
       let half (ok : String) : Lean.MacroM Lean.Term :=
-        `(armBody_f2ic (fun ins => $k) ($(mk s!"_{side}0_{ok}1") hsf hfl) ($(mk s!"_{side}0_{ok}0") hsf hfl)
+        `(armBody_f2ic (fun ins => $k) ($(mk s!"_{side}0_{ok}1") hsf) ($(mk s!"_{side}0_{ok}0") hsf)
             (fun h => h.1.2))
       `(armBody_f2ic (fun ins => $j) $(← half "1") $(← half "0") (fun h => h.1))
-    let fin ← `(theorem $nm (hsf : SoftFloatSpec) (hfl : FloorSpec) : SimArmOn $op FltBC :=
+    let fin ← `(theorem $nm (hsf : SoftFloatSpec) : SimArmOn $op FltBC :=
         sim_on_or (by decide)
           (armBody_cls (·.c) $(← cl0 "b") $(← cl "b" "1") $(← cl "b" "2"))
           (armBody_cls (·.b) $(← cl0 "c") $(← cl "c" "1") $(← cl "c" "2")))

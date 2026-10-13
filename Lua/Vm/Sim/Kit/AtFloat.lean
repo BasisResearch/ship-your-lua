@@ -3,6 +3,7 @@ import Lua.Vm.Sim.Kit.AtFAttr
 import Lua.Vm.Sim.Kit.Clzdi2
 import Lua.Vm.Fn.Spec
 import Lua.Vm.Fn.Floor
+import Lua.Vm.Fn.Muldf3
 
 /-!
 # The soft-float call nodes on the location-list route (lane float-m0, M1)
