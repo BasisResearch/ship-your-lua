@@ -128,7 +128,7 @@ structure CloseIn (p : Proto) (c : Config) (w : RelPtrs) (ins : Word) (args : Li
   below : ∀ a, w.base ≤ a → a < w.slot ins.a → bytesT1 m a = bytesT1 c.σ.mem a
   atexit : ∀ j, j < 8 → bytesT1 m (symAtexit + j) = bytesT1 w.mo (symAtexit + j)
   nil : ∀ j, ins.a ≤ j → j < ins.a + ins.c - 1 → slotTag m (w.slot j) = BitVec.ofNat 8 vNil
-  lci : ∀ j, j < 8 → bytesT1 m (w.L + stateCiOff + j) = bytesT1 w.mo (w.L + stateCiOff + j)
+  lci : bytesT8 m (w.L + stateCiOff) = BitVec.ofNat 64 w.ci
   next : bytesT8 m (w.ci + ciNextOff) = BitVec.ofNat 64 nci
   nci_ne : nci ≠ 0
   nci_lo : symEnd ≤ nci
@@ -197,7 +197,8 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
       rdLE (fillZeroMem m) a n = rdLE w.mo a n := fun a n h1 h2 =>
     rdLE_fill hd (by close_omega) h2 fun j _ => upT _ (by omega)
   have hlci : rd64 (fillZeroMem m) (w.L + stateCiOff) = some w.ci := by
-    rw [← hlua.lci]; exact rdLE_fill hd (by close_omega) (by close_omega) h.lci
+    rw [rd64_fill m (by close_omega) (by close_omega), h.lci, BitVec.toNat_ofNat,
+      Nat.mod_eq_of_lt (by close_omega)]
   have hnext : rd64 (fillZeroMem m) (w.ci + ciNextOff) = some nci := by
     have := h.nci_hi
     rw [rd64_fill m (by close_omega) (by close_omega), h.next, BitVec.toNat_ofNat,
@@ -303,6 +304,7 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
             fun M hM => hM.after (fillZeroMem m) H
           stat_in := fun a ha => (hI.stat_in a ha).imp kept' id
           stat_apart := hI.stat_apart
+          fits := hI.fits
           kslots := hI.kslots
           lits := h.lits.facts.trans fun a _ => bytesT1_fill m a
           lits_in := fun a ha => keptH (h.lits.kept a ha)

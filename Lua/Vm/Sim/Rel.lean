@@ -429,6 +429,8 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   stat : Kit.Frozen F (fun M => StatFacts p w (Vsa.Densify.fillZeroMem M)) w.mo
   stat_in : ∀ a, F a → Kit.Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost)
   stat_apart : ∀ a, F a → ¬ CallDirty w a
+  /-- the register frame lies below `L->stack_last` -/
+  fits : w.func + stackValueSize * (1 + p.maxstacksize) ≤ w.rt.stackLast
   /-- the constant array is frozen (its slots in `F`) -/
   kslots : ∀ j, j < tvalueSize * p.k.length → F (w.k + j)
   /-- the reserved literals interned, frozen on `FL` -/

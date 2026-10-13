@@ -150,12 +150,26 @@ structure PoscallPost (m m' : Mem) (L ci sp w : Nat) : Prop where
       ∃ j, j < w ∧ a = (bytesT8 m (ci + ciFuncOff)).toNat + 16 * j + tvalueTagOff) →
     bytesT1 m' a = bytesT1 m a
 
+/-- What `luaD_poscall(L, ci, 0)` reads (`Ret.PcCx` with `ci->nresults = w`). -/
+structure PcCxW (L ci sp : Nat) (r : BitVec 64) (m : Mem) (w : Nat) : Prop where
+  ra : r.toNat % 4 = 0
+  sp_lo : tohostAddr + 16 + 64 ≤ sp
+  sp_hi : sp ≤ 2 ^ 32
+  sp_al : sp % 8 = 0
+  L_lo : tohostAddr + 16 ≤ L
+  L_hi : L + stateSize + 64 ≤ sp
+  ci_lo : tohostAddr + 16 ≤ ci
+  ci_hi : ci + ciSize + 64 ≤ sp
+  ci_al : ci % 8 = 0
+  L_al : L % 8 = 0
+  hook : bytesT4 m (L + stateHookmaskOff) = 0#32
+  nres : bytesT2 m (ci + ciNresultsOff) = BitVec.ofNat 16 w
+
 /-- **Named premise: `luaD_poscall(L, ci, 0)` with `wanted ≥ 1`** (`C ≥ 2`,
 `moveresults`' fill with nils; `HluaD_poscall` stops at `0x8000a4d8`): the
 summary in `poscall_sum`'s shape, post `PoscallPost`. -/
 def PoscallN_Statement : Prop :=
-  ∀ {L ci sp w : Nat} {r : BitVec 64} {m : Mem}, Ret.PcCx L ci sp r m → 1 ≤ w → w < 2 ^ 15 →
-    bytesT2 m (ci + ciNresultsOff) = BitVec.ofNat 16 w →
+  ∀ {L ci sp w : Nat} {r : BitVec 64} {m : Mem}, PcCxW L ci sp r m w → 1 ≤ w → w < 2 ^ 15 →
     ∀ (f : Ret.RFrame) (n : BitVec 64) (o : Array String),
     Triple (SegSt 0x8000a39c#64 (⟨Register.x10, BitVec.ofNat 64 L⟩ ::
         ⟨Register.x11, BitVec.ofNat 64 ci⟩ :: ⟨Register.x12, n⟩ ::

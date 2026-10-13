@@ -467,6 +467,7 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         have : Image.rodataBase = 0x8004ecc8 := rfl; omega, by
         have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl; omega⟩
       stat_apart := fun a ha hd => ha.elim (fun ha => hE.foot_apart a ha ?_) fun ha => ?_
+      fits := hfits
       kslots := fun j hj => .inl ((hE.foot_k rt.k hka).2 j hj)
       lits := fun M hM => ?_
       lits_in := fun a ha => kept (hpl.litFoot a ha)
