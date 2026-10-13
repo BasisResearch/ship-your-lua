@@ -549,6 +549,62 @@ theorem divMeat_eq {X Y : Nat} (hX1 : 2 ^ 55 ≤ X) (hX2 : X < 2 ^ 56) (hY1 : 2 
     · rw [if_pos (q2.2 hr), if_pos hr]
     · rw [if_neg (fun h' => hr (q2.1 h')), if_neg hr]
 
+/-- The quotient word of `udiv_qrnnd`, digit by digit (`__q1 · 2^32 + __q0`
+with the remainder's sticky bit), of `nh · 2^64 + hi · 2^32` by `d`. -/
+def qDigits (nh hi d : Nat) : Nat :=
+  ((nh * 2 ^ 32 + hi) / d * 2 ^ 32 + (nh * 2 ^ 32 + hi) % d * 2 ^ 32 / d) |||
+    (if (nh * 2 ^ 32 + hi) % d * 2 ^ 32 % d = 0 then 0 else 1)
+
+theorem mul32_lt {q : Nat} (h : q < 2 ^ 32) : q * 2 ^ 32 < 2 ^ 64 := by
+  have := Nat.mul_lt_mul_of_pos_right h (Nat.two_pow_pos 32)
+  rwa [← Nat.pow_add] at this
+
+/-- The two digits are the quotient of the whole dividend. -/
+theorem digits_div {A d : Nat} (hd : 0 < d) :
+    A / d * 2 ^ 32 + A % d * 2 ^ 32 / d = A * 2 ^ 32 / d ∧ A % d * 2 ^ 32 % d = A * 2 ^ 32 % d := by
+  have h := divmod_of hd (div_digits (A := A) (b := 0) hd) (Nat.mod_lt _ hd)
+  simp only [Nat.add_zero] at h
+  obtain ⟨e1, e2⟩ := Prod.mk.inj h
+  exact ⟨e1.symm, e2.symm⟩
+
+/-- `udiv_qrnnd`'s word with the sticky bit, digit by digit, for a dividend
+whose low half word is clear. -/
+theorem udivQrnnd_digits {n1 n0 d : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64) (hn1 : n1 < d)
+    (hn0 : n0 < 2 ^ 64) (hl : n0 % 2 ^ 32 = 0) :
+    (udivQrnnd n1 n0 d).1 ||| (if (udivQrnnd n1 n0 d).2 = 0 then 0 else 1) = qDigits n1 (n0 / 2 ^ 32) d := by
+  rw [udivQrnnd_eq hd1 hd2 hn1 hn0]
+  unfold qDigits
+  obtain ⟨e1, e2⟩ := digits_div (A := n1 * 2 ^ 32 + n0 / 2 ^ 32) (d := d) (by omega)
+  have e3 : (n1 * 2 ^ 32 + n0 / 2 ^ 32) * 2 ^ 32 = n1 * 2 ^ 64 + n0 := by
+    have := split64 n1 n0; rw [hl, Nat.add_zero] at this; exact this.symm
+  rw [e1, e2, e3]
+
+/-- `_FP_DIV_MEAT_1_udiv_norm` digit by digit, as the machine computes it. -/
+theorem divMeat_digits {X Y : Nat} (hX1 : 2 ^ 55 ≤ X) (hX2 : X < 2 ^ 56) (hY1 : 2 ^ 55 ≤ Y) (hY2 : Y < 2 ^ 56) :
+    divMeat X Y = if X < Y then qDigits X 0 (Y * 2 ^ 8) else qDigits (X / 2) (X % 2 * 2 ^ 31) (Y * 2 ^ 8) := by
+  have hd : Y * 2 ^ 8 % 2 ^ 64 = Y * 2 ^ 8 := Nat.mod_eq_of_lt (by omega)
+  unfold divMeat
+  simp only [hd]
+  split
+  · rename_i h
+    rw [udivQrnnd_digits (by omega) (by omega) (by omega) (by decide) (by decide)]
+  · rename_i h
+    have e : X * 2 ^ 63 % 2 ^ 64 = X % 2 * 2 ^ 63 := by
+      rw [show (2 : Nat) ^ 64 = 2 * 2 ^ 63 from by rw [← Nat.pow_succ'], Nat.mul_mod_mul_right]
+    have hb : X % 2 * 2 ^ 63 / 2 ^ 32 = X % 2 * 2 ^ 31 ∧ X % 2 * 2 ^ 63 % 2 ^ 32 = 0 := by
+      rcases Nat.mod_two_eq_zero_or_one X with h2 | h2 <;> rw [h2] <;> simp
+    rw [e, udivQrnnd_digits (by omega) (by omega) (by omega) (by rcases Nat.mod_two_eq_zero_or_one X with h2 | h2 <;>
+      rw [h2] <;> decide) hb.2, hb.1]
+
+/-- The two digits of a dividend `A · 2^32 = N · 2^8` by `Y · 2^8` are `N / Y`. -/
+theorem digits_scaled {A N Y : Nat} (h : A * 2 ^ 32 = N * 2 ^ 8) (hY : 0 < Y) :
+    A / (Y * 2 ^ 8) * 2 ^ 32 + A % (Y * 2 ^ 8) * 2 ^ 32 / (Y * 2 ^ 8) = N / Y ∧
+      (A % (Y * 2 ^ 8) * 2 ^ 32 % (Y * 2 ^ 8) = 0 ↔ N % Y = 0) := by
+  obtain ⟨e1, e2⟩ := digits_div (A := A) (d := Y * 2 ^ 8) (Nat.mul_pos hY (Nat.two_pow_pos 8))
+  obtain ⟨q1, q2⟩ := quot_scale N Y hY
+  rw [e1, e2, h, q1]
+  exact ⟨rfl, q2⟩
+
 /-- The quotient of two normal working mantissas lies in `[2^55, 2^56)`. -/
 theorem quot_bounds {X Y : Nat} (hX1 : 2 ^ 55 ≤ X) (hX2 : X < 2 ^ 56) (hY1 : 2 ^ 55 ≤ Y) (hY2 : Y < 2 ^ 56) :
     2 ^ 55 ≤ (if X < Y then X * 2 ^ 56 else X * 2 ^ 55) / Y ∧

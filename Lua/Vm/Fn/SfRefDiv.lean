@@ -233,11 +233,12 @@ theorem fcongr2 {α β γ : Type} (f : α → β → γ) {a a' : α} {b b' : β}
 an estimate `q` at most two too large (`N + m = q · d + R`, `R < d`,
 `m < 2^64 ≤ 2 d`), every leaf the machine reaches is the exact digit and
 remainder (`SfRef.qr_fix`'s argument in the machine's order). -/
-theorem qr_fix_m {α : Type} (g : Nat → Nat → α) {N d q R m : Nat} (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64)
+theorem qr_fix_m {α : Type} (g : Nat → Nat → α) {N d q R m : Nat} (c : Prop) [Decidable c]
+    (hc : c ↔ R + d < 2 ^ 64) (hd1 : 2 ^ 63 ≤ d) (hd2 : d < 2 ^ 64)
     (hR : R < d) (hm : m < 2 ^ 64) (hq : q < 2 ^ 64) (hNq : N + m = q * d + R) :
     (if m ≤ R then g q ((R + 2 ^ 64 - m) % 2 ^ 64)
      else if m ≤ (R + d) % 2 ^ 64 then g ((q + (2 ^ 64 - 1)) % 2 ^ 64) (((R + d) % 2 ^ 64 + 2 ^ 64 - m) % 2 ^ 64)
-     else if ¬ (R + d) % 2 ^ 64 < R then
+     else if c then
        g ((q + (2 ^ 64 - 2)) % 2 ^ 64) ((((R + d) % 2 ^ 64 + d) % 2 ^ 64 + 2 ^ 64 - m) % 2 ^ 64)
      else g ((q + (2 ^ 64 - 1)) % 2 ^ 64) (((R + d) % 2 ^ 64 + 2 ^ 64 - m) % 2 ^ 64)) = g (N / d) (N % d) := by
   have hd : 0 < d := by omega
@@ -269,12 +270,10 @@ theorem qr_fix_m {α : Type} (g : Nat → Nat → α) {N d q R m : Nat} (hd1 : 2
       · rw [Nat.mod_eq_of_lt hc] at h2; omega
       · omega)
   rw [if_neg h2]
-  by_cases h3 : ¬ (R + d) % 2 ^ 64 < R
+  by_cases h3 : c
   · rw [if_pos h3]
     -- no carry, `R + d < m`: two corrections
-    have hnc : R + d < 2 ^ 64 := by
-      refine Classical.byContradiction fun hc => ?_
-      apply h3; rw [show (R + d) % 2 ^ 64 = R + d - 2 ^ 64 by omega]; omega
+    have hnc : R + d < 2 ^ 64 := hc.1 h3
     rw [Nat.mod_eq_of_lt hnc] at h2 ⊢
     have hq2 : 2 ≤ q := by
       refine Classical.byContradiction fun hc => ?_
@@ -288,8 +287,22 @@ theorem qr_fix_m {α : Type} (g : Nat → Nat → α) {N d q R m : Nat} (hd1 : 2
   · rw [if_neg h3]
     -- a carry: `R + d ≥ 2^64 > m`
     exact hone (by
-      refine Classical.byContradiction fun hc => ?_
-      apply h3; rw [Nat.mod_eq_of_lt (by omega)]; omega)
+      refine Classical.byContradiction fun hc' => ?_
+      exact h3 (hc.2 (by omega)))
+
+/-- The second half's carry test (`sltu a1, a5, a4`, then `beqz a1`). -/
+theorem carry_lo {R d : Nat} (hR : R < d) (hd : d < 2 ^ 64) : ¬ (R + d) % 2 ^ 64 < R ↔ R + d < 2 ^ 64 := by
+  constructor
+  · intro h; refine Classical.byContradiction fun hc => h ?_
+    rw [show (R + d) % 2 ^ 64 = R + d - 2 ^ 64 by omega]; omega
+  · intro h; rw [Nat.mod_eq_of_lt h]; omega
+
+/-- The first half's carry test (`bgeu a3, s1`: `R + d ≥ d`). -/
+theorem carry_hi {R d : Nat} (hR : R < d) (hd : d < 2 ^ 64) : d ≤ (R + d) % 2 ^ 64 ↔ R + d < 2 ^ 64 := by
+  constructor
+  · intro h; refine Classical.byContradiction fun hc => ?_
+    rw [show (R + d) % 2 ^ 64 = R + d - 2 ^ 64 by omega] at h; omega
+  · intro h; rw [Nat.mod_eq_of_lt h]; omega
 
 /-- `R = ρ · 2^32 | 0`. -/
 theorem lo_word {ρ : Nat} (h : ρ < 2 ^ 32) : ρ * 2 ^ 32 % 2 ^ 64 ||| 0 = ρ * 2 ^ 32 := by
@@ -344,8 +357,150 @@ theorem g_e1c4 (s : Nat) (r : BitVec 64) {S d r1 q1 : Nat} (e : Int) (hS : S < 2
   simp only [decide_eq_true_eq]
   refine (qr_fix_m (fun q0 x => N_8002e22c s r (BitVec.ofNat 64 S) (BitVec.ofNat 64 (d / 2 ^ 32))
       (BitVec.ofNat 64 d) (ew e) (BitVec.ofNat 64 q0) (BitVec.ofNat 64 x) 0#64 (BitVec.ofNat 64 q1)
-      (BitVec.ofNat 64 (d % 2 ^ 32))) (N := r1 * 2 ^ 32) hd1 hd2 hR hMl k.hq hNq).trans ?_
+      (BitVec.ofNat 64 (d % 2 ^ 32))) (N := r1 * 2 ^ 32) _ (carry_lo hR hd2) hd1 hd2 hR hMl k.hq hNq).trans ?_
   exact g_e22c0 s r _ _ _ e hS he1 he2 hq1 hlt (Nat.lt_trans (Nat.mod_lt _ (by omega)) hd2)
     hQ1 hQ2
+
+/-- `0x8002e1c4` reads the first digit's remainder words only through their difference. -/
+theorem e1c4_sub (s : Nat) (r : BitVec 64) (v6 v8 v9 v12 v18 v19 : BitVec 64) {x y : Nat}
+    (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) :
+    N_8002e1c4 s r v6 v8 v9 v12 (BitVec.ofNat 64 y) (BitVec.ofNat 64 x) v18 v19 =
+      N_8002e1c4 s r v6 v8 v9 v12 0#64 (BitVec.ofNat 64 ((x + 2 ^ 64 - y) % 2 ^ 64)) v18 v19 := by
+  unfold N_8002e1c4; rw [BitVec.sub_zero, nf_wsub hx hy]
+
+/-- **The high digit** (`0x8002e178`: `__umoddi3`, the corrections, then the
+low digit `g_e1c4`): `udiv_qrnnd` of `nh · 2^64 + hi · 2^32` by `d`, its
+`__q1 = nh / d1` and `__m = __q1 · d0` given. -/
+theorem g_e178 (s : Nat) (r : BitVec 64) {S d nh hi : Nat} (e : Int) (hS : S < 2) (hd1 : 2 ^ 63 ≤ d)
+    (hd2 : d < 2 ^ 64) (hnh : nh < d) (hhi : hi < 2 ^ 32) (he1 : -2 ^ 19 ≤ e) (he2 : e ≤ 2 ^ 19)
+    (hQ1 : 2 ^ 55 ≤ (nh * 2 ^ 32 + hi) / d * 2 ^ 32 + (nh * 2 ^ 32 + hi) % d * 2 ^ 32 / d)
+    (hQ2 : (nh * 2 ^ 32 + hi) / d * 2 ^ 32 + (nh * 2 ^ 32 + hi) % d * 2 ^ 32 / d < 2 ^ 56) :
+    N_8002e178 s r (BitVec.ofNat 64 S) (BitVec.ofNat 64 (d / 2 ^ 32)) (BitVec.ofNat 64 d) (ew e) (BitVec.ofNat 64 nh)
+        (BitVec.ofNat 64 (nh / (d / 2 ^ 32) * (d % 2 ^ 32) % 2 ^ 64)) (BitVec.ofNat 64 hi)
+        (BitVec.ofNat 64 (nh / (d / 2 ^ 32))) (BitVec.ofNat 64 (d % 2 ^ 32)) =
+      SfRef.packCanon (S = 1) e (((nh * 2 ^ 32 + hi) / d * 2 ^ 32 + (nh * 2 ^ 32 + hi) % d * 2 ^ 32 / d) |||
+        (if (nh * 2 ^ 32 + hi) % d * 2 ^ 32 % d = 0 then 0 else 1)) := by
+  have k := SfRef.qr_setup hd1 hd2 hnh hhi
+  have hNq := k.hNq
+  have hR := k.hR
+  have hρ := k.hρ
+  rw [Nat.mod_eq_of_lt (a := nh % (d / 2 ^ 32) * 2 ^ 32) (pow32_mul hρ)] at hNq hR
+  unfold N_8002e178 N_8002e194 N_8002e1b0 N_8002e1bc N_8002e1c0 N_8002e344
+  simp only [sx_sd, add0]
+  have hRl : nh % (d / 2 ^ 32) * 2 ^ 32 < 2 ^ 64 := pow32_mul hρ
+  have hOr : nh % (d / 2 ^ 32) * 2 ^ 32 ||| hi < 2 ^ 64 := by
+    rw [SfRef.or_low32 _ _ hhi]; exact digits_lt hρ hhi
+  rw [nf_umod (by omega) (by omega), nf_sll32, nf_or_disj hOr hRl (by omega), nf_wadd, nf_wadd, nf_dec1, nf_dec2,
+    Nat.add_comm d]
+  have hMl : nh / (d / 2 ^ 32) * (d % 2 ^ 32) % 2 ^ 64 < 2 ^ 64 := Nat.mod_lt _ (by decide)
+  have hRd : ((nh % (d / 2 ^ 32) * 2 ^ 32 ||| hi) + d) % 2 ^ 64 < 2 ^ 64 := Nat.mod_lt _ (by decide)
+  have hRdd : (((nh % (d / 2 ^ 32) * 2 ^ 32 ||| hi) + d) % 2 ^ 64 + d) % 2 ^ 64 < 2 ^ 64 :=
+    Nat.mod_lt _ (by decide)
+  rw [Lua.Vm.Fn.SfCmpLens.nf_uge hOr hMl, Lua.Vm.Fn.SfCmpLens.nf_uge hRd hMl,
+    Lua.Vm.Fn.SfCmpLens.nf_uge hRd (by omega), e1c4_sub _ _ _ _ _ _ _ _ hOr hMl,
+    e1c4_sub _ _ _ _ _ _ _ _ hRd hMl, e1c4_sub _ _ _ _ _ _ _ _ hRdd hMl]
+  simp only [decide_eq_true_eq]
+  have hN := Nat.mod_lt (nh * 2 ^ 32 + hi) (show d > 0 by omega)
+  refine (qr_fix_m (fun q1 r1 => N_8002e1c4 s r (BitVec.ofNat 64 S) (BitVec.ofNat 64 (d / 2 ^ 32))
+      (BitVec.ofNat 64 d) (ew e) 0#64 (BitVec.ofNat 64 r1) (BitVec.ofNat 64 q1)
+      (BitVec.ofNat 64 (d % 2 ^ 32))) (N := nh * 2 ^ 32 + hi) _ (carry_hi hR hd2) hd1 hd2 hR hMl k.hq hNq).trans ?_
+  exact g_e1c4 s r e hS hd1 hd2 hN k.hlt he1 he2 hQ1 hQ2
+
+/-! ## The divide's entry (`0x8002e114`) -/
+
+/-- `slli a4, a5, 8; srli s0, a4, 32`: the divisor's high half. -/
+theorem nf_d1 (Y : Nat) (hY : Y < 2 ^ 56) :
+    shift_bits_right (shift_bits_left (BitVec.ofNat 64 Y) (Sail.BitVec.extractLsb (0x08#6) 5 0))
+      (Sail.BitVec.extractLsb (0x20#6) 5 0) = BitVec.ofNat 64 (Y * 2 ^ 8 / 2 ^ 32) := by
+  rw [sll_lit, srl_lit, show (0x08#6 : BitVec 6).toNat = 8 from rfl, show (0x20#6 : BitVec 6).toNat = 32 from rfl,
+    nf_shl, nf_shr _ (by omega)]
+/-- `slli a4, a5, 8` (`+ 0`): the normalised divisor. -/
+theorem nf_d (Y : Nat) :
+    shift_bits_left (BitVec.ofNat 64 Y) (Sail.BitVec.extractLsb (0x08#6) 5 0) + sign_extend (m := 64) (0x000#12) =
+      BitVec.ofNat 64 (Y * 2 ^ 8) := by
+  rw [add0, sll_lit, show (0x08#6 : BitVec 6).toNat = 8 from rfl, nf_shl]
+/-- `slli s3, a4, 32; srli s3, s3, 32`: the divisor's low half. -/
+theorem nf_d0 (Y : Nat) :
+    shift_bits_right (shift_bits_left (shift_bits_left (BitVec.ofNat 64 Y) (Sail.BitVec.extractLsb (0x08#6) 5 0))
+      (Sail.BitVec.extractLsb (0x20#6) 5 0)) (Sail.BitVec.extractLsb (0x20#6) 5 0) =
+      BitVec.ofNat 64 (Y * 2 ^ 8 % 2 ^ 32) := by
+  rw [sll_lit, sll_lit, srl_lit, show (0x08#6 : BitVec 6).toNat = 8 from rfl,
+    show (0x20#6 : BitVec 6).toNat = 32 from rfl, nf_shl, nf_shl]
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow,
+    show (2 : Nat) ^ 64 = 2 ^ 32 * 2 ^ 32 from by rw [← Nat.pow_add], Nat.mul_mod_mul_right,
+    Nat.mul_div_cancel _ (Nat.two_pow_pos 32)]
+  exact (Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos 32))
+    (Nat.le_of_lt (by rw [show (2 : Nat) ^ 32 * 2 ^ 32 = 2 ^ 64 from by rw [← Nat.pow_add]]; decide)))).symm
+/-- `srli a3, a6, 1`. -/
+theorem nf_half (X : Nat) (hX : X < 2 ^ 64) :
+    shift_bits_right (BitVec.ofNat 64 X) (Sail.BitVec.extractLsb (0x01#6) 5 0) = BitVec.ofNat 64 (X / 2) := by
+  rw [srl_lit, show (0x01#6 : BitVec 6).toNat = 1 from rfl, nf_shr _ hX, Nat.pow_one]
+/-- `slli a6, a6, 63; srli a6, a6, 32`: the dividend's low bit as `n0`'s high half word. -/
+theorem nf_hi (X : Nat) :
+    shift_bits_right (shift_bits_left (BitVec.ofNat 64 X) (Sail.BitVec.extractLsb (0x3f#6) 5 0))
+      (Sail.BitVec.extractLsb (0x20#6) 5 0) = BitVec.ofNat 64 (X % 2 * 2 ^ 31) := by
+  rw [sll_lit, srl_lit, show (0x3f#6 : BitVec 6).toNat = 63 from rfl, show (0x20#6 : BitVec 6).toNat = 32 from rfl,
+    nf_shl]
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_ushiftRight, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow,
+    show (2 : Nat) ^ 64 = 2 * 2 ^ 63 from by rw [← Nat.pow_succ'], Nat.mul_mod_mul_right]
+  rcases Nat.mod_two_eq_zero_or_one X with h | h <;> rw [h] <;> decide
+/-- `addi a2, a2, -1` on an exponent word. -/
+theorem ew_dec (x : Int) : ew x + sign_extend (m := 64) (0xfff#12) = ew (x - 1) := by
+  rw [show (sign_extend (m := 64) (0xfff#12) : BitVec 64) = ew (-1) by rw [ew_def]; decide, nf_ew_add]
+  congr 1
+
+theorem sext0 : (sign_extend (m := 64) (0x000#12) : BitVec 64) = 0#64 := by decide
+
+/-- **The divide** (`0x8002e114`: `_FP_DIV_MEAT_1_udiv_norm`, the dividend
+`X : 0` or `(X >> 1) : (X << 63)`, `udiv_qrnnd`, the pack) is `_FP_DIV`'s
+normal case. -/
+theorem g_e114 (s : Nat) (r : BitVec 64) {S X Y : Nat} (e : Int) (hS : S < 2) (hX1 : 2 ^ 55 ≤ X)
+    (hX2 : X < 2 ^ 56) (hY1 : 2 ^ 55 ≤ Y) (hY2 : Y < 2 ^ 56) (he1 : -2 ^ 18 ≤ e) (he2 : e ≤ 2 ^ 18) :
+    N_8002e114 s r (BitVec.ofNat 64 S) (ew e) (BitVec.ofNat 64 Y) (BitVec.ofNat 64 X) =
+      SfRef.packCanon (S = 1) (if X < Y then e - 1 else e) (SfRef.divMeat X Y) := by
+  have hY0 : 0 < Y := by omega
+  have hd1 : 2 ^ 63 ≤ Y * 2 ^ 8 := by omega
+  have hd2 : Y * 2 ^ 8 < 2 ^ 64 := by omega
+  have hdp : 0 < Y * 2 ^ 8 / 2 ^ 32 := by omega
+  have hX64 : X < 2 ^ 64 := Nat.lt_trans hX2 (by decide)
+  have hY64 : Y < 2 ^ 64 := Nat.lt_trans hY2 (by decide)
+  have hd64 : Y * 2 ^ 8 / 2 ^ 32 < 2 ^ 64 := Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hd2
+  have hb := SfRef.quot_bounds hX1 hX2 hY1 hY2
+  rw [SfRef.divMeat_digits hX1 hX2 hY1 hY2]
+  unfold N_8002e114
+  rw [Lua.Vm.Fn.SfCmpLens.nf_uge hX64 hY64, nf_d1 Y hY2, nf_d Y, nf_d0 Y]
+  by_cases h : X < Y
+  · rw [if_neg (by simp only [decide_eq_true_eq]; exact Nat.not_le.mpr h), if_pos h, if_pos h]
+    rw [if_pos h] at hb
+    unfold N_8002e13c N_8002e158 N_8002e164
+    simp only [sx_sd, add0, sext0, BitVec.zero_add, BitVec.add_zero]
+    rw [nf_udivT hX64 hd64 hdp, nf_wmul, ew_dec]
+    obtain ⟨g1, g2⟩ := SfRef.digits_scaled (A := X * 2 ^ 32 + 0) (N := X * 2 ^ 56) (Y := Y)
+      (by rw [Nat.add_zero, Nat.mul_assoc, ← Nat.pow_add, Nat.mul_assoc, ← Nat.pow_add]) hY0
+    have hn : X < Y * 2 ^ 8 := by omega
+    have e1 : -2 ^ 19 ≤ e - 1 := by omega
+    have e2 : e - 1 ≤ 2 ^ 19 := by omega
+    exact g_e178 s r (e - 1) hS hd1 hd2 hn (by decide) e1 e2 (by rw [g1]; exact hb.1) (by rw [g1]; exact hb.2)
+  · rw [if_pos (by simp only [decide_eq_true_eq]; exact Nat.not_lt.mp h), if_neg h, if_neg h]
+    rw [if_neg h] at hb
+    unfold N_8002e280 N_8002e2a0 N_8002e2ac
+    simp only [sx_sd, add0]
+    rw [nf_half X hX64, nf_hi X, nf_udivT (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hX64) hd64 hdp, nf_wmul]
+    have hA : (X / 2 * 2 ^ 32 + X % 2 * 2 ^ 31) * 2 ^ 32 = X * 2 ^ 55 * 2 ^ 8 := by
+      have hx := Nat.div_add_mod X 2
+      rw [Nat.add_mul, Nat.mul_assoc, ← Nat.pow_add, Nat.mul_assoc, ← Nat.pow_add, Nat.mul_assoc X,
+        ← Nat.pow_add]
+      rw [show (32 + 32 : Nat) = 1 + 63 from rfl, show (31 + 32 : Nat) = 63 from rfl, Nat.pow_add,
+        ← Nat.mul_assoc, Nat.pow_one, Nat.mul_comm (X / 2) 2, ← Nat.add_mul, hx]
+    obtain ⟨g1, g2⟩ := SfRef.digits_scaled (A := X / 2 * 2 ^ 32 + X % 2 * 2 ^ 31) (N := X * 2 ^ 55) (Y := Y)
+      hA hY0
+    have hn : X / 2 < Y * 2 ^ 8 := by omega
+    have hhi : X % 2 * 2 ^ 31 < 2 ^ 32 := by
+      rcases Nat.mod_two_eq_zero_or_one X with h2 | h2 <;> rw [h2] <;> decide
+    have e1 : -2 ^ 19 ≤ e := by omega
+    have e2 : e ≤ 2 ^ 19 := by omega
+    exact g_e178 s r e hS hd1 hd2 hn hhi e1 e2 (by rw [g1]; exact hb.1) (by rw [g1]; exact hb.2)
 
 end Lua.Vm.Fn.Divdf3
