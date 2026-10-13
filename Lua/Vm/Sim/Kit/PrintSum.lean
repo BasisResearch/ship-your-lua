@@ -696,4 +696,137 @@ theorem pr_mid (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh �
     · rw [hout2, ← List.append_assoc, hout1]
     · exact (kk3 a (PrintW.not_above (sp := sp0 - 64) (by rw [hhe]; omega) hP3.io.buf_hi (by omega))).trans (habove a ha)
 
+/-- **A string written after `luaL_tolstring`'s set-up** stays apart from a
+write (`PrintW`) whose buffer is the old one or fresh. -/
+theorem src_apart {s len sp : Nat} {H : HeapIx} {ph ph' : StdoutPh}
+    (hok : ∀ a, s ≤ a → a < s + len + 1 → ¬ FsGlobal a ∧ ¬ MallocW H.chunks a ∧ ¬ SinitW a)
+    (hbuf : ∀ a, s ≤ a → a < s + len + 1 → ¬ ph.Buf a) (hout : s + len ≤ stdoutFile ∨ stdoutFile + fileSize ≤ s)
+    (hsp : s + len + 4096 ≤ sp) (hB : BufFrom ph ph' H) :
+    ∀ a, s ≤ a → a < s + len → ¬ PrintW sp H ph' a := by
+  intro a h1 h2 hw
+  have ⟨g, w, si⟩ := hok a h1 (by omega)
+  rcases hw with hw | hw | hw | hw | hw | hw
+  · exact g hw
+  · exact w hw
+  · exact si hw
+  · simp only [Rng] at hw; stdio_nums; omega
+  · rcases hB a hw with hb | ⟨l1, l2, l3⟩
+    · exact hbuf a h1 (by omega) hb
+    · exact w (.inr ⟨l1, l2, l3⟩)
+  · simp only [Below] at hw; omega
+
+/-- **The loop's body**: `luaL_tolstring(L, i, &l)`, the tab, then `pr_mid`. -/
+theorem pr_step (hM : MallocR_Statement) {L sp0 n : Nat} {S : Nat → StdoutPh → HeapIx → Mem → Prop}
+    {bs : Nat → List (BitVec 8)} (hL : PrintLua L sp0 n S bs) (r : BitVec 64) (f : AbiFrame) (m0 : Mem)
+    (o0 : Array String) (ph0 : StdoutPh) (H0 : HeapIx) (hok : PrOk sp0 L r)
+    (i : Nat) (w13 : BitVec 64) (m : Mem) (o : Array String) (ph : StdoutPh) (H : HeapIx)
+    (hh : PrHead sp0 n S bs r f m0 o0 ph0 H0 i m o ph H) (c : Config)
+    (h : SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 i r w13 0 f m o)) (ArmPay m o) c) :
+    ∃ c', Steps c c' ∧
+      ((∃ m' o' ph' H' s', PrHead sp0 n S bs r f m0 o0 ph0 H0 (i + 1) m' o' ph' H' ∧
+        SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 (i + 1) r (BitVec.ofNat 64 s') 0 f m' o'))
+          (ArmPay m' o') c') ∨
+       (∃ m' out, wrRet r sp0 0 f m' (pushes o0 out) c' ∧ PrEnd sp0 n S bs m0 ph0 H0 m' out)) := by
+  have q := hok.nums
+  have q2 := hok.sp_hi
+  have hhe : heapEnd = 0x87800000 := rfl
+  have hnl := hL.n_lt
+  have hi2 := hh.i_ge; have hin := hh.i_le
+  have hX : Lua.Vm.AtF.Print.Ok_L (prX sp0 L n 0 0 i r w13 0 f m o) := by
+    have := hok.sp_hi; have := hok.sp_al; have := hok.ra; have := hok.L_lo; have := hok.L_hi; have := hok.L_al
+    fcx_ok
+  have h : SegSt 0x80022f68#64 (Lua.Vm.AtF.Print.r16 (prX sp0 L n 0 0 i r w13 0 f m o))
+      (ArmPay (prX sp0 L n 0 0 i r w13 0 f m o).m (prX sp0 L n 0 0 i r w13 0 f m o).o) c := h
+  have acc := Steps.refl c
+  fat_run Lua.Vm.AtF.Print h acc until [0x80021b2c]
+  fcx_unfold at h
+  have h1 : SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
+      ⟨Register.x12, BitVec.ofNat 64 (sp0 - 56)⟩] (sp0 - 64) 0x80022f6c#64
+      (prFr (BitVec.ofNat 64 i) w13 (BitVec.ofNat 64 n) L f)) (ArmPay m o) _ := h.repin (by pins_of h)
+  -- `luaL_tolstring(L, i, &l)`
+  obtain ⟨c1, s1, m1, s, H1, hret, T⟩ := hL.tolstring i ph H m o 0x80022f6c#64 _ (by omega) hin hh.lua hh.io
+    (by decide) _ h1
+  have acc := acc.trans s1
+  simp only [wrRet] at hret
+  have hX1 : Lua.Vm.AtF.Print.Ok_L (prX sp0 L n s 0 i r w13 0 f m1 o) := by
+    have := hok.sp_hi; have := hok.sp_al; have := hok.ra; have := hok.L_lo; have := hok.L_hi; have := hok.L_al
+    fcx_ok
+  have h2 : SegSt 0x80022f6c#64 (Lua.Vm.AtF.Print.r18 (prX sp0 L n s 0 i r w13 0 f m1 o))
+      (ArmPay (prX sp0 L n s 0 i r w13 0 f m1 o).m (prX sp0 L n s 0 i r w13 0 f m1 o).o) c1 :=
+    hret.repin (by pins_of hret)
+  have hc0 := T.io.cells.impure; have hc1 := T.io.cells.stdout
+  fat_run Lua.Vm.AtF.Print h2 acc until [0x800342e4]
+  fcx_unfold at h2
+  have h3 : SegSt 0x800342e4#64 (fwPre 0x8004ff40 1 (sp0 - 64) 0x80022f8c#64
+      (prFr (BitVec.ofNat 64 i) (BitVec.ofNat 64 s) (BitVec.ofNat 64 n) L f)) (ArmPay m1 o) _ :=
+    h2.repin (by pins_of h2)
+  -- the tab
+  have hbl := T.io.io.buf_lo
+  obtain ⟨c3, s3, m2, out2, ph2, H2, hret3, P2⟩ :=
+    fwrite_print hM (sp0 - 64) 0x8004ff40 1 0x80022f8c#64
+      (prFr (BitVec.ofNat 64 i) (BitVec.ofNat 64 s) (BitVec.ofNat 64 n) L f) m1 o ph H1 T.io.io T.io.heap
+      (by decide) (by omega) (by have := hok.sp_al; omega) (by rw [hhe]; omega)
+      ⟨by decide, .inl ⟨by decide, by decide⟩⟩ (by omega)
+      (fun a h1 h2 => by
+        pw_nums
+        have e9 : symMallocMallinfo = 0x8005e560 := rfl
+        have e4 : symMallocAv = 0x8005c6d0 := rfl
+        have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+        have e6 : symBrk = 0x8005d3b8 := rfl
+        have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
+        have : symFiles = 0x8005d760 := rfl
+        refine ⟨?_, ?_, ?_⟩
+        · simp only [FsGlobal]; omega
+        · rintro (hw | ⟨hw, _, _⟩)
+          · simp only [MallocGlobal] at hw; omega
+          · have : heapStart = 0x8006ecd0 := rfl; omega
+        · simp only [SinitW, Rng]; omega)
+      (by stdio_nums; omega)
+      (fun buf pend he => by
+        subst he
+        have := hbl buf (by simp only [StdoutPh.Buf, Rng]; omega)
+        have : heapStart = 0x8006ecd0 := rfl
+        omega) _ h3
+  have acc := acc.trans s3
+  simp only [wrRet] at hret3
+  have hX2 : Lua.Vm.AtF.Print.Ok_L (prX sp0 L n s (bs i).length i r 0 0 f m2 (pushes o out2)) := by
+    have := hok.sp_hi; have := hok.sp_al; have := hok.ra; have := hok.L_lo; have := hok.L_hi; have := hok.L_al
+    fcx_ok
+  have h4 : SegSt 0x80022f8c#64 (Lua.Vm.AtF.Print.r20 (prX sp0 L n s (bs i).length i r 0 0 f m2 (pushes o out2)))
+      (ArmPay m2 (pushes o out2)) c3 := hret3.repin (by pins_of hret3)
+  -- the state before the string
+  have hbuf2 : ∀ a, ph2.Buf a → 0x8006ecd0 ≤ a := fun a ha => by
+    have := P2.phase.buf_lo a ha; have : heapStart = 0x8006ecd0 := rfl; omega
+  have kk2 : ∀ a, sp0 - 64 ≤ a → bytesT1 m2 a = bytesT1 m1 a := fun a ha =>
+    P2.keep a (PrintW.not_above (by rw [hhe]; omega) P2.phase.buf_hi ha)
+  have hap := src_apart T.src_ok T.src_buf T.src_out T.src_hi P2.buf_new
+  obtain ⟨out, ho, hout⟩ := hh.console
+  have hm : PrMid sp0 n S bs r f m0 o0 ph0 H0 i s m2 (pushes o out2) ph2 H2 :=
+    { i_ge := by omega
+      i_le := hin
+      lua := hL.stable _ _ _ _ _ _ _ T.lua (fun a ha => P2.keep a fun hw => ha (.inl hw)) P2.buf_new P2.kept
+      io := ⟨P2.phase, P2.heap, T.io.cells.keep (by omega) hbuf2 P2.keep⟩
+      frame := (hh.frame.keep (by omega) T.frame).keep (by omega) fun a ha _ => kk2 a ha
+      len := (bytesT8_congrT fun j _ => kk2 _ (by omega)).trans T.len
+      bytes := by rw [bytesAt_congr fun j hj => P2.keep _ (hap _ (by omega) (by omega))]; exact T.bytes
+      src_lo := T.src_lo
+      src_hi := T.src_hi
+      src_ok := fun a h1 h2 => ⟨(T.src_ok a h1 h2).1, fun hw => (T.src_ok a h1 h2).2.1 (MallocW.anti P2.kept hw),
+        (T.src_ok a h1 h2).2.2⟩
+      src_out := T.src_out
+      src_buf := fun a h1 h2 hb => by
+        rcases P2.buf_new a hb with hb' | ⟨l1, l2, l3⟩
+        · exact T.src_buf a h1 h2 hb'
+        · exact (T.src_ok a h1 h2).2.1 (.inr ⟨l1, l2, l3⟩)
+      console := ⟨out ++ out2, by rw [ho, pushes_append], by
+        rw [List.append_assoc, P2.out, T.io.cells.tab, ← List.append_assoc, hout]
+        simp only [prPre, show 2 ≤ i from hi2, ite_true, List.append_assoc]⟩
+      kept := fun c hc hu => P2.kept c (T.kept c (hh.kept c hc hu) hu) hu
+      above := fun a ha => (kk2 a (by omega)).trans ((T.frame a (by omega) (by omega)).trans (hh.above a ha)) }
+  obtain ⟨c5, s5, hr⟩ := pr_mid hM hL r f m0 o0 ph0 H0 hok i s m2 (pushes o out2) ph2 H2 hm c3 h4
+  refine ⟨c5, acc.trans s5, ?_⟩
+  rcases hr with ⟨m', o', ph', H', hh', h'⟩ | hend
+  · exact .inl ⟨m', o', ph', H', s, hh', h'⟩
+  · exact .inr hend
+
 end Lua.Vm.Sim.Kit
