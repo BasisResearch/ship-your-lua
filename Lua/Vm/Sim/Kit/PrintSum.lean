@@ -26,14 +26,6 @@ namespace Lua.Vm.Sim.Kit
 open Lua.Vm.Sim Lua.Vm.Sim.AtF Lua.Vm.Layout Lua.Vm.DlHeap Vsa.Densify
 open Vsa.Machine (Config Steps)
 
-/-- The words `luaB_print` reads itself (`_impure_ptr`, `_REENT->_stdout`) and
-its two literals (`"\t"`, `"\n"` in `.rodata`). -/
-structure PrintCells (m : Mem) : Prop where
-  impure : bytesT8 m 0x8005d398 = 0x8005d1b8#64
-  stdout : bytesT8 m 0x8005d1c8 = 0x8005e668#64
-  tab : bytesAt m 0x8004ff40 1 = [0x09#8]
-  nl : bytesAt m 0x8004fb48 1 = [0x0a#8]
-
 /-- **The I/O state `luaB_print` threads**: `stdout` in phase `ph` with the
 heap `H` (of the zero fill), and its cells. -/
 structure PrintSt (m : Mem) (ph : StdoutPh) (H : HeapIx) : Prop where
@@ -289,61 +281,10 @@ theorem pr_tail (hM : MallocR_Statement) (sp0 L : Nat) (r : BitVec 64) (f : AbiF
 
 /-! ## What the I/O state reads -/
 
-/-- The stdio globals: `__sglue`, `_impure_data`, htif.c's tables, the
-handlers, `__sf`. -/
-def StdioGlob (a : Nat) : Prop := 0x8005cee0 ≤ a ∧ a < 0x8005e7d8
-
 /-- **What `PrintSt` reads**: the stdio globals, the buffer, the heap off the
 chunks in use, `.rodata`'s literals. -/
 def PrintFoot (ph : StdoutPh) (H : HeapIx) (a : Nat) : Prop :=
   StdioGlob a ∨ ph.Buf a ∨ (HeapReads a ∧ ¬ InUse H.chunks a) ∨ (0x8004fb48 ≤ a ∧ a < 0x8004ff48)
-
-theorem _root_.Lua.Vm.StdioBoot.congr {m m' : Mem} (h : StdioBoot m) (hk : ∀ a, StdioGlob a → m'[a]? = m[a]?) :
-    StdioBoot m' := by
-  have : symStdioExitHandler = 0x8005d3e0 := rfl
-  have : symImpurePtr = 0x8005d398 := rfl
-  have : symImpureData = 0x8005d1b8 := rfl
-  have : symSglue = 0x8005cee0 := rfl
-  have : symSf = 0x8005e5b0 := rfl
-  have : symSfSize = 552 := rfl
-  have : symAtexit = 0x8005d450 := rfl
-  have : reentCleanupOff = 72 := rfl
-  have : reentStdinOff = 8 := rfl
-  have : reentStdoutOff = 16 := rfl
-  have : reentStderrOff = 24 := rfl
-  have : glueNextOff = 0 := rfl
-  have : glueNiobsOff = 8 := rfl
-  have : glueIobsOff = 16 := rfl
-  have r : ∀ {a n : Nat}, StdioGlob a → StdioGlob (a + n - 1) → 0 < n → rdLE m' a n = rdLE m a n :=
-    fun {a n} h1 h2 _ => rdLE_congr fun i hi => hk _ ⟨by have := h1.1; omega, by have := h2.2; omega⟩
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, fun i hi => ?_, ?_, ?_⟩
-  all_goals first
-    | (simp only [rd64, rd32]; rw [r ⟨by omega, by omega⟩ ⟨by omega, by omega⟩ (by omega)])
-    | skip
-  · exact h.exit_handler
-  · exact h.impure_ptr
-  · exact h.stdin
-  · exact h.stdout
-  · exact h.stderr
-  · exact h.glue_next
-  · exact h.glue_niobs
-  · exact h.glue_iobs
-  · exact (hk _ ⟨by omega, by omega⟩).trans (h.files i hi)
-  · exact h.atexit
-  · exact h.cleanup
-
-theorem _root_.Lua.Vm.MemfsBoot.congr {m m' : Mem} (h : MemfsBoot m) (hk : ∀ a, StdioGlob a → m'[a]? = m[a]?) :
-    MemfsBoot m' := by
-  have : symFsReady = 0x8005d3c0 := rfl
-  have : symFds = 0x8005d460 := rfl
-  have : symFdsSize = 768 := rfl
-  have : symFiles = 0x8005d760 := rfl
-  have : symFilesSize = 3584 := rfl
-  refine ⟨?_, fun i hi => (hk _ ⟨by omega, by omega⟩).trans (h.fds i hi),
-    fun i hi => (hk _ ⟨by omega, by omega⟩).trans (h.files i hi)⟩
-  simp only [rd32]
-  rw [rdLE_congr fun i hi => hk _ ⟨by omega, by omega⟩]
-  exact h.ready
 
 theorem StdoutFresh.congrT {m m' : Mem} (h : StdoutFresh m) (hk : ∀ a, StdioGlob a → bytesT1 m' a = bytesT1 m a) :
     StdoutFresh m' := by

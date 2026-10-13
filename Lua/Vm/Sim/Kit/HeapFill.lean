@@ -127,7 +127,7 @@ theorem Agree.ofTotal {R : Nat → Prop} {m m' : Mem} (h : ∀ a, ¬ R a → byt
 
 /-! ## What `HeapAt` reads, off the chunks in use -/
 
-theorem InUse.cons {c : Chunk} {cs : List Chunk} {a : Nat} (h : InUse (c :: cs) a) :
+theorem _root_.Lua.Vm.InUse.cons {c : Chunk} {cs : List Chunk} {a : Nat} (h : InUse (c :: cs) a) :
     (c.inuse = true ∧ c.addr + 16 ≤ a ∧ a < c.addr + c.size + 8) ∨ InUse cs a := by
   obtain ⟨d, hd, h1, h2, h3⟩ := h
   rcases List.mem_cons.1 hd with rfl | hd

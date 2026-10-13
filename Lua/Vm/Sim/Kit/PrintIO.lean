@@ -35,47 +35,6 @@ namespace Lua.Vm.Sim.Kit
 open Lua.Vm.Sim Lua.Vm.Sim.AtF Lua.Vm.Layout Lua.Vm.DlHeap Vsa.Densify
 open Vsa.Machine (Config Steps)
 
-/-- **The phases of `stdout` between `print`'s writes.** -/
-inductive StdoutPh where
-  /-- before the first write (`StdioBoot`) -/
-  | boot
-  /-- after an empty first write: `__sinit` ran, no buffer (`StdoutFresh`) -/
-  | fresh
-  /-- set up, `pend` pending in the buffer `buf` (`StdoutAt`, `StdioUp`) -/
-  | up (buf : Nat) (pend : List (BitVec 8))
-
-/-- The bytes pending in `stdout`'s buffer. -/
-def StdoutPh.pend : StdoutPh → List (BitVec 8)
-  | .up _ p => p
-  | _ => []
-
-/-- The buffer's bytes, once there is one. -/
-def StdoutPh.Buf : StdoutPh → Nat → Prop
-  | .up buf _, a => Rng buf 1024 a
-  | _, _ => False
-
-/-- The heap's indices (`HeapAt`'s). -/
-structure HeapIx where
-  top : Nat
-  brk : Nat
-  chunks : List Chunk
-  bins : Nat → List Nat
-
-/-- `buf` is the payload of a chunk in use, in the arena. -/
-structure BufOwned (H : HeapIx) (buf : Nat) : Prop where
-  block : ∃ sz, (⟨buf - 16, sz, true⟩ : Chunk) ∈ H.chunks ∧ 1024 + 8 ≤ sz
-  lo : heapStart + 16 ≤ buf
-  hi : buf + 1024 ≤ heapEnd
-
-/-- **`stdout` in phase `ph`** over `m`, with the heap `H`: before the
-buffer, room for it (`_malloc_r`'s `_sbrk`); after, the buffer owned. -/
-inductive StdoutIn (m : Mem) (H : HeapIx) : StdoutPh → Prop where
-  | boot : StdioBoot (fillZeroMem m) → MemfsBoot (fillZeroMem m) → H.brk + 1024 + 16384 ≤ heapEnd →
-      StdoutIn m H .boot
-  | fresh : StdoutFresh m → H.brk + 1024 + 16384 ≤ heapEnd → StdoutIn m H .fresh
-  | up {buf : Nat} {pend : List (BitVec 8)} : StdoutAt m buf pend → StdioUp m → BufOwned H buf →
-      StdoutIn m H (.up buf pend)
-
 /-- **What a write may change**: htif.c's and the allocator's globals, the
 arena off the chunks in use, `__sinit`'s words, `stdout`, `errno`, the new
 buffer, the callees' stack below `sp`. -/

@@ -58,7 +58,7 @@ theorem logOk : LogOk log runs := logOk_of_chunks stores_ok runs_ok (by decide) 
 theorem regsOk : gprsCheck gprs L ci = true := by decide +kernel
 theorem imageOk : runsAvoid runs Image.textBase (Image.rodataBase + Image.rodataSize) = true := by
   decide +kernel
-theorem entryOk : entryCheck view L ci proto e printSlot = true := by decide +kernel
+theorem entryOk : EntryChecks view L ci proto e printSlot w := by constructor <;> decide +kernel
 theorem rtPostOk : RtPostChecks view L ci w := by constructor <;> decide +kernel
 theorem rtOk : RtChecks view L ci w := by
   constructor <;> first | exact rtPostOk | decide +kernel

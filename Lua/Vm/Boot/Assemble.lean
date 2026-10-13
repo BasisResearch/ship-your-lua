@@ -136,13 +136,13 @@ theorem vmLoaded_of_checks {σ : MState} {gprs : List (Nat × BitVec 64)} {chunk
     (hv : PartialView σ.mem (bootView chunk runs)) {tick : Nat} (htick : tick < 2) (steps : Nat)
     (hregs : gprsCheck gprs L ci = true)
     (himg : runsAvoid runs Image.textBase (Image.rodataBase + Image.rodataSize) = true)
-    (hentry : entryCheck (bootView chunk runs) L ci p e slot = true)
+    (hentry : EntryChecks (bootView chunk runs) L ci p e slot w)
     (hrt : RtChecks (bootView chunk runs) L ci w) :
     VmLoaded luaLayout p (Vsa.Densify.fillZero ⟨σ, tick, steps⟩) := by
   have hv' : PartialView (Vsa.Densify.fillZeroMem σ.mem) (bootView chunk runs) :=
     fun k b hk => Vsa.Densify.fillZeroMem_some (hv k b hk)
   have hg := gprsCheck_sound E hregs
-  refine ⟨L, ci, e, ?_, entryCheck_sound hv' hentry, show luaRuntimeReady _ L ci from
+  refine ⟨L, ci, e, ?_, entryCheck_sound hv' hentry.check, show luaRuntimeReady _ L ci from
     ⟨w, runtimeReadyAt_of_checks E hout hv htick steps hregs hrt⟩⟩
   exact
     { good := E.good.setMem _
@@ -161,7 +161,7 @@ theorem vmLoaded_of_boot {σ : MState} {gprs : List (Nat × BitVec 64)} {chunk :
     (hout : Vsa.Machine.output σ = "") {tick : Nat} (htick : tick < 2) (steps : Nat)
     (hregs : gprsCheck gprs L ci = true)
     (himg : runsAvoid runs Image.textBase (Image.rodataBase + Image.rodataSize) = true)
-    (hentry : entryCheck (bootView chunk runs) L ci p e slot = true)
+    (hentry : EntryChecks (bootView chunk runs) L ci p e slot w)
     (hrt : RtChecks (bootView chunk runs) L ci w) :
     VmLoaded luaLayout p (Vsa.Densify.fillZero ⟨σ, tick, steps⟩) :=
   vmLoaded_of_checks E hout (hmem ▸ (bootMem_get hlog).partial) htick steps hregs himg hentry hrt

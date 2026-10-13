@@ -38,16 +38,6 @@ namespace Lua.Vm.Sim.Kit
 open Lua.Vm Lua.Vm.Sim Lua.Vm.Layout
 open Vsa.Machine (MState Config Steps)
 
-/-- **newlib's stdio set up** (after the first `fwrite`): the words the
-`fwrite`/`fflush` entries test. -/
-structure StdioUp (m : Mem) : Prop where
-  /-- `_REENT` -/
-  impure : bytesT8 m symImpurePtr = BitVec.ofNat 64 symImpureData
-  /-- `CHECK_INIT` (`ld a5, 72(ptr)`): `__sinit` ran -/
-  init : bytesT8 m (symImpureData + reentCleanupOff) ≠ 0#64
-  /-- `_flags2`: the stream is locked through the no-op `__retarget_lock_*` -/
-  flags2 : bytesT4 m (stdoutFile + fileFlags2Off) = 0#32
-
 /-- The stack a stdio call runs in: `[sp - 2048, sp)` above the buffer. -/
 structure StdioCtx (sp buf : Nat) (r : BitVec 64) : Prop where
   ra : r.toNat % 4 = 0

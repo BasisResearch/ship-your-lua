@@ -222,6 +222,20 @@ theorem entry_fresh {p : Proto} {c : Config} (hL : VmLoaded luaLayout p c) :
           simp only [RtPtrs.vmoved] at this; rw [hrp] at this; exact this)
         rw [ecl, esl] at h
         exact h)
+      (fun ι hι => callInv_boot (rt0 := rt) hE hRt.stdio hRt.memfs h.rel.core.comp.rodata hRt.error_jmp
+        hRt.lua hRt.heap hRt.cstack.dense hdirty hRt.vararg.lua.next
+        (fun a h1 h2 => by
+          simp only [varargMem, varargMemV, getElem?_writeLE]
+          repeat' split
+          all_goals first | rfl | exact hRt.cstack.dense a h1 h2)
+        hRt.vararg.kowned hRt.vararg.regions hι
+        (by
+          have h := hrg.sizek; simp only [RtPtrs.vmoved] at h ⊢
+          rw [hrp, (hE.proto.kArr (by rw [← hrp]; exact hrg.kArr)).1] at h
+          exact (Option.some.inj h).symm)
+        (by have := hrg.kArr; rw [hrp] at this; exact this) rfl rfl rfl
+        (Option.some.inj (hE.l_G.symm.trans hRt.lua.g)) esl ecl (Nat.le_add_right _ _) rfl
+        (by simp only [RtPtrs.vmoved, stackValueSize]; omega))
     exact ⟨ι', hP⟩
 
 /-- **The `VARARGPREP` clause**: at the entry state (the only reachable state at

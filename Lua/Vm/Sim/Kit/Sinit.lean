@@ -30,10 +30,6 @@ open Vsa.Machine (Config Steps)
 abbrev stdinFile : Nat := symSf
 abbrev stderrFile : Nat := symSf + 2 * fileSize
 
-/-- `__sinit`'s cleanup hook (`_REENT->__cleanup`) and the exit handler
-(`__stdio_exit_handler`), `cleanup_stdio` and `stdio_exit_handler`. -/
-abbrev symCleanupStdio : Nat := 0x80032b0c
-abbrev symStdioExitHandlerFn : Nat := 0x80032af8
 
 /-- **A `FILE` after newlib's `std(fp, flags, file)`**: `fl` the word
 `flags | file << 16` at `_flags`; the buffer, counts and `_flags2` cleared;

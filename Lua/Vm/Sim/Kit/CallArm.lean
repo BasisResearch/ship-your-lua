@@ -106,6 +106,20 @@ emergency `luaC_fullgc`. -/
 def HeapBudget (w : RelPtrs) (args : List Value) : Prop :=
   w.rt.brkv + callBudget args w.rt.strtSize ≤ DlHeap.heapEnd
 
+/-- `PrintCall_Statement` on the states where `Q` holds of the program, the
+relation's pointers and the instruction (lane F1-13). -/
+def PrintCallOn (I : Proto → RelPtrs → Prop) (Q : Proto → RelPtrs → Word → Prop) : Prop :=
+  ∀ {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    (f : AbiFrame) (o : Array String),
+    Supported p → VmRelAt p c s w → I p w → p.fetch s.pc = some ins → ins.op? = some .CALL →
+    ins.b ≠ 0 → ins.c ≠ 0 → (List.range' ins.a ins.b).mapM s.regs = some (.builtin .print :: args) →
+    (AnyAlloc args → HeapBudget w args) → Q p w ins →
+    Triple (SegSt 0x8000aab4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 w.L⟩,
+        ⟨Register.x11, BitVec.ofNat 64 (w.slot ins.a)⟩, ⟨Register.x12, BitVec.ofNat 64 (ins.c - 1)⟩]
+        w.sp 0x8001c7d8#64 f) (ArmPay (callMem c.σ.mem w s.pc ins) o))
+      (fun c' => ∃ m' out mo ι rt, wrRet 0x8001c7d8#64 w.sp 0 f m' (pushes o out) c' ∧
+        CallOut p w c.σ.mem ins args m' out (w.after mo ι rt) ∧ I p (w.after mo ι rt))
+
 /-- **Named premise: `luaD_precall` on `print` from `OP_CALL`**, on states
 with the invariant `I`, and with the heap room `HeapBudget` when an argument
 allocates (`Allocates`: integers, floats, functions): from the `jal` (`L`,
@@ -115,16 +129,7 @@ console gaining the line, the relation's facts for the memory it leaves
 `luaD_precall`'s C path (`precall_reuse`, `precall_ext`), `luaB_print`
 (`print_sum`), `luaD_poscall` and the relation facts. -/
 def PrintCall_Statement (I : Proto → RelPtrs → Prop) : Prop :=
-  ∀ {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
-    (f : AbiFrame) (o : Array String),
-    Supported p → VmRelAt p c s w → I p w → p.fetch s.pc = some ins → ins.op? = some .CALL →
-    ins.b ≠ 0 → ins.c ≠ 0 → (List.range' ins.a ins.b).mapM s.regs = some (.builtin .print :: args) →
-    (AnyAlloc args → HeapBudget w args) →
-    Triple (SegSt 0x8000aab4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 w.L⟩,
-        ⟨Register.x11, BitVec.ofNat 64 (w.slot ins.a)⟩, ⟨Register.x12, BitVec.ofNat 64 (ins.c - 1)⟩]
-        w.sp 0x8001c7d8#64 f) (ArmPay (callMem c.σ.mem w s.pc ins) o))
-      (fun c' => ∃ m' out mo ι rt, wrRet 0x8001c7d8#64 w.sp 0 f m' (pushes o out) c' ∧
-        CallOut p w c.σ.mem ins args m' out (w.after mo ι rt) ∧ I p (w.after mo ι rt))
+  PrintCallOn I fun _ _ _ => True
 
 /-- **A non-empty run from `c` into the relation with `s'` and the invariant
 `I`.** -/
@@ -199,6 +204,22 @@ theorem call_nres (ins : Word) (hc : ins.c ≠ 0) :
 set_option hygiene false in
 local macro_rules | `(tactic| kit_guard_ext) => `(tactic| first | exact hgB | decide)
 
+/-- **`OP_CALL`'s register ranges** fit the frame (`Supported`'s `regTop`):
+`R[A .. A+B-1]` and the `C - 1` results. -/
+structure CallBounds (p : Proto) (ins : Word) : Prop where
+  ab : ins.a + ins.b ≤ p.maxstacksize
+  ac : ins.a + ins.c - 1 ≤ p.maxstacksize
+
+theorem call_bounds {p : Proto} {pc : Nat} {ins : Word} (hS : Supported p) (hf : p.fetch pc = some ins)
+    (hop : ins.op? = some .CALL) (hb : ins.b ≠ 0) (hcc : ins.c ≠ 0) : CallBounds p ins := by
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, Kernel.regTop, callK, hb, hcc] at htop
+  have hb1 : ins.a + ins.b ≤ p.maxstacksize := by
+    obtain ⟨b', hb'⟩ := Nat.exists_eq_add_one_of_ne_zero hb
+    have := foldr_range_top b' ins.a
+    rw [hb'] at htop; omega
+  exact ⟨hb1, by omega⟩
+
 /-- **`OP_CALL print` on the states with the invariant `I`**, from
 `luaD_precall`'s summary in the relation's terms (`PrintCall_Statement I`):
 dispatch, the arm's `L->top = ra + B` and `savepc`, the `jal`, the summary,
@@ -218,13 +239,7 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
   obtain ⟨c1, hs1, hlt1, hA, hm1⟩ := dispatchM hR hf (by rw [hnum]; decide)
   have hc := hA.core
   have hr := hc.ranges
-  have htop := supported_regTop hS hf
-  simp [regTop, kernel, hop, opKernel, Kernel.regTop, callK, hb, hcc] at htop
-  have hb1 : ins.a + ins.b ≤ p.maxstacksize := by
-    obtain ⟨b', hb'⟩ := Nat.exists_eq_add_one_of_ne_zero hb
-    have := foldr_range_top b' ins.a
-    rw [hb'] at htop; omega
-  have hc1 : ins.a + ins.c - 1 ≤ p.maxstacksize := by omega
+  obtain ⟨hb1, hc1⟩ := call_bounds hS hf hop hb hcc
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have := hr.base_lo; have := hr.base_hi; have := hr.base_al; have := hr.ci_lo
   have := hr.ci_hi; have := hr.code_hi; have := hr.code_lo; have := fetch_lt hf
@@ -253,7 +268,7 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
     BitVec.ofNat 64 (w.code + 4 * (s.pc + 1)), sign_extend (m := 64) ins, 0#64, t22, BitVec.ofNat 64 w.ci,
     BitVec.ofNat 64 Arms.jtBase, BitVec.ofNat 64 w.base, t26, BitVec.ofNat 64 (w.code + 4 * s.pc)⟩
   obtain ⟨c3, s3, m', out, mo, ι, rt, hret, hout, hI'⟩ :=
-    hP f c1.σ.sailOutput hS hR hI hf hop hb hcc hargs hbud _ ((h0.repin (by
+    hP f c1.σ.sailOutput hS hR hI hf hop hb hcc hargs hbud trivial _ ((h0.repin (by
       simp only [callPre, f, AbiFrame.pins, List.cons_append, List.nil_append, RelPtrs.slot]
       pins_of h0)).mem_eq (by rw [hm1]; simp only [callMem, RelPtrs.slot, stateTopOff, ciSavedpcOff, stackValueSize]))
   have acc := acc.trans s3
@@ -324,5 +339,13 @@ theorem sim_CALL_of {I : Proto → RelPtrs → Prop} (hP : PrintCall_Statement I
             (by simp only [RelPtrs.slot, stackValueSize]; omega)
         rw [et, ev]
         exact hout.vrepr _ _ _ hv0
+
+/-- **`SimArm .CALL`** (lane F1-13): the arm on the `CALL` invariant
+(`sim_CALL_of`), which `Complement.call` carries at every state of the
+relation. -/
+theorem sim_CALL (hP : PrintCall_Statement CallInv) (hG : HeapBudget_Statement CallInv) : SimArm .CALL := by
+  intro p hS c s s' ⟨w, hR⟩ ins hf hop hstep
+  obtain ⟨c', n, w', hn, hst, hR', -⟩ := sim_CALL_of hP hG hS hR hR.core.comp.call hf hop hstep
+  exact ⟨c', n, hn, hst, w', hR'⟩
 
 end Lua.Vm.Sim.Kit
