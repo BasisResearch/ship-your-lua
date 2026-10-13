@@ -424,8 +424,11 @@ def proveBy (ty : Expr) (tac : Syntax) : TacticM (Option Expr) := do
   let g ← mkFreshExprMVar ty
   let s ← saveState
   try
-    let gs ← Tactic.run g.mvarId! (evalTactic tac)
-    if gs.isEmpty then return some (← instantiateMVars g)
+    -- without error recovery: a failed `omega` under `<;>` must fail the attempt,
+    -- not admit the goal and log the error (lane F3)
+    let gs ← Tactic.run g.mvarId! (Term.withoutErrToSorry (withoutRecover (evalTactic tac)))
+    let e ← instantiateMVars g
+    if gs.isEmpty && !e.hasSyntheticSorry then return some e
     s.restore; return none
   catch _ => s.restore; return none
 

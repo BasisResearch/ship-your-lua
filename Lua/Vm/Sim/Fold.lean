@@ -359,8 +359,9 @@ field: `LOADF`, `ADDI`, `LTI`, `GEI` (lane float-m0), `SUB`, `FORLOOP`
 (round 5, A-JOIN), `LEI`, `GTI`, `ADD`, `ADDK`, `SUBK`, `UNM` (lane F2,
 join route), `LT` and `LE` (lane F2: their f2i paths under `floor`,
 `FloorSpec`), `BNOT`, `BAND`, `BOR`, `BXOR` (lane F2: `tointegerns` under
-`FloorSpec`). `EQI` and `FORPREP` are proved but for the paths their fields
-name (`At.EqiFlt_Statement`, `At.FpCoerce_Statement`). -/
+`FloorSpec`), `BANDK`, `BORK`, `BXORK` (lane F3: `K[C]` read through
+`floor`'s frame, under `FloorSpec`). `EQI` and `FORPREP` are proved but for
+the paths their fields name (`At.EqiFlt_Statement`, `At.FpCoerce_Statement`). -/
 structure FloatArms : Prop where
   /-- the soft-float routines' level-2 equations not yet proved
   (`Lua/Vm/Fn/Spec.lean`): empty since lane float-sf2, every routine's is a
@@ -394,12 +395,6 @@ structure FloatArms : Prop where
   MODK : SimArmOn .MODK FltBK
   /-- `OP_IDIVK` with a float operand (T4) -/
   IDIVK : SimArmOn .IDIVK FltBK
-  /-- `OP_BANDK` with a float `R[B]` (`op_bitwiseK`: `tointegerns`; T3) -/
-  BANDK : SimArmOn .BANDK FltB
-  /-- `OP_BORK` with a float `R[B]` (T3) -/
-  BORK : SimArmOn .BORK FltB
-  /-- `OP_BXORK` with a float `R[B]` (T3) -/
-  BXORK : SimArmOn .BXORK FltB
   /-- `OP_SHRI` with a float `R[B]` (T3) -/
   SHRI : SimArmOn .SHRI FltB
   /-- `OP_SHLI` with a float `R[B]` (T3) -/
@@ -449,9 +444,9 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case IDIVK => exact SimArm.split At.sim_IDIVK hF.IDIVK
   case DIVK => exact hF.DIVK
   case POWK => exact hF.POWK
-  case BANDK => exact SimArm.split At.sim_BANDK hF.BANDK
-  case BORK => exact SimArm.split At.sim_BORK hF.BORK
-  case BXORK => exact SimArm.split At.sim_BXORK hF.BXORK
+  case BANDK => exact SimArm.split At.sim_BANDK (At.sim_BANDK_flt hF.soft hF.floor)
+  case BORK => exact SimArm.split At.sim_BORK (At.sim_BORK_flt hF.soft hF.floor)
+  case BXORK => exact SimArm.split At.sim_BXORK (At.sim_BXORK_flt hF.soft hF.floor)
   case ADDI => exact SimArm.split @sim_ADDI (At.sim_ADDI_flt hF.soft)
   case SHRI => exact SimArm.split At.sim_SHRI hF.SHRI
   case SHLI => exact SimArm.split At.sim_SHLI hF.SHLI

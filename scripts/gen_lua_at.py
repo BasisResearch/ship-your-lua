@@ -86,8 +86,13 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
               # lane F2: the bitwise arms' float paths (`luaV_tointegerns`,
               # F2Ieq: `floor`, `__eqdf2`, the range, `__fixdfdi`)
               "OP_BNOT_F": ("BnotF", 0x8001df18), "OP_BAND_F": ("BandF", 0x8001de4c),
-              "OP_BOR_F": ("BorF", 0x8001da70), "OP_BXOR_F": ("BxorF", 0x8001da10)}
-SEG_OP = {"OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
+              "OP_BOR_F": ("BorF", 0x8001da70), "OP_BXOR_F": ("BxorF", 0x8001da10),
+              # lane F3: the K forms' float paths (`K[C]` read back through
+              # `floor`'s frame)
+              "OP_BANDK_F": ("BandkF", 0x8001d710), "OP_BORK_F": ("BorkF", 0x8001d6b8),
+              "OP_BXORK_F": ("BxorkF", 0x8001d660)}
+SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
+"OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
           "OP_LE_F": "OP_LE",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("BNOT", "BAND", "BOR", "BXOR")}}
 ARMS.update(FLOAT_ARMS)
@@ -141,6 +146,9 @@ CUR = [None]
 IMPORTS = {op: ["Lua.Vm.Sim.Kit.AtCond", "Lua.Vm.Sim.Kit.AtFloat"] for op in FLOAT_ARMS}
 IMPORTS["OP_FORLOOP"] = IMPORTS["OP_FORLOOP"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
 IMPORTS["OP_FORPREP_F"] = IMPORTS["OP_FORPREP_F"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
+# lane F3: `K[C]`'s address read through a callee's frame (`at_side_ext`, `Kit/AtFrame.lean`)
+for _op in ("OP_BANDK_F", "OP_BORK_F", "OP_BXORK_F"):
+    IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtFrame"]
 IMPORTS |= {"OP_LE": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LT": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_EQK": ["Lua.Vm.Sim.Kit.AtCond"], "OP_LEN": ["Lua.Vm.Sim.Kit.AtCond"],
            "OP_GETTABUP": ["Lua.Vm.Sim.Kit.AtEnv"]}

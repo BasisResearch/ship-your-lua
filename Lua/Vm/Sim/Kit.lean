@@ -77,6 +77,9 @@ import Lua.Vm.Sim.Kit.AtFltBnot
 import Lua.Vm.Sim.Kit.AtFltBand
 import Lua.Vm.Sim.Kit.AtFltBor
 import Lua.Vm.Sim.Kit.AtFltBxor
+import Lua.Vm.Sim.Kit.AtFltBandk
+import Lua.Vm.Sim.Kit.AtFltBork
+import Lua.Vm.Sim.Kit.AtFltBxork
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
