@@ -103,9 +103,14 @@ agree with `throw_land`.
 
 | part | hand lines | generated lines | CPU | peak | largest declaration |
 |---|---|---|---|---|---|
-| relabel, `site_ops` (`StuckCases.lean`) | +60 | — | | | |
-| `ErrIn`, `ArmErr`, `at_err`, `Log.den_out` (`Kit/AtErr.lean`) | +75 | `At/{Mod,Idiv,Idivk,Modk,Forprep}` +1 each; `LayoutErr.lean` +6 | | | |
-| the throw (`Kit/Throw.lean`) | 95 | segments + sites 2,280 (`HluaG_errormsg`, `HluaD_throw`, `Hlongjmp`, `HluaD_rawrunprotected`'s new root), code pins 1,319 | | | `throw_land` ≤ 200k |
-| the seam and the tail (`Kit/ErrTail.lean`) | 91 | — | | | |
-| `ErrorSimRest` (`StuckErr.lean`) | +55 | — | | | |
+| relabel, `site_ops` (`StuckCases.lean`) | +60 | — | 7.4 s | 0.8 GB | ≤ 200k |
+| `ErrIn`, `ArmErr`, `at_err`, `Log.den_out` (`Kit/AtErr.lean`) | +75 | `At/{Mod,Idiv,Idivk,Modk,Forprep}` +1 each; `LayoutErr.lean` +6 | 11.6 s | 2.4 GB | ≤ 200k |
+| the throw (`Kit/Throw.lean`) | 95 | segments + sites 2,280 (`HluaG_errormsg`, `HluaD_throw`, `Hlongjmp`, `HluaD_rawrunprotected`'s new root), code pins 1,319 | 16.4 s | 2.2 GB | `throw_land` ≤ 200k |
+| the seam and the tail (`Kit/ErrTail.lean`) | 91 | — | 2.1 s | 3.1 GB | ≤ 200k |
+| `ErrorSimRest` (`StuckErr.lean`) | +55 | — | 3.5 s | 3.2 GB | ≤ 200k |
 | generators (`gen_lua_at.py` +3, `gen_lua_layout.py` +17, `gen_lua_arms.py` +16, `gen_lua_code.py` +2) | 38 | — | — | — | — |
+
+## Gate
+
+`abstractions/gate.py`: ok (`a1-kit-arm` 69 cases, first quarter 1.9, last
+4.1; no new kit-arm case in this lane). `lake build Lua Vsa VsaIris`: ok.
