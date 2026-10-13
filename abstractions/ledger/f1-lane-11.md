@@ -149,5 +149,9 @@ statement changes in lane F1-10's/F1-9's files 58 lines.
 ## Gate
 
 `abstractions/gate.py`: `a1-kit-arm` ok (58 cases, first 2.1, last 2.9).
-`a1-float-arm` fails on the base too (12 cases, first-quarter 2.7, last 13.3;
-`Kit/AtFlt*.lean`, the float lanes' cluster, untouched here).
+`a1-float-arm` fails (12 cases, first-quarter 2.7, last 13.3): its files
+(`Kit/AtFlt*.lean`, the float lanes' cluster) are unchanged by this lane, so
+the failure is the base's. `scripts/check.sh`: stages 1–3b, 4, 5 (the full
+`lake build Lua Vsa VsaIris`, 1 min 57 s wall, 3.7 GB peak), 5b and 6 (429
+axiom reports, all within `propext`, `Classical.choice`, `Quot.sound`) pass;
+3c is the float cluster above.
