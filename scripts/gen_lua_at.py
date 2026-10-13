@@ -105,11 +105,15 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
 # over the integer arms' segments, `SEG_OP`)
 FLOAT_ARMS.update({"OP_DIV": ("Div", 0x8001d494), "OP_DIVK": ("Divk", 0x8001d7d8),
                    "OP_IDIV_F": ("IdivF", 0x8001deac), "OP_IDIVK_F": ("IdivkF", 0x8001d768)})
+# lane F1-F7: `luai_nummod` (libm `fmod`, its `errno` store, then the sign
+# correction): MOD's and MODK's float paths, over the integer arms' segments
+FLOAT_ARMS.update({"OP_MOD_F": ("ModF", 0x8001dc58), "OP_MODK_F": ("ModkF", 0x8001dad0)})
 SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("SHL", "SHR", "SHLI", "SHRI")},
 "OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
           "OP_LE_F": "OP_LE", "OP_EQ_F": "OP_EQ", "OP_EQK_F": "OP_EQK",
           "OP_IDIV_F": "OP_IDIV", "OP_IDIVK_F": "OP_IDIVK",
+          "OP_MOD_F": "OP_MOD", "OP_MODK_F": "OP_MODK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("BNOT", "BAND", "BOR", "BXOR")}}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
@@ -180,6 +184,22 @@ FRAME_G = {"Divdf3": ("Lua.Vm.Sim.At.divdf3_sumG", (8, 9, 18, 19))}
 # `SfRef.floor` as the result, `Floor.sum_ref`).
 FCALL_ARM = {op: {0x8002bb14: ("FloorR", 1, 112)} for op in ("OP_IDIV_F", "OP_IDIVK_F")}
 FPROVED["FloorR"] = "Lua.Vm.Fn.FloorR"
+# lane F1-F7: libm `fmod` (`Lua.Vm.Fn.FmodR`: the reference `SfRef.fmod` as
+# its result), MOD's and MODK's own call node. Its frame stores the caller's
+# callee-saved registers through `__ieee754_fmod`'s and `__divdf3`'s frames:
+# the frame is the row's, all thirteen (`FRAME_G`, `FRAME_FN`; every one live
+# into the call, `gen_lua_arms.py` `FLOAT_CALL_KEEP`). Its premises
+# (`FARGS`): `gp`, the stack above `_impure_data`, `_impure_ptr`; and its
+# store to `errno` (`FOUTER`): a second log entry, the window `[A, A + n)` of
+# the same memory function (`Kit/AtFmod.lean`, the fin lemma `AtFinE`)
+for _op in ("OP_MOD_F", "OP_MODK_F"):
+    FCALL_ARM[_op] = {0x8002b964: ("FmodR", 2, 160)}
+FPROVED["FmodR"] = "Lua.Vm.Fn.FmodR"
+FRAME_G["FmodR"] = ("Lua.Vm.Fn.FmodR.sum", (3, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27))
+FRAME_FN = {"FmodR": "Lua.Vm.Sim.SFrame.mk"}
+FARGS = {"FmodR": " (by at_gp) (at_sI hX) (by at_imp)"}
+FSP = {"FmodR": "(at_fnSp' hX)"}
+FOUTER = {"FmodR": (0x8005d1b8, 4)}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
@@ -200,6 +220,9 @@ for _op in ("OP_BANDK_F", "OP_BORK_F", "OP_BXORK_F"):
 # lane F1-F6: DIVK's and IDIVK's `K[C]` read after `__floatdidf`'s frame
 for _op in ("OP_DIVK", "OP_IDIVK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtFrame"]
+# lane F1-F7: `fmod`'s call node and the `errno` close
+IMPORTS["OP_MOD_F"] = IMPORTS["OP_MOD_F"] + ["Lua.Vm.Sim.Kit.AtFmod"]
+IMPORTS["OP_MODK_F"] = IMPORTS["OP_MODK_F"] + ["Lua.Vm.Sim.Kit.AtFrame", "Lua.Vm.Sim.Kit.AtFmod"]
 # lane F1-F4: the float call node of `luaV_equalobj` (`Kit/AtEqF.lean`)
 for _op in ("OP_EQ_F", "OP_EQK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtEqF"]
@@ -817,10 +840,16 @@ def call_effect(st, callee, ret):
         if mod in PREMISED:
             hyps.append(f"({PREMISED[mod]} : {mod}Spec)")
         if frame:
+            pre_log = CUR[0].logname(tuple(st.log))
             post.log.insert(0, ("clob", (("sp", 1),), -frame, (frame, k)))
+            if mod in FOUTER:
+                # lane F1-F7: the store outside the frame, the same memory
+                # function over the call's entry memory
+                oa, on = FOUTER[mod]
+                post.log.insert(0, ("clob", (), oa, (on, f"fun X _ => k{k} X (Log.den X {pre_log})")))
             sm = FRAME_G[mod][0] if mod in FRAME_G else f"Lua.Vm.Fn.{mod}.sum"
-            proof = (f"at_call [{{pins}}] ({sm} {pre}_ _ _ _ sframe? {vs} (at_fnSp hX) "
-                     f"(by decide) (by at_rod))")
+            proof = (f"at_call [{{pins}}] ({sm} {pre}_ _ _ _ sframe? {vs} {FSP.get(mod, '(at_fnSp hX)')} "
+                     f"(by decide) (by at_rod){FARGS.get(mod, '')})")
         else:
             proof = f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum _ _ _ hframe? {vs} (by decide))"
     elif callee == "__moddi3":
@@ -996,8 +1025,8 @@ class Arm:
                            f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {xs}\n")
                 # lane F1-F6: a frame that stores the caller's saved registers
                 # (`FRAME_G`) is over their row values (`frame4`)
-                gs = ("(Lua.Vm.Sim.At.frame4 " + " ".join(f"(Loc.den X {lean_loc(y)})" for y in g)
-                      + ") ") if g else ""
+                gs = (f"({FRAME_FN.get(mod, 'Lua.Vm.Sim.At.frame4')} "
+                      + " ".join(f"(Loc.den X {lean_loc(y)})" for y in g) + ") ") if g else ""
                 out.append(f"/-- ... its frame. -/\n"
                            f"def k{k} (X : Cx) (M : Mem) : Mem :=\n"
                            f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {gs}{xs}\n")
@@ -1151,7 +1180,8 @@ class Arm:
                 st2.regs = {r: v for r, v in st2.regs.items() if r in post and printable(v)}
                 if callee in FCALLS and not FLOAT_ON[0]:
                     raise Stop(f"call to 0x{callee:x}")
-                if callee is not None and callee not in CALLS and callee not in ERRS:
+                if (callee is not None and callee not in CALLS and callee not in ERRS
+                        and callee not in FCALL_ARM.get(self.op, {})):
                     raise Stop(f"call to 0x{callee:x}")
                 if callee in ERRS:
                     rest = []
@@ -1235,7 +1265,7 @@ class Arm:
         self.order.append(key)
 
     def walk_call(self, entry, ret, st, depth):
-        callee = CALLS[entry]
+        callee = CALLS.get(entry)
         if entry in FCALL_ARM.get(self.op, {}):
             callee = f"fcall_{FCALL_ARM[self.op][entry][0]}"
         post, hyps, proof, _ = call_effect(st, callee, ret)
@@ -1328,10 +1358,13 @@ class Arm:
         st.bounds = bounds
         hs = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(st) + back
         lname = self.name("fin", key)
+        outer = any(kind == "clob" and t == () for kind, t, a, v in st.log)
         text = (f"theorem {lname} {' '.join(hs)} {{c : Config}}\n"
                 f"    (h : At X 0x{HEAD:08x}#64 ({row}) {log} c) :\n"
-                f"    AtFin X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
-                f"  at_fin\n")
+                f"    {'AtFinE' if outer else 'AtFin'} X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
+                f"  {'at_finE' if outer else 'at_fin'}\n")
+        if len(ws) > 2 and outer:
+            raise Stop("an outer store with more than two stored slots")
         if len(ws) > 2:
             # round 5: many stored slots: the frame and keep facts (log-only)
             # each in a declaration of its own (`at_fin_with`)
@@ -1425,6 +1458,9 @@ def ent_text(k, t, a, v):
         frame, site = v
         # lane F1-F4: a summary's frame contents given as a function text
         content = f"({site})" if isinstance(site, str) else f"k{site}"
+        if t == ():
+            # lane F1-F7: a window at a literal address (`FOUTER`)
+            return f".clob ⟨[], {a}, 0⟩ {frame} {content}"
         return f".clob ⟨[(1, .sp)], 0, {frame}⟩ {frame} {content}"
     return f".{k} {lean_aff(t, a)} {lean_loc(v)}"
 

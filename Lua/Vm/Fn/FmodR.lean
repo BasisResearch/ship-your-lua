@@ -83,6 +83,24 @@ theorem sum_ref (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFra
 /-- The result's specification: the reference. -/
 abbrev S (x y : BitVec 64) : BitVec 64 := SfRef.fmod x y
 
+/-- `fmod`'s result, the reference's (`F_eq`): the call node's value. -/
+def F (_m : Mem) (_s : Nat) (_r : BitVec 64) (x y : BitVec 64) : BitVec 64 := SfRef.fmod x y
+
+theorem spec_proved (m : Mem) (s : Nat) (r x y : BitVec 64) (_hsp : FnSp s 112) : F m s r x y = S x y := rfl
+
+/-- **The call node's summary** (`gen_lua_at.py` `FCALL_ARM`): `sum_ref` with
+the result `F`. -/
+theorem sum (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v10 v11 : BitVec 64)
+    (hs : FnSp s 160) (hr : r.toNat % 4 = 0) (hrod : RodataRead m)
+    (hgp : g.gp = BitVec.ofNat 64 Lua.Vm.Layout.symGlobalPointer)
+    (hsI : Lua.Vm.Layout.symImpurePtr + 8 + 160 ≤ s)
+    (himp : bytesT8 m Lua.Vm.Layout.symImpurePtr = BitVec.ofNat 64 Lua.Vm.Layout.symImpureData) :
+    Triple (SegSt 0x8002b964#64 [⟨Register.x10, v10⟩, ⟨Register.x11, v11⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
+      (SegSt r [⟨Register.x10, F m s r v10 v11⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩]
+        (ArmPay (memPatch (memPatch m (Fm m s r g v10 v11) (s - 160) 160) (Fm m s r g v10 v11)
+          Lua.Vm.Layout.symImpureData 4) o)) :=
+  sum_ref m o s r g v10 v11 hs hr hrod hgp hsI himp
+
 /-- **(b) on the model**: `fmod` is `Lua.Num.fmod` (lane float-sf5's `fmod_model`). -/
 theorem model (m : Mem) (s : Nat) (r x y : BitVec 64) :
     F64.toModel (FmodW.F m s r x y) = Lua.Num.fmod (F64.toModel x) (F64.toModel y) := by
