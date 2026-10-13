@@ -85,7 +85,10 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          "lua_gettop", "lua_settop",
          # lane F1-12: `luaL_tolstring`'s callees on its nil and boolean paths
          "lua_absindex", "luaL_callmeta", "lua_getmetatable", "lua_type", "lua_toboolean",
-         "lua_tolstring"]
+         "lua_tolstring",
+         # lane float-sf3: the routines with soft-float or soft-int callees
+         # (`scripts/gen_lua_fn.py`'s call nodes): libm `floor`, `__muldf3`, `__divdf3`
+         "floor", "__muldf3", "__divdf3"]
 
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")

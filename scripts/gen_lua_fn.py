@@ -62,9 +62,71 @@ ROUTINES = {
     "__gedf2": ("Gedf2", 0x8002e3c0, 0, [10, 11]),
     "__adddf3": ("Adddf3", 0x8002d7a8, 48, [10, 11]),
     "__subdf3": ("Subdf3", 0x8002e9d0, 48, [10, 11]),
+    # lane float-sf3: libm `floor` (`s_floor.c`), its callees `__adddf3` (a
+    # 48-byte frame below its 64) and `__gedf2` as call nodes; its window is
+    # 64 + 48 bytes (`WINDOW`)
+    "floor": ("FloorFn", 0x8002bb14, 64, [10]),
+    # `__muldf3` (`_FP_MUL`): `__muldi3` (its four partial products) and
+    # `__clzdi2` as call nodes, both leaves
+    "__muldf3": ("Muldf3", 0x8002e504, 80, [10, 11]),
 }
-# the summarised callees: entry -> (summary, value function)
-CALLEES = {0x8002f7ec: ("Lua.Vm.Sim.clzdi2_sum", "Lua.Vm.Sim.clz64")}
+# a framed routine whose framed callees write below its own frame: the bytes
+# below `sp` its summary patches (its frame plus the deepest callee's)
+WINDOW = {"floor": 112}
+# lane float-sf3: the routines whose frame slots are forwarded (store-to-load
+# at generation time): a spill slot stored on every path into a node is a
+# parameter `vs<off>` of the node's lifted function, with the node lemma's
+# hypothesis `hs<off> : bytesT8 m <slot> = vs<off>` (the saved `ra`'s `hra`,
+# generalised); a reload is that parameter, so a lifted function after a call
+# reads no memory and takes none (`Fn.need_m`): level (b) never carries the
+# frame's stores (ROUND-5 §2, "the frame reloads")
+FORWARD = {"floor", "__muldf3"}
+SLOT_RE = r"\(v2 \+ sign_extend \(m := 64\) \((0x[0-9a-f]+)#12\)\)\.toNat"
+LOAD_RE = r"bytesT8 \(m0\) " + SLOT_RE
+MEM_RE = r"\bm\b(?!\s*:=)"
+
+
+class Callee:
+    """A call node's callee (lane float-sf3: call nodes to proved summaries).
+
+    * `summ`: its summary, applied as `summ <args>`; `{fr}` in `args` is the
+      caller's frame (`hframe?` for a leaf callee, `sframe?` for a framed one),
+      `{sp}` the caller's `sp` as a `Nat` (a framed callee's `s`);
+    * `val`: its result, a format over the argument registers `{a0}`, `{a1}`,
+      … and, for a framed callee, its entry memory `{m}`, `{sp}` and the
+      return address `{r}`;
+    * `frame`: a framed callee's frame bytes (its summary's memory is
+      `memPatch m (Fm …) (sp - frame) frame`, `{mf}` the `Fm` format), `0`
+      for a leaf (the memory kept);
+    * `opaque`: its lifted functions, never unfolded by the caller;
+    * `keeps`: the caller-saved registers its summary keeps (a caller's
+      temporaries live across the call: gcc's `-fipa-ra`).
+    """
+
+    def __init__(self, summ, args, val, nargs, frame=0, mf=None, opaque=(), imp=None, keeps=()):
+        self.summ, self.args, self.val, self.nargs = summ, args, val, nargs
+        self.frame, self.mf, self.opaque, self.imp = frame, mf, opaque, imp
+        self.keeps = keeps
+
+
+# the summarised callees: entry -> `Callee`
+CALLEES = {
+    0x8002f7ec: Callee("Lua.Vm.Sim.clzdi2_sum", "_ _ hframe? _ _ (by fn_rod) (by decide)",
+                       "Lua.Vm.Sim.clz64 ({a0})", 1, imp="Lua.Vm.Sim.Kit.Clzdi2"),
+    # lane float-sf3: the soft-float routines `FPROVED` names, as call nodes
+    0x8002d7a8: Callee("Lua.Vm.Fn.Adddf3.sum",
+                       "_ _ {sp} _ sframe? _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)",
+                       "Lua.Vm.Fn.Adddf3.F ({m}) {sp} ({r}) ({a0}) ({a1})", 2, 48,
+                       "Lua.Vm.Fn.Adddf3.Fm ({m}) {sp} ({r}) ({a0}) ({a1})",
+                       ("Lua.Vm.Fn.Adddf3.F", "Lua.Vm.Fn.Adddf3.Fm"), "Lua.Vm.Fn.Adddf3"),
+    0x8002e3c0: Callee("Lua.Vm.Fn.Gedf2.sum", "_ _ _ hframe? _ _ (by decide)",
+                       "Lua.Vm.Fn.Gedf2.F ({a0}) ({a1})", 2, opaque=("Lua.Vm.Fn.Gedf2.F",),
+                       imp="Lua.Vm.Fn.Gedf2"),
+    # `__muldi3` with the caller's temporaries kept (`muldi3_sumK`: `__muldf3`)
+    0x8002f6c8: Callee("Lua.Vm.Sim.Kit.muldi3_sumK", "_ _ _ hframe? tframe? _ _ (by decide)",
+                       "({a0}) * ({a1})", 2, imp="Lua.Vm.Sim.Kit.Muldi3",
+                       keeps=(6, 14, 15, 16, 17, 28, 29)),
+}
 
 # the callee-saved registers: register -> field of `HFrame`/`SFrame`
 FRAME = {3: "gp", 8: "s0", 9: "s1", 18: "s2", 19: "s3", 20: "s4", 21: "s5", 22: "s6",
@@ -147,13 +209,25 @@ class Seg:
 gla_lo = [0, 0]
 
 
+def s_callee(s):
+    return CALLEES[s.callee]
+
+
 class Fn:
     def __init__(self, fn):
         self.fn = fn
         self.mod, self.entry, self.F, self.args = ROUTINES[fn]
+        self.W = WINDOW.get(fn, self.F)
         lo, hi = next((a, b) for f, _, a, b, *_ in gla.HELPERS if f == fn)
         gla_lo[0], gla_lo[1] = lo, hi
         self.segs = [Seg(n, a, b, s) for n, a, b, s in gla.helper_specs(fn)]
+        # a framed callee's patch: `.rodata` and the saved `ra` read through it
+        self.patch = any(s.kind == "call" and s_callee(s).frame for s in self.segs)
+        # the syntactic closers (`Kit/FnCall.lean`) where a callee's patch or a
+        # forwarded slot's fact is in scope (`assumption` would unify slot
+        # addresses by `whnf`)
+        self.rod, self.ra_t = (("fn_rod_patch", "fn_ra_patch") if self.patch or fn in FORWARD
+                               else ("fn_rod", "fn_ra"))
         self.nodes = {}
         for s in self.segs:
             self.nodes.setdefault(s.lo, []).append(s)
@@ -192,6 +266,72 @@ class Fn:
                     visit(s.succ)
             self.order.append(pc)
         visit(self.entry)
+        self.fwd = fn in FORWARD
+        # the saved `ra`'s slot (`hra`), never a forwarded slot
+        self.ra_off = re.findall(r"\((0x[0-9a-f]+)#12\)", self.ra)[-1] if self.ra else None
+        self.slots_in = {pc: [] for pc in self.order}
+        self.need_m = {pc: True for pc in self.order}
+        if self.fwd:
+            self.forward()
+
+    # ----------------------------------------------------------------------
+    def seg_stores(self, pc, s):
+        """The spill slots segment `s` of node `pc` stores: offset -> datum."""
+        if not self.fwd or not self.inside(pc) or s.sp_delta:
+            return {}
+        out = {}
+        if s.mem != "m0":
+            for a, d in wm8_chain(s.mem):
+                m = re.fullmatch(SLOT_RE, a)
+                if m and d != "sdData_val v1":
+                    out[m.group(1)] = d
+        return out
+
+    def seg_loads(self, pc, s):
+        """The spill slots segment `s` reads (in its post-state and guard)."""
+        if not self.fwd or not self.inside(pc):
+            return set()
+        text = " ".join(list(s.post.values()) + [s.mem] + ([s.guard[0]] if s.guard else []))
+        return set(re.findall(LOAD_RE, text)) - {self.ra_off}
+
+    def forward(self):
+        """The slots available at every node (stored on every path into it)
+        and live there (read by it or after it), and which lifted functions
+        read memory."""
+        preds = {pc: [] for pc in self.order}
+        for pc in self.order:
+            for s in self.nodes[pc]:
+                if s.kind != "ret":
+                    preds[s.succ].append((pc, s))
+        avail = {}
+        for pc in reversed(self.order):          # the entry first
+            if pc == self.entry:
+                avail[pc] = set()
+                continue
+            sets = [avail[p] | set(self.seg_stores(p, s)) for p, s in preds[pc]]
+            avail[pc] = set.intersection(*sets) if sets else set()
+        live = {}
+        for pc in self.order:                    # successors first
+            ls = set()
+            for s in self.nodes[pc]:
+                after = set() if s.kind == "ret" else live[s.succ] - set(self.seg_stores(pc, s))
+                ls |= self.seg_loads(pc, s) | after
+            live[pc] = ls
+        for pc in self.order:
+            self.slots_in[pc] = sorted(avail[pc] & live[pc])
+            for s in self.nodes[pc]:
+                bad = self.seg_loads(pc, s) - avail[pc]
+                if bad:
+                    raise SystemExit(f"{s.name}: reloads {sorted(bad)} not stored on every path")
+        # which value functions read memory (successors first); the entry keeps `m`
+        for pc in self.order:
+            need = pc == self.entry
+            for s in self.nodes[pc]:
+                if re.search(MEM_RE, self.body(pc, s)):
+                    need = True
+                if s.guard and re.search(MEM_RE, self.subst(pc, s.guard[0])):
+                    need = True
+            self.need_m[pc] = need
 
     # ----------------------------------------------------------------------
     def dn(self, pc):
@@ -243,24 +383,34 @@ class Fn:
         return f"v{r}"
 
     def subst(self, pc, text):
+        if self.fwd and self.inside(pc):
+            text = re.sub(LOAD_RE, lambda m: (m.group(0) if m.group(1) == self.ra_off
+                                              else f"vs{m.group(1)[2:]}"), text)
         text = re.sub(r"\bv(\d+)\b", lambda m: self.val(pc, int(m.group(1))), text)
         return re.sub(r"\bm0\b", "m", text)
 
-    def nargs(self, pc):
+    def slot_addr(self, pc, o):
+        """The address of slot `o` inside the frame."""
+        return f"(({self.sp(pc)} + sign_extend (m := 64) ({o}#12)).toNat)"
+
+    def nargs(self, pc, memfn=False):
         """The lifted function's parameters (as binders)."""
-        vs = " ".join(f"v{r}" for r in self.live(pc))
+        vs = " ".join([f"v{r}" for r in self.live(pc)] + [f"vs{o[2:]}" for o in self.slots_in[pc]])
         bv = f" ({vs} : BitVec 64)" if vs else ""
         if self.framed():
-            return f"(m : Mem) (s : Nat) (r : BitVec 64){bv}"
+            mb = "(m : Mem) " if memfn or self.need_m[pc] else ""
+            return f"{mb}(s : Nat) (r : BitVec 64){bv}"
         return bv.strip()
 
-    def napp(self, pc, mem="m", vals=None, memfn=False):
+    def napp(self, pc, mem="m", vals=None, memfn=False, slots=None):
         vals = vals if vals is not None else {r: f"v{r}" for r in self.live(pc)}
-        a = " ".join(f"({vals[r]})" if not re.fullmatch(r"v\d+", vals[r]) else vals[r]
-                     for r in self.live(pc))
+        slots = slots if slots is not None else {o: f"vs{o[2:]}" for o in self.slots_in[pc]}
+        args = [vals[r] for r in self.live(pc)] + [slots[o] for o in self.slots_in[pc]]
+        a = " ".join(f"({x})" if not re.fullmatch(r"v\d+|vs[0-9a-f]+", x) else x for x in args)
         if self.framed():
             f = self.mn(pc) if memfn else self.dn(pc)
-            return f"{f} ({mem}) s r {a}".rstrip()
+            mm = f"({mem}) " if memfn or self.need_m[pc] else ""
+            return f"{f} {mm}s r {a}".rstrip()
         return f"{self.dn(pc)} {a}".rstrip()
 
     def pins(self, pc):
@@ -279,7 +429,7 @@ class Fn:
         if self.framed():
             pins = [f"⟨Register.x10, {app}⟩", "⟨Register.x2, BitVec.ofNat 64 s⟩"]
             pins += [f"⟨Register.x{r}, g.{f}⟩" for r, f in FRAME.items()]
-            mem = f"memPatch m ({self.napp(pc, memfn=True)}) (s - {self.F}) {self.F}"
+            mem = f"memPatch m ({self.napp(pc, memfn=True)}) (s - {self.W}) {self.W}"
             return f"SegSt r [{', '.join(pins)}] (ArmPay ({mem}) o)"
         return f"SegSt r (⟨Register.x10, {app}⟩ :: f.pins) (ArmPay m o)"
 
@@ -291,14 +441,41 @@ class Fn:
                 return self.subst(pc, s.mem)
             return self.subst(pc, s.post[10])
         post = {r: self.subst(pc, e) for r, e in s.post.items()}
+        mem = self.subst(pc, s.mem)
         if s.kind == "call":
-            post = {10: f"{CALLEES[s.callee][1]} ({post[10]})"}
+            fmt = self.call_fmt(pc, s, post, mem)
+            post = {10: s_callee(s).val.format(**fmt),
+                    **{r: post[r] for r in s_callee(s).keeps if r in post}}
+            if s_callee(s).frame:
+                c = s_callee(s)
+                mem = (f"memPatch ({mem}) ({c.mf.format(**fmt)}) ({fmt['sp']} - {c.frame}) "
+                       f"{c.frame}")
         vals = {}
         for r in self.live(s.succ):
             if r not in post:
                 raise SystemExit(f"{s.name}: x{r} live at 0x{s.succ:x} but not carried")
             vals[r] = post[r]
-        return self.napp(s.succ, self.subst(pc, s.mem), vals, memfn)
+        return self.napp(s.succ, mem, vals, memfn, self.succ_slots(pc, s))
+
+    def succ_slots(self, pc, s):
+        """The values of the successor's slot parameters: a slot this segment
+        stores, its datum; otherwise this node's parameter."""
+        st = self.seg_stores(pc, s)
+        return {o: (self.subst(pc, st[o]) if o in st else f"vs{o[2:]}") for o in self.slots_in[s.succ]}
+
+    def sp_nat(self, pc):
+        """`sp` at node `pc` as a `Nat` (a framed callee's `s`)."""
+        if not self.framed():
+            raise SystemExit(f"0x{pc:x}: a framed callee needs a framed caller")
+        return f"(s - {self.F})" if self.inside(pc) else "s"
+
+    def call_fmt(self, pc, s, post, mem):
+        """The format arguments of a call node's callee."""
+        c = s_callee(s)
+        fmt = {f"a{i}": post[10 + i] for i in range(c.nargs)}
+        fmt["m"], fmt["r"] = mem, f"0x{s.hi:08x}#64"
+        fmt["sp"] = self.sp_nat(pc) if c.frame else ""
+        return fmt
 
     def ndef(self, pc, memfn=False):
         ss = self.nodes[pc]
@@ -311,18 +488,21 @@ class Fn:
             b = (f"if {self.subst(pc, t.guard[0])} = true then\n    {self.body(pc, t, memfn)}\n"
                  f"  else\n    {self.body(pc, n, memfn)}")
         name = self.mn(pc) if memfn else self.dn(pc)
-        return (f"def {name} {self.nargs(pc)} : {ty} :=\n  {b}\n")
+        return (f"def {name} {self.nargs(pc, memfn)} : {ty} :=\n  {b}\n")
 
     # ----------------------------------------------------------------------
     def lemma_binders(self, pc):
         vs = " ".join(f"v{r}" for r in self.live(pc))
         if self.inside(pc) and 1 in self.regs(pc):
             vs = (vs + " v1").strip()
+        vs = (vs + " " + " ".join(f"vs{o[2:]}" for o in self.slots_in[pc])).strip()
         bv = f" ({vs} : BitVec 64)" if vs else ""
         if self.framed():
-            hs = f"(hs : FnSp s {self.F}) (hr : r.toNat % 4 = 0) (hrod : RodataRead m)"
+            hs = f"(hs : FnSp s {self.W}) (hr : r.toNat % 4 = 0) (hrod : RodataRead m)"
             if self.inside(pc):
                 hs += f" (hra : bytesT8 m ({re.sub(r"\bv2\b", self.sp(self.entry), self.ra)}) = r)"
+            for o in self.slots_in[pc]:
+                hs += f"\n    (hs{o[2:]} : bytesT8 m {self.slot_addr(pc, o)} = vs{o[2:]})"
             return f"(m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame){bv}\n    {hs}"
         return f"(m : Mem) (o : Array String) (r : BitVec 64) (f : HFrame){bv}\n    (hr : r.toNat % 4 = 0)"
 
@@ -330,7 +510,11 @@ class Fn:
         args = ["_"] * (s.nvars + 2)
         for h, _ in s.hyps:
             if h.startswith("hg"):
-                args.append("(fn_false hg)" if neg else "hg")
+                rs = self.guard_slots(pc, s)
+                if rs:
+                    args.append(f"(by rw [{', '.join(rs)}]; exact {'fn_false hg' if neg else 'hg'})")
+                else:
+                    args.append("(fn_false hg)" if neg else "hg")
             elif h.startswith("htgt"):
                 args.append("(by rw [fn_tgt hra hr]; exact hr)" if self.framed() and self.inside(pc)
                             else "(by rw [fn_tgt0 hr]; exact hr)")
@@ -340,11 +524,20 @@ class Fn:
                 raise SystemExit(f"{s.name}: hypothesis {h}")
         return f"Lua.Vm.Arms.{s.name} {' '.join(args)}"
 
-    def succ_app(self, pc):
+    def guard_slots(self, pc, s):
+        if not self.fwd or not s.guard or not self.inside(pc):
+            return []
+        return [f"hs{o[2:]}" for o in sorted(set(re.findall(LOAD_RE, s.guard[0])) - {self.ra_off})]
+
+    def succ_app(self, pc, cur=None, seg=None):
         n = len(self.live(pc)) + (1 if self.inside(pc) and 1 in self.regs(pc) else 0)
         vs = " ".join(["_"] * n)
+        if self.slots_in[pc]:
+            sv = self.succ_slots(cur, seg)
+            vs = (vs + " " + " ".join(f"({sv[o]})" for o in self.slots_in[pc])).strip()
         if self.framed():
-            hs = "hs hr (by fn_rod)" + (" (by fn_ra)" if self.inside(pc) else "")
+            hs = f"hs hr (by {self.rod})" + (f" (by {self.ra_t})" if self.inside(pc) else "")
+            hs += "".join(f" (by {self.ra_t})" for _ in self.slots_in[pc])
             return f"{self.ln(pc)} _ _ s r g {vs} {hs}".replace("  ", " ")
         return f"{self.ln(pc)} _ _ r f {vs} hr".replace("  ", " ")
 
@@ -352,6 +545,10 @@ class Fn:
         I = " " * ind
         out = [f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)",
                f"{I}  ({self.seg_app(pc, s, neg)})"]
+        if self.fwd and self.inside(pc):
+            ld = sorted(set(re.findall(LOAD_RE, " ".join(list(s.post.values()) + [s.mem]))) - {self.ra_off})
+            if ld:
+                out.append(f"{I}rw [{', '.join(f'hs{o[2:]}' for o in ld)}] at h")
         if self.framed():
             unfold = f"rw [{self.dn(pc)}, {self.mn(pc)}]" + (
                 "; simp only [if_neg hg]" if neg else "; simp only [if_pos hg]" if s.guard else "")
@@ -369,14 +566,31 @@ class Fn:
                 out.append(f"{I}rw [memPatch_self]")
             out.append(f"{I}exact (h.at ({tgt})).repin (by pins_of h)")
             return out
+        framed_call = s.kind == "call" and s_callee(s).frame
         if s.kind == "call":
-            summ = CALLEES[s.callee][0]
+            c = s_callee(s)
+            args = c.args.format(sp=self.sp_nat(pc) if c.frame else "").replace(
+                "(by fn_rod)", f"(by {self.rod})")
+            # a framed callee's `s` is the caller's `sp` as a `Nat`: its pin
+            # put in front (`SegSt.pin_sp`), and back after the return
+            spn = (f"(Lua.Vm.Sim.fn_sp_nat s ({self.pro_imm}#12) {self.F} (by decide) (by omega) "
+                   "(by omega) (by omega))")
+            if c.frame:
+                out.append(f"{I}have h := h.pin_sp (pin_eq (by pin_of h) {spn})")
+            # a kept register dead here: pinned at whatever it holds
+            for r in c.keeps:
+                if r not in s.post:
+                    out.append(f"{I}pin_gpr h {r} Register.x{r}")
             out.append(f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)")
-            out.append(f"{I}  ({summ} _ _ hframe? _ _ (by fn_rod) (by decide))")
+            out.append(f"{I}  ({c.summ} {args})")
+            if c.frame:
+                out.append(f"{I}have h := h.pin_sp (pin_eq (by pin_of h) {spn}.symm)")
         out.append(f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)")
-        out.append(f"{I}  ({self.succ_app(s.succ)})")
+        out.append(f"{I}  ({self.succ_app(s.succ, pc, s)})")
         out.append(f"{I}refine ⟨_, acc, ?_⟩")
         out.append(f"{I}{unfold}")
+        if framed_call:
+            out.append(f"{I}simp (disch := kit_disch) only [memPatch_patch_in] at h")
         if s.mem != "m0":
             out.append(f"{I}simp (disch := kit_disch) only [memPatch_wm8_in] at h")
         out.append(f"{I}exact h")
@@ -421,9 +635,14 @@ class Fn:
         nseg = len(self.segs)
         kind = (f"a {self.F}-byte frame below `sp`, the memory `memPatch`ed there"
                 if self.framed() else "a leaf: the memory and the caller's frame kept")
+        if self.W != self.F:
+            kind += f" ({self.W} bytes with its framed callees' frames)"
         imports = "import Lua.Vm.Sim.Kit.Fn\n"
-        if any(s.kind == "call" for s in self.segs):
-            imports += "import Lua.Vm.Sim.Kit.Clzdi2\n"
+        if self.patch or self.fwd:
+            imports += "import Lua.Vm.Sim.Kit.FnCall\n"
+        callees = sorted({s.callee for s in self.segs if s.kind == "call"})
+        for e in callees:
+            imports += f"import {CALLEES[e].imp}\n"
         imports += f"import Lua.Vm.Arms.Segs.H{self.fn.lstrip('_')}\n"
         doc = (f"`{self.fn}` (entry `0x{self.entry:08x}`): its {nseg} generated segments\n"
                f"(`Lua/Vm/Arms/Segs/H{self.fn.lstrip('_')}.lean`) folded into {len(self.order)} nodes, {kind}.\n"
@@ -432,6 +651,10 @@ class Fn:
                "a framed helper's memory) and `sum` (the summary).")
         opens = ("open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa\n"
                  "open Vsa.Sim Vsa.Logic\nopen Lua.Vm.Sim\n")
+        opaque = [n for e in callees for n in CALLEES[e].opaque]
+        if opaque:
+            opens += ("\n-- the callees' lifted functions are their summaries' values, never unfolded\n"
+                      f"attribute [local irreducible] {' '.join(opaque)}\n")
         ns = f"Lua.Vm.Fn.{self.mod}"
 
         def module(imp, what, body):
