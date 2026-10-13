@@ -227,4 +227,77 @@ theorem ch_add_gt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (
   all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
   all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
 
+open Lua.Num in
+/-- Same signs, `ea < eb = 2047`. -/
+theorem ch_add_lt_nan (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (hs : sa < 2)
+    (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : ea < eb) (h2 : eb = 2047) :
+    N_8002d904 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 (2 ^ 52 - 1)) (BitVec.ofNat 64 (8 * fa))
+          (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea) (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 (8 * fb)) =
+      if fb = 0 then F64.infty (sa = 1) else F64.qnan := by
+  subst h2
+  sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
+  all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Same signs, `1 ≤ ea < eb ≤ 2046`: `A` aligned by `_FP_FRAC_SRS`. -/
+theorem ch_add_lt (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (hs : sa < 2)
+    (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (h1 : 1 ≤ ea) (h2 : ea < eb) (h3 : eb ≤ 2046) :
+    N_8002d904 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 (2 ^ 52 - 1)) (BitVec.ofNat 64 (8 * fa))
+          (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea) (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.addAligned (sa = 1) eb (2 ^ 55 + 8 * fb) (2 ^ 55 + 8 * fa) (eb - ea) := by
+  have hR := SfRef.rto_lt_of (n := 2 ^ 55 + 8 * fa) (k := eb - ea) (m := 55) (by omega) (by omega)
+  have hR1 : 57 ≤ eb - ea → SfRef.rto (2 ^ 55 + 8 * fa) (eb - ea) = 1 := fun h =>
+    SfRef.rto_big (by omega) (Nat.lt_of_lt_of_le (by omega : 2 ^ 55 + 8 * fa < 2 ^ 57)
+      (Nat.pow_le_pow_right (by decide) h))
+  sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
+  all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Same signs, `ea = 0 < eb`, `a = 0`. -/
+theorem ch_add_lt0z (m : Mem) (s : Nat) (r : BitVec 64) (sa ea eb fb : Nat) (hs : sa < 2)
+    (hfb : fb < 2 ^ 52) (h1 : ea = 0) (h2 : 0 < eb) (h3 : eb ≤ 2046) :
+    N_8002d904 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 (2 ^ 52 - 1)) (BitVec.ofNat 64 (8 * 0))
+          (BitVec.ofNat 64 0) (BitVec.ofNat 64 ea) (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.addAligned (sa = 1) eb (2 ^ 55 + 8 * fb) 0 (eb - 1) := by
+  subst h1
+  try simp only [Nat.mul_zero, SfRef.rto_zero_n]
+  sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
+  all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Same signs, `ea = 0`, `eb = 1`: `a` subnormal, no shift. -/
+theorem ch_add_lt0a (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (hs : sa < 2)
+    (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (ha : 0 < fa) (h1 : ea = 0) (h2 : eb = 1) :
+    N_8002d904 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 (2 ^ 52 - 1)) (BitVec.ofNat 64 (8 * fa))
+          (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea) (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.addAligned (sa = 1) eb (2 ^ 55 + 8 * fb) (8 * fa) (eb - 1) := by
+  have hk : eb - 1 = 0 := by omega
+  rw [hk]
+  sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
+  all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
+open Lua.Num in
+/-- Same signs, `ea = 0`, `2 ≤ eb`: `a` subnormal, aligned by `eb - 1`. -/
+theorem ch_add_lt0b (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa eb fb : Nat) (hs : sa < 2)
+    (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (ha : 0 < fa) (h1 : ea = 0) (h2 : 2 ≤ eb) (h3 : eb ≤ 2046) :
+    N_8002d904 m s r (BitVec.ofNat 64 fb) (BitVec.ofNat 64 (2 ^ 52 - 1)) (BitVec.ofNat 64 (8 * fa))
+          (BitVec.ofNat 64 fa) (BitVec.ofNat 64 ea) (BitVec.ofInt 64 ((ea : Int) - eb)) (BitVec.ofNat 64 sa)
+          (BitVec.ofNat 64 eb) (BitVec.ofNat 64 sa) (BitVec.ofNat 64 (8 * fb)) =
+      SfRef.addAligned (sa = 1) eb (2 ^ 55 + 8 * fb) (8 * fa) (eb - 1) := by
+  subst h1
+  have hR := SfRef.rto_lt_of (n := 8 * fa) (k := eb - 1) (m := 55) (by omega) (by omega)
+  have hR1 : 57 ≤ eb - 1 → SfRef.rto (8 * fa) (eb - 1) = 1 := fun h =>
+    SfRef.rto_big (by omega) (Nat.lt_of_lt_of_le (by omega : 8 * fa < 2 ^ 57) (Nat.pow_le_pow_right (by decide) h))
+  sf_go [N_8002dbb8, N_8002d92c, N_8002dbcc]
+  all_goals (try simp (disch := omega) only [g_dbb8, g_dbcc])
+  all_goals sf_close [nf_db68, nf_d8b8, nf_da9c, nf_d92c, nf_d92c_inf, nf_d92c_nan]
+
 end Lua.Vm.Fn.Adddf3
