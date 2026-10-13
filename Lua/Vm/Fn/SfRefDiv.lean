@@ -45,6 +45,23 @@ theorem nf_df68 (s : Nat) (r : BitVec 64) {S : Nat} (hS : S < 2) :
     show ((0#64) + sign_extend (m := 64) (0x000#12) : BitVec 64) = BitVec.ofNat 64 0 by decide]
   exact pack_eq (by decide) (by decide) hS
 
+/-- The signed zero leaf. -/
+theorem nf_df8c (s : Nat) (r : BitVec 64) {S : Nat} (hS : S < 2) :
+    N_8002df8c s r (BitVec.ofNat 64 S) = BitVec.ofNat 64 (S * 2 ^ 63 + 0 * 2 ^ 52 + 0) := by
+  unfold N_8002df8c
+  rw [show ((0#64) + sign_extend (m := 64) (0x000#12) : BitVec 64) = BitVec.ofNat 64 0 by decide]
+  exact pack_eq (by decide) (by decide) hS
+
+/-- The canonical NaN leaf. -/
+theorem nf_df3c (s : Nat) (r : BitVec 64) : N_8002df3c s r = BitVec.ofNat 64 9221120237041090560 := by
+  unfold N_8002df3c N_8002df4c; decide
+
+/-- `sub a2, a2, a3` on two exponent words. -/
+theorem ew_sub_ew (x y : Int) : ew x - ew y = ew (x - y) := by
+  rw [ew_def, ew_def, ew_def]; apply BitVec.eq_of_toInt_eq
+  simp only [BitVec.toInt_sub, BitVec.toInt_ofInt]
+  rw [Int.sub_bmod_bmod, Int.bmod_sub_bmod]
+
 attribute [local irreducible] SfRef.roundPack SfRef.rto
 irreducible_nodes Lua.Vm.Fn.Divdf3
 
@@ -502,5 +519,150 @@ theorem g_e114 (s : Nat) (r : BitVec 64) {S X Y : Nat} (e : Int) (hS : S < 2) (h
     have e1 : -2 ^ 19 ≤ e := by omega
     have e2 : e ≤ 2 ^ 19 := by omega
     exact g_e178 s r e hS hd1 hd2 hn hhi e1 e2 (by rw [g1]; exact hb.1) (by rw [g1]; exact hb.2)
+
+/-! ## Chambers -/
+
+/-- Two `_FP_DIV` normal cases that differ in the form of their operands. -/
+theorem div_congr {b b' : Bool} {X X' Y Y' : Nat} {e e' f f' : Int} (hb : b = b') (hX : X = X') (hY : Y = Y')
+    (he : e = e') (hf : f = f') :
+    SfRef.packCanon b (if X < Y then e else f) (SfRef.divMeat X Y) =
+      SfRef.packCanon b' (if X' < Y' then e' else f') (SfRef.divMeat X' Y') := by
+  subst hb hX hY he hf; rfl
+
+theorem sx_or {a b : Nat} (ha : a < 2) (hb : b < 2) : (a + b) % 2 = (a + b) % 2 := rfl
+
+/-- Explore the DAG under the chamber's facts (`smu_go`), a jump node's
+case chain collapsed on its literal index before the normaliser sees its
+sixteen successors. -/
+macro "sdc_go" "[" cuts:ident,* "]" : tactic => `(tactic| (
+  smu_nf
+  repeat' (first
+    | (unfold_node [$cuts,*]
+       (try simp only [BitVec.reduceToNat, BitVec.reduceOr, BitVec.reduceAdd, Nat.reduceEqDiff, ite_true,
+         ite_false, ↓reduceIte])
+       smu_nf)
+    | (split <;> (try (exfalso; omega))))))
+
+set_option hygiene false in
+/-- A chamber with a special operand: the class switch's jump tables, the
+leaves (NaN, ±∞, ±0) against `divFields`'s class cases. -/
+macro "sdc_spec" : tactic => `(tactic| (
+  smc_setup
+  sdc_go []
+  all_goals (try simp (disch := omega) only [nf_df4c, nf_df68, nf_df8c, nf_df3c])
+  all_goals (unfold Lua.Num.SfRef.divFields)
+  all_goals (simp only [true_and, and_true, true_or, or_true, ne_eq, not_false_eq_true, not_true_eq_false,
+    false_and, and_false, or_false, false_or])
+  all_goals (simp (disch := omega) only [if_pos, if_neg])
+  all_goals (try simp only [Lua.Vm.Fn.SfLens.qnan_nf, Lua.Vm.Fn.SfLens.infty_nf, Lua.Num.F64.zero,
+    Lua.Vm.Fn.SfLens.bits_nf])
+  all_goals (obtain hsa' | hsa' : sa = 0 ∨ sa = 1 := by omega)
+  all_goals (obtain hsb' | hsb' : sb = 0 ∨ sb = 1 := by omega)
+  all_goals (subst hsa' hsb')
+  all_goals (simp only [Nat.reduceEqDiff, Nat.reduceAdd, Nat.reduceMod, Nat.reduceMul,
+    Nat.reducePow, decide_true, decide_false, Bool.xor_true, Bool.xor_false, Bool.true_xor, Bool.false_xor,
+    Nat.zero_mul, Nat.one_mul, Nat.zero_add, Nat.add_zero, ite_true, ite_false, Bool.not_true, Bool.not_false])
+  all_goals (first | (refine congrArg (BitVec.ofNat 64) ?_; omega) | rfl)))
+
+set_option hygiene false in
+/-- A chamber of two finite nonzero operands: the divide stage `g_e114`,
+then `divFields`'s normal case unfolded and matched (`div_congr`). -/
+macro "sdc_fin" : tactic => `(tactic| (
+  smc_setup
+  sdc_go [N_8002e114]
+  all_goals (try simp only [Lua.Vm.Fn.Divdf3.ew_sub_ew])
+  all_goals (try simp only [show ∀ l : Nat, 63 - l - 8 = 55 - l from fun l => by omega] at *)
+  all_goals (try simp (disch := omega) only [Lua.Vm.Fn.Muldf3.nat_sub_cast])
+  rw [Lua.Vm.Fn.Divdf3.g_e114 s r _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)]
+  unfold Lua.Num.SfRef.divFields Lua.Num.SfRef.divNorm Lua.Num.SfRef.unpackF Lua.Num.SfRef.unpackE
+  simp (disch := omega) only [if_neg, if_pos, ite_true, ite_false]
+  exact Lua.Vm.Fn.Divdf3.div_congr (Lua.Vm.Fn.Muldf3.sign_xor sa sb hsa hsb) (by omega) (by omega) (by omega)
+    (by omega)))
+
+open Lean in
+set_option hygiene false in
+/-- **The class-pair chamber generator** of `__divdf3`: one chamber
+`ch_<ca>_<cb>` per pair of operand classes (`nan`, `inf`, `zero`, `sub`:
+subnormal, `norm`), proved by `sdc_spec` (a special operand: the class
+switch's jump tables to a leaf) or `sdc_fin` (both finite and nonzero,
+through the divide stage `g_e114`); the cover `G_eq` and
+`F_eq_ref : F m s r a b = SfRef.div a b`. -/
+macro "sdc_chambers" : command => do
+  let mut cmds : Array (TSyntax `command) := #[]
+  let classes := ["nan", "inf", "zero", "sub", "norm"]
+  let hyps (c : String) (e f : Ident) (h1 h2 : Ident) : MacroM (Array (TSyntax `Lean.Parser.Term.bracketedBinder)) := do
+    match c with
+    | "nan" => return #[← `(bracketedBinder| ($h1 : $e = 2047)), ← `(bracketedBinder| ($h2 : $f ≠ 0))]
+    | "inf" => return #[← `(bracketedBinder| ($h1 : $e = 2047)), ← `(bracketedBinder| ($h2 : $f = 0))]
+    | "zero" => return #[← `(bracketedBinder| ($h1 : $e = 0)), ← `(bracketedBinder| ($h2 : $f = 0))]
+    | "sub" => return #[← `(bracketedBinder| ($h1 : $e = 0)), ← `(bracketedBinder| ($h2 : $f ≠ 0))]
+    | _ => return #[← `(bracketedBinder| ($h1 : 1 ≤ $e)), ← `(bracketedBinder| ($h2 : $e ≤ 2046))]
+  let prep (c : String) (f h1 h2 hl hX : Ident) : MacroM (TSyntax `tactic) := do
+    match c with
+    | "sub" => `(tactic| (have $hl:ident : Nat.log2 $f < 52 := (Nat.log2_lt $h2).2 (by omega)
+                          have $hX:ident := Lua.Num.SfRef.norm_bounds (S := $f) (by omega) (by omega)))
+    | _ => `(tactic| skip)
+  for ca in classes do
+    for cb in classes do
+      let ha ← hyps ca (mkIdent `ea) (mkIdent `fa) (mkIdent `ha1) (mkIdent `ha2)
+      let hb ← hyps cb (mkIdent `eb) (mkIdent `fb) (mkIdent `hb1) (mkIdent `hb2)
+      let pa ← prep ca (mkIdent `fa) (mkIdent `ha1) (mkIdent `ha2) (mkIdent `hla) (mkIdent `hXa)
+      let pb ← prep cb (mkIdent `fb) (mkIdent `hb1) (mkIdent `hb2) (mkIdent `hlb) (mkIdent `hXb)
+      let fin := (ca == "sub" || ca == "norm") && (cb == "sub" || cb == "norm")
+      let close ← if fin then `(tactic| sdc_fin) else `(tactic| sdc_spec)
+      cmds := cmds.push (← `(command|
+        theorem $(mkIdent (Name.mkSimple s!"ch_{ca}_{cb}")) (m : Mem) (s : Nat) (r : BitVec 64)
+            (sa ea fa sb eb fb : Nat) (hsa : sa < 2) (hsb : sb < 2) (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52)
+            (hea : ea < 2048) (heb : eb < 2048) $ha* $hb* :
+            F m s r (Lua.Vm.Fn.SfCmpLens.P sa ea fa) (Lua.Vm.Fn.SfCmpLens.P sb eb fb) =
+              Lua.Num.SfRef.divFields (decide (sa = 1)) ea fa (decide (sb = 1)) eb fb := by
+          $pa:tactic
+          $pb:tactic
+          $close:tactic))
+  -- the cover: each operand's class decided in `divFields`'s order
+  let cls (e f h7 h0 hf : Ident) (k : String → MacroM (TSyntax `tactic)) : MacroM (TSyntax `tactic) := do
+    let tn ← k "nan"; let ti ← k "inf"; let tz ← k "zero"; let ts ← k "sub"; let to ← k "norm"
+    `(tactic| (
+      by_cases $h7:ident : $e = 2047
+      · by_cases $hf:ident : $f = 0
+        · $ti:tactic
+        · $tn:tactic
+      · by_cases $h0:ident : $e = 0
+        · by_cases $hf:ident : $f = 0
+          · $tz:tactic
+          · $ts:tactic
+        · $to:tactic))
+  let tac ← cls (mkIdent `ea) (mkIdent `fa) (mkIdent `hA7) (mkIdent `hA0) (mkIdent `hAf) fun ca => do
+    cls (mkIdent `eb) (mkIdent `fb) (mkIdent `hB7) (mkIdent `hB0) (mkIdent `hBf) fun cb => do
+      let ch := mkIdent (Name.mkSimple s!"ch_{ca}_{cb}")
+      `(tactic| exact $ch m s r sa ea fa sb eb fb hsa hsb hfa hfb hea heb (by omega) (by omega)
+          (by omega) (by omega))
+  cmds := cmds.push (← `(command|
+    theorem G_eq (m : Mem) (s : Nat) (r : BitVec 64) (sa ea fa sb eb fb : Nat) (hsa : sa < 2) (hsb : sb < 2)
+        (hfa : fa < 2 ^ 52) (hfb : fb < 2 ^ 52) (hea : ea < 2048) (heb : eb < 2048) :
+        F m s r (Lua.Vm.Fn.SfCmpLens.P sa ea fa) (Lua.Vm.Fn.SfCmpLens.P sb eb fb) =
+          Lua.Num.SfRef.divFields (decide (sa = 1)) ea fa (decide (sb = 1)) eb fb := by
+      $tac:tactic))
+  cmds := cmds.push (← `(command|
+    theorem F_eq_ref (m : Mem) (s : Nat) (r : BitVec 64) (a b : BitVec 64) :
+        F m s r a b = Lua.Num.SfRef.div a b := by
+      have ha := a.isLt
+      have hb := b.isLt
+      conv => lhs; rw [Lua.Vm.Fn.SfCmpLens.P_fields a, Lua.Vm.Fn.SfCmpLens.P_fields b]
+      rw [G_eq m s r _ _ _ _ _ _ (by omega) (by omega) (by omega) (by omega) (by omega) (by omega)]
+      unfold Lua.Num.SfRef.div
+      rw [Lua.Vm.Fn.SfCmpLens.sign_fields, Lua.Vm.Fn.SfCmpLens.sign_fields]
+      rfl))
+  return ⟨mkNullNode cmds⟩
+
+sdc_chambers
+
+/-- `SfRef.div`'s specification (`F64.div`, equal to `Float.Model`'s by lane float-s0a). -/
+abbrev S (a b : BitVec 64) : BitVec 64 := Lua.Num.F64.div a b
+
+/-- **`__divdf3`, level (b)**: (b1) `F_eq_ref`, then (b2) `SfRef.div_eq`. -/
+theorem spec_proved (m : Mem) (s : Nat) (r a b : BitVec 64) (_hsp : Lua.Vm.Sim.FnSp s 112) :
+    F m s r a b = S a b := by
+  rw [F_eq_ref m s r a b, SfRef.div_eq]
 
 end Lua.Vm.Fn.Divdf3
