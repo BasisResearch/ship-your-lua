@@ -338,7 +338,8 @@ theorem fill_fill (M : Mem) :
 theorem _root_.Lua.Vm.LitInterned.of_fill {M : Mem} {rt : RtPtrs} {seed : UInt32} {b : List UInt8} {ts : Nat}
     (h : LitInterned (Vsa.Densify.fillZeroMem M) rt seed b ts) : LitInterned M rt seed b ts := by
   have e := fill_fill M
-  exact ⟨e ▸ h.repr, h.short, e ▸ h.strt, e ▸ h.cache, e ▸ h.seed_w, fun hl => e ▸ h.bucket hl⟩
+  exact ⟨e ▸ h.repr, h.short, e ▸ h.strt, e ▸ h.seed_w, fun hl => e ▸ h.bucket hl, fun hl => e ▸ h.first hl,
+    h.ts_lo, h.ts_hi⟩
 
 /-- `TStringRepr` depends only on the object's bytes. -/
 theorem _root_.Lua.Vm.TStringRepr.congr {m m' : Mem} {ts : Nat} {s : List UInt8} (h : TStringRepr m ts s)
@@ -359,6 +360,55 @@ theorem _root_.Lua.Vm.TStringRepr.congr {m m' : Mem} {ts : Nat} {s : List UInt8}
     exact .long ((r (by simp only [gcTtOff, tstringContentsOff]; omega)).trans ht) hl
       ((r (by simp only [tstringLnglenOff, tstringContentsOff]; omega)).trans hs) (hb rfl hbs) (hz hn)
       ((r (by simp only [tstringShrlenOff, tstringContentsOff]; omega)).trans hf)
+
+/-- The literals of a fill are the memory's (`LitsIn` reads the fill). -/
+theorem _root_.Lua.Vm.LitsIn.of_fill {M : Mem} {g sl : Nat} {ls : LitPtrs} {rt : RtPtrs}
+    (h : LitsIn (Vsa.Densify.fillZeroMem M) g sl ls rt) : LitsIn M g sl ls rt := by
+  have e := fill_fill M
+  exact ⟨h.g, h.sl, h.nil.of_fill, h.tru.of_fill, h.fls.of_fill, h.tos.of_fill,
+    fun c hc => e ▸ h.cands c hc, e ▸ h.strmt⟩
+
+/-- The literals frozen on `e.litFoot`, from the boot contract. -/
+theorem lits_boot {m0 m : Mem} {L ci : Nat} {p : Proto} {e : EntryPtrs} {rt : RtPtrs} (hE : VmEntryData m0 L ci p e)
+    (heg : e.g = rt.g) (hesl : e.stackLast = rt.stackLast)
+    (hPL : ∀ M : Mem, (∀ a, InRanges e.litFoot a → bytesT1 M a = bytesT1 m a) →
+      ∀ a, InRanges e.litFoot a → (Vsa.Densify.fillZeroMem M)[a]? = m0[a]?) :
+    Kit.Frozen (InRanges e.litFoot) (fun M => LitsHold M rt.g rt.stackLast e.lits) m := fun M hM => by
+  obtain ⟨rt', hL⟩ := hE.lits (Vsa.Densify.fillZeroMem M) (hPL M hM)
+  rw [heg, hesl] at hL
+  exact ⟨rt', hL.of_fill⟩
+
+/-- `CallLitDirty` at the relation's pointers is the entry's `LitDirty`. -/
+theorem litDirty_boot {L ci func pa code k sp : Nat} {m : Mem} {ι : Strs} {e : EntryPtrs} {rt : RtPtrs} {a : Nat}
+    (heg : e.g = rt.g) (hesl : e.stackLast = rt.stackLast)
+    (hd : CallLitDirty ⟨L, ci, func, pa, code, k, sp, m, ι, rt⟩ a) (hf : e.func ≤ func) : LitDirty L ci e a := by
+  simp only [CallLitDirty, LitDirty] at hd ⊢
+  rw [heg, hesl]; omega
+
+/-- (lane F1-15) **The string cache's candidates at the entry**: the cache's
+words lie in `g`, apart from the `CallInfo` and the Lua stack, so off
+`OP_VARARGPREP`'s stores. -/
+theorem litCache_boot {m0 m : Mem} {L ci : Nat} {p : Proto} {e : EntryPtrs} (hE : VmEntryData m0 L ci p e)
+    (hm : ∀ a, ¬ VarargDirty ci e.func a → m[a]? = m0[a]?)
+    (hvd : ∀ a, VarargDirty ci e.func a → (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast)) :
+    LitCache m e.g e.lits := by
+  intro i hi
+  have g1 := hE.objs.g_ci
+  have g2 := hE.objs.g_stack
+  simp only [Apart] at g1 g2
+  have hgi : e.g + gStrcacheOff + 8 * i + 8 ≤ e.g + gEnd := by
+    simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at hi ⊢; omega
+  have hk : ∀ j, j < 8 → m[e.g + gStrcacheOff + 8 * i + j]? = m0[e.g + gStrcacheOff + 8 * i + j]? := by
+    intro j hj
+    refine hm _ fun hv => ?_
+    rcases hvd _ hv with h | h
+    · rcases g1 with g1 | g1 <;> omega
+    · rcases g2 with g2 | g2 <;> omega
+  rw [show Vsa.Sim.bytesT8 m (e.g + gStrcacheOff + 8 * i) = Vsa.Sim.bytesT8 m0 (e.g + gStrcacheOff + 8 * i) from
+    bytesT8_congrT fun j hj => by
+      show (m[_]?).getD 0 = (m0[_]?).getD 0
+      rw [hk j hj]]
+  exact hE.lit_cache i hi
 
 /-- **The `CALL` invariant from the boot contract** (lane F1-13): at the
 pointers of a relation whose memory `m` agrees with the boot memory `m0` off
@@ -480,6 +530,8 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         have := (hpl.lit_strs ts hts ts (Nat.le_refl _) (by omega)).lo
         have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl
         simp only [DlHeap.heapStart, symEnd] at *; omega
+      lit_marks := hE.lit_marks
+      cache := ?_
       L_in := fun a h1 h2 => kept (hpl.L a h1 h2)
       g_in := fun a h1 h2 => kept (hpl.g a (by rw [heg]; exact h1) (by rw [heg]; exact h2))
       ci_in := fun a h1 h2 => kept (hpl.ci a h1 h2)
@@ -568,7 +620,7 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         hsl ▸ rdW (by simp [luaStaticWords]) hlua.stack_last, hg ▸ rdW (by simp [luaStaticWords]) hlua.g,
         rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_nil), rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_boolean),
         rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_number), rdW (by simp [luaStaticWords]) hej.ptr,
-        rdW (by simp [luaStaticWords]) (heg ▸ hE.frealloc)⟩
+        rdW (by simp [luaStaticWords]) (heg ▸ hE.frealloc), rdW (by simp [luaStaticWords]) (heg ▸ hE.gc_stopped)⟩
   · simp only [CallDirty, EntryDirty] at hd ⊢
     rw [heg, hesl]; omega
   · have := hreg.ci_lo; have := hreg.L_lo; have := hreg.stack_lo
@@ -577,11 +629,9 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
     have := this.lo
     simp only [CallDirty, DlHeap.heapStart, symEnd] at *
     rw [← heg] at hd; omega
-  · obtain ⟨rt', hL⟩ := hE.lits (Vsa.Densify.fillZeroMem M) (hPL M hM)
-    rw [heg, hesl] at hL
-    exact ⟨rt', hL.g, hL.sl, hL.nil.of_fill, hL.tru.of_fill, hL.fls.of_fill⟩
-  · simp only [CallLitDirty, LitDirty] at hd ⊢
-    rw [hesl]; omega
+  · exact lits_boot hE heg hesl hPL M hM
+  · exact litDirty_boot heg hesl hd hfunc
+  · exact heg ▸ litCache_boot hE hm hvd
   · have ho := hE.objs
     have hcs := hreg.ci_sep
     refine ⟨by show Apart rt.g _ _ _; rw [← heg]; exact ho.g_L, by show Apart rt.g _ _ _; rw [← heg]; exact ho.g_ci,

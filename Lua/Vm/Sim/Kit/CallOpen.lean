@@ -50,6 +50,10 @@ structure LitsFoot (g sl : Nat) (ls : LitPtrs) (H : HeapIx) (ph : StdoutPh) (D F
   kept : ∀ a, FL a → Kept H ph a
   apart : ∀ a, FL a → ¬ D a
   strs : ∀ ts ∈ ls.strs, ∀ a, ts ≤ a → a < ts + 30 → Kept H ph a
+  /-- (lane F1-15) no literal's mark byte in `FL` -/
+  marks : ∀ ts ∈ ls.strs, ¬ FL (ts + gcMarkedOff)
+  /-- (lane F1-15) the string cache holds candidates -/
+  cache : LitCache m g ls
 
 /-- **`luaB_print`'s entry** from `luaD_precall`'s C path: the API frame of `n`
 arguments above `func` (`L->ci` the C `CallInfo` `nci`), `stdout` with

@@ -241,6 +241,10 @@ RT_FIELDS = [
     ("gStrtSizeOff", "offsetof(global_State, strt.size)", "`g->strt.size` (int)"),
     ("gMainthreadOff", "offsetof(global_State, mainthread)", ""),
     ("gStrcacheOff", "offsetof(global_State, strcache)", "`g->strcache[STRCACHE_N][STRCACHE_M]`"),
+    # lane F1-15: `luaE_setdebt` (`luaC_step` with the collector stopped) writes
+    # `totalbytes` beside `GCdebt`; `internshrstr`'s `isdead` reads `currentwhite`
+    ("gTotalbytesOff", "offsetof(global_State, totalbytes)", "`g->totalbytes` (`l_mem`)"),
+    ("gCurrentwhiteOff", "offsetof(global_State, currentwhite)", "`g->currentwhite` (byte)"),
     ("ljPreviousOff", "offsetof(struct lua_longjmp, previous)", "ldo.c's `struct lua_longjmp`"),
     ("ljBOff", "offsetof(struct lua_longjmp, b)", "the `jmp_buf`"),
     ("ljStatusOff", "offsetof(struct lua_longjmp, status)", ""),

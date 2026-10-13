@@ -55,6 +55,8 @@ structure JoinIn (p : Proto) (c : Config) (w : RelPtrs) (ins : Word) (ph : Stdou
   kept : ∀ c ∈ w.rt.chunks, c.inuse = true → c ∈ H.chunks
   brk : H.brk ≤ w.rt.brkv + extRoom
   lits : Frozen FL (fun M => LitsHold M w.rt.g w.rt.stackLast ls) MJ
+  /-- (lane F1-15) the string cache's candidates -/
+  cache : LitCache MJ w.rt.g ls
   next : bytesT8 MJ (w.ci + ciNextOff) = BitVec.ofNat 64 nci
   prev : bytesT8 MJ (nci + ciPreviousOff) = BitVec.ofNat 64 w.ci
   nci_lo : symEnd ≤ nci
@@ -383,7 +385,11 @@ theorem call_lits {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word
   have hHE : heapEnd = 0x87800000 := rfl
   refine ⟨hJ.lits.trans fun a ha => callMC_keep fun hw => ?_, fun a ha => kmono (hI.lits_in a ha),
     fun a ha hd => hd.elim (hI.lits_apart a ha) fun h => (hJ.nci_kept a h.1 h.2).2.2 ha,
-    fun ts hts a h1 h2 => kmono (hI.lit_strs ts hts a h1 h2)⟩
+    fun ts hts a h1 h2 => kmono (hI.lit_strs ts hts a h1 h2), hI.lit_marks,
+    hJ.cache.congr fun a h1 h2 => callMC_keep fun hw => by
+      simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at h1 h2
+      simp only [PcW, Rng, ciSize, stateCiOff, Apart, gEnd, gStrcacheOff, strcacheN, strcacheM] at hw hng hLg
+      omega⟩
   rcases hw with hw | hw | hw
   · exact (hJ.nci_kept a hw.1 hw.2).2.2 ha
   · exact hI.lits_apart a ha (.inr (.inl (by simp only [Rng] at hw; exact hw)))
@@ -601,7 +607,14 @@ theorem close_lits {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
       FL' m'' := by
   call_nums
   have hHE : heapEnd = 0x87800000 := rfl
-  refine ⟨hl.facts.trans fun a ha => ?_, hl.kept, hl.apart, hl.strs⟩
+  refine ⟨hl.facts.trans fun a ha => ?_, hl.kept, hl.apart, hl.strs, hl.marks,
+    hl.cache.congr fun a h1 h2 => hK.pos a ?_ ?_ ?_ ?_⟩
+  rotate_left
+  · simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at h1 h2; omega
+  · simp only [Apart, stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at hLg h2; omega
+  · simp only [Apart, stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at hLg h2; omega
+  · simp only [Apart, gEnd, gStrcacheOff, strcacheN, strcacheM] at hgst h2
+    simp only [RelPtrs.slot, RelPtrs.base, stackValueSize] at hslot ⊢; omega
   have hk := hl.kept a ha
   have hd := hl.apart a ha
   simp only [CallD, CallLitDirty, not_or, stateTopOff, stateCiOff] at hd
@@ -984,6 +997,7 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
       kept := fun _ h _ => h
       brk := Nat.le_add_right _ _
       lits := hI.lits.trans fun a ha => ?_
+      cache := hI.cache.congr fun a h1 h2 => ?_
       next := ?_
       prev := ?_
       nci_lo := hn.lo
@@ -1035,6 +1049,9 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
     simp only [CallLitDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
     obtain ⟨d1, d2, d3, d4, -⟩ := hd
     have := hk.hi
+    exact kH a (by omega) (by omega) (by omega) (by omega)
+  · -- the string cache's words, in `g`
+    simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at h1 h2
     exact kH a (by omega) (by omega) (by omega) (by omega)
   · rw [bytesT8_congrT fun j _ => kH _ (by simp only [ciNextOff]; omega) (by simp only [ciNextOff]; omega)
       (by simp only [ciNextOff]; omega) (by simp only [ciNextOff]; omega)]
@@ -1215,6 +1232,9 @@ theorem join_ext {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
       kept := hX.kept
       brk := hX.brk
       lits := hI.lits.trans fun a ha => ?_
+      cache := hI.cache.congr fun a h1 h2 => kG a (by simp only [gStrcacheOff] at h1; omega)
+        (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at h2; omega)
+        (by simp only [Rng, gGCdebtOff, gStrcacheOff] at h1 ⊢; omega)
       next := hX.next
       prev := hX.prev
       nci_lo := by have : symEnd = 0x8006ecd0 := rfl; omega
