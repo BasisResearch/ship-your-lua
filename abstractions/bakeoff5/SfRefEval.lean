@@ -1,6 +1,17 @@
 import Lua.Vm.Fn.Spec
 import Lua.Num.SfRef
 
+/-!
+# B-SFREF: `SfRef` against `F64` and the lifted `F`, by evaluation (not imported by `Lua`)
+
+Run with `lake env lean abstractions/bakeoff5/SfRefEval.lean`; every line after the
+count prints `[]`. The operand pairs are `SpecTest`'s 2,900 (copied below) and
+23,826 field-grid pairs (exponents at the alignment and cancellation edges,
+fractions at the rounding edges, both signs of `b`). This checked the
+reference before any proof; the proofs are `Lua.Num.SfRef.add_eq`/`sub_eq` (b2)
+and `Lua.Vm.Fn.{Adddf3,Subdf3}.F_eq_sfref` (b1).
+-/
+
 open Lua.Num
 namespace Lua.Vm.Fn.SpecTest
 
