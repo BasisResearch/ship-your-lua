@@ -43,79 +43,85 @@ open Vsa.Machine (MState Config Steps StepsN)
 theorem msb_slt (y : BitVec 64) : y.msb = zopz0zI_s y 0x0#64 := by
   simp [zopz0zI_s, BitVec.msb_eq_toInt]
 
+/-- A selection on a machine test, opaque to `split` and `simp`: the kernel's
+value keeps the shift's tests until the path's fork facts decide them
+(`at_kfork`, `bsel_true`/`bsel_false`), so `at_leaf` never splits the kernel
+where the machine already chose. -/
+@[irreducible] def bsel {α : Type} (b : Bool) (x y : α) : α := cond b x y
+
+theorem bsel_true {α : Type} (x y : α) : bsel true x y = x := by unfold bsel; rfl
+theorem bsel_false {α : Type} (x y : α) : bsel false x y = y := by unfold bsel; rfl
+
 /-- **`luaV_shiftl x y`** on the machine's tests of a register amount `y`
 (`OP_SHL`, `OP_SHLI`). -/
 theorem shiftl_m (x y : BitVec 64) : Lua.Num.shiftl x y =
-    if zopz0zI_s y 0x0#64 then
-      (if zopz0zI_s y 0xffffffffffffffc1#64 then 0x0#64
-       else shift_bits_right x (Sail.BitVec.extractLsb (wsub 0x0#64 y) 5 0))
-    else (if zopz0zI_s 0x3f#64 y then 0x0#64 else shift_bits_left x (Sail.BitVec.extractLsb y 5 0)) := by
+    bsel (zopz0zI_s y 0x0#64)
+      (bsel (zopz0zI_s y 0xffffffffffffffc1#64) 0x0#64
+        (shift_bits_right x (Sail.BitVec.extractLsb (wsub 0x0#64 y) 5 0)))
+      (bsel (zopz0zI_s 0x3f#64 y) 0x0#64 (shift_bits_left x (Sail.BitVec.extractLsb y 5 0))) := by
   have hm := msb_slt y
-  cases h1 : zopz0zI_s y 0x0#64 <;> rw [h1] at hm
-  · cases h3 : zopz0zI_s 0x3f#64 y
+  cases h1 : zopz0zI_s y 0x0#64 <;> rw [h1] at hm <;> simp only [bsel_true, bsel_false]
+  · cases h3 : zopz0zI_s 0x3f#64 y <;> simp only [bsel_true, bsel_false]
     · exact shiftlC_run hm h3 x
     · exact shiftlC_big hm h3 x
-  · cases h2 : zopz0zI_s y 0xffffffffffffffc1#64
+  · cases h2 : zopz0zI_s y 0xffffffffffffffc1#64 <;> simp only [bsel_true, bsel_false]
     · exact shiftlC_neg_run hm h2 x
     · exact shiftlC_neg_big hm h2 x
 
 /-- **`luaV_shiftr x y`** on the machine's tests of the amount `0 - y`
 (`OP_SHR`). -/
 theorem shiftr_m (x y : BitVec 64) : Lua.Num.shiftr x y =
-    if zopz0zI_s (0x0#64 - y) 0x0#64 then
-      (if zopz0zI_s (0x0#64 - y) 0xffffffffffffffc1#64 then 0x0#64
-       else shift_bits_right x (Sail.BitVec.extractLsb y 5 0))
-    else (if zopz0zI_s 0x3f#64 (0x0#64 - y) then 0x0#64
-      else shift_bits_left x (Sail.BitVec.extractLsb (0x0#64 - y) 5 0)) := by
+    bsel (zopz0zI_s (0x0#64 - y) 0x0#64)
+      (bsel (zopz0zI_s (0x0#64 - y) 0xffffffffffffffc1#64) 0x0#64
+        (shift_bits_right x (Sail.BitVec.extractLsb y 5 0)))
+      (bsel (zopz0zI_s 0x3f#64 (0x0#64 - y)) 0x0#64
+        (shift_bits_left x (Sail.BitVec.extractLsb (0x0#64 - y) 5 0))) := by
   have hm := msb_slt (0x0#64 - y)
-  cases h1 : zopz0zI_s (0x0#64 - y) 0x0#64 <;> rw [h1] at hm
-  · cases h3 : zopz0zI_s 0x3f#64 (0x0#64 - y)
+  cases h1 : zopz0zI_s (0x0#64 - y) 0x0#64 <;> rw [h1] at hm <;> simp only [bsel_true, bsel_false]
+  · cases h3 : zopz0zI_s 0x3f#64 (0x0#64 - y) <;> simp only [bsel_true, bsel_false]
     · exact shiftrC_run hm h3 x
     · exact shiftrC_big hm h3 x
-  · cases h2 : zopz0zI_s (0x0#64 - y) 0xffffffffffffffc1#64
+  · cases h2 : zopz0zI_s (0x0#64 - y) 0xffffffffffffffc1#64 <;> simp only [bsel_true, bsel_false]
     · exact shiftrC_neg_run hm h2 x
     · exact shiftrC_neg_big hm h2 x
 
 /-- **`luaV_shiftr x sC`** on the machine's tests of the field `C`
 (`OP_SHRI`). -/
 theorem shiftr_K (x : BitVec 64) (w : Word) : Lua.Num.shiftr x (BitVec.ofInt 64 w.sc) =
-    if zopz0zI_u 0x7f#64 (BitVec.ofNat 64 w.c) then
-      (if zopz0zI_u 0xbe#64 (BitVec.ofNat 64 w.c) then 0x0#64
-       else shift_bits_right x
-        (Sail.BitVec.extractLsb (wsub 0x0#64 (wsub 0x7f#64 (BitVec.ofNat 64 w.c))) 5 0))
-    else (if zopz0zKzJ_u 0x3f#64 (BitVec.ofNat 64 w.c) then 0x0#64
-      else shift_bits_left x (Sail.BitVec.extractLsb (wsub 0x7f#64 (BitVec.ofNat 64 w.c)) 5 0)) := by
-  cases h1 : zopz0zI_u 0x7f#64 (BitVec.ofNat 64 w.c)
-  · cases h2 : zopz0zKzJ_u 0x3f#64 (BitVec.ofNat 64 w.c)
+    bsel (zopz0zI_u 0x7f#64 (BitVec.ofNat 64 w.c))
+      (bsel (zopz0zI_u 0xbe#64 (BitVec.ofNat 64 w.c)) 0x0#64
+        (shift_bits_right x
+          (Sail.BitVec.extractLsb (wsub 0x0#64 (wsub 0x7f#64 (BitVec.ofNat 64 w.c))) 5 0)))
+      (bsel (zopz0zKzJ_u 0x3f#64 (BitVec.ofNat 64 w.c)) 0x0#64
+        (shift_bits_left x (Sail.BitVec.extractLsb (wsub 0x7f#64 (BitVec.ofNat 64 w.c)) 5 0))) := by
+  cases h1 : zopz0zI_u 0x7f#64 (BitVec.ofNat 64 w.c) <;> simp only [bsel_true, bsel_false]
+  · cases h2 : zopz0zKzJ_u 0x3f#64 (BitVec.ofNat 64 w.c) <;> simp only [bsel_true, bsel_false]
     · exact shiftrK_run h1 h2 x
     · exact shiftrK_big h1 h2 x
-  · cases h2 : zopz0zI_u 0xbe#64 (BitVec.ofNat 64 w.c)
+  · cases h2 : zopz0zI_u 0xbe#64 (BitVec.ofNat 64 w.c) <;> simp only [bsel_true, bsel_false]
     · exact shiftrK_neg_run h1 h2 x
     · exact shiftrK_neg_big h1 h2 x
 
-/-- The shift's tests lifted to the kernel's result, so `at_leaf` splits
-them as the kernel's outcome (`split_res_hq`). -/
-theorem res_int_ite (c : Prop) [Decidable c] (a b : BitVec 64) :
-    Res.val (.int (if c then a else b)) = if c then Res.val (.int a) else Res.val (.int b) := by
-  split <;> rfl
-
 /-! ## Residual atoms: the amount's tests -/
+
+-- The amount `0 - y` as the kernel's simp set leaves it (`-y`), on both sides.
+attribute [at_atom_simp] BitVec.zero_sub
 
 /-- `0 - (long long)g` tested, under the range atom (`OP_SHR`'s amount). -/
 @[at_atom_simp] theorem slt_negfixL (i x : BitVec 64) :
-    zopz0zI_s (0x0#64 - Lua.Vm.Fn.Fixdfdi.S x) i =
+    zopz0zI_s (-Lua.Vm.Fn.Fixdfdi.S x) i =
       if Float.Model.le minIntF (F64.toModel x) = true
-      then decide ((0x0#64 - (F64.toModel x).toInt64.toBitVec).toInt < i.toInt)
-      else zopz0zI_s (0x0#64 - fixOut x) i := by
+      then decide ((-(F64.toModel x).toInt64.toBitVec).toInt < i.toInt)
+      else zopz0zI_s (-fixOut x) i := by
   by_cases h : Float.Model.le minIntF (F64.toModel x) = true
   · rw [if_pos h, fixdfdi_model x h, slt_toInt]
   · rw [if_neg h]; unfold fixOut; rfl
 
 @[at_atom_simp] theorem slt_negfixR (i x : BitVec 64) :
-    zopz0zI_s i (0x0#64 - Lua.Vm.Fn.Fixdfdi.S x) =
+    zopz0zI_s i (-Lua.Vm.Fn.Fixdfdi.S x) =
       if Float.Model.le minIntF (F64.toModel x) = true
-      then decide (i.toInt < (0x0#64 - (F64.toModel x).toInt64.toBitVec).toInt)
-      else zopz0zI_s i (0x0#64 - fixOut x) := by
+      then decide (i.toInt < (-(F64.toModel x).toInt64.toBitVec).toInt)
+      else zopz0zI_s i (-fixOut x) := by
   by_cases h : Float.Model.le minIntF (F64.toModel x) = true
   · rw [if_pos h, fixdfdi_model x h, slt_toInt]
   · rw [if_neg h]; unfold fixOut; rfl
@@ -128,12 +134,12 @@ theorem res_int_ite (c : Prop) [Decidable c] (a b : BitVec 64) :
     zopz0zI_s i m.toInt64.toBitVec = decide (i.toInt < m.toInt64.toBitVec.toInt) := slt_toInt _ _
 
 @[at_atom_simp] theorem slt_negi64L (m : Float.Model) (i : BitVec 64) :
-    zopz0zI_s (0x0#64 - m.toInt64.toBitVec) i =
-      decide ((0x0#64 - m.toInt64.toBitVec).toInt < i.toInt) := slt_toInt _ _
+    zopz0zI_s (-m.toInt64.toBitVec) i =
+      decide ((-m.toInt64.toBitVec).toInt < i.toInt) := slt_toInt _ _
 
 @[at_atom_simp] theorem slt_negi64R (m : Float.Model) (i : BitVec 64) :
-    zopz0zI_s i (0x0#64 - m.toInt64.toBitVec) =
-      decide (i.toInt < (0x0#64 - m.toInt64.toBitVec).toInt) := slt_toInt _ _
+    zopz0zI_s i (-m.toInt64.toBitVec) =
+      decide (i.toInt < (-m.toInt64.toBitVec).toInt) := slt_toInt _ _
 
 /-- The field `C`'s tests (`OP_SHRI`) as `decide`s on `C`. -/
 @[at_atom_simp] theorem ult_c127 (w : Word) :
@@ -172,6 +178,9 @@ elab "at_kfork" : tactic => withMainContext do
     evalTactic (← `(tactic| have $n:ident := $src))
     if isF then ns := ns.push n else ks := ks.push n
   if ns.isEmpty then throwError "at_kfork: no fork facts"
+  -- the kernel's side facts as conjunctions of atoms (`f2iOk` unfolded)
+  unless ks.isEmpty do
+    evalTactic (← `(tactic| try simp only [at_atom_simp, Bool.and_eq_true] at $ks*))
   let ms ← withMainContext do
     let mut ms : Array (TSyntax ``Lean.Parser.Tactic.simpLemma) := #[]
     for k in ks do ms := ms.push (← `(Lean.Parser.Tactic.simpLemma| $k:ident))
@@ -187,8 +196,8 @@ elab "at_kfork" : tactic => withMainContext do
       if ((← getLCtx).findFromUserName? n.getId).isSome then
         return some (← `(Lean.Parser.Tactic.simpLemma| $n:ident))
       return none
-  evalTactic (← `(tactic| try simp only [at_atom_simp, $ls,*, ite_true, ite_false, Bool.false_eq_true,
-    eq_self_iff_true, if_true, if_false, sc_eq] at $(mkIdent `hk):ident))
+  evalTactic (← `(tactic| try simp only [at_atom_simp, $ls,*, bsel_true, bsel_false, Bool.false_eq_true,
+    eq_self_iff_true, sc_eq] at $(mkIdent `hk):ident))
   for n in ns ++ ks do
     evalTactic (← `(tactic| try clear $n:ident))
   -- the kernel's split tests of the amount (`hq`: the close never reads them;
@@ -208,6 +217,17 @@ elab "at_kfork" : tactic => withMainContext do
 /-- A shift's tests in the kernel decided by the path's forks. -/
 macro_rules | `(tactic| at_leaf_ext) => `(tactic| at_kfork)
 
+set_option hygiene false in
+/-- The shifts' leaves closed before any refutation is tried: on a wrong side
+the close fails at its fin lemma's key or pc. -/
+macro_rules
+  | `(tactic| at_leaf_first $ns) => `(tactic| (
+    try (simp only [Lua.Num.Res.val.injEq, Lua.Num.Numeral.int.injEq] at hq; cases hq)
+    try at_kfork
+    simp [VState.apply, writeDefs, KEdge.kills] at hk
+    subst hk
+    at_close $ns h0 acc))
+
 /-! ## The stored integer -/
 
 set_option hygiene false in
@@ -219,7 +239,8 @@ macro_rules | `(tactic| at_new_ext) => `(tactic| (
   simp (disch := assumption) only [Loc.den, Fld.den, Nat.add_zero, at_fspec, Aff.den, Aff.sum, Atom.den,
     Nat.one_mul, Nat.zero_add, Nat.sub_zero]
   simp (disch := at_fact) only [fixdfdi_model]
-  simp (disch := assumption) only [at_fspec, Loc.den, Fld.den, Nat.add_zero, f2iVal, hxm, wsub, sc_eq]
+  simp (disch := assumption) only [at_fspec, Loc.den, Fld.den, Nat.add_zero, f2iVal, hxm, wsub, sc_eq,
+    BitVec.zero_sub]
   done))
 
 set_option hygiene false in
@@ -234,7 +255,7 @@ macro_rules
   all_goals rcases he with he | he <;>
   ( try subst he
     try simp only [SlotW.j, Fld.den, Nat.add_zero, Loc.den, Aff.den, Aff.sum, Atom.den, Nat.one_mul,
-      Nat.zero_add, Nat.sub_zero] at hv ⊢
+      Nat.zero_add, Nat.sub_zero, BitVec.zero_sub] at hv ⊢
     try simp at hv
     try subst hv
     try simp only [stData_three_lit, stData_three_n]
@@ -300,5 +321,88 @@ macro_rules
     let fin ← `(theorem $nm (hsf : SoftFloatSpec) (hfl : FloorSpec) : SimArmOn $op FltB :=
         sim_arm_on (by decide) (armBody_f2ic (·.b) ($(mk "_1") hsf hfl) ($(mk "_0") hsf hfl) id))
     return Lean.mkNullNode #[← one "1", ← one "0", fin]
+
+set_option hygiene false in
+/-- **`at_jshift2 pc NS j k (post)`**: `OP_SHL`/`OP_SHR` with `R[j]` a float
+of one `F2Ieq` outcome and `R[k]` of one class (`hT : (FltReg s j ∧ RegCls
+cls s k) ∧ F2IC ok j s`): `at_jbit`'s set-up with the outcome as the fact
+`hqc_cls` (and `post`'s `hqc_cls2`, the other float's outcome), the kernel's
+shift on the machine's tests (`shiftl_m`, `shiftr_m`), then `at_walk NS`. -/
+macro "at_jshift2 " pc:num ns:ident j:term:max "," k:term:max "(" post:tacticSeq ")" : tactic => `(tactic| (
+  obtain ⟨⟨hT, hK⟩, hcls⟩ := hT
+  kit_setup $pc
+  kit_bound hAt ins.a; kit_bound hBt ins.b; kit_bound hCt ins.c
+  flt_views
+  have hrod := hc.rodata
+  flt_reg_q x $j, hT
+  obtain ⟨x', n', hst', hqc_cls⟩ := hcls
+  rw [hst] at hst'; cases hst'
+  num_cls $k, hn
+  all_goals
+    ($post)
+    simp only [Opnd.fill, fastArith, hn] at hk
+    simp (disch := decide) [Value.toNum?, BinOp.toOp, rawArith_bit_fi, rawArith_bit_if, rawArith_bit_ff,
+      Res.ofInt, intarith, Value.ofNum, VState.apply, writeDefs, KEdge.kills, shiftl_m, shiftr_m,
+      hqc_cls, hqc_cls2] at hk
+    at_walk $ns))
+
+set_option hygiene false in
+/-- `at_jshift2` with `R[k]` a float too, of one `F2Ieq` outcome (`hT : (… ∧
+RegCls 0 s k) ∧ F2IC ok j s) ∧ F2IC ok' k s`: `hqc_cls2`). -/
+macro "at_jshift2f " pc:num ns:ident j:term "," k:term : tactic => `(tactic| (
+  obtain ⟨hT, hcls2⟩ := hT
+  at_jshift2 $pc $ns $j, $k (
+    obtain ⟨y', m', hsty, hqc_cls2⟩ := hcls2
+    rw [hr] at hsty; cases hsty)))
+
+/-- **`shift2_flt_arm name OP pc NS`**: `OP_SHL`/`OP_SHR`'s float paths as
+one declaration per (float operand and its `F2Ieq` outcome, the other's
+class, and its outcome if a float) (`at_jshift2`, `at_jshift2f`), and
+`name : SoftFloatSpec → FloorSpec → SimArmOn OP FltBC` from them
+(`armBody_f2ic`, `armBody_cls`, `sim_on_or`). -/
+syntax "shift2_flt_arm " ident term:max num ident : command
+
+set_option hygiene false in
+macro_rules
+  | `(shift2_flt_arm $nm $op $pc $ns) => do
+    let mk (s : String) : Lean.Ident := Lean.mkIdent (nm.getId.appendAfter s)
+    let regs (side : String) : Lean.MacroM (Lean.Term × Lean.Term) := do
+      if side == "b" then pure ((← `(ins.b)), (← `(ins.c))) else pure ((← `(ins.c)), (← `(ins.b)))
+    let bool (ok : String) : Lean.MacroM Lean.Term := if ok == "1" then `(true) else `(false)
+    let mut cmds : Array (Lean.TSyntax `command) := #[]
+    for side in ["b", "c"] do
+      let (j, k) ← regs side
+      -- the other an integer or no number: one declaration per outcome of `R[j]`
+      for cls in ["1", "2"] do
+        for ok in ["1", "0"] do
+          let n := Lean.Syntax.mkNumLit cls
+          cmds := cmds.push (← `(theorem $(mk s!"_{side}{cls}_{ok}") (hsf : SoftFloatSpec)
+              (hfl : FloorSpec) :
+              ArmBody $op fun _ _ s _ ins => (FltReg s $j ∧ RegCls $n s $k) ∧ F2IC $(← bool ok) $j s :=
+            fun {p} hS {c s s' w ins} hA hf hop hstep hT => by
+              at_jshift2 $pc $ns $j, $k (have hqc_cls2 : True := trivial)))
+      -- the other a float: per outcome of each
+      for ok in ["1", "0"] do
+        for ok' in ["1", "0"] do
+          cmds := cmds.push (← `(theorem $(mk s!"_{side}0_{ok}{ok'}") (hsf : SoftFloatSpec)
+              (hfl : FloorSpec) :
+              ArmBody $op fun _ _ s _ ins =>
+                ((FltReg s $j ∧ RegCls 0 s $k) ∧ F2IC $(← bool ok) $j s) ∧ F2IC $(← bool ok') $k s :=
+            fun {p} hS {c s s' w ins} hA hf hop hstep hT => by at_jshift2f $pc $ns $j, $k))
+    let cl (side cls : String) : Lean.MacroM Lean.Term := do
+      let (j, _) ← regs side
+      `(armBody_f2ic (fun ins => $j) ($(mk s!"_{side}{cls}_1") hsf hfl) ($(mk s!"_{side}{cls}_0") hsf hfl)
+          (fun h => h.1))
+    let cl0 (side : String) : Lean.MacroM Lean.Term := do
+      let (j, k) ← regs side
+      let half (ok : String) : Lean.MacroM Lean.Term :=
+        `(armBody_f2ic (fun ins => $k) ($(mk s!"_{side}0_{ok}1") hsf hfl) ($(mk s!"_{side}0_{ok}0") hsf hfl)
+            (fun h => h.1.2))
+      `(armBody_f2ic (fun ins => $j) $(← half "1") $(← half "0") (fun h => h.1))
+    let fin ← `(theorem $nm (hsf : SoftFloatSpec) (hfl : FloorSpec) : SimArmOn $op FltBC :=
+        sim_on_or (by decide)
+          (armBody_cls (·.c) $(← cl0 "b") $(← cl "b" "1") $(← cl "b" "2"))
+          (armBody_cls (·.b) $(← cl0 "c") $(← cl "c" "1") $(← cl "c" "2")))
+    return Lean.mkNullNode (cmds.push fin)
 
 end Lua.Vm.Sim.At

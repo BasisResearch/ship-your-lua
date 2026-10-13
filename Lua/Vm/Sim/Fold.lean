@@ -360,7 +360,9 @@ field: `LOADF`, `ADDI`, `LTI`, `GEI` (lane float-m0), `SUB`, `FORLOOP`
 join route), `LT` and `LE` (lane F2: their f2i paths under `floor`,
 `FloorSpec`), `BNOT`, `BAND`, `BOR`, `BXOR` (lane F2: `tointegerns` under
 `FloorSpec`), `BANDK`, `BORK`, `BXORK` (lane F3: `K[C]` read through
-`floor`'s frame, under `FloorSpec`). `EQI` and `FORPREP` are proved but for
+`floor`'s frame, under `FloorSpec`), `SHL`, `SHR`, `SHLI`, `SHRI` (lane F3: the
+shift's tests of `__fixdfdi`'s value as residual atoms, under `FloorSpec`).
+`EQI` and `FORPREP` are proved but for
 the paths their fields name (`At.EqiFlt_Statement`, `At.FpCoerce_Statement`). -/
 structure FloatArms : Prop where
   /-- the soft-float routines' level-2 equations not yet proved
@@ -385,20 +387,12 @@ structure FloatArms : Prop where
   MOD : SimArmOn .MOD FltBC
   /-- `OP_IDIV` with a float operand (`luai_numidiv`: `__divdf3`, `floor`; T4) -/
   IDIV : SimArmOn .IDIV FltBC
-  /-- `OP_SHL` with a float operand (T3) -/
-  SHL : SimArmOn .SHL FltBC
-  /-- `OP_SHR` with a float operand (T3) -/
-  SHR : SimArmOn .SHR FltBC
   /-- `OP_MULK` with a float operand (T3) -/
   MULK : SimArmOn .MULK FltBK
   /-- `OP_MODK` with a float operand (T4) -/
   MODK : SimArmOn .MODK FltBK
   /-- `OP_IDIVK` with a float operand (T4) -/
   IDIVK : SimArmOn .IDIVK FltBK
-  /-- `OP_SHRI` with a float `R[B]` (T3) -/
-  SHRI : SimArmOn .SHRI FltB
-  /-- `OP_SHLI` with a float `R[B]` (T3) -/
-  SHLI : SimArmOn .SHLI FltB
   /-- `OP_EQ` with a float operand (`luaV_equalobj`: `__eqdf2`, F2Ieq; T3) -/
   EQ : SimArmOn .EQ FltAB
   /-- `OP_EQK` with a float `R[A]` or `K[B]` (`luaV_rawequalobj`; T3) -/
@@ -433,8 +427,8 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case BAND => exact SimArm.split @sim_BAND (At.sim_BAND_flt hF.soft hF.floor)
   case BOR => exact SimArm.split @sim_BOR (At.sim_BOR_flt hF.soft hF.floor)
   case BXOR => exact SimArm.split @sim_BXOR (At.sim_BXOR_flt hF.soft hF.floor)
-  case SHL => exact SimArm.split At.sim_SHL hF.SHL
-  case SHR => exact SimArm.split At.sim_SHR hF.SHR
+  case SHL => exact SimArm.split At.sim_SHL (At.sim_SHL_flt hF.soft hF.floor)
+  case SHR => exact SimArm.split At.sim_SHR (At.sim_SHR_flt hF.soft hF.floor)
   case DIV => exact hF.DIV
   case POW => exact hF.POW
   case ADDK => exact SimArm.split @sim_ADDK (At.sim_ADDK_flt hF.soft)
@@ -448,8 +442,8 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case BORK => exact SimArm.split At.sim_BORK (At.sim_BORK_flt hF.soft hF.floor)
   case BXORK => exact SimArm.split At.sim_BXORK (At.sim_BXORK_flt hF.soft hF.floor)
   case ADDI => exact SimArm.split @sim_ADDI (At.sim_ADDI_flt hF.soft)
-  case SHRI => exact SimArm.split At.sim_SHRI hF.SHRI
-  case SHLI => exact SimArm.split At.sim_SHLI hF.SHLI
+  case SHRI => exact SimArm.split At.sim_SHRI (At.sim_SHRI_flt hF.soft hF.floor)
+  case SHLI => exact SimArm.split At.sim_SHLI (At.sim_SHLI_flt hF.soft hF.floor)
   case MMBIN => exact h.MMBIN
   case MMBINI => exact h.MMBINI
   case MMBINK => exact h.MMBINK

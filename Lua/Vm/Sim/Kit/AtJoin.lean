@@ -544,6 +544,13 @@ by the path's fork facts and the kernel's side facts. Fails by default. -/
 syntax "at_leaf_ext" : tactic
 macro_rules | `(tactic| at_leaf_ext) => `(tactic| fail "at_leaf_ext")
 
+/-- **An extension point of `at_leaf`** (lane F3), tried before the refutation:
+a family whose leaves are cheaper to close than to refute (`Kit/AtJoinShift.lean`:
+the close fails fast on a wrong side, the refutation of a satisfiable leaf does
+not). Fails by default. -/
+syntax "at_leaf_first " ident : tactic
+macro_rules | `(tactic| at_leaf_first $_ns) => `(tactic| fail "at_leaf_first")
+
 set_option hygiene false in
 /-- **`at_leaf NS`**: at the fetch head, the kernel's outcome: the side of
 its test the path's atoms refute is closed by `at_atoms`, the other by the
@@ -557,6 +564,7 @@ macro "at_leaf " ns:ident : tactic => `(tactic| (
   all_goals first
   | (simp at hk; done)
   | (simp at hq; done)
+  | at_leaf_first $ns
   | (exfalso; at_atoms)
   | (try (simp only [Lua.Num.Res.val.injEq, Lua.Num.Numeral.int.injEq] at hq; cases hq)
      try at_leaf_ext
