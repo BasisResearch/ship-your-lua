@@ -402,4 +402,108 @@ theorem tol_false (hPL : PushLit_Statement) {sp L i lenp nci func top ts : Nat} 
       (fun c => ∃ m', wrRet r sp (ts + 24) f m' o c ∧ TolLitPost m m' sp L lenp rt.g top ts 5) := by
   tol_lit_run Lua.Vm.AtF.TolFalse 0x8004f280 falseB 488 5
 
+/-! ## The literal classes for `luaB_print` (`TolPost`) -/
+
+/-- **Where a literal argument's objects lie** for `luaB_print`'s state:
+the pushed slot, `g`'s string cache and GC words, the interned string, all
+kept bytes (in chunks in use, apart from `stdout`'s buffer), and apart from
+what the state reads. -/
+structure TolLitAt (L nci top g ts len : Nat) (Fa : Nat → Prop) (H : HeapIx) (ph : StdoutPh) : Prop where
+  slot : ∀ a, Rng top 16 a → Kept H ph a
+  cache : ∀ a, Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a → Kept H ph a
+  gw : ∀ a, Rng g 64 a → Kept H ph a
+  str : ∀ a, ts ≤ a → a < ts + 24 + len + 1 → Kept H ph a
+  sep : ∀ a, ApiFoot L nci a ∨ Fa a → ¬ Rng top 16 a ∧ ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧
+    ¬ Rng g 64 a ∧ ¬ Rng (ts + gcMarkedOff) 1 a
+  str_sep : ∀ a, ts + 24 ≤ a → a < ts + 24 + len → ¬ Rng (L + 16) 8 a ∧ ¬ Rng top 16 a ∧
+    ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a ∧ ¬ Rng g 64 a
+  nci_sep : nci + 8 ≤ L + 16 ∨ L + 24 ≤ nci
+
+/-- A kept byte is below the C stack. -/
+theorem Kept.hi' {H : HeapIx} {ph : StdoutPh} {a : Nat} (h : Kept H ph a) : a < heapEnd := h.hi
+
+/-- `omega` with `__heap_end` an atom (its literal unfolded past the
+recursion limit otherwise). -/
+macro "homega" : tactic => `(tactic| ((try generalize heapEnd = E at *); omega))
+
+/-- **`TolPost` from a literal argument's run** (`tol_nil`, `tol_true`,
+`tol_false`): the state with one more value (the literal at the top), `stdout`
+as it was, the frame but the length word, the length, the literal's bytes,
+where they lie. -/
+theorem tolPost_of_lit {sp0 L nci func tbc n : Nat} {A : Mem → Prop} {Fa : Nat → Prop} {ph : StdoutPh}
+    {H : HeapIx} {m m' : Mem} {g top ts len : Nat} {b : List (BitVec 8)}
+    (hA : ArgPred L A Fa) (hS : PrS L nci func tbc A Fa n ph H m) (hP : PrintSt m ph H)
+    (hT : TolLitPost m m' (sp0 - 64) L (sp0 - 56) g top ts len) (hW : TolLitAt L nci top g ts len Fa H ph)
+    (htop : top = func + 16 * n + 16) (hlen : b.length = len) (hbytes : bytesAt m (ts + 24) len = b)
+    (hsp : heapEnd + 16384 + 64 + 4096 + 64 ≤ sp0) (hsp2 : sp0 ≤ 2 ^ 32) :
+    TolPost sp0 n (PrS L nci func tbc A Fa) b ph m m' (ts + 24) H H := by
+  have hHE : 0x8006ecd0 ≤ heapEnd := by decide
+  have hHS : heapStart = 0x8006ecd0 := rfl
+  have hts : ts + 24 + len + 1 ≤ heapEnd := by
+    have := (hW.str (ts + 24 + len) (by homega) (by homega)).hi'; homega
+  have htsl : heapStart ≤ ts := (hW.str ts (Nat.le_refl _) (by homega)).lo
+  -- what the state and `stdout` read is no store of the run
+  have hkeepK : ∀ a, (ApiFoot L nci a ∨ Fa a) → ¬ Rng (L + 16) 8 a → bytesT1 m' a = bytesT1 m a := by
+    intro a ha hL
+    have hk := hS.kept a ha
+    have := hk.hi'
+    obtain ⟨h1, h2, h3, h4⟩ := hW.sep a ha
+    exact hT.keep a (.inr ⟨by homega, hL, h1, h2, h3, h4⟩)
+  have hkeepP : ∀ a, PrintFoot ph H a → bytesT1 m' a = bytesT1 m a := by
+    intro a ha
+    have hlo : a + 16384 + 64 ≤ sp0 - 64 ∨ False := by
+      left
+      rcases ha with hg | hb | ⟨hr, _⟩ | hr
+      · simp only [StdioGlob] at hg; homega
+      · have := hP.io.buf_hi a hb; homega
+      · simp only [HeapReads] at hr
+        have e4 : symMallocAv = 0x8005c6d0 := rfl
+        have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+        have e6 : symBrk = 0x8005d3b8 := rfl
+        have e7 : symMallocTopPad = 0x8005d3d8 := rfl
+        have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
+        have e9 : symMallocMallinfo = 0x8005e560 := rfl
+        homega
+      · homega
+    rcases hlo with hlo | hlo
+    · refine hT.keep a (.inr ⟨hlo, fun hr => ?_, fun hr => ?_, fun hr => ?_, fun hr => ?_, fun hr => ?_⟩)
+      · exact (hS.kept a (.inl (.inl hr))).not_printFoot ha
+      · exact (hW.slot a hr).not_printFoot ha
+      · exact (hW.cache a hr).not_printFoot ha
+      · exact (hW.gw a hr).not_printFoot ha
+      · simp only [Rng, gcMarkedOff] at hr
+        exact (hW.str a (by homega) (by homega)).not_printFoot ha
+    · exact hlo.elim
+  have hapi := hS.api
+  refine
+    { lua := ⟨⟨?_, ?_, ?_, ?_, by have := hapi.tbc_lt; homega⟩, hS.kept, hA.congr m m' hS.args fun a ha =>
+        hkeepK a (.inr ha) (hA.apart a ha)⟩
+      io := hP.keep hkeepP
+      kept := fun c hc _ => hc
+      frame := fun a h1 h2 => hT.keep a (.inl ⟨by homega, by simp only [Rng]; homega⟩)
+      len := by rw [hT.len_w, hlen]
+      bytes := ?_
+      src_lo := SrcLo.of_hi (by have : errnoAddr = 0x8005d408 := rfl; have : heapStart = 0x8006ecd0 := rfl; homega)
+      src_hi := by homega
+      src_ok := fun a h1 h2 => ?_
+      src_out := by have : heapStart = 0x8006ecd0 := rfl; have : stdoutFile = 0x8005e668 := rfl
+                    have : fileSize = 184 := rfl; homega
+      src_buf := fun a h1 h2 => (hW.str a (by homega) (by homega)).nbuf }
+  · exact (bytesT8_congrT fun j _ => hkeepK _ (.inl (.inr (.inl ⟨by homega, by homega⟩))) (by
+      simp only [Rng]; homega)).trans hapi.ci_w
+  · exact (bytesT8_congrT fun j _ => hkeepK _ (.inl (.inr (.inr (.inr ⟨by homega, by homega⟩)))) (by
+      intro hr; have := hW.nci_sep; simp only [Rng] at hr; homega)).trans hapi.func_w
+  · rw [hT.top_w, htop]; congr 1
+  · exact (bytesT8_congrT fun j _ => hkeepK _ (.inl (.inr (.inr (.inl ⟨by homega, by homega⟩)))) (by
+      simp only [Rng]; homega)).trans hapi.tbc_w
+  · rw [← hbytes, show (bytesAt m (ts + 24) len).length = len by simp [bytesAt]]
+    refine bytesAt_congr fun j hj => ?_
+    obtain ⟨h1, h2, h3, h4⟩ := hW.str_sep (ts + 24 + j) (by homega) (by homega)
+    exact hT.keep _ (.inr ⟨by homega, h1, h2, h3, h4, by simp only [Rng, gcMarkedOff]; homega⟩)
+  · have hk := hW.str a (by homega) (by homega)
+    exact ⟨fun hg => hk.not_printW (sp := sp0 - 64) (ph' := ph) (by homega) (fun _ h => .inl h) (.inl (.inl hg)),
+      fun hm => hk.not_printW (sp := sp0 - 64) (ph' := ph) (by homega) (fun _ h => .inl h) (.inl (.inr (.inl hm))),
+      fun hs => hk.not_printW (sp := sp0 - 64) (ph' := ph) (by homega) (fun _ h => .inl h)
+        (.inl (.inr (.inr (.inl hs))))⟩
+
 end Lua.Vm.Sim.Kit

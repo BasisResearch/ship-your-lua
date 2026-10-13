@@ -583,6 +583,7 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.tol_nil
 #print axioms Lua.Vm.Sim.Kit.tol_true
 #print axioms Lua.Vm.Sim.Kit.tol_false
+#print axioms Lua.Vm.Sim.Kit.tolPost_of_lit
 #print axioms Lua.Num.F64.unpack_eq
 #print axioms Lua.Num.F64.pack_cls
 #print axioms Lua.Num.F64.round_eq_model
