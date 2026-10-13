@@ -198,6 +198,16 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Fn.Subdf3.spec_proved
 #print axioms Lua.Num.SfRef.add_eq
 #print axioms Lua.Num.SfRef.sub_eq
+#print axioms Lua.Vm.Fn.Eqdf2.spec_proved
+#print axioms Lua.Vm.Fn.Ledf2.spec_proved
+#print axioms Lua.Vm.Fn.Gedf2.spec_proved
+#print axioms Lua.Vm.Fn.Fixdfdi.spec_proved
+#print axioms Lua.Vm.Fn.Floatdidf.spec_proved
+#print axioms Lua.Vm.Fn.Floatsidf.spec_proved
+#print axioms Lua.Num.SfRef.cmp_eq
+#print axioms Lua.Num.SfRef.eqv_eq
+#print axioms Lua.Num.SfRef.toInt_eq
+#print axioms Lua.Num.SfRef.ofInt_eq
 #print axioms Lua.Vm.Sim.At.sim_LOADF_flt
 #print axioms Lua.Vm.Sim.At.sim_LTI_flt
 #print axioms Lua.Vm.Sim.At.sim_EQI_flt

@@ -2,6 +2,7 @@ import Lua.Vm.Sim.Kit.At
 import Lua.Vm.Sim.Kit.Summaries
 import Lua.Vm.Sim.Kit.AtCond
 import Lua.Vm.Sim.Kit.AtFloat
+import Lua.Vm.Fn.SfRefInt
 import Lua.Vm.Fn.SfRefSub
 import Lua.Vm.Arms
 
@@ -34,9 +35,9 @@ def f0 (X : Cx) : BitVec 64 :=
 def k0 (X : Cx) (M : Mem) : Mem :=
   Lua.Vm.Fn.Floatdidf.Fm M X.w.sp (0x8001e524#64) (Loc.den X (.val .b 0))
 
-@[at_fspec] theorem f0_eq (hsf : SoftFloatSpec) (X : Cx) (hX : X.Ok) :
+@[at_fspec] theorem f0_eq (X : Cx) (hX : X.Ok) :
     f0 X = Lua.Vm.Fn.Floatdidf.S (Loc.den X (.val .b 0)) :=
-  Lua.Vm.Fn.Floatdidf.spec hsf _ _ _ _ (at_fnSp hX)
+  Lua.Vm.Fn.Floatdidf.spec_proved _ _ _ _ (at_fnSp hX)
 
 @[at_row] abbrev m0 : List Ent :=
   [.clob ⟨[(1, .sp)], 0, 32⟩ 32 k0]
@@ -73,9 +74,9 @@ def f3 (X : Cx) : BitVec 64 :=
 def k3 (X : Cx) (M : Mem) : Mem :=
   Lua.Vm.Fn.Floatdidf.Fm M X.w.sp (0x8001d9c0#64) (Loc.den X (.val .c 0))
 
-@[at_fspec] theorem f3_eq (hsf : SoftFloatSpec) (X : Cx) (hX : X.Ok) :
+@[at_fspec] theorem f3_eq (X : Cx) (hX : X.Ok) :
     f3 X = Lua.Vm.Fn.Floatdidf.S (Loc.den X (.val .c 0)) :=
-  Lua.Vm.Fn.Floatdidf.spec hsf _ _ _ _ (at_fnSp hX)
+  Lua.Vm.Fn.Floatdidf.spec_proved _ _ _ _ (at_fnSp hX)
 
 @[at_row] abbrev m1 : List Ent :=
   [.clob ⟨[(1, .sp)], 0, 32⟩ 32 k3]
