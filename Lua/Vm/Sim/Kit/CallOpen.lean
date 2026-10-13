@@ -251,10 +251,6 @@ def ExitUp_Statement : Prop :=
 /-- **`OP_CALL print`'s open parts** on the `CALL` invariant (lane F1-13). -/
 structure CallOpen : Prop where
   print : PrintRel_Statement
-  /-- (lane F1-14) `_malloc_r` (A0): `luaE_extendCI`'s allocation
-  (`CallOpen.extendCI`, `Kit/ExtendCI.lean`) -/
-  mallocR : MallocR_Statement
-  freeR : FreeR_Statement
 
 /-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the
 `CALL` invariant keeps `LUA_MINSTACK` slots above the frame (`growFree`, from

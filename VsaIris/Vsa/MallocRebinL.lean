@@ -1,3 +1,4 @@
+-- discipline: allow(R7-conj-tower-def) ported from ship-your-interpreter (lane F1-A0-M, ATTRIBUTION.md): its proof kept, relocated to the Lua ELF
 import VsaIris.Vsa.MallocRebin
 
 namespace VsaIris.VsaHeap

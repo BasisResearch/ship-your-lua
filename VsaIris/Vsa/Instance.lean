@@ -1,3 +1,4 @@
+-- discipline: allow(R7-conj-tower-def) copied from ship-your-interpreter; lane F1-A0-M added the exact frames (pres/quiet) to its run facts
 import VsaIris.Adequacy
 import VsaIris.MachWP
 import Vsa.Sim.SegToTripleFramed

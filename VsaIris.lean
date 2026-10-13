@@ -36,6 +36,9 @@ import VsaIris.Vsa.SymObs
 import VsaIris.Vsa.SymRun
 import VsaIris.Vsa.SymRunO
 import VsaIris.Vsa.Tools
+import VsaIris.Vsa.MallocRunAll
+import VsaIris.Vsa.FreeRunAll
+import VsaIris.Vsa.SWPReach
 
 /-! Iris machine WP (MachCSL), dlmalloc heap and call/stack rules, copied from
 ship-your-interpreter (BasisResearch/ship-your-interpreter @ 46b1eb8e); see ATTRIBUTION.md. -/

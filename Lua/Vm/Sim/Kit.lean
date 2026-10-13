@@ -46,6 +46,8 @@ import Lua.Vm.Sim.Kit.AtFltAddi
 import Lua.Vm.Sim.Kit.AtFltForloop
 import Lua.Vm.Sim.Kit.Sinit
 import Lua.Vm.Sim.Kit.Malloc
+import Lua.Vm.Sim.Kit.AllocHeap
+import Lua.Vm.Sim.Kit.AllocProof
 import Lua.Vm.Sim.Kit.HeapKeep
 import Lua.Vm.Sim.Kit.Setup
 import Lua.Vm.Sim.Kit.Smakebuf

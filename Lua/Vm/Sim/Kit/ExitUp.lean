@@ -1,4 +1,5 @@
 import Lua.Vm.Sim.Kit.CallOpen
+import Lua.Vm.Sim.Kit.AllocProof
 import Lua.Vm.AtF.FcloseIn
 import Lua.Vm.AtF.FcloseErr
 import Lua.Vm.AtF.FcloseOut
@@ -548,7 +549,9 @@ theorem exitUp_of_free (hF : FreeR_Statement) : ExitUp_Statement := by
     (hR.congrT fun a ha => kLo a (by have := ha.range; omega)) hb
     (hH.ofTotal fun a hr hu => kS a (by simp only [HeapReads] at hr; omega) fun hk => hu hk.inuse)
 
-/-- `CALL`'s open parts give the post-print `exit` (lane F1-14). -/
-theorem CallOpen.exitUp (O : CallOpen) : ExitUp_Statement := exitUp_of_free O.freeR
+/-- (lane F1-14; lane F1-A0-M) `exit(0)` after a `print`, `_free_r` discharged. -/
+theorem exitUp_proved : ExitUp_Statement := exitUp_of_free AllocProof.freeR_proved
+
+theorem CallOpen.exitUp (_O : CallOpen) : ExitUp_Statement := exitUp_proved
 
 end Lua.Vm.Sim.Kit

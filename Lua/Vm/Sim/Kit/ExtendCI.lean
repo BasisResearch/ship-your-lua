@@ -1,4 +1,5 @@
 import Lua.Vm.Sim.Kit.CallOpen
+import Lua.Vm.Sim.Kit.AllocProof
 import Lua.Vm.AtF.ExtendCI
 import Lua.Vm.Arms.Segs.Hl_alloc
 import Lua.Vm.Arms.Segs.Hrealloc
@@ -399,7 +400,9 @@ theorem extendCI_of_malloc (hM : MallocR_Statement) : ExtendCI_Statement := by
     ⟨xL1, xL2, xL3, xc1, xc2, xc3, xg1, xg2, xg3, xLg, xLc, xlive⟩ (by rw [e2]; omega)
   exact ⟨_, acc.trans s3, p, _, hw, hn, hs, hk, hE⟩
 
-/-- `CallOpen`'s `luaE_extendCI`, from its `_malloc_r` (lane F1-14). -/
-theorem CallOpen.extendCI (O : CallOpen) : ExtendCI_Statement := extendCI_of_malloc O.mallocR
+/-- `luaE_extendCI` (lane F1-14), `_malloc_r` discharged (lane F1-A0-M). -/
+theorem extendCI_proved : ExtendCI_Statement := extendCI_of_malloc AllocProof.mallocR_proved
+
+theorem CallOpen.extendCI (_O : CallOpen) : ExtendCI_Statement := extendCI_proved
 
 end Lua.Vm.Sim.Kit

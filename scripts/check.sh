@@ -706,6 +706,15 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Ret.pcw_post
 #print axioms Lua.Vm.Sim.Kit.extendCI_of_malloc
 #print axioms Lua.Vm.Sim.Kit.CallOpen.extendCI
+#print axioms Lua.Vm.Sim.Kit.AllocProof.mallocR_proved
+#print axioms Lua.Vm.Sim.Kit.AllocProof.freeR_proved
+#print axioms Lua.Vm.Sim.Kit.extendCI_proved
+#print axioms Lua.Vm.Sim.Kit.exitUp_proved
+#print axioms VsaIris.VsaHeap.malloc_all
+#print axioms VsaIris.VsaHeap.free_body
+#print axioms VsaIris.Sym.LocalRun.reach
+#print axioms Lua.Vm.Sim.Kit.AllocHeap.heapV
+#print axioms Lua.Vm.Sim.Kit.AllocHeap.heapL
 #print axioms Lua.Vm.Sim.Kit.lalloc_sum
 #print axioms Lua.Vm.Sim.Kit.ext_post
 #print axioms Lua.Vm.Sim.Kit.ext_ret

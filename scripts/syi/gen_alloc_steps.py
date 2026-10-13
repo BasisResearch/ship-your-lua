@@ -128,10 +128,10 @@ FUNCS.sort(key=lambda f: SYM[f])
 W = {pc: w for pc, w in W.items() if FN[pc] in FUNCS}
 PCS = sorted(W)
 CFG['CODE_DOC'] = [
-    '/-! The allocator\'s code bytes (the call closure of `malloc`, `free`, `realloc`,',
-    '`_malloc_r`, `_free_r`, `_realloc_r` in `c/lua-riscv-htif.elf`: '
+    '/-! The allocator\'s code bytes (the call closure of ' + ', '.join(f'`{f}`' for f in CFG['ROOTS'])
+    + ' in `c/lua-riscv-htif.elf`, without ' + ', '.join(f'`{f}`' for f in sorted(CUT)) + ': '
     + ', '.join(f'`{f}`' for f in FUNCS) + ')',
-    'and the `_impure_ptr` word, as a balanced append tree of 16-byte chunks. -/']
+    'as a balanced append tree of 16-byte chunks. -/']
 
 from rv_steps import src as _src  # noqa: E402
 
