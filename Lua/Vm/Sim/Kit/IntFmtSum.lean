@@ -33,14 +33,14 @@ the prologue. -/
 
 /-- What a run writes: `snprintf`'s and its callees' frames (the 4 KiB below
 `sp`) and the buffer. -/
-def snWk (G : SnG) (a : Nat) : Prop := (G.sp - 4096 ≤ a ∧ a < G.sp) ∨ (G.buf ≤ a ∧ a < G.buf + 44)
+def snWk (G : SnG) (a : Nat) : Prop := (G.sp ≤ a + 4096 ∧ a < G.sp) ∨ (G.buf ≤ a ∧ a < G.buf + 44)
 
 /-- What a run writes after the `'d'` conversion: `__ssprint_r`'s and
 `__ssputs_r`'s frames, `_svfprintf_r`'s slots but its saved registers, `fp`
 and the format cursor, `fp->_p` and `_w`, the buffer. -/
 def snWd (G : SnG) (a : Nat) : Prop :=
-  (G.sp - 1000 ≤ a ∧ a < G.sp - 866) ∨ (G.sp - 864 ≤ a ∧ a < G.sp - 856) ∨
-    (G.sp - 848 ≤ a ∧ a < G.sp - 500) ∨ (G.sp - 264 ≤ a ∧ a < G.sp - 248) ∨ (G.buf ≤ a ∧ a < G.buf + 44)
+  (G.sp ≤ a + 1000 ∧ a + 866 < G.sp) ∨ (G.sp ≤ a + 864 ∧ a + 856 < G.sp) ∨
+    (G.sp ≤ a + 848 ∧ a + 500 < G.sp) ∨ (G.sp ≤ a + 264 ∧ a + 248 < G.sp) ∨ (G.buf ≤ a ∧ a < G.buf + 44)
 
 /-- A run's contexts and memories unfolded to the chains over the entry's. -/
 macro "sn_unfold" loc:(Lean.Parser.Tactic.location)? : tactic => `(tactic|
@@ -166,5 +166,110 @@ theorem snp_toD (G : SnG) (m : Mem) (hin : G.In m) (c : Config)
     (by sn_unfold; exact f3) (by sn_unfold; exact hs1.jt_d) c1 h1'
   refine ⟨c2, s1.trans s2, ?_⟩
   sn_unfold at h2 ⊢; exact h2.repin (by pins_of h2)
+
+/-! ## The frame `_svfprintf_r` restores, and the agreements after the conversion -/
+
+/-- **The registers `_svfprintf_r` saved** after the `'d'` conversion's root
+(its format scan's stores). -/
+structure SnSaveA (G : SnG) (M : Mem) : Prop where
+  s2 : bytesT8 M (G.sp - 304) = G.f.s2
+  s3 : bytesT8 M (G.sp - 312) = G.f.s3
+  s4 : bytesT8 M (G.sp - 320) = G.f.s4
+  s5 : bytesT8 M (G.sp - 328) = G.f.s5
+  s7 : bytesT8 M (G.sp - 344) = G.f.s7
+  s8 : bytesT8 M (G.sp - 352) = G.f.s8
+  s9 : bytesT8 M (G.sp - 360) = G.f.s9
+  s10 : bytesT8 M (G.sp - 368) = G.f.s10
+  s11 : bytesT8 M (G.sp - 376) = G.f.s11
+
+/-- **The words `snprintf` and `_svfprintf_r`'s prologue stored** that the
+return reads. -/
+structure SnSaveB (G : SnG) (M : Mem) : Prop where
+  fp : bytesT8 M (G.sp - 856) = BitVec.ofNat 64 (G.sp - 264)
+  flags : bytesT2 M (G.sp - 248) = 0x208#16
+  s6 : bytesT8 M (G.sp - 336) = G.f.s6
+  vra : bytesT8 M (G.sp - 280) = 0x80034e58#64
+  vs0 : bytesT8 M (G.sp - 288) = 0x2c#64
+  vs1 : bytesT8 M (G.sp - 296) = 0x8005d1b8#64
+  cs1 : bytesT8 M (G.sp - 72) = G.f.s1
+  cra : bytesT8 M (G.sp - 56) = G.r
+  cs0 : bytesT8 M (G.sp - 64) = G.f.s0
+
+/-- **The frame the return reads**, on every memory after the `'d'`
+conversion (none of it in `snWd`). -/
+structure SnSave (G : SnG) (M : Mem) : Prop where
+  a : SnSaveA G M
+  b : SnSaveB G M
+
+/-- The format scan's stores (`_svfprintf_r`'s saves, its slots) are below
+`snprintf`'s `FILE`. -/
+theorem agree_F2 (G : SnG) (m : Mem) (h : G.In m) :
+    Agree (fun a => G.sp ≤ a + 4096 ∧ a + 296 < G.sp) (Lua.Vm.AtF.SnprintfLld.m12 (G.X0 m)) (G.MD m) := by
+  have := h.sp_lo
+  fmt_agree
+
+theorem snSaveA_D (G : SnG) (m : Mem) (h : G.In m) : SnSaveA G (G.MD m) := by
+  have := h.sp_lo
+  constructor <;> sn_rd
+
+theorem snSaveB_D (G : SnG) (m : Mem) (h : G.In m) : SnSaveB G (G.MD m) := by
+  have := h.sp_lo
+  have hfl : bytesT2 (G.MD m) (G.sp - 248) = 0x208#16 :=
+    ((agree_F2 G m h).b2 fun i _ => by omega).trans (flags_F G m h)
+  refine ⟨?_, hfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> sn_rd
+
+theorem snSave_D (G : SnG) (m : Mem) (h : G.In m) : SnSave G (G.MD m) :=
+  ⟨snSaveA_D G m h, snSaveB_D G m h⟩
+
+theorem SnSave.congr {G : SnG} {M M' : Mem} (h : SnSave G M) (ha : Agree (snWd G) M M')
+    (hs : 0x8005e720 + 8192 ≤ G.sp) (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) : SnSave G M' where
+  a := {
+    s2 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s2
+    s3 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s3
+    s4 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s4
+    s5 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s5
+    s7 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s7
+    s8 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s8
+    s9 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s9
+    s10 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s10
+    s11 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s11 }
+  b := {
+    fp := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.fp
+    flags := (ha.b2 fun i _ => by simp only [snWd]; omega).trans h.b.flags
+    s6 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.s6
+    vra := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.vra
+    vs0 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.vs0
+    vs1 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.vs1
+    cs1 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.cs1
+    cra := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.cra
+    cs0 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.cs0 }
+
+/-- `memmove`'s keep as an agreement. -/
+theorem MoveOut.agree {m M : Mem} {D S t : Nat} (h : MoveOut m M D S t) :
+    Agree (fun a => D ≤ a ∧ a < D + t) m M := fun a ha => h.keep a (by omega)
+
+/-- A copy into the buffer is a write after the conversion. -/
+theorem agree_move {G : SnG} {m M : Mem} {D S t : Nat} (h : MoveOut m M D S t) (h1 : G.buf ≤ D)
+    (h2 : D + t ≤ G.buf + 44) : Agree (snWd G) m M :=
+  h.agree.mono fun a ha => by simp only [snWd]; omega
+
+theorem snWd_snWk {G : SnG} {M M' : Mem} (h : Agree (snWd G) M M') (hs : 1000 ≤ G.sp) :
+    Agree (snWk G) M M' :=
+  h.mono fun a ha => by
+    simp only [snWd, snWk] at ha ⊢
+    rcases ha with ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩
+    · exact .inl ⟨by omega, by omega⟩
+    · exact .inl ⟨by omega, by omega⟩
+    · exact .inl ⟨by omega, by omega⟩
+    · exact .inl ⟨by omega, by omega⟩
+    · exact .inr ⟨h1, h2⟩
+
+/-- A digit's byte (`addiw a0, a0, 48; sb a0, …`). -/
+theorem digit_byte (q : BitVec 64) (hq : q.toNat < 10) :
+    stData 1 (sign_extend (m := 64) (Sail.BitVec.extractLsb (q + sign_extend (m := 64) (0x030#12)) 31 0)) =
+      digB q.toNat := by
+  obtain ⟨k, hk, rfl⟩ : ∃ k, k < 10 ∧ q = BitVec.ofNat 64 k := ⟨q.toNat, hq, by simp⟩
+  have : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 := by omega
+  rcases this with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
 
 end Lua.Vm.Sim.Kit
