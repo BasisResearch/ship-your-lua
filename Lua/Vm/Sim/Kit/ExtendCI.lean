@@ -1,4 +1,5 @@
 import Lua.Vm.Sim.Kit.CallOpen
+import Lua.Vm.Sim.Kit.AllocProof
 import Lua.Vm.AtF.ExtendCI
 import Lua.Vm.Arms.Segs.Hl_alloc
 import Lua.Vm.Arms.Segs.Hrealloc
@@ -269,7 +270,7 @@ theorem ext_post {sp L ci g p top' brk' : Nat} {chunks' : List Chunk} {bins' : N
   · obtain ⟨sz, hc, hs⟩ := hb.block
     exact ⟨⟨sz, hP.kept _ hc rfl, hs⟩, hb.lo, hb.hi⟩
   · have hc := hPS.cells
-    have kL : ∀ a, a < 0x8005c6d0 ∨ (0x8005cee0 ≤ a ∧ a < 0x8005d388) ∨ (0x8005d390 ≤ a ∧ a < 0x8005d3b8) → bytesT1
+    have kL : ∀ a, a < 0x8005c6d0 ∨ (0x8005d1bc ≤ a ∧ a < 0x8005d388) ∨ (0x8005d398 ≤ a ∧ a < 0x8005d3b8) → bytesT1
         (Lua.Vm.AtF.ExtendCI.m3 (ext1 sp L g ci p f m' o)) a = bytesT1 M a := fun a ha =>
       kOff a (.inl (by omega)) fun h => by
         have : errnoAddr = 0x8005d408 := rfl
@@ -399,7 +400,9 @@ theorem extendCI_of_malloc (hM : MallocR_Statement) : ExtendCI_Statement := by
     ⟨xL1, xL2, xL3, xc1, xc2, xc3, xg1, xg2, xg3, xLg, xLc, xlive⟩ (by rw [e2]; omega)
   exact ⟨_, acc.trans s3, p, _, hw, hn, hs, hk, hE⟩
 
-/-- `CallOpen`'s `luaE_extendCI`, from its `_malloc_r` (lane F1-14). -/
-theorem CallOpen.extendCI (O : CallOpen) : ExtendCI_Statement := extendCI_of_malloc O.mallocR
+/-- `luaE_extendCI` (lane F1-14), `_malloc_r` discharged (lane F1-A0-M). -/
+theorem extendCI_proved : ExtendCI_Statement := extendCI_of_malloc AllocProof.mallocR_proved
+
+theorem CallOpen.extendCI (_O : CallOpen) : ExtendCI_Statement := extendCI_proved
 
 end Lua.Vm.Sim.Kit

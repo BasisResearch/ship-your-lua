@@ -1,3 +1,4 @@
+-- discipline: allow(R7-conj-tower-def) copied from ship-your-interpreter; lane F1-A0-M added the exact frames (pres/quiet) to its run facts
 import VsaIris.Adequacy
 import VsaIris.MachWP
 import Vsa.Sim.SegToTripleFramed
@@ -75,6 +76,8 @@ def vsaModel (live : Nat → Prop) : MachineModel where
   mem c a := (c.σ.mem[a]?).getD 0
   out c := output c.σ
   ok := VsaOk live
+  pres c a := (c.σ.mem[a]?).isSome
+  quiet c c' := c'.σ.sailOutput = c.σ.sailOutput
 
 /-- The bytes present in a configuration's memory. -/
 def liveOf (c : Config) (a : Nat) : Prop := (c.σ.mem[a]?).isSome
@@ -429,7 +432,7 @@ theorem seg_runFact (live : Nat → Prop) (bs : List BBlock) (L : GRegs)
     rw [hw]
     exact gholds_lookup _ hregs hw
   refine ⟨⟨σ', i', c.steps + evalBlocksFuel bs⟩, reachesN_of_stepsN hN, ?_, ?_,
-    show output σ' = output c.σ by unfold output; rw [hout']⟩
+    show output σ' = output c.σ by unfold output; rw [hout'], hout'⟩
   · -- the invariant at the end
     refine ⟨hG', hi', fun k h1 h31 => ?_, fun a ha => ?_, ?_⟩
     · by_cases hk : k ∈ wrChain bs
@@ -476,6 +479,10 @@ theorem seg_runFact (live : Nat → Prop) (bs : List BBlock) (L : GRegs)
       exact hMW (q.1, o', _) (List.mem_map_of_mem ho')
     · intro k hk
       change ((σ'.mem)[k]?).getD 0 = ((c.σ.mem)[k]?).getD 0
+      rw [hmem', writeLog_out _ _ _ (hcover k fun p hp e =>
+        hk (p.1, p.2, _) (List.mem_map_of_mem hp) e)]
+    · intro k hk
+      change ((σ'.mem)[k]?).isSome ↔ ((c.σ.mem)[k]?).isSome
       rw [hmem', writeLog_out _ _ _ (hcover k fun p hp e =>
         hk (p.1, p.2, _) (List.mem_map_of_mem hp) e)]
 

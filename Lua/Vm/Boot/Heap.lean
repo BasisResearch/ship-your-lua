@@ -150,6 +150,11 @@ def heapCheck (v : View) (top brkv : Nat) (chunks : List Chunk) (L : List (List 
   decide ((binsOf L 1).length ≤ 1) &&
   (match r64 v binblocksAddr with
    | some bb => binIdxs.all fun i => i ≤ 1 || (binsOf L i).isEmpty || bb / 2 ^ (i / 4) % 2 == 1
+   | none => false) &&
+  brkv % 4096 == 0 &&
+  decide (top + 16 ≤ brkv) &&
+  (match r64 v binblocksAddr with
+   | some bb => decide (bb < 2 ^ 32)
    | none => false)
 
 /-- A passing `heapCheck` is the heap shape. -/
@@ -158,9 +163,9 @@ theorem heapAt_of_check {m : Mem} {v : View} (h : PartialView m v)
     (hc : heapCheck v top brkv chunks L = true) :
     HeapAt m top brkv chunks (binsOf L) := by
   simp only [heapCheck, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hsbrk, hbrk⟩, hbrkle⟩, htop⟩, htople⟩, htopsz⟩, htoph⟩,
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hsbrk, hbrk⟩, hbrkle⟩, htop⟩, htople⟩, htopsz⟩, htoph⟩,
     hpad⟩, hmax⟩, hmall⟩, hfirst⟩, hwalk⟩, hcoal⟩, hfoot⟩, hbins⟩, hnodup⟩,
-    hfree⟩, hbinned⟩, hrem⟩, hbb⟩ := hc
+    hfree⟩, hbinned⟩, hrem⟩, hbb⟩, hpage⟩, hroom⟩, hbbl⟩ := hc
   refine
     { sbrk_base := h.rd64 hsbrk
       brk := h.rd64 hbrk
@@ -183,7 +188,10 @@ theorem heapAt_of_check {m : Mem} {v : View} (h : PartialView m v)
       free_binned := ?_
       remainder := hrem
       binblocks_present := ?_
-      binblocks := ?_ }
+      binblocks := ?_
+      brk_page := hpage
+      top_room := hroom
+      bb_lt := ?_ }
   · cases hx : r64 v (heapStart + 8) with
     | none => rw [hx] at hfirst; cases hfirst
     | some x => rw [hx] at hfirst; rw [h.rd64 hx]; exact hfirst
@@ -222,5 +230,13 @@ theorem heapAt_of_check {m : Mem} {v : View} (h : PartialView m v)
       · omega
       · exact absurd h' hne
       · exact h'
+  · intro bb hbbr
+    cases hx : r64 v binblocksAddr with
+    | none => rw [hx] at hbbl; cases hbbl
+    | some x =>
+      rw [hx] at hbbl
+      have hxb : x = bb := Option.some.inj ((h.rd64 hx).symm.trans hbbr)
+      subst hxb
+      simpa using hbbl
 
 end Lua.Vm.Boot

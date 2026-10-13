@@ -1,5 +1,6 @@
 import Lua.Vm.Sim.Kit.CallOpen
 import Lua.Vm.Sim.Kit.PushLitProof
+import Lua.Vm.Sim.Kit.AllocProof
 
 /-!
 # `luaB_print` on the C frame from its per-class parts (lane F1-15)
@@ -624,8 +625,9 @@ theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : To
   exact prLine_chars args hna
 
 /-- **`luaB_print` on the C frame** from `CALL`'s open parts (lane F1-15):
-`lua_pushstring` of the literals proved (`pushLit_proved`). -/
+`lua_pushstring` of the literals proved (`pushLit_proved`), `_malloc_r`
+proved (lane F1-A0-M, `AllocProof.mallocR_proved`). -/
 theorem CallOpen.print (O : CallOpen) : PrintRel_Statement :=
-  printRel_of O.mallocR pushLit_proved O.tolStr O.printAlloc
+  printRel_of AllocProof.mallocR_proved pushLit_proved O.tolStr O.printAlloc
 
 end Lua.Vm.Sim.Kit

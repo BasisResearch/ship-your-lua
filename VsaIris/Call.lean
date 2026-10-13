@@ -49,7 +49,7 @@ def RetExec (M : MachineModel) (i : Nat) (code : List (BitVec 8)) : Prop :=
   ∀ r σ, M.ok σ → FootHolds (M := M) σ [(ra, DFrac.own 1, r)] (codeFoot i code)
       [(PC, BitVec.ofNat 64 i, r)] [] →
     ∃ σ', M.step σ = .next σ' ∧ M.ok σ' ∧ LocalStep (M := M) σ σ' [(PC, BitVec.ofNat 64 i, r)] [] ∧
-      M.out σ' = M.out σ
+      OutStep (M := M) σ σ' none
 
 /-- The exec fact for `jal ra, tgt` at `i`. -/
 def JalExec (M : MachineModel) (i : Nat) (code : List (BitVec 8)) (tgt : BitVec 64) : Prop :=
@@ -57,7 +57,7 @@ def JalExec (M : MachineModel) (i : Nat) (code : List (BitVec 8)) (tgt : BitVec 
       [(PC, BitVec.ofNat 64 i, tgt), (ra, v, BitVec.ofNat 64 (i + 4))] [] →
     ∃ σ', M.step σ = .next σ' ∧ M.ok σ' ∧
       LocalStep (M := M) σ σ' [(PC, BitVec.ofNat 64 i, tgt), (ra, v, BitVec.ofNat 64 (i + 4))] [] ∧
-      M.out σ' = M.out σ
+      OutStep (M := M) σ σ' none
 
 /-- **RET** (paper Fig. 8b), for either WP. -/
 theorem wp_retW (Wp : MachWP (GF := GF) M) {Φ : Nat × String → IProp GF} {i : Nat}

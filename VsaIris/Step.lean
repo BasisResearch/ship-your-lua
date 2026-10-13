@@ -224,6 +224,8 @@ structure LocalStep (σ σ' : M.State) (RW : List (Nat × BitVec 64 × BitVec 64
   reg_frame : ∀ k, (∀ p ∈ RW, p.1 ≠ k) → M.reg σ' k = M.reg σ k
   mem_new : ∀ p ∈ MW, M.mem σ' p.1 = p.2.2
   mem_frame : ∀ k, (∀ p ∈ MW, p.1 ≠ k) → M.mem σ' k = M.mem σ k
+  /-- (lane F1-A0-M) the bytes not written keep their presence -/
+  pres_frame : ∀ k, (∀ p ∈ MW, p.1 ≠ k) → (M.pres σ' k ↔ M.pres σ k)
 
 /-- Footprint ownership before a step: read-only registers `RR` and bytes
 `MR` at any fraction, and written cells at their old values. -/
@@ -331,7 +333,7 @@ theorem foot_update {σ0 σf : M.State} (mr : NatMap (BitVec 64)) (mm : NatMap (
 /-- The console effect of a run (INTERP_DESIGN.md §2 F2): `none` prints
 nothing, `some o` appends `o` to the output. -/
 def OutStep (σ σ' : M.State) : Option String → Prop
-  | none => M.out σ' = M.out σ
+  | none => M.out σ' = M.out σ ∧ M.quiet σ σ'
   | some o => M.out σ' = M.out σ ++ o
 
 /-- The hypothesis of the segment rule: from every well-formed state where
@@ -364,7 +366,7 @@ theorem RunFact.lagFoot {n : Nat} {RR : List (Nat × DFrac × BitVec 64)}
       (fun σ σf => LocalStep (M := M) σ σf RW MW ∧ OutStep (M := M) σ σf none) n :=
   LagFoot.ofRM (foot_lookup (M := M) · · RR MR RW MW) (fun σ hok hf => hexec σ hok hf)
     (fun mr mm _ _ hr hm hp => foot_update (M := M) mr mm RR MR RW MW hr hm hp.1)
-    (fun _ _ hp => hp.2)
+    (fun _ _ hp => hp.2.1)
 
 /-- A printing run is a lagged run over the footprint plus the console cell,
 which the commit advances by what the run printed. -/

@@ -268,7 +268,7 @@ theorem jalExec_of_site (live : Nat → Prop) (i : Nat) (code : List (BitVec 8))
       | some w => exact hnonra n hr.1 hr.2 hn w hg
     · rw [gprGet_none (by omega), gprGet_none (by omega)]
   refine ⟨⟨σ2, i2, c.steps + 1⟩, vsaStep_of_step hs, ⟨hG2, hi2, fun n h1 h31 => ?_, ?_,
-    hpw2.trans hok.htifIdle⟩, ?_, show Vsa.Machine.output σ2 = Vsa.Machine.output c.σ by unfold Vsa.Machine.output; rw [hout2]⟩
+    hpw2.trans hok.htifIdle⟩, ?_, show Vsa.Machine.output σ2 = Vsa.Machine.output c.σ by unfold Vsa.Machine.output; rw [hout2], hout2⟩
   · by_cases hn : n = 1
     · subst hn; rw [hra2']; rfl
     · rw [hframe n hn]; exact hok.gpr n h1 h31
@@ -293,6 +293,9 @@ theorem jalExec_of_site (live : Nat → Prop) (i : Nat) (code : List (BitVec 8))
     · intro p hp; cases hp
     · intro k _
       change (σ2.mem[k]?).getD 0 = (c.σ.mem[k]?).getD 0
+      rw [hmem]
+    · intro k _
+      change (σ2.mem[k]?).isSome ↔ (c.σ.mem[k]?).isSome
       rw [hmem]
 
 end Tools

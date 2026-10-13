@@ -50,12 +50,14 @@ abbrev symMallocR : Nat := 0x8002fa34
 
 /-- The words `_malloc_r` writes outside the arena (`nm -S`): `__malloc_av_`
 (`0x810` bytes), `__malloc_sbrk_base`, `brk.0` (htif.c's `_sbrk`),
-`__malloc_max_total_mem`, `__malloc_max_sbrked_mem`, `errno` (`_sbrk_r`),
-`__malloc_current_mallinfo` (`0x50` bytes). -/
+`__malloc_max_total_mem`, `__malloc_max_sbrked_mem`, `__malloc_top_pad` (read), `errno`
+(`_sbrk_r`), `__malloc_current_mallinfo` (`0x50` bytes); and (lane F1-A0-M, the ported proof's
+footprint `VsaIris.VsaHeap.allocGlobal`) `_REENT->_errno` (`_sbrk_r`'s failure
+path) and `__malloc_trim_threshold` (read by `_free_r`, never written). -/
 def MallocGlobal (a : Nat) : Prop :=
-  (symMallocAv ≤ a ∧ a < symMallocAv + 0x810) ∨ (symMallocSbrkBase ≤ a ∧ a < symMallocSbrkBase + 8) ∨
-  (symBrk ≤ a ∧ a < symBrk + 8) ∨ (0x8005d3c8 ≤ a ∧ a < 0x8005d3d0) ∨
-  (symMallocMaxSbrked ≤ a ∧ a < symMallocMaxSbrked + 8) ∨ (errnoAddr ≤ a ∧ a < errnoAddr + 4) ∨
+  (symMallocAv ≤ a ∧ a < symMallocAv + 0x810) ∨ (0x8005d1b8 ≤ a ∧ a < 0x8005d1bc) ∨
+  (symMallocSbrkBase ≤ a ∧ a < symMallocSbrkBase + 16) ∨ (symBrk ≤ a ∧ a < symBrk + 8) ∨
+  (0x8005d3c8 ≤ a ∧ a < 0x8005d3e0) ∨ (errnoAddr ≤ a ∧ a < errnoAddr + 4) ∨
   (symMallocMallinfo ≤ a ∧ a < symMallocMallinfo + 0x50)
 
 /-- **What `_malloc_r(_REENT, n)` leaves**: the block `p` of a chunk in use,

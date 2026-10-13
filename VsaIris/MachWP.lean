@@ -140,7 +140,7 @@ theorem local_step {Φ : Nat × String → IProp GF}
     (RW : List (Nat × BitVec 64 × BitVec 64)) (MW : List (Nat × BitVec 8 × BitVec 8))
     (hexec : ∀ σ, M.ok σ → FootHolds (M := M) σ RR MR RW MW →
       ∃ σ', M.step σ = .next σ' ∧ M.ok σ' ∧ LocalStep (M := M) σ σ' RW MW ∧
-        M.out σ' = M.out σ) :
+        OutStep (M := M) σ σ' none) :
     footPre (GF := GF) RR MR RW MW ∗ (footPost RR MR RW MW -∗ Wp.W Φ) ⊢ Wp.W Φ :=
   Wp.run 0 RR MR RW MW fun σ hok hf => by
     obtain ⟨σ', hs, hok', hloc, hout⟩ := hexec σ hok hf
@@ -152,7 +152,7 @@ theorem local_stepL {Φ : Nat × String → IProp GF}
     (RW : List (Nat × BitVec 64 × BitVec 64)) (MW : List (Nat × BitVec 8 × BitVec 8))
     (hexec : ∀ σ, M.ok σ → FootHolds (M := M) σ RR MR RW MW →
       ∃ σ', M.step σ = .next σ' ∧ M.ok σ' ∧ LocalStep (M := M) σ σ' RW MW ∧
-        M.out σ' = M.out σ) :
+        OutStep (M := M) σ σ' none) :
     footPre (GF := GF) RR MR RW MW ∗ (footPost RR MR RW MW -∗ Wp.lat (Wp.W Φ)) ⊢ Wp.W Φ :=
   Wp.runL 0 RR MR RW MW fun σ hok hf => by
     obtain ⟨σ', hs, hok', hloc, hout⟩ := hexec σ hok hf
@@ -245,7 +245,7 @@ theorem wp_local_step {Φ : Nat × String → IProp GF}
     (RW : List (Nat × BitVec 64 × BitVec 64)) (MW : List (Nat × BitVec 8 × BitVec 8))
     (hexec : ∀ σ, M.ok σ → FootHolds (M := M) σ RR MR RW MW →
       ∃ σ', M.step σ = .next σ' ∧ M.ok σ' ∧ LocalStep (M := M) σ σ' RW MW ∧
-        M.out σ' = M.out σ) :
+        OutStep (M := M) σ σ' none) :
     footPre (GF := GF) RR MR RW MW ∗ (footPost RR MR RW MW -∗ mTWP M Φ) ⊢ mTWP M Φ :=
   (twpW M).local_step RR MR RW MW hexec
 

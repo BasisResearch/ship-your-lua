@@ -55,7 +55,7 @@ theorem countdown_twp (n : Nat) (hn : n < 2 ^ 64) :
         rw [hσ]; intro h
         have := congrArg BitVec.toNat h
         simp [Nat.mod_eq_of_lt hn] at this
-      refine ⟨σ - 1#64, by simp [countdown, hne], trivial, ⟨?_, ?_, ?_, ?_⟩, rfl⟩
+      refine ⟨σ - 1#64, by simp [countdown, hne], trivial, ⟨?_, ?_, ?_, ?_, fun _ _ => Iff.rfl⟩, rfl, trivial⟩
       · intro p hp
         simp at hp; subst hp
         simp [countdown, hσ]

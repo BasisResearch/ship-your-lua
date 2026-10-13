@@ -10,23 +10,25 @@ import Lua.Vm.Sim.Kit.Tolstring
 invariant) is proved in `Kit/CallPrint.lean` (`printCall_of`) from
 `luaD_precall`'s C path (`precall_reuse`, `precall_ext`), `luaD_poscall` with
 `C = 1` (`poscall_sum`) and the relation's region facts, over the named
-premises collected here (`CallOpen`):
+premises collected here (`CallOpen`: `printAlloc`, `tolStr`) and the theorems
+it composes:
 
 * `PrintRel_Statement`: `luaB_print` on the C frame `luaD_precall` builds,
   stated over the regions it keeps (`PrintIn`/`PrintOut`): the line on the
   console, `stdout` set up and flushed, the bytes `G` the caller needs kept,
-  the interned literals again. It is `print_sum` (lane F1-11) with
-  `luaL_tolstring` per value class (`PushLit_Statement` for nil/booleans, the
-  string, integer (`IntegerToStr_Statement`), float (`G14From`) and function
-  classes) and the heap room of `MallocR_Statement`;
-* `ExtendCI_Statement`: `luaE_extendCI` (`ci->next` NULL at the first `print`);
+  the interned literals again. Proved (`CallOpen.print`, `Kit/PrintRel.lean`,
+  lane F1-15) from `print_sum` (lane F1-11) with `luaL_tolstring` per value
+  class: nil/booleans over `pushLit_proved`, strings `TolStr_Statement`
+  (field `tolStr`), the allocating classes `PrintAlloc_Statement` (field
+  `printAlloc`), and `_malloc_r` (`AllocProof.mallocR_proved`, lane F1-A0-M);
+* `ExtendCI_Statement`: `luaE_extendCI` (`ci->next` NULL at the first
+  `print`), `extendCI_proved`;
 * `PoscallN_Statement`: `luaD_poscall` with `C ≥ 2` (`wanted ≥ 1` nils);
 * `PrintGrow_Statement`: `luaD_precall`'s stack growth (`L->stack_last - L->top
-  ≤ LUA_MINSTACK`);
-* `FreeR_Statement`: `_free_r` (A0, as `MallocR_Statement`), which `exit`'s
-  `_fclose_r(stdout)` calls on `stdout`'s buffer; `exit(0)` once `stdout` is
-  set up (`ExitUp_Statement`, the post-print `ExitOk`) is proved from it
-  (`exitUp_of_free`, `Kit/ExitUp.lean`, lane F1-14).
+  ≤ LUA_MINSTACK`), `printGrow_none`;
+* `ExitUp_Statement`: `exit(0)` once `stdout` is set up (the post-print
+  `ExitOk`), `exitUp_proved` from `_free_r` (`AllocProof.freeR_proved`, lane
+  F1-A0-M) by `exitUp_of_free` (`Kit/ExitUp.lean`, lane F1-14).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -371,10 +373,6 @@ structure CallOpen : Prop where
   printAlloc : PrintAlloc_Statement
   /-- (lane F1-15) `luaL_tolstring` on a string argument -/
   tolStr : TolStr_Statement
-  /-- (lane F1-14) `_malloc_r` (A0): `luaE_extendCI`'s allocation
-  (`CallOpen.extendCI`, `Kit/ExtendCI.lean`) -/
-  mallocR : MallocR_Statement
-  freeR : FreeR_Statement
 
 /-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the
 `CALL` invariant keeps `LUA_MINSTACK` slots above the frame (`growFree`, from

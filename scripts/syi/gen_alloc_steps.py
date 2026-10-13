@@ -26,9 +26,12 @@ ship-your-lua changes (ATTRIBUTION.md):
 * The ELF is the Lua image, `c/lua-riscv-htif.elf`, read directly with the
   xPack `objdump`/`nm` (no `experiments/disasm.txt`); `ROOT` is the
   repository root.
-* `FUNCS` is the call closure of `malloc`, `free`, `realloc`, `_malloc_r`,
-  `_free_r` and `_realloc_r` in that ELF (every `jal` target, transitively);
-  `gp` (`__global_pointer$`) and the `_impure_ptr` word are read from it.
+* `FUNCS` is the call closure of `_malloc_r`, `_free_r` and `_realloc_r` in that
+  ELF (every `jal` target, transitively); `gp` (`__global_pointer$`) is read
+  from it. Lane F1-A0-M dropped the `malloc`/`free`/`realloc` wrappers: the
+  Lua route calls the reentrant entries, and the wrappers' `ld a0, _impure_ptr`
+  put a `.data` word into the text the run must find loaded. The `_impure_ptr`
+  word is text only when a root reads it (`IMPURE_TEXT`).
 * Decode is `Vsa.Sim.decodeW (w := 0x<hex>#32)` (rule R15): the `jalx_`
   lemmas use it, and `chain_facts` closes the decode leaves with it; no
   decode-table import.
@@ -51,7 +54,7 @@ TOOLS = pathlib.Path.home() / 'toolchains/xpack-riscv-none-elf-gcc-15.2.0-1/bin'
 OBJDUMP, NM = str(TOOLS / 'riscv-none-elf-objdump'), str(TOOLS / 'riscv-none-elf-nm')
 CFG = dict(
     P='alloc', RUN='AW',
-    ROOTS=['malloc', 'free', 'realloc', '_malloc_r', '_free_r', '_realloc_r'],
+    ROOTS=['_malloc_r', '_free_r', '_realloc_r'],
     CODE_OUT='VsaIris/Vsa/AllocCode.lean', STEPS_DIR='VsaIris/Vsa/AllocSteps',
     STEPS_MOD='VsaIris.Vsa.AllocSteps', RUN_MOD='VsaIris.Vsa.AllocRun',
     WHO='The allocator\'s')
@@ -108,10 +111,13 @@ from rv_steps import src as _src  # noqa: E402
 BY_FN = {}
 for pc, f in FN.items():
     BY_FN.setdefault(f, []).append(pc)
+# `__errno` (reached only by `_sbrk`'s failure path, which the allocator proofs
+# refute from the caller's room) reads the `_impure_ptr` word: off the table
+CUT = {'__errno'}
 FUNCS, work = [], list(CFG['ROOTS'])
 while work:
     f = work.pop()
-    if f in FUNCS:
+    if f in FUNCS or f in CUT:
         continue
     FUNCS.append(f)
     for pc in BY_FN[f]:
@@ -122,10 +128,10 @@ FUNCS.sort(key=lambda f: SYM[f])
 W = {pc: w for pc, w in W.items() if FN[pc] in FUNCS}
 PCS = sorted(W)
 CFG['CODE_DOC'] = [
-    '/-! The allocator\'s code bytes (the call closure of `malloc`, `free`, `realloc`,',
-    '`_malloc_r`, `_free_r`, `_realloc_r` in `c/lua-riscv-htif.elf`: '
+    '/-! The allocator\'s code bytes (the call closure of ' + ', '.join(f'`{f}`' for f in CFG['ROOTS'])
+    + ' in `c/lua-riscv-htif.elf`, without ' + ', '.join(f'`{f}`' for f in sorted(CUT)) + ': '
     + ', '.join(f'`{f}`' for f in FUNCS) + ')',
-    'and the `_impure_ptr` word, as a balanced append tree of 16-byte chunks. -/']
+    'as a balanced append tree of 16-byte chunks. -/']
 
 from rv_steps import src as _src  # noqa: E402
 
@@ -155,8 +161,12 @@ for pc in PCS:
     w = W[pc]
     for i in range(4):
         text.append((pc + i, (w >> (8 * i)) & 0xff))
-for i, b in enumerate(IMPURE[1]):
-    text.append((IMPURE[0] + i, b))
+# the `_impure_ptr` word is read-only text only for the wrappers' `ld a0, _impure_ptr`
+IMPURE_TEXT = any(classify(pc)[0] == 'load' and classify(pc)[1]['rs1'] == 3
+                  and (GPV + classify(pc)[1]['imm']) & M64 == IMPURE[0] for pc in PCS)
+if IMPURE_TEXT:
+    for i, b in enumerate(IMPURE[1]):
+        text.append((IMPURE[0] + i, b))
 CH = 16
 chunks = [text[i:i + CH] for i in range(0, len(text), CH)]
 where = {a: j for j, c in enumerate(chunks) for (a, _) in c}
@@ -234,11 +244,12 @@ for pc in JALS:
         C.append(f'  · exact {mem_proof(pc + i)}')
     C.append('')
 a0, ib = IMPURE
-C.append('/-- The `_impure_ptr` word. -/')
-C.append(f'theorem {P}_impure {{m : Mem}} (h : TextLoaded {P}Text m) :')
-C.append(f'    LPins8 m ({lit64(GPV)} + {lit64(a0 - GPV)}).toNat [' + ', '.join(f'0x{b:02x}#8' for b in ib) + '] := by')
-C.append(f'  rw [show ({lit64(GPV)} + {lit64(a0 - GPV)}).toNat = 0x{a0:x} by decide]')
-C.append('  exact ⟨' + ',\n   '.join(f'by rw [h _ ({mem_proof(a0 + i)})]; rfl' for i in range(8)) + '⟩\n')
+if IMPURE_TEXT:
+    C.append('/-- The `_impure_ptr` word. -/')
+    C.append(f'theorem {P}_impure {{m : Mem}} (h : TextLoaded {P}Text m) :')
+    C.append(f'    LPins8 m ({lit64(GPV)} + {lit64(a0 - GPV)}).toNat [' + ', '.join(f'0x{b:02x}#8' for b in ib) + '] := by')
+    C.append(f'  rw [show ({lit64(GPV)} + {lit64(a0 - GPV)}).toNat = 0x{a0:x} by decide]')
+    C.append('  exact ⟨' + ',\n   '.join(f'by rw [h _ ({mem_proof(a0 + i)})]; rfl' for i in range(8)) + '⟩\n')
 C.append('/-- The `gp` the step table computes with is the ELF\'s `__global_pointer$`. -/')
 C.append(f'theorem {P}_gp : VsaIris.MallocFast.gpV = {lit64(GPV)} := rfl\n')
 C.append('end VsaIris.Sym\n')
