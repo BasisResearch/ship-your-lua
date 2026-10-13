@@ -123,12 +123,12 @@ theorem free_entry {C : MCtx} (O : FOK C) {R : Nat → BitVec 64} {n brkv : Nat}
 
 def fLocCtx (live : Nat → Prop) (H : List (Nat × Nat)) (q : BitVec 64) (n : Nat) (r s : BitVec 64)
     (saved : List (Nat × BitVec 64)) (rv0 : Nat → BitVec 64) (Mt0 : Mem) (top0 : Nat) : MCtx :=
-  ⟨live, fS H q n s, FreeEnd vsaLayoutP H r s saved, H, q, r, s, rv0, Mt0, top0⟩
+  ⟨live, fS H q n s, FreeEnd vsaLayoutP H r s saved, H, q, r, s, rv0, Mt0, top0, top0⟩
 
 def fChgCtx (live : Nat → Prop) (H : List (Nat × Nat)) (q : BitVec 64) (n : Nat) (r s : BitVec 64)
     (saved : List (Nat × BitVec 64)) (k : Nat) (rv0 : Nat → BitVec 64) (Mt0 : Mem) (top0 : Nat) :
     MCtx :=
-  ⟨live, fS H q n s, FreeRoomEnd vsaLayoutP vsaRoomB H r s saved k, H, q, r, s, rv0, Mt0, top0⟩
+  ⟨live, fS H q n s, FreeRoomEnd vsaLayoutP vsaRoomB H r s saved k, H, q, r, s, rv0, Mt0, top0, top0⟩
 
 theorem fOK_loc {live : Nat → Prop} {H : List (Nat × Nat)} {q : BitVec 64} {n : Nat}
     {r s : BitVec 64} {saved : List (Nat × BitVec 64)} {rv0 : Nat → BitVec 64} {Mt0 : Mem}

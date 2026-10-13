@@ -344,7 +344,7 @@ theorem lr_take {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt Mt' : Mem}
   sx_run [8] O.live at 0x8002fad8
   have ha0 : ((R 15) + 16#64).toNat = v + 16 := by sx_addr
   refine epi_8002fad8 O ?F (O.fin_take (v := v) ?_
-    ⟨hfr, hal16, ⟨_, _, _, _, hheap, by omega, Hp.live.map_reflag _⟩,
+    ⟨hfr, hal16, ⟨_, _, _, _, hheap, by omega, Hp.live.map_reflag _, Hp.brk_rel⟩,
       pres_store (pres_store D.pres),
       frame_store (win_foot hnx) (frame_store (win_stack (a := C.s.toNat - 96 + 8) (w := 8)
         (by unfold mHead; omega) (by omega)) D.frame)⟩)

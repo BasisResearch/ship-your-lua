@@ -145,7 +145,7 @@ theorem top_split {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
   sx_run [8] O.live at 0x8002fabc
   have ha0 : ((R 15) + 16#64).toNat = C.top0 + 16 := by sx_addr
   refine epi_8002fabc O ?F (O.fin_take (v := C.top0) ?_
-    ⟨hfr, hal16, ⟨_, _, _, _, hheap, by omega, Hp.live.mono fun c hc _ => List.mem_append_left _ hc⟩,
+    ⟨hfr, hal16, ⟨_, _, _, _, hheap, by omega, Hp.live.mono fun c hc _ => List.mem_append_left _ hc, Hp.brk_rel⟩,
       pres_store (pres_store (pres_store (pres_store Hp.pres))),
       frame_store (fun b h1 h2 => .inl (hfootTop b (by omega) (by omega)))
         (frame_store (fun b h1 h2 => .inl (.inl (.inl ⟨by omega, by omega⟩)))

@@ -7,8 +7,6 @@ namespace VsaIris.VsaHeap
 open Vsa.MemRepr Vsa.Sim Vsa.Sim.DlHeap VsaIris.Inst VsaIris.Sym VsaIris.MallocFast
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail
 
-def sbReq (nb : Nat) : Nat := (nb + 4127) / 4096 * 4096
-
 def SbrkG (a : Nat) : Prop :=
   (brkAddr ≤ a ∧ a < brkAddr + 8) ∨ (0x8005d408 ≤ a ∧ a < 0x8005d40c) ∨
     (0x8005d1b8 ≤ a ∧ a < 0x8005d1bc)
@@ -307,7 +305,7 @@ theorem ext_grow {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt M : Mem}
   have Hp' : MHeap C M' (brkv + sbReq nb) chunks bins := by
     refine ⟨Hp.heap.topGrow (m' := M') (by omega) (by unfold heapEnd; omega) (by omega) ?_ ?_ ?_ hms' ?_,
       fun a ha => hP a (writeLog_present _ _ _ (writeLog_present _ _ _ (E.pres a (Hp.pres a ha)))),
-      Hp.disj, fun a ha => ?_, Hp.live⟩
+      Hp.disj, fun a ha => ?_, Hp.live, ?_⟩
     · rw [read64_keep fun k hk => hM' _ (by unfold brkAddr; omega) (by unfold brkAddr; omega)
         (by unfold brkAddr; omega)]
       exact E.brk
@@ -328,13 +326,20 @@ theorem ext_grow {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt M : Mem}
       rw [E.agree a (fun hw => ha (.inr hw)) (fun hs => hng (by
         unfold SbrkG brkAddr at hs; unfold allocGlobal InRange; omega))]
       exact Hp.frame a ha
+    · -- (lane F1-A0-M) the one growth of the break: before it, the break is the call's
+      have hb := Hp.brk_rel
+      have hP := hnb.eq
+      subst hP
+      rcases hb.once with h | ⟨_, h⟩
+      · exact ⟨by have := hb.lo; omega, .inr ⟨by omega, by omega⟩⟩
+      · exfalso; omega
   refine ext_top O F' Hp' hnb hnb31 ?_ ?_ ?_ ?_ (by omega) <;>
     rw [hR _ (by decide)] <;> simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false]
   all_goals first | sx_addr | (rw [hv]; omega)
 
 theorem null_tail {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {M : Mem}
     {brk' : Nat} {chunks : List Chunk} {bins : Nat → List Nat}
-    (F : MFrame C R M) (Hp : MHeap C M brk' chunks bins) (hst : Starved C.top0 C.n.toNat) :
+    (F : MFrame C R M) (Hp : MHeap C M brk' chunks bins) (hst : Starved C) :
     AW C.live C.S C.Q 0x800300ac#64 R M := by
   sx_run [8] O.live at 0x8002fad8
   exact epi_8002fad8 O (F.of_regs (by simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false])
@@ -366,7 +371,7 @@ theorem ext_null {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt M : Mem}
 
   have Hp' : MHeap C M brkv chunks bins := by
     refine ⟨Hp.heap.transport_read fun a ha => ?_, fun a ha => E.pres a (Hp.pres a ha), Hp.disj,
-      fun a ha => ?_, Hp.live⟩
+      fun a ha => ?_, Hp.live, Hp.brk_rel⟩
     · obtain ⟨hf, hn1, hn2⟩ := ha
       by_cases hb : brkAddr ≤ a ∧ a < brkAddr + 8
       · have := bytes_of_read64_eq HH.brk E.brk (a - brkAddr) (by omega)
@@ -378,8 +383,13 @@ theorem ext_null {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt M : Mem}
       rw [E.agree a (fun hw => ha (.inr hw)) (fun hs => hng (by
         unfold SbrkG brkAddr at hs; unfold allocGlobal InRange; omega))]
       exact Hp.frame a ha
-  have hst : Starved C.top0 C.n.toNat := by
-    unfold Starved extendSlack heapEnd; rw [← hP]; omega
+  have hst : Starved C := by
+    have hb := Hp.brk_rel
+    refine .inr ?_
+    subst hP
+    rcases hb.once with h | ⟨_, h⟩
+    · rw [← h]; unfold heapEnd; omega
+    · exfalso; omega
   rw [← upd_self_eq h10]
   sx_run [8] O.live at 0x8002fd30
   simp (disch := sx_addr) only [ldv_at E.sb, ldv_at E.t1, ldv_at E.a4, ldv_at E.a5, ldv_at E.a6]

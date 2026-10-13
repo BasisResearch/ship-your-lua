@@ -9,7 +9,7 @@ theorem mHeap_entry {C : MCtx} {m1 : Mem} {s : BitVec 64} {mv : Nat → BitVec 8
     {chunks : List Chunk} {bins : Nat → List Nat} (hs0 : C.s = s) (hMt : C.Mt0 = mt0 m1 s mv)
     (hsp : SpOKA s) (him : ImgOn (vsaFoot C.H) mv m1)
     (hheap : PHeapAt m1 C.H C.top0 brkv chunks bins)
-    (hdisj : ∀ a, stackWin s allocHeadroom a → ¬ vsaFoot C.H a) :
+    (hdisj : ∀ a, stackWin s allocHeadroom a → ¬ vsaFoot C.H a) (hb0 : C.brk0 = brkv) :
     MHeap C C.Mt0 brkv chunks bins := by
   subst hs0
   have hs : 512 ≤ C.s.toNat := by
@@ -20,7 +20,8 @@ theorem mHeap_entry {C : MCtx} {m1 : Mem} {s : BitVec 64} {mv : Nat → BitVec 8
     rw [stackBase_get, ite_eq_right_iff.2 fun h => absurd ha (hdisj a ⟨h.1, by simp only; omega⟩)]
   have H0 := hheap.transport_read (m' := C.Mt0) fun a ha => (hag a ha.1).symm
   refine ⟨H0, fun a ha => by
-    rw [hag a ha, him a ha]; rfl, fun a h1 h2 hf => hdisj a ?_ hf, fun a _ => rfl, LiveKeep.of_heap H0⟩
+    rw [hag a ha, him a ha]; rfl, fun a h1 h2 hf => hdisj a ?_ hf, fun a _ => rfl, LiveKeep.of_heap H0,
+    ⟨by omega, .inl hb0.symm⟩⟩
   unfold mHead at h1
   refine ⟨?_, ?_⟩ <;> simp only [allocHeadroom]
   · exact Nat.le_trans (Nat.sub_le_sub_left (by decide : 256 ≤ 512) _) h1
@@ -47,30 +48,15 @@ theorem malloc_entry {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {brkv : Nat}
   · exact h18
   · exact h19
 
-theorem mallocChgRun_proved (live : Nat → Prop) (hl : AllocLive live) :
-    MallocChgRun (vsaModel live) vsaLayoutP vsaRoomB vsaChg SpOKA mallocEntryBV gpV vsaClob
-      vsaSaved allocHeadroom allocText := by
-  refine mallocChgRun_of_aw fun H n s r saved rv mv k c m1 top _ _ _ hsv hchg hsp hral he hst him
-      hheap hcap hdisj => ?_
-  have O := mOK_chg (H := H) (k := k) (Mt0 := mt0 m1 s mv) (top0 := top) hl hsv hchg hsp hral he
-    hst hcap
-  have Hp := mHeap_entry (C := mChgCtx live H n r s saved k rv (mt0 m1 s mv) top) rfl
-    (by simp only [mChgCtx]) hsp him hheap hdisj
-  have hra : rv 1 = r := he.ra
-  have hsp' : rv 2 = s := he.sp
-  have ha0 : rv 10 = n := he.a0
-  have h := malloc_entry O hra hsp' ha0 rfl rfl rfl rfl Hp
-  simp only [mChgCtx] at h
-  exact h
-
 theorem mallocLocalRun_proved (live : Nat → Prop) (hl : AllocLive live) :
     MallocLocalRun (vsaModel live) vsaLayoutP SpOKA mallocEntryBV gpV vsaClob vsaSaved
       allocHeadroom allocText := by
   intro H n s r saved rv mv hsv hsp hral he hshape hdisj
   obtain ⟨hst, m1, top, brkv, chunks, bins, him, hheap⟩ := hshape
-  have O := mOK_loc (H := H) (n := n) (Mt0 := mt0 m1 s mv) (top0 := top) hl hsv hsp hral he hst
-  have Hp := mHeap_entry (C := mLocCtx live H n r s saved rv (mt0 m1 s mv) top) rfl
-    (by simp only [mLocCtx]) hsp him hheap hdisj
+  have O := mOK_loc (H := H) (n := n) (Mt0 := mt0 m1 s mv) (top0 := top) (brk0 := brkv) hl hsv hsp
+    hral he hst
+  have Hp := mHeap_entry (C := mLocCtx live H n r s saved rv (mt0 m1 s mv) top brkv) rfl
+    (by simp only [mLocCtx]) hsp him hheap hdisj rfl
   have hra : rv 1 = r := he.ra
   have hsp' : rv 2 = s := he.sp
   have ha0 : rv 10 = n := he.a0

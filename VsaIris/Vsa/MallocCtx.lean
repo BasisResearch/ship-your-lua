@@ -34,6 +34,8 @@ structure MCtx where
   rv0 : Nat → BitVec 64
   Mt0 : Mem
   top0 : Nat
+  /-- (lane F1-A0-M) the break at the call -/
+  brk0 : Nat
 
 structure MRegs (C : MCtx) (R : Nat → BitVec 64) : Prop where
   ra : R 1 = C.r
@@ -42,6 +44,18 @@ structure MRegs (C : MCtx) (R : Nat → BitVec 64) : Prop where
   s1 : R 9 = C.rv0 9
   s2 : R 18 = C.rv0 18
   s3 : R 19 = C.rv0 19
+
+/-- `malloc_extend_top`'s `_sbrk` request for a padded size `nb`: `nb` plus
+`MINSIZE`, page-rounded (lane F1-A0-M: moved here from `MallocExtend.lean`). -/
+def sbReq (nb : Nat) : Nat := (nb + 4127) / 4096 * 4096
+
+/-- (lane F1-A0-M) **The break against its value at the call**: unchanged, or
+grown once by `sbReq` of the request, after which the top chunk holds the
+request and `MINSIZE` (so `malloc_extend_top` is not reached again). -/
+structure MBrk (C : MCtx) (brkv : Nat) : Prop where
+  lo : C.brk0 ≤ brkv
+  once : brkv = C.brk0 ∨
+    (brkv ≤ C.brk0 + sbReq (physSize C.n.toNat) ∧ C.top0 + physSize C.n.toNat + 32 ≤ brkv)
 
 def LiveKeep (C : MCtx) (chunks : List Chunk) : Prop :=
   ∀ e ∈ C.H, ∀ h0, read64 C.Mt0 (e.1 - 8) = some h0 →
@@ -89,16 +103,16 @@ structure MRet (C : MCtx) (R : Nat → BitVec 64) (Mt : Mem) : Prop where
   align : (R 10).toNat % 16 = 0
   heap : ∃ top brkv chunks bins,
     PHeapAt Mt (((R 10).toNat, C.n.toNat) :: C.H) top brkv chunks bins ∧
-      top ≤ C.top0 + physSize C.n.toNat ∧ LiveKeep C chunks
+      top ≤ C.top0 + physSize C.n.toNat ∧ LiveKeep C chunks ∧ MBrk C brkv
   pres : ∀ a, vsaFoot C.H a → (Mt[a]?).isSome
   frame : ∀ a, ¬ MWin C.H C.s a → Mt[a]? = C.Mt0[a]?
 
-def Starved (top0 n : Nat) : Prop := heapEnd + 4096 < top0 + 2 * physSize n + extendSlack
-
-theorem Starved.of_lt {top0 n : Nat} (h : heapEnd < top0 + physSize n) : Starved top0 n :=
-  Nat.lt_of_lt_of_le (Nat.add_lt_add_right h 4096) (by
-    generalize physSize n = P
-    unfold extendSlack; omega)
+/-- (lane F1-A0-M) **Why `_malloc_r` returns NULL**: the padded request
+exceeds `INT_MAX`'s range check, or the one `_sbrk` from the break at the call
+would pass `__heap_end`. (ship-your-interpreter's form bounded the top instead,
+by twice the request, which a request near the heap's end does not refute.) -/
+def Starved (C : MCtx) : Prop :=
+  2 ^ 31 ≤ physSize C.n.toNat ∨ heapEnd < C.brk0 + sbReq (physSize C.n.toNat)
 
 structure MNull (C : MCtx) (R : Nat → BitVec 64) (Mt : Mem) : Prop where
   regs : MRegs C R
@@ -106,7 +120,7 @@ structure MNull (C : MCtx) (R : Nat → BitVec 64) (Mt : Mem) : Prop where
   heap : ∃ top brkv chunks bins, PHeapAt Mt C.H top brkv chunks bins
   pres : ∀ a, vsaFoot C.H a → (Mt[a]?).isSome
   frame : ∀ a, ¬ MWin C.H C.s a → Mt[a]? = C.Mt0[a]?
-  starved : Starved C.top0 C.n.toNat
+  starved : Starved C
 
 structure WOK (C : MCtx) : Prop where
   live : AllocLive C.live
@@ -133,6 +147,7 @@ structure MHeap (C : MCtx) (Mt : Mem) (brkv : Nat) (chunks : List Chunk)
   disj : ∀ a, C.s.toNat - mHead ≤ a → a < C.s.toNat → ¬ vsaFoot C.H a
   frame : ∀ a, ¬ MWin C.H C.s a → Mt[a]? = C.Mt0[a]?
   live : LiveKeep C chunks
+  brk_rel : MBrk C brkv
 
 theorem WOK.stack {C : MCtx} (O : WOK C) {a w : Nat} (h1 : C.s.toNat - mHead ≤ a)
     (h2 : a + w ≤ C.s.toNat) : ∀ b ∈ accAddrs a w, C.S b := by
@@ -263,6 +278,7 @@ theorem MHeap.store_stack {C : MCtx} {Mt : Mem} {brkv : Nat} {chunks : List Chun
   disj := Hp.disj
   frame := frame_store (win_stack h1 h2) Hp.frame
   live := Hp.live
+  brk_rel := Hp.brk_rel
 
 theorem MHeap.store_errno {C : MCtx} {Mt : Mem} {brkv : Nat} {chunks : List Chunk}
     {bins : Nat → List Nat} (Hp : MHeap C Mt brkv chunks bins) {v : BitVec 64} :
@@ -276,6 +292,7 @@ theorem MHeap.store_errno {C : MCtx} {Mt : Mem} {brkv : Nat} {chunks : List Chun
   disj := Hp.disj
   frame := frame_store (fun b h1 h2 => .inl (.inl (.inr (.inl ⟨h1, h2⟩)))) Hp.frame
   live := Hp.live
+  brk_rel := Hp.brk_rel
 
 theorem MFrame.upd {C : MCtx} {R : Nat → BitVec 64} {Mt : Mem} (F : MFrame C R Mt) {k : Nat}
     {v : BitVec 64} (hk : k ≠ 2 ∧ k ≠ 9 ∧ k ≠ 18 ∧ k ≠ 19) : MFrame C (VsaIris.Sym.upd R k v) Mt where
@@ -368,7 +385,7 @@ theorem MOK.fin_ok {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
     (hfresh : FreshAt C.H (R 10).toNat C.n.toNat) (hal : (R 10).toNat % 16 = 0)
     (hheap : ∃ top brkv chunks bins,
       PHeapAt Mt (((R 10).toNat, C.n.toNat) :: C.H) top brkv chunks bins ∧
-        top ≤ C.top0 + physSize C.n.toNat ∧ LiveKeep C chunks)
+        top ≤ C.top0 + physSize C.n.toNat ∧ LiveKeep C chunks ∧ MBrk C brkv)
     (hpres : ∀ a, vsaFoot C.H a → (Mt[a]?).isSome)
     (hframe : ∀ a, ¬ MWin C.H C.s a → Mt[a]? = C.Mt0[a]?) :
     ∀ R' : Nat → BitVec 64, MRegs C R' → (∀ x, x ≠ 1 → x ≠ 2 → x ≠ 8 → R' x = R x) →
@@ -381,7 +398,7 @@ theorem MOK.fin_null {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
     (h0 : R 10 = 0) (hheap : ∃ top brkv chunks bins, PHeapAt Mt C.H top brkv chunks bins)
     (hpres : ∀ a, vsaFoot C.H a → (Mt[a]?).isSome)
     (hframe : ∀ a, ¬ MWin C.H C.s a → Mt[a]? = C.Mt0[a]?)
-    (hst : Starved C.top0 C.n.toNat) :
+    (hst : Starved C) :
     ∀ R' : Nat → BitVec 64, MRegs C R' → (∀ x, x ≠ 1 → x ≠ 2 → x ≠ 8 → R' x = R x) →
       AW C.live C.S C.Q C.r R' Mt := by
   intro R' hR hk
@@ -393,7 +410,7 @@ structure TakeRet (C : MCtx) (Mt : Mem) (v : Nat) : Prop where
   align : (v + 16) % 16 = 0
   heap : ∃ top brkv chunks bins,
     PHeapAt Mt ((v + 16, C.n.toNat) :: C.H) top brkv chunks bins ∧
-      top ≤ C.top0 + physSize C.n.toNat ∧ LiveKeep C chunks
+      top ≤ C.top0 + physSize C.n.toNat ∧ LiveKeep C chunks ∧ MBrk C brkv
   pres : ∀ a, vsaFoot C.H a → (Mt[a]?).isSome
   frame : ∀ a, ¬ MWin C.H C.s a → Mt[a]? = C.Mt0[a]?
 
@@ -419,11 +436,6 @@ theorem epi_8002fad8 {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem} (
     AW C.live C.S C.Q 0x8002fad8#64 R Mt :=
   epi_core O (st_8002fad8 O.live) (st_8002fadc O.live) (st_8002fae0 O.live) (st_8002fae4 O.live)
     F hfin
-
-def mChgCtx (live : Nat → Prop) (H : List (Nat × Nat)) (n r s : BitVec 64)
-    (saved : List (Nat × BitVec 64)) (k : Nat) (rv0 : Nat → BitVec 64) (Mt0 : Mem) (top0 : Nat) :
-    MCtx :=
-  ⟨live, mS H s, mQ H n r s saved k, H, n, r, s, rv0, Mt0, top0⟩
 
 theorem mChg_own {H : List (Nat × Nat)} {s : BitVec 64} (hsp : SpOKA s) (a : Nat)
     (ha : MWin H s a) : mS H s a := by
@@ -453,40 +465,16 @@ theorem saved_of_regs {C : MCtx} {R : Nat → BitVec 64} {saved : List (Nat × B
   · exact h.s2
   · exact h.s3
 
-theorem mOK_chg {live : Nat → Prop} {H : List (Nat × Nat)} {n r s : BitVec 64}
-    {saved : List (Nat × BitVec 64)} {k c : Nat} {rv0 : Nat → BitVec 64} {Mt0 : Mem} {top0 : Nat}
-    (hlive : AllocLive live) (hsv : saved.map Prod.fst = vsaSaved) (hchg : vsaChg n.toNat c)
-    (hsp : SpOKA s) (hral : r.toNat % 4 = 0) {e a : BitVec 64} (hE : EntryRegs rv0 e r a s saved)
-    (hst : Starts H) (hcap : 2 * (k + c) + extendSlack ≤ heapEnd - top0) :
-    MOK (mChgCtx live H n r s saved k rv0 Mt0 top0) where
-  live := hlive
-  sp := MSp.of_spOKA hsp
-  own := mChg_own hsp
-  ral := hral
-  ok := by
-    intro R Mt h
-    have hP := physSize_le_chg hchg
-    obtain ⟨top, brkv, chunks, bins, hheap, htop, _⟩ := h.heap
-    exact malloc_exit (brkv := brkv) (chunks := chunks) (bins := bins) hsv h.regs.ra h.regs.sp
-      (saved_of_regs hsv hE h.regs) h.fresh hst h.align hheap (by simp only [mChgCtx] at htop; omega)
-      h.pres
-  null := by
-    intro R Mt h
-    have hP := physSize_le_chg16 hchg
-    have := h.starved
-    simp only [mChgCtx] at this
-    unfold Starved extendSlack at *
-    omega
-
 def mLocCtx (live : Nat → Prop) (H : List (Nat × Nat)) (n r s : BitVec 64)
-    (saved : List (Nat × BitVec 64)) (rv0 : Nat → BitVec 64) (Mt0 : Mem) (top0 : Nat) : MCtx :=
-  ⟨live, mS H s, MallocEnd vsaLayoutP H n r s saved, H, n, r, s, rv0, Mt0, top0⟩
+    (saved : List (Nat × BitVec 64)) (rv0 : Nat → BitVec 64) (Mt0 : Mem) (top0 brk0 : Nat) : MCtx :=
+  ⟨live, mS H s, MallocEnd vsaLayoutP H n r s saved, H, n, r, s, rv0, Mt0, top0, brk0⟩
 
 theorem mOK_loc {live : Nat → Prop} {H : List (Nat × Nat)} {n r s : BitVec 64}
     {saved : List (Nat × BitVec 64)} {rv0 : Nat → BitVec 64} {Mt0 : Mem} {top0 : Nat}
     (hlive : AllocLive live) (hsv : saved.map Prod.fst = vsaSaved) (hsp : SpOKA s)
-    (hral : r.toNat % 4 = 0) {e a : BitVec 64} (hE : EntryRegs rv0 e r a s saved) (hst : Starts H) :
-    MOK (mLocCtx live H n r s saved rv0 Mt0 top0) where
+    (hral : r.toNat % 4 = 0) {e a : BitVec 64} (hE : EntryRegs rv0 e r a s saved) (hst : Starts H)
+    {brk0 : Nat} :
+    MOK (mLocCtx live H n r s saved rv0 Mt0 top0 brk0) where
   live := hlive
   sp := MSp.of_spOKA hsp
   own := mChg_own hsp

@@ -359,6 +359,6 @@ theorem small_take {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
     · exact F.s3
   case fr => exact hfr
   case al => exact hal16
-  case heap => exact ⟨_, _, _, _, hheap, by omega, Hp.live.map_reflag _⟩
+  case heap => exact ⟨_, _, _, _, hheap, by omega, Hp.live.map_reflag _, Hp.brk_rel⟩
 
 end VsaIris.VsaHeap

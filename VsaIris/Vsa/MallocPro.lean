@@ -23,7 +23,7 @@ theorem errno_foot {H : List (Nat × Nat)} : ∀ k, k < 4 → vsaFoot H (0x8005d
 theorem malloc_errno {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {Mt : Mem}
     {brkv : Nat} {chunks : List Chunk} {bins : Nat → List Nat}
     (F : MFrame C R Mt) (Hp : MHeap C Mt brkv chunks bins) (h8 : R 8 = reentV)
-    (hst : Starved C.top0 C.n.toNat) :
+    (hst : Starved C) :
     AW C.live C.S C.Q 0x8002facc#64 R Mt := by
   have hoff := Hp.off_stack_w (by decide) errno_foot
   have hlo := O.sp.lo
@@ -99,10 +99,7 @@ theorem malloc_pro {C : MCtx} (O : MOK C) {R : Nat → BitVec 64}
       · exact h18
       · exact h19
       · exact hs8
-      refine Starved.of_lt ?_
-      rw [hP]
-      have hE : heapEnd < heapStart + 2 ^ 31 := by decide
-      exact Nat.lt_of_lt_of_le hE (Nat.add_le_add htop0 h1)
+      exact .inl (by rw [hP]; exact h1)
     refine st_8002faf8 O.live (fun h2 => ?_) (fun h2 => ?_) <;>
       simp only [upd_apply, Nat.reduceEqDiff, ite_true, ite_false, hnb, hn] at h2
     ·
@@ -170,8 +167,8 @@ theorem malloc_pro {C : MCtx} (O : MOK C) {R : Nat → BitVec 64}
       · exact E.s3
       · exact hs8
       · rw [e32] at hc2
-        unfold Starved physSize heapEnd extendSlack
-        unfold heapStart at htop0
+        refine .inl ?_
+        unfold physSize
         omega
     ·
       sx_run [8] O.live at 0x8002fa68

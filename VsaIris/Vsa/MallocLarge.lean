@@ -375,7 +375,7 @@ theorem take_ret {C : MCtx} {Mt M : Mem} {brkv : Nat} {chunks : List Chunk}
     (hhdr hd hdr) (fun hd' hd'r => by rw [hdr] at hd'r; cases hd'r; exact ⟨by unfold chunkSize; omega, by omega⟩)
     (by unfold prevInuse; rw [beq_iff_eq]; omega) hag
   obtain ⟨hfr, hal16⟩ := PHeapAt.take_fresh Hp.heap hfree rfl (n := C.n.toNat) hn8
-  exact ⟨hfr, hal16, ⟨_, _, _, _, hheap, by omega, Hp.live.map_reflag _⟩, hpres, hframe⟩
+  exact ⟨hfr, hal16, ⟨_, _, _, _, hheap, by omega, Hp.live.map_reflag _, Hp.brk_rel⟩, hpres, hframe⟩
 
 theorem fin_take_at {C : MCtx} (O : MOK C) {R : Nat → BitVec 64} {M : Mem} {v : Nat}
     (T : TakeRet C M v) (hregs : MRegs C R) (h10 : (R 10).toNat = v + 16) :
