@@ -370,7 +370,7 @@ theorem relParts {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : RtPtrs
   have hsle : rt.stack ≤ func := hfunc ▸ hlua.stack_le
   subst hsp
   refine ⟨⟨ι, KStrIn m rt.k p.k.length⟩, ⟨⟨htext, hro, hpr.proto, hpr.code, fun i ins hf => ?_,
-    ?_, ?_, ⟨hfunc, hlua, hrt.heap, hrt.error_jmp⟩, hkι,
+    ?_, ?_, ⟨hfunc, hlua.rel, hrt.heap, hrt.error_jmp⟩, hkι,
     own_of_kowned hrt.kowned rfl esizek rfl hsle hfits, hcall, hcL,
     exitOk_entry hat hsx hrg hfunc hlua.stack_le,
     fun ts hts => (henv ts hts).mono fun _ _ h => heapRead_of_apart h rfl hf0 hfits⟩,
