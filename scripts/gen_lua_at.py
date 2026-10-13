@@ -2180,6 +2180,21 @@ FNS = {
         calls={0x80032ed0: dict(ret={}), 0x80033b50: dict(ret={10: ("lit", 0)})},
         imports=["Lua.Vm.Sim.Kit.Muldi3"],
         doc="`fwrite(src, 1, n, stdout)` → `_fwrite_r` before `__sinit`."),
+    # lane F1-11: `fwrite(src, 1, n, stdout)` after `__sinit` but before the
+    # buffer (`StdoutFresh`: an empty first write, `print("")`, ran `__sinit`
+    # and `ORIENT` but not `__swsetup_r`): as `fwrite`, `_flags` `0x2009`
+    "fwrite/fresh": dict(
+        mod="FwriteFresh", entry=0x800342e4,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 1), 12: N((2, 1)), 13: ("lit", STDOUT)}),
+        ok=["sp_lo : 0x8005e720 + 112 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+            "ra : (X.b 0).toNat % 4 = 0"],
+        cells={(8, IMPURE_PTR): IMPURE_DATA, (2, STDOUT + 16): 0x2009, (4, STDOUT + 176): 0},
+        pure={0x8002f6c8: dict(lemma="Lua.Vm.Sim.Kit.muldi3_sum _ _ _ hframe? _ _ (by decide)",
+                               ret={10: lambda st: mul_val(st.get(10), st.get(11))})},
+        calls={0x80033b50: dict(ret={10: ("lit", 0)})},
+        stops=[0x800342c0], imports=["Lua.Vm.Sim.Kit.Muldi3"],
+        doc="`fwrite(src, 1, n, stdout)` on `stdout` after `__sinit`, before its buffer "
+            "(`__sinit`, `0x800342c0`, is a stop: `StdoutFresh.cleanup`)."),
     # lane F1-10: `__sfvwrite_r(_REENT, stdout, uio)` at the first write
     # (`_flags` `__SORD | __SWR | __SLBF`, no buffer): `cantwrite` → `__swsetup_r`
     # (its summary at the call: `0`; a root after it, `stdout` set up), then the
