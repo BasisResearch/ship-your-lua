@@ -373,6 +373,8 @@ ERR_SYMS = [("symLuaGRunerror", "luaG_runerror"), ("symLuaGForerror", "luaG_fore
             ("symLuaGConcaterror", "luaG_concaterror"), ("symLuaGCallerror", "luaG_callerror"),
             ("symLuaLError", "luaL_error"), ("symLuaGErrormsg", "luaG_errormsg"),
             ("symLuaTTrybinTM", "luaT_trybinTM")]
+ERR_MSGS = [("msgIdiv0", "attempt to divide by zero"), ("msgMod0", "attempt to perform 'n%%0'"),
+            ("msgForZero", "'for' step is zero")]
 
 def render_err():
     nm = CC[:-3] + "nm"
@@ -388,6 +390,20 @@ def render_err():
     for name, c in ERR_SYMS:
         out.append(f"/-- `{c}` -/")
         out.append(f"def {name} : Nat := 0x{tab[c]:08x}")
+    # lane F1-16: the messages `luaG_runerror` is called with from the arms
+    # (`a1` at its entry, `ErrIn`), found in `.rodata` (each once, at a string
+    # start); the at-lemmas' rows carry the same literals
+    hdr = subprocess.run([CC[:-3] + "objdump", "-h", ELF], capture_output=True, text=True,
+                         check=True).stdout.split()
+    i = hdr.index(".rodata")
+    ro_addr, ro_off, ro_size = int(hdr[i + 2], 16), int(hdr[i + 4], 16), int(hdr[i + 1], 16)
+    ro = open(ELF, "rb").read()[ro_off:ro_off + ro_size]
+    for name, msg in ERR_MSGS:
+        b = msg.encode() + b"\0"
+        k = ro.find(b)
+        assert k > 0 and ro.find(b, k + 1) < 0 and ro[k - 1] == 0, f"message {msg!r}"
+        out.append(f"/-- the message `\"{msg}\"` -/")
+        out.append(f"def {name} : Nat := 0x{ro_addr + k:08x}")
     out += ["", "end Lua.Vm.Layout", ""]
     return "\n".join(out)
 

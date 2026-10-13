@@ -147,6 +147,7 @@ namespace Lua.Vm.At.IDIVK
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
    ⟨Register.x10, (Loc.den X .L)⟩,
+   ⟨Register.x11, (Loc.den X (.lit 0x8004fa98#64))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.val .b 0))⟩,
    ⟨Register.x20, (Loc.den X .kval)⟩,

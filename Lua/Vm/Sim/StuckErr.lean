@@ -26,25 +26,40 @@ namespace Lua.Vm.Sim
 open Lua.Bytecode Lua.Vm.Layout Lua.Vm.Sim.At Lua.Vm.Sim.Kit
 open Vsa.Machine (Config Steps)
 
-/-- **The throw obligation at the error exit `f`** (keyed by its entry pc): a
-run from a related reachable state that arrives at `f`'s entry diverges or
-halts with a nonzero code. `f` does not return; its summary is the error
-path `luaG_errormsg` → `luaD_throw` → `longjmp` → `luaD_rawrunprotected`
-returns → `lua_pcallk` returns `LUA_ERRRUN` → `main` returns 2 → `exit(2)`. -/
-def ThrowFrom (f : Nat) : Prop :=
-  ∀ p c s c', Supported p → Reach p s → VmRel p c s → Steps c c' → ErrAt f c' → StuckOut c'
+/-- **The throw obligation at the error exit `f` with the message `msg`**:
+from the exit's entry as an arm's error path reaches it (`ErrIn`: the call's
+pins, the arm's entry memory but `savestate`'s words and the C frame's
+spills), for an arm context whose relation facts hold (`Core`) at a
+reachable state, the machine diverges or halts with a nonzero code. `f` does
+not return; its summary is the error path `luaG_errormsg` → `luaD_throw` →
+`longjmp` → `luaD_rawrunprotected` returns → `lua_pcallk` returns
+`LUA_ERRRUN` → `main` returns 2 → `exit(2)`.
+
+(Lane F1-16: the earlier form keyed the obligation by the entry pc alone,
+`Steps c c' → ErrAt f c' → StuckOut c'` from a related `c`: nothing about
+the registers or the memory at `c'` was given, so no summary of `f` could
+discharge it locally.) -/
+def ThrowFrom (f msg : Nat) : Prop :=
+  ∀ (X : At.Cx) c, Supported X.p → Reach X.p X.s → Core X.p X.c X.s X.w → ErrIn X f msg c → StuckOut c
+
+/-- The messages the F1 arms call `luaG_runerror` with (`luaV_idiv`,
+`luaV_mod`, `forprep`; `Lua/Vm/LayoutErr.lean`). -/
+def runerrMsgs : List Nat := [msgIdiv0, msgMod0, msgForZero]
+
+/-- **`luaG_runerror`'s throw obligation**, for each of its messages. -/
+def RunerrorThrow : Prop := ∀ msg ∈ runerrMsgs, ThrowFrom symLuaGRunerror msg
 
 /-- **An error state by an arm's error path**: dispatch, the arm's run into
 `f` (`ArmErr`), then `f`'s throw obligation. -/
 theorem stuckOut_of_armErr {o : OpCode} {Q : Proto → Config → State → RelPtrs → Word → Prop}
-    {f : Nat} (ho : o.toNat < Arms.jtEntries) (hE : ArmErr o Q f) (hT : ThrowFrom f)
+    {f msg : Nat} (ho : o.toNat < Arms.jtEntries) (hE : ArmErr o Q f msg) (hT : ThrowFrom f msg)
     {p : Proto} {c : Config} {s : State} {ins : Word} (hS : Supported p) (hs : Reach p s)
     (hR : VmRel p c s) (hf : p.fetch s.pc = some ins) (hop : ins.op? = some o)
     (hq : ∀ c' w, ArmAt p c' s w ins → Q p c' s w ins) : StuckOut c := by
   obtain ⟨w, hRw⟩ := hR
   obtain ⟨c1, hs1, -, hA⟩ := dispatch hRw hf (by rw [opNum_of_op? hop]; exact ho)
   obtain ⟨c2, hs2, hE2⟩ := hE hS hA hf hop (hq c1 w hA)
-  exact StuckOut.of_steps (hs1.trans hs2) (hT p c s c2 hS hs ⟨w, hRw⟩ (hs1.trans hs2) hE2)
+  exact StuckOut.of_steps (hs1.trans hs2) (hT ⟨p, c1, s, w, ins⟩ c2 hS hs hA.core hE2)
 
 /-- `op_arith`'s failing body: two integers and `luaV_mod`/`luaV_idiv` by zero. -/
 theorem opArith_zero {pc a : Nat} {b : BinOp} {x y : Opnd} {vs : List Value}
@@ -181,7 +196,7 @@ theorem fltZero_of_site {pc : Nat} {ins : Word} {s : State} {vs : List Value}
   · cases hsite
 
 /-- **`luaG_runerror`'s error states, from its throw obligation.** -/
-theorem runerrorSim (hT : ThrowFrom symLuaGRunerror) (hFz : FpFltZero_Statement) :
+theorem runerrorSim (hT : RunerrorThrow) (hFz : FpFltZero_Statement) :
     ErrorSimAt .runerror := by
   intro p c s w o K vs φ hS hs hR hA hne hsite
   have hf := hA.fetch; have hop := hA.op; have hK := hA.kernel
@@ -193,18 +208,18 @@ theorem runerrorSim (hT : ThrowFrom symLuaGRunerror) (hFz : FpFltZero_Statement)
       simp only [Fault.ops, List.mem_cons, List.not_mem_nil, or_false] at hm
       rcases hm with rfl | rfl | rfl | rfl
       · simp only [opKernel, arithRR, Option.some.injEq] at hK; subst hK
-        exact stuckOut_of_armErr (by decide) mod_err hT hS hs hR hf hop
+        exact stuckOut_of_armErr (by decide) mod_err (hT _ (by simp [runerrMsgs])) hS hs hR hf hop
           (divR_q hS hf hop hA.kernel hA.reads hA.body)
       · simp only [opKernel, arithRR, Option.some.injEq] at hK; subst hK
-        exact stuckOut_of_armErr (by decide) idiv_err hT hS hs hR hf hop
+        exact stuckOut_of_armErr (by decide) idiv_err (hT _ (by simp [runerrMsgs])) hS hs hR hf hop
           (divR_q hS hf hop hA.kernel hA.reads hA.body)
       · simp only [opKernel, arithRK, Option.map_eq_some_iff] at hK
         obtain ⟨v, hkv, rfl⟩ := hK
-        exact stuckOut_of_armErr (by decide) modk_err hT hS hs hR hf hop
+        exact stuckOut_of_armErr (by decide) modk_err (hT _ (by simp [runerrMsgs])) hS hs hR hf hop
           (divK_q hS hf hop hkv hA.kernel hA.reads hA.body)
       · simp only [opKernel, arithRK, Option.map_eq_some_iff] at hK
         obtain ⟨v, hkv, rfl⟩ := hK
-        exact stuckOut_of_armErr (by decide) idivk_err hT hS hs hR hf hop
+        exact stuckOut_of_armErr (by decide) idivk_err (hT _ (by simp [runerrMsgs])) hS hs hR hf hop
           (divK_q hS hf hop hkv hA.kernel hA.reads hA.body)
     case tm b =>
       simp only [Fault.site] at hsite
@@ -223,7 +238,7 @@ theorem runerrorSim (hT : ThrowFrom symLuaGRunerror) (hFz : FpFltZero_Statement)
     subst hm
     simp only [opKernel, Option.some.injEq] at hK; subst hK
     by_cases hz : ∀ i l st, vs = [i, l, st] → zeroStep i st = true
-    · exact stuckOut_of_armErr (by decide) forprep_err hT hS hs hR hf hop
+    · exact stuckOut_of_armErr (by decide) forprep_err (hT _ (by simp [runerrMsgs])) hS hs hR hf hop
         (forprep_q hS hf hop hA.reads hz)
     · exact hFz p c s w _ vs hS hs hR hA (fltZero_of_site hA.reads hsite hz)
 
@@ -234,7 +249,7 @@ whose arms reach the error through a helper that may also return
 `luaD_precall`, `luaV_tonumber_`). -/
 structure ErrorSimRest : Prop where
   /-- `luaG_runerror` (0x800092cc) never returns, and the error exits 2 -/
-  runerror : ThrowFrom symLuaGRunerror
+  runerror : RunerrorThrow
   /-- `forprep`'s float zero step (`luaG_runerror` after the conversions) -/
   fpFltZero : FpFltZero_Statement
   opinterror : ErrorSimAt .opinterror

@@ -27,5 +27,11 @@ def symLuaLError : Nat := 0x800207a4
 def symLuaGErrormsg : Nat := 0x80009260
 /-- `luaT_trybinTM` -/
 def symLuaTTrybinTM : Nat := 0x800194f4
+/-- the message `"attempt to divide by zero"` -/
+def msgIdiv0 : Nat := 0x8004fa98
+/-- the message `"attempt to perform 'n%%0'"` -/
+def msgMod0 : Nat := 0x8004fab8
+/-- the message `"'for' step is zero"` -/
+def msgForZero : Nat := 0x8004fad8
 
 end Lua.Vm.Layout

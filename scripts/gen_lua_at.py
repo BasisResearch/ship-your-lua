@@ -1131,8 +1131,10 @@ class Arm:
                         callee = int(ops_of(raw)[1][0], 16)
                         st2.set(1, ("lit", a + 4))
                         nxt = callee
-                    elif mnem == "auipc" and FLOAT_ON[0]:
-                        # a `.rodata` constant's address (`ld` next: the cell)
+                    elif mnem == "auipc":
+                        # a `.rodata` address: a constant's (`ld` next: the
+                        # cell) or, before an error exit, the message's (lane
+                        # F1-16: the exit's entry row keeps `a1`, `ErrIn`)
                         _, ao = ops_of(raw)
                         v = (imm(ao[1]) << 12) & 0xffffffff
                         v = v - (1 << 32) if v >> 31 else v

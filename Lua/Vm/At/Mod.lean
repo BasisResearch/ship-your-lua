@@ -163,6 +163,7 @@ namespace Lua.Vm.At.MOD
    ⟨Register.x8, (Loc.den X .L)⟩,
    ⟨Register.x9, (Loc.den X (.lit (BitVec.ofNat 64 (Arms.jtEntries - 1))))⟩,
    ⟨Register.x10, (Loc.den X .L)⟩,
+   ⟨Register.x11, (Loc.den X (.lit 0x8004fab8#64))⟩,
    ⟨Register.x18, (Loc.den X (.lit (BitVec.ofNat 64 vNumInt)))⟩,
    ⟨Register.x19, (Loc.den X (.pc 1))⟩,
    ⟨Register.x20, (Loc.den X .insw)⟩,
