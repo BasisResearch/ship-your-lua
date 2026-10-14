@@ -960,7 +960,7 @@ theorem at_8001e1f0_8001e200 (X : Cx) (hX : X.Ok) (hs_a3 : X.ins.a + 3 < X.p.max
     AtStep X 0x8001e1f0#64 (r4 X) m3 0x8001ade8#64 (r5 X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001e1f0_8001e200
 
-theorem call_8001e200_ok (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 19#8) (hg_ti : Lua.Vm.Sim.Kit.tiOk 1 (Loc.den X (.val .a 1)) = true) :
+theorem call_8001e200 (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 19#8) (hg_ti : Lua.Vm.Sim.Kit.tiOk 1 (Loc.den X (.val .a 1)) = true) :
     AtStep X 0x8001ade8#64 (r5 X) m3 0x8001e200#64 (r6 X) m4 := by
   at_open
   at_tif a 1 1 ok
@@ -1013,7 +1013,7 @@ theorem fin_1 (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_
     AtFin X m6 [⟨.a, 1, (.lit 0x3#64), (.udiv (.sub (.fn fun X => Lua.Vm.Sim.Kit.tiv 1 (Loc.den X (.val .a 1))) (.val .a 0)) (.val .a 2))⟩, ⟨.a, 3, (.lit (BitVec.ofNat 64 vNumInt)), (.val .a 0)⟩] (X.s.pc + 1) c := by
   at_fin
 
-theorem call_8001e200_no (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 19#8) (hg_ti : Lua.Vm.Sim.Kit.tiOk 1 (Loc.den X (.val .a 1)) = false) :
+theorem call_8001e200_1 (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 19#8) (hg_ti : Lua.Vm.Sim.Kit.tiOk 1 (Loc.den X (.val .a 1)) = false) :
     AtStep X 0x8001ade8#64 (r5 X) m3 0x8001e200#64 (r15 X) m7 := by
   at_open
   at_tif a 1 1 no
@@ -1099,7 +1099,7 @@ theorem at_8001f9a4_8001f9b4 (X : Cx) (hX : X.Ok) (hs_a3 : X.ins.a + 3 < X.p.max
     AtStep X 0x8001f9a4#64 (r27 X) m3 0x8001ade8#64 (r28 X) m3 := by
   at_seg Lua.Vm.Arms.seg_8001f9a4_8001f9b4
 
-theorem call_8001f9b4_ok (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 19#8) (hg_ti : Lua.Vm.Sim.Kit.tiOk 2 (Loc.den X (.val .a 1)) = true) :
+theorem call_8001f9b4 (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 19#8) (hg_ti : Lua.Vm.Sim.Kit.tiOk 2 (Loc.den X (.val .a 1)) = true) :
     AtStep X 0x8001ade8#64 (r28 X) m3 0x8001f9b4#64 (r6 X) m10 := by
   at_open
   at_tif a 1 2 ok
@@ -1152,7 +1152,7 @@ theorem fin_5 (X : Cx) (hX : X.Ok) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) {c :
     AtFin X m10 [⟨.a, 3, (.lit (BitVec.ofNat 64 vNumInt)), (.val .a 0)⟩] (X.s.pc + X.ins.bx + 2) c := by
   at_fin
 
-theorem call_8001f9b4_no (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 19#8) (hg_ti : Lua.Vm.Sim.Kit.tiOk 2 (Loc.den X (.val .a 1)) = false) :
+theorem call_8001f9b4_1 (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 19#8) (hg_ti : Lua.Vm.Sim.Kit.tiOk 2 (Loc.den X (.val .a 1)) = false) :
     AtStep X 0x8001ade8#64 (r28 X) m3 0x8001f9b4#64 (r15 X) m13 := by
   at_open
   at_tif a 1 2 no

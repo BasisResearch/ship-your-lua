@@ -89,6 +89,42 @@ end Lua.Vm.Sim.Kit
 namespace Lua.Vm.Sim.At
 
 open Lua.Vm.Sim Lua.Vm.Sim.Kit Lua.Bytecode Lua.Vm.Layout
+open Lua.Num
+
+/-! ## The integer loop's conversion facts (`OP_FORPREP_TI`) -/
+
+/-- `bgtz` on `__gedf2(a, b)`: `b < a`. -/
+theorem bgtz_gedf2 (a b : BitVec 64) : zopz0zI_s (0#64) (Lua.Vm.Fn.Gedf2.S a b) = F64.lt b a := by
+  have h := blez_gedf2 a b
+  unfold zopz0zKzJ_s at h; unfold zopz0zI_s
+  cases e : F64.lt b a <;> simp_all
+
+theorem flt_tif_some {md : Nat} {b : BitVec 64} (h : tiOk md b = true) :
+    flttointeger (F64.toModel b) (tifMode md) = some (tiv md b) := by
+  unfold tiOk at h; unfold tiv
+  obtain ⟨i, hi⟩ := Option.isSome_iff_exists.mp h
+  rw [hi]; rfl
+
+theorem flt_tif_none {md : Nat} {b : BitVec 64} (h : tiOk md b = false) :
+    flttointeger (F64.toModel b) (tifMode md) = none := by
+  unfold tiOk at h
+  simpa only [Option.isSome_eq_false_iff, Option.isNone_iff_eq_none] using h
+
+theorem tifMode_1 : tifMode 1 = .floor := rfl
+theorem tifMode_2 : tifMode 2 = .ceil := rfl
+
+/-- No integer exceeds `LUA_MAXINTEGER`. -/
+theorem not_gt_maxInt (x : BitVec 64) : ¬ (x.toInt > maxInt.toInt) := by
+  have := BitVec.toInt_lt (x := x)
+  have e : maxInt.toInt = 2 ^ 63 - 1 := by decide
+  omega
+
+/-- No integer is below `LUA_MININTEGER`. -/
+theorem not_lt_minInt (x : BitVec 64) : ¬ (x.toInt < minInt.toInt) := by
+  have := BitVec.le_toInt (x := x)
+  have e : minInt.toInt = -2 ^ 63 := by decide
+  omega
+
 
 open Lean Elab Tactic Meta in
 /-- `.rodata` through the path's stores above the HTIF mailbox: each store

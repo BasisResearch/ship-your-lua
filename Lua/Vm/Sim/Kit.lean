@@ -106,6 +106,7 @@ import Lua.Vm.Sim.Kit.PushLitProof
 import Lua.Vm.Sim.Kit.Getmetafield
 import Lua.Vm.Sim.Kit.TolStr
 import Lua.Vm.Sim.Kit.TolStrProof
+import Lua.Vm.Sim.Kit.FpCoerce
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

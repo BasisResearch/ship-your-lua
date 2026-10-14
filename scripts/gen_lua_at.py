@@ -978,7 +978,9 @@ def call_effect(st, callee, ret):
     elif callee == "luaV_tonumber_":
         # lane F1-F8: `tonum_int_sum` on an integer `TValue` (`R[A+k]`): `a0 =
         # 1`, the callee frames `[sp - 80, sp)` a `clob` of `toniW`, `*q` the
-        # converted float
+        # converted float; only the coerced classes' arms take it
+        if not CUR[0].op.startswith("OP_FORPREP_C"):
+            raise Stop("call to 0x8001ab58")
         s = to_aff(a0)
         terms = tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))) if s else None
         so = slot_of(terms, s[1]) if s else None
@@ -1234,8 +1236,8 @@ class Arm:
                             loc, v = (x, litval(y)) if litval(y) is not None else (y, litval(x))
                             if v is not None and litval(loc) is None:
                                 eq = (head == "==") == taken
-                                # lane F1-F8: a known value is kept (a seed's `eq`)
-                                if st2.facts.get(loc, ("",))[0] != "eq":
+                                # lane F1-F8: a seeded tag's value is kept (`SEED_VAL`)
+                                if not (CUR[0].op in SEED_VAL and st2.facts.get(loc, ("",))[0] == "eq"):
                                     st2.facts[loc] = ("eq" if eq else "ne", v)
                         if not ground:
                             if len(guards) != 1:
@@ -1400,7 +1402,9 @@ class Arm:
             hs = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(post) + hyps
             if ENV[0]:
                 hs += ENV_HYPS
-            lname = self.name(f"call_{ret:08x}{sfx}", key)
+            # a variant (lane F1-F8) is told apart by its guard; its name takes
+            # the next free index (`call_<ret>_<k>`, as `at_run` looks up)
+            lname = self.name(f"call_{ret:08x}", key)
             text = (f"theorem {lname} {' '.join(hs)} :\n"
                     f"    AtStep X 0x{entry:08x}#64 ({pre_row}) {pre_log} 0x{nxt:08x}#64 ({post_row}) {post_log} := by\n"
                     f"  {proof}\n")
