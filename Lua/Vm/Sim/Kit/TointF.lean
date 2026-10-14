@@ -84,6 +84,15 @@ noncomputable def tifW (md : Nat) (X : FCx) : Mem :=
      then Lua.Vm.AtF.TointF2.m2 X else Lua.Vm.AtF.TointF2.m4 X)
   else Lua.Vm.AtF.TointF1.m2 X
 
+/-- `tifW` from its arguments (the at-route's `clob` content): `ra`, the
+caller's `s0`, `s1` (saved in the window), the `TValue`, the out-parameter,
+`sp`. -/
+noncomputable def tifW' (md : Nat) (r s0 s1 : BitVec 64) (n q sp : Nat) (m : Mem) : Mem :=
+  tifW md (FCx.mk' [sp, n, q] [r, s0, s1] m #[])
+
+theorem tifW_eq (md : Nat) (r : BitVec 64) (n q sp : Nat) (f : HFrame) (m : Mem) (o : Array String) :
+    tifW md (tifCx r n q sp f m o) = tifW' md r f.s0 f.s1 n q sp m := rfl
+
 /-- **The memory at the return**: the callee frames patched, then `*q` on
 success. -/
 noncomputable def tifMem (md : Nat) (X : FCx) : Mem :=
@@ -288,7 +297,8 @@ theorem toint_flt_sum {md : Nat} (hmd : md = 1 ∨ md = 2) (n q sp : Nat) (r : B
 
 /-- The callee frames of `luaV_tonumber_` on an integer (`[sp - 80, sp)`:
 `ra`, the out-parameter's address, `__floatdidf`'s frame). -/
-noncomputable def toniW (X : FCx) : Mem := Lua.Vm.AtF.TonumI.m2 X
+noncomputable def toniW (r : BitVec 64) (n q sp : Nat) (m : Mem) : Mem :=
+  Lua.Vm.AtF.TonumI.m2 (FCx.mk' [sp, n, q] [r] m #[])
 
 /-- **`luaV_tonumber_` on an integer, the call-node summary**: `a0 = 1`,
 the callee frames `toniW`, `*q` the converted float (`__floatdidf`). -/
@@ -298,8 +308,8 @@ theorem tonum_int_sum (n q sp : Nat) (r : BitVec 64) (f : HFrame) (m : Mem) (o :
     Triple (SegSt 0x8001ab58#64 (⟨Register.x10, BitVec.ofNat 64 n⟩ :: ⟨Register.x11, BitVec.ofNat 64 q⟩ ::
         ⟨Register.x1, r⟩ :: f.pins) (ArmPay m o))
       (SegSt r (⟨Register.x10, 1#64⟩ :: f.pins)
-        (ArmPay (writeMap8 (memPatch m (toniW (tifCx r n q sp f m o)) (sp - 80) 80) q
-          (sdData_val (Lua.Vm.Fn.Floatdidf.S (bytesT8 m n)))) o)) := by
+        (ArmPay (writeMap8 (memPatch m (toniW r n q sp m) (sp - 80) 80) q
+          (sdData_val (Lua.Vm.Fn.Floatdidf.S (slotVal m n)))) o)) := by
   intro c h
   obtain ⟨hro, hra, h1, h2, h3, h4, h5, h6, h7, h8⟩ := hx
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -316,9 +326,10 @@ theorem tonum_int_sum (n q sp : Nat) (r : BitVec 64) (f : HFrame) (m : Mem) (o :
   have hsf : FnSp (sp - 48) 32 := ⟨by omega, by omega, by omega⟩
   fat_walk Lua.Vm.AtF.TonumI h acc
   refine ⟨_, acc, (Vsa.Sim.SegSt.repin h (by pins_of h)).mem_eq ?_⟩
-  simp only [toniW]
+  rw [show toniW r n q sp m = Lua.Vm.AtF.TonumI.m2 (tifCx r n q sp ⟨BitVec.ofNat 64 sp, 0x8005ced0#64, s0, s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11⟩ m o) from rfl]
   rw [memPatch_of_out (by tif_out)]
   fcx_unfold
   rw [Lua.Vm.Fn.Floatdidf.spec_proved _ _ _ _ hsf]
+  simp only [slotVal, tvalueValOff, Nat.add_zero]
 
 end Lua.Vm.Sim.Kit

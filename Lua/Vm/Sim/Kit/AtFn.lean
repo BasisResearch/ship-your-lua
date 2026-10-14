@@ -349,12 +349,21 @@ macro "fat_shl" : tactic => `(tactic| (
   simp only [shl_ofNat _ 4 (by decide), shl_ofNat _ 3 (by decide), Nat.reducePow, BitVec.ofNat_add_ofNat]
   first | with_reducible rfl | (apply congrArg (BitVec.ofNat 64); omega)))
 
+/-- Fails on the arm route (an arm context `X : At.Cx` in scope): the callee
+rows' `at_eq` extensions stay off the arm route's goals (lane F1-F8: there
+`fat_rd`'s one `simp` over a long log exceeds the recursion depth). -/
+elab "fat_route" : tactic => withMainContext do
+  for ld in (← getLCtx) do
+    if ld.isImplementationDetail then continue
+    if (← instantiateMVars ld.type).isConstOf ``Lua.Vm.Sim.At.Cx then
+      throwError "fat_route: an arm context"
+
 macro_rules
-  | `(tactic| at_eq_ext) => `(tactic| (fat_rd; first | done | with_reducible rfl | decide |
+  | `(tactic| at_eq_ext) => `(tactic| (fat_route; fat_rd; first | done | with_reducible rfl | decide |
       (apply congrArg (BitVec.ofNat 64); omega)))
 
 macro_rules
-  | `(tactic| at_eq_ext) => `(tactic| (fat_rd; fat_shl))
+  | `(tactic| at_eq_ext) => `(tactic| (fat_route; fat_rd; fat_shl))
 
 /-- A post-memory in the row's form: the same stores, the addresses by
 `kit_disch`, the data by `at_eq`. -/
