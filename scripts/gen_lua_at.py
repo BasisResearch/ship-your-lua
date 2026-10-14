@@ -2668,6 +2668,45 @@ EXT_OK = ["sp_lo : 0x87800000 + 4096 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp
     "L_g : X.n 1 + 200 ≤ X.n 2 + 24 ∨ X.n 2 + 32 ≤ X.n 1"]
 
 
+def tif(mod, mode, doc):
+    """lane F1-F8: `luaV_tointeger(n, q, mode)` on a float `TValue` (`F2Ifloor`
+    = 1, `F2Iceil` = 2: FORPREP's `forlimit`): X.n 0 = sp, X.n 1 = n, X.n 2 =
+    q (the caller's out-parameter, at or above `sp`); X.b 0 = ra, X.b 1… the
+    caller's `s0`–`s11` (all callee-saved, kept: FORPREP's `s6`, `s10` live
+    across the call). `luaV_tointegerns` → `luaV_flttointeger` inlined:
+    `floor`, `__eqdf2`, for `F2Iceil` `__adddf3(f, 1.0)`, the range against
+    `.rodata`, `__fixdfdi`, the store `*q`."""
+    row = abi_row({10: N((1, 1)), 11: N((2, 1)), 12: ("lit", mode)})
+    return dict(
+        mod=mod, entry=0x8001ade8, row=row, float=True,
+        ok=["sp_lo : 0x8005c6c0 + 16 + 192 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 8 = 0",
+            "n_lo : 0x8005c6c0 + 16 ≤ X.n 1", "n_hi : X.n 1 + 16 + 192 ≤ X.n 0",
+            "q_lo : X.n 0 ≤ X.n 2", "q_hi : X.n 2 + 8 ≤ 2 ^ 32", "q_al : X.n 2 % 8 = 0",
+            "ra : (X.b 0).toNat % 4 = 0", "hro : RodataRead X.m"],
+        lb={1: 0x8005c6d0},
+        cells={(8, 0x8005c478): 0xc3e0000000000000, (8, 0x8005c480): 0x43e0000000000000,
+               (8, 0x8005c488): 0x3ff0000000000000},
+        rcellsw={(1, ((1, 1),), 8): 19},
+        imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
+
+
+def toni(mod, doc):
+    """lane F1-F8: `luaV_tonumber_(obj, q)` on an integer `TValue` (`cvt2num`:
+    `__floatdidf`, the store `*q`): X.n 0 = sp, X.n 1 = obj, X.n 2 = q (the
+    caller's out-parameter, at or above `sp`); X.b 0 = ra, X.b 1… the
+    caller's `s0`–`s11`."""
+    row = abi_row({10: N((1, 1)), 11: N((2, 1))})
+    return dict(
+        mod=mod, entry=0x8001ab58, row=row, float=True,
+        ok=["sp_lo : 0x8005c6c0 + 16 + 80 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 8 = 0",
+            "n_lo : 0x8005c6c0 + 16 ≤ X.n 1", "n_hi : X.n 1 + 16 + 80 ≤ X.n 0",
+            "q_lo : X.n 0 ≤ X.n 2", "q_hi : X.n 2 + 8 ≤ 2 ^ 32", "q_al : X.n 2 % 8 = 0",
+            "ra : (X.b 0).toNat % 4 = 0", "hro : RodataRead X.m"],
+        lb={1: 0x8005c6d0},
+        rcellsw={(1, ((1, 1),), 8): 3},
+        imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
+
+
 def eqf(mod, t1, t2, doc):
     """lane F1-F4: `luaV_equalobj(L, t1, t2)` on the tags `t1`, `t2` (a float
     one of them): X.n 0 = sp, X.n 1 = t1, X.n 2 = t2; X.b 0 = ra, X.b 1 = gp,
@@ -2760,6 +2799,11 @@ FNS = {
     "luaV_equalobj/ff": eqf("EqobjFF", 19, 19, "`luaV_equalobj` on two floats."),
     "luaV_equalobj/if": eqf("EqobjIF", 3, 19, "`luaV_equalobj` on an integer and a float."),
     "luaV_equalobj/fi": eqf("EqobjFI", 19, 3, "`luaV_equalobj` on a float and an integer."),
+    # lane F1-F8: `luaV_tointeger` on a float limit (FORPREP's coerced integer loop)
+    "luaV_tointeger/flt1": tif("TointF1", 1, "`luaV_tointeger(n, q, F2Ifloor)` on a float."),
+    "luaV_tointeger/flt2": tif("TointF2", 2, "`luaV_tointeger(n, q, F2Iceil)` on a float."),
+    # lane F1-F8: `luaV_tonumber_` on an integer (FORPREP's float loop)
+    "luaV_tonumber_/int": toni("TonumI", "`luaV_tonumber_(obj, q)` on an integer."),
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
     "fflush": dict(
