@@ -122,14 +122,14 @@ structure FmtStatic (m : Mem) : Prop where
 (`MAXNUMBER2STR` bytes, in the caller's frame above `sp` or well below it),
 the static words. -/
 structure IntFmtIn (m : Mem) (sp buf fmt : Nat) (r : BitVec 64) : Prop where
-  fmt : bytesAt m fmt 5 = [0x25#8, 0x6c#8, 0x6c#8, 0x64#8, 0#8]
+  fmtb : bytesAt m fmt 5 = [0x25#8, 0x6c#8, 0x6c#8, 0x64#8, 0#8]
   f_lo : 0x80000000 ≤ fmt
   f_hi : fmt + 5 ≤ 0x8005c6c0
   ra : r.toNat % 4 = 0
   sp_lo : 0x8005e720 + 8192 ≤ sp
   sp_hi : sp ≤ 2 ^ 32
   sp_al : sp % 16 = 0
-  b_lo : 0x8005c6d0 ≤ buf
+  b_lo : 0x8005e720 ≤ buf
   b_ap : buf + 44 + 4096 ≤ sp ∨ sp ≤ buf
   b_hi : buf + 44 ≤ 2 ^ 32
   stat : FmtStatic m
