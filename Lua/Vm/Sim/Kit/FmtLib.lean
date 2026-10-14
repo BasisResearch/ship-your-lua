@@ -76,7 +76,7 @@ theorem sxw_id (x : BitVec 64) (h : x.toNat < 2 ^ 31 ∨ 2 ^ 64 - 2 ^ 31 ≤ x.t
   split <;> rename_i hm <;> simp only [decide_eq_true_eq] at hm <;> omega
 
 /-- A 32-bit literal's `sext.w` (a `lw` of a small word). -/
-theorem sext32_ofNat {n : Nat} (h : n < 2 ^ 31) :
+theorem fmt_sext32_ofNat {n : Nat} (h : n < 2 ^ 31) :
     sign_extend (m := 64) (BitVec.ofNat 32 n) = BitVec.ofNat 64 n := by
   apply BitVec.eq_of_toNat_eq
   simp only [sign_extend, Sail.BitVec.signExtend, BitVec.toNat_signExtend, BitVec.toNat_setWidth,
@@ -119,7 +119,7 @@ theorem subw_m1 {n : Nat} (h : n < 2 ^ 31) :
 /-- The `Nat` of a sum or difference of `ofNat`s, by `omega` (the at-lemma's
 bounds in context). -/
 macro "fmt_nat" : tactic => `(tactic| (
-  simp (disch := omega) only [add_imm, Vsa.Sim.sext_zero, Vsa.Sim.sext_one, BitVec.add_zero, sext32_ofNat,
+  simp (disch := omega) only [add_imm, Vsa.Sim.sext_zero, Vsa.Sim.sext_one, BitVec.add_zero, fmt_sext32_ofNat,
     BitVec.ofNat_add_ofNat, BitVec.toNat_sub, BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt] <;>
   omega))
 
