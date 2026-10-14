@@ -84,6 +84,7 @@ They are in check.sh stage 6.
   `Lua.Vm.At.ModkF`, `Lua.Vm.Sim.Kit.AtFltMod`, `Lua.Vm.Sim.Kit.AtFltModk`,
   `Lua.Vm.Sim.Kit.ExitUp`, `Lua.Vm.Sim.Kit.RetFinal`, `Lua.Vm.Sim.Entry`
   build with exit 0.
+- **Full build and check.** `scripts/check.sh` passes every stage, `lake build Lua Vsa VsaIris` included.
 - **Gate.** `python3 abstractions/gate.py` is ok: `a1-float-arm` 40 cases
   (first 2.9, last 2.7); `a1-kit-arm` ok.
 - **Obstacles met.**
