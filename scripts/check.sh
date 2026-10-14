@@ -230,6 +230,15 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Fn.Ieee754Fmod.F_eq_ref
 #print axioms Lua.Vm.Fn.Ieee754Fmod.spec_proved
 #print axioms Lua.Vm.Fn.Ieee754Fmod.sum_ref
+#print axioms Lua.Vm.Fn.Ieee754Sqrt.sum
+#print axioms Lua.Vm.Fn.Ieee754Sqrt.F_eq_ref
+#print axioms Lua.Vm.Fn.Ieee754Sqrt.spec_proved
+#print axioms Lua.Vm.Fn.Ieee754Sqrt.sum_ref
+#print axioms Lua.Vm.Fn.Ieee754Sqrt.spec_model
+#print axioms Lua.Vm.Fn.Ieee754Sqrt.l2_claim
+#print axioms Lua.Vm.Fn.Ieee754Sqrt.l1_claim
+#print axioms Lua.Num.SfRef.sqRun_spec
+#print axioms Lua.Num.SfRef.sqrt_eq
 #print axioms Lua.Vm.Fn.Divdf3.sum_div
 #print axioms Lua.Num.SfRef.fmod_cls
 #print axioms Lua.Num.SfRef.fmod_model

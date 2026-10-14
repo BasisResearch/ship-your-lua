@@ -180,6 +180,10 @@ FRAME_G = {"Divdf3": ("Lua.Vm.Sim.At.divdf3_sumG", (8, 9, 18, 19))}
 # `SfRef.floor` as the result, `Floor.sum_ref`).
 FCALL_ARM = {op: {0x8002bb14: ("FloorR", 1, 112)} for op in ("OP_IDIV_F", "OP_IDIVK_F")}
 FPROVED["FloorR"] = "Lua.Vm.Fn.FloorR"
+# lane float-sf6: libm `__ieee754_sqrt` (`spec_proved`: `F64.sqrt`, correctly
+# rounded; it takes the image's `RodataRead` (`one`, `tiny`) and `FnSp s 160`;
+# its call node, in `__ieee754_pow`'s `sqrt` tail, is an arm lane's)
+FPROVED["Ieee754Sqrt"] = "Lua.Vm.Fn.SqrtSpec"
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
