@@ -589,4 +589,244 @@ theorem snp_p1_ret (G : SnG) (m : Mem) (hin : G.In m)
   · intro a h1 h2
     exact (agk.tr (snWd_snWk ag2 (by omega))).t1 (by simp only [snWk, snWkN]; omega)
 
+/-! ## A negative one-digit `i`: the sign's `memmove`, then the digit's -/
+
+theorem agree_Dn1X (X : FCx) (h : 0x8005e720 + 8192 ≤ X.n 0) :
+    Agree (snWdN (X.n 0) (X.n 1)) X.m (Lua.Vm.AtF.SnprintfLld.m45 X) := by fmt_agree3
+
+theorem agree_Qn1X (X : FCx) (h : 0x8005e720 + 8192 ≤ X.n 0) :
+    Agree (snWdN (X.n 0) (X.n 1)) X.m (Lua.Vm.AtF.SnprintfLld.m48 X) := by fmt_agree3
+
+theorem agree_Qn2X (X : FCx) (h : 0x8005e720 + 8192 ≤ X.n 0) :
+    Agree (snWdN (X.n 0) (X.n 1)) X.m (Lua.Vm.AtF.SnprintfLld.m54 X) := by fmt_agree3
+
+/-- `intBytes` of a one-digit negative `i`. -/
+theorem intBytes_neg1 {i : BitVec 64} (hp : zopz0zKzJ_s i (0x0#64) = false)
+    (hs : zopz0zI_u (0x9#64) (0#64 - i) = false) :
+    intBytes i = [45#8, digB (0#64 - i).toNat] ∧ (0#64 - i).toNat < 10 := by
+  have hi : i.toInt < 0 := by
+    simp only [zopz0zKzJ_s, decide_eq_false_iff_not] at hp
+    have : ¬ (0 ≤ i.toInt) := by simpa using hp
+    omega
+  have h9 : (0#64 - i).toNat ≤ 9 := by
+    have e : BitVec.toNatInt (0x9#64 : BitVec 64) = 9 := by decide
+    unfold zopz0zI_u at hs
+    rw [e, decide_eq_false_iff_not] at hs
+    simp only [BitVec.toNatInt, Int.ofNat_eq_coe] at hs
+    omega
+  refine ⟨?_, by omega⟩
+  rw [intBytes_eq, magOf, if_pos hi, if_pos hi, decBytes_lt (by omega)]
+  rfl
+
+/-- **A negative one-digit `i`, to `memmove` of its sign** (`run_Dn1`). -/
+theorem snp_n1_mv (G : SnG) (m : Mem) (hin : G.In m)
+    (hp : zopz0zKzJ_s G.i (0x0#64) = false) (hs : zopz0zI_u (0x9#64) (0#64 - G.i) = false) (c : Config)
+    (h : SegSt 0x80043824#64 (Lua.Vm.AtF.SnprintfLld.r34 (G.XD m)) (ArmPay (G.XD m).m (G.XD m).o) c) :
+    ∃ c2 M1, Steps c c2 ∧
+      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r90 (G.X {} M1)) (ArmPay (G.X {} M1).m (G.X {} M1).o) c2 ∧
+      MoveOut (Lua.Vm.AtF.SnprintfLld.m45 (G.XD m)) M1 G.buf (G.sp - 697) 1 := by
+  have := hin.sp_lo; have := hin.sp_hi; have := hin.sp_al; have := hin.ra; have := hin.b_lo
+  have := hin.b_ap; have := hin.b_hi; have := hin.f_lo; have := hin.f_hi
+  obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := facD G m hin
+  obtain ⟨c1, s1, h1⟩ := run_Dn1 (G.XD m) (by sn_ok) (by sn_u1; exact fap) (by sn_u1; exact fi)
+    (by sn_u1; exact hp) (by sn_u1; exact hs) (by sn_u1; exact fres)
+    (by sn_u1; exact fcnt) (by sn_u1; exact fret) (by sn_u1; exact ffp) (by sn_u1; exact fiov)
+    (by sn_u1; exact fw) (by sn_u1; exact fp) c h
+  obtain ⟨c2, s2, M1, hr, hmv⟩ := memmove_sum (G.sp - 992) G.buf (G.sp - 697) 1 0x8004e4e8#64
+    (AbiFrame.mk _ _ _ _ _ _ _ _ _ _ _ _) (Lua.Vm.AtF.SnprintfLld.m45 (G.XD m)) G.o
+    ⟨⟨by omega, by omega, by omega, by omega, by omega, by omega⟩, by omega, by rfl⟩ c1
+    (h1.repin (by
+      simp only [Lua.Vm.AtF.SnprintfLld.r89, SnG.XD, SnG.X, FCx.mk', List.getD_cons_zero,
+        List.getD_cons_succ] at h1
+      pins_of h1))
+  refine ⟨c2, M1, s1.trans s2, ?_, hmv⟩
+  dsimp only [mmRet] at hr
+  refine hr.repin ?_
+  simp only [Lua.Vm.AtF.SnprintfLld.r90, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  pins_of hr
+
+/-- What the root after the sign's `memmove` reads (and the second `memmove`'s
+root after it). -/
+structure FacQn1a (G : SnG) (M : Mem) : Prop where
+  w : bytesT4 M (G.sp - 252) = 0x2b#32
+  p : bytesT8 M (G.sp - 264) = BitVec.ofNat 64 G.buf
+  e936 : bytesT8 M (G.sp - 936) = 0x8004975c#64
+  e944 : bytesT8 M (G.sp - 944) = BitVec.ofNat 64 (G.sp - 512)
+  e952 : bytesT8 M (G.sp - 952) = BitVec.ofNat 64 (G.sp - 640)
+  e624 : bytesT8 M (G.sp - 624) = 0x2#64
+  e632 : bytesT4 M (G.sp - 632) = 0x1#32
+  e488 : bytesT8 M (G.sp - 488) = 0x1#64
+  e496 : bytesT8 M (G.sp - 496) = BitVec.ofNat 64 (G.sp - 517)
+
+structure FacQn1b (G : SnG) (M : Mem) : Prop where
+  e880 : bytesT8 M (G.sp - 880) = 0x8005d1b8#64
+  e896 : bytesT8 M (G.sp - 896) = 0x10#64
+  e904 : bytesT8 M (G.sp - 904) = 0x25#64
+  e912 : bytesT8 M (G.sp - 912) = 0xfffffffffffffffe#64
+  e920 : bytesT8 M (G.sp - 920) = BitVec.ofNat 64 (G.sp - 512)
+  e872 : bytesT8 M (G.sp - 872) = 0x80043ea4#64
+  e888 : bytesT8 M (G.sp - 888) = 0x8005cff0#64
+  e832 : bytesT8 M (G.sp - 832) = 0x0#64
+  e864 : bytesT8 M (G.sp - 864) = BitVec.ofNat 64 (G.fmt + 4)
+  e848 : bytesT8 M (G.sp - 848) = 0x2#64
+  e517 : bytesT1 M (G.sp - 517) =
+    stData 1 (sign_extend (m := 64) (Sail.BitVec.extractLsb ((0#64 - G.i) + sign_extend (m := 64) (0x030#12)) 31 0))
+
+theorem facQn1a (G : SnG) (MD : Mem) (F : FacD G MD) (hs : 0x8005e720 + 8192 ≤ G.sp)
+    (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) (hbl : 0x8005e720 ≤ G.buf) (M1 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m45 (G.X {} MD)) M1 G.buf (G.sp - 697) 1) : FacQn1a G M1 := by
+  obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := F
+  have hS : 4096 ≤ G.sp := by omega
+  constructor <;> sn_mv2
+
+theorem facQn1b (G : SnG) (MD : Mem) (F : FacD G MD) (hs : 0x8005e720 + 8192 ≤ G.sp)
+    (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) (hbl : 0x8005e720 ≤ G.buf) (M1 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m45 (G.X {} MD)) M1 G.buf (G.sp - 697) 1) : FacQn1b G M1 := by
+  obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := F
+  have hS : 4096 ≤ G.sp := by omega
+  constructor <;> sn_mv2
+
+/-- **A negative one-digit `i`, from the sign's `memmove` to the digit's**
+(`run_Qn1`). -/
+theorem snp_n1_mv2 (G : SnG) (m : Mem) (hin : G.In m) (M1 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m45 (G.XD m)) M1 G.buf (G.sp - 697) 1) (c2 : Config)
+    (hQ : SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r90 (G.X {} M1)) (ArmPay (G.X {} M1).m (G.X {} M1).o) c2) :
+    ∃ c3 M2, Steps c2 c3 ∧
+      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r90 (G.X {} M2)) (ArmPay (G.X {} M2).m (G.X {} M2).o) c3 ∧
+      MoveOut (Lua.Vm.AtF.SnprintfLld.m48 (G.X {} M1)) M2 (G.buf + 1) (G.sp - 517) 1 := by
+  have := hin.sp_lo; have := hin.sp_hi; have := hin.sp_al; have := hin.ra; have := hin.b_lo
+  have := hin.b_ap; have := hin.b_hi; have := hin.f_lo; have := hin.f_hi
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9⟩ :=
+    facQn1a G (G.MD m) (facD G m hin) (by omega) (by omega) (by omega) M1 hmv
+  obtain ⟨c3, s3, h3⟩ := run_Qn1 (G.X {} M1) (by sn_ok) (by sn_u1; exact a1) (by sn_u1; exact a2)
+    (by sn_u1; exact a3) (by sn_u1; exact a4) (by sn_u1; exact a5) (by sn_u1; exact a6) (by sn_u1; exact a7)
+    (by sn_u1; exact a8) (by sn_u1; exact a9) c2 hQ
+  obtain ⟨c4, s4, M2, hr, hmv2⟩ := memmove_sum (G.sp - 992) (G.buf + 1) (G.sp - 517) 1 0x8004e4e8#64
+    (AbiFrame.mk _ _ _ _ _ _ _ _ _ _ _ _) (Lua.Vm.AtF.SnprintfLld.m48 (G.X {} M1)) G.o
+    ⟨⟨by omega, by omega, by omega, by omega, by omega, by omega⟩, by omega, by rfl⟩ c3
+    (h3.repin (by
+      simp only [Lua.Vm.AtF.SnprintfLld.r92, SnG.X, FCx.mk', List.getD_cons_zero,
+        List.getD_cons_succ] at h3
+      pins_of h3))
+  refine ⟨c4, M2, s3.trans s4, ?_, hmv2⟩
+  dsimp only [mmRet] at hr
+  refine hr.repin ?_
+  simp only [Lua.Vm.AtF.SnprintfLld.r90, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  pins_of hr
+
+/-- What the root after the digit's `memmove` reads (the negative path). -/
+structure FacQn2a (G : SnG) (M : Mem) : Prop where
+  w : bytesT4 M (G.sp - 252) = 0x2a#32
+  p : bytesT8 M (G.sp - 264) = BitVec.ofNat 64 (G.buf + 1)
+  e936 : bytesT8 M (G.sp - 936) = 0x8004975c#64
+  e944 : bytesT8 M (G.sp - 944) = BitVec.ofNat 64 (G.sp - 496)
+  e952 : bytesT8 M (G.sp - 952) = BitVec.ofNat 64 (G.sp - 640)
+  e624 : bytesT8 M (G.sp - 624) = 0x1#64
+  e880 : bytesT8 M (G.sp - 880) = 0x8005d1b8#64
+  e896 : bytesT8 M (G.sp - 896) = 0x10#64
+
+structure FacQn2b (G : SnG) (M : Mem) : Prop where
+  e904 : bytesT8 M (G.sp - 904) = 0x25#64
+  e912 : bytesT8 M (G.sp - 912) = 0xfffffffffffffffe#64
+  e920 : bytesT8 M (G.sp - 920) = BitVec.ofNat 64 (G.sp - 512)
+  e872 : bytesT8 M (G.sp - 872) = 0x80043ea4#64
+  e888 : bytesT8 M (G.sp - 888) = 0x8005cff0#64
+  e832 : bytesT8 M (G.sp - 832) = 0x0#64
+  e864 : bytesT8 M (G.sp - 864) = BitVec.ofNat 64 (G.fmt + 4)
+  e848 : bytesT8 M (G.sp - 848) = 0x2#64
+
+theorem facQn2a (G : SnG) (M1 : Mem) (F : FacQn1a G M1) (F' : FacQn1b G M1) (hs : 0x8005e720 + 8192 ≤ G.sp)
+    (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) (hbl : 0x8005e720 ≤ G.buf) (M2 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m48 (G.X {} M1)) M2 (G.buf + 1) (G.sp - 517) 1) : FacQn2a G M2 := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9⟩ := F
+  obtain ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11⟩ := F'
+  have hS : 4096 ≤ G.sp := by omega
+  constructor <;> sn_mv2
+
+theorem facQn2b (G : SnG) (M1 : Mem) (F : FacQn1a G M1) (F' : FacQn1b G M1) (hs : 0x8005e720 + 8192 ≤ G.sp)
+    (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) (hbl : 0x8005e720 ≤ G.buf) (M2 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m48 (G.X {} M1)) M2 (G.buf + 1) (G.sp - 517) 1) : FacQn2b G M2 := by
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9⟩ := F
+  obtain ⟨b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11⟩ := F'
+  have hS : 4096 ≤ G.sp := by omega
+  constructor <;> sn_mv2
+
+/-- **A negative one-digit `i`, from the digit's `memmove` to the return**
+(`run_Qn2`). -/
+theorem snp_n1_ret (G : SnG) (m : Mem) (hin : G.In m)
+    (hp : zopz0zKzJ_s G.i (0x0#64) = false) (hs : zopz0zI_u (0x9#64) (0#64 - G.i) = false) (M1 M2 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m45 (G.XD m)) M1 G.buf (G.sp - 697) 1)
+    (hmv2 : MoveOut (Lua.Vm.AtF.SnprintfLld.m48 (G.X {} M1)) M2 (G.buf + 1) (G.sp - 517) 1) (c3 : Config)
+    (hQ : SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r90 (G.X {} M2)) (ArmPay (G.X {} M2).m (G.X {} M2).o) c3) :
+    ∃ c', Steps c3 c' ∧ SnPost G m c' := by
+  have := hin.sp_lo; have := hin.sp_hi; have := hin.sp_al; have := hin.ra; have := hin.b_lo
+  have := hin.b_ap; have := hin.b_hi; have := hin.f_lo; have := hin.f_hi
+  have FD := facD G m hin
+  have F1 := facQn1a G (G.MD m) FD (by omega) (by omega) (by omega) M1 hmv
+  have F1' := facQn1b G (G.MD m) FD (by omega) (by omega) (by omega) M1 hmv
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8⟩ := facQn2a G M1 F1 F1' (by omega) (by omega) (by omega) M2 hmv2
+  obtain ⟨b1, b2, b3, b4, b5, b6, b7, b8⟩ := facQn2b G M1 F1 F1' (by omega) (by omega) (by omega) M2 hmv2
+  have ag1 : Agree (snWd G) (G.MD m) M2 :=
+    ((((agree_Dn1X (G.XD m) hin.sp_lo).tr (agree_move (G := G) hmv (by omega) (by omega))).tr
+      (agree_Qn1X (G.X {} M1) hin.sp_lo)).tr (agree_move (G := G) hmv2 (by omega) (by omega)))
+  obtain ⟨⟨v2, v3, v4, v5, v7, v8, v9, v10, v11⟩, ⟨vfp, vfl, v6, vra, vs0, vs1, cs1, cra, cs0⟩⟩ :=
+    (snSave_D G m hin).congr ag1 (by omega) (by omega)
+  have agk : Agree (snWk G) m M2 :=
+    ((agree_E G m hin).tr (agree_F G m hin)).tr (snWd_snWk ag1 (by omega))
+  have st := stat_of hin agk
+  obtain ⟨-, -, -, -, f4⟩ := fmt_of hin agk
+  obtain ⟨c4, s4, h4⟩ := run_Qn2 (G.X {} M2) (by sn_ok)
+    (by sn_u1; exact a1) (by sn_u1; exact a2) (by sn_u1; exact a3) (by sn_u1; exact a4) (by sn_u1; exact a5)
+    (by sn_u1; exact a6) (by sn_u1; exact a7) (by sn_u1; exact a8) (by sn_u1; exact b1) (by sn_u1; exact b2)
+    (by sn_u1; exact b3) (by sn_u1; exact b4) (by sn_u1; exact b5) (by sn_u1; exact b6) (by sn_u1; exact b7)
+    (by sn_u1; exact st.mbtowc) (by sn_u1; exact st.mbmax) (by sn_u1; exact f4) (by sn_u1; exact vfp)
+    (by sn_u1; exact vfl) (by sn_u1; exact v2) (by sn_u1; exact v3) (by sn_u1; exact v4) (by sn_u1; exact v5)
+    (by sn_u1; exact v7) (by sn_u1; exact v8) (by sn_u1; exact v9) (by sn_u1; exact v10) (by sn_u1; exact v11)
+    (by sn_u1; exact vra) (by sn_u1; exact vs0) (by sn_u1; exact b8) (by sn_u1; exact vs1) (by sn_u1; exact v6)
+    (by sn_u1; exact cs0) (by sn_u1; exact cra) (by sn_u1; exact cs1) c3 hQ
+  obtain ⟨hib, hlt⟩ := intBytes_neg1 hp hs
+  have hS : 4096 ≤ G.sp := by omega
+  have hd0 : bytesT1 M2 G.buf = 45#8 := by
+    rw [hmv2.rd1 (by omega)]
+    have e := hmv.moved 0 (by omega)
+    simp only [Nat.add_zero] at e
+    simp only [Lua.Vm.AtF.SnprintfLld.m48, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    simp (disch := omega) only [Lua.Vm.Sim.AtF.fw1_wm8, Lua.Vm.Sim.AtF.fw1_wm4]
+    rw [e]
+    simp only [SnG.XD, SnG.X, at_row, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    simp (disch := first | assumption | decide | rfl) only [fwS1_wm8, fwS1_wm4, fwS1_wm2, fwS1_ins,
+      Lua.Vm.Sim.AtF.fw1_same]
+    decide
+  have hd1 : bytesT1 M2 (G.buf + 1) = digB (0#64 - G.i).toNat := by
+    have e := hmv2.moved 0 (by omega)
+    simp only [Nat.add_zero] at e
+    rw [e]
+    simp only [Lua.Vm.AtF.SnprintfLld.m48, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    simp (disch := first | assumption | decide | rfl) only [fwS1_wm8, fwS1_wm4, fwS1_wm2, fwS1_ins]
+    rw [F1'.e517]
+    exact digit_byte _ hlt
+  have ag2 : Agree (snWd G) M2 _ := agree_Qn2X (G.X {} M2) hin.sp_lo
+  refine ⟨c4, s4, Lua.Vm.AtF.SnprintfLld.m54 (G.X {} M2), ?_, ?_, ?_⟩
+  · rw [hib]
+    dsimp only [wrRet]
+    refine h4.repin ?_
+    simp only [List.length_cons, List.length_nil, Nat.zero_add]
+    simp only [Lua.Vm.AtF.SnprintfLld.r94, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] at h4
+    pins_of h4
+  · rw [hib]
+    simp only [bytesAt, List.length_cons, List.length_nil, Nat.zero_add, List.range_succ, List.range_zero,
+      List.nil_append, List.map_cons, List.map_nil, List.map_append, List.cons_append, Nat.add_zero]
+    have k0 : bytesT1 (Lua.Vm.AtF.SnprintfLld.m54 (G.X {} M2)) G.buf = bytesT1 M2 G.buf := by
+      simp only [Lua.Vm.AtF.SnprintfLld.m54, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+      simp (disch := omega) only [Lua.Vm.Sim.AtF.fw1_wm8, Lua.Vm.Sim.AtF.fw1_wm4, Lua.Vm.Sim.AtF.fw1_ins]
+    have k1 : bytesT1 (Lua.Vm.AtF.SnprintfLld.m54 (G.X {} M2)) (G.buf + 1) = bytesT1 M2 (G.buf + 1) := by
+      simp only [Lua.Vm.AtF.SnprintfLld.m54, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+      simp (disch := omega) only [Lua.Vm.Sim.AtF.fw1_wm8, Lua.Vm.Sim.AtF.fw1_wm4, Lua.Vm.Sim.AtF.fw1_ins]
+    have k2 : bytesT1 (Lua.Vm.AtF.SnprintfLld.m54 (G.X {} M2)) (G.buf + 2) = 0#8 := by
+      simp only [Lua.Vm.AtF.SnprintfLld.m54, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+      rw [Lua.Vm.Sim.AtF.fw1_same rfl]; decide
+    rw [k0, hd0, k1, hd1, k2]
+  · intro a h1 h2
+    exact (agk.tr (snWd_snWk ag2 (by omega))).t1 (by simp only [snWk, snWkN]; omega)
+
 end Lua.Vm.Sim.Kit
