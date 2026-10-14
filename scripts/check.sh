@@ -310,6 +310,10 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.fp_cFFI
 #print axioms Lua.Vm.Sim.At.fp_ti
 #print axioms Lua.Vm.Sim.At.fpCoerce_of
+#print axioms Lua.Num.str2int_S2I
+#print axioms Lua.Vm.Sim.Kit.s2_dec
+#print axioms Lua.Vm.Sim.Kit.s2_hex
+#print axioms Lua.Vm.Sim.Kit.str2num_int
 #print axioms Lua.Vm.Sim.Kit.eqo_ff
 #print axioms Lua.Vm.Sim.Kit.eqo_if
 #print axioms Lua.Vm.Sim.Kit.eqo_fi
