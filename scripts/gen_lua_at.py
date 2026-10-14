@@ -105,11 +105,15 @@ FLOAT_ARMS = {"OP_LOADF": ("Loadf", 0x8001d400), "OP_EQI": ("Eqi", 0x8001c7f0),
 # over the integer arms' segments, `SEG_OP`)
 FLOAT_ARMS.update({"OP_DIV": ("Div", 0x8001d494), "OP_DIVK": ("Divk", 0x8001d7d8),
                    "OP_IDIV_F": ("IdivF", 0x8001deac), "OP_IDIVK_F": ("IdivkF", 0x8001d768)})
+# lane F1-F7: `luai_nummod` (libm `fmod`, its `errno` store, then the sign
+# correction): MOD's and MODK's float paths, over the integer arms' segments
+FLOAT_ARMS.update({"OP_MOD_F": ("ModF", 0x8001dc58), "OP_MODK_F": ("ModkF", 0x8001dad0)})
 SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("SHL", "SHR", "SHLI", "SHRI")},
 "OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
           "OP_LE_F": "OP_LE", "OP_EQ_F": "OP_EQ", "OP_EQK_F": "OP_EQK",
           "OP_IDIV_F": "OP_IDIV", "OP_IDIVK_F": "OP_IDIVK",
+          "OP_MOD_F": "OP_MOD", "OP_MODK_F": "OP_MODK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("BNOT", "BAND", "BOR", "BXOR")}}
 ARMS.update(FLOAT_ARMS)
 FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
@@ -184,6 +188,22 @@ FPROVED["FloorR"] = "Lua.Vm.Fn.FloorR"
 # rounded; it takes the image's `RodataRead` (`one`, `tiny`) and `FnSp s 160`;
 # its call node, in `__ieee754_pow`'s `sqrt` tail, is an arm lane's)
 FPROVED["Ieee754Sqrt"] = "Lua.Vm.Fn.SqrtSpec"
+# lane F1-F7: libm `fmod` (`Lua.Vm.Fn.FmodR`: the reference `SfRef.fmod` as
+# its result), MOD's and MODK's own call node. Its frame stores the caller's
+# callee-saved registers through `__ieee754_fmod`'s and `__divdf3`'s frames:
+# the frame is the row's, all thirteen (`FRAME_G`, `FRAME_FN`; every one live
+# into the call, `gen_lua_arms.py` `FLOAT_CALL_KEEP`). Its premises
+# (`FARGS`): `gp`, the stack above `_impure_data`, `_impure_ptr`; and its
+# store to `errno` (`FOUTER`): a second log entry, the window `[A, A + n)` of
+# the same memory function (`Kit/AtFmod.lean`, the fin lemma `AtFinE`)
+for _op in ("OP_MOD_F", "OP_MODK_F"):
+    FCALL_ARM[_op] = {0x8002b964: ("FmodR", 2, 160)}
+FPROVED["FmodR"] = "Lua.Vm.Fn.FmodR"
+FRAME_G["FmodR"] = ("Lua.Vm.Fn.FmodR.sum", (3, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27))
+FRAME_FN = {"FmodR": "Lua.Vm.Sim.SFrame.mk"}
+FARGS = {"FmodR": " (by at_gp) (at_sI hX) (by at_imp)"}
+FSP = {"FmodR": "(at_fnSp' hX)"}
+FOUTER = {"FmodR": (0x8005d1b8, 4)}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
@@ -204,6 +224,9 @@ for _op in ("OP_BANDK_F", "OP_BORK_F", "OP_BXORK_F"):
 # lane F1-F6: DIVK's and IDIVK's `K[C]` read after `__floatdidf`'s frame
 for _op in ("OP_DIVK", "OP_IDIVK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtFrame"]
+# lane F1-F7: `fmod`'s call node and the `errno` close
+IMPORTS["OP_MOD_F"] = IMPORTS["OP_MOD_F"] + ["Lua.Vm.Sim.Kit.AtFmod"]
+IMPORTS["OP_MODK_F"] = IMPORTS["OP_MODK_F"] + ["Lua.Vm.Sim.Kit.AtFrame", "Lua.Vm.Sim.Kit.AtFmod"]
 # lane F1-F4: the float call node of `luaV_equalobj` (`Kit/AtEqF.lean`)
 for _op in ("OP_EQ_F", "OP_EQK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtEqF"]
@@ -821,10 +844,16 @@ def call_effect(st, callee, ret):
         if mod in PREMISED:
             hyps.append(f"({PREMISED[mod]} : {mod}Spec)")
         if frame:
+            pre_log = CUR[0].logname(tuple(st.log))
             post.log.insert(0, ("clob", (("sp", 1),), -frame, (frame, k)))
+            if mod in FOUTER:
+                # lane F1-F7: the store outside the frame, the same memory
+                # function over the call's entry memory
+                oa, on = FOUTER[mod]
+                post.log.insert(0, ("clob", (), oa, (on, f"fun X _ => k{k} X (Log.den X {pre_log})")))
             sm = FRAME_G[mod][0] if mod in FRAME_G else f"Lua.Vm.Fn.{mod}.sum"
-            proof = (f"at_call [{{pins}}] ({sm} {pre}_ _ _ _ sframe? {vs} (at_fnSp hX) "
-                     f"(by decide) (by at_rod))")
+            proof = (f"at_call [{{pins}}] ({sm} {pre}_ _ _ _ sframe? {vs} {FSP.get(mod, '(at_fnSp hX)')} "
+                     f"(by decide) (by at_rod){FARGS.get(mod, '')})")
         else:
             proof = f"at_call [{{pins}}] (Lua.Vm.Fn.{mod}.sum _ _ _ hframe? {vs} (by decide))"
     elif callee == "__moddi3":
@@ -1000,8 +1029,8 @@ class Arm:
                            f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {xs}\n")
                 # lane F1-F6: a frame that stores the caller's saved registers
                 # (`FRAME_G`) is over their row values (`frame4`)
-                gs = ("(Lua.Vm.Sim.At.frame4 " + " ".join(f"(Loc.den X {lean_loc(y)})" for y in g)
-                      + ") ") if g else ""
+                gs = (f"({FRAME_FN.get(mod, 'Lua.Vm.Sim.At.frame4')} "
+                      + " ".join(f"(Loc.den X {lean_loc(y)})" for y in g) + ") ") if g else ""
                 out.append(f"/-- ... its frame. -/\n"
                            f"def k{k} (X : Cx) (M : Mem) : Mem :=\n"
                            f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {gs}{xs}\n")
@@ -1155,7 +1184,8 @@ class Arm:
                 st2.regs = {r: v for r, v in st2.regs.items() if r in post and printable(v)}
                 if callee in FCALLS and not FLOAT_ON[0]:
                     raise Stop(f"call to 0x{callee:x}")
-                if callee is not None and callee not in CALLS and callee not in ERRS:
+                if (callee is not None and callee not in CALLS and callee not in ERRS
+                        and callee not in FCALL_ARM.get(self.op, {})):
                     raise Stop(f"call to 0x{callee:x}")
                 if callee in ERRS:
                     rest = []
@@ -1239,7 +1269,7 @@ class Arm:
         self.order.append(key)
 
     def walk_call(self, entry, ret, st, depth):
-        callee = CALLS[entry]
+        callee = CALLS.get(entry)
         if entry in FCALL_ARM.get(self.op, {}):
             callee = f"fcall_{FCALL_ARM[self.op][entry][0]}"
         post, hyps, proof, _ = call_effect(st, callee, ret)
@@ -1332,10 +1362,13 @@ class Arm:
         st.bounds = bounds
         hs = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(st) + back
         lname = self.name("fin", key)
+        outer = any(kind == "clob" and t == () for kind, t, a, v in st.log)
         text = (f"theorem {lname} {' '.join(hs)} {{c : Config}}\n"
                 f"    (h : At X 0x{HEAD:08x}#64 ({row}) {log} c) :\n"
-                f"    AtFin X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
-                f"  at_fin\n")
+                f"    {'AtFinE' if outer else 'AtFin'} X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
+                f"  {'at_finE' if outer else 'at_fin'}\n")
+        if len(ws) > 2 and outer:
+            raise Stop("an outer store with more than two stored slots")
         if len(ws) > 2:
             # round 5: many stored slots: the frame and keep facts (log-only)
             # each in a declaration of its own (`at_fin_with`)
@@ -1429,6 +1462,9 @@ def ent_text(k, t, a, v):
         frame, site = v
         # lane F1-F4: a summary's frame contents given as a function text
         content = f"({site})" if isinstance(site, str) else f"k{site}"
+        if t == ():
+            # lane F1-F7: a window at a literal address (`FOUTER`)
+            return f".clob ⟨[], {a}, 0⟩ {frame} {content}"
         return f".clob ⟨[(1, .sp)], 0, {frame}⟩ {frame} {content}"
     return f".{k} {lean_aff(t, a)} {lean_loc(v)}"
 
@@ -1859,6 +1895,14 @@ class Fn:
                     raise Stop("a load inside a callee's frame")
                 if add + w <= a2 or a2 + w2 <= add:
                     continue
+                if (a2 != add or w2 != w) and v[0] == "lit" and a2 <= add and add + w <= a2 + w2 \
+                        and add == a2 and w2 == 4 and w == 2:
+                    # lane F1-FMT: the low half of a literal word (`lhu` of a `FILE`'s
+                    # `_flags` after `sw` of `_flags`/`_file`): `fw2_lo4`
+                    val = v[1] & 0xffff
+                    if src is st.carried:
+                        st.hyps.append(self.fact(f"bytesT2 X.m ({nat_txt(terms, add, True)}) = 0x{val:x}#16"))
+                    return ("lit", sx(val, 16) if signed else val)
                 if a2 != add or w2 != w:
                     raise Stop("a partial overlap")
                 if w != 8:
@@ -1890,7 +1934,7 @@ class Fn:
             return val
         # a narrower word the root memory holds over the atoms (`rcellsw`: a
         # callee's result in the caller's frame, `(w, terms, add) -> literal`)
-        rw_ = self.spec.get("rcellsw", {})
+        rw_ = {**self.spec.get("rcellsw", {}), **self.spec.get("root_rcellsw", {}).get(st.rootpc, {})}
         if (w, terms, add) in rw_:
             val = rw_[(w, terms, add)]
             st.hyps.append(self.fact(f"bytesT{w} X.m ({nat_txt(terms, add, True)}) = 0x{val:x}#{8 * w}"))
@@ -1949,6 +1993,15 @@ class Fn:
             # `x & (2^k - 1)` of an affine value whose atoms have known residues
             # (`res`: the stack pointer's alignment), a literal
             setlit(R(o[0]), self.residue(st.get(R(o[1])), imm(o[2]) + 1))
+        elif mnem in ("sext.w", "addiw", "addw", "subw") and self.small32(st, mnem, o) is not None:
+            # lane F1-FMT: 32-bit arithmetic on counts over atoms with known
+            # bounds (`ub`) that stays in the signed 32-bit range: no wrap
+            terms, add = self.small32(st, mnem, o)
+            st.set(R(o[0]), ("lit", add & M64) if not terms else ("nat", terms, add))
+        elif (mnem == "subw" and st.get(R(o[1]))[0] == "nat" and st.get(R(o[2]))[0] == "nat"
+              and st.get(R(o[1]))[1] == st.get(R(o[2]))[1]):
+            # lane F1-FMT: two offsets of the same atoms (`fmt - fmt0`): a literal
+            setlit(R(o[0]), sx(st.get(R(o[1]))[2] - st.get(R(o[2]))[2], 32))
         elif mnem == "slli" and st.get(R(o[1]))[0] == "nat":
             x, k = st.get(R(o[1])), imm(o[2])
             st.set(R(o[0]), self.fnat(tuple((i, c << k) for i, c in x[1]), x[2] << k))
@@ -1961,6 +2014,54 @@ class Fn:
                 setlit(R(o[0]), v)
             else:
                 st.set(R(o[0]), ("opq",))
+
+    def interval(self, v):
+        """lane F1-FMT: the signed range of a literal, or of a value over atoms
+        with known upper bounds (`ub`), else None."""
+        if v[0] == "lit":
+            return sgn(v[1]), sgn(v[1])
+        if v[0] == "nat":
+            ubs = self.spec.get("ub", {})
+            if all(i in ubs for i, _ in v[1]):
+                lo = sum(c * (self.lb(i) if c > 0 else ubs[i]) for i, c in v[1]) + v[2]
+                hi = sum(c * (ubs[i] if c > 0 else self.lb(i)) for i, c in v[1]) + v[2]
+                if -2 ** 63 <= lo and hi < 2 ** 63:
+                    return lo, hi
+        return None
+
+    def small32(self, st, mnem, o):
+        """lane F1-FMT: `sext.w`/`addiw`/`addw`/`subw` of values whose ranges
+        (`interval`) keep operands and result in the signed 32-bit range:
+        the result as `(terms, add)`, else None."""
+        def aff(v):
+            if v[0] == "lit":
+                return (), sgn(v[1])
+            if v[0] == "nat":
+                return v[1], v[2]
+            return None
+        x = st.get(ABI[o[1]])
+        if mnem == "sext.w":
+            ops = [x]
+        elif mnem == "addiw":
+            ops = [x, ("lit", imm(o[2]) & M64)]
+        else:
+            ops = [x, st.get(ABI[o[2]])]
+        affs = [aff(v) for v in ops]
+        if None in affs or all(not t for t, _ in affs):
+            return None
+        for v in ops:
+            iv = self.interval(v)
+            if iv is None or iv[0] < -2 ** 31 or iv[1] >= 2 ** 31:
+                return None
+        if mnem == "subw":
+            (t1, a1), (t2, a2) = affs
+            res = (fadd(t1, tuple((i, -c) for i, c in t2)), a1 - a2)
+        else:
+            res = (fadd(*[t for t, _ in affs]) if len(affs) == 2 else affs[0][0], sum(a for _, a in affs))
+        iv = self.interval(("nat", res[0], res[1])) if res[0] else (res[1], res[1])
+        if iv is None or iv[0] < -2 ** 31 or iv[1] >= 2 ** 31:
+            return None
+        return res
 
     def residue(self, v, mod):
         """`v mod mod` for an affine value whose atoms' residues are known
@@ -2006,7 +2107,11 @@ class Fn:
         FN_UB[0] = self.ub
         st2 = st.copy()
         st2.hyps = []
-        env = {r: fv(st2.get(r)) for r, _ in sg["pre"]}
+        # lane F1-FMT: a register a segment carries but the path never set
+        # (`junk`: `memset`'s `a5`, live through its block path's `jalr`) is pinned
+        # at whatever it holds by the at-lemma's proof and kept out of the rows
+        junk = self.spec.get("junk", ())
+        env = {r: ("_" if r in junk and r not in st2.regs else fv(st2.get(r))) for r, _ in sg["pre"]}
         memtxt = self.mem(st2.log)
         guard, nxt, kind = [], hi, "seg"
         callee = None
@@ -2025,6 +2130,19 @@ class Fn:
                     # end): the constants decide it
                     d = {"zopz0zI_u": x[2] < y[2], "zopz0zKzJ_u": x[2] >= y[2],
                          "==": x[2] == y[2], "!=": x[2] != y[2]}[head]
+                if d is None and head in ("zopz0zI_s", "zopz0zKzJ_s", "zopz0zI_u", "zopz0zKzJ_u"):
+                    # lane F1-FMT: a signed test of a literal against a count over
+                    # atoms with known upper bounds (`ub`): the intervals decide it
+                    ivs = [self.interval(u) for u in (x, y)]
+                    if head.endswith("_u") and None not in ivs and min(ivs[0][0], ivs[1][0]) < 0:
+                        ivs = [None]
+                    if None not in ivs:
+                        (xl, xh), (yl, yh) = ivs
+                        lt = head in ("zopz0zI_s", "zopz0zI_u")
+                        if (xh < yl) if lt else (xl >= yh):
+                            d = True
+                        elif (xl >= yh) if lt else (xh < yl):
+                            d = False
                 if d is None and head in ("==", "!="):
                     # lane F1-12: a pointer atom against NULL (`beqz`): its lower
                     # bound decides it
@@ -2176,6 +2294,11 @@ class Fn:
                 regs[r] = ("bv", self.fresh_bv(ret, r))
         carried = [(w, t, a, v) for w, t, a, v in st.log + st.carried
                    if self.region(t) == "sp" and t == sp[1] and a >= sp[2] and phase_free(v)]
+        # lane F1-FMT: the stack words the callee changes (`kill`: `__ssprint_r`
+        # moves `fp->_p`, `_w` and empties the uio), never carried
+        for kt, ka, kw in spec.get("kill", ()):
+            carried = [(w, t, a, v) for w, t, a, v in carried
+                       if t != kt or a + w <= ka or ka + kw <= a]
         variants = spec.get("ret", {})
         for var in (variants if isinstance(variants, list) else [variants]):
             regs2 = dict(regs)
@@ -2200,7 +2323,8 @@ class Fn:
         """The state after a call to a summary that keeps the memory: the
         caller's frame (`HFrame`: `sp`, `gp`, `s0`–`s11`), `ra`, the results."""
         spec = self.spec["pure"][callee]
-        regs = {r: v for r, v in st.regs.items() if r in (1, 2, 3, 8, 9, *range(18, 28))}
+        regs = {r: v for r, v in st.regs.items() if r in (1, 2, 3, 8, 9, *range(18, 28))
+                and r not in spec.get("drop", ())}
         for r, f in spec["ret"].items():
             regs[r] = f(st)
         post = FState(regs, st.log, st.carried, st.facts, st.root)
@@ -2339,6 +2463,8 @@ class Fn:
                 f"  intro c h\n"
                 f"  obtain ⟨{', '.join(oks)}⟩ := hX\n"
                 f"  have hTH : tohostAddr = 0x8005c6c0 := rfl\n"
+                + "".join(f"  fmt_pin h {r} Register.x{r}\n" for r, _ in self.segs[name]["pre"]
+                          if r in self.spec.get("junk", ()) and r not in st.regs) +
                 f"  fat_seg Lua.Vm.Arms.{name}\n"
                 f"  fat_close\n")
         self.lemmas[key] = (n, text)
@@ -2351,7 +2477,40 @@ class Fn:
         for pc, lp in self.spec.get("loops", {}).items():
             self.root(pc, FState(lp["row"], root=f"Ok_{lp['name']}"))
 
-    def text(self):
+    def files(self):
+        """{path: text}: one module, or (`parts`: lane F1-FMT, a callee whose
+        lemmas one process cannot hold) the rows in `<Mod>/Defs.lean`, the
+        lemmas in `<Mod>/P<k>.lean`, and `<Mod>.lean` importing them."""
+        n = self.spec.get("parts")
+        if not n:
+            return {f"{self.mod}.lean": self.text()}
+        ns = f"Lua.Vm.AtF.{self.mod}"
+        out = {f"{self.mod}/Defs.lean": self.text(body="")}
+        k = (len(self.order) + n - 1) // n
+        chunks = [self.order[i:i + k] for i in range(0, len(self.order), k)]
+        for j, ch in enumerate(chunks):
+            body = "\n".join(self.lemmas[key][1] for key in ch)
+            out[f"{self.mod}/P{j}.lean"] = f"""import {ns}.Defs
+
+/-! {HEADER}
+
+Part {j} of the at-lemmas of `{self.name}` (`{ns}`). -/
+
+open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
+open Vsa.Sim Vsa.Logic
+open Lua.Vm.Sim Lua.Vm.Sim.AtF Lua.Vm.Layout
+open Vsa.Machine (Config)
+
+namespace {ns}
+
+{body}
+end {ns}
+"""
+        out[f"{self.mod}.lean"] = "".join(f"import {ns}.P{j}\n" for j in range(len(chunks))) + \
+            f"\n/-! {HEADER}\n\nThe at-lemmas of `{self.name}`, in {len(chunks)} parts (`{self.mod}/`). -/\n"
+        return out
+
+    def text(self, body=None):
         rows = "\n".join(
             f"@[at_row] abbrev {n} (X : FCx) : List Pin :=\n  [" +
             ",\n   ".join(f"⟨Register.x{r}, {v}⟩" for r, v in key) + "]\n"
@@ -2363,7 +2522,7 @@ class Fn:
             f"/-- The context's facts at the root `{nm}` stands for. -/\n"
             f"structure {nm} (X : FCx) : Prop where\n" + "\n".join(f"  {f}" for f in fs) + "\n"
             for nm, (fs, _) in self.oks.items())
-        body ="\n".join(self.lemmas[k][1] for k in self.order)
+        body = "\n".join(self.lemmas[k][1] for k in self.order) if body is None else body
         dropped = "\n".join(f"* `{n}`: {why}" for n, why in sorted(set(self.dropped))) or "(none)"
         roots = "\n".join(f"* `0x{pc:08x}` from `{r}`" for pc, r in self.roots)
         ends = "\n".join(f"* {k}: `{r}`, memory `{m}`" for k, r, m in dict.fromkeys(self.ends))
@@ -3193,21 +3352,139 @@ FNS = {
 }
 
 
+
+# lane F1-FMT: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)` at its call
+# (`0x80034de0`): `snprintf`'s string `FILE` on its stack, `_svfprintf_r` on
+# the format's bytes (root facts `rcellsw`: the conversion switch's `.rodata`
+# words for `'l'` and `'d'` and the locale's words are `cells`, so only the
+# branches `"%lld"` takes are followed), the digit loop's `__umoddi3` and
+# `__udivdi3` as call nodes (`umoddi3_sum`, `udivdi3_sumF`), `__ssprint_r` a
+# call (`ssprint_sum`, its own at-lemmas), `snprintf`'s `'\0'` and return.
+# Atoms: X.n 0 = sp (`snprintf`'s entry), X.n 1 = buf, X.n 2 = the format,
+# X.n 3 = the digit loop's cursor, X.n 4 = the digit count and X.n 5 = the
+# first digit (after the loop), X.n 6 = `fp->_p` after `__ssprint_r`; X.b 0 =
+# ra, X.b 1-12 = the caller's s0-s11, X.b 13 = i, X.b 14-17 = a4-a7 (the
+# varargs spill), X.b 18 = the loop's quotient, X.b 19-21 the loop's dead
+# s6, s7, s10, X.b 22-23 = the post-loop root's dead s0, s7
+SVF = -864          # `_svfprintf_r`'s sp relative to `snprintf`'s entry sp
+
+
+def svf_at(off):
+    return ((0, 1),), SVF + off
+
+
+SNP_FRAME = {
+    # `_svfprintf_r`'s saved registers: `ra` (into `snprintf`), `snprintf`'s
+    # s0 (`size`) and s1 (`_impure_ptr`), the caller's s2-s11
+    svf_at(584): ("lit", 0x80034e58), svf_at(576): ("lit", 44), svf_at(568): ("lit", IMPURE_DATA),
+    **{svf_at(560 - 8 * k): ("bv", 3 + k) for k in range(4)},          # s2-s5
+    svf_at(528): ("bv", 7),                                                # s6
+    **{svf_at(520 - 8 * k): ("bv", 8 + k) for k in range(5)},          # s7-s11
+    # `snprintf`'s saved ra, s0, s1
+    (((0, 1),), -272 + 216): ("bv", 0), (((0, 1),), -272 + 208): ("bv", 1),
+    (((0, 1),), -272 + 200): ("bv", 2),
+    # `_svfprintf_r`'s slots after the conversion: the format cursor, `fp`, the
+    # count so far, `t3`/`t1` spills, the iov cursor, the precision, the grouping
+    # state, the digit buffer's end, `_REENT`, the uio's resid
+    svf_at(0): N((2, 1), add=4), svf_at(8): N((0, 1), add=-264), svf_at(16): ("lit", 0),
+    svf_at(32): ("lit", 0), svf_at(40): ("lit", 32), svf_at(48): N((0, 1), add=SVF + 352),
+    svf_at(56): ("lit", M64), svf_at(104): ("lit", 0), svf_at(112): N((0, 1), add=SVF + 348),
+    svf_at(120): ("lit", IMPURE_DATA), svf_at(240): ("lit", 0), svf_at(224): N((0, 1), add=SVF + 352),
+    # `snprintf`'s `FILE`: `_p` (the buffer), `_w` (`size - 1`)
+    (((0, 1),), -264): N((1, 1)),
+    # the `va_list` (`snprintf`'s spill of `a3`) and `i` there
+    svf_at(24): N((0, 1), add=-40), (((0, 1),), -40): ("bv", 13),
+}
+SNP_OK = ["sp_lo : 0x8005e720 + 8192 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+          "ra : (X.b 0).toNat % 4 = 0", "b_lo : 0x8005c6d0 ≤ X.n 1", "b_ap : X.n 1 + 44 + 4096 ≤ X.n 0 ∨ X.n 0 ≤ X.n 1", "b_hi : X.n 1 + 44 ≤ 2 ^ 32",
+          "f_lo : 0x80000000 ≤ X.n 2", "f_hi : X.n 2 + 5 ≤ 0x8005c6c0"]
+SNP_LB = {1: 0x8005c6d0, 2: 0x80000000, 3: 0x8005c6d0, 4: 1, 5: 0x8005c6d0, 6: 0x8005c6d0}
+# the registers of the digit loop's head (`0x80043b38`): s0 the quotient,
+# s9 the cursor, s1 `__global_locale`, s2 16, s3 '%', s4 0, s5 the iov array,
+# s8 'd', s11 0 (no grouping)
+SNP_ROW_L = {2: N((0, 1), add=SVF), 3: ("lit", 0x8005ced0), 8: ("bv", 18), 9: ("lit", 0x8005cff0),
+             18: ("lit", 16), 19: ("lit", 37), 20: ("lit", 0), 21: N((0, 1), add=SVF + 352),
+             22: ("bv", 19), 23: ("bv", 20), 24: ("lit", 0x64), 25: N((3, 1)), 26: ("bv", 21),
+             27: ("lit", 0)}
+# … and after it (`0x80043b88`): s6 the digit count, s9 = s10 the first digit,
+# s4 the precision (-1), t1 the flags (`QUADINT`)
+SNP_ROW_P = {2: N((0, 1), add=SVF), 3: ("lit", 0x8005ced0), 6: ("lit", 32), 8: ("bv", 22),
+             9: ("lit", 0x8005cff0), 18: ("lit", 16), 19: ("lit", 37), 20: ("lit", M64),
+             21: N((0, 1), add=SVF + 352), 22: N((4, 1)), 23: ("bv", 23), 24: ("lit", 0x64),
+             25: N((5, 1)), 26: N((5, 1)), 27: ("lit", 0)}
+# the `'d'` conversion (`0x80043824`, a root: the format's walk and the
+# prologue's stores end there): s0 `_REENT`, s4 the precision (-1), s6 the
+# switch's table, s7 the iov cursor, s8 'd', s9 the format past it, s10 'Z',
+# t1 the flags (`QUADINT`)
+SNP_ROW_D = {2: N((0, 1), add=SVF), 3: ("lit", 0x8005ced0), 6: ("lit", 32), 8: ("lit", IMPURE_DATA),
+             9: ("lit", 0x8005cff0), 18: ("lit", 16), 19: ("lit", 37), 20: ("lit", M64),
+             21: N((0, 1), add=SVF + 352), 22: ("lit", 0x800554c4), 23: N((0, 1), add=SVF + 352),
+             24: ("lit", 0x64), 25: N((2, 1), add=4), 26: ("lit", 90), 27: ("lit", 0)}
+# after `_svfprintf_r`'s prologue (`0x80042ec0`, a root: `snprintf`'s and the
+# prologue's stores end there): s0 `_REENT`, s1 `fp`, s6 the format, a5 the
+# `__SSTR` test's `0`, the caller's s2-s5, s7-s11
+SNP_ROW_F = {2: N((0, 1), add=SVF), 3: ("lit", 0x8005ced0), 8: ("lit", IMPURE_DATA),
+             9: N((0, 1), add=-264), 22: N((2, 1)),
+             **{18 + k: ("bv", 3 + k) for k in range(4)}, **{23 + k: ("bv", 8 + k) for k in range(5)}}
+SNP_CELLS = {(8, IMPURE_PTR): IMPURE_DATA,
+             # `_localeconv_r`'s `decimal_point` and its bytes (`"."`, `strlen`)
+             (8, 0x8005d0f0): 0x8004fb10, (8, 0x8004fb10): 0x2e, (1, 0x8004fb10): 0x2e,
+             (1, 0x8004fb11): 0,
+             # `__global_locale.mbtowc`, `__mb_cur_max`
+             (8, 0x8005d0d8): 0x8003cd58, (1, 0x8005d150): 1,
+             # the conversion switch's words for 'l' and 'd'
+             (4, 0x800555f4): 0xfffee88c, (4, 0x800555d4): 0xfffee360}
+SNP_CELLSW = {**{(1, ((2, 1),), k): b for k, b in enumerate([0x25, 0x6c, 0x6c, 0x64, 0])},
+              # the uio's iovcnt; `fp->_flags`
+              (4, ((0, 1),), SVF + 232): 0, (2, ((0, 1),), -272 + 24): 0x208,
+              (4, ((0, 1),), -272 + 20): 43}
+FNS.update({
+    "snprintf/lld": dict(
+        mod="SnprintfLld", entry=0x80034de0,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 44), 12: N((2, 1)), 13: ("bv", 13),
+                     14: ("bv", 14), 15: ("bv", 15), 16: ("bv", 16), 17: ("bv", 17)}),
+        ok=SNP_OK, lb=SNP_LB, depth=200, ub={4: 20},
+        cells=SNP_CELLS, rcells=SNP_FRAME, rcellsw=SNP_CELLSW,
+        # no sign yet at the `'d'` conversion (`root_rcellsw`: a root's own narrow word)
+        root_rcellsw={0x80043824: {(1, ((0, 1),), SVF + 167): 0}},
+        # `__umoddi3`'s `ra` is its inner `jal`'s (`drop`: its summary pins none)
+        pure={0x8002f77c: dict(lemma="Lua.Vm.Sim.Kit.umoddi3_sum _ _ _ hframe? _ _ (by decide)", drop=(1,),
+                               ret={10: lambda st: ("txt", f"({fv(st.get(10))} % {fv(st.get(11))})")}),
+              0x8002f734: dict(lemma="Lua.Vm.Sim.Kit.udivdi3_sumF _ _ _ hframe? _ _ (by decide)",
+                               ret={10: lambda st: ("txt", f"Lua.Vm.Sim.Kit.udivT ({fv(st.get(10))}) ({fv(st.get(11))})")})},
+        # `strlen(".")` a call (`strlen_sumS`): a root after it carries `a5`,
+        # which `memset`'s segments pin (its block path's `jalr` return)
+        # `memmove` a call (`memmove_sum`): `__ssprint_r` and `__ssputs_r` are
+        # walked, their uio and `FILE` words in the path's stores
+        calls={0x8003b444: dict(ret={})}, junk=(15,),
+        loops={0x80042ec0: dict(name="F", row=SNP_ROW_F, ok=SNP_OK, lb=SNP_LB),
+               0x80043824: dict(name="D", row=SNP_ROW_D, ok=SNP_OK, lb=SNP_LB),
+               0x80043b38: dict(name="L", row=SNP_ROW_L,
+                                ok=SNP_OK + ["c_lo : X.n 0 - 864 + 328 ≤ X.n 3",
+                                             "c_hi : X.n 3 ≤ X.n 0 - 864 + 348"], lb=SNP_LB),
+               0x80043b88: dict(name="P", row=SNP_ROW_P,
+                                ok=SNP_OK + ["k_lo : 1 ≤ X.n 4", "k_hi : X.n 4 ≤ 20",
+                                             "k_c : X.n 5 + X.n 4 = X.n 0 - 864 + 348"], lb=SNP_LB)},
+        imports=["Lua.Vm.Sim.Kit.FmtLib"],
+        parts=8, doc="`snprintf(buf, 44, \"%lld\", i)` (`lua_integer2str`)."),
+})
+
 def fn_main(names, check):
     sys.setrecursionlimit(20000)
     drift = False
     for nm in names:
         f = Fn(nm, FNS[nm])
         f.run()
-        text = f.text()
-        path = FN_OUT / f"{FNS[nm]['mod']}.lean"
-        if check:
-            if not path.exists() or path.read_text() != text:
-                print(f"drift: {path}")
-                drift = True
-        else:
-            FN_OUT.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
+        for rel, text in f.files().items():
+            path = FN_OUT / rel
+            if check:
+                if not path.exists() or path.read_text() != text:
+                    print(f"drift: {path}")
+                    drift = True
+            else:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text)
+        if not check:
             print(f"{path}: {len(f.order)} lemmas, {len(f.rows)} rows, {len(f.mems)} memories, "
                   f"{len(f.roots)} roots, {len(set(f.dropped))} dropped")
     return drift

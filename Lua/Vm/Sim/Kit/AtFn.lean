@@ -185,6 +185,14 @@ theorem fw2_same {m : Mem} {a x : Nat} {d : BitVec (8 * 2)} (h : x = a) :
 theorem fw1_same {m : Mem} {a x : Nat} {d : BitVec 8} (h : x = a) :
     bytesT1 (m.insert a d) x = d := by subst h; simp [bytesT1]
 
+/-- lane F1-FMT: the low half of a word just stored (`lhu` of a `FILE`'s
+`_flags` after `sw` of `_flags`/`_file`; the generator's narrow reload of a
+literal word). -/
+theorem fw2_lo4 {m : Mem} {a x : Nat} {d : BitVec (8 * 4)} (h : x = a) :
+    bytesT2 (writeMap4 m a d) x = (d.extractLsb' 8 8).append (d.extractLsb' 0 8) := by
+  subst h
+  simp only [bytesT2, Vsa.Sim.getElem_writeMap4_0, Vsa.Sim.getElem_writeMap4_1, Option.getD_some]
+
 /-- A fact about the root memory, at an address in another form. -/
 theorem rd8_of {m : Mem} {a : Nat} {v : BitVec 64} (h : bytesT8 m a = v) {x : Nat} (e : x = a) :
     bytesT8 m x = v := e ▸ h
@@ -337,7 +345,7 @@ elab "fat_rd" loc:(Lean.Parser.Tactic.location)? : tactic => withMainContext do
   evalTactic (← `(tactic| (
     simp (disch := omega) only [↓ground_toNat, ground_bv, and_m15, and_m7, and_sx15, and_sx7, add_imm, imm_neg_add, BitVec.ofNat_add_ofNat,
       BitVec.toNat_ofNat, Nat.add_zero, Vsa.Sim.sext_zero, BitVec.add_zero, Nat.mod_eq_of_lt,
-      sext64_id, BitVec.mul_one, fw8_same, fw4_same, fw2_same, fw1_same,
+      sext64_id, BitVec.mul_one, fw8_same, fw4_same, fw2_same, fw1_same, fw2_lo4, BitVec.sub_self,
       fw1_wm8, fw1_wm4, fw1_wm2, fw1_ins, fw2_wm8, fw2_wm4, fw2_wm2, fw2_ins,
       fw4_wm8, fw4_wm4, fw4_wm2, fw4_ins, fw8_wm8, fw8_wm4, fw8_wm2, fw8_ins,
       fw1_patch, fw2_patch, fw4_patch, fw8_patch, $facts,*] $[$loc]?)))

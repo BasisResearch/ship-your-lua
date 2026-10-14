@@ -656,8 +656,8 @@ theorem exitOk_entry {m : Mem} {L ci func pa code sp : Nat} {p : Proto} {rt : Rt
     ExitOk p ⟨L, ci, func, pa, code, rt.k, sp, m, ι, rt⟩ := by
   refine Ret.exitOk_of_quiet (bytesT8_of_rd64 hat) (bytesT8_of_rd64 hsx) fun i hi => ?_
   have a1 := hrg.L_lo; have a2 := hrg.ci_lo; have a3 := hrg.stack_lo
-  simp only [ExitFree, Slots, RelPtrs.base, stackValueSize, symEnd, symAtexit, symStdioExitHandler,
-    RuntimeData.spEntry, cStackBudget, stateSize, ciSize] at a1 a2 a3 ⊢
+  simp only [ExitFree, ErrnoW, Slots, RelPtrs.base, stackValueSize, symEnd, symAtexit, symStdioExitHandler,
+    symImpureData, reentErrnoOff, RuntimeData.spEntry, cStackBudget, stateSize, ciSize] at a1 a2 a3 ⊢
   omega
 
 /-- **The complement and the ranges from the runtime's memory structures**: a

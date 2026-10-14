@@ -308,12 +308,18 @@ abbrev exitRow (q8 q9 q18 q19 q20 q21 q22 q23 q24 q25 q26 q27 : BitVec 64) : Lis
    ⟨Register.x22, q22⟩, ⟨Register.x23, q23⟩, ⟨Register.x24, q24⟩, ⟨Register.x25, q25⟩,
    ⟨Register.x26, q26⟩, ⟨Register.x27, q27⟩]
 
+/-- **`errno`** (lane F1-F7): `_REENT->_errno`, the first word of
+`_impure_data`. libm's `fmod` stores `EDOM` there on its domain error
+(`x % 0.0`, `Kit/Errno.lean`); `exit` never reads it (`ExitFree`). -/
+def ErrnoW (a : Nat) : Prop :=
+  symImpureData + reentErrnoOff ≤ a ∧ a < symImpureData + reentErrnoOff + 4
+
 /-- **What `exit` may find changed from the complement**: the C stack, the
-`lua_State` and the `CallInfo` (the return chain's stores, `Scratch`), and the
-register slots. -/
+`lua_State` and the `CallInfo` (the return chain's stores, `Scratch`), the
+register slots, and `errno` (`ErrnoW`). -/
 def ExitFree (p : Proto) (w : RelPtrs) (a : Nat) : Prop :=
   (RuntimeData.spEntry - cStackBudget ≤ a ∧ a < 0x88000000) ∨ (w.L ≤ a ∧ a < w.L + stateSize) ∨
-    (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ Slots p w a
+    (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ Slots p w a ∨ ErrnoW a
 
 /-- **`exit(0)` from the complement halts with code 0 and prints nothing**:
 from `exit`'s entry (`exitRow`) with any memory that reads (totally) as

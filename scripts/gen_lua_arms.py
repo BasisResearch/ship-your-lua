@@ -508,6 +508,14 @@ FLOAT_ARMS |= {"OP_MUL", "OP_MULK"}
 # (`luai_numidiv`), of IDIV's and IDIVK's float paths
 FLOAT_CALLS |= {"__divdf3"}
 FLOAT_ARMS |= {"OP_DIV", "OP_DIVK", "OP_IDIV", "OP_IDIVK"}
+# lane F1-F7: `luai_nummod` by libm `fmod` (`Lua.Vm.Fn.FmodR`: its `errno`
+# store outside the frame), then the sign correction (`__gedf2`, `__ledf2`,
+# `__adddf3`): a call node of MOD's and MODK's float paths. `fmod`'s frame
+# stores the caller's callee-saved registers, so every one is live into its
+# call (`FLOAT_CALL_KEEP`: the summary's frame is the row's)
+FLOAT_CALLS |= {"fmod"}
+FLOAT_ARMS |= {"OP_MOD", "OP_MODK"}
+FLOAT_CALL_KEEP = {"fmod": {"x22", "x26"}}
 SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
@@ -553,6 +561,40 @@ RESULTS.update({"luaL_getmetafield.part.0": {"x10"}, "lua_rawget": {"x10"}, "ind
                 "luaH_get": {"x10"}, "lua_pushvalue": set()})
 RESULTS.update({"lua_pushstring": {"x10"}, "luaS_new": {"x10"}, "luaS_newlstr": {"x10"},
                 "internshrstr": {"x10"}, "luaC_step": set(), "luaE_setdebt": set()})
+# lane F1-FMT: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)`: `snprintf`
+# (stops: `size > INT_MAX` `0x80034ea4`, `size == 0` `0x80034e64`, an error
+# return `0x80034e94`), `_svfprintf_r` on the paths `"%lld"` takes (its
+# conversion switch's `'l'` and `'d'` targets and the return from the
+# locale's `mbtowc` hook, `jalr s4`, are roots; every successor `"%lld"` never
+# takes is a stop: read off the emulator trace of `print(12345, -7, 0,
+# math.mininteger)`), the locale callees (`_localeconv_r`, `strlen` of the
+# decimal point, `memset` of the `mbstate`, `__locale_mb_cur_max`, the hook
+# `__ascii_mbtowc`), the digit loop's `__umoddi3`/`__udivdi3` (call nodes),
+# and the output `__ssprint_r` -> `__ssputs_r` -> `memmove` on a string
+# `FILE` with room (stops: an empty iov `0x80049724`, the error exit
+# `0x800497a8`, the growth path `0x8004e518`)
+HELPERS += [("snprintf", "Snprintf", 0x80034de0, 0x80034eb4, [22, 26], [],
+             [0x80034e64, 0x80034e94, 0x80034ea4]),
+            ("_svfprintf_r", "_svfprintf_r", 0x80042e70, 0x800460a0, [22, 26],
+             [0x80042f60, 0x80043824, 0x80043d50, 0x80043b88, 0x800431f0],
+             [0x80042ecc, 0x80042f70, 0x80043014, 0x80043058, 0x80043098, 0x80043110, 0x80043140,
+              0x80043160, 0x8004318c, 0x800431d4, 0x8004320c, 0x8004331c, 0x80043410, 0x80043508,
+              0x8004361c, 0x8004383c, 0x80043870, 0x800438ac, 0x80043918, 0x80043934, 0x80043b58,
+              0x80043d5c, 0x80043d64, 0x80043ea8, 0x80044454]),
+            ("_localeconv_r", "_localeconv_r", 0x8004a160, 0x8004a168, [22, 26], [], []),
+            ("__locale_mb_cur_max", "__locale_mb_cur_max", 0x8003af90, 0x8003af98, [22, 26], [], []),
+            ("__ascii_mbtowc", "__ascii_mbtowc", 0x8003cd58, 0x8003cdc0, [22, 26], [],
+             [0x8003cd78, 0x8003cda0, 0x8003cdb0]),
+            ("__ssprint_r", "__ssprint_r", 0x800496e4, 0x800497d4, [22, 26], [],
+             [0x80049724, 0x800497a8]),
+            ("__ssputs_r", "__ssputs_r", 0x8004e4b0, 0x8004e644, [22, 26], [], [0x8004e518])]
+RESULTS.update({"snprintf": {"x10"}, "_svfprintf_r": {"x10"}, "_localeconv_r": {"x10"},
+                "__locale_mb_cur_max": {"x10"}, "__ascii_mbtowc": {"x10"},
+                "__ssprint_r": {"x10"}, "__ssputs_r": {"x10"}})
+# the locale's `mbtowc` hook (`__global_locale.mbtowc`, `__ascii_mbtowc`)
+INDIRECT[0x80042f5c] = 0x8003cd58
+# `__udivdi3`'s `t0` is dead after `_svfprintf_r`'s digit-loop call
+PASS_THROUGH_FOR[0x8002f734] = PASS_THROUGH_FOR[0x8002f734] | {"_svfprintf_r"}
 
 
 def helper_cfg(lo, hi):
@@ -829,7 +871,8 @@ def collect(only):
         lo, hi, path = cuts[n]
         callee = re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1)
         if callee in FLOAT_CALLS:
-            jal_args[n] = {"x10"} if callee in FLOAT_UNARY else {"x10", "x11"}
+            jal_args[n] = (({"x10"} if callee in FLOAT_UNARY else {"x10", "x11"})
+                           | FLOAT_CALL_KEEP.get(callee, set()))
     for name, regs in live_keep(arms, specs, sim, jal_end, jal_args).items():
         if regs:
             lo, hi, path = cuts[name]

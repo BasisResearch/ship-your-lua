@@ -27,7 +27,7 @@ theorem exit_agree {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hc : Core
   have hr := hc.ranges
   have a1 := hr.ci_top; have a2 := hr.L_top; have a3 := hr.sp_eq
   simp only [ciSize, stateSize, execFrame, cStackBudget, RuntimeData.spEntry] at a1 a2 a3
-  have hS : ¬ Slots p w a := fun h => ha (.inr (.inr (.inr h)))
+  have hS : ¬ Slots p w a := fun h => ha (.inr (.inr (.inr (.inl h))))
   have hC : ¬ (RuntimeData.spEntry - cStackBudget ≤ a ∧ a < 0x88000000) := fun h => ha (.inl h)
   have hL : ¬ (w.L ≤ a ∧ a < w.L + stateSize) := fun h => ha (.inr (.inl h))
   have hI : ¬ (w.ci ≤ a ∧ a < w.ci + ciSize) := fun h => ha (.inr (.inr (.inl h)))

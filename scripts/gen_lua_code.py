@@ -106,7 +106,11 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          # (`e_fmod.c`), its NaN test `__unorddf2` and `__errno`
          "fmod", "__ieee754_fmod", "__unorddf2", "__errno",
          # lane float-sf6: libm `__ieee754_sqrt` (`e_sqrt.c`)
-         "__ieee754_sqrt"]
+         "__ieee754_sqrt",
+         # lane F1-FMT: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)`:
+         # `_svfprintf_r` on that format, its locale and output callees
+         "snprintf", "_svfprintf_r", "_localeconv_r", "__locale_mb_cur_max",
+         "__ascii_mbtowc", "__ssprint_r", "__ssputs_r"]
 # a static name defined twice whose first (lowest) definition is the one
 # pinned: main.c's `l_alloc` (`g->frealloc`; lauxlib.c's is the second)
 DUP_FIRST = {"l_alloc"}

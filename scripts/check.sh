@@ -286,6 +286,19 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.At.divdf3_sumG
 #print axioms Lua.Vm.Fn.FloorR.sum
 #print axioms Lua.Vm.Fn.FloorR.S_bits
+#print axioms Lua.Vm.Sim.At.sim_MOD_flt
+#print axioms Lua.Vm.Sim.At.sim_MODK_flt
+#print axioms Lua.Vm.Fn.FmodW.sum
+#print axioms Lua.Vm.Fn.FmodR.F_eq
+#print axioms Lua.Vm.Fn.FmodR.sum
+#print axioms Lua.Vm.Fn.FmodR.model
+#print axioms Lua.Vm.Fn.FmodR.S_bits
+#print axioms Lua.Vm.Fn.ErrnoR.sum_imp
+#print axioms Lua.Vm.Fn.Unorddf2.sum
+#print axioms Lua.Vm.Sim.Complement.errno
+#print axioms Lua.Vm.Sim.Core.errnoF
+#print axioms Lua.Vm.Sim.At.AtFinE.close
+#print axioms Lua.Vm.Sim.sim_arm_onE
 #print axioms Lua.Vm.Sim.At.eqiFlt_proved
 #print axioms Lua.Vm.Sim.At.f2iEqW_eq
 #print axioms Lua.Vm.Sim.At.eq_cls
@@ -820,6 +833,8 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Num.str2number_1_5
 #print axioms Lua.Num.tostring_nan
 #print axioms Lua.Num.gethex_sticky
+#print axioms Lua.Vm.Sim.Kit.integerToStr_proved
+#print axioms Lua.Vm.Sim.Kit.snp_loop
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

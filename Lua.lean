@@ -83,6 +83,7 @@ import Lua.Num.SfRefDiv
 import Lua.Vm.Fn.SfRefDiv
 import Lua.Vm.Fn.DivSum
 import Lua.Vm.Fn.FloorR
+import Lua.Vm.Fn.FmodR
 
 /-! Lua 5.4 on bare-metal RV64: bytecode semantics, VM representation, and
 the Layer A / Layer B / end-to-end statements. See README.md, PHASES.md. -/
