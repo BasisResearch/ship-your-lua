@@ -718,4 +718,60 @@ theorem snp_nm_ret (G : SnG) (m : Mem) (hin : G.In m) (hp : zopz0zKzJ_s G.i (0x0
   · intro a h1 h2
     exact (agk.tr (snWd_snWk ag2 (by omega))).t1 (by simp only [snWk, snWkN]; omega)
 
+/-! ## `IntegerToStr_Statement` -/
+
+/-- **`snprintf(buf, 44, "%lld", i)`** (lane F1-FMT): the entry to the
+`'d'` conversion (`snp_toD`), then by the sign and `|i| ≤ 9`: one digit
+(`snp_p1_*`, `snp_n1_*`) or the digit loop (`snp_loop`) and the copies
+(`snp_pm_*`, `snp_nm_*`). -/
+theorem integerToStr_proved : IntegerToStr_Statement := by
+  intro sp buf fmt i r f m o hin c h
+  simp only [callPre, List.cons_append, List.nil_append] at h
+  obtain ⟨a4, ha4⟩ := Option.isSome_iff_exists.mp
+    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk h) 14 (by decide) (by decide))
+  have h := Vsa.Sim.SegSt.repin (L' := ⟨Register.x14, a4⟩ :: _) h ⟨ha4, Vsa.Sim.SegSt.pins h⟩
+  obtain ⟨a5, ha5⟩ := Option.isSome_iff_exists.mp
+    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk h) 15 (by decide) (by decide))
+  have h := Vsa.Sim.SegSt.repin (L' := ⟨Register.x15, a5⟩ :: _) h ⟨ha5, Vsa.Sim.SegSt.pins h⟩
+  obtain ⟨a6, ha6⟩ := Option.isSome_iff_exists.mp
+    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk h) 16 (by decide) (by decide))
+  have h := Vsa.Sim.SegSt.repin (L' := ⟨Register.x16, a6⟩ :: _) h ⟨ha6, Vsa.Sim.SegSt.pins h⟩
+  obtain ⟨a7, ha7⟩ := Option.isSome_iff_exists.mp
+    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk h) 17 (by decide) (by decide))
+  have h := Vsa.Sim.SegSt.repin (L' := ⟨Register.x17, a7⟩ :: _) h ⟨ha7, Vsa.Sim.SegSt.pins h⟩
+  let G : SnG := ⟨sp, buf, fmt, i, r, f, a4, a5, a6, a7, o⟩
+  have hin' : G.In m := hin
+  have h0 : SegSt 0x80034de0#64 (Lua.Vm.AtF.SnprintfLld.r0 (G.X0 m)) (ArmPay (G.X0 m).m (G.X0 m).o) c := by
+    refine h.repin ?_
+    simp only [Lua.Vm.AtF.SnprintfLld.r0, SnG.X0, SnG.X, G, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    pins_of h
+  obtain ⟨c1, s1, h1⟩ := snp_toD G m hin' c h0
+  suffices hpost : ∃ c', Steps c1 c' ∧ SnPost G m c' by
+    obtain ⟨c', s', hp'⟩ := hpost
+    exact ⟨c', s1.trans s', hp'⟩
+  have hs8 : 0x8005e720 + 8192 ≤ G.sp := hin'.sp_lo
+  cases hp : zopz0zKzJ_s G.i (0x0#64)
+  · cases hs : zopz0zI_u (0x9#64) (0#64 - G.i)
+    · obtain ⟨c2, M1, s2, h2, hmv⟩ := snp_n1_mv G m hin' hp hs c1 h1
+      obtain ⟨c3, M2, s3, h3, hmv2⟩ := snp_n1_mv2 G m hin' M1 hmv c2 h2
+      obtain ⟨c4, s4, h4⟩ := snp_n1_ret G m hin' hp hs M1 M2 hmv hmv2 c3 h3
+      exact ⟨c4, s2.trans (s3.trans s4), h4⟩
+    · obtain ⟨c2, s2, h2⟩ := snp_nm_toL G m hin' hp hs c1 h1
+      obtain ⟨c3, s3, V, M, h3, O⟩ := snp_loop G m hin' _ (facL35 G (G.MD m) hs8) _ _ c2 h2
+      have FP : FacP G 0x2d#8 M := (facP35 G (G.MD m) (facD G m hin') hs8).congr O.ag (by omega)
+      obtain ⟨c4, M2, s4, h4, hmv⟩ := snp_nm_mv G m hin' V M O FP c3 h3
+      obtain ⟨c5, M3, s5, h5, hmv2⟩ := snp_nm_mv2 G m hin' V M M2 O FP hmv c4 h4
+      obtain ⟨c6, s6, h6⟩ := snp_nm_ret G m hin' hp V M M2 M3 O hmv hmv2 c5 h5
+      exact ⟨c6, s2.trans (s3.trans (s4.trans (s5.trans s6))), h6⟩
+  · cases hs : zopz0zI_u (0x9#64) G.i
+    · obtain ⟨c2, M1, s2, h2, hmv⟩ := snp_p1_mv G m hin' hp hs c1 h1
+      obtain ⟨c3, s3, h3⟩ := snp_p1_ret G m hin' hp hs M1 hmv c2 h2
+      exact ⟨c3, s2.trans s3, h3⟩
+    · obtain ⟨c2, s2, h2⟩ := snp_pm_toL G m hin' hp hs c1 h1
+      obtain ⟨c3, s3, V, M, h3, O⟩ := snp_loop G m hin' _ (facL18 G (G.MD m) hs8) _ _ c2 h2
+      have FP : FacP G 0x0#8 M := (facP18 G (G.MD m) (facD G m hin') hs8).congr O.ag (by omega)
+      obtain ⟨c4, M2, s4, h4, hmv⟩ := snp_pm_mv G m hin' V M O FP c3 h3
+      obtain ⟨c5, s5, h5⟩ := snp_pm_ret G m hin' hp V M M2 O hmv c4 h4
+      exact ⟨c5, s2.trans (s3.trans (s4.trans s5)), h5⟩
+
 end Lua.Vm.Sim.Kit

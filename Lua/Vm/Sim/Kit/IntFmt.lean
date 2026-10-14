@@ -59,16 +59,6 @@ abbrev SnG.X (G : SnG) (V : SnV) (m : Mem) : FCx :=
     [G.r, G.f.s0, G.f.s1, G.f.s2, G.f.s3, G.f.s4, G.f.s5, G.f.s6, G.f.s7, G.f.s8, G.f.s9, G.f.s10,
      G.f.s11, G.i, G.a4, G.a5, G.a6, G.a7, V.q, V.b19, V.b20, V.b21, V.b22, V.b23, V.b24] m G.o
 
-/-- A signed test of small counts, literals and their negations (a guard
-`fat_run` closes). -/
-macro "fmt_scmp2" : tactic => `(tactic| (
-  simp (disch := omega) only [zopz0zI_s, zopz0zKzJ_s, fmt_toInt_ofNat, fmt_toInt_neg, toInt_m1, toInt_z]
-  (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, ge_iff_le, Bool.not_eq_true]) <;>
-  omega))
-
-macro_rules
-  | `(tactic| fat_hyp) => `(tactic| (fmt_scmp2; done))
-
 /-- A root context's facts as hypotheses (`omega` reads them; `hX` stays for
 the at-lemmas). -/
 macro "fmt_facts " hX:ident : tactic => `(tactic| (have hX' := $hX; cases hX'))

@@ -171,7 +171,7 @@ theorem toInt_z : (0x0#64 : BitVec 64).toInt = 0 := by decide
 their negations. -/
 macro "fmt_scmp" : tactic => `(tactic| (
   simp (disch := omega) only [zopz0zI_s, zopz0zKzJ_s, fmt_toInt_ofNat, fmt_toInt_neg, toInt_m1, toInt_z]
-  (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, ge_iff_le, Bool.not_eq_true, not_lt, not_le]) <;>
+  (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, ge_iff_le, Bool.not_eq_true]) <;>
   omega))
 
 macro_rules
