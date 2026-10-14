@@ -131,9 +131,20 @@ set_option hygiene false in
 /-- The phases' context facts in scope (`kit_disch`'s). -/
 local macro "s2_facts" : tactic => `(tactic| (
   have hro := hx.ro; have hbyte := hx.str.byte
+  have hbyte0 : bytesT1 m P = sb s 0 := hbyte 0 (Nat.zero_le _)
   have hP := hx.str.lo; have hP2 := hx.str.top; have hPh := hx.str.hi
   have hra := hx.ra; have ho1 := hx.o_al; have ho2 := hx.o_lo; have ho3 := hx.o_hi
   have hTH : tohostAddr = 0x8005c6c0 := rfl))
+
+/-- A byte against a character (`li; beq`/`bne`, the constant as `add_imm` leaves it). -/
+theorem s2_c48 : ∀ x : BitVec 8, ((zero_extend (m := 64) (x : BitVec (8 * 1))) ==
+    BitVec.ofNat 64 (0 + 48)) = (UInt8.ofBitVec x == 48) := by decide
+theorem s2_c45 : ∀ x : BitVec 8, ((zero_extend (m := 64) (x : BitVec (8 * 1))) ==
+    BitVec.ofNat 64 (0 + 45)) = (UInt8.ofBitVec x == 45) := by decide
+theorem s2_c43 : ∀ x : BitVec 8, ((zero_extend (m := 64) (x : BitVec (8 * 1))) !=
+    BitVec.ofNat 64 (0 + 43)) = !(UInt8.ofBitVec x == 43) := by decide
+theorem s2_cX : ∀ x : BitVec 8, (((zero_extend (m := 64) (x : BitVec (8 * 1))) &&& sign_extend (m := 64) (0x0df#12)) !=
+    BitVec.ofNat 64 (0 + 88)) = !(UInt8.ofBitVec x == 120 || UInt8.ofBitVec x == 88) := by decide
 
 set_option hygiene false in
 /-- The run's normal form: addresses over `Nat`, the string's bytes, the
@@ -141,10 +152,10 @@ table's answers. -/
 local macro "s2_norm" loc:(Lean.Parser.Tactic.location)? : tactic => `(tactic|
   simp (disch := first | assumption | (simp only [ofBitVec_sb]; assumption) | kit_disch) only [Nat.add_zero, bgeu_ofNat, bne_ofNat, blt_ofNat, s2_dig, Nat.ble_eq,
     Nat.blt_eq, Nat.beq_eq, Bool.not_eq_true', Bool.not_eq_false', decide_eq_true_eq, decide_eq_false_iff_not, ctype_base, addr0, add_imm, BitVec.toNat_ofNat, Nat.mod_eq_of_lt,
-    Nat.add_assoc, hbyte, ctype_addr, ctype_rd hro, zext_and8, zext_and8_eq, ctype_space, ofBitVec_sb,
+    Nat.add_assoc, hbyte, hbyte0, ctype_addr, ctype_rd hro, zext_and8, zext_and8_eq, ctype_space, ofBitVec_sb,
     Vsa.Sim.ret_tgt _ hra, sextw_zext, sextw_zext', sb_len, zext_zero8, s2_add0, zext_and2,
     zext_and2_eq, zext_and16, zext_and16_eq, ctype_digit, ctype_xdigit, s2_t3, s2_t5, s2_t6, s2_mul10,
-    s2_mul16, s2_zero, s2_hexl] $[$loc]?)
+    s2_mul16, s2_zero, s2_hexl, s2_c48, s2_c45, s2_c43, s2_cX] $[$loc]?)
 
 theorem sb_len (s : List UInt8) : sb s s.length = 0#8 := by
   simp only [sb]; rw [show s.getD s.length 0 = bAt s s.length from rfl, bAt_ge (Nat.le_refl _)]; rfl
@@ -565,5 +576,170 @@ theorem s2_hex (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Me
       exact ⟨c2, s2, .inr h2⟩
     · obtain ⟨c2, s2, h2⟩ := s2_hex_end P o s r f m out hx neg i2 n hd k hk (by omega) he c h
       exact ⟨c2, s2, .inr h2⟩
+
+/-! ## The sign, `0x`, and the start of the digits (`0x800119ec`) -/
+
+/-- The row after the sign (`0x800119ec`): `x10` at `i1`. -/
+abbrev s2S (P o i1 : Nat) (neg : Bool) (r : BitVec 64) (f : HFrame) : List Pin :=
+  ⟨Register.x10, BitVec.ofNat 64 (P + i1)⟩ :: ⟨Register.x16, 0x80052030#64⟩ ::
+    ⟨Register.x6, BitVec.ofNat 64 P⟩ :: ⟨Register.x17, BitVec.ofNat 64 o⟩ ::
+    ⟨Register.x29, if neg then 1#64 else 0#64⟩ :: ⟨Register.x1, r⟩ :: f.pins
+
+/-- **The decimal start** (`0x800119ec` → `0x80011a44`): no `0x`. -/
+theorem s2_dstart (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (neg : Bool) (i1 n : Nat) (hd : S2Dec s neg i1 n) (hn : 0 < n)
+    (hh : (bAt s i1 == 48 && (bAt s (i1 + 1) == 120 || bAt s (i1 + 1) == 88)) = false) :
+    Triple (SegSt 0x800119ec#64 (s2S P o i1 neg r f) (ArmPay m out))
+      (s2DPost P o s r f m out neg i1 n) := by
+  intro c h
+  s2_facts
+  have acc0 := Steps.refl c
+  have hdk := hd.dig 0 hn
+  have hlen := hd.len
+  simp only [Nat.add_zero] at hdk
+  have hc1 := (sb s (i1 + 1)).isLt
+  have hc0 := (sb s i1).isLt
+  have hgo := s2_dec P o s r f m out hx neg i1 n hd 0 hn
+  simp only [Nat.add_zero, dacc] at hgo
+  cases h48 : (bAt s i1 == 48)
+  · kit_run h acc0 until [0x80011a44]
+    obtain ⟨c2, s2', h2⟩ := hgo _ (h.repin (by pins_of h))
+    exact ⟨c2, acc0.trans s2', h2⟩
+  · simp only [h48, Bool.true_and] at hh
+    kit_run h acc0 until [0x80011a44]
+    obtain ⟨c2, s2', h2⟩ := hgo _ (h.repin (by pins_of h))
+    exact ⟨c2, acc0.trans s2', h2⟩
+
+/-- **The hex start** (`0x800119ec` → `0x80011ad0` → `0x80011b2c`): `0x`. -/
+theorem s2_hstart (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (neg : Bool) (i1 n : Nat) (hd : S2Hex s (i1 + 2) n) (hn : 0 < n)
+    (h48 : (bAt s i1 == 48) = true) (hX : (bAt s (i1 + 1) == 120 || bAt s (i1 + 1) == 88) = true) :
+    Triple (SegSt 0x800119ec#64 (s2S P o i1 neg r f) (ArmPay m out))
+      (s2HPost P o s r f m out neg (i1 + 2) n) := by
+  intro c h
+  s2_facts
+  have acc0 := Steps.refl c
+  have hdk := hd.dig 0 hn
+  have hlen := hd.len
+  simp only [Nat.add_zero] at hdk
+  have hc2 := (sb s (i1 + 2)).isLt
+  have hc1 := (sb s (i1 + 1)).isLt
+  have hc0 := (sb s i1).isLt
+  have hgo := s2_hex P o s r f m out hx neg (i1 + 2) n hd 0 hn
+  simp only [Nat.add_zero, dacc] at hgo
+  kit_run h acc0 until [0x80011b2c]
+  obtain ⟨c2, s2', h2⟩ := hgo _ (h.repin (by pins_of h))
+  exact ⟨c2, acc0.trans s2', h2⟩
+
+/-- The row after the leading spaces (`0x800119d4`): the byte at `i0` in `x14`. -/
+abbrev s2L (P o i0 : Nat) (r : BitVec 64) (f : HFrame) (s : List UInt8) : List Pin :=
+  ⟨Register.x14, zero_extend (m := 64) (sb s i0 : BitVec (8 * 1))⟩ ::
+    ⟨Register.x10, BitVec.ofNat 64 (P + i0)⟩ :: ⟨Register.x16, 0x80052030#64⟩ ::
+    ⟨Register.x6, BitVec.ofNat 64 P⟩ :: ⟨Register.x17, BitVec.ofNat 64 o⟩ :: ⟨Register.x1, r⟩ :: f.pins
+
+/-- The sign `str2int` takes (`takeSign`): its length and whether it is `-`. -/
+abbrev s2I1 (s : List UInt8) (i0 : Nat) : Nat := i0 + (if bAt s i0 = 45 ∨ bAt s i0 = 43 then 1 else 0)
+
+/-- **The sign** (`0x800119d4` → `0x800119ec`). -/
+theorem s2_sign (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (i0 : Nat) (hi0 : i0 < s.length) :
+    Triple (SegSt 0x800119d4#64 (s2L P o i0 r f s) (ArmPay m out))
+      (SegSt 0x800119ec#64 (s2S P o (s2I1 s i0) (bAt s i0 == 45) r f) (ArmPay m out)) := by
+  intro c h
+  s2_facts
+  have acc0 := Steps.refl c
+  have hc0 := (sb s i0).isLt
+  cases h45 : (bAt s i0 == 45)
+  · cases h43 : (bAt s i0 == 43)
+    · have e : s2I1 s i0 = i0 := by simp only [s2I1]; simp_all
+      rw [e]
+      kit_run h acc0 until [0x800119ec]
+      exact ⟨_, acc0, h.repin (by pins_of h)⟩
+    · have e : s2I1 s i0 = i0 + 1 := by simp only [s2I1]; simp_all
+      rw [e]
+      kit_run h acc0 until [0x800119ec]
+      exact ⟨_, acc0, h.repin (by pins_of h)⟩
+  · have e : s2I1 s i0 = i0 + 1 := by simp only [s2I1]; simp_all
+    rw [e]
+    kit_run h acc0 until [0x800119ec]
+    exact ⟨_, acc0, h.repin (by pins_of h)⟩
+
+/-! ## The leading spaces (`0x80011998`, `0x800119bc`) -/
+
+/-- The leading spaces' loop row (`0x800119bc`): at the space at `j`. -/
+abbrev s2Sp (P o j : Nat) (r : BitVec 64) (f : HFrame) : List Pin :=
+  ⟨Register.x10, BitVec.ofNat 64 (P + j)⟩ :: ⟨Register.x16, 0x80052030#64⟩ ::
+    ⟨Register.x6, BitVec.ofNat 64 P⟩ :: ⟨Register.x17, BitVec.ofNat 64 o⟩ :: ⟨Register.x1, r⟩ :: f.pins
+
+/-- **The leading spaces' loop** (`0x800119bc`): the spaces before `i0`. -/
+theorem s2_lead (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (i0 : Nat) (hi0 : i0 < s.length)
+    (hsp : ∀ k, k < i0 → isSpace (bAt s k) = true) (hns : isSpace (bAt s i0) = false) :
+    ∀ j, j < i0 → Triple (SegSt 0x800119bc#64 (s2Sp P o j r f) (ArmPay m out))
+      (SegSt 0x800119d4#64 (s2L P o i0 r f s) (ArmPay m out)) := by
+  intro j₀ hj₀ c₀ h₀
+  refine seg_loop (S := fun j c => j < i0 ∧ SegSt 0x800119bc#64 (s2Sp P o j r f) (ArmPay m out) c)
+    (fun j => i0 - j) (fun j c ⟨hj, h⟩ => ?_) j₀ c₀ ⟨hj₀, h₀⟩
+  s2_facts
+  have acc0 := Steps.refl c
+  have hc1 := (sb s (j + 1)).isLt
+  by_cases he : j + 1 = i0
+  · have hs1 : isSpace (bAt s (j + 1)) = false := he ▸ hns
+    kit_run h acc0 until [0x800119d4]
+    rw [he] at h
+    exact ⟨_, acc0, .inr (h.repin (by pins_of h))⟩
+  · have hs1 : isSpace (bAt s (j + 1)) = true := hsp (j + 1) (by omega)
+    kit_run h acc0 until [0x800119bc]
+    exact ⟨_, acc0, .inl ⟨j + 1, by omega, by omega, h.repin (by pins_of h)⟩⟩
+
+/-- **The entry** (`0x80011998`): the leading spaces, to the byte at `i0`. -/
+theorem s2_entry (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (i0 : Nat) (hi0 : i0 < s.length)
+    (hsp : ∀ k, k < i0 → isSpace (bAt s k) = true) (hns : isSpace (bAt s i0) = false) :
+    Triple (SegSt 0x80011998#64 (s2Pre P o r f) (ArmPay m out))
+      (SegSt 0x800119d4#64 (s2L P o i0 r f s) (ArmPay m out)) := by
+  intro c h
+  s2_facts
+  have acc0 := Steps.refl c
+  have hc0 := (sb s 0).isLt
+  rcases Nat.eq_zero_or_pos i0 with e | hpos
+  · subst e
+    kit_run h acc0 until [0x800119d4]
+    exact ⟨_, acc0, h.repin (by pins_of h)⟩
+  · have hs0 : isSpace (bAt s 0) = true := hsp 0 hpos
+    kit_run h acc0 until [0x800119bc]
+    obtain ⟨c2, s2', h2⟩ := s2_lead P o s r f m out hx i0 hi0 hsp hns 0 hpos _ (h.repin (by pins_of h))
+    exact ⟨c2, acc0.trans s2', h2⟩
+
+/-! ## `luaO_str2num`'s integer path -/
+
+/-- **`luaO_str2num` on a string `str2int` accepts** (`0x80011998`, lane
+F1-F8): `o` holds the integer `str2int` reads (`setivalue`) and the result is
+the string's size plus one; the run is `l_str2int`'s, never `l_str2d`'s. -/
+theorem str2num_int (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) {v : BitVec 64} (hv : str2int s = some v) :
+    Triple (SegSt 0x80011998#64 (s2Pre P o r f) (ArmPay m out)) (s2Post s.length r f m o v out) := by
+  obtain ⟨S⟩ := str2int_S2I hv
+  have hle : S.i0 ≤ S.i2 := by rw [S.i2_eq, S.i1_eq]; split <;> split <;> omega
+  have hi0 : S.i0 < s.length := by have := S.len; have := S.n_pos; omega
+  refine (s2_entry P o s r f m out hx S.i0 hi0 S.sp0 S.nsp0).seq
+    ((s2_sign P o s r f m out hx S.i0 hi0).seq ?_)
+  rw [show s2I1 s S.i0 = S.i1 from S.i1_eq.symm, ← S.neg_eq]
+  have hdig := S.dig; have hndig := S.ndig; have hlen := S.len; have htsp := S.tsp
+  have hval := S.val; have hovf := S.ovf; have hhex := S.hex_eq; have hi2 := S.i2_eq
+  cases hh : S.hex
+  · rw [hh] at hdig hndig hval hhex hi2
+    simp only [Bool.false_eq_true, ↓reduceIte, Nat.add_zero] at hi2
+    rw [hi2] at hdig hndig hlen htsp hval
+    have hovf' := hovf hh; rw [hh, hi2] at hovf'
+    exact (s2_dstart P o s r f m out hx S.neg S.i1 S.n ⟨hdig, hndig, hlen, htsp, hovf'⟩ S.n_pos
+      hhex.symm).conseq (fun _ h => h) (fun _ h => hval ▸ h)
+  · rw [hh] at hdig hndig hval hhex hi2
+    simp only [↓reduceIte] at hi2
+    rw [hi2] at hdig hndig hlen htsp hval
+    have h2 := hhex.symm
+    simp only [Bool.and_eq_true] at h2
+    exact (s2_hstart P o s r f m out hx S.neg S.i1 S.n ⟨hdig, hndig, hlen, htsp⟩ S.n_pos
+      h2.1 h2.2).conseq (fun _ h => h) (fun _ h => hval ▸ h)
 
 end Lua.Vm.Sim.Kit
