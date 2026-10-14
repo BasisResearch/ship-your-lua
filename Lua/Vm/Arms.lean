@@ -208,6 +208,13 @@ import Lua.Vm.Arms.Segs.Hfmod
 import Lua.Vm.Arms.Segs.Hieee754_fmod
 import Lua.Vm.Arms.Segs.Hunorddf2
 import Lua.Vm.Arms.Segs.Herrno
+import Lua.Vm.Arms.Segs.Hsnprintf
+import Lua.Vm.Arms.Segs.Hsvfprintf_r
+import Lua.Vm.Arms.Segs.Hlocaleconv_r
+import Lua.Vm.Arms.Segs.Hlocale_mb_cur_max
+import Lua.Vm.Arms.Segs.Hascii_mbtowc
+import Lua.Vm.Arms.Segs.Hssprint_r
+import Lua.Vm.Arms.Segs.Hssputs_r
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

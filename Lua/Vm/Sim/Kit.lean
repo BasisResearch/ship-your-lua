@@ -106,6 +106,7 @@ import Lua.Vm.Sim.Kit.PushLitProof
 import Lua.Vm.Sim.Kit.Getmetafield
 import Lua.Vm.Sim.Kit.TolStr
 import Lua.Vm.Sim.Kit.TolStrProof
+import Lua.Vm.Sim.Kit.IntFmtLoop
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
@@ -129,4 +130,9 @@ the closed arm `sim_EQ` (`Kit/EqLong.lean`).
 Lane F1-2: `docondjump` and the `l_strcmp` call node on the location-list route
 (`Kit/AtCond.lean`), and the string paths of `OP_LE`, `OP_LT` there
 (`Kit/AtStr.lean`: `At.sim_LE`, `At.sim_LT`; the kit's `LtStr` is retired).
+
+Lane F1-FMT: `snprintf(buf, 44, "%lld", i)` on the callee-context route
+(`Kit/IntFmt.lean` over `AtF/SnprintfLld`, `Kit/IntFmtSum.lean`,
+`Kit/IntFmtLoop.lean`: the digit loop by `seg_loop`), `integerToStr_proved :
+IntegerToStr_Statement`.
 -/
