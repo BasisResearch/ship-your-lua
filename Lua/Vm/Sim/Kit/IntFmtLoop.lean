@@ -292,10 +292,11 @@ theorem facP35 (G : SnG) (MD : Mem) (F : FacD G MD) (hs : 0x8005e720 + 8192 ≤ 
 
 /-- **A non-negative `i > 9`, to the loop head** (`run_Dpm`). -/
 theorem snp_pm_toL (G : SnG) (m : Mem) (hin : G.In m)
-    (hp : zopz0zKzJ_s G.i (0x0#64) = true) (hs : zopz0zI_u (0x9#64) G.i = true) (c : Config)
-    (h : SegSt 0x80043824#64 (Lua.Vm.AtF.SnprintfLld.r34 (G.XD m)) (ArmPay (G.XD m).m (G.XD m).o) c) :
-    ∃ c1, Steps c c1 ∧ SnLS G (Lua.Vm.AtF.SnprintfLld.m18 (G.XD m)) G.i.toNat
-      ⟨SnV.head (G.sp - 516) G.i, Lua.Vm.AtF.SnprintfLld.m18 (G.XD m)⟩ c1 := by
+    (hp : zopz0zKzJ_s G.i (0x0#64) = true) (hs : zopz0zI_u (0x9#64) G.i = true)
+    : Triple (SegSt 0x80043824#64 (Lua.Vm.AtF.SnprintfLld.r34 (G.XD m)) (ArmPay (G.XD m).m (G.XD m).o))
+      (SnLS G (Lua.Vm.AtF.SnprintfLld.m18 (G.XD m)) G.i.toNat
+      ⟨SnV.head (G.sp - 516) G.i, Lua.Vm.AtF.SnprintfLld.m18 (G.XD m)⟩) := by
+  intro c h
   have hs8 : 8192 ≤ G.sp := by have := hin.sp_lo; omega
   obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := facD G m hin
   obtain ⟨c1, s1, h1⟩ := run_Dpm (G.XD m) ⟨hin.sp_lo, hin.sp_hi, hin.sp_al, hin.ra,
@@ -308,10 +309,11 @@ theorem snp_pm_toL (G : SnG) (m : Mem) (hin : G.In m)
 /-- **A negative `i < -9`, to the loop head** (`run_Dnm`: the sign stored,
 the magnitude `0 - i`). -/
 theorem snp_nm_toL (G : SnG) (m : Mem) (hin : G.In m)
-    (hp : zopz0zKzJ_s G.i (0x0#64) = false) (hs : zopz0zI_u (0x9#64) (0#64 - G.i) = true) (c : Config)
-    (h : SegSt 0x80043824#64 (Lua.Vm.AtF.SnprintfLld.r34 (G.XD m)) (ArmPay (G.XD m).m (G.XD m).o) c) :
-    ∃ c1, Steps c c1 ∧ SnLS G (Lua.Vm.AtF.SnprintfLld.m35 (G.XD m)) (0#64 - G.i).toNat
-      ⟨SnV.head (G.sp - 516) (0#64 - G.i), Lua.Vm.AtF.SnprintfLld.m35 (G.XD m)⟩ c1 := by
+    (hp : zopz0zKzJ_s G.i (0x0#64) = false) (hs : zopz0zI_u (0x9#64) (0#64 - G.i) = true)
+    : Triple (SegSt 0x80043824#64 (Lua.Vm.AtF.SnprintfLld.r34 (G.XD m)) (ArmPay (G.XD m).m (G.XD m).o))
+      (SnLS G (Lua.Vm.AtF.SnprintfLld.m35 (G.XD m)) (0#64 - G.i).toNat
+      ⟨SnV.head (G.sp - 516) (0#64 - G.i), Lua.Vm.AtF.SnprintfLld.m35 (G.XD m)⟩) := by
+  intro c h
   have hs8 : 8192 ≤ G.sp := by have := hin.sp_lo; omega
   obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := facD G m hin
   obtain ⟨c1, s1, h1⟩ := run_Dnm (G.XD m) ⟨hin.sp_lo, hin.sp_hi, hin.sp_al, hin.ra,
@@ -449,9 +451,10 @@ theorem intBytes_pos {i : BitVec 64} (hp : zopz0zKzJ_s i (0x0#64) = true) : intB
 (`run_Rp`). -/
 theorem snp_pm_ret (G : SnG) (m : Mem) (hin : G.In m) (hp : zopz0zKzJ_s G.i (0x0#64) = true)
     (V : SnV) (M M2 : Mem) (O : SnLO G (Lua.Vm.AtF.SnprintfLld.m18 (G.XD m)) G.i.toNat V M)
-    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m65 (G.X V M)) M2 G.buf V.c5 V.k) (c2 : Config)
-    (hQ : SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r144 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o) c2) :
-    ∃ c', Steps c2 c' ∧ SnPost G m c' := by
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m65 (G.X V M)) M2 G.buf V.c5 V.k)
+    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r144 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o))
+      (SnPost G m) := by
+  intro c2 hQ
   have := hin.sp_lo; have := hin.sp_hi; have := hin.b_lo
   have := hin.b_ap; have := hin.b_hi; have := hin.f_lo; have := hin.f_hi
   have hk := O.k_hi; have hkc := O.k_c; have hk1 := O.k_lo
@@ -647,9 +650,10 @@ theorem facN2b (G : SnG) (V : SnV) (M2 : Mem) (F : FacN1a G V M2) (F' : FacN1b G
 theorem snp_nm_ret (G : SnG) (m : Mem) (hin : G.In m) (hp : zopz0zKzJ_s G.i (0x0#64) = false)
     (V : SnV) (M M2 M3 : Mem) (O : SnLO G (Lua.Vm.AtF.SnprintfLld.m35 (G.XD m)) (0#64 - G.i).toNat V M)
     (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m78 (G.X V M)) M2 G.buf (G.sp - 697) 1)
-    (hmv2 : MoveOut (Lua.Vm.AtF.SnprintfLld.m81 (G.X V M2)) M3 (G.buf + 1) V.c5 V.k) (c3 : Config)
-    (hQ : SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r190 (G.X V M3)) (ArmPay (G.X V M3).m (G.X V M3).o) c3) :
-    ∃ c', Steps c3 c' ∧ SnPost G m c' := by
+    (hmv2 : MoveOut (Lua.Vm.AtF.SnprintfLld.m81 (G.X V M2)) M3 (G.buf + 1) V.c5 V.k)
+    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r190 (G.X V M3)) (ArmPay (G.X V M3).m (G.X V M3).o))
+      (SnPost G m) := by
+  intro c3 hQ
   have := hin.sp_lo; have := hin.sp_hi; have := hin.b_lo
   have := hin.b_ap; have := hin.b_hi; have := hin.f_lo; have := hin.f_hi
   have hk := O.k_hi; have hkc := O.k_c; have hk1 := O.k_lo
@@ -746,9 +750,12 @@ theorem integerToStr_proved : IntegerToStr_Statement := by
     simp only [Lua.Vm.AtF.SnprintfLld.r0, SnG.X0, SnG.X, G, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
     pins_of h
   obtain ⟨c1, s1, h1⟩ := snp_toD G m hin' c h0
-  suffices hpost : ∃ c', Steps c1 c' ∧ SnPost G m c' by
-    obtain ⟨c', s', hp'⟩ := hpost
+  suffices hpost : Triple (SegSt 0x80043824#64 (Lua.Vm.AtF.SnprintfLld.r34 (G.XD m))
+      (ArmPay (G.XD m).m (G.XD m).o)) (SnPost G m) by
+    obtain ⟨c', s', hp'⟩ := hpost c1 h1
     exact ⟨c', s1.trans s', hp'⟩
+  clear h1 s1
+  intro c1 h1
   have hs8 : 0x8005e720 + 8192 ≤ G.sp := hin'.sp_lo
   cases hp : zopz0zKzJ_s G.i (0x0#64)
   · cases hs : zopz0zI_u (0x9#64) (0#64 - G.i)
