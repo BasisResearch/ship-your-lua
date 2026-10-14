@@ -1787,6 +1787,8 @@ class Fn:
         self.lemmas, self.order, self.dropped = {}, [], []
         self.roots, self.ends, self.mods = [], [], set()
         self.root_seen = set()
+        # lane F1-18: the at-lemma graph (`runs`: a root path's run lemma)
+        self.edges = {}
         # the roots' context facts: name -> (facts, Nat lower bounds of the atoms)
         self.oks = {"Ok": (spec["ok"], spec.get("lb", {}))}
         for pc, lp in spec.get("loops", {}).items():
@@ -2348,6 +2350,7 @@ class Fn:
                 f"  fat_call ({spec['lemma']})\n")
         self.lemmas[key] = (n, text)
         self.order.append(key)
+        self.edge(key, n, callee, st, ret, post_row, pre_mem, [])
 
     def fcall(self, callee, st):
         """lane F1-F4: the state after a soft-float call node (`FCALLS`): the
@@ -2421,6 +2424,7 @@ class Fn:
                 f"  fat_fcall ({sm})\n")
         self.lemmas[key] = (n, text)
         self.order.append(key)
+        self.edge(key, n, callee, st, ret, post_row, post_mem, hyps[2:])
 
     def root(self, pc, st):
         st.rootpc = pc
@@ -2428,7 +2432,7 @@ class Fn:
         if key in self.root_seen:
             return
         self.root_seen.add(key)
-        self.roots.append((pc, self.row(st.regs)))
+        self.roots.append((pc, self.row(st.regs), st.root))
         self.walk(pc, st)
 
     def emit(self, name, pc, st, st2, nxt, guard, kind):
@@ -2465,6 +2469,127 @@ class Fn:
                 f"  fat_close\n")
         self.lemmas[key] = (n, text)
         self.order.append(key)
+        self.edge(key, n, pc, st, None if kind == "exit" else nxt, post_row, post_mem, hyps[2:])
+
+    # ---- lane F1-18: the root paths' run lemmas (`runs`)
+    def edge(self, key, n, pc, st, tgt, post_row, post_mem, hyps):
+        """An at-lemma as an edge of the graph `runs` walks: from `(pc, row,
+        memory)` in the root context, to `tgt` (`None`: the return) with its
+        post row and memory; its explicit hypotheses `(name, text)`."""
+        hs = []
+        for h in hyps:
+            nm, txt = h[1:-1].split(" : ", 1)
+            hs.append((nm, txt))
+        self.edges[key] = dict(name=n, pc=pc, row=self.row(st.regs), mem=self.mem(st.log), tgt=tgt,
+                               post=(post_row, post_mem), hyps=hs, ctx=st.root)
+
+    def paths(self, pc, ctx, until, row=None):
+        """The at-lemma paths from a root at `pc` of context `ctx` (of row
+        `row`, else every root there) to `until` (`None`: the return); a path
+        stops at a loop head (another root)."""
+        out = []
+        starts = [r for p, r, c in self.roots if p == pc and c == ctx and (row is None or r == row)]
+
+        def go(pc, row, mem, path):
+            if len(out) > 4096:
+                raise Stop("too many paths")
+            for e in self.edges.values():
+                if e["pc"] != pc or e["row"] != row or e["mem"] != mem or e["ctx"] != ctx or e in path:
+                    continue
+                p2 = path + [e]
+                if e["tgt"] == until:
+                    out.append(p2)
+                elif e["tgt"] is not None and e["tgt"] not in self.spec.get("loops", {}):
+                    go(e["tgt"], e["post"][0], e["post"][1], p2)
+        for r in dict.fromkeys(starts):
+            go(pc, r, "X.m", [])
+        return out
+
+    def run_text(self, name, spec):
+        """The run lemma of one root path (`runs`): the path's at-lemmas
+        applied in order by name, its hypotheses the union of theirs (one per
+        text), a derived bound (`hf*`) closed by `fat_hyp`. The path is the
+        one whose hypotheses include every text of `when` and none of
+        `unless` (of the root `row`, if given). A guard over the Nat atoms
+        alone is closed by `fat_hyp` from the context's bounds; `extra`
+        hypotheses come first, and with `derive` every guard is closed by
+        `fat_hyp` from them."""
+        ns = f"Lua.Vm.AtF.{self.mod}"
+        cands = self.paths(spec["at"], spec["ctx"], spec.get("until"), spec.get("row"))
+
+        def has(p, w):
+            return any(t == w for e in p for _, t in e["hyps"])
+        sel = [p for p in cands if all(has(p, w) for w in spec.get("when", []))
+               and not any(has(p, w) for w in spec.get("unless", []))]
+        if len(sel) != 1:
+            for p in cands:
+                print(f"  {name}: " + " ".join(e["name"] for e in p), file=sys.stderr)
+                print("     " + " | ".join(t for e in p for nm, t in e["hyps"] if nm.startswith("hg")),
+                      file=sys.stderr)
+            raise SystemExit(f"run {name}: {len(sel)} of {len(cands)} paths match")
+        path = sel[0]
+        hyps, names, steps = [], {}, []
+        for h in spec.get("extra", []):
+            nm, txt = h[1:-1].split(" : ", 1)
+            names[txt] = nm
+            hyps.append(f"    {h}\n")
+        for e in path:
+            args = []
+            for nm, txt in e["hyps"]:
+                # a derived bound, a guard over the Nat atoms alone (their bounds
+                # decide it), or (`derive`) any guard (the run's facts decide it)
+                if nm.startswith("hf") or (nm.startswith("hg") and txt not in names and (
+                        spec.get("derive") or ("X.b" not in txt and "bytesT" not in txt))):
+                    args.append("(by fat_hyp)")
+                    continue
+                if txt not in names:
+                    base, k, used = nm, 0, set(names.values())
+                    while nm in used:
+                        k += 1
+                        nm = f"{base}_{k}"
+                    names[txt] = nm
+                    hyps.append(f"    ({nm} : {txt})\n")
+                args.append(names[txt])
+            steps.append(f"  obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)\n"
+                         f"    ({ns}.{e['name']} X hX{''.join(' ' + a for a in args)})\n")
+        e0, el = path[0], path[-1]
+        tgt = "X.b 0" if el["tgt"] is None else f"0x{el['tgt']:08x}#64"
+        to = "the return" if el["tgt"] is None else f"`0x{el['tgt']:08x}`"
+        pm = el["post"][1]
+        pm = pm if pm == "X.m" else f"({ns}.{pm[1:]}"
+        return (f"/-- The root path `{name}`: `0x{spec['at']:08x}` to {to}"
+                f"{' (' + spec['doc'] + ')' if spec.get('doc') else ''}. -/\n"
+                f"theorem run_{name} (X : FCx) (hX : {ns}.{spec['ctx']} X)\n" + "".join(hyps) +
+                f"    : Triple (SegSt 0x{spec['at']:08x}#64 ({ns}.{e0['row']} X) (ArmPay X.m X.o))\n"
+                f"      (SegSt ({tgt}) ({ns}.{el['post'][0]} X) (ArmPay {pm} X.o)) := by\n"
+                f"  intro c h\n"
+                f"  have acc := Steps.refl c\n"
+                f"  have hX' := hX\n"
+                f"  cases hX'\n" + "".join(steps) +
+                f"  exact ⟨_, acc, h⟩\n")
+
+    def runs_file(self):
+        """`<Mod>/Runs.lean`: the root paths' run lemmas (`runs`)."""
+        ns = f"Lua.Vm.AtF.{self.mod}"
+        n = self.spec.get("parts")
+        imports = "".join(f"import {ns}.P{j}\n" for j in range(self.nparts)) if n else f"import {ns}\n"
+        body = "\n".join(self.run_text(k, v) for k, v in self.spec["runs"].items())
+        return f"""{imports}
+/-! {HEADER}
+
+The run lemmas of `{self.name}`'s root paths (`runs`, lane F1-18): each
+applies the path's at-lemmas (`{ns}`) in order, its hypotheses theirs. -/
+
+open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
+open Vsa.Sim Vsa.Logic
+open Lua.Vm.Sim Lua.Vm.Sim.AtF Lua.Vm.Layout
+open Vsa.Machine (Config Steps)
+
+namespace {ns}.Runs
+
+{body}
+end {ns}.Runs
+"""
 
     def run(self):
         st = FState(self.spec["row"])
@@ -2479,11 +2604,17 @@ class Fn:
         lemmas in `<Mod>/P<k>.lean`, and `<Mod>.lean` importing them."""
         n = self.spec.get("parts")
         if not n:
-            return {f"{self.mod}.lean": self.text()}
+            out = {f"{self.mod}.lean": self.text()}
+            if self.spec.get("runs"):
+                out[f"{self.mod}/Runs.lean"] = self.runs_file()
+            return out
         ns = f"Lua.Vm.AtF.{self.mod}"
         out = {f"{self.mod}/Defs.lean": self.text(body="")}
         k = (len(self.order) + n - 1) // n
         chunks = [self.order[i:i + k] for i in range(0, len(self.order), k)]
+        self.nparts = len(chunks)
+        if self.spec.get("runs"):
+            out[f"{self.mod}/Runs.lean"] = self.runs_file()
         for j, ch in enumerate(chunks):
             body = "\n".join(self.lemmas[key][1] for key in ch)
             out[f"{self.mod}/P{j}.lean"] = f"""import {ns}.Defs
@@ -2503,6 +2634,7 @@ namespace {ns}
 end {ns}
 """
         out[f"{self.mod}.lean"] = "".join(f"import {ns}.P{j}\n" for j in range(len(chunks))) + \
+            (f"import {ns}.Runs\n" if self.spec.get("runs") else "") + \
             f"\n/-! {HEADER}\n\nThe at-lemmas of `{self.name}`, in {len(chunks)} parts (`{self.mod}/`). -/\n"
         return out
 
@@ -2520,7 +2652,7 @@ end {ns}
             for nm, (fs, _) in self.oks.items())
         body = "\n".join(self.lemmas[k][1] for k in self.order) if body is None else body
         dropped = "\n".join(f"* `{n}`: {why}" for n, why in sorted(set(self.dropped))) or "(none)"
-        roots = "\n".join(f"* `0x{pc:08x}` from `{r}`" for pc, r in self.roots)
+        roots = "\n".join(f"* `0x{pc:08x}` from `{r}`" for pc, r, _ in self.roots)
         ends = "\n".join(f"* {k}: `{r}`, memory `{m}`" for k, r, m in dict.fromkeys(self.ends))
         imports = "".join(f"import {m}\n" for m in sorted(self.mods) + self.spec.get("imports", []))
         ns = f"Lua.Vm.AtF.{self.mod}"
@@ -3434,6 +3566,34 @@ SNP_CELLSW = {**{(1, ((2, 1),), k): b for k, b in enumerate([0x25, 0x6c, 0x6c, 0
               # the uio's iovcnt; `fp->_flags`
               (4, ((0, 1),), SVF + 232): 0, (2, ((0, 1),), -272 + 24): 0x208,
               (4, ((0, 1),), -272 + 20): 43}
+# lane F1-18: the root paths `Kit/IntFmt*.lean` composes (`runs`, emitted in
+# `SnprintfLld/Runs.lean`): the entry to the prologue's root, the prologue to
+# the `'d'` conversion, the conversion's four classes (sign, one digit or
+# more), the returns from `memmove` (`Q*` before the loop, `R*` after), the
+# digit loop's pass and exit, and the post-loop copy by the sign byte
+SNP_NEG = "zopz0zKzJ_s (X.b 13) (0x0#64) = false"
+SNP_POS = "zopz0zKzJ_s (X.b 13) (0x0#64) = true"
+SNP_SGN = "(zero_extend (m := 64) (bytesT1 X.m (X.n 0 - 697) : BitVec (8 * 1)) == 0x0#64) = true"
+SNP_RUNS = {
+    "E": dict(at=0x80034de0, ctx="Ok", until=0x80042ec0),
+    "F": dict(at=0x80042ec0, ctx="Ok_F", until=0x80043824),
+    "Dn1": dict(at=0x80043824, ctx="Ok_D", until=0x8003b444, when=[SNP_NEG]),
+    "Dnm": dict(at=0x80043824, ctx="Ok_D", until=0x80043b38, when=[SNP_NEG]),
+    "Dp1": dict(at=0x80043824, ctx="Ok_D", until=0x8003b444, when=[SNP_POS]),
+    "Dpm": dict(at=0x80043824, ctx="Ok_D", until=0x80043b38, when=[SNP_POS]),
+    "Qp1": dict(at=0x8004e4e8, ctx="Ok_D", until=None, row="r40"),
+    "Qn1": dict(at=0x8004e4e8, ctx="Ok_D", until=0x8003b444, row="r90"),
+    "Qn2": dict(at=0x8004e4e8, ctx="Ok_D", until=None, row="r90"),
+    "Lc": dict(at=0x80043b38, ctx="Ok_L", until=0x80043b38),
+    "Lx": dict(at=0x80043b38, ctx="Ok_L", until=0x80043b88),
+    "Pn": dict(at=0x80043b88, ctx="Ok_P", until=0x8003b444, unless=[SNP_SGN], derive=True,
+               extra=["(hsg : bytesT1 X.m (X.n 0 - 697) = 0x2d#8)"]),
+    "Pp": dict(at=0x80043b88, ctx="Ok_P", until=0x8003b444, when=[SNP_SGN], derive=True,
+               extra=["(hsg : bytesT1 X.m (X.n 0 - 697) = 0x0#8)"]),
+    "Rp": dict(at=0x8004e4e8, ctx="Ok_P", until=None, row="r144"),
+    "Rn1": dict(at=0x8004e4e8, ctx="Ok_P", until=0x8003b444, row="r187"),
+    "Rn2": dict(at=0x8004e4e8, ctx="Ok_P", until=None, row="r190"),
+}
 FNS.update({
     "snprintf/lld": dict(
         mod="SnprintfLld", entry=0x80034de0,
@@ -3462,6 +3622,7 @@ FNS.update({
                                 ok=SNP_OK + ["k_lo : 1 ≤ X.n 4", "k_hi : X.n 4 ≤ 20",
                                              "k_c : X.n 5 + X.n 4 = X.n 0 - 864 + 348"], lb=SNP_LB)},
         imports=["Lua.Vm.Sim.Kit.FmtLib"],
+        runs=SNP_RUNS,
         parts=8, doc="`snprintf(buf, 44, \"%lld\", i)` (`lua_integer2str`)."),
 })
 
