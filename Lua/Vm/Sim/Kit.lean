@@ -100,6 +100,8 @@ import Lua.Vm.Sim.Kit.AtFltDiv
 import Lua.Vm.Sim.Kit.AtFltDivk
 import Lua.Vm.Sim.Kit.AtFltIdiv
 import Lua.Vm.Sim.Kit.AtFltIdivk
+import Lua.Vm.Sim.Kit.AtFltMod
+import Lua.Vm.Sim.Kit.AtFltModk
 import Lua.Vm.Sim.Kit.PushLitProof
 
 /-!

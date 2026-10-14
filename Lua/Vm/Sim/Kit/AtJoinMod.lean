@@ -156,6 +156,19 @@ def KCls : Nat → Proto → Nat → Prop
   | 1, p, i => ∃ n, kval p i = some (.int n)
   | _, p, i => ¬ FltK p i ∧ ¬ ∃ n, kval p i = some (.int n)
 
+/-- `armBodyE_cls` over a predicate of the program too (`FltK`). -/
+theorem armBodyE_clsP {o : OpCode} {P : Proto → State → Word → Prop} (k : Word → Nat)
+    (h0 : ArmBodyE o fun p _ s _ ins => P p s ins ∧ RegCls 0 s (k ins))
+    (h1 : ArmBodyE o fun p _ s _ ins => P p s ins ∧ RegCls 1 s (k ins))
+    (h2 : ArmBodyE o fun p _ s _ ins => P p s ins ∧ RegCls 2 s (k ins)) :
+    ArmBodyE o fun p _ s _ ins => P p s ins :=
+  fun {_} hS {_ s _ _ ins} hA hf hop hstep hP => by
+  by_cases e0 : RegCls 0 s (k ins)
+  · exact h0 hS hA hf hop hstep ⟨hP, e0⟩
+  by_cases e1 : RegCls 1 s (k ins)
+  · exact h1 hS hA hf hop hstep ⟨hP, e1⟩
+  exact h2 hS hA hf hop hstep ⟨hP, e0, e1⟩
+
 /-- An arm body from the three classes of the constant `K[k ins]`. -/
 theorem armBodyE_kcls {o : OpCode} {P : Proto → State → Word → Prop} (k : Word → Nat)
     (h0 : ArmBodyE o fun p _ s _ ins => P p s ins ∧ KCls 0 p (k ins))
@@ -234,7 +247,7 @@ macro_rules
     let fin ← `(theorem $nm : SimArmOn $op FltBK :=
         sim_on_orE (by decide)
           (armBodyE_kcls (·.c) $(mk "_b0") $(mk "_b1") $(mk "_b2"))
-          (armBodyE_cls (·.b) $(mk "_k0") $(mk "_k1") $(mk "_k2")))
+          (armBodyE_clsP (·.b) $(mk "_k0") $(mk "_k1") $(mk "_k2")))
     return Lean.mkNullNode ((cb ++ ck).toArray.push fin)
 
 end Lua.Vm.Sim.At

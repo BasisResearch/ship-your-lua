@@ -365,7 +365,8 @@ join route), `LT` and `LE` (lane F2: their f2i paths through `floor`),
 F4: `luaV_equalobj`'s float summary `Kit.equalobj_flt_sum` as the call node,
 from the callee-context route), `DIV`, `DIVK` (every path) and the float paths
 of `IDIV`, `IDIVK` (lane F1-F6: `__divdf3`, `Divdf3.spec_proved`; IDIV's
-stored `floor` by `FloorR`). libm `floor`'s premise `FloorSpec` is
+stored `floor` by `FloorR`), the float paths of `MOD`, `MODK` (lane F1-F7:
+libm `fmod` by `FmodR`, its `errno` store at `x % 0.0` by `Complement.errno`). libm `floor`'s premise `FloorSpec` is
 `floorSpec_proved` (lane float-sf3), passed by the generated at-lemmas of both
 routes (lane F1-F5, `PREMISE_PROOF`). `EQI` (lane F1-F5: `At.eqiFlt_proved`).
 `FORPREP` is proved but for the paths its field names (`At.FpCoerce_Statement`). -/
@@ -378,10 +379,6 @@ structure FloatArms : Prop where
   POW : SimArm .POW
   /-- `OP_POWK` (T4) -/
   POWK : SimArm .POWK
-  /-- `OP_MOD` with a float operand (`luaV_modf`: `fmod`; T4) -/
-  MOD : SimArmOn .MOD FltBC
-  /-- `OP_MODK` with a float operand (T4) -/
-  MODK : SimArmOn .MODK FltBK
   /-- `OP_FORPREP`'s coerced classes, neither three integers nor three floats
   (`forlimit`'s `luaV_tointeger`/`luaV_tonumber_` → `strtod`); the float loop
   is `At.sim_FORPREP_flt` -/
@@ -404,7 +401,7 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case ADD => exact SimArm.split @sim_ADD (At.sim_ADD_flt hF.soft)
   case SUB => exact SimArm.split @sim_SUB (At.sim_SUB_flt hF.soft)
   case MUL => exact SimArm.split Kit.sim_MUL At.sim_MUL_flt
-  case MOD => exact SimArm.split Kit.sim_MOD hF.MOD
+  case MOD => exact SimArm.split Kit.sim_MOD At.sim_MOD_flt
   case IDIV => exact SimArm.split At.sim_IDIV At.sim_IDIV_flt
   case BAND => exact SimArm.split @sim_BAND (At.sim_BAND_flt hF.soft)
   case BOR => exact SimArm.split @sim_BOR (At.sim_BOR_flt hF.soft)
@@ -416,7 +413,7 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case ADDK => exact SimArm.split @sim_ADDK (At.sim_ADDK_flt hF.soft)
   case SUBK => exact SimArm.split @sim_SUBK (At.sim_SUBK_flt hF.soft)
   case MULK => exact SimArm.split Kit.sim_MULK At.sim_MULK_flt
-  case MODK => exact SimArm.split At.sim_MODK hF.MODK
+  case MODK => exact SimArm.split At.sim_MODK At.sim_MODK_flt
   case IDIVK => exact SimArm.split At.sim_IDIVK At.sim_IDIVK_flt
   case DIVK => exact At.sim_DIVK
   case POWK => exact hF.POWK
