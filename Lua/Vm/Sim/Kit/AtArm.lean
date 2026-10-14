@@ -148,7 +148,11 @@ elab "at_close " ns:ident h:ident acc:ident : tactic => do
       let args := args.pop
       let lem ← `($(mkIdent n) $args* $h)
       withoutRecover <| Term.withoutErrToSorry <| evalTactic (← `(tactic| (
-        refine ⟨_, $acc, (($lem).pc_eq ?_).close $(mkIdent `hX) ?_ ?_⟩
+        -- lane F1-F7: a run that may move the pointers (`sim_arm_onE`: an
+        -- `errno` store, `AtFinE.close`) closes at any pointers
+        first
+          | refine ⟨_, $acc, (($lem).pc_eq ?_).close $(mkIdent `hX) ?_ ?_⟩
+          | refine ⟨_, _, $acc, (($lem).pc_eq ?_).close $(mkIdent `hX) ?_ ?_⟩
         first | rfl | omega | (simp only []; omega) | at_pc_ext
         at_hold
         at_new)))

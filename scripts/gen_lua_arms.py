@@ -504,6 +504,14 @@ FLOAT_ARMS |= {"OP_MUL", "OP_MULK"}
 # (`luai_numidiv`), of IDIV's and IDIVK's float paths
 FLOAT_CALLS |= {"__divdf3"}
 FLOAT_ARMS |= {"OP_DIV", "OP_DIVK", "OP_IDIV", "OP_IDIVK"}
+# lane F1-F7: `luai_nummod` by libm `fmod` (`Lua.Vm.Fn.FmodR`: its `errno`
+# store outside the frame), then the sign correction (`__gedf2`, `__ledf2`,
+# `__adddf3`): a call node of MOD's and MODK's float paths. `fmod`'s frame
+# stores the caller's callee-saved registers, so every one is live into its
+# call (`FLOAT_CALL_KEEP`: the summary's frame is the row's)
+FLOAT_CALLS |= {"fmod"}
+FLOAT_ARMS |= {"OP_MOD", "OP_MODK"}
+FLOAT_CALL_KEEP = {"fmod": {"x22", "x26"}}
 SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
@@ -824,7 +832,8 @@ def collect(only):
         lo, hi, path = cuts[n]
         callee = re.search(r"<([^>+]+)>", g[hi - 4][0]).group(1)
         if callee in FLOAT_CALLS:
-            jal_args[n] = {"x10"} if callee in FLOAT_UNARY else {"x10", "x11"}
+            jal_args[n] = (({"x10"} if callee in FLOAT_UNARY else {"x10", "x11"})
+                           | FLOAT_CALL_KEEP.get(callee, set()))
     for name, regs in live_keep(arms, specs, sim, jal_end, jal_args).items():
         if regs:
             lo, hi, path = cuts[name]

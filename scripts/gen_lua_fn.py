@@ -80,18 +80,46 @@ ROUTINES = {
     # below), a 16-byte frame on its NaN path only (`(x*y)/(x*y)`: `__muldf3`,
     # `__divdf3` as call nodes)
     "__ieee754_fmod": ("Ieee754Fmod", 0x8002bdb4, 16, [10, 11]),
+    # lane F1-F7: `fmod`'s callees `__unorddf2` (a leaf) and `__errno` (a leaf
+    # reading `_impure_ptr`: its lifted function takes the memory and the
+    # caller's frame, `Fn.leaf_mf`)
+    "__unorddf2": ("Unorddf2", 0x8002f0b0, 0, [10, 11]),
+    "__errno": ("Errno", 0x8003b40c, 0, []),
+    # lane F1-F7: libm `fmod` (`w_fmod.c`): `__ieee754_fmod`, `__eqdf2`,
+    # `__unorddf2`, `__errno` and `__divdf3` as call nodes; `s0`-`s2` saved in
+    # its prologue and reassigned (`saves`), so its callees' frames are built
+    # from the current registers (`call_g`); `errno`'s store outside the frame
+    # (`OUTER`)
+    "fmod": ("FmodW", 0x8002b964, 32, [10, 11]),
 }
 # a framed routine whose framed callees write below its own frame: the bytes
 # below `sp` its summary patches (its frame plus the deepest callee's)
-WINDOW = {"floor": 112, "__ieee754_fmod": 128}
+WINDOW = {"floor": 112, "__ieee754_fmod": 128, "fmod": 160}
 # lane float-sf5: the routines whose lifted functions take the memory only
 # where they read it (`Fn.need_m`, as under `FORWARD`): a callee's frame
 # contents stay out of the value functions, which `#eval` runs
-MEMLESS = {"__ieee754_fmod"}
+MEMLESS = {"__ieee754_fmod", "fmod"}
 # lane float-sf5: a routine whose addresses `kit_disch` does not fold (a
 # table indexed by a bit: `e_fmod.c`'s `Zero[sx]`) -> its discharger
 # (`Kit/FnLoop.lean`'s `fn_disch`: `kit_disch`, else the literal parts reduced)
-DISCH = {"__ieee754_fmod": "fn_disch"}
+DISCH = {"__ieee754_fmod": "fn_disch", "__errno": "(cases f; subst hgp; dsimp only; decide)", "fmod": "fn_odisch"}
+# lane F1-F7: leaf routines whose lifted function reads the memory and the
+# caller's frame (`__errno`: `ld a0, 1224(gp)`): it takes `m` and `f`
+LEAF_MF = {"__errno"}
+# lane F1-F7: the facts every node lemma of a routine takes, after its stack
+# facts: (name, type, the successor's proof: `None` passes it on, else a
+# tactic). `fmod`: `gp` (`__errno`'s load), the stack above the outer words,
+# and `_impure_ptr` (`__errno`'s result), read back through the stores
+FACTS = {"__errno": [("hgp", "f.gp = BitVec.ofNat 64 Lua.Vm.Layout.symGlobalPointer", None)],
+         "fmod": [("hgp", "g.gp = BitVec.ofNat 64 Lua.Vm.Layout.symGlobalPointer", None),
+                  ("hsI", "Lua.Vm.Layout.symImpurePtr + 8 + 160 ≤ s", None),
+                  ("himp", "bytesT8 m Lua.Vm.Layout.symImpurePtr = "
+                   "BitVec.ofNat 64 Lua.Vm.Layout.symImpureData", "fn_imp")]}
+# lane F1-F7: a routine's store outside its frame, at a fixed word (`errno`,
+# `_REENT->_errno`): (address, bytes). Its memory is the entry memory patched
+# twice from the memory function: the frame window, then that word
+# (`Kit/FnOuter.lean`)
+OUTER = {"fmod": ("Lua.Vm.Layout.symImpureData", 4)}
 # lane float-sf5: segments whose memory side conditions hold only on the paths
 # into them (an address over a register the node does not bound: `e_fmod.c`'s
 # `Zero[(uint32_t)sx>>31]` at `0x8002c1fc`, `sx` masked upstream): they become
@@ -107,6 +135,12 @@ SIDE = {"__ieee754_fmod": {"seg_8002c1fc_8002c214"}}
 # frame's stores (ROUND-5 §2, "the frame reloads")
 FORWARD = {"floor", "__muldf3", "__divdf3"}
 SLOT_RE = r"\(v2 \+ sign_extend \(m := 64\) \((0x[0-9a-f]+)#12\)\)\.toNat"
+# lane F1-F7: a slot as the prologue's segment states it (over the entry `sp`)
+PRO_SLOT_RE = (r"\(\(v2 \+ sign_extend \(m := 64\) \(0x[0-9a-f]+#12\)\) \+ "
+               r"sign_extend \(m := 64\) \((0x[0-9a-f]+)#12\)\)\.toNat")
+# lane F1-F7: the routines whose prologue saves callee-saved registers that
+# the body reassigns (`fmod`: `s0`-`s2`), tracked by `saves` from the prologue
+PRO_SAVES = {"fmod"}
 LOAD_RE = r"bytesT8 \(m0\) " + SLOT_RE
 MEM_RE = r"\bm\b(?!\s*:=)"
 
@@ -187,6 +221,23 @@ CALLEES = {
                        "Lua.Num.F64.div ({a0}) ({a1})", 2, 112,
                        "Lua.Vm.Fn.Divdf3.Fm ({m}) {sp} ({r}) {g} ({a0}) ({a1})",
                        ("Lua.Num.F64.div", "Lua.Vm.Fn.Divdf3.Fm"), "Lua.Vm.Fn.DivSum"),
+    # lane F1-F7: `fmod`'s callees. `__ieee754_fmod` by its reference
+    # (`Ieee754Fmod.sum_ref`: the result `SfRef.fmod`, its frame storing the
+    # caller's `s0`-`s3` through `__divdf3`); `__eqdf2`, `__unorddf2` (leaves);
+    # `__errno` with `_impure_ptr`'s target as its result (`ErrnoR.sum_imp`)
+    0x8002bdb4: Callee("Lua.Vm.Fn.Ieee754Fmod.sum_ref",
+                       "_ _ {sp} _ {g} _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)",
+                       "Lua.Num.SfRef.fmod ({a0}) ({a1})", 2, 128,
+                       "Lua.Vm.Fn.Ieee754Fmod.Fm ({m}) {sp} ({r}) {g} ({a0}) ({a1})",
+                       ("Lua.Num.SfRef.fmod", "Lua.Vm.Fn.Ieee754Fmod.Fm"), "Lua.Vm.Fn.FmodSpec"),
+    0x8002e350: Callee("Lua.Vm.Fn.Eqdf2.sum", "_ _ _ hframe? _ _ (by decide)",
+                       "Lua.Vm.Fn.Eqdf2.F ({a0}) ({a1})", 2, opaque=("Lua.Vm.Fn.Eqdf2.F",),
+                       imp="Lua.Vm.Fn.Eqdf2"),
+    0x8002f0b0: Callee("Lua.Vm.Fn.Unorddf2.sum", "_ _ _ hframe? _ _ (by decide)",
+                       "Lua.Vm.Fn.Unorddf2.F ({a0}) ({a1})", 2, opaque=("Lua.Vm.Fn.Unorddf2.F",),
+                       imp="Lua.Vm.Fn.Unorddf2"),
+    0x8003b40c: Callee("Lua.Vm.Fn.ErrnoR.sum_imp", "_ _ _ hframe? hgp (by fn_imp) (by decide)",
+                       "(BitVec.ofNat 64 Lua.Vm.Layout.symImpureData)", 0, imp="Lua.Vm.Fn.ErrnoR"),
 }
 
 # the callee-saved registers: register -> field of `HFrame`/`SFrame`
@@ -237,7 +288,7 @@ def args_of(text):
 def wm8_chain(mem):
     """`writeMap8 (writeMap8 (m0) (a1) (d1)) (a2) (d2)` -> [(a1, d1), (a2, d2)]."""
     stores = []
-    while mem.startswith("writeMap8 "):
+    while mem.startswith("writeMap8 ") or mem.startswith("writeMap4 "):
         inner, a, d = args_of(mem[len("writeMap8 "):])[:3]
         stores.insert(0, (a, d))
         mem = inner.strip()
@@ -325,6 +376,9 @@ class Fn:
         # addresses by `whnf`)
         self.rod, self.ra_t = (("fn_rod_patch", "fn_ra_patch") if self.patch or fn in FORWARD
                                else ("fn_rod", "fn_ra"))
+        if fn in OUTER:
+            self.rod, self.ra_t = "fn_rod_patch4", "fn_ra_patch4"
+        self.facts = FACTS.get(fn, [])
         self.nodes = {}
         for s in self.segs:
             self.nodes.setdefault(s.lo, []).append(s)
@@ -383,10 +437,47 @@ class Fn:
         # or a callee's frame stores it (`{g}` in `Callee.mf`)
         self.mem_g = bool(self.sv_slot) or any(
             s.kind == "call" and "{g}" in (s_callee(s).mf or "") for s in self.segs)
+        # lane F1-F7: a register a node's only edge in sets to a literal is
+        # that literal in the node (`OUTER`: `__errno`'s result, the address
+        # of the outer store)
+        self.consts = {}
+        if fn in OUTER:
+            self.const_prop()
         if self.fwd:
             self.forward()
         elif fn in MEMLESS:
             self.mem_need()
+
+    def const_prop(self):
+        """`self.consts`: node -> {register: literal} (an acyclic routine)."""
+        preds = self.preds()
+        closed = re.compile(r"\bv\d+\b|\bm\b|\bg\.|\bs\b|\br\b|\bvs[0-9a-f]+\b|\bfuel\b|\bk\b")
+        for pc in reversed(self.order):          # the entry first
+            ins = preds.get(pc, [])
+            if pc == self.entry or len(ins) != 1 or pc in self.cyc:
+                continue
+            p, s = ins[0]
+            post = self.edge_post(p, s)[0]
+            cs = {r: post[r] for r in self.live(pc) if r in post and not closed.search(post[r])}
+            if cs:
+                self.consts[pc] = cs
+
+    def edge_post(self, pc, s):
+        """The registers and memory after segment `s` of node `pc` (a call's
+        result and kept registers)."""
+        post = {r: self.subst(pc, e) for r, e in s.post.items()}
+        mem = self.subst(pc, s.mem)
+        if s.kind == "call":
+            fmt = self.call_fmt(pc, s, post, mem)
+            post = {10: s_callee(s).val.format(**fmt),
+                    **{r: post[r] for r in s_callee(s).keeps if r in post},
+                    **{r: post[r] for r in FRAME if r in post},
+                    **{r: v.format(**fmt) for r, v in s_callee(s).clobbers.items()}}
+            if s_callee(s).frame:
+                c = s_callee(s)
+                mem = (f"memPatch ({mem}) ({c.mf.format(**fmt)}) ({fmt['sp']} - {c.frame}) "
+                       f"{c.frame}")
+        return post, mem
 
     def side(self, s):
         """Segment `s`'s side conditions that are conjuncts of `T` (`SIDE`)."""
@@ -470,6 +561,7 @@ class Fn:
         restore `ld s<i>, off(sp)` is the caller's value (`fn_sv_ld`)."""
         preds = self.preds()
         self.sv_slot, self.spilled, av_in, out = {}, {}, {}, {}
+        self.sp_after = {}
         # a fixpoint: a cycle's back edges (lane float-sf5) join on a later
         # pass; without cycles the second pass repeats the first
         while True:
@@ -487,13 +579,18 @@ class Fn:
                 self.spilled[pc], av_in[pc] = sp, av
                 for s in self.nodes[pc]:
                     if s.kind == "ret":
-                        if sp:
-                            raise SystemExit(f"{s.name}: returns with {sorted(sp)} not restored")
+                        # lane F1-F7: the epilogue's restores (`fmod`'s `ld s0, 16(sp)`)
+                        left = {r for r in sp
+                                if not ((m := re.fullmatch(SV_RE, s.post.get(r, f"v{r}")))
+                                        and self.sv_slot.get(m.group(1)) == r and m.group(1) in av)}
+                        if left:
+                            raise SystemExit(f"{s.name}: returns with {sorted(left)} not restored")
                         continue
                     av2 = set(av)
-                    if self.inside(pc) and s.mem != "m0" and not s.sp_delta:
+                    pro = bool(s.sp_delta) and self.fn in PRO_SAVES
+                    if s.mem != "m0" and ((self.inside(pc) and not s.sp_delta) or pro):
                         for a, d in wm8_chain(s.mem):
-                            m = re.fullmatch(SLOT_RE, a)
+                            m = re.fullmatch(PRO_SLOT_RE if pro else SLOT_RE, a)
                             if not m:
                                 continue
                             o, dm = m.group(1), re.fullmatch(r"sdData_val v(\d+)", d)
@@ -517,6 +614,7 @@ class Fn:
                         else:
                             raise SystemExit(f"{s.name}: x{r} reassigned before it is saved")
                     out[(pc, id(s))] = (frozenset(sp2), frozenset(av2))
+                    self.sp_after[(pc, id(s))] = frozenset(sp2)
             if (self.spilled, av_in) == prev:
                 break
         live, changed = {}, True
@@ -638,7 +736,8 @@ class Fn:
     def live(self, pc):
         """The node's registers that are its lifted function's arguments."""
         return sorted(r for r in self.regs(pc)
-                      if (r not in FRAME or r in self.spilled.get(pc, ())) and r not in (1, 2))
+                      if (r not in FRAME or r in self.spilled.get(pc, ())) and r not in (1, 2)
+                      and r not in self.consts.get(pc, {}))
 
     def sp(self, pc):
         if not self.framed():
@@ -649,6 +748,8 @@ class Fn:
 
     def val(self, pc, r):
         """The node's expression for register `r`."""
+        if r in self.consts.get(pc, {}):
+            return f"({self.consts[pc][r]})"
         if r == 2:
             return self.sp(pc)
         if r == 1:
@@ -682,6 +783,8 @@ class Fn:
             # to their save slots (`saves`)
             gb = " (g : SFrame)" if memfn and self.mem_g else ""
             return f"{fb}{mb}(s : Nat) (r : BitVec 64){gb}{bv}"
+        if self.fn in LEAF_MF:
+            return (fb + "(m : Mem) (f : HFrame)" + bv).strip()
         return (fb + bv.strip()).strip()
 
     def napp(self, pc, mem="m", vals=None, memfn=False, slots=None, fuel=None, tfn=False):
@@ -699,11 +802,14 @@ class Fn:
             mm = f"({mem}) " if memfn or self.need_m[pc] else ""
             gg = "g " if memfn and self.mem_g else ""
             return f"{f} {fa}{mm}s r {gg}{a}".rstrip()
+        if self.fn in LEAF_MF:
+            return f"{self.tn(pc) if tfn else self.dn(pc)} {fa}({mem}) f {a}".rstrip()
         return f"{self.tn(pc) if tfn else self.dn(pc)} {fa}{a}".rstrip()
 
     def pins(self, pc):
         """The node lemma's pin list."""
         out = [f"⟨Register.x{r}, v{r}⟩" for r in self.live(pc)]
+        out += [f"⟨Register.x{r}, ({e})⟩" for r, e in self.consts.get(pc, {}).items()]
         if 1 in self.regs(pc):
             out.append(f"⟨Register.x1, {self.val(pc, 1)}⟩")
         if self.framed():
@@ -719,6 +825,9 @@ class Fn:
             pins = [f"⟨Register.x10, {app}⟩", "⟨Register.x2, BitVec.ofNat 64 s⟩"]
             pins += [f"⟨Register.x{r}, g.{f}⟩" for r, f in FRAME.items()]
             mem = f"memPatch m ({self.napp(pc, memfn=True, fuel=fu)}) (s - {self.W}) {self.W}"
+            if self.fn in OUTER:
+                A, n = OUTER[self.fn]
+                mem = f"memPatch ({mem}) ({self.napp(pc, memfn=True, fuel=fu)}) {A} {n}"
             return f"SegSt r [{', '.join(pins)}] (ArmPay ({mem}) o)"
         return f"SegSt r (⟨Register.x10, {app}⟩ :: f.pins) (ArmPay m o)"
 
@@ -736,18 +845,7 @@ class Fn:
             if memfn:
                 return self.subst(pc, s.mem)
             return self.subst(pc, s.post[10])
-        post = {r: self.subst(pc, e) for r, e in s.post.items()}
-        mem = self.subst(pc, s.mem)
-        if s.kind == "call":
-            fmt = self.call_fmt(pc, s, post, mem)
-            post = {10: s_callee(s).val.format(**fmt),
-                    **{r: post[r] for r in s_callee(s).keeps if r in post},
-                    **{r: post[r] for r in FRAME if r in post},
-                    **{r: v.format(**fmt) for r, v in s_callee(s).clobbers.items()}}
-            if s_callee(s).frame:
-                c = s_callee(s)
-                mem = (f"memPatch ({mem}) ({c.mf.format(**fmt)}) ({fmt['sp']} - {c.frame}) "
-                       f"{c.frame}")
+        post, mem = self.edge_post(pc, s)
         vals = {}
         for r in self.live(s.succ):
             if r not in post:
@@ -770,12 +868,20 @@ class Fn:
         inside = self.inside(pc) if s is None else self.off[pc] - s.sp_delta != 0
         return f"(s - {self.F})" if inside else "s"
 
-    def call_g(self, pc, s):
-        """The caller's frame at a call (`{g}`): its callee-saved registers
-        must be the caller's (none spilled and reassigned there)."""
-        if "{g}" in (s_callee(s).args + (s_callee(s).mf or "")) and self.spilled.get(pc):
+    def call_g(self, pc, s, post=None):
+        """The caller's frame at a call (`{g}`): the caller's `g`, or, where
+        the routine holds its own values in callee-saved registers (lane
+        F1-F7: `fmod`'s `s0`-`s2`, `PRO_SAVES`), the frame of the current
+        registers (`SFrame.mk`, the spilled ones from the segment's post-state)."""
+        if "{g}" not in (s_callee(s).args + (s_callee(s).mf or "")):
+            return "g"
+        sp = self.sp_after.get((pc, id(s)), frozenset())
+        if not sp:
+            return "g"
+        if self.fn not in PRO_SAVES or post is None:
             raise SystemExit(f"{s.name}: a callee stores the caller's frame while it is spilled")
-        return "g"
+        return "(SFrame.mk " + " ".join(f"({post[r]})" if r in sp else f"g.{f}"
+                                        for r, f in FRAME.items()) + ")"
 
     def call_fmt(self, pc, s, post, mem):
         """The format arguments of a call node's callee."""
@@ -783,7 +889,7 @@ class Fn:
         fmt = {f"a{i}": post[10 + i] for i in range(c.nargs)}
         fmt["m"], fmt["r"] = mem, f"0x{s.hi:08x}#64"
         fmt["sp"] = self.sp_nat(pc, s) if c.frame else ""
-        fmt["g"] = self.call_g(pc, s)
+        fmt["g"] = self.call_g(pc, s, post)
         return fmt
 
     def ndef(self, pc, memfn=False, tfn=False):
@@ -837,8 +943,10 @@ class Fn:
                 hs += f"\n    (hjt : v{self.jt[pc][2]}.toNat < {self.jt[pc][1]})"
             elif pc in self.jt:
                 hs += f"\n    (hk : v{self.jt[pc][2]} = BitVec.ofNat 64 {k})"
+            hs += "".join(f"\n    ({n} : {ty})" for n, ty, _ in self.facts)
             return f"{pre}(m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame){bv}\n    {hs}{ht}"
-        return f"{pre}(m : Mem) (o : Array String) (r : BitVec 64) (f : HFrame){bv}\n    (hr : r.toNat % 4 = 0){ht}"
+        fs = "".join(f" ({n} : {ty})" for n, ty, _ in self.facts)
+        return f"{pre}(m : Mem) (o : Array String) (r : BitVec 64) (f : HFrame){bv}\n    (hr : r.toNat % 4 = 0){fs}{ht}"
 
     def seg_app(self, pc, s, neg):
         args = ["_"] * (s.nvars + 2)
@@ -903,8 +1011,10 @@ class Fn:
                 if not (seg and seg.guard and not seg.guard[1] and seg.guard[0].startswith("zopz0zI_u ")):
                     raise SystemExit(f"0x{pc:x}: a jump table not reached by its bound check")
                 hs += " (Lua.Vm.Sim.fn_jt_bound (fn_false hg) (by decide))"
+            hs += "".join(f" {n}" if tac is None else f" (by {tac})" for n, _, tac in self.facts)
             return f"{name} {pre}_ _ s r g {vs} {hs}{post}".replace("  ", " ")
-        return f"{name} {pre}_ _ r f {vs} hr{post}".replace("  ", " ")
+        fs = "".join(f" {n}" if tac is None else f" (by {tac})" for n, _, tac in self.facts)
+        return f"{name} {pre}_ _ r f {vs} hr{fs}{post}".replace("  ", " ")
 
     def branch_proof(self, pc, s, neg, ind):
         I = " " * ind
@@ -943,13 +1053,14 @@ class Fn:
             out.append(f"{I}refine ⟨_, acc, ?_⟩")
             out.append(f"{I}{unfold}")
             if self.framed():
-                out.append(f"{I}rw [memPatch_self]")
+                out.append(f"{I}rw [memPatch_self" + (", memPatch_self]" if self.fn in OUTER else "]"))
             out.append(f"{I}exact (h.at ({tgt})).repin (by pins_of h)")
             return out
         framed_call = s.kind == "call" and s_callee(s).frame
         if s.kind == "call":
             c = s_callee(s)
-            args = c.args.format(sp=self.sp_nat(pc, s) if c.frame else "", g=self.call_g(pc, s)).replace(
+            post = {r: self.subst(pc, e) for r, e in s.post.items()}
+            args = c.args.format(sp=self.sp_nat(pc, s) if c.frame else "", g=self.call_g(pc, s, post)).replace(
                 "(by fn_rod)", f"(by {self.rod})")
             # a framed callee's `s` is the caller's `sp` as a `Nat`: its pin
             # put in front (`SegSt.pin_sp`), and back after the return
@@ -976,8 +1087,11 @@ class Fn:
         out.append(f"{I}{unfold}")
         if framed_call:
             out.append(f"{I}simp (disch := kit_disch) only [memPatch_patch_in] at h")
-        if s.mem != "m0":
+        if "writeMap8" in s.mem:
             out.append(f"{I}simp (disch := kit_disch) only [memPatch_wm8_in] at h")
+        if "writeMap4" in s.mem:
+            # lane F1-F7: a store outside the frame, overwritten by the outer patch
+            out.append(f"{I}simp (disch := fn_odisch) only [memPatch_wm4_outer] at h")
         out.append(f"{I}exact h")
         return out
 
@@ -987,6 +1101,7 @@ class Fn:
         vs += [f"vs{o[2:]}" for o in self.slots_in[pc]]
         hs = ["hs", "hr", "hrod"] + (["hra"] if self.inside(pc) else [])
         hs += [f"hs{o[2:]}" for o in self.slots_in[pc]] + [f"hsv{o[2:]}" for o in self.sv_in[pc]]
+        hs += [n for n, _, _ in self.facts]
         return " ".join(["m", "o", "s", "r", "g"] + vs + hs)
 
     def jt_entries(self, pc):
@@ -1014,6 +1129,8 @@ class Fn:
              "  have acc := Vsa.Machine.Steps.refl c"]
         if self.framed():
             L.append("  fn_sp_facts")
+        if self.fn in OUTER:
+            L.append("  fn_imp_facts")
         if pc in self.jt:
             # the index enumerated from the top entry down (`fn_jt_split`),
             # each entry its own lemma
@@ -1130,6 +1247,8 @@ class Fn:
         imports = "import Lua.Vm.Sim.Kit.Fn\n"
         if self.patch or self.fwd:
             imports += "import Lua.Vm.Sim.Kit.FnCall\n"
+        if self.fn in OUTER:
+            imports += "import Lua.Vm.Sim.Kit.FnOuter\n"
         if self.cyc:
             imports += "import Lua.Vm.Sim.Kit.FnLoop\n"
         callees = sorted({s.callee for s in self.segs if s.kind == "call"})

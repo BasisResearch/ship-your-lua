@@ -509,14 +509,15 @@ the C stack, or chunks in use apart from `stdout`'s buffer (the `lua_State`,
 the `CallInfo`, the register slots). -/
 theorem exitFree_kept {p : Lua.Bytecode.Proto} {w : RelPtrs} {buf : Nat} {F FL : Nat → Prop} {ls : LitPtrs}
     (hI : CallInvAt p w (.up buf []) F FL ls) {a : Nat} (h : ExitFree p w a) :
-    RuntimeData.spEntry - cStackBudget ≤ a ∨ Kept w.rt.hix (.up buf []) a := by
-  rcases h with h | h | h | h
+    RuntimeData.spEntry - cStackBudget ≤ a ∨ Kept w.rt.hix (.up buf []) a ∨ ErrnoW a := by
+  rcases h with h | h | h | h | h
   · exact .inl h.1
-  · exact .inr (hI.L_in a h.1 h.2)
-  · exact .inr (hI.ci_in a h.1 h.2)
+  · exact .inr (.inl (hI.L_in a h.1 h.2))
+  · exact .inr (.inl (hI.ci_in a h.1 h.2))
   · have := hI.fits
     simp only [Slots, RelPtrs.base, stackValueSize] at h this
-    exact .inr (hI.stack_in a (by omega) (by omega))
+    exact .inr (.inl (hI.stack_in a (by omega) (by omega)))
+  · exact .inr (.inr h)
 
 /-- **`exit(0)` once `stdout` is set up**, from `_free_r`'s summary. -/
 theorem exitUp_of_free (hF : FreeR_Statement) : ExitUp_Statement := by
@@ -529,25 +530,36 @@ theorem exitUp_of_free (hF : FreeR_Statement) : ExitUp_Statement := by
   have e3 : heapEnd = 0x87800000 := rfl
   have hbh := hb.hi
   -- off the C stack and the chunks in use, `M` reads as the complement
-  have kS : ∀ a, a < 0x87fefe20 → ¬ Kept w.rt.hix (.up buf []) a → bytesT1 M a = bytesT1 w.mo a :=
-    fun a h1 h2 => hM a fun hf => (exitFree_kept hI hf).elim (fun h => by omega) h2
-  have kLo : ∀ a, a < heapStart → bytesT1 M a = bytesT1 w.mo a := fun a ha =>
-    kS a (by omega) fun hk => by have := hk.lo; omega
+  have kS : ∀ a, a < 0x87fefe20 → ¬ Kept w.rt.hix (.up buf []) a → ¬ ErrnoW a →
+      bytesT1 M a = bytesT1 w.mo a :=
+    fun a h1 h2 h3 => hM a fun hf => (exitFree_kept hI hf).elim (fun h => by omega) (·.elim h2 h3)
+  have e4 : symImpureData + reentErrnoOff = 0x8005d1b8 := rfl
+  have kLo : ∀ a, a < heapStart → ¬ ErrnoW a → bytesT1 M a = bytesT1 w.mo a := fun a ha he =>
+    kS a (by omega) (fun hk => by have := hk.lo; omega) he
+  -- lane F1-F7: `errno` (`ErrnoW`) is no word `exit` reads
+  have nE : ∀ a, (a < 0x8005d1b8 ∨ 0x8005d1bc ≤ a) → ¬ ErrnoW a := fun a h he => by
+    simp only [ErrnoW, e4] at he; omega
   have kBuf : ∀ a, Rng buf 1024 a → bytesT1 M a = bytesT1 w.mo a := fun a ha =>
-    kS a (by simp only [Rng] at ha; omega) fun hk => hk.nbuf ha
+    kS a (by simp only [Rng] at ha; omega) (fun hk => hk.nbuf ha)
+      (nE a (by simp only [Rng] at ha; have := hb.lo; omega))
   fs_nums
   stdio_nums
   have hs' : StdoutAt M buf [] := hs.congrF fun a ha => by
     rcases ha with ha | ha | ha | ha
-    · exact kLo a (by simp only [Rng] at ha; omega)
-    · exact kLo a (by simp only [Rng] at ha; omega)
-    · exact kLo a (by simp only [Rng] at ha; omega)
+    · exact kLo a (by simp only [Rng] at ha; omega) (nE a (by simp only [Rng] at ha; omega))
+    · exact kLo a (by simp only [Rng] at ha; omega) (nE a (by simp only [Rng] at ha; omega))
+    · exact kLo a (by simp only [Rng] at ha; omega) (nE a (by simp only [Rng] at ha; omega))
     · exact kBuf a ha
   exact exit_run_up hF h
-    ((bytesT8_congrT fun i _ => kLo _ (by have : symAtexit = 0x8005d450 := rfl; omega)).trans hI.atexit) hs'
-    (hu.congrT fun a ha => kLo a (by simp only [StdioGlob] at ha; omega))
-    (hR.congrT fun a ha => kLo a (by have := ha.range; omega)) hb
-    (hH.ofTotal fun a hr hu => kS a (by simp only [HeapReads] at hr; omega) fun hk => hu hk.inuse)
+    ((bytesT8_congrT fun i _ => kLo _ (by have : symAtexit = 0x8005d450 := rfl; omega)
+      (nE _ (by have : symAtexit = 0x8005d450 := rfl; omega))).trans hI.atexit) hs'
+    (hu.congrA fun a ha => kLo a (by have := ha.1; simp only [StdioGlob] at this; omega)
+      (fun he => ha.2 (by simp only [ErrnoW, e4] at he; exact .inl ⟨by omega, by omega⟩)))
+    (hR.congrT fun a ha => kLo a (by have := ha.range; omega)
+      (fun he => ha.foot.2 (by simp only [ErrnoW, e4] at he; exact .inl ⟨by omega, by omega⟩))) hb
+    (hH.ofTotal fun a hr hu => kS a (by simp only [HeapReads] at hr; omega) (fun hk => hu hk.inuse)
+      (nE a (by simp only [HeapReads, symMallocAv, symMallocSbrkBase, symBrk, symMallocTopPad,
+        symMallocMaxSbrked, symMallocMallinfo] at hr; omega)))
 
 /-- (lane F1-14; lane F1-A0-M) `exit(0)` after a `print`, `_free_r` discharged. -/
 theorem exitUp_proved : ExitUp_Statement := exitUp_of_free AllocProof.freeR_proved
