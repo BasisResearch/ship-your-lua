@@ -10,8 +10,8 @@ import Lua.Vm.Sim.Kit.Tolstring
 invariant) is proved in `Kit/CallPrint.lean` (`printCall_of`) from
 `luaD_precall`'s C path (`precall_reuse`, `precall_ext`), `luaD_poscall` with
 `C = 1` (`poscall_sum`) and the relation's region facts, over the named
-premise collected here (`CallOpen`: `printAlloc`) and the theorems
-it composes:
+premises collected here (`CallOpen`: `tolInt`, `printFlt`, `printFn`,
+`allocOff`, lane F1-18) and the theorems it composes:
 
 * `PrintRel_Statement`: `luaB_print` on the C frame `luaD_precall` builds,
   stated over the regions it keeps (`PrintIn`/`PrintOut`): the line on the
@@ -19,8 +19,13 @@ it composes:
   the interned literals again. Proved (`CallOpen.print`, `Kit/PrintRel.lean`,
   lane F1-15) from `print_sum` (lane F1-11) with `luaL_tolstring` per value
   class: nil/booleans over `pushLit_proved`, strings `TolStr_Statement`
-  (`tolStr_proved`, lane F1-17), the allocating classes `PrintAlloc_Statement` (field
-  `printAlloc`), and `_malloc_r` (`AllocProof.mallocR_proved`, lane F1-A0-M);
+  (`tolStr_proved`, lane F1-17), and `_malloc_r` (`AllocProof.mallocR_proved`,
+  lane F1-A0-M); the allocating classes split by value class (lane F1-18):
+  integers per argument over `print_sum`'s per-argument budget
+  (`TolInt_Statement`, field `tolInt`; `PrSt.room`/`strt`/`safe`), lists
+  with a float (`PrintFlt_Statement`) or a function (`PrintFn_Statement`), and
+  integer lists off the per-argument route (`PrintAllocOff_Statement`:
+  `luaS_resize`, or a string table not known safe);
 * `ExtendCI_Statement`: `luaE_extendCI` (`ci->next` NULL at the first
   `print`), `extendCI_proved`;
 * `PoscallN_Statement`: `luaD_poscall` with `C ≥ 2` (`wanted ≥ 1` nils);
@@ -147,13 +152,15 @@ structure PrintOut (sp0 g sl : Nat) (ls : LitPtrs) (args : List Value) (D G : Na
 `CallInfo`: one `_malloc_r` with its `_sbrk`). -/
 def extRoom : Nat := 16384 + 4096 + 128
 
-/-- **`luaB_print` on the C frame, for the argument lists `Q`** (`0x80022f18`,
+/-- **`luaB_print` on the C frame, on the entries `Q`** (lane F1-18: `Q` of
+the entry's objects, the arguments, the regions and the memory; `0x80022f18`,
 called by `precallC`'s `jalr a7` with `ra = 0x8000ac8c` and `sp - 96`), from
 `PrintIn` and, when an argument allocates, the heap room of `CALL print` less
 the `CallInfo`'s (`callBudget`, `extRoom`): `PrintOut`. -/
-def PrintRelOn (Q : List Value → Prop) : Prop :=
+def PrintRelIf (Q : Nat → Nat → Nat → Nat → Nat → LitPtrs → List Value → (Nat → Prop) → (Nat → Prop) →
+    StdoutPh → HeapIx → Mem → Prop) : Prop :=
   ∀ (sp L nci func n tbc sl g ss : Nat) (ls : LitPtrs) (args : List Value) (ι : Strs) (D G : Nat → Prop)
-    (ph : StdoutPh) (H : HeapIx) (f : AbiFrame) (M : Mem) (o : Array String), Q args →
+    (ph : StdoutPh) (H : HeapIx) (f : AbiFrame) (M : Mem) (o : Array String), Q L func n sl g ls args D G ph H M →
     PrintIn L nci func n tbc sl g ls args ι D G ph H M → PrNums (sp - 96) L nci func n 0x8000ac8c#64 →
     (AnyAlloc args → H.brk + callBudget args ss ≤ heapEnd + extRoom) →
     Triple (SegSt 0x80022f18#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩] (sp - 96) 0x8000ac8c#64 (pcFr L f))
@@ -161,22 +168,53 @@ def PrintRelOn (Q : List Value → Prop) : Prop :=
       (fun c => ∃ m' out, wrRet 0x8000ac8c#64 (sp - 96) 0 (pcFr L f) m' (pushes o out) c ∧
         PrintOut (sp - 96) g sl ls args D G ph H M m' out)
 
+/-- **`luaB_print` on the C frame, for the argument lists `Q`**: `PrintRelIf`
+on the arguments alone. -/
+def PrintRelOn (Q : List Value → Prop) : Prop :=
+  PrintRelIf fun _ _ _ _ _ _ args _ _ _ _ _ => Q args
+
 /-- **`luaB_print` on the C frame** (every argument list): `PrintRelOn` of
 all. Lane F1-15: proved (`printRel_of`, `Kit/PrintRel.lean`) from the
-allocating lists' `PrintAlloc_Statement`, the literal classes over
-`PushLit_Statement` and the strings over `TolStr_Statement`. -/
+allocating lists' premises, the literal classes over `PushLit_Statement` and
+the strings over `TolStr_Statement`; lane F1-18: the allocating lists split
+by value class (`printRel_of`: integers per argument, `TolInt_Statement`). -/
 def PrintRel_Statement : Prop := PrintRelOn fun _ => True
 
-/-- **Named premise: `luaB_print` when some argument allocates** (lane F1-15:
-an integer, a float or a function, `Allocates`): `luaL_tolstring` →
-`lua_pushfstring` → `luaO_pushvfstring` (`lua_integer2str` =
-`IntegerToStr_Statement`, `%.14g` = `G14From`, `"%s: %p"`) → `luaS_newlstr` →
-`internshrstr` creating a string (`luaC_newobj` → `_malloc_r`; `luaS_resize`
-when the table is full). Coarse because `print_sum`'s Lua state `S k ph H m`
-does not know the argument's index, so it cannot carry a per-argument heap
-budget, and a write's post (`PrintPost`) bounds no break; and a new string
-changes the string table the literals' facts read (a new `FL`). -/
-def PrintAlloc_Statement : Prop := PrintRelOn AnyAlloc
+/-- An integer value. -/
+def IsInt : Value → Prop
+  | .int _ => True
+  | _ => False
+
+/-- A float value. -/
+def IsFlt : Value → Prop
+  | .flt _ _ => True
+  | _ => False
+
+/-- A function value. -/
+def IsFn : Value → Prop
+  | .builtin _ => True
+  | _ => False
+
+/-- (lane F1-18) Some argument is of class `C`. -/
+def HasClass (C : Value → Prop) (args : List Value) : Prop := ∃ v ∈ args, C v
+
+/-- **Named premise: `luaB_print` when an argument is a float** (lane F1-18,
+the float class of lane F1-15's `PrintAlloc_Statement`): `luaL_tolstring` →
+`lua_pushfstring(L, "%f")` → `luaO_pushvfstring` → `tostringbuff` →
+`lua_number2str` = `snprintf(buf, 44, "%.14g", x)` (`G14From_Statement`, over
+`DtoaBig_Statement` for `_dtoa_r`'s bignum path) → `strspn` and the `".0"`
+suffix → `luaS_newlstr`. A whole-call premise: `_dtoa_r`'s `_Balloc` reuses the
+bignums of `_REENT`'s freelists, which neither `PrintIn` nor the relation
+place apart from what the caller keeps, so a per-argument statement over
+`PrSt` would be false. -/
+def PrintFlt_Statement : Prop := PrintRelOn (HasClass IsFlt)
+
+/-- **Named premise: `luaB_print` when an argument is a function** (lane
+F1-18): `luaL_tolstring`'s `luaL_getmetafield(L, idx, "__name")` reads
+`G(L)->mt[LUA_TFUNCTION]`, which neither `PrintIn` nor the relation's Lua state
+(`LuaStateRel`: nil, booleans, numbers) constrain, then `lua_pushfstring(L,
+"%s: %p")` (`lua_pointer2str` = `snprintf(buf, 44, "%p")`). -/
+def PrintFn_Statement : Prop := PrintRelOn (HasClass IsFn)
 
 /-! ## `luaB_print`'s Lua state (lane F1-15) -/
 
@@ -187,17 +225,72 @@ def PrKeep (L g func n : Nat) (G : Nat → Prop) (a : Nat) : Prop :=
   G a ∨ ArgSlot func n a ∨ (Image.rodataBase ≤ a ∧ a < Image.rodataBase + Image.rodataSize) ∨
     Rng (g + gGcstpOff) 1 a ∨ Rng (g + gMtOff) 32 a ∨ Rng (L + stateGOff) 8 a ∨ Rng (L + stateHookmaskOff) 4 a
 
-/-- **`luaB_print`'s Lua state** (`print_sum`'s `S k ph H m`, lane F1-15): the
-API frame of `k` values, the literals (frozen on `FL`, the cache's
-candidates), the bytes `PrKeep` of the entry memory `M0`, the buffer the
-entry's or fresh, the entry's chunks in use kept. -/
-structure PrSt (L nci func tbc sl g n : Nat) (ls : LitPtrs) (D G FL : Nat → Prop) (M0 : Mem) (ph0 : StdoutPh)
-    (H0 : HeapIx) (k : Nat) (ph : StdoutPh) (H : HeapIx) (m : Mem) : Prop where
+/-! ## The per-argument budget (lane F1-18) -/
+
+/-- **The break the arguments from `i` on may claim** (`argCost`, 1-based). -/
+def prCost (args : List Value) (i : Nat) : Nat := ((args.drop (i - 1)).map argCost).sum
+
+/-- **The arguments from `i` on that make a string** (`argCost` positive). -/
+def prAllocs (args : List Value) (i : Nat) : Nat :=
+  ((args.drop (i - 1)).filter fun v => decide (0 < argCost v)).length
+
+/-- `g->strt.nuse` as `internshrstr`'s `lw` reads it. -/
+def strtNuse (m : Mem) (g : Nat) : Nat := (bytesT4 m (g + gStrtNuseOff)).toNat
+
+/-- `g->strt.size` as `internshrstr`'s `lw` reads it. -/
+def strtSize (m : Mem) (g : Nat) : Nat := (bytesT4 m (g + gStrtSizeOff)).toNat
+
+/-- **A bucket's chain, readable and apart** (`internshrstr`'s walk): the
+strings of `StrChain`, each with `shrlen ≤ LUAI_MAXSHORTLEN` and its object
+`[ts, ts + 24 + shrlen + 1)` (the header the walk reads, the mark
+`changewhite` writes, the contents `memcmp` reads) in `K` and off `X`. -/
+inductive StrChainK (m : Mem) (K X : Nat → Prop) (size i : Nat) : Nat → Prop where
+  | nil : StrChainK m K X size i 0
+  | cons {ts h nx l : Nat} : ts ≠ 0 → rd8 m (ts + gcTtOff) = some gcShrStr →
+      rd8 m (ts + tstringShrlenOff) = some l → l ≤ maxShortLen → rd32 m (ts + tstringHashOff) = some h →
+      h % size = i → rd64 m (ts + tstringLnglenOff) = some nx →
+      (∀ a, ts ≤ a → a < ts + tstringContentsOff + l + 1 → K a ∧ ¬ X a) →
+      StrChainK m K X size i nx → StrChainK m K X size i ts
+
+/-- **`g->strt` readable and apart** (`internshrstr` on any short contents):
+the bucket array (`tb->hash[h] = ts` on a miss) and every chain in `K`, off
+`X`. -/
+structure StrtSafe (m : Mem) (rt : RtPtrs) (K X : Nat → Prop) : Prop where
+  hash : ∀ a, rt.strtHash ≤ a → a < rt.strtHash + 8 * rt.strtSize → K a ∧ ¬ X a
+  chains : ∀ j (h : j < rt.strtHeads.length), StrChainK m K X rt.strtSize j rt.strtHeads[j]
+
+/-- **The string table of every reading of the literals' facts is safe**
+(`StrtSafe` with `X` what `luaB_print`'s state keeps and the literals' writes). -/
+def StrtSafeIn (L g func n sl : Nat) (ls : LitPtrs) (G D K : Nat → Prop) (M : Mem) : Prop :=
+  ∀ rt, LitsIn M g sl ls rt → StrtSafe (fillZeroMem M) rt K (fun a => PrKeep L g func n G a ∨ D a)
+
+/-- **`luaB_print`'s Lua state before argument `i`** (`print_sum`'s `S i k ph
+H m`, lane F1-15; the index and the budget lane F1-18): the API frame of `k`
+values, the literals (frozen on `FL`, the cache's candidates), the bytes
+`PrKeep` of the entry memory `M0`, the buffer the entry's or fresh, the entry's
+chunks in use kept; the break room of the arguments from `i` on, and, while
+one of them makes a string, room for those strings in `g->strt` and its
+chains safe (frozen with the literals). -/
+structure PrSt (L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) (D G FL : Nat → Prop) (M0 : Mem)
+    (ph0 : StdoutPh) (H0 : HeapIx) (i k : Nat) (ph : StdoutPh) (H : HeapIx) (m : Mem) : Prop where
   api : ApiAt m L nci func k tbc
   lits : LitsFoot g sl ls H ph D FL m
   keep : ∀ a, PrKeep L g func n G a → bytesT1 m a = bytesT1 M0 a
   buf : BufFrom ph0 ph H0
   chunks : ∀ c ∈ H0.chunks, c.inuse = true → c ∈ H.chunks
+  /-- (lane F1-18) the break room of the arguments from `i` on -/
+  room : PrRoom (prCost args i) ph H
+  /-- (lane F1-18) room in `g->strt` for their new strings: no `luaS_resize` -/
+  strt : 0 < prAllocs args i → strtNuse m g + prAllocs args i ≤ strtSize m g
+  /-- (lane F1-18) the table's chains readable, in chunks in use, apart -/
+  safe : 0 < prAllocs args i → Frozen FL (StrtSafeIn L g func n sl ls G D (Kept H ph)) m
+
+/-- **`luaB_print`'s Lua state for some literals' footprint** (`print_sum`'s
+`S`): a new string changes the table the literals' facts read. -/
+inductive PrSt' (L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) (D G : Nat → Prop) (M0 : Mem)
+    (ph0 : StdoutPh) (H0 : HeapIx) (i k : Nat) (ph : StdoutPh) (H : HeapIx) (m : Mem) : Prop where
+  /-- the state on the literals' footprint `fl` -/
+  | intro (fl : Nat → Prop) (st : PrSt L nci func tbc sl g n ls args D G fl M0 ph0 H0 i k ph H m)
 
 /-- The bytes argument `v` prints (`Value.show`, one byte per character). -/
 def argBytes (v : Value) : List (BitVec 8) :=
@@ -210,19 +303,20 @@ def IsStr : Value → Prop
 
 /-- **`luaL_tolstring(L, i, &l)` in `luaB_print`'s loop on an argument of
 class `C`** (lane F1-15): from `luaB_print`'s entry facts (`PrintIn`,
-`PrNums`) and its Lua state of `n` values (`PrSt`), `TolPost`: the state with
-one more value, the argument's bytes. -/
+`PrNums`) and its Lua state of `n` values before argument `i` (`PrSt`, with
+the budget of the arguments from `i` on), `TolPost`: the state before argument
+`i + 1` with one more value, the argument's bytes. -/
 def TolArg (C : Value → Prop) : Prop :=
   ∀ (sp0 L nci func n tbc sl g : Nat) (ls : LitPtrs) (args : List Value) (ι : Strs) (D G FL : Nat → Prop)
     (ph0 : StdoutPh) (H0 : HeapIx) (M0 : Mem) (i : Nat) (v : Value),
     PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0 → PrNums sp0 L nci func n 0x8000ac8c#64 →
     args[i - 1]? = some v → C v → 1 ≤ i → i ≤ n →
     ∀ (ph : StdoutPh) (H : HeapIx) (m : Mem) (o : Array String) (r : BitVec 64) (f : AbiFrame),
-    PrSt L nci func tbc sl g n ls D G FL M0 ph0 H0 n ph H m → PrintSt m ph H → r.toNat % 4 = 0 →
+    PrSt L nci func tbc sl g n ls args D G FL M0 ph0 H0 i n ph H m → PrintSt m ph H → r.toNat % 4 = 0 →
     Triple (SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
         ⟨Register.x12, BitVec.ofNat 64 (sp0 - 56)⟩] (sp0 - 64) r f) (ArmPay m o))
       (fun c => ∃ m' s H', wrRet r (sp0 - 64) s f m' o c ∧
-        TolPost sp0 n (PrSt L nci func tbc sl g n ls D G FL M0 ph0 H0) (argBytes v) ph m m' s H H')
+        TolPost sp0 n (PrSt' L nci func tbc sl g n ls args D G M0 ph0 H0 (i + 1)) (argBytes v) ph m m' s H H')
 
 /-- **`luaL_tolstring` on a string argument** (lane F1-15; proved, lane
 F1-17: `tolStr_proved`, `Kit/TolStrProof.lean`):
@@ -233,6 +327,46 @@ library's metatable) → `luaL_getmetafield` → `lua_pushstring("__tostring")`
 `lua_type`; `lua_pushvalue(L, idx)`; the tail `lua_tolstring(L, -1, &l)` of
 the argument's short or long string. -/
 def TolStr_Statement : Prop := TolArg IsStr
+
+/-- **Named premise: `luaL_tolstring` on an integer argument** (lane F1-18,
+the integer class of lane F1-15's `PrintAlloc_Statement`, per argument):
+`luaL_callmeta(L, idx, "__tostring")` (no metatable for numbers),
+`lua_isinteger`, `lua_tointegerx`, `lua_pushfstring(L, "%I", i)` →
+`luaO_pushvfstring` (`strchr`, `addstr2buff`, `addnum2buff` → `tostringbuff`
+→ `lua_integer2str` = `IntegerToStr_Statement`, proved:
+`integerToStr_proved`; `clearbuff` → `pushstr` → `luaS_newlstr` →
+`internshrstr` on the decimal string: found on a chain (`StrtSafe`) or created,
+`luaC_newobj` → `luaM_malloc_` → `l_alloc` → `_malloc_r` within
+`argCost`'s room, linked at its bucket's head, no `luaS_resize` (`PrSt.strt`);
+`luaC_checkGC`), the tail `lua_tolstring(L, -1, &l)`. -/
+def TolInt_Statement : Prop := TolArg IsInt
+
+/-- (lane F1-18) **The literals' facts and the string table's safety, frozen
+on one footprint.** -/
+inductive LitsSafe (L func n sl g : Nat) (ls : LitPtrs) (D G : Nat → Prop) (ph : StdoutPh) (H : HeapIx) (M : Mem) :
+    Prop where
+  /-- on the literals' footprint `fl` -/
+  | intro (fl : Nat → Prop) (foot : LitsFoot g sl ls H ph D fl M)
+      (safe : Frozen fl (StrtSafeIn L g func n sl ls G D (Kept H ph)) M)
+
+/-- **What the per-argument route of the allocating classes needs at
+`luaB_print`'s entry** (lane F1-18) beyond `PrintIn`: the literals' facts with
+the string table's chains safe, frozen together (`LitsSafe`), and room in the
+table for every new string (no `luaS_resize`). -/
+structure AllocIn (L func n sl g : Nat) (ls : LitPtrs) (args : List Value) (D G : Nat → Prop) (ph : StdoutPh)
+    (H : HeapIx) (M : Mem) : Prop where
+  lits : LitsSafe L func n sl g ls D G ph H M
+  strt : strtNuse M g + prAllocs args 1 ≤ strtSize M g
+
+/-- **Named premise: `luaB_print` on an allocating argument list off the
+per-argument route** (lane F1-18): integers (no float, no function) on an
+entry without `AllocIn`, i.e. a string table without room for the call's new
+strings (`luaS_resize` → `luaM_reallocvector` → `_realloc_r` of the bucket
+array, which no lane has proved) or whose chains are not known to be safe
+(`StrtSafe`: neither the boot witness nor `CallInv` carries it yet). -/
+def PrintAllocOff_Statement : Prop :=
+  PrintRelIf fun L func n sl g ls args D G ph H M => AnyAlloc args ∧ (∀ v ∈ args, ¬ IsFlt v ∧ ¬ IsFn v) ∧
+    ¬ AllocIn L func n sl g ls args D G ph H M
 
 /-! ## `luaE_extendCI` -/
 
@@ -374,8 +508,14 @@ def ExitUp_Statement : Prop :=
 
 /-- **`OP_CALL print`'s open parts** on the `CALL` invariant (lane F1-13). -/
 structure CallOpen : Prop where
-  /-- (lane F1-15) `luaB_print` when an argument allocates -/
-  printAlloc : PrintAlloc_Statement
+  /-- (lane F1-18) `luaL_tolstring` on an integer, per argument -/
+  tolInt : TolInt_Statement
+  /-- (lane F1-18) `luaB_print` when an argument is a float -/
+  printFlt : PrintFlt_Statement
+  /-- (lane F1-18) `luaB_print` when an argument is a function -/
+  printFn : PrintFn_Statement
+  /-- (lane F1-18) integer lists off the per-argument route (`AllocIn`) -/
+  allocOff : PrintAllocOff_Statement
 
 /-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the
 `CALL` invariant keeps `LUA_MINSTACK` slots above the frame (`growFree`, from

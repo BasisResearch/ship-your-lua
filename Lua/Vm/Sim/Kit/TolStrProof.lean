@@ -101,7 +101,7 @@ theorem tolS_in {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Va
     {D G FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m : Mem}
     {i : Nat} {r : BitVec 64} {ts : Nat} {tag : BitVec 8}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls D G FL M0 ph0 H0 n ph H m) (hi1 : 1 ≤ i) (hin : i ≤ n)
+    (hS : PrSt L nci func tbc sl g n ls args D G FL M0 ph0 H0 i n ph H m) (hi1 : 1 ≤ i) (hin : i ≤ n)
     (hr : r.toNat % 4 = 0) (hts : heapStart ≤ ts) (hts' : ts + 64 ≤ 2 ^ 32)
     (htag : slotTag m (func + 16 * i) = tag) (hval : slotVal m (func + 16 * i) = BitVec.ofNat 64 ts) :
     TolNums (sp0 - 64) L i (sp0 - 56) nci func (func + 16 * n + 16) g ts r ∧
@@ -213,6 +213,21 @@ theorem argBytes_str (s : List UInt8) : argBytes (.str s) = s.map fun c => BitVe
   simp only [Function.comp]
   rw [show (Char.ofNat b.toNat).toNat = b.toNat by rw [Char.ofNat, dif_pos (Or.inl (by omega))]; rfl]
 
+/-- (lane F1-18) **A string's `luaL_tolstring` keeps `g->strt`'s words**
+(`nuse`, `size`): they are none of its stores (`TolSW`). -/
+theorem TolStrPost.strt {m m' : Mem} {sp L lenp g top : Nat} {ls : LitPtrs} {len : Nat}
+    (hT : TolStrPost m m' sp L lenp g top ls len) (hsp : g + 64 + 16384 + 256 ≤ sp) (hlp : sp ≤ lenp)
+    (hL : L + 24 ≤ g + 56 ∨ g + 64 ≤ L + 16) (htop : top + 32 ≤ g + 56 ∨ g + 64 ≤ top)
+    (hts : ls.tos + 10 ≤ g + 56 ∨ g + 64 ≤ ls.tos + 9) :
+    ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a := by
+  intro a h1 h2
+  simp only [gStrtNuseOff] at h1 h2
+  refine hT.keep a ?_
+  simp only [TolSW, Rng, gStrcacheOff, strcacheN, strcacheM, gTotalbytesOff, gGCdebtOff, gcMarkedOff, not_or,
+    not_and, Nat.not_lt]
+  refine ⟨fun _ => by omega, fun _ => by omega, fun _ => by omega, fun _ => by omega, fun _ => by omega,
+    fun _ => by omega, fun _ => by omega, fun _ => by omega⟩
+
 /-- **`TolPost` from a string's `luaL_tolstring`** (`TolStrPost`): the state
 with one more value (the string at the top), `stdout` as it was, the frame
 but the length word, the length, the string's bytes (read off its
@@ -220,12 +235,12 @@ representation at the final memory, which keeps `PrintIn`'s footprint), where
 they lie (in chunks in use: `str_kept`). -/
 theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
     {D G FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
-    {i : Nat} {s : List UInt8}
+    {i j : Nat} {s : List UInt8}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls D G FL M0 ph0 H0 n ph H m) (hP : PrintSt m ph H)
+    (hS : PrSt L nci func tbc sl g n ls args D G FL M0 ph0 H0 j n ph H m) (hP : PrintSt m ph H)
     (hT : TolStrPost m m' (sp0 - 64) L (sp0 - 56) g (func + 16 * n + 16) ls s.length)
-    (hv : args[i]? = some (.str s)) (hin : i < n) :
-    TolPost sp0 n (PrSt L nci func tbc sl g n ls D G FL M0 ph0 H0) (argBytes (.str s)) ph m m'
+    (hv : args[i]? = some (.str s)) (hin : i < n) (hj : j = i + 1) :
+    TolPost sp0 n (PrSt' L nci func tbc sl g n ls args D G M0 ph0 H0 (j + 1)) (argBytes (.str s)) ph m m'
       ((slotVal M0 (func + 16 * (i + 1))).toNat + 24) H H := by
   have q := hn.ok
   have hp := hIn.placed
@@ -254,6 +269,10 @@ theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
     · exact hd a (hIn.dirty a (.inr (.inr (.inr (.inl (by simp only [Rng, gGCdebtOff]; omega)))))) ha
   have hl' : LitsFoot g sl ls H ph D FL m' :=
     ⟨hl.facts.trans kFL, hl.kept, hl.apart, hl.strs, hl.marks, hT.cache⟩
+  -- (lane F1-18) `g->strt`'s words are off them
+  have kT := hT.strt (by homega) (by omega) (by simp only [stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at p10; omega)
+    (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at p12; have := hp.room; omega)
+    (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at tlg; omega)
   -- the kept bytes are off them
   have kK : ∀ a, PrKeep L g func n G a → bytesT1 m' a = bytesT1 m a := by
     intro a ha
@@ -308,8 +327,8 @@ theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
   have hapi := hS.api
   have hlen' : (argBytes (.str s)).length = s.length := by simp [argBytes_str]
   refine
-    { lua := ⟨⟨?_, ?_, ?_, ?_, by have := hapi.tbc_lt; omega⟩, hl', fun a ha => (kK a ha).trans (hS.keep a ha),
-        hS.buf, hS.chunks⟩
+    { lua := ⟨FL, hS.next0 (by omega) (by subst hj; simpa using hv) rfl ⟨?_, ?_, ?_, ?_, by have := hapi.tbc_lt; omega⟩
+        hl' (fun a ha => (kK a ha).trans (hS.keep a ha)) kFL kT⟩
       io := hP.keep kP
       kept := fun c hc _ => hc
       frame := fun a h1 h2 => kW a fun hw => by
@@ -359,7 +378,8 @@ theorem str_repr_at {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
     {D G FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m M : Mem}
     {i : Nat} {s : List UInt8}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls D G FL M0 ph0 H0 n ph H m) (hv : args[i]? = some (.str s)) (hin : i < n)
+    {j k : Nat} (hS : PrSt L nci func tbc sl g n ls args D G FL M0 ph0 H0 j k ph H m)
+    (hv : args[i]? = some (.str s)) (hin : i < n)
     (hk : ∀ a, ¬ TolSW (sp0 - 64) L (sp0 - 56) g (func + 16 * n + 16) ls a → bytesT1 M a = bytesT1 m a) :
     TStringRepr (fillZeroMem M) (slotVal M0 (func + 16 * (i + 1))).toNat s := by
   have hag : ∀ a, (G a ∨ ArgSlot func n a) → bytesT1 M a = bytesT1 M0 a := fun a ha =>
@@ -400,10 +420,11 @@ theorem tolStr_proved : TolStr_Statement := by
         wrRet r (sp0 - 64) (ts + 24) f m' o c' →
         TolStrPost m m' (sp0 - 64) L (sp0 - 56) g (func + 16 * n + 16) ls s.length →
         ∃ m'' s' H', wrRet r (sp0 - 64) s' f m'' o c' ∧
-          TolPost sp0 n (PrSt L nci func tbc sl g n ls D G FL M0 ph0 H0) (argBytes (.str s)) ph m m'' s' H H' := by
+          TolPost sp0 n (PrSt' L nci func tbc sl g n ls args D G M0 ph0 H0 (i + 1)) (argBytes (.str s)) ph m m''
+            s' H H' := by
       intro m' c' hret hT
       refine ⟨m', ts + 24, H, hret, ?_⟩
-      have := prStrPost hIn hn hS hP hT hv hi'
+      have := prStrPost hIn hn hS hP hT hv hi' (by omega)
       rwa [hidx, hts] at this
     by_cases hsh : s.length ≤ maxShortLen
     · have htag' : slotTag m (func + 16 * i) = 0x44#8 := by rw [htag]; simp [strTag, hsh, vShrStr]
@@ -446,11 +467,13 @@ theorem tolStr_proved : TolStr_Statement := by
   | builtin _ => exact absurd hC id
 
 /-- **`luaB_print` on the C frame** from `CALL`'s open part (lane F1-15;
-F1-17): `lua_pushstring` of the literals proved (`pushLit_proved`),
+F1-17; F1-18): `lua_pushstring` of the literals proved (`pushLit_proved`),
 `luaL_tolstring` on strings proved (`tolStr_proved`), `_malloc_r` proved
-(lane F1-A0-M, `AllocProof.mallocR_proved`); the allocating classes
-`CallOpen.printAlloc`. -/
+(lane F1-A0-M, `AllocProof.mallocR_proved`); the allocating classes by
+`CallOpen`'s fields: integers per argument (`tolInt`), floats (`printFlt`),
+functions (`printFn`), integer lists off the per-argument route
+(`allocOff`). -/
 theorem CallOpen.print (O : CallOpen) : PrintRel_Statement :=
-  printRel_of AllocProof.mallocR_proved pushLit_proved tolStr_proved O.printAlloc
+  printRel_of AllocProof.mallocR_proved pushLit_proved tolStr_proved O.tolInt O.printFlt O.printFn O.allocOff
 
 end Lua.Vm.Sim.Kit

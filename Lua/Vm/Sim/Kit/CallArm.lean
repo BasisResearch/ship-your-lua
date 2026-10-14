@@ -92,13 +92,23 @@ def Allocates : Value → Prop
 /-- **Some argument allocates.** -/
 def AnyAlloc (args : List Value) : Prop := ∃ v ∈ args, Allocates v
 
-/-- The heap a `print(args)` may claim: per argument and for the first-use
-allocations (the `stdout` buffer, the C `CallInfo`, `"__tostring"`), one
-`_malloc_r` with room for its `_sbrk` (`MallocR_Statement`: the request, the
-16 KiB top pad, a page), and a doubling of the string table
-(`luaS_resize`, 8 bytes per bucket, twice). -/
+/-- (lane F1-18) **The break one argument's `luaL_tolstring` may claim**: an
+integer's or a function's string (one `_malloc_r` of at most 65 bytes with
+room for its `_sbrk`, `MallocR_Statement`: the request, the 16 KiB top pad, a
+page), a float's string and `_dtoa_r`'s bignums (`_Balloc` → `_calloc_r`, at
+most sixteen `_malloc_r`); nil, booleans and strings none. -/
+def argCost : Value → Nat
+  | .int _ => 16384 + 4096 + 128
+  | .flt _ _ => 16 * (16384 + 4096 + 128)
+  | .builtin _ => 16384 + 4096 + 128
+  | _ => 0
+
+/-- The heap a `print(args)` may claim: per argument (`argCost`, lane F1-18)
+and for the first-use allocations (the `stdout` buffer, the C `CallInfo`,
+`"__tostring"`), one `_malloc_r` with room for its `_sbrk`, and a doubling of
+the string table (`luaS_resize`, 8 bytes per bucket, twice). -/
 def callBudget (args : List Value) (strtSize : Nat) : Nat :=
-  (args.length + 4) * (16384 + 4096 + 128) + 1024 + 16 * strtSize
+  (args.map argCost).sum + 4 * (16384 + 4096 + 128) + 1024 + 16 * strtSize
 
 /-- **The heap has room for this `print`** (the break `callBudget` below
 `__heap_end`): `_malloc_r` never fails, so `luaM_malloc_` never runs the

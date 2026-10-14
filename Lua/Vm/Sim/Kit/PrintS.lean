@@ -121,7 +121,7 @@ theorem printLua_of {sp0 L nci func tbc n : Nat} {A : Mem → Prop} {Fa : Nat �
           ⟨Register.x12, BitVec.ofNat 64 (sp0 - 56)⟩] (sp0 - 64) r f) (ArmPay m o))
         (fun c => ∃ m' s H', wrRet r (sp0 - 64) s f m' o c ∧
           TolPost sp0 n (PrS L nci func tbc A Fa) (bs i) ph m m' s H H')) :
-    PrintLua L sp0 n (PrS L nci func tbc A Fa) bs where
+    PrintLua L sp0 n (fun _ => PrS L nci func tbc A Fa) bs where
   n_lt := hn.n_lt
   gettop := by
     intro ph H m o r f hS hr
@@ -132,7 +132,7 @@ theorem printLua_of {sp0 L nci func tbc n : Nat} {A : Mem → Prop} {Fa : Nat �
       (by omega) (by omega) (by omega) (by omega)
   tolstring := htol
   settop := by
-    intro ph H m o r f hS hP hr c h
+    intro _ ph H m o r f hS hP hr c h
     have q := hn.ok
     have := q.sp_hi; have := q.L_lo; have := q.L_hi; have := q.L_al; have := q.sp_lo
     have := hn.nci_lo; have := hn.f_lo; have := hn.f_hi; have := hn.sep
@@ -145,7 +145,7 @@ theorem printLua_of {sp0 L nci func tbc n : Nat} {A : Mem → Prop} {Fa : Nat �
     have := (hL a hr').hi
     simp only [Rng] at hr'; omega
   stable := by
-    intro k ph ph' H H' m m' hS hk hbf hkept
+    intro _ k ph ph' H H' m m' hS hk hbf hkept _
     have q := hn.ok
     have hsp : heapEnd + 4096 ≤ sp0 - 64 := by
       have h1 := q.sp_lo; revert h1; generalize heapEnd = E; intro h1; omega

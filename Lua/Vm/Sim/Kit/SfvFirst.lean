@@ -237,7 +237,7 @@ theorem sfs_pre (hM : MallocR_Statement) (sp U I src n top brk : Nat) (chunks : 
     (k02.b8 (a := U + 16) fun i _ => by sfr).trans ((k0'.b8 (a := U + 16) fun i _ => by sfr).trans hio.resid)
   have hgr : HeapGrant chunks 1024 buf brk (Lua.Vm.AtF.SfvwriteSetup.m2 X1) top' brk' chunks' bins' :=
     ⟨P.grant.heap.congr fun a ha => fill_congr <| k2'.get (by simp only [HeapReads] at ha; sfr), P.grant.brk_le,
-      P.grant.lo, P.grant.hi, P.grant.block, P.grant.fresh, P.grant.kept⟩
+      P.grant.brk_hi, P.grant.lo, P.grant.hi, P.grant.block, P.grant.fresh, P.grant.kept⟩
   have hag : Agree (fun a => FsGlobal a ∨ MallocW chunks a ∨ Below sp 1312 a ∨ StdoutW a) m
       (Lua.Vm.AtF.SfvwriteSetup.m2 X1) := by
     intro a ha

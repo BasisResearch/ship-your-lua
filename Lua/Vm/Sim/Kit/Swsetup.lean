@@ -23,6 +23,8 @@ structure HeapGrant (chunks : List Chunk) (n buf brk : Nat) (m' : Mem) (top' brk
     (bins' : Nat → List Nat) : Prop where
   heap : HeapAt (Vsa.Densify.fillZeroMem m') top' brk' chunks' bins'
   brk_le : brk ≤ brk'
+  /-- (lane F1-18) one `_malloc_r`'s growth (`MallocPost.brk_hi`) -/
+  brk_hi : brk' ≤ brk + n + 16384 + 4096
   lo : heapStart + 16 ≤ buf
   hi : buf + n ≤ brk'
   block : ∃ sz, (⟨buf - 16, sz, true⟩ : Chunk) ∈ chunks' ∧ n + 8 ≤ sz
@@ -145,7 +147,7 @@ theorem swsetup_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List C
     c1 (hr1.repin (by pins_of hr1))
   obtain ⟨k2, w2, l2⟩ := sws_m2 X1
   refine ⟨_, s0.trans (s1.trans s2), Lua.Vm.AtF.Swsetup_r.m2 X1, buf, top', brk', chunks', bins',
-    h2.repin (by pins_of h2), ⟨⟨?_, ?_, w2, ?_, ?_, l2, ?_, ?_, ?_⟩, ⟨?_, P.brk_le, P.lo, by omega, ?_, P.fresh, P.kept⟩, ?_⟩⟩
+    h2.repin (by pins_of h2), ⟨⟨?_, ?_, w2, ?_, ?_, l2, ?_, ?_, ?_⟩, ⟨?_, P.brk_le, P.brk_hi, P.lo, by omega, ?_, P.fresh, P.kept⟩, ?_⟩⟩
   · exact (k2.b2 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.flags
   · exact (k2.b8 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.p
   · exact (k2.b8 fun i _ => by simp only [Rng, not_or, not_and]; omega).trans P.base

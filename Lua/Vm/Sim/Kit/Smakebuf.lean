@@ -140,6 +140,8 @@ structure SmakebufPost (m m' : Mem) (sp buf brk : Nat) (chunks : List Chunk) (to
   fds : FdsStd m'
   heap : HeapAt (Vsa.Densify.fillZeroMem m') top' brk' chunks' bins'
   brk_le : brk ≤ brk'
+  /-- (lane F1-18) `_malloc_r(1024)`'s growth -/
+  brk_hi : brk' ≤ brk + 1024 + 16384 + 4096
   lo : heapStart + 16 ≤ buf
   hi : buf + 1024 ≤ brk'
   block : ∃ sz, (⟨buf - 16, sz, true⟩ : Chunk) ∈ chunks' ∧ 1024 + 8 ≤ sz
@@ -291,7 +293,7 @@ theorem smakebuf_sum (hM : MallocR_Statement) (sp top brk : Nat) (chunks : List 
   obtain ⟨k6, fl⟩ := smb_m5 X3
   have kS := k5.trans k6
   refine ⟨_, s1.trans (s2.trans (s3.trans (s4.trans s5))), Lua.Vm.AtF.Smakebuf_r.m5 X3, buf, top', brk', chunks',
-    bins', h5.repin (by pins_of h5), ⟨fl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, P.brk_le, P.lo, P.hi, P.block, P.fresh, P.kept, ?_⟩⟩
+    bins', h5.repin (by pins_of h5), ⟨fl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, P.brk_le, P.brk_hi, P.lo, P.hi, P.block, P.fresh, P.kept, ?_⟩⟩
   · exact (kS.b8 (a := 0x8005e668) fun i _ => by rg_simp; omega).trans M4.p
   · exact (kS.b8 (a := 0x8005e680) fun i _ => by rg_simp; omega).trans M4.base
   · exact (kS.b4 (a := 0x8005e688) fun i _ => by rg_simp; omega).trans M4.size
