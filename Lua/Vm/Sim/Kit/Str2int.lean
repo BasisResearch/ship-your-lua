@@ -142,8 +142,9 @@ local macro "s2_norm" loc:(Lean.Parser.Tactic.location)? : tactic => `(tactic|
   simp (disch := first | assumption | (simp only [ofBitVec_sb]; assumption) | kit_disch) only [Nat.add_zero, bgeu_ofNat, bne_ofNat, blt_ofNat, s2_dig, Nat.ble_eq,
     Nat.blt_eq, Nat.beq_eq, Bool.not_eq_true', Bool.not_eq_false', decide_eq_true_eq, decide_eq_false_iff_not, ctype_base, addr0, add_imm, BitVec.toNat_ofNat, Nat.mod_eq_of_lt,
     Nat.add_assoc, hbyte, ctype_addr, ctype_rd hro, zext_and8, zext_and8_eq, ctype_space, ofBitVec_sb,
-    Vsa.Sim.ret_tgt _ hra, sextw_zext, sb_len, zext_zero8, s2_add0, zext_and2,
-    zext_and2_eq, zext_and16, zext_and16_eq, ctype_digit, ctype_xdigit, s2_t3, s2_t5, s2_t6, s2_mul10] $[$loc]?)
+    Vsa.Sim.ret_tgt _ hra, sextw_zext, sextw_zext', sb_len, zext_zero8, s2_add0, zext_and2,
+    zext_and2_eq, zext_and16, zext_and16_eq, ctype_digit, ctype_xdigit, s2_t3, s2_t5, s2_t6, s2_mul10,
+    s2_mul16, s2_zero, s2_hexl] $[$loc]?)
 
 theorem sb_len (s : List UInt8) : sb s s.length = 0#8 := by
   simp only [sb]; rw [show s.getD s.length 0 = bAt s s.length from rfl, bAt_ge (Nat.le_refl _)]; rfl
@@ -155,6 +156,11 @@ theorem sb_ge {s : List UInt8} {j : Nat} (h : s.length ≤ j) : sb s j = 0#8 := 
 theorem sextw_zext (c : BitVec 8) :
     sign_extend (m := 64) (Sail.BitVec.extractLsb ((zero_extend (m := 64) (c : BitVec (8 * 1))) +
       sign_extend (m := 64) (0x000#12)) 31 0) = zero_extend (m := 64) (c : BitVec (8 * 1)) := by
+  revert c; decide
+
+theorem sextw_zext' (c : BitVec 8) :
+    sign_extend (m := 64) (Sail.BitVec.extractLsb (zero_extend (m := 64) (c : BitVec (8 * 1))) 31 0) =
+      zero_extend (m := 64) (c : BitVec (8 * 1)) := by
   revert c; decide
 
 theorem zext_zero8 : zero_extend (m := 64) ((0#8 : BitVec 8) : BitVec (8 * 1)) = 0#64 := by decide
@@ -225,6 +231,27 @@ theorem bne_ofNat {x y : Nat} (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) :
   · have : BitVec.ofNat 64 x ≠ BitVec.ofNat 64 y := fun e => h (by
       have := congrArg BitVec.toNat e; simp only [BitVec.toNat_ofNat] at this; omega)
     simp [h, this]
+
+/-- A hex digit's value: a decimal one (`addiw a2, t3, -48`)… -/
+theorem s2_hexd : ∀ c : BitVec 8, (digitVal false (UInt8.ofBitVec c)).isSome = true →
+    sign_extend (m := 64) (Sail.BitVec.extractLsb ((zero_extend (m := 64) (c : BitVec (8 * 1))) +
+      sign_extend (m := 64) (0xfd0#12)) 31 0) =
+      BitVec.ofNat 64 ((digitVal true (UInt8.ofBitVec c)).getD 0) := by decide
+
+/-- … or a letter (`ori a2, a2, 32; addiw a2, a2, -87`). -/
+theorem s2_hexl : ∀ c : BitVec 8, (digitVal true (UInt8.ofBitVec c)).isSome = true →
+    (digitVal false (UInt8.ofBitVec c)).isSome = false →
+    sign_extend (m := 64) (Sail.BitVec.extractLsb (((zero_extend (m := 64) (c : BitVec (8 * 1))) |||
+      sign_extend (m := 64) (0x020#12)) + sign_extend (m := 64) (0xfa9#12)) 31 0) =
+      BitVec.ofNat 64 ((digitVal true (UInt8.ofBitVec c)).getD 0) := by decide
+
+/-- `16 · a + d` (`slli 4; add`). -/
+theorem s2_mul16 (A d : Nat) :
+    BitVec.ofNat 64 d + shift_bits_left (BitVec.ofNat 64 A) (Sail.BitVec.extractLsb (0x04#6) 5 0) =
+      BitVec.ofNat 64 (A * 16 + d) := by
+  rw [shl_ofNat _ 4 (by decide), BitVec.ofNat_add_ofNat]; congr 1; omega
+
+theorem s2_zero : (0#64 : BitVec 64) + sign_extend (m := 64) (0x000#12) = BitVec.ofNat 64 0 := by decide
 
 local macro_rules | `(tactic| kit_side_pre) => `(tactic| (try s2_norm))
 local macro_rules | `(tactic| kit_bv_norm) => `(tactic| (try s2_norm))
@@ -424,6 +451,119 @@ theorem s2_dec (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Me
     · obtain ⟨c2, s2, h2⟩ := s2_dec_trail P o s r f m out hx neg i2 n hd k hk (by omega) he c h
       exact ⟨c2, s2, .inr h2⟩
     · obtain ⟨c2, s2, h2⟩ := s2_dec_end P o s r f m out hx neg i2 n hd k hk (by omega) he c h
+      exact ⟨c2, s2, .inr h2⟩
+
+/-! ## The hex digits (`0x80011b2c`) -/
+
+theorem dv_tf : ∀ c : BitVec 8, (digitVal false (UInt8.ofBitVec c)).isSome = true →
+    digitVal true (UInt8.ofBitVec c) = digitVal false (UInt8.ofBitVec c) := by decide
+
+/-- The hex loop's row: at the hex digit at `j`, the value `A` before it. -/
+abbrev s2H (P o j A : Nat) (neg : Bool) (r : BitVec 64) (f : HFrame) (s : List UInt8) : List Pin :=
+  ⟨Register.x13, zero_extend (m := 64) (ctypeOf (sb s j) : BitVec (8 * 1))⟩ ::
+    ⟨Register.x12, zero_extend (m := 64) (sb s j : BitVec (8 * 1))⟩ ::
+    ⟨Register.x28, zero_extend (m := 64) (sb s j : BitVec (8 * 1))⟩ ::
+    ⟨Register.x14, BitVec.ofNat 64 A⟩ :: ⟨Register.x10, BitVec.ofNat 64 (P + j)⟩ ::
+    ⟨Register.x6, BitVec.ofNat 64 P⟩ :: ⟨Register.x16, 0x80052030#64⟩ :: ⟨Register.x17, BitVec.ofNat 64 o⟩ ::
+    ⟨Register.x29, if neg then 1#64 else 0#64⟩ :: ⟨Register.x1, r⟩ :: f.pins
+
+/-- The hex loop's facts. -/
+structure S2Hex (s : List UInt8) (i2 n : Nat) : Prop where
+  dig : ∀ k, k < n → (digitVal true (bAt s (i2 + k))).isSome = true
+  ndig : (digitVal true (bAt s (i2 + n))).isSome = false
+  len : i2 + n ≤ s.length
+  tsp : ∀ k, i2 + n ≤ k → k < s.length → isSpace (bAt s k) = true
+
+abbrev s2HPost (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (neg : Bool) (i2 n : Nat) : Config → Prop :=
+  s2Post s.length r f m o (if neg then 0 - BitVec.ofNat 64 (dacc true s i2 0 n)
+    else BitVec.ofNat 64 (dacc true s i2 0 n)) out
+
+set_option hygiene false in
+local macro "s2_hfacts" : tactic => `(tactic| (
+  s2_facts
+  have hdk := hd.dig k hk
+  have hlen := hd.len
+  have hA' := dacc_succ true s k i2 0
+  simp only [↓reduceIte] at hA'
+  have hc1 := (sb s (i2 + (k + 1))).isLt
+  have hc0 := (sb s (i2 + k)).isLt))
+
+set_option hygiene false in
+/-- The digit's class (decimal or letter) and the value one digit further. -/
+local macro "s2_hcase" : tactic => `(tactic| (
+  cases hdd : (digitVal false (bAt s (i2 + k))).isSome
+  all_goals try rw [show digitVal true (bAt s (i2 + k)) = digitVal false (bAt s (i2 + k)) from dv_tf _ hdd] at hA'))
+
+theorem s2_hex_next (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (neg : Bool) (i2 n : Nat) (hd : S2Hex s i2 n) (k : Nat) (hk : k < n)
+    (hk1 : k + 1 < n) :
+    Triple (SegSt 0x80011b2c#64 (s2H P o (i2 + k) (dacc true s i2 0 k) neg r f s) (ArmPay m out))
+      (SegSt 0x80011b2c#64 (s2H P o (i2 + (k + 1)) (dacc true s i2 0 (k + 1)) neg r f s) (ArmPay m out)) := by
+  intro c h
+  s2_hfacts
+  have acc0 := Steps.refl c
+  have hdk1 := hd.dig (k + 1) hk1
+  s2_hcase
+  all_goals
+    kit_run h acc0 until [0x80011b2c]
+    rw [← hA'] at h
+    exact ⟨_, acc0, h.repin (by pins_of h)⟩
+
+theorem s2_hex_trail (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (neg : Bool) (i2 n : Nat) (hd : S2Hex s i2 n) (k : Nat) (hk : k < n)
+    (hkn : k + 1 = n) (he : i2 + n < s.length) :
+    Triple (SegSt 0x80011b2c#64 (s2H P o (i2 + k) (dacc true s i2 0 k) neg r f s) (ArmPay m out))
+      (s2HPost P o s r f m out neg i2 n) := by
+  intro c h
+  s2_hfacts
+  have acc0 := Steps.refl c
+  have hnd : (digitVal true (bAt s (i2 + (k + 1)))).isSome = false := by rw [hkn]; exact hd.ndig
+  have hsp : isSpace (bAt s (i2 + (k + 1))) = true := hd.tsp _ (by omega) (by omega)
+  s2_hcase
+  all_goals
+    kit_run h acc0 until [0x80011a8c]
+    rw [← hA', hkn] at h
+    obtain ⟨c2, s2', h2⟩ := s2_trail P o s r f m out hx (BitVec.ofNat 64 (dacc true s i2 0 n)) neg (i2 + n) he
+      hd.tsp _ (h.repin (by pins_of h))
+    exact ⟨c2, acc0.trans s2', h2⟩
+
+theorem s2_hex_end (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (neg : Bool) (i2 n : Nat) (hd : S2Hex s i2 n) (k : Nat) (hk : k < n)
+    (hkn : k + 1 = n) (he : ¬ i2 + n < s.length) :
+    Triple (SegSt 0x80011b2c#64 (s2H P o (i2 + k) (dacc true s i2 0 k) neg r f s) (ArmPay m out))
+      (s2HPost P o s r f m out neg i2 n) := by
+  intro c h
+  s2_hfacts
+  have acc0 := Steps.refl c
+  have hnd : (digitVal true (bAt s (i2 + (k + 1)))).isSome = false := by rw [hkn]; exact hd.ndig
+  have hsp : isSpace (bAt s (i2 + (k + 1))) = false := by
+    rw [show i2 + (k + 1) = s.length by omega, bAt_ge (Nat.le_refl _)]; rfl
+  s2_hcase
+  all_goals
+    kit_run h acc0 until [0x80011aa8]
+    rw [← hA', hkn] at h
+    obtain ⟨c2, s2', h2⟩ := s2_after P o s r f m out hx (BitVec.ofNat 64 (dacc true s i2 0 n)) neg (i2 + n)
+      hd.len hd.tsp (h.repin (by pins_of h)) (by omega)
+    exact ⟨c2, acc0.trans s2', h2⟩
+
+/-- **The hex digits** (`0x80011b2c`, wrapping), then the trailing spaces and
+the terminator. -/
+theorem s2_hex (P o : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem) (out : Array String)
+    (hx : S2Ctx m P o s r) (neg : Bool) (i2 n : Nat) (hd : S2Hex s i2 n) :
+    ∀ k, k < n → Triple (SegSt 0x80011b2c#64 (s2H P o (i2 + k) (dacc true s i2 0 k) neg r f s) (ArmPay m out))
+      (s2HPost P o s r f m out neg i2 n) := by
+  intro k₀ hk₀ c₀ h₀
+  refine seg_loop (S := fun k c => k < n ∧
+      SegSt 0x80011b2c#64 (s2H P o (i2 + k) (dacc true s i2 0 k) neg r f s) (ArmPay m out) c)
+    (fun k => n - k) (fun k c ⟨hk, h⟩ => ?_) k₀ c₀ ⟨hk₀, h₀⟩
+  by_cases hk1 : k + 1 < n
+  · obtain ⟨c2, s2, h2⟩ := s2_hex_next P o s r f m out hx neg i2 n hd k hk hk1 c h
+    exact ⟨c2, s2, .inl ⟨k + 1, by omega, hk1, h2⟩⟩
+  · by_cases he : i2 + n < s.length
+    · obtain ⟨c2, s2, h2⟩ := s2_hex_trail P o s r f m out hx neg i2 n hd k hk (by omega) he c h
+      exact ⟨c2, s2, .inr h2⟩
+    · obtain ⟨c2, s2, h2⟩ := s2_hex_end P o s r f m out hx neg i2 n hd k hk (by omega) he c h
       exact ⟨c2, s2, .inr h2⟩
 
 end Lua.Vm.Sim.Kit
