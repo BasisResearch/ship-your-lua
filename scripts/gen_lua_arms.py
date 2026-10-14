@@ -142,6 +142,10 @@ HELPERS += [("luaV_tointeger", "LuaV_tointeger", 0x8001ade8, 0x8001af50, [22, 26
 # `__fixdfdi`) is followed; `luaV_tonumber_` on a non-string (`cvt2num`: an
 # integer by `__floatdidf`; the string path `0x8001abac` a stop)
 SUMMARISED |= {"luaV_tonumber_"}
+# lane F1-F8: `luaO_str2num` on an integer numeral (`l_str2int` inlined: the
+# leading spaces, the sign, the decimal digits with the overflow test, the hex
+# digits, the trailing spaces); the `l_str2d` fallback `0x80011b5c` a stop
+HELPERS += [("luaO_str2num", "LuaO_str2num", 0x80011998, 0x80011c94, [22, 26], [], [0x80011b5c])]
 HELPERS += [("luaV_tonumber_", "LuaV_tonumber_", 0x8001ab58, 0x8001ac18, [22, 26], [],
              [0x8001abac])]
 # axis S (S-SCAN): the string callees. `luaV_equalobj`'s long-string arm
@@ -528,7 +532,7 @@ TOHOST_SEAMS = {0x80000d3c: {"x12", "x15"}}
 RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
-           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaV_tonumber_": {"x10"}, "luaT_adjustvarargs": set(), "luaV_objlen": set(),
+           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaV_tonumber_": {"x10"}, "luaO_str2num": {"x10"}, "luaT_adjustvarargs": set(), "luaV_objlen": set(),
            "luaF_close": set(), "luaF_closeupval": set(), "luaD_poscall": set(),
            "luaD_callnoyield": set(), "luaD_rawrunprotected": {"x10"}, "luaD_pcall": {"x10"},
            "lua_pcallk": {"x10"}, "main": {"x10"}, "_start": set(), "exit": set(),

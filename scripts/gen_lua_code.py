@@ -104,7 +104,9 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          "luaL_getmetafield.part.0", "lua_rawget", "index2value", "luaH_get", "lua_pushvalue",
          # lane float-sf5: libm `fmod` (`w_fmod.c`) over `__ieee754_fmod`
          # (`e_fmod.c`), its NaN test `__unorddf2` and `__errno`
-         "fmod", "__ieee754_fmod", "__unorddf2", "__errno"]
+         "fmod", "__ieee754_fmod", "__unorddf2", "__errno",
+         # lane F1-F8: FORPREP's string coercion (`luaO_str2num`'s `l_str2int`)
+         "luaO_str2num"]
 # a static name defined twice whose first (lowest) definition is the one
 # pinned: main.c's `l_alloc` (`g->frealloc`; lauxlib.c's is the second)
 DUP_FIRST = {"l_alloc"}
