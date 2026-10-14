@@ -167,6 +167,89 @@ theorem sub_5b0 (h l : Nat) (L M : Int) (h0 : 0 < h) (h1 : h < 2 ^ 20) (hl : L %
   · rw [show (0 : Int) = ((0 : Nat) : Int) from rfl, lp.1, c5.1, core.1, hM]
   · rw [show (0 : Int) = ((0 : Nat) : Int) from rfl, lp.2, c5.2, core.2]
 
+include hro hs in
+/-- **After the whole-word shifts** (`0x8002d5a0`): bit 20 set already
+(`0x8002d77c`, `m -= i - 1` with `i = 0`), or the bit shifts. -/
+theorem sub_5a0 (h l : Nat) (L M : Int) (h0 : 0 < h) (h1 : h < 2 ^ 21) (hl : L % 4294967296 = (l : Int))
+    (hl2 : l < 2 ^ 32) (hM1 : -2 ^ 29 ≤ M) (hM2 : M < 2 ^ 29) (hres : -51 ≤ (sqNorm h l M).2.2)
+    (hres2 : (sqNorm h l M).2.2 ≤ 2046) :
+    N_8002d5a0 m s r g (BitVec.ofInt 64 (h : Int)) (BitVec.ofInt 64 L) (BitVec.ofInt 64 M) =
+      sqCore (sqNorm h l M).1 (sqNorm h l M).2.1 (sqNorm h l M).2.2 ∧
+    T_8002d5a0 m s r g (BitVec.ofInt 64 (h : Int)) (BitVec.ofInt 64 L) (BitVec.ofInt 64 M) = true := by
+  by_cases hb : 2 ^ 20 ≤ h
+  · have hsn : sqNorm h l M = (h, l, M + 1) := by unfold sqNorm; rw [if_pos hb]
+    rw [hsn] at hres hres2 ⊢
+    have core := core_478 s r g hro hs h l L (M + 1) (by omega) hl hl2 hres hres2
+    refine ⟨?_, ?_⟩ <;> (first | rw [N_8002d5a0] | rw [T_8002d5a0]) <;> fm_nf
+    · rw [N_8002d77c]; fm_nf
+      rw [show M - -1 = M + 1 by omega]; exact core.1
+    · rw [T_8002d77c]; fm_nf
+      rw [show M - -1 = M + 1 by omega]; exact core.2
+  · have sub := sub_5b0 s r g hro hs h l L M h0 (by omega) hl hl2 hM1 hM2 hres hres2
+    refine ⟨?_, ?_⟩ <;> (first | rw [N_8002d5a0] | rw [T_8002d5a0]) <;> fm_nf
+    · rw [N_8002d5ac]; fm_nf; exact sub.1
+    · rw [T_8002d5ac]; fm_nf; exact sub.2
+
+include hro hs in
+/-- **A subnormal with `ix0 == 0`** (the cycle at `0x8002d590`, `e_sqrt.c:113-116`):
+one or two 21-bit words, then `sub_5a0` (`SfRef.sqWords`). -/
+theorem sub_590 (k l : Nat) (L : Int) (hl : L % 4294967296 = (l : Int)) (hl0 : 0 < l) (hl2 : l < 2 ^ 32)
+    (hres : -51 ≤ (sqNorm (sqWords 3 0 l 0).1 (sqWords 3 0 l 0).2.1 (sqWords 3 0 l 0).2.2).2.2)
+    (hres2 : (sqNorm (sqWords 3 0 l 0).1 (sqWords 3 0 l 0).2.1 (sqWords 3 0 l 0).2.2).2.2 ≤ 2046) :
+    N_8002d590 (k + 1 + 1) m s r g (BitVec.ofInt 64 L) (BitVec.ofInt 64 0) =
+      sqCore (sqNorm (sqWords 3 0 l 0).1 (sqWords 3 0 l 0).2.1 (sqWords 3 0 l 0).2.2).1
+        (sqNorm (sqWords 3 0 l 0).1 (sqWords 3 0 l 0).2.1 (sqWords 3 0 l 0).2.2).2.1
+        (sqNorm (sqWords 3 0 l 0).1 (sqWords 3 0 l 0).2.1 (sqWords 3 0 l 0).2.2).2.2 ∧
+    T_8002d590 (k + 1 + 1) m s r g (BitVec.ofInt 64 L) (BitVec.ofInt 64 0) = true := by
+  have ⟨sm1, sm2, sm3⟩ := shl_mod L l (2 ^ 21) hl
+  have hl' : l = l % 2 ^ 32 := (Nat.mod_eq_of_lt hl2).symm
+  by_cases h1 : l / 2 ^ 11 = 0
+  · -- two words
+    have hl11 : l < 2 ^ 11 := by omega
+    have e1 : l * 2 ^ 21 % 2 ^ 32 = l * 2 ^ 21 := Nat.mod_eq_of_lt (by
+      calc l * 2 ^ 21 < 2 ^ 11 * 2 ^ 21 := Nat.mul_lt_mul_of_pos_right hl11 (Nat.two_pow_pos _)
+        _ = 2 ^ 32 := by rw [← Nat.pow_add])
+    have e2 : l * 2 ^ 21 / 2 ^ 11 = l * 2 ^ 10 := by
+      rw [show (2 : Nat) ^ 21 = 2 ^ 10 * 2 ^ 11 by rw [← Nat.pow_add], ← Nat.mul_assoc,
+        Nat.mul_div_cancel _ (Nat.two_pow_pos 11)]
+    have e3 : l * 2 ^ 21 * 2 ^ 21 % 2 ^ 32 = 0 := by
+      rw [Nat.mul_assoc, ← Nat.pow_add, show (2 : Nat) ^ (21 + 21) = 2 ^ 10 * 2 ^ 32 by rw [← Nat.pow_add],
+        ← Nat.mul_assoc]
+      exact Nat.mul_mod_left _ _
+    have hw : sqWords 3 0 l 0 = (l * 2 ^ 10, 0, -42) := by
+      unfold sqWords; rw [if_pos rfl, h1]
+      unfold sqWords; rw [if_pos rfl, e1, e2, e3]
+      unfold sqWords; rw [if_neg (by have := Nat.mul_pos hl0 (Nat.two_pow_pos 10); omega)]
+      rfl
+    rw [hw] at hres hres2 ⊢
+    have ⟨sn1, sn2, sn3⟩ := shl_mod ((L * ((2 ^ 21 : Nat) : Int)).bmod 4294967296) (l * 2 ^ 21 % 2 ^ 32) (2 ^ 21) sm1
+    rw [e1, e3] at sn1
+    have sub := sub_5a0 s r g hro hs (l * 2 ^ 10) 0 (((L * ((2 ^ 21 : Nat) : Int)).bmod 4294967296 *
+      ((2 ^ 21 : Nat) : Int)).bmod 4294967296) (-42) (Nat.mul_pos hl0 (Nat.two_pow_pos 10))
+      (by calc l * 2 ^ 10 < 2 ^ 11 * 2 ^ 10 := Nat.mul_lt_mul_of_pos_right hl11 (Nat.two_pow_pos _)
+            _ ≤ 2 ^ 21 := by decide) sn1 (by decide) (by decide) (by decide) hres hres2
+    have sm1' : (L * 2097152).bmod 4294967296 % 4294967296 = ((l * 2 ^ 21 : Nat) : Int) := by
+      rw [← e1]; exact sm1
+    have sn1' : ((L * 2097152).bmod 4294967296 * 2097152).bmod 4294967296 % 4294967296 = 0 := by
+      exact sn1
+    refine ⟨?_, ?_⟩ <;> (first | rw [N_8002d590] | rw [T_8002d590]) <;> fm_nf <;>
+      (first | rw [N_8002d590] | rw [T_8002d590]) <;> fm_nf
+    · rw [← sub.1]; sq_close
+    · rw [← sub.2]; sq_close
+  · -- one word
+    have hw : sqWords 3 0 l 0 = (l / 2 ^ 11, l * 2 ^ 21 % 2 ^ 32, -21) := by
+      unfold sqWords; rw [if_pos rfl]
+      unfold sqWords; rw [if_neg h1]
+      rfl
+    rw [hw] at hres hres2 ⊢
+    have sub := sub_5a0 s r g hro hs (l / 2 ^ 11) (l * 2 ^ 21 % 2 ^ 32) ((L * ((2 ^ 21 : Nat) : Int)).bmod 4294967296)
+      (-21) (by omega) (Nat.div_lt_of_lt_mul (by rw [← Nat.pow_add]; omega)) sm1 (Nat.mod_lt _ (by decide))
+      (by decide) (by decide) hres hres2
+    have sm1' : (L * 2097152).bmod 4294967296 % 4294967296 = ((l * 2 ^ 21 % 2 ^ 32 : Nat) : Int) := sm1
+    refine ⟨?_, ?_⟩ <;> (first | rw [N_8002d590] | rw [T_8002d590]) <;> fm_nf
+    · rw [← sub.1]; sq_close
+    · rw [← sub.2]; sq_close
+
 end norm
 
 end Lua.Vm.Fn.Ieee754Sqrt
