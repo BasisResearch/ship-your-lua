@@ -144,7 +144,7 @@ variable (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame)
 theorem st_4c8 (k : Nat) (c ρ S0 L H K q : Int) (hc1 : 1 ≤ c) (hc2 : c ≤ 22) (hρ0 : 0 ≤ ρ)
     (hS0 : 0 ≤ S0) (hS1 : S0 + ρ < 2 ^ 31) (hH0 : 0 ≤ H) (hH1 : H < 2 ^ 31) (hL1 : -2 ^ 31 ≤ L)
     (hL2 : L < 2 ^ 31) :
-    N_8002d4c8 (k + 1) m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 S0) (BitVec.ofInt 64 L)
+    (N_8002d4c8 (k + 1) m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 S0) (BitVec.ofInt 64 L)
         (BitVec.ofInt 64 H) (BitVec.ofInt 64 K) (BitVec.ofInt 64 q) =
       (if H < S0 + ρ then
         N_8002d4e4 k m s r g (BitVec.ofInt 64 (c - 1)) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 S0)
@@ -153,27 +153,44 @@ theorem st_4c8 (k : Nat) (c ρ S0 L H K q : Int) (hc1 : 1 ≤ c) (hc2 : c ≤ 22
       else
         N_8002d4d8 k m s r g (BitVec.ofInt 64 (S0 + ρ)) (BitVec.ofInt 64 (c - 1)) (BitVec.ofInt 64 ρ)
           (BitVec.ofInt 64 L) (BitVec.ofInt 64 H) (BitVec.ofInt 64 (L % 4294967296 / 2147483648))
-          (BitVec.ofInt 64 K) (BitVec.ofInt 64 q)) := by
-  rw [N_8002d4c8]
-  fm_nf
-  by_cases hc : H < S0 + ρ
-  · fm_nf; trivial
-  · fm_nf; trivial
+          (BitVec.ofInt 64 K) (BitVec.ofInt 64 q))) ∧
+    (T_8002d4c8 (k + 1) m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 S0) (BitVec.ofInt 64 L)
+        (BitVec.ofInt 64 H) (BitVec.ofInt 64 K) (BitVec.ofInt 64 q) =
+      (if H < S0 + ρ then
+        T_8002d4e4 k m s r g (BitVec.ofInt 64 (c - 1)) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 S0)
+          (BitVec.ofInt 64 L) (BitVec.ofInt 64 H) (BitVec.ofInt 64 (L % 4294967296 / 2147483648))
+          (BitVec.ofInt 64 K) (BitVec.ofInt 64 q)
+      else
+        T_8002d4d8 k m s r g (BitVec.ofInt 64 (S0 + ρ)) (BitVec.ofInt 64 (c - 1)) (BitVec.ofInt 64 ρ)
+          (BitVec.ofInt 64 L) (BitVec.ofInt 64 H) (BitVec.ofInt 64 (L % 4294967296 / 2147483648))
+          (BitVec.ofInt 64 K) (BitVec.ofInt 64 q))) := by
+  refine ⟨?_, ?_⟩ <;> (first | rw [N_8002d4c8] | rw [T_8002d4c8]) <;>
+  (
+    fm_nf
+    by_cases hc : H < S0 + ρ
+    · fm_nf; trivial
+    · fm_nf; trivial)
 
 theorem st_4d8 (k : Nat) (c ρ T L H b K q : Int) (hρ0 : 0 ≤ ρ) (hT0 : 0 ≤ T) (hT1 : T + ρ < 2 ^ 31)
     (hH0 : T ≤ H) (hH1 : H < 2 ^ 31) (hq0 : 0 ≤ q) (hq1 : q + ρ < 2 ^ 31) :
-    N_8002d4d8 (k + 1) m s r g (BitVec.ofInt 64 T) (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 L)
+    (N_8002d4d8 (k + 1) m s r g (BitVec.ofInt 64 T) (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 L)
         (BitVec.ofInt 64 H) (BitVec.ofInt 64 b) (BitVec.ofInt 64 K) (BitVec.ofInt 64 q) =
       N_8002d4e4 k m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 (T + ρ))
         (BitVec.ofInt 64 L) (BitVec.ofInt 64 (H - T)) (BitVec.ofInt 64 b) (BitVec.ofInt 64 K)
-        (BitVec.ofInt 64 (q + ρ)) := by
-  rw [N_8002d4d8]
-  fm_nf
+        (BitVec.ofInt 64 (q + ρ))) ∧
+    (T_8002d4d8 (k + 1) m s r g (BitVec.ofInt 64 T) (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 L)
+        (BitVec.ofInt 64 H) (BitVec.ofInt 64 b) (BitVec.ofInt 64 K) (BitVec.ofInt 64 q) =
+      T_8002d4e4 k m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 (T + ρ))
+        (BitVec.ofInt 64 L) (BitVec.ofInt 64 (H - T)) (BitVec.ofInt 64 b) (BitVec.ofInt 64 K)
+        (BitVec.ofInt 64 (q + ρ))) := by
+  refine ⟨?_, ?_⟩ <;> (first | rw [N_8002d4d8] | rw [T_8002d4d8]) <;>
+  (
+    fm_nf)
 
 theorem st_4e4 (k : Nat) (c ρ S0 L H b K q : Int) (hc0 : 0 ≤ c) (hc1 : c ≤ 22) (hρ0 : 0 ≤ ρ) (hρ1 : ρ < 2 ^ 31)
     (hH0 : 0 ≤ H) (hH1 : 2 * H + b < 2 ^ 31) (hb0 : 0 ≤ b) (hb1 : b ≤ 1) (hL1 : -2 ^ 31 ≤ L)
     (hL2 : L < 2 ^ 31) :
-    N_8002d4e4 (k + 1) m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 S0) (BitVec.ofInt 64 L)
+    (N_8002d4e4 (k + 1) m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 S0) (BitVec.ofInt 64 L)
         (BitVec.ofInt 64 H) (BitVec.ofInt 64 b) (BitVec.ofInt 64 K) (BitVec.ofInt 64 q) =
       (if c = 0 then
         N_8002d4f8 m s r g (BitVec.ofInt 64 S0) (BitVec.ofInt 64 ((L * 2).bmod 4294967296))
@@ -181,13 +198,23 @@ theorem st_4e4 (k : Nat) (c ρ S0 L H b K q : Int) (hc0 : 0 ≤ c) (hc1 : c ≤ 
       else
         N_8002d4c8 k m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 (ρ / 2)) (BitVec.ofInt 64 S0)
           (BitVec.ofInt 64 ((L * 2).bmod 4294967296)) (BitVec.ofInt 64 (b + H * 2)) (BitVec.ofInt 64 K)
-          (BitVec.ofInt 64 q)) := by
-  rw [N_8002d4e4]
-  fm_nf
-  have e : ρ % 4294967296 = ρ := by omega
-  by_cases hc : c = 0
-  · subst hc; fm_nf
-  · fm_nf; rw [e]
+          (BitVec.ofInt 64 q))) ∧
+    (T_8002d4e4 (k + 1) m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 ρ) (BitVec.ofInt 64 S0) (BitVec.ofInt 64 L)
+        (BitVec.ofInt 64 H) (BitVec.ofInt 64 b) (BitVec.ofInt 64 K) (BitVec.ofInt 64 q) =
+      (if c = 0 then
+        T_8002d4f8 m s r g (BitVec.ofInt 64 S0) (BitVec.ofInt 64 ((L * 2).bmod 4294967296))
+          (BitVec.ofInt 64 (b + H * 2)) (BitVec.ofInt 64 K) (BitVec.ofInt 64 q)
+      else
+        T_8002d4c8 k m s r g (BitVec.ofInt 64 c) (BitVec.ofInt 64 (ρ / 2)) (BitVec.ofInt 64 S0)
+          (BitVec.ofInt 64 ((L * 2).bmod 4294967296)) (BitVec.ofInt 64 (b + H * 2)) (BitVec.ofInt 64 K)
+          (BitVec.ofInt 64 q))) := by
+  refine ⟨?_, ?_⟩ <;> (first | rw [N_8002d4e4] | rw [T_8002d4e4]) <;>
+  (
+    fm_nf
+    have e : ρ % 4294967296 = ρ := by omega
+    by_cases hc : c = 0
+    · subst hc; fm_nf
+    · fm_nf; rw [e])
 
 end loop1
 

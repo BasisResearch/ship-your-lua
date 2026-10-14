@@ -114,20 +114,23 @@ theorem sqrt_unique {N s : Nat} (h1 : s * s ≤ N) (h2 : N < (s + 1) * (s + 1)) 
   · have : (s + 1) * (s + 1) ≤ N.sqrt * N.sqrt := Nat.mul_le_mul h h
     omega
 
+/-- The invariant before the first bit: `W = Y`, `Q = 0`. -/
+theorem sqInv_init (Y : Nat) (hY : Y < 2 ^ 55) : SqInv (Y * 2 ^ 53) (32 + 22) Y 0 := by
+  refine ⟨by simp, ?_, ?_, Nat.dvd_zero _⟩
+  · rw [show (32 + 22 : Nat) = 53 + 1 by rfl, Nat.pow_succ]; simp; omega
+  · simp only [Nat.zero_add]
+    have : Y * 2 ^ 53 < 2 ^ 108 := by
+      calc Y * 2 ^ 53 < 2 ^ 55 * 2 ^ 53 := Nat.mul_lt_mul_of_pos_right hY (Nat.two_pow_pos _)
+        _ = 2 ^ 108 := by rw [← Nat.pow_add]
+    calc Y * 2 ^ 53 < 2 ^ 108 := this
+      _ = 2 ^ (32 + 22) * 2 ^ (32 + 22) := by rw [← Nat.pow_add]
+
 /-- **The loop computes the root** (`e_sqrt.c:133-171`): from `(Y, 0)`, the
 54 bits give `Q = √(Y·2^53)` and the remainder `W = 2 (Y·2^53 - Q²)`. -/
 theorem sqRun_spec (Y : Nat) (hY : Y < 2 ^ 55) :
     sqRun 32 0 (sqRun 22 32 (Y, 0)) =
       (2 * (Y * 2 ^ 53 - (Y * 2 ^ 53).sqrt * (Y * 2 ^ 53).sqrt), (Y * 2 ^ 53).sqrt) := by
-  have h0 : SqInv (Y * 2 ^ 53) (32 + 22) Y 0 := by
-    refine ⟨by simp, ?_, ?_, Nat.dvd_zero _⟩
-    · rw [show (32 + 22 : Nat) = 53 + 1 by rfl, Nat.pow_succ]; simp; omega
-    · simp only [Nat.zero_add]
-      have : Y * 2 ^ 53 < 2 ^ 108 := by
-        calc Y * 2 ^ 53 < 2 ^ 55 * 2 ^ 53 := Nat.mul_lt_mul_of_pos_right hY (Nat.two_pow_pos _)
-          _ = 2 ^ 108 := by rw [← Nat.pow_add]
-      calc Y * 2 ^ 53 < 2 ^ 108 := this
-        _ = 2 ^ (32 + 22) * 2 ^ (32 + 22) := by rw [← Nat.pow_add]
+  have h0 := sqInv_init Y hY
   have h1 := sqRun_inv (Y * 2 ^ 53) 32 22 Y 0 h0
   generalize sqRun 22 32 (Y, 0) = st at h1 ⊢
   rcases st with ⟨W0, Q0⟩
