@@ -31,16 +31,21 @@ the prologue. -/
 @[reducible] def SnG.MD (G : SnG) (m : Mem) : Mem :=
   Lua.Vm.AtF.SnprintfLld.m15 (G.X {} (Lua.Vm.AtF.SnprintfLld.m12 (G.X0 m)))
 
+/-- The `'d'` conversion's context. -/
+abbrev SnG.XD (G : SnG) (m : Mem) : FCx := G.X {} (G.MD m)
+
 /-- What a run writes: `snprintf`'s and its callees' frames (the 4 KiB below
 `sp`) and the buffer. -/
-def snWk (G : SnG) (a : Nat) : Prop := (G.sp ≤ a + 4096 ∧ a < G.sp) ∨ (G.buf ≤ a ∧ a < G.buf + 44)
+def snWkN (sp buf a : Nat) : Prop := (sp ≤ a + 4096 ∧ a < sp) ∨ (buf ≤ a ∧ a < buf + 44)
+abbrev snWk (G : SnG) : Nat → Prop := snWkN G.sp G.buf
 
 /-- What a run writes after the `'d'` conversion: `__ssprint_r`'s and
 `__ssputs_r`'s frames, `_svfprintf_r`'s slots but its saved registers, `fp`
 and the format cursor, `fp->_p` and `_w`, the buffer. -/
-def snWd (G : SnG) (a : Nat) : Prop :=
-  (G.sp ≤ a + 1000 ∧ a + 866 < G.sp) ∨ (G.sp ≤ a + 864 ∧ a + 856 < G.sp) ∨
-    (G.sp ≤ a + 848 ∧ a + 500 < G.sp) ∨ (G.sp ≤ a + 264 ∧ a + 248 < G.sp) ∨ (G.buf ≤ a ∧ a < G.buf + 44)
+def snWdN (sp buf a : Nat) : Prop :=
+  (sp ≤ a + 1000 ∧ a + 856 < sp) ∨ (sp ≤ a + 848 ∧ a + 400 < sp) ∨
+    (sp ≤ a + 264 ∧ a + 248 < sp) ∨ (buf ≤ a ∧ a < buf + 44)
+abbrev snWd (G : SnG) : Nat → Prop := snWdN G.sp G.buf
 
 /-- A run's contexts and memories unfolded to the chains over the entry's. -/
 macro "sn_unfold" loc:(Lean.Parser.Tactic.location)? : tactic => `(tactic|
@@ -50,11 +55,46 @@ macro "sn_unfold" loc:(Lean.Parser.Tactic.location)? : tactic => `(tactic|
 (`fat_rd`) onto the facts in context, a ground store's data evaluated. -/
 macro "sn_rd" : tactic => `(tactic| (sn_unfold; fat_rd; try decide))
 
+theorem Agree.st8 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec (8 * 8)} (h : Agree R M m)
+    (hR : ∀ j, j < 8 → R (a + j)) : Agree R M (writeMap8 m a d) := fun x hx => by
+  rw [getElem?_writeMap8_out m a d x (by
+    rcases Nat.lt_or_ge x a with h1 | h1
+    · exact .inl h1
+    · refine .inr (Nat.not_lt.1 fun h2 => hx ?_)
+      have := hR (x - a) (by omega); rwa [Nat.add_sub_cancel' h1] at this)]
+  exact h x hx
+theorem Agree.st4 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec (8 * 4)} (h : Agree R M m)
+    (hR : ∀ j, j < 4 → R (a + j)) : Agree R M (writeMap4 m a d) := fun x hx => by
+  rw [getElem?_writeMap4_out m a d x (by
+    rcases Nat.lt_or_ge x a with h1 | h1
+    · exact .inl h1
+    · refine .inr (Nat.not_lt.1 fun h2 => hx ?_)
+      have := hR (x - a) (by omega); rwa [Nat.add_sub_cancel' h1] at this)]
+  exact h x hx
+theorem Agree.st1 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec 8} (h : Agree R M m)
+    (hR : R a) : Agree R M (m.insert a d) := fun x hx => by
+  rw [Lua.Vm.Sim.AtF.ins_out m a d x (by
+    rcases Nat.lt_or_ge x a with h1 | h1
+    · exact .inl h1
+    · refine .inr (Nat.not_lt.1 fun h2 => hx ?_)
+      rwa [show x = a by omega])]
+  exact h x hx
+
+/-- **A store chain in a region** (store by store: each store's bytes in the
+region, by `omega` on its offsets). -/
+macro "fmt_agree2" : tactic => `(tactic| (
+  sn_unfold
+  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st1)
+  all_goals first
+    | exact Agree.refl _ _
+    | (intro j hj; simp only [snWd, snWk, snWdN, snWkN]; omega)
+    | (simp only [snWd, snWk, snWdN, snWkN]; omega)))
+
 /-- **A store chain off a region**: every store of the (unfolded) chain lies
 in the region (`omega` per store). -/
 macro "fmt_agree" : tactic => `(tactic| (
   intro x hx
-  simp only [snWk, snWd, not_or, not_and, Nat.not_lt] at hx
+  simp only [snWk, snWd, snWkN, snWdN, not_or, not_and, Nat.not_lt] at hx
   sn_unfold
   simp (disch := omega) only [getElem?_writeMap8_out, getElem?_writeMap4_out, getElem?_writeMap2_out,
     Lua.Vm.Sim.AtF.ins_out]))
@@ -81,15 +121,15 @@ writes. -/
 theorem stat_of {G : SnG} {m M : Mem} (h : G.In m) (ha : Agree (snWk G) m M) : FmtStatic M := by
   have := h.sp_lo; have := h.b_lo; have hs := h.stat
   refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · exact (ha.b8 fun i _ => by simp only [snWk]; omega).trans hs.impure
-  · exact (ha.b8 fun i _ => by simp only [snWk]; omega).trans hs.decpt
-  · exact (ha.b8 fun i _ => by simp only [snWk]; omega).trans hs.dotw
-  · exact (ha.t1 (by simp only [snWk]; omega)).trans hs.dot0
-  · exact (ha.t1 (by simp only [snWk]; omega)).trans hs.dot1
-  · exact (ha.b8 fun i _ => by simp only [snWk]; omega).trans hs.mbtowc
-  · exact (ha.t1 (by simp only [snWk]; omega)).trans hs.mbmax
-  · exact (ha.b4 fun i _ => by simp only [snWk]; omega).trans hs.jt_l
-  · exact (ha.b4 fun i _ => by simp only [snWk]; omega).trans hs.jt_d
+  · exact (ha.b8 fun i _ => by simp only [snWk, snWkN]; omega).trans hs.impure
+  · exact (ha.b8 fun i _ => by simp only [snWk, snWkN]; omega).trans hs.decpt
+  · exact (ha.b8 fun i _ => by simp only [snWk, snWkN]; omega).trans hs.dotw
+  · exact (ha.t1 (by simp only [snWk, snWkN]; omega)).trans hs.dot0
+  · exact (ha.t1 (by simp only [snWk, snWkN]; omega)).trans hs.dot1
+  · exact (ha.b8 fun i _ => by simp only [snWk, snWkN]; omega).trans hs.mbtowc
+  · exact (ha.t1 (by simp only [snWk, snWkN]; omega)).trans hs.mbmax
+  · exact (ha.b4 fun i _ => by simp only [snWk, snWkN]; omega).trans hs.jt_l
+  · exact (ha.b4 fun i _ => by simp only [snWk, snWkN]; omega).trans hs.jt_d
 
 /-- The format's bytes in a memory agreeing with the entry's. -/
 theorem fmt_of {G : SnG} {m M : Mem} (h : G.In m) (ha : Agree (snWk G) m M) :
@@ -97,7 +137,7 @@ theorem fmt_of {G : SnG} {m M : Mem} (h : G.In m) (ha : Agree (snWk G) m M) :
       bytesT1 M (G.fmt + 3) = 0x64#8 ∧ bytesT1 M (G.fmt + 4) = 0x0#8 := by
   have := h.sp_lo; have := h.b_lo; have := h.f_hi
   obtain ⟨e0, e1, e2, e3, e4⟩ := h.fmt_at
-  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> rw [ha.t1 (by simp only [snWk]; omega)] <;> assumption
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩ <;> rw [ha.t1 (by simp only [snWk, snWkN]; omega)] <;> assumption
 
 theorem agree_F (G : SnG) (m : Mem) (h : G.In m) :
     Agree (snWk G) (Lua.Vm.AtF.SnprintfLld.m12 (G.X0 m)) (G.MD m) := by
@@ -123,7 +163,8 @@ theorem facD (G : SnG) (m : Mem) (h : G.In m) : FacD G (G.MD m) := by
   constructor <;> sn_rd
 
 /-- A root's context facts (`Ok_*`) from the run's facts. -/
-macro "sn_ok" : tactic => `(tactic| (constructor <;> (try sn_unfold) <;> first | assumption | omega))
+macro "sn_ok" : tactic => `(tactic| (constructor <;>
+  simp only [SnG.XD, SnG.X0, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] <;> omega))
 
 /-- A halfword read over the two bytes of a word store `simp` split. -/
 theorem fw2_ins2 {m : Mem} {a x y : Nat} {b0 b1 : BitVec 8} (hx : x = a + 1) (hy : y = a) :
@@ -224,25 +265,25 @@ theorem snSave_D (G : SnG) (m : Mem) (h : G.In m) : SnSave G (G.MD m) :=
 theorem SnSave.congr {G : SnG} {M M' : Mem} (h : SnSave G M) (ha : Agree (snWd G) M M')
     (hs : 0x8005e720 + 8192 ≤ G.sp) (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) : SnSave G M' where
   a := {
-    s2 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s2
-    s3 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s3
-    s4 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s4
-    s5 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s5
-    s7 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s7
-    s8 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s8
-    s9 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s9
-    s10 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s10
-    s11 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.a.s11 }
+    s2 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s2
+    s3 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s3
+    s4 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s4
+    s5 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s5
+    s7 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s7
+    s8 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s8
+    s9 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s9
+    s10 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s10
+    s11 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s11 }
   b := {
-    fp := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.fp
-    flags := (ha.b2 fun i _ => by simp only [snWd]; omega).trans h.b.flags
-    s6 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.s6
-    vra := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.vra
-    vs0 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.vs0
-    vs1 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.vs1
-    cs1 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.cs1
-    cra := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.cra
-    cs0 := (ha.b8 fun i _ => by simp only [snWd]; omega).trans h.b.cs0 }
+    fp := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.fp
+    flags := (ha.b2 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.flags
+    s6 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.s6
+    vra := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.vra
+    vs0 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.vs0
+    vs1 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.vs1
+    cs1 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.cs1
+    cra := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.cra
+    cs0 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.b.cs0 }
 
 /-- `memmove`'s keep as an agreement. -/
 theorem MoveOut.agree {m M : Mem} {D S t : Nat} (h : MoveOut m M D S t) :
@@ -251,14 +292,13 @@ theorem MoveOut.agree {m M : Mem} {D S t : Nat} (h : MoveOut m M D S t) :
 /-- A copy into the buffer is a write after the conversion. -/
 theorem agree_move {G : SnG} {m M : Mem} {D S t : Nat} (h : MoveOut m M D S t) (h1 : G.buf ≤ D)
     (h2 : D + t ≤ G.buf + 44) : Agree (snWd G) m M :=
-  h.agree.mono fun a ha => by simp only [snWd]; omega
+  h.agree.mono fun a ha => by simp only [snWd, snWdN]; omega
 
 theorem snWd_snWk {G : SnG} {M M' : Mem} (h : Agree (snWd G) M M') (hs : 1000 ≤ G.sp) :
     Agree (snWk G) M M' :=
   h.mono fun a ha => by
-    simp only [snWd, snWk] at ha ⊢
-    rcases ha with ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩
-    · exact .inl ⟨by omega, by omega⟩
+    simp only [snWd, snWk, snWdN, snWkN] at ha ⊢
+    rcases ha with ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩
     · exact .inl ⟨by omega, by omega⟩
     · exact .inl ⟨by omega, by omega⟩
     · exact .inl ⟨by omega, by omega⟩
@@ -271,5 +311,222 @@ theorem digit_byte (q : BitVec 64) (hq : q.toNat < 10) :
   obtain ⟨k, hk, rfl⟩ : ∃ k, k < 10 ∧ q = BitVec.ofNat 64 k := ⟨q.toNat, hq, by simp⟩
   have : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 ∨ k = 6 ∨ k = 7 ∨ k = 8 ∨ k = 9 := by omega
   rcases this with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+
+/-- Agreements off one region compose. -/
+theorem Agree.tr {R : Nat → Prop} {m m1 m2 : Mem} (h1 : Agree R m m1) (h2 : Agree R m1 m2) : Agree R m m2 :=
+  (h1.trans h2).mono fun _ h => h.elim id id
+
+/-- A read of a run's memory down to the `'d'` conversion's root memory
+(`SnG.MD` kept folded: its facts, `FacD`/`SnSave`, in context). -/
+macro "sn_rd1" : tactic => `(tactic| (
+  simp only [SnG.XD, SnG.X0, SnG.X, at_row, abiCx, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  fat_rd; try decide))
+
+/-- **What `IntegerToStr_Statement` concludes** of a run. -/
+def SnPost (G : SnG) (m : Mem) (c : Config) : Prop :=
+  ∃ m', wrRet G.r G.sp (intBytes G.i).length G.f m' G.o c ∧
+    bytesAt m' G.buf ((intBytes G.i).length + 1) = intBytes G.i ++ [0#8] ∧
+    ∀ a, (a + 4096 ≤ G.sp ∨ G.sp ≤ a) → (a < G.buf ∨ G.buf + 44 ≤ a) → bytesT1 m' a = bytesT1 m a
+
+/-- `intBytes` of a one-digit non-negative `i`. -/
+theorem intBytes_one {i : BitVec 64} (hp : zopz0zKzJ_s i (0x0#64) = true) (hs : zopz0zI_u (0x9#64) i = false) :
+    intBytes i = [digB i.toNat] ∧ i.toNat < 10 := by
+  have hi : 0 ≤ i.toInt := by
+    simp only [zopz0zKzJ_s, decide_eq_true_eq] at hp; simpa using hp
+  have h9 : i.toNat ≤ 9 := by
+    have e : BitVec.toNatInt (0x9#64 : BitVec 64) = 9 := by decide
+    unfold zopz0zI_u at hs
+    rw [e, decide_eq_false_iff_not] at hs
+    simp only [BitVec.toNatInt, Int.ofNat_eq_coe] at hs
+    omega
+  refine ⟨?_, by omega⟩
+  rw [intBytes_eq, magOf, if_neg (by omega), if_neg (by omega), List.nil_append, decBytes_lt (by omega)]
+
+theorem MoveOut.rd4 {m M : Mem} {D S t a : Nat} (h : MoveOut m M D S t) (ha : a + 4 ≤ D ∨ D + t ≤ a) :
+    bytesT4 M a = bytesT4 m a := bT4_congr fun _ _ => h.keep _ (by omega)
+theorem MoveOut.rd2 {m M : Mem} {D S t a : Nat} (h : MoveOut m M D S t) (ha : a + 2 ≤ D ∨ D + t ≤ a) :
+    bytesT2 M a = bytesT2 m a := bT2_congr fun _ _ => h.keep _ (by omega)
+
+/-- A context's atoms unfolded, its memory kept. -/
+macro "sn_u1" : tactic => `(tactic|
+  simp only [SnG.XD, SnG.X0, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ])
+
+set_option hygiene false in
+/-- A read past a `memmove` (`hmv`, off the copy) down to the run's memories. -/
+macro "sn_mv" : tactic => `(tactic| (
+  sn_u1
+  first
+  | (rw [MoveOut.rd8 hmv (by omega)])
+  | (rw [MoveOut.rd4 hmv (by omega)])
+  | (rw [MoveOut.rd2 hmv (by omega)])
+  | (rw [MoveOut.rd1 hmv (by omega)])
+  sn_rd1))
+
+/-- **A root path's stores in the writes after the conversion** (over a
+generic context: its root memory is the base of the chain). -/
+macro "fmt_agree3" : tactic => `(tactic| (
+  simp only [at_row]
+  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st1)
+  all_goals first
+    | (intro j hj; simp only [snWdN]; omega)
+    | (simp only [snWdN]; omega)))
+
+theorem agree_Dp1X (X : FCx) (h : 0x8005e720 + 8192 ≤ X.n 0) :
+    Agree (snWdN (X.n 0) (X.n 1)) X.m (Lua.Vm.AtF.SnprintfLld.m27 X) := by fmt_agree3
+
+theorem agree_Dp1 (G : SnG) (m : Mem) (h : G.In m) :
+    Agree (snWd G) (G.MD m) (Lua.Vm.AtF.SnprintfLld.m27 (G.XD m)) := agree_Dp1X (G.XD m) h.sp_lo
+
+theorem agree_Qp1X (X : FCx) (h : 0x8005e720 + 8192 ≤ X.n 0) :
+    Agree (snWdN (X.n 0) (X.n 1)) X.m (Lua.Vm.AtF.SnprintfLld.m33 X) := by fmt_agree3
+
+theorem agree_Qp1 (G : SnG) (M : Mem) (h : 0x8005e720 + 8192 ≤ G.sp) :
+    Agree (snWd G) M (Lua.Vm.AtF.SnprintfLld.m33 (G.X {} M)) := agree_Qp1X (G.X {} M) h
+
+/-- **A non-negative one-digit `i`, to `memmove` of its digit** (`run_Dp1`). -/
+theorem snp_p1_mv (G : SnG) (m : Mem) (hin : G.In m)
+    (hp : zopz0zKzJ_s G.i (0x0#64) = true) (hs : zopz0zI_u (0x9#64) G.i = false) (c : Config)
+    (h : SegSt 0x80043824#64 (Lua.Vm.AtF.SnprintfLld.r34 (G.XD m)) (ArmPay (G.XD m).m (G.XD m).o) c) :
+    ∃ c2 M1, Steps c c2 ∧
+      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r40 (G.X {} M1)) (ArmPay (G.X {} M1).m (G.X {} M1).o) c2 ∧
+      MoveOut (Lua.Vm.AtF.SnprintfLld.m27 (G.XD m)) M1 G.buf (G.sp - 517) 1 := by
+  have := hin.sp_lo; have := hin.sp_hi; have := hin.sp_al; have := hin.ra; have := hin.b_lo
+  have := hin.b_ap; have := hin.b_hi; have := hin.f_lo; have := hin.f_hi
+  obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := facD G m hin
+  obtain ⟨c1, s1, h1⟩ := run_Dp1 (G.XD m) (by sn_ok) (by sn_u1; exact fap) (by sn_u1; exact fi)
+    (by sn_u1; exact hp) (by sn_u1; exact hs) (by sn_u1; exact fsgn) (by sn_u1; exact fres)
+    (by sn_u1; exact fcnt) (by sn_u1; exact fret) (by sn_u1; exact ffp) (by sn_u1; exact fiov)
+    (by sn_u1; exact fw) (by sn_u1; exact fp) c h
+  obtain ⟨c2, s2, M1, hr, hmv⟩ := memmove_sum (G.sp - 992) G.buf (G.sp - 517) 1 0x8004e4e8#64
+    (AbiFrame.mk _ _ _ _ _ _ _ _ _ _ _ _) (Lua.Vm.AtF.SnprintfLld.m27 (G.XD m)) G.o
+    ⟨⟨by omega, by omega, by omega, by omega, by omega, by omega⟩, by omega, by rfl⟩ c1
+    (h1.repin (by
+      simp only [Lua.Vm.AtF.SnprintfLld.r39, SnG.XD, SnG.X, FCx.mk', List.getD_cons_zero,
+        List.getD_cons_succ] at h1
+      pins_of h1))
+  refine ⟨c2, M1, s1.trans s2, ?_, hmv⟩
+  dsimp only [mmRet] at hr
+  refine hr.repin ?_
+  simp only [Lua.Vm.AtF.SnprintfLld.r40, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  pins_of hr
+
+/-- What the root after the digit's `memmove` reads of `__ssprint_r`'s and
+`__ssputs_r`'s frames, the uio and `_svfprintf_r`'s slots. -/
+structure FacQp1a (G : SnG) (M : Mem) : Prop where
+  w : bytesT4 M (G.sp - 252) = 0x2b#32
+  p : bytesT8 M (G.sp - 264) = BitVec.ofNat 64 G.buf
+  e936 : bytesT8 M (G.sp - 936) = 0x8004975c#64
+  e944 : bytesT8 M (G.sp - 944) = BitVec.ofNat 64 (G.sp - 512)
+  e952 : bytesT8 M (G.sp - 952) = BitVec.ofNat 64 (G.sp - 640)
+  e624 : bytesT8 M (G.sp - 624) = 0x1#64
+  e880 : bytesT8 M (G.sp - 880) = 0x8005d1b8#64
+  e896 : bytesT8 M (G.sp - 896) = 0x10#64
+
+structure FacQp1b (G : SnG) (M : Mem) : Prop where
+  e904 : bytesT8 M (G.sp - 904) = 0x25#64
+  e912 : bytesT8 M (G.sp - 912) = 0xfffffffffffffffe#64
+  e920 : bytesT8 M (G.sp - 920) = BitVec.ofNat 64 (G.sp - 512)
+  e872 : bytesT8 M (G.sp - 872) = 0x80043ea4#64
+  e888 : bytesT8 M (G.sp - 888) = 0x8005cff0#64
+  e832 : bytesT8 M (G.sp - 832) = 0x0#64
+  e864 : bytesT8 M (G.sp - 864) = BitVec.ofNat 64 (G.fmt + 4)
+  e848 : bytesT8 M (G.sp - 848) = 0x1#64
+
+/-! ### Forwarding a stack read through stack stores (`S - k`, literal `k`):
+the separations decided on the literals -/
+
+theorem fwS8_wm8 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 8)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 8 ≤ k2 ∨ k2 + 8 ≤ k1) :
+    bytesT8 (writeMap8 m (S - k1) d) (S - k2) = bytesT8 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw8_wm8 (by omega)
+theorem fwS8_wm4 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 4)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 8 ≤ k2 ∨ k2 + 4 ≤ k1) :
+    bytesT8 (writeMap4 m (S - k1) d) (S - k2) = bytesT8 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw8_wm4 (by omega)
+theorem fwS8_wm2 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 2)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 8 ≤ k2 ∨ k2 + 2 ≤ k1) :
+    bytesT8 (writeMap2 m (S - k1) d) (S - k2) = bytesT8 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw8_wm2 (by omega)
+theorem fwS8_ins {m : Mem} {S k1 k2 : Nat} {d : BitVec 8} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 8 ≤ k2 ∨ k2 + 1 ≤ k1) :
+    bytesT8 (m.insert (S - k1) d) (S - k2) = bytesT8 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw8_ins (by omega)
+theorem fwS4_wm8 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 8)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 4 ≤ k2 ∨ k2 + 8 ≤ k1) :
+    bytesT4 (writeMap8 m (S - k1) d) (S - k2) = bytesT4 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw4_wm8 (by omega)
+theorem fwS4_wm4 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 4)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 4 ≤ k2 ∨ k2 + 4 ≤ k1) :
+    bytesT4 (writeMap4 m (S - k1) d) (S - k2) = bytesT4 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw4_wm4 (by omega)
+theorem fwS4_wm2 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 2)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 4 ≤ k2 ∨ k2 + 2 ≤ k1) :
+    bytesT4 (writeMap2 m (S - k1) d) (S - k2) = bytesT4 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw4_wm2 (by omega)
+theorem fwS4_ins {m : Mem} {S k1 k2 : Nat} {d : BitVec 8} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 4 ≤ k2 ∨ k2 + 1 ≤ k1) :
+    bytesT4 (m.insert (S - k1) d) (S - k2) = bytesT4 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw4_ins (by omega)
+theorem fwS2_wm8 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 8)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 2 ≤ k2 ∨ k2 + 8 ≤ k1) :
+    bytesT2 (writeMap8 m (S - k1) d) (S - k2) = bytesT2 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw2_wm8 (by omega)
+theorem fwS2_wm4 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 4)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 2 ≤ k2 ∨ k2 + 4 ≤ k1) :
+    bytesT2 (writeMap4 m (S - k1) d) (S - k2) = bytesT2 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw2_wm4 (by omega)
+theorem fwS2_wm2 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 2)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 2 ≤ k2 ∨ k2 + 2 ≤ k1) :
+    bytesT2 (writeMap2 m (S - k1) d) (S - k2) = bytesT2 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw2_wm2 (by omega)
+theorem fwS2_ins {m : Mem} {S k1 k2 : Nat} {d : BitVec 8} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 2 ≤ k2 ∨ k2 + 1 ≤ k1) :
+    bytesT2 (m.insert (S - k1) d) (S - k2) = bytesT2 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw2_ins (by omega)
+theorem fwS1_wm8 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 8)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 1 ≤ k2 ∨ k2 + 8 ≤ k1) :
+    bytesT1 (writeMap8 m (S - k1) d) (S - k2) = bytesT1 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw1_wm8 (by omega)
+theorem fwS1_wm4 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 4)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 1 ≤ k2 ∨ k2 + 4 ≤ k1) :
+    bytesT1 (writeMap4 m (S - k1) d) (S - k2) = bytesT1 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw1_wm4 (by omega)
+theorem fwS1_wm2 {m : Mem} {S k1 k2 : Nat} {d : BitVec (8 * 2)} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 1 ≤ k2 ∨ k2 + 2 ≤ k1) :
+    bytesT1 (writeMap2 m (S - k1) d) (S - k2) = bytesT1 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw1_wm2 (by omega)
+theorem fwS1_ins {m : Mem} {S k1 k2 : Nat} {d : BitVec 8} (hS : 4096 ≤ S) (h1 : k1 ≤ 4096)
+    (h2 : k2 ≤ 4096) (h : k1 + 1 ≤ k2 ∨ k2 + 1 ≤ k1) :
+    bytesT1 (m.insert (S - k1) d) (S - k2) = bytesT1 m (S - k2) :=
+  Lua.Vm.Sim.AtF.fw1_ins (by omega)
+
+/-- **A read of a stack slot through a chain of stack stores** down to the
+root memory, rewritten by the facts in context (`*`): the separations on
+the literal offsets (`decide`), `sp ≥ 4096` by `assumption`. -/
+macro "sn_rd2" : tactic => `(tactic| (
+  simp only [SnG.X, at_row, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  simp (disch := first | assumption | decide | rfl) only [fwS8_wm8, fwS8_wm4, fwS8_wm2, fwS8_ins, fwS4_wm8, fwS4_wm4, fwS4_wm2, fwS4_ins, fwS2_wm8, fwS2_wm4, fwS2_wm2, fwS2_ins, fwS1_wm8, fwS1_wm4, fwS1_wm2, fwS1_ins,
+    Lua.Vm.Sim.AtF.fw8_same, Lua.Vm.Sim.AtF.fw4_same, Lua.Vm.Sim.AtF.fw2_same, Lua.Vm.Sim.AtF.fw1_same, *]
+  try decide))
+
+set_option hygiene false in
+/-- A read past a `memmove` (`hmv`, off the copy). -/
+macro "sn_mv2" : tactic => `(tactic| (
+  simp (disch := omega) only [MoveOut.rd8 hmv, MoveOut.rd4 hmv, MoveOut.rd2 hmv, MoveOut.rd1 hmv]
+  sn_rd2))
+
+theorem facQp1a (G : SnG) (MD : Mem) (F : FacD G MD) (hs : 0x8005e720 + 8192 ≤ G.sp)
+    (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) (hbl : 0x8005e720 ≤ G.buf) (M1 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m27 (G.X {} MD)) M1 G.buf (G.sp - 517) 1) : FacQp1a G M1 := by
+  obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := F
+  have hS : 4096 ≤ G.sp := by omega
+  constructor <;> sn_mv2
+
+theorem facQp1b (G : SnG) (MD : Mem) (F : FacD G MD) (hs : 0x8005e720 + 8192 ≤ G.sp)
+    (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) (hbl : 0x8005e720 ≤ G.buf) (M1 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m27 (G.X {} MD)) M1 G.buf (G.sp - 517) 1) : FacQp1b G M1 := by
+  obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := F
+  have hS : 4096 ≤ G.sp := by omega
+  constructor <;> sn_mv2
 
 end Lua.Vm.Sim.Kit
