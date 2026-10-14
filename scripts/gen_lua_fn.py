@@ -80,10 +80,17 @@ ROUTINES = {
     # below), a 16-byte frame on its NaN path only (`(x*y)/(x*y)`: `__muldf3`,
     # `__divdf3` as call nodes)
     "__ieee754_fmod": ("Ieee754Fmod", 0x8002bdb4, 16, [10, 11]),
+    # lane float-sf6: `__ieee754_sqrt` (`e_sqrt.c`): four loops (the subnormal
+    # normalisations, the two bit-by-bit root loops), call nodes on its class
+    # paths (`x*x+x`, `(x-x)/(x-x)`) and its rounding-direction test
+    # (`one-tiny`, `one+tiny` against `one`: `__subdf3`, `__adddf3`, `__ledf2`),
+    # with its temporaries spilled across them (`FORWARD`) and `s0` saved and
+    # reassigned (`saves`)
+    "__ieee754_sqrt": ("Ieee754Sqrt", 0x8002d448, 48, [10]),
 }
 # a framed routine whose framed callees write below its own frame: the bytes
 # below `sp` its summary patches (its frame plus the deepest callee's)
-WINDOW = {"floor": 112, "__ieee754_fmod": 128}
+WINDOW = {"floor": 112, "__ieee754_fmod": 128, "__ieee754_sqrt": 160}
 # lane float-sf5: the routines whose lifted functions take the memory only
 # where they read it (`Fn.need_m`, as under `FORWARD`): a callee's frame
 # contents stay out of the value functions, which `#eval` runs
@@ -105,7 +112,7 @@ SIDE = {"__ieee754_fmod": {"seg_8002c1fc_8002c214"}}
 # generalised); a reload is that parameter, so a lifted function after a call
 # reads no memory and takes none (`Fn.need_m`): level (b) never carries the
 # frame's stores (ROUND-5 §2, "the frame reloads")
-FORWARD = {"floor", "__muldf3", "__divdf3"}
+FORWARD = {"floor", "__muldf3", "__divdf3", "__ieee754_sqrt"}
 SLOT_RE = r"\(v2 \+ sign_extend \(m := 64\) \((0x[0-9a-f]+)#12\)\)\.toNat"
 LOAD_RE = r"bytesT8 \(m0\) " + SLOT_RE
 MEM_RE = r"\bm\b(?!\s*:=)"
@@ -187,6 +194,16 @@ CALLEES = {
                        "Lua.Num.F64.div ({a0}) ({a1})", 2, 112,
                        "Lua.Vm.Fn.Divdf3.Fm ({m}) {sp} ({r}) {g} ({a0}) ({a1})",
                        ("Lua.Num.F64.div", "Lua.Vm.Fn.Divdf3.Fm"), "Lua.Vm.Fn.DivSum"),
+    # lane float-sf6: `__subdf3` (framed, like `__adddf3`) and `__ledf2` (a
+    # leaf), call nodes of `__ieee754_sqrt`
+    0x8002e9d0: Callee("Lua.Vm.Fn.Subdf3.sum",
+                       "_ _ {sp} _ sframe? _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)",
+                       "Lua.Vm.Fn.Subdf3.F ({m}) {sp} ({r}) ({a0}) ({a1})", 2, 48,
+                       "Lua.Vm.Fn.Subdf3.Fm ({m}) {sp} ({r}) ({a0}) ({a1})",
+                       ("Lua.Vm.Fn.Subdf3.F", "Lua.Vm.Fn.Subdf3.Fm"), "Lua.Vm.Fn.Subdf3"),
+    0x8002e460: Callee("Lua.Vm.Fn.Ledf2.sum", "_ _ _ hframe? _ _ (by decide)",
+                       "Lua.Vm.Fn.Ledf2.F ({a0}) ({a1})", 2, opaque=("Lua.Vm.Fn.Ledf2.F",),
+                       imp="Lua.Vm.Fn.Ledf2"),
 }
 
 # the callee-saved registers: register -> field of `HFrame`/`SFrame`
@@ -290,13 +307,39 @@ class Seg:
 gla_lo = [0, 0]
 
 
+# lane float-sf6: a routine's own call nodes for some callees (by entry),
+# in place of `CALLEES`': the proved routines' summaries with the `F64`
+# operation as their result (`Lua/Vm/Fn/FSum.lean`, `DivSum.lean`'s
+# pattern), so that the routine's lifted value is memory-free there
+FSUM_ARGS = "_ _ {sp} _ sframe? _ _ (fn_sp_in hs (by decide) (by decide)) (by decide) (by fn_rod)"
+CALLEES_FOR = {"__ieee754_sqrt": {
+    0x8002d7a8: Callee("Lua.Vm.Fn.Adddf3.sum_add", FSUM_ARGS, "Lua.Num.F64.add ({a0}) ({a1})", 2, 48,
+                       "Lua.Vm.Fn.Adddf3.Fm ({m}) {sp} ({r}) ({a0}) ({a1})",
+                       ("Lua.Num.F64.add", "Lua.Vm.Fn.Adddf3.Fm"), "Lua.Vm.Fn.FSum"),
+    0x8002e9d0: Callee("Lua.Vm.Fn.Subdf3.sum_sub", FSUM_ARGS, "Lua.Num.F64.sub ({a0}) ({a1})", 2, 48,
+                       "Lua.Vm.Fn.Subdf3.Fm ({m}) {sp} ({r}) ({a0}) ({a1})",
+                       ("Lua.Num.F64.sub", "Lua.Vm.Fn.Subdf3.Fm"), "Lua.Vm.Fn.FSum"),
+    0x8002e504: Callee("Lua.Vm.Fn.Muldf3.sum_mul", FSUM_ARGS, "Lua.Num.F64.mul ({a0}) ({a1})", 2, 80,
+                       "Lua.Vm.Fn.Muldf3.Fm ({m}) {sp} ({r}) ({a0}) ({a1})",
+                       ("Lua.Num.F64.mul", "Lua.Vm.Fn.Muldf3.Fm"), "Lua.Vm.Fn.FSum"),
+    0x8002e460: Callee("Lua.Vm.Fn.Ledf2.sum_le", "_ _ _ hframe? _ _ (by decide)",
+                       "Lua.Vm.Fn.Ledf2.S ({a0}) ({a1})", 2, opaque=("Lua.Vm.Fn.Ledf2.S",),
+                       imp="Lua.Vm.Fn.FSum")}}
+CUR_FN = [None]
+
+
+def callee_of(e):
+    return CALLEES_FOR.get(CUR_FN[0], {}).get(e, CALLEES[e])
+
+
 def s_callee(s):
-    return CALLEES[s.callee]
+    return callee_of(s.callee)
 
 
 class Fn:
     def __init__(self, fn):
         self.fn = fn
+        CUR_FN[0] = fn
         self.mod, self.entry, self.F, self.args = ROUTINES[fn]
         self.W = WINDOW.get(fn, self.F)
         lo, hi = next((a, b) for f, _, a, b, *_ in gla.HELPERS if f == fn)
@@ -383,10 +426,17 @@ class Fn:
         # or a callee's frame stores it (`{g}` in `Callee.mf`)
         self.mem_g = bool(self.sv_slot) or any(
             s.kind == "call" and "{g}" in (s_callee(s).mf or "") for s in self.segs)
+        self.val_g = False
         if self.fwd:
             self.forward()
         elif fn in MEMLESS:
             self.mem_need()
+        # lane float-sf6: a value function whose memory argument holds the
+        # caller's saved registers (stored before a call whose callee reads
+        # memory) takes the caller's frame `g`, as every node reading memory does
+        self.val_g = False
+        self.val_g = self.mem_g and any(
+            re.search(r"\bg\.", self.body(pc, s)) for pc in self.order for s in self.nodes[pc])
 
     def side(self, s):
         """Segment `s`'s side conditions that are conjuncts of `T` (`SIDE`)."""
@@ -560,26 +610,40 @@ class Fn:
             for s in self.nodes[pc]:
                 if s.kind != "ret":
                     preds[s.succ].append((pc, s))
-        avail = {}
-        for pc in reversed(self.order):          # the entry first
-            if pc == self.entry:
-                avail[pc] = set()
-                continue
-            sets = [avail[p] | set(self.seg_stores(p, s)) for p, s in preds[pc]]
-            avail[pc] = set.intersection(*sets) if sets else set()
-        live = {}
-        for pc in self.order:                    # successors first
-            ls = set()
-            for s in self.nodes[pc]:
-                after = set() if s.kind == "ret" else live[s.succ] - set(self.seg_stores(pc, s))
-                ls |= self.seg_loads(pc, s) | after
-            live[pc] = ls
+        # lane float-sf6: fixpoints, so that they run on cyclic graphs (a
+        # predecessor still to come is skipped: the greatest fixpoint of
+        # `avail`, the least of `live`); on a DAG the first pass is the result
+        avail, changed = {}, True
+        while changed:
+            changed = False
+            for pc in reversed(self.order):      # the entry first
+                if pc == self.entry:
+                    new = set()
+                else:
+                    sets = [avail[p] | set(self.seg_stores(p, s)) for p, s in preds[pc] if p in avail]
+                    new = set.intersection(*sets) if sets else set()
+                if avail.get(pc) != new:
+                    avail[pc], changed = new, True
+        live, changed = {}, True
+        while changed:
+            changed = False
+            for pc in self.order:                # successors first
+                ls = set()
+                for s in self.nodes[pc]:
+                    after = (set() if s.kind == "ret"
+                             else live.get(s.succ, set()) - set(self.seg_stores(pc, s)))
+                    ls |= self.seg_loads(pc, s) | after
+                if live.get(pc) != ls:
+                    live[pc], changed = ls, True
         for pc in self.order:
             self.slots_in[pc] = sorted(avail[pc] & live[pc])
             for s in self.nodes[pc]:
                 bad = self.seg_loads(pc, s) - avail[pc]
                 if bad:
                     raise SystemExit(f"{s.name}: reloads {sorted(bad)} not stored on every path")
+        if self.cyc:                             # lane float-sf6: a least fixpoint over the cycles
+            self.mem_need()
+            return
         # which value functions read memory (successors first); the entry keeps `m`
         for pc in self.order:
             need = pc == self.entry
@@ -680,9 +744,14 @@ class Fn:
             mb = "(m : Mem) " if memfn or self.need_m[pc] else ""
             # a memory function stores the caller's callee-saved registers
             # to their save slots (`saves`)
-            gb = " (g : SFrame)" if memfn and self.mem_g else ""
+            gb = " (g : SFrame)" if self.takes_g(pc, memfn) else ""
             return f"{fb}{mb}(s : Nat) (r : BitVec 64){gb}{bv}"
         return (fb + bv.strip()).strip()
+
+    def takes_g(self, pc, memfn):
+        """Node `pc`'s memory function (or, under `val_g`, its value and
+        termination functions when they read memory) takes `g`."""
+        return self.mem_g if memfn else (self.val_g and self.need_m[pc])
 
     def napp(self, pc, mem="m", vals=None, memfn=False, slots=None, fuel=None, tfn=False):
         """Node `pc`'s lifted function (its memory function `memfn`, its
@@ -697,7 +766,7 @@ class Fn:
         if self.framed():
             f = self.mn(pc) if memfn else self.tn(pc) if tfn else self.dn(pc)
             mm = f"({mem}) " if memfn or self.need_m[pc] else ""
-            gg = "g " if memfn and self.mem_g else ""
+            gg = "g " if self.takes_g(pc, memfn) else ""
             return f"{f} {fa}{mm}s r {gg}{a}".rstrip()
         return f"{self.tn(pc) if tfn else self.dn(pc)} {fa}{a}".rstrip()
 
@@ -1075,6 +1144,8 @@ class Fn:
                          f"      ({self.post(pc)}) :=\n"
                          f"  ({'cyc' + cn[3:]} {pa}fuel).{self.ln(pc)} {names}\n")
         anon = "⟨" + ", ".join("?_" for _ in g) + "⟩"
+        if self.fn in CYC_SPLIT:
+            return self.cyc_split(g, cn, pb, pa, fields, zero, anon, projs)
         out = [f"/-- The node lemmas of the cycle at `0x{h:08x}` at fuel `fuel`. -/",
                f"structure {cn} {pb}(fuel : Nat) : Prop where"] + fields + [
                "",
@@ -1085,6 +1156,28 @@ class Fn:
                f"    refine {anon}"] + zero + [
                "  | succ k ih =>",
                f"    refine {anon}"] + succ + [""] + projs
+        return "\n".join(out)
+
+    def cyc_split(self, g, cn, pb, pa, fields, zero, anon, projs):
+        """lane float-sf6 (`CYC_SPLIT`): `cyc_block` with each node's step
+        (its lemma at fuel `k + 1` from the cycle's lemmas at `k`) in its own
+        declaration `cs_<pc>`, so that no declaration holds more than one
+        node's proof (a 13-node cycle in one declaration exceeds the budget)."""
+        steps = []
+        for pc, st in zip(g, fields):
+            stmt = re.sub(r"\bfuel\b", "(k + 1)", st.split(" : ", 1)[1])
+            names = " ".join(self.binder_names(pc))
+            steps.append(f"theorem cs_{pc:08x} {pb}(k : Nat) (ih : {cn} {pa}k) :\n  {stmt} := by\n"
+                         f"  intro {names}\n" + "\n".join(self.lemma(pc)) + "\n")
+        out = [f"/-- The node lemmas of the cycle at `0x{g[0]:08x}` at fuel `fuel`. -/",
+               f"structure {cn} {pb}(fuel : Nat) : Prop where"] + fields + [""] + steps + [
+               f"theorem {'cyc' + cn[3:]} {pb}: ∀ fuel, {cn} {pa}fuel := by",
+               "  intro fuel",
+               "  induction fuel with",
+               "  | zero =>",
+               f"    refine {anon}"] + zero + [
+               "  | succ k ih =>",
+               "    exact ⟨" + ", ".join(f"cs_{pc:08x} {pa}k ih" for pc in g) + "⟩", ""] + projs
         return "\n".join(out)
 
     # ----------------------------------------------------------------------
@@ -1134,7 +1227,7 @@ class Fn:
             imports += "import Lua.Vm.Sim.Kit.FnLoop\n"
         callees = sorted({s.callee for s in self.segs if s.kind == "call"})
         for e in callees:
-            imports += f"import {CALLEES[e].imp}\n"
+            imports += f"import {callee_of(e).imp}\n"
         imports += f"import Lua.Vm.Arms.Segs.H{self.fn.lstrip('_')}\n"
         doc = (f"`{self.fn}` (entry `0x{self.entry:08x}`): its {nseg} generated segments\n"
                f"(`Lua/Vm/Arms/Segs/H{self.fn.lstrip('_')}.lean`) folded into {len(self.order)} nodes, {kind}.\n"
@@ -1143,7 +1236,7 @@ class Fn:
                "a framed helper's memory) and `sum` (the summary).")
         opens = ("open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa\n"
                  "open Vsa.Sim Vsa.Logic\nopen Lua.Vm.Sim\n")
-        opaque = [n for e in callees for n in CALLEES[e].opaque]
+        opaque = [n for e in callees for n in callee_of(e).opaque]
         if opaque:
             opens += ("\n-- the callees' lifted functions are their summaries' values, never unfolded\n"
                       f"attribute [local irreducible] {' '.join(opaque)}\n")
@@ -1178,6 +1271,9 @@ class Fn:
 
 
 CHUNK = 40
+# lane float-sf6: the routines whose cycle blocks put each node's step in its
+# own declaration (`Fn.cyc_split`)
+CYC_SPLIT = {"__ieee754_sqrt"}
 
 
 def main():

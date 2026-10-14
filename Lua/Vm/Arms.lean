@@ -208,6 +208,7 @@ import Lua.Vm.Arms.Segs.Hfmod
 import Lua.Vm.Arms.Segs.Hieee754_fmod
 import Lua.Vm.Arms.Segs.Hunorddf2
 import Lua.Vm.Arms.Segs.Herrno
+import Lua.Vm.Arms.Segs.Hieee754_sqrt
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 
