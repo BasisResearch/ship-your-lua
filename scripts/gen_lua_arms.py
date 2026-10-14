@@ -136,7 +136,14 @@ HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26, 6, 14, 15, 
 # and float paths `0x8001ae4c`, `0x8001ae98` are stops: F1's limits are
 # integers, `forprepK`)
 HELPERS += [("luaV_tointeger", "LuaV_tointeger", 0x8001ade8, 0x8001af50, [22, 26], [],
-             [0x8001ae4c, 0x8001ae98])]
+             [0x8001ae4c])]
+# lane F1-F8: FORPREP's coerced classes. `luaV_tointeger`'s float path
+# (`0x8001ae98`: `floor`, `__eqdf2`, `__adddf3` for `F2Iceil`, the range,
+# `__fixdfdi`) is followed; `luaV_tonumber_` on a non-string (`cvt2num`: an
+# integer by `__floatdidf`; the string path `0x8001abac` a stop)
+SUMMARISED |= {"luaV_tonumber_"}
+HELPERS += [("luaV_tonumber_", "LuaV_tonumber_", 0x8001ab58, 0x8001ac18, [22, 26], [],
+             [0x8001abac])]
 # axis S (S-SCAN): the string callees. `luaV_equalobj`'s long-string arm
 # (`0x8001b8f8`, now a root of its jump table) tail-calls `luaS_eqlngstr` ->
 # `memcmp`; `OP_LT`/`OP_LE` on two strings call `l_strcmp` -> `strcoll`
@@ -521,7 +528,7 @@ TOHOST_SEAMS = {0x80000d3c: {"x12", "x15"}}
 RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "strcoll": {"x10"}, "strcmp": {"x10"}, "strlen": {"x10"},"__muldi3": {"x10"}, "__hidden___udivdi3": {"x10", "x11"}, "__moddi3": {"x10"},
            "__divdi3": {"x10"}, "__umoddi3": {"x10"},
-           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaT_adjustvarargs": set(), "luaV_objlen": set(),
+           "luaV_equalobj": {"x10"}, "luaV_tointeger": {"x10"}, "luaV_tonumber_": {"x10"}, "luaT_adjustvarargs": set(), "luaV_objlen": set(),
            "luaF_close": set(), "luaF_closeupval": set(), "luaD_poscall": set(),
            "luaD_callnoyield": set(), "luaD_rawrunprotected": {"x10"}, "luaD_pcall": {"x10"},
            "lua_pcallk": {"x10"}, "main": {"x10"}, "_start": set(), "exit": set(),

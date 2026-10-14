@@ -961,7 +961,7 @@ def call_effect(st, callee, ret):
         post.store("sd", sp, -8, st.get(1))
         post.store("sd", qt, q[1], post.load(terms, s[1], 8))
         post.set(10, ("lit", 1))
-        proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ hframe? _ _ "
+        proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ _ hframe? _ _ "
                  "(by constructor <;> first | decide | kit_disch) (by rfl) (by at_pre ht))")
     else:
         raise Stop(f"no summary for {callee}")

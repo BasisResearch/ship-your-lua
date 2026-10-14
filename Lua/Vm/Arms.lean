@@ -109,6 +109,7 @@ import Lua.Vm.Arms.Segs.HluaV_equalobj
 import Lua.Vm.Arms.Segs.Hdivdi3
 import Lua.Vm.Arms.Segs.Humoddi3
 import Lua.Vm.Arms.Segs.HluaV_tointeger
+import Lua.Vm.Arms.Segs.HluaV_tonumber_
 import Lua.Vm.Arms.Segs.HluaS_eqlngstr
 import Lua.Vm.Arms.Segs.Hmemcmp
 import Lua.Vm.Arms.Segs.Hl_strcmp
