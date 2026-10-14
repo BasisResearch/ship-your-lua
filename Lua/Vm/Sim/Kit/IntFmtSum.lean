@@ -36,7 +36,7 @@ abbrev SnG.XD (G : SnG) (m : Mem) : FCx := G.X {} (G.MD m)
 
 /-- What a run writes: `snprintf`'s and its callees' frames (the 4 KiB below
 `sp`) and the buffer. -/
-def snWkN (sp buf a : Nat) : Prop := (sp ≤ a + 4096 ∧ a < sp) ∨ (buf ≤ a ∧ a < buf + 44)
+def snWkN (sp buf a : Nat) : Prop := (sp < a + 4096 ∧ a < sp) ∨ (buf ≤ a ∧ a < buf + 44)
 abbrev snWk (G : SnG) : Nat → Prop := snWkN G.sp G.buf
 
 /-- What a run writes after the `'d'` conversion: `__ssprint_r`'s and
@@ -528,5 +528,65 @@ theorem facQp1b (G : SnG) (MD : Mem) (F : FacD G MD) (hs : 0x8005e720 + 8192 ≤
   obtain ⟨fap, fi, f760, fsgn, fres, fcnt, fret, ffp, fiov, fw, fp⟩ := F
   have hS : 4096 ≤ G.sp := by omega
   constructor <;> sn_mv2
+
+/-- **A non-negative one-digit `i`, from the digit's `memmove` to the
+return** (`run_Qp1`): `wrRet` with `1`, the digit and the `'\0'` at the
+buffer, the memory kept off the run's writes. -/
+theorem snp_p1_ret (G : SnG) (m : Mem) (hin : G.In m)
+    (hp : zopz0zKzJ_s G.i (0x0#64) = true) (hs : zopz0zI_u (0x9#64) G.i = false) (M1 : Mem)
+    (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m27 (G.XD m)) M1 G.buf (G.sp - 517) 1) (c2 : Config)
+    (hQ : SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r40 (G.X {} M1)) (ArmPay (G.X {} M1).m (G.X {} M1).o) c2) :
+    ∃ c', Steps c2 c' ∧ SnPost G m c' := by
+  have := hin.sp_lo; have := hin.sp_hi; have := hin.sp_al; have := hin.ra; have := hin.b_lo
+  have := hin.b_ap; have := hin.b_hi; have := hin.f_lo; have := hin.f_hi
+  have FD := facD G m hin
+  have ag1 : Agree (snWd G) (G.MD m) M1 := (agree_Dp1 G m hin).tr (agree_move (G := G) hmv (by omega) (by omega))
+  obtain ⟨⟨v2, v3, v4, v5, v7, v8, v9, v10, v11⟩, ⟨vfp, vfl, v6, vra, vs0, vs1, cs1, cra, cs0⟩⟩ :=
+    (snSave_D G m hin).congr ag1 (by omega) (by omega)
+  have agk : Agree (snWk G) m M1 :=
+    ((agree_E G m hin).tr (agree_F G m hin)).tr (snWd_snWk ag1 (by omega))
+  have st := stat_of hin agk
+  obtain ⟨-, -, -, -, f4⟩ := fmt_of hin agk
+  obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8⟩ := facQp1a G (G.MD m) FD (by omega) (by omega) (by omega) M1 hmv
+  obtain ⟨b1, b2, b3, b4, b5, b6, b7, b8⟩ := facQp1b G (G.MD m) FD (by omega) (by omega) (by omega) M1 hmv
+  obtain ⟨c3, s3, h3⟩ := run_Qp1 (G.X {} M1) (by sn_ok)
+    (by sn_u1; exact a1) (by sn_u1; exact a2) (by sn_u1; exact a3) (by sn_u1; exact a4) (by sn_u1; exact a5)
+    (by sn_u1; exact a6) (by sn_u1; exact a7) (by sn_u1; exact a8) (by sn_u1; exact b1) (by sn_u1; exact b2)
+    (by sn_u1; exact b3) (by sn_u1; exact b4) (by sn_u1; exact b5) (by sn_u1; exact b6) (by sn_u1; exact b7)
+    (by sn_u1; exact st.mbtowc) (by sn_u1; exact st.mbmax) (by sn_u1; exact f4) (by sn_u1; exact vfp)
+    (by sn_u1; exact vfl) (by sn_u1; exact v2) (by sn_u1; exact v3) (by sn_u1; exact v4) (by sn_u1; exact v5)
+    (by sn_u1; exact v7) (by sn_u1; exact v8) (by sn_u1; exact v9) (by sn_u1; exact v10) (by sn_u1; exact v11)
+    (by sn_u1; exact vra) (by sn_u1; exact vs0) (by sn_u1; exact b8) (by sn_u1; exact vs1) (by sn_u1; exact v6)
+    (by sn_u1; exact cs0) (by sn_u1; exact cra) (by sn_u1; exact cs1) c2 hQ
+  obtain ⟨hib, hlt⟩ := intBytes_one hp hs
+  have hd : bytesT1 M1 G.buf = digB G.i.toNat := by
+    have e := hmv.moved 0 (by omega)
+    simp only [Nat.add_zero] at e
+    rw [e]
+    simp only [SnG.XD, SnG.X, at_row, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    have hS : 4096 ≤ G.sp := by omega
+    simp (disch := first | assumption | decide | rfl) only [fwS1_wm8, fwS1_wm4, fwS1_wm2, fwS1_ins,
+      Lua.Vm.Sim.AtF.fw1_same]
+    exact digit_byte G.i hlt
+  have ag2 := agree_Qp1 G M1 (by omega)
+  refine ⟨c3, s3, Lua.Vm.AtF.SnprintfLld.m33 (G.X {} M1), ?_, ?_, ?_⟩
+  · rw [hib]
+    dsimp only [wrRet]
+    refine h3.repin ?_
+    simp only [List.length_cons, List.length_nil, Nat.zero_add]
+    simp only [Lua.Vm.AtF.SnprintfLld.r42, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] at h3
+    pins_of h3
+  · rw [hib]
+    simp only [bytesAt, List.length_cons, List.length_nil, Nat.zero_add, List.range_succ, List.range_zero,
+      List.nil_append, List.map_cons, List.map_nil, List.map_append, List.cons_append, Nat.add_zero]
+    have k0 : bytesT1 (Lua.Vm.AtF.SnprintfLld.m33 (G.X {} M1)) G.buf = bytesT1 M1 G.buf := by
+      simp only [Lua.Vm.AtF.SnprintfLld.m33, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+      simp (disch := omega) only [Lua.Vm.Sim.AtF.fw1_wm8, Lua.Vm.Sim.AtF.fw1_wm4, Lua.Vm.Sim.AtF.fw1_ins]
+    have k1 : bytesT1 (Lua.Vm.AtF.SnprintfLld.m33 (G.X {} M1)) (G.buf + 1) = 0#8 := by
+      simp only [Lua.Vm.AtF.SnprintfLld.m33, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+      rw [Lua.Vm.Sim.AtF.fw1_same rfl]; decide
+    rw [k0, hd, k1]
+  · intro a h1 h2
+    exact (agk.tr (snWd_snWk ag2 (by omega))).t1 (by simp only [snWk, snWkN]; omega)
 
 end Lua.Vm.Sim.Kit
