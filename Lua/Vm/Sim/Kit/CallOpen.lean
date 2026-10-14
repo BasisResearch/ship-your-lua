@@ -2,6 +2,7 @@ import Lua.Vm.Sim.Kit.CallArm
 import Lua.Vm.Sim.Kit.PrintS
 import Lua.Vm.Sim.Kit.RetPoscall
 import Lua.Vm.Sim.Kit.Tolstring
+import Lua.Vm.LayoutPrint
 
 /-!
 # `OP_CALL print`'s open parts, in the relation's terms (lane F1-13)
@@ -201,19 +202,23 @@ def HasClass (C : Value → Prop) (args : List Value) : Prop := ∃ v ∈ args, 
 /-- **Named premise: `luaB_print` when an argument is a float** (lane F1-18,
 the float class of lane F1-15's `PrintAlloc_Statement`): `luaL_tolstring` →
 `lua_pushfstring(L, "%f")` → `luaO_pushvfstring` → `tostringbuff` →
-`lua_number2str` = `snprintf(buf, 44, "%.14g", x)` (`G14From_Statement`, over
-`DtoaBig_Statement` for `_dtoa_r`'s bignum path) → `strspn` and the `".0"`
-suffix → `luaS_newlstr`. A whole-call premise: `_dtoa_r`'s `_Balloc` reuses the
-bignums of `_REENT`'s freelists, which neither `PrintIn` nor the relation
-place apart from what the caller keeps, so a per-argument statement over
-`PrSt` would be false. -/
+`lua_number2str` = `snprintf(buf, 44, "%.14g", x)` (`_svfprintf_r`'s `'g'`
+path → `_dtoa_r`, PHASES S0b `G14From`) → `strspn` and the `".0"` suffix →
+`luaS_newlstr`. A whole-call premise: `_dtoa_r`'s `_Balloc` reuses the bignums
+on `_REENT->_freelist` (`reentFreelistOff`) and frees `_REENT->_result`
+(`reentResultOff`) on entry, state neither `PrintIn` nor the relation place
+apart from what the caller keeps. **As stated, false** on the entries whose
+`G` meets those bignums or what a new string writes (`PrintAllocOff_Statement`):
+`PrintIn` does not keep `G` apart from them (lane F1-18 obstacle). -/
 def PrintFlt_Statement : Prop := PrintRelOn (HasClass IsFlt)
 
 /-- **Named premise: `luaB_print` when an argument is a function** (lane
-F1-18): `luaL_tolstring`'s `luaL_getmetafield(L, idx, "__name")` reads
-`G(L)->mt[LUA_TFUNCTION]`, which neither `PrintIn` nor the relation's Lua state
-(`LuaStateRel`: nil, booleans, numbers) constrain, then `lua_pushfstring(L,
-"%s: %p")` (`lua_pointer2str` = `snprintf(buf, 44, "%p")`). -/
+F1-18): `luaL_tolstring`'s `lua_getmetatable` reads
+`G(L)->mt[LUA_TFUNCTION]` (`luaTfunction`), which neither `PrintIn` nor the
+relation's Lua state (`LuaStateRel`: nil, booleans, numbers) constrain, then
+`lua_pushfstring(L, "%s: %p")` (`lua_pointer2str` = `snprintf(buf, 44, "%p")`).
+**As stated, false** on entries with a metatable there, or whose `G` meets
+what a new string writes (`PrintAllocOff_Statement`). -/
 def PrintFn_Statement : Prop := PrintRelOn (HasClass IsFn)
 
 /-! ## `luaB_print`'s Lua state (lane F1-15) -/
@@ -241,15 +246,18 @@ def strtNuse (m : Mem) (g : Nat) : Nat := (bytesT4 m (g + gStrtNuseOff)).toNat
 def strtSize (m : Mem) (g : Nat) : Nat := (bytesT4 m (g + gStrtSizeOff)).toNat
 
 /-- **A bucket's chain, readable and apart** (`internshrstr`'s walk): the
-strings of `StrChain`, each with `shrlen ≤ LUAI_MAXSHORTLEN` and its object
-`[ts, ts + 24 + shrlen + 1)` (the header the walk reads, the mark
-`changewhite` writes, the contents `memcmp` reads) in `K` and off `X`. -/
+strings of `StrChain`, each with `shrlen ≤ LUAI_MAXSHORTLEN`, its object
+`[ts, ts + 24 + shrlen + 1)` (the header the walk reads, the contents
+`memcmp` reads) in `K`, and the bytes a `print` may write in it off `X`: the
+mark (`changewhite` of a dead string found) and `u.hnext` (`luaS_resize`'s
+rehash). -/
 inductive StrChainK (m : Mem) (K X : Nat → Prop) (size i : Nat) : Nat → Prop where
   | nil : StrChainK m K X size i 0
   | cons {ts h nx l : Nat} : ts ≠ 0 → rd8 m (ts + gcTtOff) = some gcShrStr →
       rd8 m (ts + tstringShrlenOff) = some l → l ≤ maxShortLen → rd32 m (ts + tstringHashOff) = some h →
       h % size = i → rd64 m (ts + tstringLnglenOff) = some nx →
-      (∀ a, ts ≤ a → a < ts + tstringContentsOff + l + 1 → K a ∧ ¬ X a) →
+      (∀ a, ts ≤ a → a < ts + tstringContentsOff + l + 1 → K a) → ¬ X (ts + gcMarkedOff) →
+      (∀ a, ts + tstringLnglenOff ≤ a → a < ts + tstringLnglenOff + 8 → ¬ X a) →
       StrChainK m K X size i nx → StrChainK m K X size i ts
 
 /-- **`g->strt` readable and apart** (`internshrstr` on any short contents):
@@ -260,9 +268,28 @@ structure StrtSafe (m : Mem) (rt : RtPtrs) (K X : Nat → Prop) : Prop where
   chains : ∀ j (h : j < rt.strtHeads.length), StrChainK m K X rt.strtSize j rt.strtHeads[j]
 
 /-- **The string table of every reading of the literals' facts is safe**
-(`StrtSafe` with `X` what `luaB_print`'s state keeps and the literals' writes). -/
-def StrtSafeIn (L g func n sl : Nat) (ls : LitPtrs) (G D K : Nat → Prop) (M : Mem) : Prop :=
-  ∀ rt, LitsIn M g sl ls rt → StrtSafe (fillZeroMem M) rt K (fun a => PrKeep L g func n G a ∨ D a)
+(`StrtSafe` with `X` what `luaB_print`'s state keeps, `PrKeep`). -/
+def StrtSafeIn (L g func n sl : Nat) (ls : LitPtrs) (G K : Nat → Prop) (M : Mem) : Prop :=
+  ∀ rt, LitsIn M g sl ls rt → StrtSafe (fillZeroMem M) rt K (PrKeep L g func n G)
+
+/-- (lane F1-18) **The static words an allocating `luaL_tolstring` reads**:
+`g->frealloc` (main.c's `l_alloc`, which `luaM_malloc_` calls through a
+`jalr`) and the words `snprintf` reads (`FmtStatic`: `_impure_ptr`, the C
+locale's `decimal_point`, `mbtowc` and `__mb_cur_max`, the conversion switch's
+`.rodata` words). -/
+structure AllocStatic (m : Mem) (g : Nat) : Prop where
+  frealloc : bytesT8 m g = BitVec.ofNat 64 symLAlloc
+  fmt : FmtStatic m
+
+/-- The bytes `AllocStatic` reads. -/
+def AllocStaticFoot (g a : Nat) : Prop :=
+  Rng g 8 a ∨ Rng 0x8005d398 8 a ∨ Rng 0x8005d0f0 8 a ∨ Rng 0x8004fb10 8 a ∨ Rng 0x8005d0d8 8 a ∨
+    Rng 0x8005d150 1 a ∨ Rng 0x800555f4 4 a ∨ Rng 0x800555d4 4 a
+
+/-- (lane F1-18) The words of `g` and the static words a non-allocating
+`luaL_tolstring` keeps for the budget: `g->strt`'s `nuse` and `size`, and
+`AllocStatic`'s. -/
+def PrStatic (g a : Nat) : Prop := Rng (g + gStrtNuseOff) 8 a ∨ AllocStaticFoot g a
 
 /-- **`luaB_print`'s Lua state before argument `i`** (`print_sum`'s `S i k ph
 H m`, lane F1-15; the index and the budget lane F1-18): the API frame of `k`
@@ -283,7 +310,11 @@ structure PrSt (L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) 
   /-- (lane F1-18) room in `g->strt` for their new strings: no `luaS_resize` -/
   strt : 0 < prAllocs args i → strtNuse m g + prAllocs args i ≤ strtSize m g
   /-- (lane F1-18) the table's chains readable, in chunks in use, apart -/
-  safe : 0 < prAllocs args i → Frozen FL (StrtSafeIn L g func n sl ls G D (Kept H ph)) m
+  safe : 0 < prAllocs args i → Frozen FL (StrtSafeIn L g func n sl ls G (Kept H ph)) m
+  /-- (lane F1-18) `g->allgc` (`luaC_newobj`'s link) off what the state keeps -/
+  gc : 0 < prAllocs args i → ∀ a, Rng (g + gAllgcOff) 8 a → ¬ PrKeep L g func n G a
+  /-- (lane F1-18) the static words an allocation and `snprintf` read -/
+  stat : 0 < prAllocs args i → AllocStatic m g
 
 /-- **`luaB_print`'s Lua state for some literals' footprint** (`print_sum`'s
 `S`): a new string changes the table the literals' facts read. -/
@@ -337,8 +368,13 @@ the integer class of lane F1-15's `PrintAlloc_Statement`, per argument):
 `integerToStr_proved`; `clearbuff` → `pushstr` → `luaS_newlstr` →
 `internshrstr` on the decimal string: found on a chain (`StrtSafe`) or created,
 `luaC_newobj` → `luaM_malloc_` → `l_alloc` → `_malloc_r` within
-`argCost`'s room, linked at its bucket's head, no `luaS_resize` (`PrSt.strt`);
-`luaC_checkGC`), the tail `lua_tolstring(L, -1, &l)`. -/
+`argCost`'s room, linked at its bucket's head and at `g->allgc`, no
+`luaS_resize` (`PrSt.strt`); `luaC_checkGC`), the tail `lua_tolstring(L, -1,
+&l)`. What it writes is off what the state keeps by `PrSt`'s own facts
+(`gc`, `safe`: the bucket array, the strings' marks), and what it reads that
+`PrintIn` does not pin is `PrSt.stat` (`g->frealloc`, `snprintf`'s static
+words), so the statement is not refuted by `PrintIn`'s gaps
+(`PrintAllocOff_Statement`). -/
 def TolInt_Statement : Prop := TolArg IsInt
 
 /-- (lane F1-18) **The literals' facts and the string table's safety, frozen
@@ -347,23 +383,34 @@ inductive LitsSafe (L func n sl g : Nat) (ls : LitPtrs) (D G : Nat → Prop) (ph
     Prop where
   /-- on the literals' footprint `fl` -/
   | intro (fl : Nat → Prop) (foot : LitsFoot g sl ls H ph D fl M)
-      (safe : Frozen fl (StrtSafeIn L g func n sl ls G D (Kept H ph)) M)
+      (safe : Frozen fl (StrtSafeIn L g func n sl ls G (Kept H ph)) M)
 
 /-- **What the per-argument route of the allocating classes needs at
 `luaB_print`'s entry** (lane F1-18) beyond `PrintIn`: the literals' facts with
-the string table's chains safe, frozen together (`LitsSafe`), and room in the
-table for every new string (no `luaS_resize`). -/
+the string table's chains safe, frozen together (`LitsSafe`), room in the
+table for every new string (no `luaS_resize`), `g->allgc` off what the state
+keeps, and the static words an allocation reads (`AllocStatic`). -/
 structure AllocIn (L func n sl g : Nat) (ls : LitPtrs) (args : List Value) (D G : Nat → Prop) (ph : StdoutPh)
     (H : HeapIx) (M : Mem) : Prop where
   lits : LitsSafe L func n sl g ls D G ph H M
   strt : strtNuse M g + prAllocs args 1 ≤ strtSize M g
+  gc : ∀ a, Rng (g + gAllgcOff) 8 a → ¬ PrKeep L g func n G a
+  stat : AllocStatic M g
 
 /-- **Named premise: `luaB_print` on an allocating argument list off the
 per-argument route** (lane F1-18): integers (no float, no function) on an
-entry without `AllocIn`, i.e. a string table without room for the call's new
+entry without `AllocIn`: a string table without room for the call's new
 strings (`luaS_resize` → `luaM_reallocvector` → `_realloc_r` of the bucket
-array, which no lane has proved) or whose chains are not known to be safe
-(`StrtSafe`: neither the boot witness nor `CallInv` carries it yet). -/
+array, which no lane has proved), chains not known to be safe (`StrtSafe`),
+`G` meeting `g->allgc`, or static words `PrintIn` does not pin
+(`AllocStatic`: `g->frealloc`, the C locale's words `snprintf` reads). **As stated, false** where `G` meets what the call
+writes: `luaC_newobj` links the new string at `g->allgc` (`sd a0,112(s0)`,
+`0x8000e930`), `internshrstr` writes its bucket's head and, on a dead string
+found, its mark; `PrintIn.keep_apart` keeps `G` off `[g + 16, g + 64)` and the
+string cache only, and `CallInv`'s `F` (in `G`) is off `CallDirty`, which has
+none of them. So lane F1-15's `PrintAlloc_Statement` was false too; the
+premise becomes provable once `CallInv` carries `AllocIn`'s `gc` and `lits`
+(boot-checked, kept by `call_close`) and `PrintIn` passes them on. -/
 def PrintAllocOff_Statement : Prop :=
   PrintRelIf fun L func n sl g ls args D G ph H M => AnyAlloc args ∧ (∀ v ∈ args, ¬ IsFlt v ∧ ¬ IsFn v) ∧
     ¬ AllocIn L func n sl g ls args D G ph H M

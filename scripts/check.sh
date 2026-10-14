@@ -826,6 +826,22 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Num.gethex_sticky
 #print axioms Lua.Vm.Sim.Kit.integerToStr_proved
 #print axioms Lua.Vm.Sim.Kit.snp_loop
+#print axioms Lua.Vm.AtF.SnprintfLld.Runs.run_E
+#print axioms Lua.Vm.AtF.SnprintfLld.Runs.run_Qn1
+#print axioms Lua.Vm.AtF.SnprintfLld.Runs.run_Pn
+#print axioms Lua.Vm.AtF.SnprintfLld.Runs.run_Rn2
+#print axioms Lua.Vm.Sim.Kit.PrSt.next0
+#print axioms Lua.Vm.Sim.Kit.prCost_succ
+#print axioms Lua.Vm.Sim.Kit.prAllocs_succ
+#print axioms Lua.Vm.Sim.Kit.anyAlloc_of_cost
+#print axioms Lua.Vm.Sim.Kit.StrtSafeIn.mono
+#print axioms Lua.Vm.Sim.Kit.litKeeps
+#print axioms Lua.Vm.Sim.Kit.TolLitPost.strt
+#print axioms Lua.Vm.Sim.Kit.TolStrPost.strt
+#print axioms Lua.Vm.Sim.Kit.show_ascii
+#print axioms Lua.Vm.Sim.Kit.prLine_chars
+#print axioms Lua.Vm.Sim.Kit.fwrite_print
+#print axioms Lua.Vm.Sim.Kit.prStrPost
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

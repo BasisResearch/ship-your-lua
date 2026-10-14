@@ -219,14 +219,65 @@ theorem StrChainK.mono {m : Mem} {K K' X : Nat → Prop} {size i p : Nat} (h : S
     (hK : ∀ a, K a → K' a) : StrChainK m K' X size i p := by
   induction h with
   | nil => exact .nil
-  | cons h0 h1 h2 h3 h4 h5 h6 h7 _ ih =>
-    exact .cons h0 h1 h2 h3 h4 h5 h6 (fun a l u => ⟨hK a (h7 a l u).1, (h7 a l u).2⟩) ih
+  | cons h0 h1 h2 h3 h4 h5 h6 h7 h8 h9 _ ih =>
+    exact .cons h0 h1 h2 h3 h4 h5 h6 (fun a l u => hK a (h7 a l u)) h8 h9 ih
 
 /-- The string table's safety, with a larger set of kept bytes. -/
-theorem StrtSafeIn.mono {L g func n sl : Nat} {ls : LitPtrs} {G D K K' : Nat → Prop} {M : Mem}
-    (h : StrtSafeIn L g func n sl ls G D K M) (hK : ∀ a, K a → K' a) : StrtSafeIn L g func n sl ls G D K' M :=
+theorem StrtSafeIn.mono {L g func n sl : Nat} {ls : LitPtrs} {G K K' : Nat → Prop} {M : Mem}
+    (h : StrtSafeIn L g func n sl ls G K M) (hK : ∀ a, K a → K' a) : StrtSafeIn L g func n sl ls G K' M :=
   fun rt hrt => ⟨fun a l u => ⟨hK a ((h rt hrt).hash a l u).1, ((h rt hrt).hash a l u).2⟩,
     fun j hj => ((h rt hrt).chains j hj).mono hK⟩
+
+/-- (lane F1-18) **`AllocStatic` depends only on its bytes.** -/
+theorem AllocStatic.congr {m m' : Mem} {g : Nat} (h : AllocStatic m g)
+    (hk : ∀ a, AllocStaticFoot g a → bytesT1 m' a = bytesT1 m a) : AllocStatic m' g := by
+  have k : ∀ {lo n : Nat}, (∀ a, Rng lo n a → AllocStaticFoot g a) → ∀ j, j < n →
+      bytesT1 m' (lo + j) = bytesT1 m (lo + j) := fun hr j hj => hk _ (hr _ ⟨by omega, by omega⟩)
+  have k8 : ∀ {lo : Nat}, (∀ a, Rng lo 8 a → AllocStaticFoot g a) → bytesT8 m' lo = bytesT8 m lo :=
+    fun hr => bytesT8_congrT fun j hj => k hr j hj
+  have k4 : ∀ {lo : Nat}, (∀ a, Rng lo 4 a → AllocStaticFoot g a) → bytesT4 m' lo = bytesT4 m lo :=
+    fun hr => bytesT4_congrT fun j hj => k hr j hj
+  have h1 := h.fmt
+  refine ⟨(k8 fun a ha => .inl ha).trans h.frealloc, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+  · exact (k8 fun a ha => .inr (.inl ha)).trans h1.impure
+  · exact (k8 fun a ha => .inr (.inr (.inl ha))).trans h1.decpt
+  · exact (k8 fun a ha => .inr (.inr (.inr (.inl ha)))).trans h1.dotw
+  · exact (hk _ (.inr (.inr (.inr (.inl ⟨by omega, by omega⟩))))).trans h1.dot0
+  · exact (hk _ (.inr (.inr (.inr (.inl ⟨by omega, by omega⟩))))).trans h1.dot1
+  · exact (k8 fun a ha => .inr (.inr (.inr (.inr (.inl ha))))).trans h1.mbtowc
+  · exact (hk _ (.inr (.inr (.inr (.inr (.inr (.inl ⟨by omega, by omega⟩))))))).trans h1.mbmax
+  · exact (k4 fun a ha => .inr (.inr (.inr (.inr (.inr (.inr (.inl ha))))))).trans h1.jt_l
+  · exact (k4 fun a ha => .inr (.inr (.inr (.inr (.inr (.inr (.inr ha))))))).trans h1.jt_d
+
+/-- (lane F1-18) **`AllocStatic`'s static words are no write's** (`PrintW`):
+`_impure_ptr`, the C locale's words (`.data`) and `.rodata`. -/
+theorem allocStatic_not_printW {sp g a : Nat} {H : HeapIx} {ph : StdoutPh} (hsp : heapEnd + 4096 ≤ sp)
+    (hbuf : ∀ a, ph.Buf a → heapStart ≤ a) (ha : AllocStaticFoot g a) (hg : ¬ Rng g 8 a) :
+    ¬ PrintW sp H ph a := by
+  have e2 : heapStart = 0x8006ecd0 := rfl
+  have e3 : heapEnd = 0x87800000 := rfl
+  have hb := hbuf a
+  rw [e3] at hsp
+  intro hw
+  pw_nums
+  have e9 : symMallocMallinfo = 0x8005e560 := rfl
+  have e4 : symMallocAv = 0x8005c6d0 := rfl
+  have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+  have e6 : symBrk = 0x8005d3b8 := rfl
+  have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
+  have : symFiles = 0x8005d760 := rfl
+  have : symFds = 0x8005d460 := rfl
+  have : symFsReady = 0x8005d3c0 := rfl
+  simp only [AllocStaticFoot, Rng] at ha hg
+  rcases hw with hw | hw | hw | hw | hw | hw
+  · simp only [FsGlobal] at hw; omega
+  · rcases hw with hw | ⟨h1, _, _⟩
+    · simp only [MallocGlobal] at hw; omega
+    · omega
+  · simp only [SinitW, Rng] at hw; omega
+  · simp only [Rng] at hw; omega
+  · have := hb hw; omega
+  · simp only [Below] at hw; omega
 
 /-- **`luaB_print`'s state after a non-allocating `luaL_tolstring`**: the
 budget of the arguments from `i + 1` on is argument `i`'s (it costs nothing),
@@ -237,8 +288,10 @@ theorem PrSt.next0 {L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Val
     (hv : args[i - 1]? = some v) (h0 : argCost v = 0) (hapi : ApiAt m' L nci func k' tbc)
     (hl : LitsFoot g sl ls H ph D FL m') (hk : ∀ a, PrKeep L g func n G a → bytesT1 m' a = bytesT1 M0 a)
     (kFL : ∀ a, FL a → bytesT1 m' a = bytesT1 m a)
-    (kT : ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a) :
+    (kS : ∀ a, PrStatic g a → bytesT1 m' a = bytesT1 m a) :
     PrSt L nci func tbc sl g n ls args D G FL M0 ph0 H0 (i + 1) k' ph H m' := by
+  have kT : ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a :=
+    fun a h1 h2 => kS a (.inl ⟨h1, h2⟩)
   have hc := prCost_succ hi hv
   have ha := prAllocs_succ hi hv
   rw [h0, Nat.zero_add] at hc
@@ -249,10 +302,12 @@ theorem PrSt.next0 {L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Val
   have hz : strtSize m' g = strtSize m g := by
     simp only [strtSize, gStrtSizeOff]; congr 1
     exact bytesT4_congrT fun j hj => kT _ (by simp only [gStrtNuseOff]; omega) (by simp only [gStrtNuseOff]; omega)
-  refine ⟨hapi, hl, hk, hS.buf, hS.chunks, ?_, ?_, ?_⟩
+  refine ⟨hapi, hl, hk, hS.buf, hS.chunks, ?_, ?_, ?_, ?_, ?_⟩
   · rw [← hc]; exact hS.room
   · rw [hn, hz, ← ha]; exact hS.strt
   · rw [← ha]; exact fun h => (hS.safe h).trans kFL
+  · rw [← ha]; exact hS.gc
+  · rw [← ha]; exact fun h => (hS.stat h).congr fun a ha' => kS a (.inr ha')
 
 /-- **`PrintLua` for `luaB_print`'s Lua state** (`PrSt'`): `lua_gettop`,
 `lua_settop(L, -2)` and the stability are proved (lane F1-18: with the
@@ -294,6 +349,9 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
       (hIn.dirty a (.inl (by simpa only [stateTopOff] using hr')))
     have kT : ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a := fun a h1 h2 =>
       hk a (by have := hp.L_g; simp only [gStrtNuseOff] at h1 h2; pr_omega)
+    have kA : ∀ a, AllocStaticFoot g a → bytesT1 m' a = bytesT1 m a := fun a ha => hk a (by
+      have := hp.L_g; have := hp.L_lo
+      simp only [AllocStaticFoot, Rng] at ha; pr_omega)
     have hn' : strtNuse m' g = strtNuse m g := by
       simp only [strtNuse]; congr 1
       exact bytesT4_congrT fun j hj => kT _ (by omega) (by omega)
@@ -303,7 +361,8 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
     refine ⟨c', s', m', hret, ⟨FL, ⟨hapi, ⟨hl.facts.trans kFL, hl.kept, hl.apart, hl.strs, hl.marks,
         hl.cache.congr fun a h1 h2 => hk a (by have := hp.L_g; pr_omega)⟩,
       fun a ha => (hk a (hp.keep_top (fun a h => (hIn.keep_apart a h).1) ha)).trans (hS.keep a ha),
-      hS.buf, hS.chunks, hS.room, by rw [hn', hz]; exact hS.strt, fun h => (hS.safe h).trans kFL⟩⟩,
+      hS.buf, hS.chunks, hS.room, by rw [hn', hz]; exact hS.strt, fun h => (hS.safe h).trans kFL, hS.gc,
+      fun h => (hS.stat h).congr kA⟩⟩,
       hP.keep fun a ha => hk a fun hr' => (hLk a hr').not_printFoot ha, fun a ha => hk a fun hr' => ?_⟩
     have := hp.L_hi; have : heapEnd = 0x87800000 := rfl
     simp only [Rng] at hr'; omega
@@ -327,6 +386,13 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
     have hz : strtSize m' g = strtSize m g := by
       simp only [strtSize, gStrtSizeOff]; congr 1
       exact bytesT4_congrT fun j hj => kT _ (by simp only [gStrtNuseOff]; omega) (by simp only [gStrtNuseOff]; omega)
+    have kA : ∀ a, AllocStaticFoot g a → bytesT1 m' a = bytesT1 m a := fun a ha => by
+      by_cases hgr : Rng g 8 a
+      · have h8 : (8 : Nat) ≤ gEnd := by decide
+        exact k0 a (hIn.g_in a hgr.1 (by have := hgr.2; omega))
+      · exact hk a fun hw => hw.elim (allocStatic_not_printW hsp hbuf' ha hgr) fun hr => by
+          have e3 : heapEnd = 0x87800000 := rfl
+          simp only [Rng, AllocStaticFoot] at hr ha hgr; omega
     have hR : PrRoom (prCost args i) ph' H' := by
       by_cases hi : i ≤ n
       · exact hroom hi _ hS.room
@@ -337,7 +403,7 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
       fun a ha => (?_ : bytesT1 m' a = bytesT1 m a).trans (hS.keep a ha), hS.buf.trans hbf hS.chunks,
       fun c hc hu => hkept c (hS.chunks c hc hu) hu, hR, by rw [hn', hz]; exact hS.strt,
       fun h => ((hS.safe h).trans fun a ha => kK a (hl.kept a ha)).conseq fun M hM =>
-        hM.mono fun a ha => ha.mono hkept hbf⟩
+        hM.mono fun a ha => ha.mono hkept hbf, hS.gc, fun h => (hS.stat h).congr kA⟩
     · rcases ha with h | h | h | h
       · exact hIn.L_in a (by simp only [Rng] at h; omega) (by simp only [Rng, stateSize] at h ⊢; omega)
       · exact hIn.L_in a (by simp only [Rng] at h; omega) (by simp only [Rng, stateSize] at h ⊢; omega)
@@ -366,11 +432,12 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
 `size`): they are none of its stores. -/
 theorem TolLitPost.strt {m m' : Mem} {sp L lenp g top ts len : Nat} {ls : LitPtrs}
     (hT : TolLitPost m m' sp L lenp g top ts len ls) (hsp : g + 64 + 16384 + 64 ≤ sp)
-    (hL : L + 24 ≤ g + 56 ∨ g + 64 ≤ L + 16) (htop : top + 16 ≤ g + 56 ∨ g + 64 ≤ top)
-    (hts : ts + 10 ≤ g + 56 ∨ g + 64 ≤ ts + 9) :
-    ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a := by
-  intro a h1 h2
-  simp only [gStrtNuseOff] at h1 h2
+    (hL : L + 24 ≤ g ∨ g + 64 ≤ L + 16) (htop : top + 16 ≤ g ∨ g + 64 ≤ top)
+    (hts : ts + 10 ≤ g ∨ g + 64 ≤ ts + 9)
+    (hlo : 0x8005e7d8 ≤ L ∧ 0x8005e7d8 ≤ top ∧ 0x8005e7d8 ≤ ts ∧ 0x8005e7d8 ≤ g) :
+    ∀ a, PrStatic g a → bytesT1 m' a = bytesT1 m a := by
+  intro a ha
+  simp only [PrStatic, AllocStaticFoot, Rng, gStrtNuseOff] at ha
   refine hT.keep a (.inr ⟨by omega, ?_, ?_, ?_, ?_, ?_, ?_⟩) <;>
     simp only [Rng, gStrcacheOff, strcacheN, strcacheM, gTotalbytesOff, gGCdebtOff, gcMarkedOff, not_and,
       Nat.not_lt] <;> omega
@@ -393,7 +460,7 @@ theorem bytesAt_of_repr {m : Mem} {ts : Nat} {s : List UInt8} (h : TStringRepr (
 (split off it: one declaration's budget). -/
 structure LitKeeps (L nci g func n : Nat) (G FL : Nat → Prop) (ph : StdoutPh) (H : HeapIx) (m m' : Mem) : Prop where
   fl : ∀ a, FL a → bytesT1 m' a = bytesT1 m a
-  strt : ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a
+  strt : ∀ a, PrStatic g a → bytesT1 m' a = bytesT1 m a
   keep : ∀ a, PrKeep L g func n G a → bytesT1 m' a = bytesT1 m a
   api : ∀ a, ApiFoot L nci a → ¬ Rng (L + 16) 8 a → bytesT1 m' a = bytesT1 m a
   io : ∀ a, PrintFoot ph H a → bytesT1 m' a = bytesT1 m a
@@ -440,6 +507,8 @@ theorem litKeeps {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List V
   have kT := hT.strt (by homega) (by simp only [stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at p10; omega)
     (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at p12; have := hp.room; omega)
     (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at tlg; omega)
+    ⟨by have : heapStart = 0x8006ecd0 := rfl; omega, by have : heapStart = 0x8006ecd0 := rfl; omega,
+      by have : heapStart = 0x8006ecd0 := rfl; omega, by have : heapStart = 0x8006ecd0 := rfl; omega⟩
   -- the kept bytes are off them
   have kK : ∀ a, PrKeep L g func n G a → bytesT1 m' a = bytesT1 m a := by
     intro a ha
@@ -822,10 +891,10 @@ theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : To
   obtain ⟨FL, hS0⟩ : ∃ FL, PrSt L nci func tbc sl g n ls args D G FL M ph H 1 n ph H M := by
     by_cases hal : AnyAlloc args
     · have hai : AllocIn L func n sl g ls args D G ph H M := Classical.byContradiction fun h => hoff ⟨hal, h⟩
-      obtain ⟨⟨FL, hLF, hsafe⟩, hstrt⟩ := hai
+      obtain ⟨⟨FL, hLF, hsafe⟩, hstrt, hgc, hstat⟩ := hai
       have hb := hbud hal
       refine ⟨FL, hIn.api, hLF, fun _ _ => rfl, fun _ h => .inl h, fun _ h _ => h, fun _ => ?_, fun _ => hstrt,
-        fun _ => hsafe⟩
+        fun _ => hsafe, fun _ => hgc, fun _ => hstat⟩
       have h1 := stdoutNeed_le ph
       have e : prCost args 1 = (args.map argCost).sum := by simp [prCost]
       rw [e]
@@ -835,6 +904,7 @@ theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : To
     · obtain ⟨FL, hLF⟩ := hIn.lits
       exact ⟨FL, hIn.api, hLF, fun _ _ => rfl, fun _ h => .inl h, fun _ h _ => h,
         fun h => absurd (anyAlloc_of_cost h) hal, fun h => absurd (anyAlloc_of_allocs h) hal,
+        fun h => absurd (anyAlloc_of_allocs h) hal, fun h => absurd (anyAlloc_of_allocs h) hal,
         fun h => absurd (anyAlloc_of_allocs h) hal⟩
   have hTL := tolLit_proved hPL
   have hL : PrintLua L (sp - 96) n (PrSt' L nci func tbc sl g n ls args D G M ph H)

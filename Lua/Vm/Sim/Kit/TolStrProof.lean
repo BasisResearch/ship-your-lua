@@ -217,11 +217,12 @@ theorem argBytes_str (s : List UInt8) : argBytes (.str s) = s.map fun c => BitVe
 (`nuse`, `size`): they are none of its stores (`TolSW`). -/
 theorem TolStrPost.strt {m m' : Mem} {sp L lenp g top : Nat} {ls : LitPtrs} {len : Nat}
     (hT : TolStrPost m m' sp L lenp g top ls len) (hsp : g + 64 + 16384 + 256 ≤ sp) (hlp : sp ≤ lenp)
-    (hL : L + 24 ≤ g + 56 ∨ g + 64 ≤ L + 16) (htop : top + 32 ≤ g + 56 ∨ g + 64 ≤ top)
-    (hts : ls.tos + 10 ≤ g + 56 ∨ g + 64 ≤ ls.tos + 9) :
-    ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a := by
-  intro a h1 h2
-  simp only [gStrtNuseOff] at h1 h2
+    (hL : L + 24 ≤ g ∨ g + 64 ≤ L + 16) (htop : top + 32 ≤ g ∨ g + 64 ≤ top)
+    (hts : ls.tos + 10 ≤ g ∨ g + 64 ≤ ls.tos + 9)
+    (hlo : 0x8005e7d8 ≤ L ∧ 0x8005e7d8 ≤ top ∧ 0x8005e7d8 ≤ ls.tos ∧ 0x8005e7d8 ≤ g) :
+    ∀ a, PrStatic g a → bytesT1 m' a = bytesT1 m a := by
+  intro a ha
+  simp only [PrStatic, AllocStaticFoot, Rng, gStrtNuseOff] at ha
   refine hT.keep a ?_
   simp only [TolSW, Rng, gStrcacheOff, strcacheN, strcacheM, gTotalbytesOff, gGCdebtOff, gcMarkedOff, not_or,
     not_and, Nat.not_lt]
@@ -273,6 +274,8 @@ theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
   have kT := hT.strt (by homega) (by omega) (by simp only [stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at p10; omega)
     (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at p12; have := hp.room; omega)
     (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at tlg; omega)
+    ⟨by have : heapStart = 0x8006ecd0 := rfl; omega, by have : heapStart = 0x8006ecd0 := rfl; omega,
+      by have : heapStart = 0x8006ecd0 := rfl; omega, by have : heapStart = 0x8006ecd0 := rfl; omega⟩
   -- the kept bytes are off them
   have kK : ∀ a, PrKeep L g func n G a → bytesT1 m' a = bytesT1 m a := by
     intro a ha
