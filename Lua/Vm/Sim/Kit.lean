@@ -101,6 +101,9 @@ import Lua.Vm.Sim.Kit.AtFltDivk
 import Lua.Vm.Sim.Kit.AtFltIdiv
 import Lua.Vm.Sim.Kit.AtFltIdivk
 import Lua.Vm.Sim.Kit.PushLitProof
+import Lua.Vm.Sim.Kit.Getmetafield
+import Lua.Vm.Sim.Kit.TolStr
+import Lua.Vm.Sim.Kit.TolStrProof
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

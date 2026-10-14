@@ -389,11 +389,12 @@ structure GmfTail (M : Mem) (sp L t tbc : Nat) (r : BitVec 64) (f : AbiFrame) : 
 /-- **`lua_rawget` after the miss and `lua_settop(L, -3)`** (the root
 `0x800035a8`): `L->top` at the metatable's slot, returning `LUA_TNIL`. -/
 theorem gmf_tail {sp L t g sl smt tbc : Nat} {ls : LitPtrs} {FL : Nat → Prop} {r : BitVec 64}
-    {f : AbiFrame} {m M : Mem} {o : Array String} {c2 : Config} (hra : r.toNat % 4 = 0)
-    (hx : GmfIn m sp L t g sl smt tbc ls FL) (hT : GmfTail M sp L t tbc r f)
-    (h : SegSt 0x800035a8#64 (Lua.Vm.AtF.GmfMiss.r5 (gmX sp L (t + 16) smt tbc r f M o))
-      (ArmPay (gmX sp L (t + 16) smt tbc r f M o).m (gmX sp L (t + 16) smt tbc r f M o).o) c2) :
-    ∃ c', Steps c2 c' ∧ ∃ m', wrRet r sp 0 f m' o c' ∧ GmfRest M m' sp L t := by
+    {f : AbiFrame} {m M : Mem} {o : Array String} (hra : r.toNat % 4 = 0)
+    (hx : GmfIn m sp L t g sl smt tbc ls FL) (hT : GmfTail M sp L t tbc r f) :
+    Triple (SegSt 0x800035a8#64 (Lua.Vm.AtF.GmfMiss.r5 (gmX sp L (t + 16) smt tbc r f M o))
+        (ArmPay (gmX sp L (t + 16) smt tbc r f M o).m (gmX sp L (t + 16) smt tbc r f M o).o))
+      (fun c => ∃ m', wrRet r sp 0 f m' o c ∧ GmfRest M m' sp L t) := by
+  intro c2 h
   gmf_ctx
   have hX3 : Lua.Vm.AtF.GmfMiss.Ok (gmX sp L (t + 16) smt tbc r f M o) := by
     have hsL := hx.sL; simp only [Apart] at hsL; fcx_ok
@@ -412,11 +413,12 @@ theorem gmf_tail {sp L t g sl smt tbc : Nat} {ls : LitPtrs} {FL : Nat → Prop} 
 `lua_rawget(L, -2)` with `luaH_get`'s miss (`hget_miss_sum`, the boot fact
 `StrMtMiss`), then `gmf_tail`. -/
 theorem gmf_rest {sp L t g sl smt tbc : Nat} {ls : LitPtrs} {FL : Nat → Prop} {r : BitVec 64}
-    {f : AbiFrame} {m m1 : Mem} {o : Array String} {c1 : Config} (hra : r.toNat % 4 = 0)
-    (hx : GmfIn m sp L t g sl smt tbc ls FL) (hm : GmfMid m1 sp L t g sl smt tbc r f ls FL)
-    (h : SegSt 0x80020544#64 (Lua.Vm.AtF.GmfMiss.r2 (gmX sp L (t + 16) smt tbc r f m1 o))
-      (ArmPay (gmX sp L (t + 16) smt tbc r f m1 o).m (gmX sp L (t + 16) smt tbc r f m1 o).o) c1) :
-    ∃ c', Steps c1 c' ∧ ∃ m', wrRet r sp 0 f m' o c' ∧ GmfRest m1 m' sp L t := by
+    {f : AbiFrame} {m m1 : Mem} {o : Array String} (hra : r.toNat % 4 = 0)
+    (hx : GmfIn m sp L t g sl smt tbc ls FL) (hm : GmfMid m1 sp L t g sl smt tbc r f ls FL) :
+    Triple (SegSt 0x80020544#64 (Lua.Vm.AtF.GmfMiss.r2 (gmX sp L (t + 16) smt tbc r f m1 o))
+        (ArmPay (gmX sp L (t + 16) smt tbc r f m1 o).m (gmX sp L (t + 16) smt tbc r f m1 o).o))
+      (fun c => ∃ m', wrRet r sp 0 f m' o c ∧ GmfRest m1 m' sp L t) := by
+  intro c1 h
   gmf_ctx
   have hX2 : Lua.Vm.AtF.GmfMiss.Ok (gmX sp L (t + 16) smt tbc r f m1 o) := by
     have hsL := hx.sL; simp only [Apart] at hsL; fcx_ok
@@ -456,7 +458,7 @@ theorem gmf_rest {sp L t g sl smt tbc : Nat} {ls : LitPtrs} {FL : Nat → Prop} 
     · rw [← hM1e]; fcx_unfold; rw [fw8_same rfl]
     · have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl
       rw [hM1 _ (.inl (by omega))]; exact hm.ro o' ho
-  obtain ⟨c3, s3, m', hret3, hrest⟩ := gmf_tail hra hx hT (hret2.repin (by pins_of hret2))
+  obtain ⟨c3, s3, m', hret3, hrest⟩ := gmf_tail hra hx hT _ (hret2.repin (by pins_of hret2))
   refine ⟨c3, (acc.trans s2).trans s3, m', hret3, hrest.top_w, fun a ha => (hrest.keep a ha).trans ?_⟩
   simp only [Rng, not_or, not_and, Nat.not_lt] at ha
   exact hM1 a (by omega)
@@ -550,7 +552,7 @@ theorem gmf_miss_sum {sp L t g sl smt tbc : Nat} {ls : LitPtrs} {FL : Nat → Pr
       exact hK a (.inr ⟨by omega, h3, h4, h1.2, h5, h6, by simp only [Rng]; omega⟩)
   have hX2 : Lua.Vm.AtF.GmfMiss.Ok (gmX sp L (t + 16) smt tbc r f m1 o) := by
     have hsL := hx.sL; simp only [Apart] at hsL; fcx_ok
-  obtain ⟨c3, s3, m', hret3, hrest⟩ := gmf_rest hra hx hmid (hret.repin (by pins_of hret))
+  obtain ⟨c3, s3, m', hret3, hrest⟩ := gmf_rest hra hx hmid _ (hret.repin (by pins_of hret))
   refine ⟨c3, acc.trans s3, m', hret3, hrest.top_w, ?_, fun a ha => ?_⟩
   · refine hpp.cache.congr fun a h1 h2 => hrest.keep a ?_
     gmf_ap

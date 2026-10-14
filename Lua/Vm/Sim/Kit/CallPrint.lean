@@ -2,7 +2,7 @@ import Lua.Vm.Sim.Kit.CallClose
 import Lua.Vm.Sim.Kit.ExitUp
 import Lua.Vm.Sim.Kit.PoscallN
 import Lua.Vm.Sim.Kit.ExtendCI
-import Lua.Vm.Sim.Kit.PrintRel
+import Lua.Vm.Sim.Kit.TolStrProof
 
 /-!
 # `PrintCall_Statement CallInv` from `CALL`'s open parts (lane F1-13)

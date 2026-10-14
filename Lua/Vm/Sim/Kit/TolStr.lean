@@ -184,7 +184,8 @@ theorem gmfIn_of {m M2 : Mem} {sp L i nci func top g sl tbc : Nat} {ls : LitPtrs
     exact kM a (by omega) (by omega) (by simp only [Rng]; omega)
   · have h2 := hT.fl_ap a ha
     simp only [not_or, Rng] at h2 ⊢
-    exact ⟨h2.1, fun h => h2.2.1 ⟨by omega, by omega⟩, h2.2.2.1, h2.2.2.2.1, h2.2.2.2.2⟩
+    obtain ⟨e1, e2, e3, e4, e5⟩ := h2
+    exact ⟨e1, fun h => e2 ⟨by omega, by omega⟩, e3, e4, e5⟩
   · exact kM a (by omega) (by omega) (by simp only [Rng]; omega)
   · rw [kM _ (by simp only [gGcstpOff]; omega) (by simp only [gGcstpOff]; omega)
       (by simp only [Rng, gGcstpOff]; omega)]; exact hT.gcstp
@@ -219,6 +220,18 @@ structure TolSMid (m M : Mem) (sp L i lenp nci func top g ts : Nat) (r : BitVec 
   cache : LitCache M g ls
   keep : ∀ a, ¬ TolSW sp L lenp g top ls a → bytesT1 M a = bytesT1 m a
 
+/-- **`luaL_callmeta`'s and `luaL_tolstring`'s saved words** (their frames
+below `sp`): `ra`, `L`, `i`, `&l`; the caller's `ra` and `s0`–`s2`. -/
+structure TolSFrame (M : Mem) (sp L i lenp : Nat) (r : BitVec 64) (f : AbiFrame) : Prop where
+  cra_w : bytesT8 M (sp - 56) = 0x80021b64#64
+  cs0_w : bytesT8 M (sp - 64) = BitVec.ofNat 64 L
+  cs1_w : bytesT8 M (sp - 72) = BitVec.ofNat 64 i
+  cs2_w : bytesT8 M (sp - 80) = BitVec.ofNat 64 lenp
+  ra_w : bytesT8 M (sp - 8) = r
+  s0_w : bytesT8 M (sp - 16) = f.s0
+  s1_w : bytesT8 M (sp - 24) = f.s1
+  s2_w : bytesT8 M (sp - 32) = f.s2
+
 /-- **The run up to the metafield's miss, assembled** (`TolSMid`): the
 stores before `luaL_getmetafield` (`M2`, the generated row's), its summary's
 post (`GmfPost`). -/
@@ -226,10 +239,7 @@ theorem tolSMid_of {m M2 M3 : Mem} {sp L i lenp nci func top g sl tbc ts : Nat} 
     {r : BitVec 64} {f : AbiFrame} {tag : BitVec 8} (hx : TolNums sp L i lenp nci func top g ts r)
     (hc : TolSCells m L i nci func top g ts tag) (hT : TolSIn m sp L i nci func top g sl tbc ls FL)
     (hM2 : ∀ a, ¬ ((sp - 80 ≤ a ∧ a < sp) ∨ Rng top 9 a ∨ Rng (L + 16) 8 a) → bytesT1 M2 a = bytesT1 m a)
-    (hfr : bytesT8 M2 (sp - 56) = 0x80021b64#64 ∧ bytesT8 M2 (sp - 64) = BitVec.ofNat 64 L ∧
-      bytesT8 M2 (sp - 72) = BitVec.ofNat 64 i ∧ bytesT8 M2 (sp - 80) = BitVec.ofNat 64 lenp ∧
-      bytesT8 M2 (sp - 8) = r ∧ bytesT8 M2 (sp - 16) = f.s0 ∧ bytesT8 M2 (sp - 24) = f.s1 ∧
-      bytesT8 M2 (sp - 32) = f.s2)
+    (hfr : TolSFrame M2 sp L i lenp r f)
     (hg : GmfPost M2 M3 (sp - 80) L g (top + 16) ls) :
     TolSMid m M3 sp L i lenp nci func top g ts r f ls tag := by
   have := hT.sp_big; have := hT.L_lo; have := hT.L_hi; have := hT.g_lo; have := hT.g_hi
@@ -246,14 +256,14 @@ theorem tolSMid_of {m M2 M3 : Mem} {sp L i lenp nci func top g sl tbc ts : Nat} 
     by simp only [Rng, gGCdebtOff]; omega, h6⟩)
   have kF : ∀ a, sp - 80 ≤ a → bytesT1 M3 a = bytesT1 M2 a := fun a h => hg.keep a (.inl h)
   refine ⟨?_, ?_, by rw [hg.top_w, show top + 16 - 16 = top by omega], ?_, ?_,
-    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.1,
-    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.2.1,
-    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.2.2.1,
-    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.2.2.2.1,
-    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.2.2.2.2.1,
-    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.2.2.2.2.2.1,
-    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.2.2.2.2.2.2.1,
-    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.2.2.2.2.2.2.2, hg.cache, fun a ha => ?_⟩
+    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.cra_w,
+    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.cs0_w,
+    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.cs1_w,
+    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.cs2_w,
+    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.ra_w,
+    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.s0_w,
+    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.s1_w,
+    (bytesT8_congrT fun j _ => kF _ (by omega)).trans hfr.s2_w, hg.cache, fun a ha => ?_⟩
   · have hsL := hT.sL; have hLg := hT.Lg; have hlL := hT.lL
     simp only [Apart] at hsL hLg hlL
     rw [bytesT8_congrT fun j _ => (kG _ (by omega) (by simp only [Rng]; omega) (by simp only [Rng]; omega)
@@ -298,18 +308,7 @@ theorem tolS_m2 {sp L i lenp nci func top g smt ts : Nat} {r : BitVec 64} {f : A
     (hsL : top + 48 ≤ L ∨ L + 200 ≤ top) (hl : sp ≤ lenp) :
     (∀ a, ¬ ((sp - 80 ≤ a ∧ a < sp) ∨ Rng top 9 a ∨ Rng (L + 16) 8 a) →
       bytesT1 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) a = bytesT1 m a) ∧
-    (bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (sp - 56) =
-        0x80021b64#64 ∧
-      bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (sp - 64) =
-        BitVec.ofNat 64 L ∧
-      bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (sp - 72) =
-        BitVec.ofNat 64 i ∧
-      bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (sp - 80) =
-        BitVec.ofNat 64 lenp ∧
-      bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (sp - 8) = r ∧
-      bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (sp - 16) = f.s0 ∧
-      bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (sp - 24) = f.s1 ∧
-      bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (sp - 32) = f.s2) ∧
+    TolSFrame (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) sp L i lenp r f ∧
     bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) (L + 16) =
       BitVec.ofNat 64 (top + 16) ∧
     bytesT8 (Lua.Vm.AtF.TolStrS.m2 (tsX sp L i lenp nci func top g smt ts r f m o)) top =
@@ -372,25 +371,27 @@ macro "tol_pre_run " ns:ident : tactic => do
 /-- **`luaL_tolstring` on a short string, up to the metafield's miss** (`tol_pre_run`). -/
 theorem tol_s_pre {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {FL : Nat → Prop} {r : BitVec 64}
     {f : AbiFrame} {m : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
-    (hc : TolSCells m L i nci func top g ts 0x44#8) (hT : TolSIn m sp L i nci func top g sl tbc ls FL) {c : Config}
-    (h : SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
-        ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f) (ArmPay m o) c) :
-    ∃ c1, Steps c c1 ∧ ∃ M3, TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x44#8 ∧
+    (hc : TolSCells m L i nci func top g ts 0x44#8) (hT : TolSIn m sp L i nci func top g sl tbc ls FL) :
+    Triple (SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
+        ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f) (ArmPay m o)) fun c1 =>
+    ∃ M3, TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x44#8 ∧
       SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrS.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
         (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).m
           (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o) c1 := by
+  intro c h
   tol_pre_run Lua.Vm.AtF.TolStrS
 
 /-- **`luaL_tolstring` on a long string, up to the metafield's miss** (`tol_pre_run`). -/
 theorem tol_l_pre {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {FL : Nat → Prop} {r : BitVec 64}
     {f : AbiFrame} {m : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
-    (hc : TolSCells m L i nci func top g ts 0x54#8) (hT : TolSIn m sp L i nci func top g sl tbc ls FL) {c : Config}
-    (h : SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
-        ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f) (ArmPay m o) c) :
-    ∃ c1, Steps c c1 ∧ ∃ M3, TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x54#8 ∧
+    (hc : TolSCells m L i nci func top g ts 0x54#8) (hT : TolSIn m sp L i nci func top g sl tbc ls FL) :
+    Triple (SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
+        ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f) (ArmPay m o)) fun c1 =>
+    ∃ M3, TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x54#8 ∧
       SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrL.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
         (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).m
           (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o) c1 := by
+  intro c h
   tol_pre_run Lua.Vm.AtF.TolStrL
 
 /-- A byte off a range, as the forwarding lemmas take it. -/
@@ -465,13 +466,14 @@ macro "tol_mid_run " ns:ident : tactic => do
 theorem tol_s_mid {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {FL : Nat → Prop}
     {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
     (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x44#8)
-    {c1 : Config}
-    (h : SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrS.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
+    :
+    Triple (SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrS.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
         (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).m
-          (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o) c1) :
-    ∃ c2, Steps c1 c2 ∧ SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
+          (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o))
+      (SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
         ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
-      (ArmPay (TolPushMem M3 L top ts 0x44#64) o) c2 := by
+      (ArmPay (TolPushMem M3 L top ts 0x44#64) o)) := by
+  intro c1 h
   tol_mid_run Lua.Vm.AtF.TolStrS
 
 /-- **`luaL_tolstring` on a long string, from the metafield's miss to the tail**
@@ -479,13 +481,14 @@ theorem tol_s_mid {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {F
 theorem tol_l_mid {sp L i lenp nci func top g sl tbc ts : Nat} {ls : LitPtrs} {FL : Nat → Prop}
     {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
     (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x54#8)
-    {c1 : Config}
-    (h : SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrL.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
+    :
+    Triple (SegSt 0x80021a7c#64 (Lua.Vm.AtF.TolStrL.r3 (tsX sp L i lenp nci func top g ls.smt ts r f M3 o))
         (ArmPay (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).m
-          (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o) c1) :
-    ∃ c2, Steps c1 c2 ∧ SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
+          (tsX sp L i lenp nci func top g ls.smt ts r f M3 o).o))
+      (SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
         ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
-      (ArmPay (TolPushMem M3 L top ts 0x54#64) o) c2 := by
+      (ArmPay (TolPushMem M3 L top ts 0x54#64) o)) := by
+  intro c1 h
   tol_mid_run Lua.Vm.AtF.TolStrL
 
 set_option hygiene false in
@@ -502,11 +505,12 @@ local macro "tol_nums" : tactic => `(tactic| (
 theorem tol_tail_s {sp L i lenp nci func top g sl tbc ts len : Nat} {ls : LitPtrs} {FL : Nat → Prop}
     {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
     (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x44#8)
-    (hlen : bytesT1 (TolPushMem M3 L top ts 0x44#64) (ts + 11) = BitVec.ofNat 8 len) (hl : len < 255) {c2 : Config}
-    (h : SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
+    (hlen : bytesT1 (TolPushMem M3 L top ts 0x44#64) (ts + 11) = BitVec.ofNat 8 len) (hl : len < 255) :
+    Triple (SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
         ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
-      (ArmPay (TolPushMem M3 L top ts 0x44#64) o) c2) :
-    ∃ c', Steps c2 c' ∧ ∃ m', wrRet r sp (ts + 24) f m' o c' ∧ TolStrPost m m' sp L lenp g top ls len := by
+      (ArmPay (TolPushMem M3 L top ts 0x44#64) o))
+      (fun c => ∃ m', wrRet r sp (ts + 24) f m' o c ∧ TolStrPost m m' sp L lenp g top ls len) := by
+  intro c2 h
   tol_nums
   obtain ⟨c3, s3, hret⟩ := toltop_sum (sp := sp) (L := L) (lenp := lenp) (ts := ts) (top := top + 16)
     (len := len) f o
@@ -523,11 +527,12 @@ theorem tol_tail_l {sp L i lenp nci func top g sl tbc ts len : Nat} {ls : LitPtr
     {r : BitVec 64} {f : AbiFrame} {m M3 : Mem} {o : Array String} (hx : TolNums sp L i lenp nci func top g ts r)
     (hT : TolSIn m sp L i nci func top g sl tbc ls FL) (hmid : TolSMid m M3 sp L i lenp nci func top g ts r f ls 0x54#8)
     (hshr : bytesT1 (TolPushMem M3 L top ts 0x54#64) (ts + 11) = 0xff#8)
-    (hlen : bytesT8 (TolPushMem M3 L top ts 0x54#64) (ts + 16) = BitVec.ofNat 64 len) {c2 : Config}
-    (h : SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
+    (hlen : bytesT8 (TolPushMem M3 L top ts 0x54#64) (ts + 16) = BitVec.ofNat 64 len) :
+    Triple (SegSt 0x80002994#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩,
         ⟨Register.x11, 0xffffffffffffffff#64⟩, ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f)
-      (ArmPay (TolPushMem M3 L top ts 0x54#64) o) c2) :
-    ∃ c', Steps c2 c' ∧ ∃ m', wrRet r sp (ts + 24) f m' o c' ∧ TolStrPost m m' sp L lenp g top ls len := by
+      (ArmPay (TolPushMem M3 L top ts 0x54#64) o))
+      (fun c => ∃ m', wrRet r sp (ts + 24) f m' o c ∧ TolStrPost m m' sp L lenp g top ls len) := by
+  intro c2 h
   tol_nums
   obtain ⟨c3, s3, hret⟩ := toltopl_sum (sp := sp) (L := L) (lenp := lenp) (ts := ts) (top := top + 16)
     (len := len) f o

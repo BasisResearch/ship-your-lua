@@ -409,8 +409,8 @@ theorem tolStr_proved : TolStr_Statement := by
     · have htag' : slotTag m (func + 16 * i) = 0x44#8 := by rw [htag]; simp [strTag, hsh, vShrStr]
       obtain ⟨hx, hc, hT⟩ := tolS_in hIn hn hS hi1 hin hr (by omega) (by omega) htag' hval
       intro c h
-      obtain ⟨c1, s1, M3, hmid, h1⟩ := tol_s_pre hx hc hT h
-      obtain ⟨c2, s2, h2⟩ := tol_s_mid hx hT hmid h1
+      obtain ⟨c1, s1, M3, hmid, h1⟩ := tol_s_pre hx hc hT c h
+      obtain ⟨c2, s2, h2⟩ := tol_s_mid hx hT hmid c1 h1
       have hR := str_repr_at hIn hn hS hv hi' (M := TolPushMem M3 L (func + 16 * n + 16) ts 0x44#64)
         fun a ha => (TolPushMem.keep ha).trans (hmid.keep a ha)
       rw [hidx, hts] at hR
@@ -419,14 +419,14 @@ theorem tolStr_proved : TolStr_Statement := by
         cases hR with
         | short _ _ hl _ _ => rw [← bytesT1_fill]; exact bytesT1_of_rd8 hl
         | long _ hl' => exact absurd hl' (by omega)
-      obtain ⟨c3, s3, m', hret, hT'⟩ := tol_tail_s hx hT hmid hlen (by simp only [maxShortLen] at hsh; omega) h2
+      obtain ⟨c3, s3, m', hret, hT'⟩ := tol_tail_s hx hT hmid hlen (by simp only [maxShortLen] at hsh; omega) c2 h2
       obtain ⟨m'', s', H', hret', hP'⟩ := hpost hret hT'
       exact ⟨c3, s1.trans (s2.trans s3), m'', s', H', hret', hP'⟩
     · have htag' : slotTag m (func + 16 * i) = 0x54#8 := by rw [htag]; simp [strTag, hsh, vLngStr]
       obtain ⟨hx, hc, hT⟩ := tolS_in hIn hn hS hi1 hin hr (by omega) (by omega) htag' hval
       intro c h
-      obtain ⟨c1, s1, M3, hmid, h1⟩ := tol_l_pre hx hc hT h
-      obtain ⟨c2, s2, h2⟩ := tol_l_mid hx hT hmid h1
+      obtain ⟨c1, s1, M3, hmid, h1⟩ := tol_l_pre hx hc hT c h
+      obtain ⟨c2, s2, h2⟩ := tol_l_mid hx hT hmid c1 h1
       have hR := str_repr_at hIn hn hS hv hi' (M := TolPushMem M3 L (func + 16 * n + 16) ts 0x54#64)
         fun a ha => (TolPushMem.keep ha).trans (hmid.keep a ha)
       rw [hidx, hts] at hR
@@ -436,7 +436,7 @@ theorem tolStr_proved : TolStr_Statement := by
         | short _ hl' => exact absurd hl' hsh
         | long _ _ hl _ _ hs =>
           exact ⟨by rw [← bytesT1_fill]; exact bytesT1_of_rd8 hs, bT8_of_fill (bytesT8_of_rd64 hl)⟩
-      obtain ⟨c3, s3, m', hret, hT'⟩ := tol_tail_l hx hT hmid hl2.1 hl2.2 h2
+      obtain ⟨c3, s3, m', hret, hT'⟩ := tol_tail_l hx hT hmid hl2.1 hl2.2 c2 h2
       obtain ⟨m'', s', H', hret', hP'⟩ := hpost hret hT'
       exact ⟨c3, s1.trans (s2.trans s3), m'', s', H', hret', hP'⟩
   | nil => exact absurd hC id
@@ -444,5 +444,13 @@ theorem tolStr_proved : TolStr_Statement := by
   | int _ => exact absurd hC id
   | flt _ _ => exact absurd hC id
   | builtin _ => exact absurd hC id
+
+/-- **`luaB_print` on the C frame** from `CALL`'s open part (lane F1-15;
+F1-17): `lua_pushstring` of the literals proved (`pushLit_proved`),
+`luaL_tolstring` on strings proved (`tolStr_proved`), `_malloc_r` proved
+(lane F1-A0-M, `AllocProof.mallocR_proved`); the allocating classes
+`CallOpen.printAlloc`. -/
+theorem CallOpen.print (O : CallOpen) : PrintRel_Statement :=
+  printRel_of AllocProof.mallocR_proved pushLit_proved tolStr_proved O.printAlloc
 
 end Lua.Vm.Sim.Kit

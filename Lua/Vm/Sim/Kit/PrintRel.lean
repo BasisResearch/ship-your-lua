@@ -17,7 +17,8 @@ import Lua.Vm.Sim.Kit.AllocProof
   `PrintAlloc_Statement` (`print_sum`'s `S` has no argument index, so no
   per-argument heap budget; a write's post bounds no break).
 
-`printRel_of` is the assembly; `CallOpen.print` the field it replaces.
+`printRel_of` is the assembly; `CallOpen.print` (`Kit/TolStrProof.lean`, lane
+F1-17, with `tolStr_proved`) the field it replaces.
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -623,11 +624,5 @@ theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : To
   refine ⟨?_, ⟨buf, H', FL, hP', hk, hS'.buf, hS'.lits⟩, fun a ha => hS'.keep a (.inl ha), hend.above⟩
   rw [hend.out, hIn.pend, List.nil_append, ← hlen]
   exact prLine_chars args hna
-
-/-- **`luaB_print` on the C frame** from `CALL`'s open parts (lane F1-15):
-`lua_pushstring` of the literals proved (`pushLit_proved`), `_malloc_r`
-proved (lane F1-A0-M, `AllocProof.mallocR_proved`). -/
-theorem CallOpen.print (O : CallOpen) : PrintRel_Statement :=
-  printRel_of AllocProof.mallocR_proved pushLit_proved O.tolStr O.printAlloc
 
 end Lua.Vm.Sim.Kit

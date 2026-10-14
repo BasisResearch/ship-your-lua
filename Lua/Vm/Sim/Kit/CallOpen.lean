@@ -10,7 +10,7 @@ import Lua.Vm.Sim.Kit.Tolstring
 invariant) is proved in `Kit/CallPrint.lean` (`printCall_of`) from
 `luaD_precall`'s C path (`precall_reuse`, `precall_ext`), `luaD_poscall` with
 `C = 1` (`poscall_sum`) and the relation's region facts, over the named
-premises collected here (`CallOpen`: `printAlloc`, `tolStr`) and the theorems
+premise collected here (`CallOpen`: `printAlloc`) and the theorems
 it composes:
 
 * `PrintRel_Statement`: `luaB_print` on the C frame `luaD_precall` builds,
@@ -19,7 +19,7 @@ it composes:
   the interned literals again. Proved (`CallOpen.print`, `Kit/PrintRel.lean`,
   lane F1-15) from `print_sum` (lane F1-11) with `luaL_tolstring` per value
   class: nil/booleans over `pushLit_proved`, strings `TolStr_Statement`
-  (field `tolStr`), the allocating classes `PrintAlloc_Statement` (field
+  (`tolStr_proved`, lane F1-17), the allocating classes `PrintAlloc_Statement` (field
   `printAlloc`), and `_malloc_r` (`AllocProof.mallocR_proved`, lane F1-A0-M);
 * `ExtendCI_Statement`: `luaE_extendCI` (`ci->next` NULL at the first
   `print`), `extendCI_proved`;
@@ -224,7 +224,8 @@ def TolArg (C : Value → Prop) : Prop :=
       (fun c => ∃ m' s H', wrRet r (sp0 - 64) s f m' o c ∧
         TolPost sp0 n (PrSt L nci func tbc sl g n ls D G FL M0 ph0 H0) (argBytes v) ph m m' s H H')
 
-/-- **Named premise: `luaL_tolstring` on a string argument** (lane F1-15):
+/-- **`luaL_tolstring` on a string argument** (lane F1-15; proved, lane
+F1-17: `tolStr_proved`, `Kit/TolStrProof.lean`):
 `luaL_callmeta(L, idx, "__tostring")` → `lua_getmetatable` (the string
 library's metatable) → `luaL_getmetafield` → `lua_pushstring("__tostring")`
 (`PushLit_Statement`: the literal and the cache's candidates in `LitsIn`) →
@@ -375,8 +376,6 @@ def ExitUp_Statement : Prop :=
 structure CallOpen : Prop where
   /-- (lane F1-15) `luaB_print` when an argument allocates -/
   printAlloc : PrintAlloc_Statement
-  /-- (lane F1-15) `luaL_tolstring` on a string argument -/
-  tolStr : TolStr_Statement
 
 /-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the
 `CALL` invariant keeps `LUA_MINSTACK` slots above the frame (`growFree`, from
