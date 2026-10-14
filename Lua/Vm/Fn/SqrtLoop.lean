@@ -45,17 +45,67 @@ partial def bmodArgs (e : Expr) (acc : Array Expr) : Array Expr :=
 
 open Lean Elab Tactic Meta in
 /-- **Every sign-extended word's facts** (`bm_facts`) for the `Int.bmod _ 2^32`
-terms of the goal and the hypotheses, then `omega`. -/
+terms of the goal, then `omega`. -/
 elab "bm_omega" : tactic => withMainContext do
-  let mut acc := bmodArgs (← instantiateMVars (← getMainTarget)) #[]
-  for d in ← getLCtx do
-    unless d.isImplementationDetail do
-      acc := bmodArgs (← instantiateMVars d.type) acc
+  let acc := bmodArgs (← instantiateMVars (← getMainTarget)) #[]
   for z in acc do
     unless z.hasLooseBVars do
       let zs ← Term.exprToSyntax z
       evalTactic (← `(tactic| have := Lua.Vm.Fn.Ieee754Sqrt.bm_facts $zs))
   evalTactic (← `(tactic| omega))
+
+/-! ## The invariant's bounds -/
+
+open Lua.Num.SfRef in
+/-- The root and the remainder are small: `Q < 2^54`, `W < 2^57`. -/
+theorem sqInv_bounds {N p W Q : Nat} (h : SqInv N p W Q) (hN : N < 2 ^ 108) (hp : p ≤ 54) :
+    Q < 2 ^ 54 ∧ W < 2 ^ 57 := by
+  obtain ⟨hle, hrem, hlt, _⟩ := h
+  have hQ : Q < 2 ^ 54 := by
+    refine Nat.lt_of_not_le fun hc => ?_
+    have : 2 ^ 54 * 2 ^ 54 ≤ Q * Q := Nat.mul_le_mul hc hc
+    rw [← Nat.pow_add] at this; omega
+  refine ⟨hQ, ?_⟩
+  have e := sq_add Q (2 ^ p)
+  have h1 : W * 2 ^ p < (4 * Q + 2 * 2 ^ p) * 2 ^ p := by
+    have : (4 * Q + 2 * 2 ^ p) * 2 ^ p = 2 * ((2 * Q + 2 ^ p) * 2 ^ p) := by
+      rw [show 4 * Q + 2 * 2 ^ p = 2 * (2 * Q + 2 ^ p) by omega, Nat.mul_assoc]
+    omega
+  have h2 := Nat.lt_of_mul_lt_mul_right h1
+  have h3 : 2 ^ p ≤ 2 ^ 54 := Nat.pow_le_pow_right (by decide) hp
+  omega
+
+open Lua.Num.SfRef in
+/-- The root at the bits below `2^c` is the next bit's alignment: its low
+words leave room for `2 · 2^(c-1)` (`q1 + r`) and, doubled, for `4 · 2^(c-1)`
+(`s1 + 2r`, no carry), but at `c = 32` (one carry into `s0`). -/
+theorem sq_align {c Q : Nat} (hc1 : 1 ≤ c) (hc2 : c ≤ 32) (h : 2 ^ c ∣ Q) :
+    Q % 2 ^ 32 + 2 * 2 ^ (c - 1) ≤ 2 ^ 32 ∧
+      (2 * Q % 2 ^ 32 + 4 * 2 ^ (c - 1) ≤ 2 ^ 32 ∨ (2 * Q % 2 ^ 32 = 0 ∧ 2 ^ (c - 1) = 2 ^ 31)) := by
+  obtain ⟨j, rfl⟩ := h
+  have e2 : 2 * 2 ^ (c - 1) = 2 ^ c := by rw [← Nat.pow_succ']; congr 1; omega
+  have m1 : ∀ d, d ≤ 32 → 2 ^ d * j % 2 ^ 32 + 2 ^ d ≤ 2 ^ 32 := by
+    intro d hd
+    have e : 2 ^ 32 = 2 ^ d * 2 ^ (32 - d) := by rw [← Nat.pow_add]; congr 1; omega
+    rw [e, Nat.mul_mod_mul_left]
+    have : j % 2 ^ (32 - d) + 1 ≤ 2 ^ (32 - d) := Nat.mod_lt _ (Nat.two_pow_pos _)
+    have := Nat.mul_le_mul_left (2 ^ d) this
+    rw [Nat.mul_add, Nat.mul_one] at this
+    exact this
+  refine ⟨by rw [e2]; exact m1 c hc2, ?_⟩
+  have e3 : 2 * (2 ^ c * j) = 2 ^ (c + 1) * j := by rw [Nat.pow_succ, ← Nat.mul_assoc, Nat.mul_comm 2]
+  rw [e3]
+  by_cases h31 : c ≤ 31
+  · left
+    have e4 : 4 * 2 ^ (c - 1) = 2 ^ (c + 1) := by
+      rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]; congr 1; omega
+    rw [e4]; exact m1 (c + 1) (by omega)
+  · right
+    have hc : c = 32 := by omega
+    subst hc
+    refine ⟨?_, rfl⟩
+    rw [show (2 : Nat) ^ (32 + 1) = 2 ^ 32 * 2 by rfl, Nat.mul_assoc]
+    exact Nat.mul_mod_right _ _
 
 /-- `xor` with all ones: `not`. -/
 theorem xor_m1 (a : Int) : BitVec.ofInt 64 a ^^^ BitVec.ofInt 64 (-1) = BitVec.ofInt 64 (-1 - a) := by
