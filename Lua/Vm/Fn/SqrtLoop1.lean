@@ -211,6 +211,88 @@ theorem l1_claim : ∀ n, n ≤ 21 → L1Claim m s r g (n + 1) := by
   | zero => intro hn; exact l1_step s r g hro hs 0 hn (fun h => absurd h (by decide))
   | succ n ih => intro hn; exact l1_step s r g hro hs (n + 1) hn (fun _ => ih (by omega))
 
+/-- `and` with `1`: the low bit, of any sign. -/
+theorem and_one (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 1 = BitVec.ofInt 64 (a % 2) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_and, show (BitVec.ofInt 64 1).toNat = 1 by decide, Nat.and_one_is_mod]
+  have h1 := ofInt_toNat a
+  have h2 := ofInt_toNat (a % 2)
+  omega
+
+/-- The set-up's words, odd `m - 1023` (`ix0:ix1` doubled twice): `Y = 4W`. -/
+theorem pre_odd (h l W : Nat) (L0 : Int) (hW : W = (h % 2 ^ 20 + 2 ^ 20) * 2 ^ 32 + l)
+    (hl : L0 % 4294967296 = (l : Int)) (hl2 : l < 2 ^ 32) :
+    2 ^ 53 ≤ 4 * W ∧ 4 * W < 2 ^ 55 ∧
+    ((L0 * 2).bmod 4294967296 * 2).bmod 4294967296 % 4294967296 = ((4 * W : Nat) : Int) % 4294967296 ∧
+    -2147483648 ≤ ((L0 * 2).bmod 4294967296 * 2).bmod 4294967296 ∧
+    ((L0 * 2).bmod 4294967296 * 2).bmod 4294967296 < 2147483648 ∧
+    ((1048576 + (h : Int) % 1048576) * 2 + L0 % 4294967296 / 2147483648) * 2 +
+        (L0 * 2).bmod 4294967296 % 4294967296 / 2147483648 = ((4 * W : Nat) : Int) / 4294967296 := by
+  have := bm_facts (L0 * 2)
+  have := bm_facts ((L0 * 2).bmod 4294967296 * 2)
+  subst hW
+  omega
+
+/-- The set-up's words, even `m - 1023`: `Y = 2W`. -/
+theorem pre_even (h l W : Nat) (L0 : Int) (hW : W = (h % 2 ^ 20 + 2 ^ 20) * 2 ^ 32 + l)
+    (hl : L0 % 4294967296 = (l : Int)) (hl2 : l < 2 ^ 32) :
+    2 ^ 53 ≤ 2 * W ∧ 2 * W < 2 ^ 55 ∧
+    (L0 * 2).bmod 4294967296 % 4294967296 = ((2 * W : Nat) : Int) % 4294967296 ∧
+    -2147483648 ≤ (L0 * 2).bmod 4294967296 ∧ (L0 * 2).bmod 4294967296 < 2147483648 ∧
+    (1048576 + (h : Int) % 1048576) * 2 + L0 % 4294967296 / 2147483648 = ((2 * W : Nat) : Int) / 4294967296 := by
+  have := bm_facts (L0 * 2)
+  subst hW
+  omega
+
+theorem kbnd (M : Int) (hM1 : -51 ≤ M) (hM2 : M ≤ 2046) : -600 ≤ (M + -1023) / 2 ∧ (M + -1023) / 2 ≤ 600 := by
+  omega
+
+include hro hs in
+/-- **The routine from the set-up** (`0x8002d478`, `e_sqrt.c:122-191`): `SfRef.sqCore`. -/
+theorem core_478 (h l : Nat) (L0 M : Int) (hh : h < 2 ^ 31) (hl : L0 % 4294967296 = (l : Int))
+    (hl2 : l < 2 ^ 32) (hM1 : -51 ≤ M) (hM2 : M ≤ 2046) :
+    N_8002d478 m s r g (BitVec.ofInt 64 L0) (BitVec.ofInt 64 (h : Int)) (BitVec.ofInt 64 M) = sqCore h l M ∧
+    T_8002d478 m s r g (BitVec.ofInt 64 L0) (BitVec.ofInt 64 (h : Int)) (BitVec.ofInt 64 M) = true := by
+  have hiff : ((M + -1023) % 2 % 18446744073709551616 = 0) ↔ ((M + -1023) % 2 = 0) := by omega
+  have ⟨k1, k2⟩ := kbnd M hM1 hM2
+  have hc : ((21 + 1 : Nat) : Int) = 22 := rfl
+  have hr : ((2 ^ (21 + 1 - 1) : Nat) : Int) = 2097152 := by decide
+  have l1 := l1_claim s r g hro hs 21 (by decide) fnFuel
+  rw [hc, hr] at l1
+  have nlo : ∀ Y : Nat, 2 ^ 53 ≤ Y → 2 ^ 106 ≤ Y * 2 ^ 53 := fun Y hY => by
+    calc 2 ^ 106 = 2 ^ 53 * 2 ^ 53 := by rw [← Nat.pow_add]
+      _ ≤ Y * 2 ^ 53 := Nat.mul_le_mul_right _ hY
+  have nhi : ∀ Y : Nat, Y < 2 ^ 55 → Y * 2 ^ 53 < 2 ^ 108 := fun Y hY => by
+    calc Y * 2 ^ 53 < 2 ^ 55 * 2 ^ 53 := Nat.mul_lt_mul_of_pos_right hY (Nat.two_pow_pos _)
+      _ = 2 ^ 108 := by rw [← Nat.pow_add]
+  have z : (0 : Int) = 2 * ((0 : Nat) : Int) / 4294967296 ∧ (0 : Int) = ((0 : Nat) : Int) / 4294967296 := by decide
+  unfold sqCore
+  dsimp only
+  generalize hW : (h % 2 ^ 20 + 2 ^ 20) * 2 ^ 32 + l = W
+  by_cases ho : (M + -1023) % 2 = 0
+  · have ⟨p1, p2, p3, p4, p5, p6⟩ := pre_even h l W L0 hW.symm hl hl2
+    have e := l1 _ _ _ _ _ _ _ _ (by decide)
+      ⟨sqInv_init (2 * W) p2, nlo _ p1, nhi _ p2, z.1, p3, p4, p5, p6, z.2, k1, k2⟩
+    rw [if_neg (by omega : ¬ (M - 1023) % 2 = 1), show M - 1023 = M + -1023 by omega]
+    refine ⟨?_, ?_⟩
+    · rw [N_8002d478]; fm_nf; simp only [and_one]; fm_nf; try simp only [hiff]
+      rw [N_8002d4a4]; fm_nf
+      exact e.1
+    · rw [T_8002d478]; fm_nf; simp only [and_one]; fm_nf; try simp only [hiff]
+      rw [T_8002d4a4]; fm_nf
+      exact e.2
+  · have ⟨p1, p2, p3, p4, p5, p6⟩ := pre_odd h l W L0 hW.symm hl hl2
+    have e := l1 _ _ _ _ _ _ _ _ (by decide)
+      ⟨sqInv_init (4 * W) p2, nlo _ p1, nhi _ p2, z.1, p3, p4, p5, p6, z.2, k1, k2⟩
+    rw [if_pos (by omega : (M - 1023) % 2 = 1), show M - 1023 = M + -1023 by omega]
+    refine ⟨?_, ?_⟩
+    · rw [N_8002d478]; fm_nf; simp only [and_one]; fm_nf; try simp only [hiff]
+      rw [N_8002d494, N_8002d4a4]; fm_nf
+      exact e.1
+    · rw [T_8002d478]; fm_nf; simp only [and_one]; fm_nf; try simp only [hiff]
+      rw [T_8002d494, T_8002d4a4]; fm_nf
+      exact e.2
+
 end claim1
 
 end Lua.Vm.Fn.Ieee754Sqrt
