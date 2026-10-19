@@ -105,16 +105,30 @@ def argCost : Value → Nat
 
 /-- The heap a `print(args)` may claim: per argument (`argCost`, lane F1-18)
 and for the first-use allocations (the `stdout` buffer, the C `CallInfo`,
-`"__tostring"`), one `_malloc_r` with room for its `_sbrk`, and a doubling of
-the string table (`luaS_resize`, 8 bytes per bucket, twice). -/
-def callBudget (args : List Value) (strtSize : Nat) : Nat :=
-  (args.map argCost).sum + 4 * (16384 + 4096 + 128) + 1024 + 16 * strtSize
+`"__tostring"`), one `_malloc_r` with room for its `_sbrk`. (Lane F1-19: no
+`luaS_resize` within the budget, `HeapBudget.strt`.) -/
+def callBudget (args : List Value) : Nat :=
+  (args.map argCost).sum + 4 * (16384 + 4096 + 128) + 1024
 
-/-- **The heap has room for this `print`** (the break `callBudget` below
-`__heap_end`): `_malloc_r` never fails, so `luaM_malloc_` never runs the
-emergency `luaC_fullgc`. -/
-def HeapBudget (w : RelPtrs) (args : List Value) : Prop :=
-  w.rt.brkv + callBudget args w.rt.strtSize ≤ DlHeap.heapEnd
+/-- `g->strt.nuse` as `internshrstr`'s `lw` reads it. -/
+def strtNuse (m : Mem) (g : Nat) : Nat := (bytesT4 m (g + gStrtNuseOff)).toNat
+
+/-- `g->strt.size` as `internshrstr`'s `lw` reads it. -/
+def strtSize (m : Mem) (g : Nat) : Nat := (bytesT4 m (g + gStrtSizeOff)).toNat
+
+/-- (lane F1-19) **The arguments that make a string** (`argCost` positive:
+integers, floats, functions; one new string each at most). -/
+def newStrs (args : List Value) : Nat := (args.filter fun v => decide (0 < argCost v)).length
+
+/-- **The heap has room for this `print`** (lane F1-19: read from the
+complement): the break `callBudget` below `__heap_end` (`_malloc_r` never
+fails, so `luaM_malloc_` never runs the emergency `luaC_fullgc`), and
+`g->strt` room for every new string (`internshrstr` never runs `luaS_resize`
+→ `luaM_reallocvector` → `_realloc_r` of the bucket array). Both are A8's
+otherwise (`HeapBudget_Statement`). -/
+structure HeapBudget (w : RelPtrs) (args : List Value) : Prop where
+  brk : w.rt.brkv + callBudget args ≤ DlHeap.heapEnd
+  strt : strtNuse w.mo w.rt.g + newStrs args ≤ strtSize w.mo w.rt.g
 
 /-- `PrintCall_Statement` on the states where `Q` holds of the program, the
 relation's pointers and the instruction (lane F1-13). -/
@@ -165,9 +179,12 @@ theorem _root_.Lua.Vm.Sim.Ranges.after {p : Proto} {w : RelPtrs} (hr : Ranges p 
 argument (`Allocates`) on a state whose heap lacks `HeapBudget`: `_malloc_r`
 fails and `luaM_malloc_` runs the emergency `luaC_fullgc` (the harness's
 `LUA_GCSTOP` does not block it), which frees the strings no register holds;
-the arm still simulates. `HeapBudget` is the premise of the allocating
-classes in `PrintCall_Statement`; removing it needs the collector's phase
-(PHASES A8). -/
+or (lane F1-19) `g->strt` lacks room for the call's new strings and
+`internshrstr` grows it (`luaS_resize` → `luaM_reallocvector` → `_realloc_r`
+of the bucket array, its old block freed, every `u.hnext` rehashed); the arm
+still simulates. `HeapBudget` is the premise of the allocating classes in
+`PrintCall_Statement`; removing it needs the collector's phase and
+`_realloc_r` of a live block (PHASES A8). -/
 def HeapBudget_Statement (I : Proto → RelPtrs → Prop) : Prop :=
   ∀ {p : Proto}, Supported p → ∀ {c : Config} {s s' : State} {w : RelPtrs}, VmRelAt p c s w → I p w →
     ∀ {ins : Word} {args : List Value}, p.fetch s.pc = some ins → ins.op? = some .CALL →

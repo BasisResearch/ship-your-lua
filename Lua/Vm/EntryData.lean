@@ -4,6 +4,7 @@ import Lua.Vm.Image
 import Vsa.Densify.Transport
 import Vsa.Sim.MemLoadTotal
 import Vsa.Sim.RamReadLoad
+import Lua.Vm.LayoutPrint
 
 /-!
 # `VmEntryData`: the Lua-side data at `luaV_execute`'s entry
@@ -352,11 +353,13 @@ def gEnd : Nat := gStrcacheOff + 8 * strcacheN * strcacheM
 /-- **What a `CALL print` writes inside the heap's chunks in use** (lane
 F1-13): `L->top`, `L->ci`, the Lua `CallInfo` (and `OP_VARARGPREP`'s stores
 there), the Lua stack above `ci->func`, `g`'s first words (the GC debt, the
-string table's header) and its string cache, and `L->nci` (`luaE_extendCI`). -/
+string table's header) and its string cache, and `L->nci` (`luaE_extendCI`);
+(lane F1-19) `g->allgc`, which `luaC_newobj` links a new string to. -/
 def EntryDirty (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
   (L + stateTopOff ≤ a ∧ a < L + stateTopOff + 8) ∨ (L + stateCiOff ≤ a ∧ a < L + stateCiOff + 8) ∨
   (ci ≤ a ∧ a < ci + ciSize) ∨ (e.func ≤ a ∧ a < e.stackLast) ∨ (e.g + 16 ≤ a ∧ a < e.g + 64) ∨
-  (e.g + gStrcacheOff ≤ a ∧ a < e.g + gEnd) ∨ (L + stateNciOff ≤ a ∧ a < L + stateNciOff + 2)
+  (e.g + gStrcacheOff ≤ a ∧ a < e.g + gEnd) ∨ (L + stateNciOff ≤ a ∧ a < L + stateNciOff + 2) ∨
+  (e.g + gAllgcOff ≤ a ∧ a < e.g + gAllgcOff + 8)
 
 /-- **What the literals' facts must stay apart from**: the words
 `luaD_precall`/`luaD_poscall` write (`L->top`, `L->ci`, the Lua `CallInfo`)
@@ -376,14 +379,16 @@ def firstRoom : Nat := 4 * (16384 + 4096 + 1024 + 128)
 /-- **The static words of the `lua_State` and `g`** a `print` keeps
 (`LuaStateAt`'s `hookmask`, `errfunc`, `nCcalls`, `openupval`, `tbclist`,
 `stack`, `stack_last`, `l_G`, `errorJmp`, `G(L)->mt[nil, boolean, number]`;
-lane F1-14: `g->frealloc`, which `luaE_extendCI`'s `luaM_malloc_` calls):
-`(address, width)`. -/
+lane F1-14: `g->frealloc`, which `luaE_extendCI`'s `luaM_malloc_` calls;
+lane F1-19: `G(L)->mt[LUA_TFUNCTION]`, and the `.data` words `snprintf` reads,
+`LocaleWords`): `(address, width)`. -/
 def luaStaticWords (L g : Nat) : List (Nat × Nat) :=
   [(L + stateHookmaskOff, 4), (L + stateErrfuncOff, 8), (L + stateNCcallsOff, 4),
    (L + stateOpenupvalOff, 8), (L + stateTbclistOff, 8), (L + stateStackOff, 8),
    (L + stateStackLastOff, 8), (L + stateGOff, 8), (L + stateErrorJmpOff, 8),
    (g + gMtOff + 8 * luaTnil, 8), (g + gMtOff + 8 * luaTboolean, 8), (g + gMtOff + 8 * luaTnumber, 8),
-   (g, 8), (g + gGcstpOff, 1)]
+   (g, 8), (g + gGcstpOff, 1), (g + gMtOff + 8 * luaTfunction, 8),
+   (symImpurePtr, 8), (0x8005d0f0, 8), (0x8005d0d8, 8), (0x8005d150, 1)]
 
 /-- **The objects a `CALL print` leaves alone** (lane F1-13), in a memory `M`:
 the prototype, its code pointer, and `_ENV`'s chain to `print` for every
@@ -407,6 +412,158 @@ def Apart (a n b k : Nat) : Prop := a + n ≤ b ∨ b + k ≤ a
 
 instance (a n b k : Nat) : Decidable (Apart a n b k) := by unfold Apart; infer_instance
 
+/-! ## What an allocating `print` must find apart (lane F1-19)
+
+`OP_CALL print` on an allocating argument writes inside the string table (a
+bucket's head, `internshrstr` on a miss; a dead string's mark, `changewhite`
+on a hit), links the new string at `g->allgc` (`EntryDirty`), and on a float
+reuses `_dtoa_r`'s bignums (`_REENT->_result`, `_p5s`, `_freelist`). The
+relation keeps both apart from what the caller needs: the table's safety
+(`StrtSafe`) and the bignums (`ReentMp`), checked at the boot (`strt_safe`,
+`reent`) and re-established by every `print` (`CallInvAt.alloc`). -/
+
+/-- **A bucket's chain, readable and apart** (`internshrstr`'s walk on any
+contents; lane F1-18, moved here and given `W`): each string short (`shrlen ≤
+LUAI_MAXSHORTLEN`), its object `[ts, ts + 24 + shrlen + 1)` (the header the
+walk reads, the contents `memcmp` reads) in `K` and off `W` (what a `print`
+writes outside the table: `_dtoa_r`'s bignums), and the bytes a `print` may
+write in it off `X` (what the caller keeps): the mark (`changewhite` of a
+dead string found) and `u.hnext` (`luaS_resize`'s rehash). -/
+inductive StrChainK (m : Mem) (K X W : Nat → Prop) (size i : Nat) : Nat → Prop where
+  | nil : StrChainK m K X W size i 0
+  | cons {ts h nx l : Nat} : ts ≠ 0 → rd8 m (ts + gcTtOff) = some gcShrStr →
+      rd8 m (ts + tstringShrlenOff) = some l → l ≤ maxShortLen → rd32 m (ts + tstringHashOff) = some h →
+      h % size = i → rd64 m (ts + tstringLnglenOff) = some nx →
+      (∀ a, ts ≤ a → a < ts + tstringContentsOff + l + 1 → K a ∧ ¬ W a) → ¬ X (ts + gcMarkedOff) →
+      (∀ a, ts + tstringLnglenOff ≤ a → a < ts + tstringLnglenOff + 8 → ¬ X a) →
+      StrChainK m K X W size i nx → StrChainK m K X W size i ts
+
+/-- **`g->strt` readable and apart** (`internshrstr` on any short contents):
+the bucket array (`tb->hash[h] = ts` on a miss) in `K`, off `X` and `W`, and
+every chain (`StrChainK`). -/
+structure StrtSafe (m : Mem) (rt : RtPtrs) (K X W : Nat → Prop) : Prop where
+  hash : ∀ a, rt.strtHash ≤ a → a < rt.strtHash + 8 * rt.strtSize → K a ∧ ¬ X a ∧ ¬ W a
+  chains : ∀ j (h : j < rt.strtHeads.length), StrChainK m K X W rt.strtSize j rt.strtHeads[j]
+
+/-- A chain's safety with more bytes in `K` and fewer kept (`X`) and written
+(`W`) among them. -/
+theorem StrChainK.weaken {m : Mem} {K K' X X' W W' : Nat → Prop} {size i p : Nat}
+    (h : StrChainK m K X W size i p) (hK : ∀ a, K a → K' a) (hX : ∀ a, K a → X' a → X a)
+    (hW : ∀ a, K a → W' a → W a) : StrChainK m K' X' W' size i p := by
+  induction h with
+  | nil => exact .nil
+  | @cons ts h0 nx l h1 h2 h3 h4 h5 h6 h7 h8 h9 h10 _ ih =>
+    have hc : tstringContentsOff = 24 := rfl
+    have hm : gcMarkedOff = 9 := rfl
+    have hn : tstringLnglenOff = 16 := rfl
+    refine .cons h1 h2 h3 h4 h5 h6 h7 (fun a l1 l2 => ⟨hK a (h8 a l1 l2).1, fun hw =>
+      (h8 a l1 l2).2 (hW a (h8 a l1 l2).1 hw)⟩) (fun hx => h9 (hX _ (h8 _ (by omega) (by omega)).1 hx))
+      (fun a l1 l2 hx => h10 a l1 l2 (hX a (h8 a (by omega) (by omega)).1 hx)) ih
+
+/-- The table's safety with more bytes in `K` and fewer kept (`X`) and written
+(`W`) among them. -/
+theorem StrtSafe.weaken {m : Mem} {rt : RtPtrs} {K K' X X' W W' : Nat → Prop} (h : StrtSafe m rt K X W)
+    (hK : ∀ a, K a → K' a) (hX : ∀ a, K a → X' a → X a) (hW : ∀ a, K a → W' a → W a) :
+    StrtSafe m rt K' X' W' :=
+  ⟨fun a l u => ⟨hK a (h.hash a l u).1, fun hx => (h.hash a l u).2.1 (hX a (h.hash a l u).1 hx),
+      fun hw => (h.hash a l u).2.2 (hW a (h.hash a l u).1 hw)⟩,
+    fun j hj => (h.chains j hj).weaken hK hX hW⟩
+
+/-- **`_REENT`'s `_dtoa_r` words** (`_result`, `_result_k`, `_p5s`,
+`_freelist`). -/
+def ReentWord (a : Nat) : Prop := symImpureData + reentResultOff ≤ a ∧ a < symImpureData + reentFreelistOff + 8
+
+/-- The bytes of `_Balloc(k)`'s block (`_calloc_r(_REENT, 1, 28 + 4·2^k)`:
+`_next` 0, `_k` 8, `_maxwds` 12, `_sign` 16, `_wds` 20, `_x` 24). -/
+def bigSize (k : Nat) : Nat := 28 + 4 * 2 ^ k
+
+/-- **A chain of `_Bigint`s through `_next`** (`_freelist[k]`, `_p5s`) with
+their classes: `_k` and `_maxwds = 2^k` as `_Balloc` set them. -/
+inductive BigChain (m : Mem) : Nat → List (Nat × Nat) → Prop where
+  | nil : BigChain m 0 []
+  | cons {b nx k : Nat} {bs : List (Nat × Nat)} : b ≠ 0 → rd64 m b = some nx → rd32 m (b + 8) = some k →
+      rd32 m (b + 12) = some (2 ^ k) → k ≤ 64 → BigChain m nx bs → BigChain m b ((b, k) :: bs)
+
+/-- The value of a bignum: `_wds` words of `_x`, base `2^32`. -/
+def bigVal (m : Mem) (b : Nat) : Option Nat :=
+  (rd32 m (b + 20)).bind fun wds => (List.range wds).foldr
+    (fun i acc => (rd32 m (b + 24 + 4 * i)).bind fun x => acc.map fun r => x + 2 ^ 32 * r) (some 0)
+
+/-- The blocks of `_dtoa_r`'s bignums: the free lists' array (65 pointers,
+`_calloc_r(_REENT, 8, 65)`), the last result (its digits overwrite its
+header), every listed bignum. -/
+def bigBlocks (fl res rk : Nat) (lists : List (List (Nat × Nat))) (ps : List (Nat × Nat)) : List (Nat × Nat) :=
+  (if fl = 0 then [] else [(fl, 8 * 65)]) ++ (if res = 0 then [] else [(res, bigSize rk)]) ++
+    (lists.flatten ++ ps).map fun x => (x.1, bigSize x.2)
+
+/-- **`_dtoa_r`'s bignums in `_REENT`**, at the array `fl`, the result `res`
+of class `rk`, the free lists' heads `hds` and nodes `lists`, and the cache
+`_p5s` (`ps`): `_Balloc` pops `_freelist[k]` (`ld a5,104(a0)`), `_Bfree`
+pushes by `_k`, `_dtoa_r` frees `_result` on entry after restoring its `_k`
+and `_maxwds` from `_result_k`, `__pow5mult` multiplies by the cached
+`5^(4·2^j)`; every block apart from the others, in `B`. -/
+structure ReentMpAt (m : Mem) (B : Nat → Prop) (fl res rk p5 : Nat) (hds : List Nat)
+    (lists : List (List (Nat × Nat))) (ps : List (Nat × Nat)) : Prop where
+  res_w : rd64 m (symImpureData + reentResultOff) = some res
+  rk_w : res ≠ 0 → rd32 m (symImpureData + reentResultKOff) = some rk
+  p5_w : rd64 m (symImpureData + reentP5sOff) = some p5
+  fl_w : rd64 m (symImpureData + reentFreelistOff) = some fl
+  /-- no array, no bignum (`_Balloc` makes the array first) -/
+  fl_zero : fl = 0 → res = 0 ∧ p5 = 0 ∧ ∀ l ∈ lists, l = []
+  hds_len : hds.length = 65
+  lists_len : lists.length = 65
+  heads : fl ≠ 0 → ∀ k (h : k < hds.length), rd64 m (fl + 8 * k) = some hds[k]
+  chains : fl ≠ 0 → ∀ k (h1 : k < hds.length) (h2 : k < lists.length), BigChain m hds[k] lists[k]
+  classes : ∀ k (h : k < lists.length), ∀ x ∈ lists[k], x.2 = k
+  res_k : res ≠ 0 → rk ≤ 64
+  p5s : BigChain m p5 ps
+  p5v : ∀ j x, ps[j]? = some x → bigVal m x.1 = some (5 ^ (4 * 2 ^ j))
+  apart : (bigBlocks fl res rk lists ps).Pairwise fun x y => Apart x.1 x.2 y.1 y.2
+  inB : ∀ x ∈ bigBlocks fl res rk lists ps, ∀ a, x.1 ≤ a → a < x.1 + x.2 → B a
+
+/-- **`_dtoa_r`'s bignums in `_REENT`**, in `B` (`ReentMpAt` for some lists). -/
+inductive ReentMp (m : Mem) (B : Nat → Prop) : Prop where
+  | intro (fl res rk p5 : Nat) (hds : List Nat) (lists : List (List (Nat × Nat))) (ps : List (Nat × Nat))
+      (h : ReentMpAt m B fl res rk p5 hds lists ps)
+
+/-- **No bignum yet**: `_result`, `_p5s` and `_freelist` NULL. -/
+structure ReentBoot (m : Mem) : Prop where
+  res : rd64 m (symImpureData + reentResultOff) = some 0
+  p5 : rd64 m (symImpureData + reentP5sOff) = some 0
+  fl : rd64 m (symImpureData + reentFreelistOff) = some 0
+
+/-- With no bignum, `ReentMp` holds in any region. -/
+theorem ReentBoot.mp {m : Mem} (h : ReentBoot m) (B : Nat → Prop) : ReentMp m B := by
+  refine .intro 0 0 0 0 (List.replicate 65 0) (List.replicate 65 []) [] ⟨h.res, fun h0 => absurd rfl h0, h.p5,
+    h.fl, fun _ => ⟨rfl, rfl, fun l hl => List.eq_of_mem_replicate hl⟩, by simp, by simp,
+    fun h0 => absurd rfl h0, fun h0 => absurd rfl h0, fun k hk x hx => ?_, fun h0 => absurd rfl h0, .nil,
+    fun j x hx => by simp at hx, ?_, fun x hx => ?_⟩
+  · simp only [List.getElem_replicate] at hx; cases hx
+  · simp [bigBlocks]
+  · simp [bigBlocks] at hx
+
+/-- (lane F1-19) **The `.data` words `snprintf` reads** (`_svfprintf_r`,
+`_localeconv_r`, `__locale_mb_cur_max`; Sail trace, lane F1-19): `_impure_ptr`,
+the C locale's `decimal_point` (`__global_locale + 0x100`), its `mbtowc`
+hook (`+ 0xe8`) and `__mb_cur_max` (`+ 0x160`). -/
+structure LocaleWords (m : Mem) : Prop where
+  impure : rd64 m symImpurePtr = some symImpureData
+  decpt : rd64 m 0x8005d0f0 = some 0x8004fb10
+  mbtowc : rd64 m 0x8005d0d8 = some 0x8003cd58
+  mbmax : rd8 m 0x8005d150 = some 1
+
+/-- The bytes `LocaleWords` reads. -/
+def LocaleW (a : Nat) : Prop :=
+  (symImpurePtr ≤ a ∧ a < symImpurePtr + 8) ∨ (0x8005d0f0 ≤ a ∧ a < 0x8005d0f0 + 8) ∨
+    (0x8005d0d8 ≤ a ∧ a < 0x8005d0d8 + 8) ∨ a = 0x8005d150
+
+/-- **What the caller of a `print` keeps, at the boot** (`StrtSafe`'s `X`):
+`e.foot`, the `lua_State`, `g` up to its string cache, the `CallInfo`, the Lua
+stack above `ci->func`'s slot, and everything below the heap. -/
+def EntryX (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
+  InRanges e.foot a ∨ (L ≤ a ∧ a < L + stateSize) ∨ (e.g ≤ a ∧ a < e.g + gEnd) ∨ (ci ≤ a ∧ a < ci + ciSize) ∨
+    (e.func + 16 ≤ a ∧ a < e.stackLast) ∨ a < DlHeap.heapStart
+
 /-- **The objects a `CALL print` writes are apart** (lane F1-13): `g` up to
 its string cache, the literals' objects, the `lua_State`, the `CallInfo` and
 the Lua stack above `ci->func`. -/
@@ -425,7 +582,7 @@ below the HTIF mailbox, `e.litFoot` and the literals' objects in chunks in
 use, and the `lua_State`, `g` up to its string cache, the `CallInfo` and the
 Lua stack above `ci->func` in chunks in use. -/
 structure CallPlaced (cs : List DlHeap.Chunk) (L ci : Nat) (e : EntryPtrs) : Prop where
-  foot : ∀ a, InRanges e.foot a → HeapIn cs a ∨ (0x80000000 ≤ a ∧ a < symTohost)
+  foot : ∀ a, InRanges e.foot a → HeapIn cs a ∨ (0x80000000 ≤ a ∧ a < symTohost) ∨ LocaleW a
   litFoot : ∀ a, InRanges e.litFoot a → HeapIn cs a
   lit_strs : ∀ ts ∈ e.lits.strs, ∀ a, ts ≤ a → a < ts + 30 → HeapIn cs a
   L : ∀ a, L ≤ a → a < L + stateSize → HeapIn cs a
@@ -538,5 +695,18 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   room : ∀ b, rd64 m symBrk = some b → b + firstRoom ≤ symHeapEnd
   /-- the objects a `CALL` writes are apart (`ObjsApart`) -/
   objs : ObjsApart L ci e
+  /-- (lane F1-19) `G(L)->mt[LUA_TFUNCTION]` is NULL: `luaL_tolstring` of a
+  function prints `"function: %p"` -/
+  mt_fn : rd64 m (e.g + gMtOff + 8 * luaTfunction) = some 0
+  /-- (lane F1-19) the `.data` words `snprintf` reads (`LocaleWords`) -/
+  locale : LocaleWords m
+  /-- (lane F1-19) no bignum of `_dtoa_r` yet (`ReentBoot`) -/
+  reent : ReentBoot m
+  /-- (lane F1-19) **the string table's chains readable and apart**
+  (`StrtSafe`, at the boot's places `EntryX`), in every memory that agrees
+  with this one on `e.litFoot`, for the heap's chunk walk -/
+  strt_safe : ∀ top cs, rd64 m DlHeap.topAddr = some top → DlHeap.ChunkWalk m DlHeap.heapStart top cs →
+    ∀ M : Mem, (∀ a, InRanges e.litFoot a → M[a]? = m[a]?) → ∀ rt, LitsIn M e.g e.stackLast e.lits rt →
+    StrtSafe (fillZeroMem M) rt (HeapIn cs) (EntryX L ci e) (fun _ => False)
 
 end Lua.Vm

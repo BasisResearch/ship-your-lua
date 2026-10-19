@@ -71,6 +71,15 @@ structure JoinIn (p : Proto) (c : Config) (w : RelPtrs) (ins : Word) (ph : Stdou
   nci_lits : ∀ ts ∈ ls.strs, Apart nci ciSize ts 30
   frame_ra : bytesT8 MJ (w.sp - 8) = r
   frame_s0 : bytesT8 MJ (w.sp - 16) = f.s0
+  /-- (lane F1-19) the literals' footprint kept from the complement -/
+  fl_w : ∀ a, FL a → bytesT1 MJ a = bytesT1 w.mo a
+  /-- (lane F1-19) a byte of a chunk in use off what the caller keeps, or of
+  `_REENT`'s words, kept from the complement -/
+  keepK : ∀ a, (Kept w.rt.hix ph a ∧ ¬ CallX0 w F a) ∨ ReentWord a → bytesT1 MJ a = bytesT1 w.mo a
+  /-- (lane F1-19) the C `CallInfo`'s bytes in the head's chunks in use are the caller's -/
+  nci_x : ∀ a, nci ≤ a → a < nci + ciSize → Kept w.rt.hix ph a → CallX0 w F a
+  /-- (lane F1-19) `g->strt`'s count and size kept -/
+  strt_w : ∀ j, j < 8 → bytesT1 MJ (w.rt.g + gStrtNuseOff + j) = bytesT1 w.mo (w.rt.g + gStrtNuseOff + j)
 
 /-- `OP_CALL print`'s operands and the relation at its head. -/
 structure CallCx (p : Proto) (c : Config) (s : State) (w : RelPtrs) (ins : Word) (args : List Value) : Prop where
@@ -115,7 +124,7 @@ def CallD (w : RelPtrs) (nci : Nat) (a : Nat) : Prop := CallLitDirty w a ∨ (nc
 def PrintQ (w : RelPtrs) (ins : Word) (args : List Value) (ph : StdoutPh) (F : Nat → Prop) (ls : LitPtrs)
     (nci : Nat) (H : HeapIx) (o : Array String) (MC : Mem) (m' : Mem) (o' : Array String) : Prop :=
   ∃ out, o' = pushes o out ∧
-    PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H MC m' out
+    PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H MC m' out
 
 /-- `omega` over a `CALL`'s facts. -/
 macro "call_omega" : tactic => `(tactic| (
@@ -298,9 +307,10 @@ theorem call_footMC {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wo
   · exact (hJ.nci_kept a hw.1 hw.2).2.1 ha
   · exact hI.stat_apart a ha (.inr (.inl (by simp only [Rng] at hw; exact hw)))
   · simp only [Rng] at hw
-    rcases hI.stat_in a ha with hk | hk
+    rcases hI.stat_in a ha with hk | hk | hk
     · have := hk.hi; omega
     · simp only [symTohost] at hk; omega
+    · simp only [LocaleW, symImpurePtr] at hk; omega
 
 /-- **The arguments at the join** (`PrintIn.args`). -/
 theorem call_args {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
@@ -397,11 +407,11 @@ theorem call_keep {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word
     have := (hI.lit_strs ts hts ts (Nat.le_refl _) (by omega)).lo; omega
   refine ⟨fun a ha => ?_, fun a ha => ?_⟩
   · rcases ha with hF | hci | hn | hsl | hat
-    · exact (hI.stat_in a hF).imp kmono fun h => .inl h
+    · exact (hI.stat_in a hF).imp kmono fun h => h.elim (fun h => .inl h) fun h => .inr (.inr h)
     · exact .inl (kmono (hI.ci_in a hci.1 hci.2))
     · exact .inl (hJ.nci_kept a hn.1 hn.2).1
     · exact .inl (kmono (hI.stack_in a (by omega) (by omega)))
-    · exact .inr (.inr hat)
+    · exact .inr (.inr (.inl hat))
   · simp only [CallG, Rng, stateTopOff, gEnd, gStrcacheOff, strcacheN, strcacheM, gcMarkedOff, ciSize, stateSize] at *
     rcases ha with hF | hci | hn | hsl | hat
     · have hd := hI.stat_apart a hF
@@ -482,6 +492,154 @@ theorem call_args_fz {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
   have SF := hI.stat M fun a ha => (hM a (.inl (.inl ha))).trans (call_footMC cx hI hJ a ha)
   exact h0.transfer SF.strs
 
+/-- (lane F1-19) **The static words `snprintf` reads**, from the relation's
+`.data` words (`LocaleWords`, frozen on `F`) and `.rodata`. -/
+theorem fmtStatic_of {m : Mem} (hL : LocaleWords (fillZeroMem m)) (hr : RodataRead m) : FmtStatic m := by
+  have r : ∀ a, 0x8004ecc8 ≤ a → a < 0x8004ecc8 + 55776 →
+      (m[a]?).getD 0 = Image.rodataByte (a - 0x8004ecc8) := fun a h1 h2 => by
+    have := hr (a - 0x8004ecc8) (by have : Image.rodataSize = 55776 := rfl; omega)
+    rwa [show Image.rodataBase + (a - 0x8004ecc8) = a by have : Image.rodataBase = 0x8004ecc8 := rfl; omega]
+      at this
+  refine ⟨bT8_of_fill (bytesT8_of_rd64 hL.impure), bT8_of_fill (bytesT8_of_rd64 hL.decpt), ?_, ?_, ?_,
+    bT8_of_fill (bytesT8_of_rd64 hL.mbtowc), ?_, ?_, ?_⟩
+  · dsimp only [bytesT8]
+    rw [r 0x8004fb10 (by omega) (by omega), r (0x8004fb10 + 1) (by omega) (by omega),
+      r (0x8004fb10 + 2) (by omega) (by omega), r (0x8004fb10 + 3) (by omega) (by omega),
+      r (0x8004fb10 + 4) (by omega) (by omega), r (0x8004fb10 + 5) (by omega) (by omega),
+      r (0x8004fb10 + 6) (by omega) (by omega), r (0x8004fb10 + 7) (by omega) (by omega)]
+    decide
+  · show (m[0x8004fb10]?).getD 0 = _
+    rw [r 0x8004fb10 (by omega) (by omega)]; decide
+  · show (m[0x8004fb11]?).getD 0 = _
+    rw [r 0x8004fb11 (by omega) (by omega)]; decide
+  · rw [← bytesT1_fill]; exact bytesT1_of_rd8 hL.mbmax
+  · dsimp only [bytesT4]
+    rw [r 0x800555f4 (by omega) (by omega), r (0x800555f4 + 1) (by omega) (by omega),
+      r (0x800555f4 + 2) (by omega) (by omega), r (0x800555f4 + 3) (by omega) (by omega)]
+    decide
+  · dsimp only [bytesT4]
+    rw [r 0x800555d4 (by omega) (by omega), r (0x800555d4 + 1) (by omega) (by omega),
+      r (0x800555d4 + 2) (by omega) (by omega), r (0x800555d4 + 3) (by omega) (by omega)]
+    decide
+
+/-- (lane F1-19) **What `luaB_print`'s caller holds at the join is the
+relation's** (`PrX` within `CallX0`, on the head's chunks in use: the C
+`CallInfo` is `ci->next`'s or fresh, `JoinIn.nci_x`). -/
+theorem call_x {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) :
+    ∀ a, Kept w.rt.hix ph a → PrX w.L nci w.rt.g (w.slot ins.a) (ins.b - 1) w.rt.stackLast (CallG w F ins nci) a →
+      CallX0 w F a := by
+  intro a hk hx
+  call_nums
+  have hHS : heapStart = 0x8006ecd0 := rfl
+  have hk0 := hk.lo
+  have hrb : Image.rodataBase = 0x8004ecc8 := rfl
+  have hrs : Image.rodataSize = 55776 := rfl
+  rcases hx with ((hF | hci | hn | hsl | hat) | hA | hro | hgc | hmt | hlg | hhk) | hL | hg | hs | hn | hlo
+  · exact .inl hF
+  · exact .inr (.inr (.inr (.inl hci)))
+  · exact hJ.nci_x a hn.1 hn.2 hk
+  · exact .inr (.inr (.inr (.inr (.inl ⟨by rw [← hbase]; exact hsl.1, by omega⟩))))
+  · simp only [Rng, symAtexit] at hat; omega
+  · simp only [ArgSlot] at hA
+    exact .inr (.inr (.inr (.inr (.inl ⟨by omega, by omega⟩))))
+  · exact .inr (.inr (.inr (.inr (.inr (.inr (by omega))))))
+  · simp only [Rng, gGcstpOff] at hgc
+    exact .inr (.inr (.inl ⟨by omega, by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega⟩))
+  · simp only [Rng, gMtOff] at hmt
+    exact .inr (.inr (.inl ⟨by omega, by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega⟩))
+  · simp only [Rng, stateGOff] at hlg
+    exact .inr (.inl ⟨by omega, by simp only [stateSize]; omega⟩)
+  · simp only [Rng, stateHookmaskOff] at hhk
+    exact .inr (.inl ⟨by omega, by simp only [stateSize]; omega⟩)
+  · exact .inr (.inl hL)
+  · exact .inr (.inr (.inl hg))
+  · exact .inr (.inr (.inr (.inr (.inl ⟨by omega, hs.2⟩))))
+  · exact hJ.nci_x a hn.1 hn.2 hk
+  · exact .inr (.inr (.inr (.inr (.inr (.inr hlo)))))
+
+/-- (lane F1-19) **What an allocating class needs at the join** (`PrintIn.alloc`):
+the string table's safety and `_dtoa_r`'s bignums from the invariant
+(`CallInvAt.alloc`), carried across `luaD_precall`'s stores. -/
+theorem call_alloc {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) :
+    PrAlloc w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls (CallD w nci) (CallG w F ins nci) ph H
+      (callMC w ins MJ nci) := by
+  obtain ⟨B, hA⟩ := hI.alloc
+  have kmono : ∀ {a}, Kept w.rt.hix ph a → Kept H ph a := fun ha => ha.mono hJ.kept fun _ h => .inl h
+  have hx := call_x cx hI hJ
+  have hl := call_lits cx hI hJ
+  call_nums
+  have hHE : heapEnd = 0x87800000 := rfl
+  have kFL : ∀ a, FL a → bytesT1 (callMC w ins MJ nci) a = bytesT1 w.mo a := fun a ha => by
+    refine (callMC_keep fun hw => ?_).trans (hJ.fl_w a ha)
+    rcases hw with hw | hw | hw
+    · exact (hJ.nci_kept a hw.1 hw.2).2.2 ha
+    · exact hI.lits_apart a ha (.inr (.inl (by simp only [Rng] at hw; exact hw)))
+    · have := (hI.lits_in a ha).hi; simp only [Rng] at hw; omega
+  have kB : ∀ a, BigFoot B a → bytesT1 (callMC w ins MJ nci) a = bytesT1 w.mo a := fun a ha => by
+    rcases ha with hb | hr'
+    · have hk := hA.big_in a hb
+      refine (callMC_keep fun hw => ?_).trans (hJ.keepK a (.inl ⟨hk, hA.big_x a hb⟩))
+      rcases hw with hw | hw | hw
+      · exact hA.big_x a hb (hJ.nci_x a hw.1 hw.2 hk)
+      · exact hA.big_x a hb (.inr (.inl (by simp only [Rng, stateCiOff, stateSize] at hw ⊢; omega)))
+      · have := hk.hi; simp only [Rng] at hw; omega
+    · refine (callMC_keep fun hw => ?_).trans (hJ.keepK a (.inr hr'))
+      simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hr'
+      simp only [PcW, Rng, ciSize, stateCiOff] at hw; omega
+  exact .intro FL B ⟨hl, (hA.strt.trans kFL).conseq fun M hM rt hrt => (hM rt hrt).weaken
+      (fun _ h => kmono h) (fun a hk hx' => hx'.imp (hx a hk) id) fun _ _ h => h,
+    hA.big.trans kB, ⟨fun a hb => kmono (hA.big_in a hb), fun a hb hp => hA.big_x a hb (hx a (hA.big_in a hb) hp),
+      hA.big_lit⟩, hA.big_fl⟩
+
+/-- (lane F1-19) **`g->allgc` is off what `luaB_print`'s state keeps**:
+`CallDirty` keeps the frozen objects off it, the other objects lie apart from
+`g`. -/
+theorem call_gc {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) :
+    ∀ a, Rng (w.rt.g + gAllgcOff) 8 a → ¬ PrKeep w.L w.rt.g (w.slot ins.a) (ins.b - 1) (CallG w F ins nci) a := by
+  intro a ha hk
+  call_nums
+  have hrb : Image.rodataBase = 0x8004ecc8 := rfl
+  have hrs : Image.rodataSize = 55776 := rfl
+  simp only [Rng, gAllgcOff] at ha
+  rcases hk with (hF | hci | hn | hsl | hat) | hA | hro | hgc | hmt | hlg | hhk
+  · exact hI.stat_apart a hF (.inr (.inr (.inr (.inr (.inr (.inr (.inr ⟨by simp only [gAllgcOff]; omega,
+      by simp only [gAllgcOff]; omega⟩)))))))
+  all_goals (try simp only [Rng, ArgSlot, ciSize, symAtexit, gGcstpOff, gMtOff, stateGOff, stateHookmaskOff,
+    stateSize] at *); omega
+
+/-- (lane F1-19) **`g->strt`'s room at the join** from `HeapBudget`'s: the
+table's count and size are none of `luaD_precall`'s stores. -/
+theorem call_strt {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H)
+    (hb : strtNuse w.mo w.rt.g + newStrs args ≤ strtSize w.mo w.rt.g) :
+    strtNuse (callMC w ins MJ nci) w.rt.g + prAllocs args 1 ≤ strtSize (callMC w ins MJ nci) w.rt.g := by
+  call_nums
+  have k : ∀ j, j < 8 → bytesT1 (callMC w ins MJ nci) (w.rt.g + gStrtNuseOff + j) =
+      bytesT1 w.mo (w.rt.g + gStrtNuseOff + j) := fun j hj =>
+    (callMC_keep (by simp only [gStrtNuseOff]; pcw_omega)).trans (hJ.strt_w j hj)
+  have e1 : strtNuse (callMC w ins MJ nci) w.rt.g = strtNuse w.mo w.rt.g := by
+    simp only [strtNuse]; congr 1
+    exact bytesT4_congrT fun j hj => k j (by omega)
+  have e2 : strtSize (callMC w ins MJ nci) w.rt.g = strtSize w.mo w.rt.g := by
+    simp only [strtSize, gStrtSizeOff]; congr 1
+    exact bytesT4_congrT fun j hj => by
+      have := k (4 + j) (by omega)
+      simp only [gStrtNuseOff] at this
+      rwa [show w.rt.g + 56 + (4 + j) = w.rt.g + 60 + j by omega] at this
+  have e3 : prAllocs args 1 = newStrs args := by simp [prAllocs, newStrs]
+  rw [e1, e2, e3]; exact hb
+
 /-- **`luaB_print`'s entry at the join** (`PrintIn`). -/
 theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
     {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
@@ -528,7 +686,16 @@ theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
       dirty := fun a ha => by
         simp only [CallD, CallLitDirty, Rng, stateTopOff, gTotalbytesOff, gGCdebtOff] at ha ⊢
         have : w.func ≤ w.slot ins.a := by simp only [RelPtrs.slot, RelPtrs.base, stackValueSize]; omega
-        omega }
+        omega
+      alloc := call_alloc cx hI hJ
+      gc := call_gc cx hI hJ
+      stat := by
+        have SF := hI.stat _ (call_footMC cx hI hJ)
+        exact ⟨bT8_of_fill (bytesT8_of_rd64 SF.lua.frealloc), fmtStatic_of SF.locale fun o ho => by
+          rw [← bytesT1_fill]; simp only [bytesT1, SF.rodata o ho, Option.getD_some]⟩
+      mt_fn := by
+        have SF := hI.stat _ (call_footMC cx hI hJ)
+        exact bT8_of_fill (bytesT8_of_rd64 SF.lua.mt_fn) }
 
 /-- **The C function at the join** (`PcC`): `luaB_print` (`PrintRel_Statement`)
 from the memory `luaD_precall` builds, its entry (`call_printIn`) from the
@@ -548,9 +715,9 @@ theorem call_pcc (hPR : PrintRel_Statement) {p : Proto} {c : Config} {s : State}
       by simp only [heapEnd, symHeapEnd]; omega, by have := cx.b_lt; omega⟩
   have hbr := hJ.brk
   obtain ⟨c', s', m', out, hret, hout⟩ := hPR w.sp w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stack
-    w.rt.stackLast w.rt.g w.rt.strtSize ls args w.ι (CallD w nci) (CallG w F ins nci) ph H f
+    w.rt.stackLast w.rt.g ls args w.ι (CallD w nci) (CallG w F ins nci) ph H f
     (callMC w ins MJ nci) o trivial hIn hNums
-    (fun ha => by have := hbud ha; simp only [HeapBudget] at this; omega) c0 h
+    (fun ha => ⟨by have := (hbud ha).brk; omega, call_strt cx hI hJ (hbud ha).strt⟩) c0 h
   refine ⟨c', s', m', pushes o out, hret, ?_, out, rfl, hout⟩
   rw [bytesT8_congrT fun i _ => hout.above _ (by omega)]
   simp only [callMC, pcCallMem]
@@ -578,7 +745,7 @@ theorem shData_ofNat (x : Nat) (h : x < 2 ^ 16) : shData (BitVec.ofNat 64 x) = B
 join): the console's new bytes and `CloseIn`. -/
 def CloseQ (p : Proto) (c : Config) (w : RelPtrs) (ins : Word) (args : List Value) (ph : StdoutPh)
     (F : Nat → Prop) (ls : LitPtrs) (nci : Nat) (o : Array String) (m'' : Mem) (o' : Array String) : Prop :=
-  ∃ out buf H FL, o' = pushes o out ∧ CloseIn p c w ins args ph F ls m'' out nci buf H FL
+  ∃ out buf H FL B, o' = pushes o out ∧ CloseIn p c w ins args ph F ls m'' out nci buf H FL B
 
 theorem bytesT2_congrT {m m' : Mem} {a : Nat} (h : ∀ i, i < 2 → bytesT1 m (a + i) = bytesT1 m' (a + i)) :
     bytesT2 m a = bytesT2 m' a := by
@@ -593,7 +760,7 @@ theorem call_pos_run (hN : PoscallN_Statement) {p : Proto} {c : Config} {s : Sta
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' : Mem} {o' : Array String} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) :
     Triple (SegSt 0x8000a39c#64 (⟨Register.x10, BitVec.ofNat 64 w.L⟩ :: ⟨Register.x11, BitVec.ofNat 64 nci⟩ ::
         ⟨Register.x12, 0x0#64⟩ :: ⟨Register.x1, 0x8000ac9c#64⟩ :: ⟨Register.x2, BitVec.ofNat 64 (w.sp - 96)⟩ ::
@@ -663,7 +830,7 @@ theorem close_keys {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) (hpos : PoscallPost m' m'' w.L nci (w.sp - 96) (ins.c - 1)) :
     CloseKeys w ins nci m' m'' := by
   have hapi := call_api cx hI hJ
@@ -706,6 +873,69 @@ theorem close_st {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
       | exact (kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))).not_printFoot ha
       | exact (kmono (hI.stack_in a (by omega) (by omega))).not_printFoot ha
 
+/-- (lane F1-19) The literals' footprint is none of `luaD_poscall`'s stores. -/
+theorem close_flKeep {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
+    {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
+    {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {buf : Nat} {H' : HeapIx} {FL' : Nat → Prop}
+    (hK : CloseKeys w ins nci m' m'')
+    (hl : LitsFoot w.rt.g w.rt.stackLast ls H' (.up buf []) (CallD w nci) FL' m') :
+    ∀ a, FL' a → bytesT1 m'' a = bytesT1 m' a := by
+  call_nums
+  have hHE : heapEnd = 0x87800000 := rfl
+  intro a ha
+  have hk := hl.kept a ha
+  have hd := hl.apart a ha
+  simp only [CallD, CallLitDirty, not_or, stateTopOff, stateCiOff] at hd
+  obtain ⟨⟨d1, d2, -, d4, -⟩, -⟩ := hd
+  have := hk.hi
+  clear hLci hLg hcig hgst hcist hLsl hnL hng hnci hnst
+  exact hK.pos a (by omega) (by omega) (by omega) (by omega)
+
+/-- (lane F1-19) `_dtoa_r`'s bignums and `_REENT`'s words are none of
+`luaD_poscall`'s stores. -/
+theorem close_bigKeep {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
+    {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
+    {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {K B : Nat → Prop}
+    (hK : CloseKeys w ins nci m' m'')
+    (hb : PrBigIn w.L nci w.rt.g (w.slot ins.a) (ins.b - 1) w.rt.stackLast ls (CallG w F ins nci) B K)
+    (hKh : ∀ a, K a → a < heapEnd) :
+    ∀ a, BigFoot B a → bytesT1 m'' a = bytesT1 m' a := by
+  call_nums
+  have hHE : heapEnd = 0x87800000 := rfl
+  intro a ha
+  rcases ha with hb' | hr'
+  · have hk := hKh a (hb.inK a hb')
+    have hx := hb.x a hb'
+    simp only [PrX, not_or] at hx
+    obtain ⟨-, hxL, -, hxs, -, -⟩ := hx
+    simp only [Rng, stateSize] at hxL
+    clear hLci hLg hcig hgst hcist hLsl hnL hng hnci hnst
+    exact hK.pos a (by omega) (by omega) (by omega) (by omega)
+  · simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hr'
+    clear hLci hLg hcig hgst hcist hLsl hnL hng hnci hnst
+    exact hK.pos a (by omega) (by omega) (by omega) (by omega)
+
+/-- (lane F1-19) **What the caller keeps after the call is what `luaB_print`'s
+caller held** (`CloseX` within `PrX`). -/
+theorem closeX_sub {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
+    {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
+    {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {a : Nat} (h : CloseX w F nci a) :
+    PrX w.L nci w.rt.g (w.slot ins.a) (ins.b - 1) w.rt.stackLast (CallG w F ins nci) a := by
+  call_nums
+  rcases h with hF | hL | hg | hc | hs | hn | hlo
+  · exact .inl (.inl (.inl hF))
+  · exact .inr (.inl hL)
+  · exact .inr (.inr (.inl hg))
+  · exact .inl (.inl (.inr (.inl hc)))
+  · by_cases hlt : a < w.slot ins.a
+    · exact .inl (.inl (.inr (.inr (.inr (.inl ⟨by rw [hbase]; exact hs.1, hlt⟩)))))
+    · exact .inr (.inr (.inr (.inl ⟨by omega, hs.2⟩)))
+  · exact .inr (.inr (.inr (.inr (.inl hn))))
+  · exact .inr (.inr (.inr (.inr (.inr hlo))))
+
 /-- The literals after `luaD_poscall`. -/
 theorem close_lits {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
@@ -738,7 +968,7 @@ theorem close_foot {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) (hK : CloseKeys w ins nci m' m'') :
     ∀ a, F a → bytesT1 m'' a = bytesT1 w.mo a := by
   call_nums
@@ -748,9 +978,10 @@ theorem close_foot {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
   have hd := hI.stat_apart a ha
   simp only [CallDirty, not_or, stateTopOff, stateCiOff] at hd
   have hst : a + 1 ≤ w.sp - 160 ∨ w.sp - 96 ≤ a := by
-    rcases hI.stat_in a ha with hk | hk
+    rcases hI.stat_in a ha with hk | hk | hk
     · have := hk.hi; omega
     · simp only [symTohost] at hk; omega
+    · simp only [LocaleW, symImpurePtr] at hk; omega
   clear hLci hLg hcig hgst hcist hLsl hnL hng hnci hnst
   exact (hK.pos a hst (by omega) (by omega) (by omega)).trans ((hout.keep a (.inl ha)).trans
     (call_footMC cx hI hJ a ha))
@@ -760,7 +991,7 @@ theorem close_ci {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) (hK : CloseKeys w ins nci m' m'') :
     ∀ a, w.ci ≤ a → a < w.ci + ciSize → ¬ Rng (w.ci + ciNextOff) 8 a → ¬ Rng (w.ci + ciSavedpcOff) 8 a →
       bytesT1 m'' a = bytesT1 w.mo a := by
@@ -779,7 +1010,7 @@ theorem close_above {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wo
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) (hK : CloseKeys w ins nci m' m'') :
     ∀ a, w.sp ≤ a → bytesT1 m'' a = bytesT1 c.σ.mem a := by
   call_nums
@@ -795,7 +1026,7 @@ theorem close_below {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wo
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) (hK : CloseKeys w ins nci m' m'') :
     ∀ a, w.base ≤ a → a < w.slot ins.a → bytesT1 m'' a = bytesT1 c.σ.mem a := by
   call_nums
@@ -812,7 +1043,7 @@ theorem close_atexit {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) (hK : CloseKeys w ins nci m' m'') :
     ∀ j, j < 8 → bytesT1 m'' (symAtexit + j) = bytesT1 w.mo (symAtexit + j) := by
   call_nums
@@ -829,7 +1060,7 @@ theorem close_words {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wo
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) (hK : CloseKeys w ins nci m' m'') :
     bytesT8 m'' (nci + ciPreviousOff) = BitVec.ofNat 64 w.ci ∧
     bytesT8 m'' (w.L + stateCiOff) = BitVec.ofNat 64 w.ci ∧
@@ -866,13 +1097,16 @@ theorem call_closeIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
     {args : List Value} {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame}
     {MJ : Mem} {nci : Nat} {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
     (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) {m' m'' : Mem} {out : List (BitVec 8)}
-    (hout : PrintOut (w.sp - 96) w.rt.g w.rt.stackLast ls args (CallD w nci) (CallG w F ins nci) ph H
+    (hout : PrintOut (w.sp - 96) w.L nci (w.slot ins.a) (ins.b - 1) w.rt.stackLast w.rt.g ls args (CallD w nci) (CallG w F ins nci) ph H
       (callMC w ins MJ nci) m' out) (hpos : PoscallPost m' m'' w.L nci (w.sp - 96) (ins.c - 1))
     (htext : Arms.TextLoaded m'') :
-    (∃ buf H' FL', CloseIn p c w ins args ph F ls m'' out nci buf H' FL') ∧
+    (∃ buf H' FL' B', CloseIn p c w ins args ph F ls m'' out nci buf H' FL' B') ∧
       bytesT8 m'' (w.sp - 8) = r ∧ bytesT8 m'' (w.sp - 16) = f.s0 := by
-  obtain ⟨buf, H', FL', hPS, hkept, hbf, hl⟩ := hout.st
+  obtain ⟨buf, H', ⟨hPS, hkept, hbf, ⟨FL', B', hA⟩⟩⟩ := hout.st
+  have hl := hA.lits
   have hK := close_keys cx hI hJ hout hpos
+  have kFL := close_flKeep cx hI hJ hK hl
+  have kB := close_bigKeep cx hI hJ hK hA.bigIn fun a h => h.hi
   have kmono : ∀ {a}, Kept w.rt.hix ph a → Kept H' (.up buf []) a := fun ha =>
     (ha.mono hJ.kept fun _ h => .inl h).mono hkept hbf
   have kF := close_foot cx hI hJ hout hK
@@ -882,7 +1116,7 @@ theorem call_closeIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
   have kat := close_atexit cx hI hJ hout hK
   obtain ⟨wprev, wlci, wnext, wra, ws0⟩ := close_words cx hI hJ hout hK
   have hn := callNums cx hI hJ
-  refine ⟨⟨buf, H', FL',
+  refine ⟨⟨buf, H', FL', B',
     { line := hout.line
       text := htext
       st := close_st cx hI hJ hK hPS kmono
@@ -912,7 +1146,14 @@ theorem call_closeIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
       nci_g := hJ.nci_g
       nci_ci := hJ.nci_ci
       nci_stack := hJ.nci_stack
-      nci_lits := hJ.nci_lits }⟩, wra, ws0⟩
+      nci_lits := hJ.nci_lits
+      safe := (hA.safe.trans kFL).conseq fun M hM rt hrt => (hM rt hrt).weaken (fun _ h => h)
+        (fun a _ hx => hx.imp (closeX_sub cx hI hJ) id) fun _ _ h => h
+      big := hA.big.trans kB
+      big_in := hA.bigIn.inK
+      big_x := fun a hb hx => hA.bigIn.x a hb (closeX_sub cx hI hJ hx)
+      big_fl := hA.big_fl
+      big_lit := hA.bigIn.lit }⟩, wra, ws0⟩
 
 /-- **`luaD_poscall` and the close at the join** (`PcPos`): `call_pos_run`, then
 `call_closeIn`. -/
@@ -925,8 +1166,8 @@ theorem call_pcpos (hN : PoscallN_Statement) {p : Proto} {c : Config} {s : State
   intro m' o' ⟨out, ho, hout⟩ c0 h
   obtain ⟨c', s', m'', h', hpos⟩ := call_pos_run hN cx hI hJ hout c0 h
   have htext : Arms.TextLoaded m'' := h'.armMem ▸ h'.armText
-  obtain ⟨⟨buf, H', FL', hcl⟩, hra, hs0⟩ := call_closeIn cx hI hJ hout hpos htext
-  exact ⟨c', s', m'', h', hra, hs0, out, buf, H', FL', ho, hcl⟩
+  obtain ⟨⟨buf, H', FL', B', hcl⟩, hra, hs0⟩ := call_closeIn cx hI hJ hout hpos htext
+  exact ⟨c', s', m'', h', hra, hs0, out, buf, H', FL', B', ho, hcl⟩
 
 /-! ## The join's memory, both ways of `next_ci` -/
 
@@ -1092,6 +1333,29 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
   have kH := keep_mo cx hI fun a h1 h2 h3 => kJ a h1 h2 (by omega)
   have hnlo := hn.lo; have hnhi := hn.hi
   simp only [symEnd, ciSize, RuntimeData.spEntry, cStackBudget] at hnlo hnhi
+  -- (lane F1-19) the literals' footprint, the bytes off what the caller keeps, `g->strt`'s words
+  have fW : ∀ a, FL a → bytesT1 (pcFrameMem (callMem c.σ.mem w s.pc ins) w.sp 0x8001c7d8#64 f) a =
+      bytesT1 w.mo a := fun a ha => by
+    have hk := hI.lits_in a ha
+    have hd := hI.lits_apart a ha
+    simp only [CallLitDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
+    obtain ⟨d1, d2, d3, d4, -⟩ := hd
+    have := hk.hi
+    exact kH a (by omega) (by omega) (by omega) (by omega)
+  have kX : ∀ a, (Kept w.rt.hix ph a ∧ ¬ CallX0 w F a) ∨ ReentWord a →
+      bytesT1 (pcFrameMem (callMem c.σ.mem w s.pc ins) w.sp 0x8001c7d8#64 f) a = bytesT1 w.mo a := fun a ha => by
+    rcases ha with ⟨hk, hx⟩ | hr'
+    · have := hk.hi
+      simp only [CallX0, not_or] at hx
+      obtain ⟨-, hxL, -, hxc, hxs, -, -⟩ := hx
+      simp only [stateSize, ciSize] at hxL hxc
+      exact kH a (by omega) (by omega) (by omega) (by omega)
+    · simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hr'
+      exact kH a (by omega) (by omega) (by omega) (by omega)
+  have sW : ∀ j, j < 8 → bytesT1 (pcFrameMem (callMem c.σ.mem w s.pc ins) w.sp 0x8001c7d8#64 f)
+      (w.rt.g + gStrtNuseOff + j) = bytesT1 w.mo (w.rt.g + gStrtNuseOff + j) := fun j hj =>
+    kH _ (by simp only [gStrtNuseOff]; omega) (by simp only [gStrtNuseOff]; omega)
+      (by simp only [gStrtNuseOff]; omega) (by simp only [gStrtNuseOff]; omega)
   refine
     { foot := fun a ha => ?_
       ci := fun a h1 h2 h3 h4 => ?_
@@ -1106,7 +1370,11 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
       st := printSt_head cx hI kH
       kept := fun _ h _ => h
       brk := Nat.le_add_right _ _
-      lits := hI.lits.trans fun a ha => ?_
+      lits := hI.lits.trans fW
+      fl_w := fW
+      keepK := kX
+      nci_x := fun a h1 h2 _ => .inr (.inr (.inr (.inr (.inr (.inl ⟨nci, hnext, h0, h1, h2⟩)))))
+      strt_w := sW
       cache := hI.cache.congr fun a h1 h2 => ?_
       next := ?_
       prev := ?_
@@ -1126,9 +1394,10 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
     simp only [CallDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
     obtain ⟨d1, -, d3, d4, -⟩ := hd
     have hst : a < 0x87800000 := by
-      rcases hI.stat_in a ha with hk | hk
+      rcases hI.stat_in a ha with hk | hk | hk
       · have := hk.hi; omega
       · simp only [symTohost] at hk; omega
+      · simp only [LocaleW, symImpurePtr] at hk; omega
     exact kH a (by omega) (by omega) (by omega) (by omega)
   · simp only [Rng, ciNextOff, ciSavedpcOff, ciSize, not_and, Nat.not_lt] at h2 h3 h4
     exact kH a (by omega) (by omega) (by omega) (by omega)
@@ -1153,13 +1422,6 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
     · exact bytesT8_of_rd64 hlua.mt_nil
     · exact bytesT8_of_rd64 hlua.mt_boolean
     · exact bytesT8_of_rd64 hlua.mt_number
-  · -- the literals
-    have hk := hI.lits_in a ha
-    have hd := hI.lits_apart a ha
-    simp only [CallLitDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
-    obtain ⟨d1, d2, d3, d4, -⟩ := hd
-    have := hk.hi
-    exact kH a (by omega) (by omega) (by omega) (by omega)
   · -- the string cache's words, in `g`
     simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at h1 h2
     exact kH a (by omega) (by omega) (by omega) (by omega)
@@ -1189,6 +1451,29 @@ theorem ext_keep {c : Config} {w : RelPtrs} {pc : Nat} {ins : Word} {f : AbiFram
     getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega),
     getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega),
     getElem?_writeMap8_out _ _ _ _ (by omega), getElem?_writeMap8_out _ _ _ _ (by omega)]
+
+/-- (lane F1-19) **A static word the relation reads**: the image below the
+HTIF mailbox, the locale words, `_REENT`'s `_dtoa_r` words; below the heap. -/
+def StaticW (a : Nat) : Prop := (0x80000000 ≤ a ∧ a < symTohost) ∨ LocaleW a ∨ ReentWord a
+
+theorem StaticW.lt {a : Nat} (h : StaticW a) : a < 0x8006ecd0 := by
+  simp only [StaticW, LocaleW, ReentWord, symTohost, symImpurePtr, symImpureData, reentResultOff,
+    reentFreelistOff] at h
+  omega
+
+/-- A static word is no byte `_malloc_r` writes. -/
+theorem StaticW.not_mallocW {chunks : List Chunk} {a : Nat} (h : StaticW a) : ¬ MallocW chunks a := by
+  rintro (hg | ⟨h1, -, -⟩)
+  · have e4 : symMallocAv = 0x8005c6d0 := rfl
+    have e5 : symMallocSbrkBase = 0x8005d388 := rfl
+    have e6 : symBrk = 0x8005d3b8 := rfl
+    have e9 : symMallocMallinfo = 0x8005e560 := rfl
+    have e10 : errnoAddr = 0x8005d408 := rfl
+    simp only [MallocGlobal] at hg
+    simp only [StaticW, LocaleW, ReentWord, symTohost, symImpurePtr, symImpureData, reentResultOff,
+      reentFreelistOff] at h
+    omega
+  · have := h.lt; have e0 : heapStart = 0x8006ecd0 := rfl; omega
 
 /-- A byte of a chunk in use is no byte `_malloc_r` writes. -/
 theorem Kept.not_mallocW {H : HeapIx} {ph : StdoutPh} {a : Nat} (h : Kept H ph a) : ¬ MallocW H.chunks a := by
@@ -1286,21 +1571,21 @@ theorem join_ext {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
       bytesT1 m' a = bytesT1 (callExtMem c w s.pc ins f) a := fun a h1 h2 h3 h4 h5 h6 =>
     hX.keep a fun h => by rcases h with h | h | h | h | h | h <;> contradiction
   -- a byte of a chunk in use (or below the arena) off `ci->next` and `L->nci`
-  have kKE : ∀ a, (Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost)) → ¬ Rng (w.ci + ciNextOff) 8 a →
+  have kKE : ∀ a, (Kept w.rt.hix ph a ∨ StaticW a) → ¬ Rng (w.ci + ciNextOff) 8 a →
       ¬ Rng (w.L + stateNciOff) 2 a → ¬ Rng (w.rt.g + gGCdebtOff) 8 a →
       bytesT1 m' a = bytesT1 (callExtMem c w s.pc ins f) a :=
     fun a hk h3 h4 h6 => by
-      have hlo : a < 0x87800000 := hk.elim (fun k => hHE ▸ k.hi) fun h => by simp only [symTohost] at h; omega
-      refine kE a (hk.elim Kept.not_mallocW fun h => not_mallocW_of (.inl (by simp only [symTohost] at h; omega)))
+      have hlo : a < 0x87800000 := hk.elim (fun k => hHE ▸ k.hi) fun h => by have := h.lt; omega
+      refine kE a (hk.elim Kept.not_mallocW StaticW.not_mallocW)
         (fun hn => hk.elim (fun k => hfr a hn.1 hn.2 k.inuse) fun h => ?_) h3 h4
         (by simp only [Below]; omega) h6
-      have := (hX.fresh a hn.1 hn.2).2.1; simp only [symTohost] at h; omega
-  have kK : ∀ a, (Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost)) → ¬ Rng (w.ci + ciNextOff) 8 a →
+      have := (hX.fresh a hn.1 hn.2).2.1; have := h.lt; omega
+  have kK : ∀ a, (Kept w.rt.hix ph a ∨ StaticW a) → ¬ Rng (w.ci + ciNextOff) 8 a →
       ¬ Rng (w.L + stateNciOff) 2 a → (a + 1 ≤ w.L + 16 ∨ w.L + 24 ≤ a) → (a + 1 ≤ w.ci + 32 ∨ w.ci + 40 ≤ a) →
       (a + 1 ≤ w.base ∨ w.base + 16 * p.maxstacksize ≤ a) → ¬ Rng (w.rt.g + gGCdebtOff) 8 a →
       bytesT1 m' a = bytesT1 w.mo a :=
     fun a hk h3 h4 e1 e2 e3 e6 => by
-      have hlo : a < 0x87800000 := hk.elim (fun k => hHE ▸ k.hi) fun h => by simp only [symTohost] at h; omega
+      have hlo : a < 0x87800000 := hk.elim (fun k => hHE ▸ k.hi) fun h => by have := h.lt; omega
       exact (kKE a hk h3 h4 e6).trans (kHE a e1 e2 e3 (by omega))
   -- the words of `L` but `L->top`, `L->nci`
   have kL : ∀ a, w.L ≤ a → a < w.L + stateSize → (a + 1 ≤ w.L + 12 ∨ w.L + 14 ≤ a) →
@@ -1319,6 +1604,31 @@ theorem join_ext {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
     kE a (not_mallocW_of (.inr (.inr (by omega)))) (by simp only [ciSize]; omega)
       (by simp only [Rng, ciNextOff]; omega) (by simp only [Rng, stateNciOff]; omega)
       (by simp only [Below]; omega) (by simp only [Rng, gGCdebtOff]; omega)
+  -- (lane F1-19) the literals' footprint, the bytes off what the caller keeps, `g->strt`'s words
+  have fW : ∀ a, FL a → bytesT1 m' a = bytesT1 w.mo a := fun a ha => by
+    have hd := hI.lits_apart a ha
+    simp only [CallLitDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
+    obtain ⟨d1, -, d3, d4, d5, d6⟩ := hd
+    exact kK a (.inl (hI.lits_in a ha)) (by simp only [Rng, ciNextOff]; omega)
+      (by simp only [Rng, stateNciOff]; omega) (by omega) (by omega) (by omega)
+      (by simp only [Rng, gGCdebtOff] at d6 ⊢; omega)
+  have kX : ∀ a, (Kept w.rt.hix ph a ∧ ¬ CallX0 w F a) ∨ ReentWord a → bytesT1 m' a = bytesT1 w.mo a :=
+    fun a ha => by
+    rcases ha with ⟨hk, hx⟩ | hr'
+    · have := hk.hi
+      simp only [CallX0, not_or] at hx
+      obtain ⟨-, hxL, hxg, hxc, hxs, -, -⟩ := hx
+      simp only [stateSize, ciSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at hxL hxc hxg
+      exact kK a (.inl hk) (by simp only [Rng, ciNextOff]; omega) (by simp only [Rng, stateNciOff]; omega)
+        (by omega) (by omega) (by omega) (by simp only [Rng, gGCdebtOff]; omega)
+    · have hr2 := hr'
+      simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hr2
+      exact kK a (.inr (.inr (.inr hr'))) (by simp only [Rng, ciNextOff]; omega)
+        (by simp only [Rng, stateNciOff]; omega) (by omega) (by omega) (by omega)
+        (by simp only [Rng, gGCdebtOff]; omega)
+  have sW : ∀ j, j < 8 → bytesT1 m' (w.rt.g + gStrtNuseOff + j) = bytesT1 w.mo (w.rt.g + gStrtNuseOff + j) :=
+    fun j hj => kG _ (by simp only [gStrtNuseOff]; omega) (by simp only [gStrtNuseOff]; omega)
+      (by simp only [Rng, gGCdebtOff, gStrtNuseOff]; omega)
   refine
     { foot := fun a ha => ?_
       ci := fun a h1 h2 h3 h4 => ?_
@@ -1341,7 +1651,11 @@ theorem join_ext {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
           simp only [firstRoom, extRoom] at h1 h2; omega
       kept := hX.kept
       brk := hX.brk
-      lits := hI.lits.trans fun a ha => ?_
+      lits := hI.lits.trans fW
+      fl_w := fW
+      keepK := kX
+      nci_x := fun a h1 h2 hk => absurd hk.inuse (hfr a h1 h2)
+      strt_w := sW
       cache := hI.cache.congr fun a h1 h2 => kG a (by simp only [gStrcacheOff] at h1; omega)
         (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at h2; omega)
         (by simp only [Rng, gGCdebtOff, gStrcacheOff] at h1 ⊢; omega)
@@ -1362,7 +1676,8 @@ theorem join_ext {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
     have hd := hI.stat_apart a ha
     simp only [CallDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
     obtain ⟨d1, -, d3, d4, d5, -, d7⟩ := hd
-    exact kK a (hI.stat_in a ha) (by simp only [Rng, ciNextOff]; omega) (by simp only [Rng, stateNciOff]; omega)
+    exact kK a ((hI.stat_in a ha).imp id fun h => h.elim .inl fun h => .inr (.inl h))
+      (by simp only [Rng, ciNextOff]; omega) (by simp only [Rng, stateNciOff]; omega)
       (by omega) (by omega) (by omega) (by simp only [Rng, gGCdebtOff]; omega)
   · have h2' : a < w.ci + 64 := h2
     have k := kK a (.inl (hI.ci_in a h1 h2)) h3 (by simp only [Rng, stateNciOff]; omega) (by omega)
@@ -1402,20 +1717,14 @@ theorem join_ext {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
     · exact bytesT8_of_rd64 hlua.mt_nil
     · exact bytesT8_of_rd64 hlua.mt_boolean
     · exact bytesT8_of_rd64 hlua.mt_number
-  · -- the literals
-    have hd := hI.lits_apart a ha
-    simp only [CallLitDirty, not_or, stateTopOff, stateCiOff, ciSize, stateNciOff] at hd
-    obtain ⟨d1, -, d3, d4, d5, d6⟩ := hd
-    exact kK a (.inl (hI.lits_in a ha)) (by simp only [Rng, ciNextOff]; omega)
-      (by simp only [Rng, stateNciOff]; omega) (by omega) (by omega) (by omega)
-      (by simp only [Rng, gGCdebtOff] at d6 ⊢; omega)
   · -- the new `CallInfo`
     have hf := hX.fresh a h1 h2
     refine ⟨⟨hX.nci_in a h1 h2, hf.2.1, hf.2.2, fun hb => hf.1 (hI.io.buf_inUse hb)⟩, fun hF => ?_,
       fun hL => hf.1 (hI.lits_in a hL).inuse⟩
-    rcases hI.stat_in a hF with hk | hk
+    rcases hI.stat_in a hF with hk | hk | hk
     · exact hf.1 hk.inuse
     · have := hf.2.1; simp only [symTohost] at hk; omega
+    · have := hf.2.1; simp only [LocaleW, symImpurePtr] at hk; omega
   · rw [bytesT8_congrT fun j _ => kF _ (by omega)]
     simp only [callExtMem, pcExtMem, pcFrameMem]
     rw [fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega), fw8_wm8 (by omega)]
@@ -1465,7 +1774,7 @@ theorem close_post (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
     (hq : CloseQ p c w ins args ph F ls nci o m'' o') :
     ∃ m' out mo ι rt, wrRet 0x8001c7d8#64 w.sp 0 f m' (pushes o out) c' ∧
       CallOut p w c.σ.mem ins args m' out (w.after mo ι rt) ∧ CallInv p (w.after mo ι rt) := by
-  obtain ⟨out, buf, H, FL', rfl, hcl⟩ := hq
+  obtain ⟨out, buf, H, FL', B', rfl, hcl⟩ := hq
   obtain ⟨hco, hinv⟩ := call_close hX cx.rel hI hcl
   exact ⟨m'', out, _, _, _, hret, hco, hinv⟩
 
