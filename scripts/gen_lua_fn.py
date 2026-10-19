@@ -181,8 +181,11 @@ class Callee:
     """
 
     def __init__(self, summ, args, val, nargs, frame=0, mf=None, opaque=(), imp=None, keeps=(),
-                 clobbers=None, premise=None, noncomp=False):
+                 clobbers=None, premise=None, noncomp=False, outer=None):
         self.summ, self.args, self.val, self.nargs = summ, args, val, nargs
+        # lane float-sf6: a callee whose summary also patches an outer word
+        # (`OUTER`: `errno`), `(address, bytes)`
+        self.outer = outer
         self.frame, self.mf, self.opaque, self.imp = frame, mf, opaque, imp
         self.keeps, self.clobbers = keeps, clobbers or {}
         self.premise, self.noncomp = premise, noncomp
@@ -333,6 +336,13 @@ class Seg:
         self.succ = int(lit.group(1), 16) if lit else None
         if self.succ is None:
             self.kind = "ret"
+        elif self.succ in CALLEES and self.post.get(1) != f"(0x{hi:08x}#64 : BitVec 64)" and \
+                CUR_FN[0] in TAILS:
+            # lane float-sf6: `j <callee>` (the frame popped, `ra` restored):
+            # a tail node, the callee's summary its value and memory
+            self.kind = "tail"
+            self.callee = self.succ
+            self.succ = None
         elif self.succ in CALLEES:
             self.kind = "call"
             self.callee = self.succ
@@ -431,7 +441,7 @@ class Fn:
         while work:
             pc = work.pop()
             for s in self.nodes[pc]:
-                if s.kind == "ret":
+                if s.kind in TERM:
                     continue
                 o = self.off[pc] - s.sp_delta
                 if s.sp_delta:
@@ -456,13 +466,13 @@ class Fn:
         # a node that reaches one takes the termination fact `hT`
         self.cyc = {pc for pc in self.order
                     if len(self.scc_nodes(pc)) > 1
-                    or any(s.kind != "ret" and s.succ == pc for s in self.nodes[pc])}
+                    or any(s.kind not in TERM and s.succ == pc for s in self.nodes[pc])}
         if self.entry in self.cyc:
             raise SystemExit(f"{fn}: the entry is on a cycle")
         self.need_t = {}
         for pc in self.order:
             self.need_t[pc] = pc in self.cyc or any(
-                (s.kind != "ret" and self.need_t.get(s.succ, s.succ in self.cyc)) or self.side(s)
+                (s.kind not in TERM and self.need_t.get(s.succ, s.succ in self.cyc)) or self.side(s)
                 for s in self.nodes[pc])
         # the named premises its callees need (`Callee.premise`)
         self.prem = []
@@ -546,7 +556,7 @@ class Fn:
             stack.append(pc)
             on.add(pc)
             for s in self.nodes[pc]:
-                if s.kind == "ret":
+                if s.kind in TERM:
                     continue
                 q = s.succ
                 if q not in index:
@@ -596,7 +606,7 @@ class Fn:
         out = {pc: [] for pc in self.order}
         for pc in self.order:
             for s in self.nodes[pc]:
-                if s.kind != "ret":
+                if s.kind not in TERM:
                     out[s.succ].append((pc, s))
         return out
 
@@ -627,7 +637,7 @@ class Fn:
                     sp, av = outs[0][0], frozenset.intersection(*[o[1] for o in outs])
                 self.spilled[pc], av_in[pc] = sp, av
                 for s in self.nodes[pc]:
-                    if s.kind == "ret":
+                    if s.kind in TERM:
                         # lane F1-F7: the epilogue's restores (`fmod`'s `ld s0, 16(sp)`)
                         left = {r for r in sp
                                 if not ((m := re.fullmatch(SV_RE, s.post.get(r, f"v{r}")))
@@ -673,7 +683,7 @@ class Fn:
                 ls = set()
                 for s in self.nodes[pc]:
                     ls |= set(re.findall(SV_RE, " ".join(s.post.values()))) & set(self.sv_slot)
-                    if s.kind != "ret":
+                    if s.kind not in TERM:
                         ls |= live.get(s.succ, set())
                 if live.get(pc) != ls:
                     live[pc], changed = ls, True
@@ -705,7 +715,7 @@ class Fn:
         preds = {pc: [] for pc in self.order}
         for pc in self.order:
             for s in self.nodes[pc]:
-                if s.kind != "ret":
+                if s.kind not in TERM:
                     preds[s.succ].append((pc, s))
         # lane float-sf6: fixpoints, so that they run on cyclic graphs (a
         # predecessor still to come is skipped: the greatest fixpoint of
@@ -727,7 +737,7 @@ class Fn:
             for pc in self.order:                # successors first
                 ls = set()
                 for s in self.nodes[pc]:
-                    after = (set() if s.kind == "ret"
+                    after = (set() if s.kind in TERM
                              else live.get(s.succ, set()) - set(self.seg_stores(pc, s)))
                     ls |= self.seg_loads(pc, s) | after
                 if live.get(pc) != ls:
@@ -782,7 +792,9 @@ class Fn:
         return "".join(f"{h} " for h, _ in self.prem)
 
     def framed(self):
-        return self.F > 0
+        # lane float-sf6: by the window (a frameless routine that tail-calls a
+        # framed callee patches the callee's window)
+        return self.W > 0
 
     def inside(self, pc):
         return self.off[pc] != 0
@@ -907,8 +919,10 @@ class Fn:
             base = self.body(pc, s, False, True, False)
             return "(" + " && ".join([base] + [f"decide ({self.subst(pc, t)})"
                                                for _, t in self.side(s)]) + ")"
-        if tfn and (s.kind == "ret" or not self.need_t[s.succ]):
+        if tfn and (s.kind in TERM or not self.need_t[s.succ]):
             return "true"
+        if s.kind == "tail":
+            return self.tail_body(pc, s, memfn)
         if s.kind == "ret":
             if memfn:
                 return self.subst(pc, s.mem)
@@ -921,6 +935,23 @@ class Fn:
             vals[r] = post[r]
         return self.napp(s.succ, mem, vals, memfn, self.succ_slots(pc, s),
                          self.fuel_arg(pc, s.succ), tfn)
+
+    def tail_body(self, pc, s, memfn):
+        """lane float-sf6: a tail node's value (the callee's summary value) or
+        memory (the callee's patches of the node's memory: its window, at the
+        routine's entry `sp`, and its outer word)."""
+        c = s_callee(s)
+        post = {r: self.subst(pc, e) for r, e in s.post.items()}
+        mem = self.subst(pc, s.mem)
+        fmt = self.call_fmt(pc, s, post, mem)
+        if not memfn:
+            return c.val.format(**fmt)
+        if not c.frame:
+            return mem
+        out = f"memPatch ({mem}) ({c.mf.format(**fmt)}) ({fmt['sp']} - {c.frame}) {c.frame}"
+        if c.outer:
+            out = f"memPatch ({out}) ({c.mf.format(**fmt)}) {c.outer[0]} {c.outer[1]}"
+        return out
 
     def succ_slots(self, pc, s):
         """The values of the successor's slot parameters: a slot this segment
@@ -955,7 +986,7 @@ class Fn:
         """The format arguments of a call node's callee."""
         c = s_callee(s)
         fmt = {f"a{i}": post[10 + i] for i in range(c.nargs)}
-        fmt["m"], fmt["r"] = mem, f"0x{s.hi:08x}#64"
+        fmt["m"], fmt["r"] = mem, ("r" if s.kind == "tail" else f"0x{s.hi:08x}#64")
         fmt["sp"] = self.sp_nat(pc, s) if c.frame else ""
         fmt["g"] = self.call_g(pc, s, post)
         return fmt
@@ -1112,6 +1143,8 @@ class Fn:
                 "; simp only [if_neg hg]" if neg else "; simp only [if_pos hg]" if s.guard else "")
         else:
             unfold = f"rw [{self.dn(pc)}" + (", if_neg hg]" if neg else ", if_pos hg]" if s.guard else "]")
+        if s.kind == "tail":
+            return out + self.tail_proof(pc, s, unfold, I)
         if s.kind == "ret":
             if self.framed() and self.inside(pc):
                 out.append(f"{I}rw [fn_sp_restore s ({self.pro_imm}#12) ({s.sp_imm}#12) (by decide)] at h")
@@ -1161,6 +1194,33 @@ class Fn:
             # lane F1-F7: a store outside the frame, overwritten by the outer patch
             out.append(f"{I}simp (disch := fn_odisch) only [memPatch_wm4_outer] at h")
         out.append(f"{I}exact h")
+        return out
+
+    def tail_proof(self, pc, s, unfold, I):
+        """lane float-sf6: a tail node's proof: the frame popped (`sp`, `ra`
+        restored), the callee's summary, the routine's patches of its memory
+        (`memPatch_tail`, `Kit/FnTail.lean`)."""
+        c = s_callee(s)
+        out = []
+        if self.framed() and self.inside(pc):
+            out.append(f"{I}rw [fn_sp_restore s ({self.pro_imm}#12) ({s.sp_imm}#12) (by decide)] at h")
+            out.append(f"{I}rw [Lua.Vm.Sim.fn_sv_ld hra] at h")
+        post = {r: self.subst(pc, e) for r, e in s.post.items()}
+        args = c.args.format(sp="s", g=self.call_g(pc, s, post)).replace("(by fn_rod)", f"(by {self.rod})")
+        out.append(f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)")
+        out.append(f"{I}  ({c.summ} {args})")
+        out.append(f"{I}refine ⟨_, acc, ?_⟩")
+        out.append(f"{I}{unfold}")
+        if self.framed():
+            if not c.frame:
+                out.append(f"{I}rw [memPatch_self" + (", memPatch_self]" if self.fn in OUTER else "]"))
+            elif self.fn in OUTER and c.outer:
+                out.append(f"{I}rw [memPatch_tail_outer (by omega) (by omega)]")
+            elif self.fn in OUTER:
+                raise SystemExit(f"{s.name}: an outer routine's tail callee without the outer word")
+            else:
+                out.append(f"{I}rw [memPatch_tail (by omega) (by omega)]")
+        out.append(f"{I}exact h.repin (by pins_of h)")
         return out
 
     def binder_args(self, pc):
@@ -1341,9 +1401,11 @@ class Fn:
             imports += "import Lua.Vm.Sim.Kit.FnCall\n"
         if self.fn in OUTER:
             imports += "import Lua.Vm.Sim.Kit.FnOuter\n"
+        if any(s.kind == "tail" for s in self.segs):
+            imports += "import Lua.Vm.Sim.Kit.FnTail\n"
         if self.cyc:
             imports += "import Lua.Vm.Sim.Kit.FnLoop\n"
-        callees = sorted({s.callee for s in self.segs if s.kind == "call"})
+        callees = sorted({s.callee for s in self.segs if s.kind in ("call", "tail")})
         for e in callees:
             imports += f"import {callee_of(e).imp}\n"
         imports += f"import Lua.Vm.Arms.Segs.H{self.fn.lstrip('_')}\n"
@@ -1389,6 +1451,10 @@ class Fn:
 
 
 CHUNK = 40
+# lane float-sf6: the terminal node kinds (a `ret`; a tail jump to a summarised
+# callee), and the routines whose `j <callee>` are tail nodes
+TERM = ("ret", "tail")
+TAILS = set()
 # lane float-sf6: the routines whose cycle blocks put each node's step in its
 # own declaration (`Fn.cyc_split`)
 CYC_SPLIT = {"__ieee754_sqrt"}

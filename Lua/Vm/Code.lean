@@ -115,6 +115,15 @@ import Lua.Vm.Code.FixedImage___ieee754_fmod
 import Lua.Vm.Code.FixedImage___unorddf2
 import Lua.Vm.Code.FixedImage___errno
 import Lua.Vm.Code.FixedImage___ieee754_sqrt
+import Lua.Vm.Code.FixedImage_Pow
+import Lua.Vm.Code.FixedImage_Finite
+import Lua.Vm.Code.FixedImage___ieee754_pow
+import Lua.Vm.Code.FixedImage_Scalbn
+import Lua.Vm.Code.FixedImage_Fabs
+import Lua.Vm.Code.FixedImage_With_errno
+import Lua.Vm.Code.FixedImage_Xflow
+import Lua.Vm.Code.FixedImage___math_uflow
+import Lua.Vm.Code.FixedImage___math_oflow
 import Lua.Vm.Code.FixedImage_Snprintf
 import Lua.Vm.Code.FixedImage__svfprintf_r
 import Lua.Vm.Code.FixedImage__localeconv_r
@@ -245,6 +254,15 @@ Code pins for `luaV_execute` and its F1 callees, each derived from
 * `__unorddf2` (18 instructions)
 * `__errno` (2 instructions)
 * `__ieee754_sqrt` (209 instructions)
+* `pow` (70 instructions)
+* `finite` (6 instructions)
+* `__ieee754_pow` (893 instructions)
+* `scalbn` (106 instructions)
+* `fabs` (7 instructions)
+* `with_errno` (13 instructions)
+* `xflow` (16 instructions)
+* `__math_uflow` (3 instructions)
+* `__math_oflow` (3 instructions)
 * `snprintf` (53 instructions)
 * `_svfprintf_r` (3212 instructions)
 * `_localeconv_r` (2 instructions)
