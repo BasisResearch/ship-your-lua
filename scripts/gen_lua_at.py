@@ -108,9 +108,19 @@ FLOAT_ARMS.update({"OP_DIV": ("Div", 0x8001d494), "OP_DIVK": ("Divk", 0x8001d7d8
 # lane F1-F7: `luai_nummod` (libm `fmod`, its `errno` store, then the sign
 # correction): MOD's and MODK's float paths, over the integer arms' segments
 FLOAT_ARMS.update({"OP_MOD_F": ("ModF", 0x8001dc58), "OP_MODK_F": ("ModkF", 0x8001dad0)})
+# lane F1-F8: FORPREP's coerced classes (`FpCoerce`), over FORPREP's segments:
+# the integer loop with a float limit (`luaV_tointeger`'s float summary, its
+# two outcomes as variant call lemmas), and the float loop with integer
+# control values (`luaV_tonumber_`'s integer summary, `__floatdidf`); one
+# module per class of tags (`SEED_VAL`)
+FP_CLASSES = {"IIF": (3, 3, 19), "IFF": (3, 19, 19), "FII": (19, 3, 3), "FIF": (19, 3, 19),
+              "FFI": (19, 19, 3)}
+FLOAT_ARMS.update({"OP_FORPREP_TI": ("ForprepTI", 0x8001c0f8)})
+FLOAT_ARMS.update({f"OP_FORPREP_C{k}": (f"ForprepC{k}", 0x8001c0f8) for k in FP_CLASSES})
 SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("SHL", "SHR", "SHLI", "SHRI")},
 "OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
+          "OP_FORPREP_TI": "OP_FORPREP", **{f"OP_FORPREP_C{k}": "OP_FORPREP" for k in FP_CLASSES},
           "OP_LE_F": "OP_LE", "OP_EQ_F": "OP_EQ", "OP_EQK_F": "OP_EQK",
           "OP_IDIV_F": "OP_IDIV", "OP_IDIVK_F": "OP_IDIVK",
           "OP_MOD_F": "OP_MOD", "OP_MODK_F": "OP_MODK",
@@ -125,6 +135,10 @@ FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_BNOT_F": [("tag", "b", 0)],
               "OP_SHLI_F": [("tag", "b", 0)], "OP_SHRI_F": [("tag", "b", 0)]}
 VNUMFLT_ = 19
+# lane F1-F8: seeds with a tag value (a location's fact `("eq", v)`)
+SEED_VAL = {"OP_FORPREP_TI": [(("tag", "a", 0), 3), (("tag", "a", 1), 19), (("tag", "a", 2), 3)]}
+SEED_VAL.update({f"OP_FORPREP_C{k}": [(("tag", "a", i), t) for i, t in enumerate(ts)]
+                 for k, ts in FP_CLASSES.items()})
 # round 5 (A-JOIN): the cut points at the machine's joins. arm -> {join pc:
 # (the joined register, the fork whose two sides meet there)}. A path that
 # reaches a join pc ends there in a join lemma (`join_<pc>`: its row to the
@@ -132,6 +146,7 @@ VNUMFLT_ = 19
 # fork's guard); the tail from the join row is walked, and emitted, once.
 JOINS = {"OP_FORLOOP": {0x8001e194: (15, 0x8001e17c)},
          "OP_FORPREP_F": {0x8001c1b8: (14, 0x8001c1a0)}}
+JOINS.update({f"OP_FORPREP_C{k}": {0x8001c1b8: (14, 0x8001c1a0)} for k in FP_CLASSES})
 # the soft-float call nodes of the float arms: entry -> (module, arguments,
 # frame bytes (0: a leaf helper))
 FCALLS = {0x8002f0f8: ("Floatsidf", 1, 32), 0x8002e350: ("Eqdf2", 2, 0),
@@ -214,6 +229,11 @@ CUR = [None]
 IMPORTS = {op: ["Lua.Vm.Sim.Kit.AtCond", "Lua.Vm.Sim.Kit.AtFloat"] for op in FLOAT_ARMS}
 IMPORTS["OP_FORLOOP"] = IMPORTS["OP_FORLOOP"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
 IMPORTS["OP_FORPREP_F"] = IMPORTS["OP_FORPREP_F"] + ["Lua.Vm.Sim.Kit.AtJoinRow"]
+# lane F1-F8: the coercions' call nodes (`Kit/AtCoerce.lean`)
+IMPORTS["OP_FORPREP_TI"] = IMPORTS["OP_FORPREP_TI"] + ["Lua.Vm.Sim.Kit.AtCoerce"]
+for _k in FP_CLASSES:
+    IMPORTS[f"OP_FORPREP_C{_k}"] = IMPORTS[f"OP_FORPREP_C{_k}"] + ["Lua.Vm.Sim.Kit.AtJoinRow",
+                                                                    "Lua.Vm.Sim.Kit.AtCoerce"]
 # lane F3: `K[C]`'s address read through a callee's frame (`at_side_ext`, `Kit/AtFrame.lean`)
 for _op in ("OP_BANDK_F", "OP_BORK_F", "OP_BXORK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtFrame"]
@@ -373,6 +393,12 @@ def lean_loc(x):
         return f"(.cell1 {lean_aff(x[1], x[2])})"
     if k == "back":
         return f"(.sub (.pc {x[1]}) (.nat ⟨[(4, .bx)], 0, 0⟩))"
+    if k == "toni":
+        # lane F1-F8: `luaV_tonumber_`'s converted integer (`__floatdidf`)
+        return f"(.fn fun X => Lua.Vm.Fn.Floatdidf.S (Loc.den X (.val .{x[1]} {x[2]})))"
+    if k == "tiv":
+        # lane F1-F8: `luaV_tointeger`'s integer of a float (`flttointeger`)
+        return f"(.fn fun X => Lua.Vm.Sim.Kit.tiv {x[1]} (Loc.den X (.val .{x[2]} {x[3]})))"
     if k == "fsite":
         # a soft-float call's result: the call site's definition (`fsite_defs`)
         return f"(.fn f{x[1]})"
@@ -797,7 +823,9 @@ def code(lo, hi):
 CALLS = {
     0x8002f7b0: "__moddi3", 0x8002f72c: "__divdi3", 0x8002f734: "__hidden___udivdi3",
     0x8001ade8: "luaV_tointeger", 0x8001a704: "l_strcmp", 0x8001b780: "luaV_equalobj",
-    0x8001bae0: "luaV_objlen", 0x8001808c: "luaH_getshortstr"}
+    0x8001bae0: "luaV_objlen", 0x8001808c: "luaH_getshortstr",
+    # lane F1-F8: FORPREP's coercions
+    0x8001ab58: "luaV_tonumber_"}
 
 CALLS.update({e: f"fcall_{m}" for e, (m, _, _) in FCALLS.items()})
 FCALLS_BY_NAME = {f"fcall_{m}": (m, n, fr) for e, (m, n, fr) in FCALLS.items()}
@@ -947,6 +975,63 @@ def call_effect(st, callee, ret):
         post.set(10, aff({"pn": 1}))
         hyps.append("(hkc : kval X.p X.ins.c = some (.str printKey))")
         proof = ("at_call [{pins}] (Lua.Vm.Sim.At.gss_at hX hE (by simpa only [Word.c, Word.field, Nat.shiftRight_eq_div_pow] using hkc) (by at_logwin) _ (by decide) hframe?)")
+    elif callee == "luaV_tonumber_":
+        # lane F1-F8: `tonum_int_sum` on an integer `TValue` (`R[A+k]`): `a0 =
+        # 1`, the callee frames `[sp - 80, sp)` a `clob` of `toniW`, `*q` the
+        # converted float; only the coerced classes' arms take it
+        if not CUR[0].op.startswith("OP_FORPREP_C"):
+            raise Stop("call to 0x8001ab58")
+        s = to_aff(a0)
+        terms = tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))) if s else None
+        so = slot_of(terms, s[1]) if s else None
+        q = to_aff(a1)
+        if so is None or so[2] != 0 or q is None or q[0] != {"sp": 1}:
+            raise Stop(f"luaV_tonumber_ of {a0}, {a1}")
+        f, k, _ = so
+        hyps.append(f"(ht : slotTag X.c.σ.mem (X.w.slot (X.ins.{f} + {k})) = 3#8)")
+        post.bounds = {(f, k)}
+        sp = (("sp", 1),)
+        # the slot's address in the row's form (`Aff.den` unfolded)
+        nslot = f"(X.w.base + 16 * X.ins.{f}" + (f" + {16 * k})" if k else ")")
+        post.log.insert(0, ("clob", sp, -80, (80, f"fun X M => Lua.Vm.Sim.Kit.toniW 0x{ret:x}#64 "
+                                                    f"{nslot} (X.w.sp + {q[1]}) X.w.sp M")))
+        post.store("sd", sp, q[1], ("toni", f, k))
+        post.set(10, ("lit", 1))
+        proof = f"at_toni {f} {k}"
+        post.path, post.joined = dict(st.path), st.joined
+        return post, hyps, "\n  ".join(["at_open"] + [f"obtain ⟨_, h⟩ := {p} h" for p in pins] + [proof]), pre_regs
+    elif callee == "luaV_tointeger" and CUR[0].op == "OP_FORPREP_TI":
+        # lane F1-F8: `toint_flt_sum` on a float limit, mode `a2`: two variant
+        # lemmas, on whether `flttointeger` converts (`tiOk`, a guard `hg_ti`
+        # the run forks on): `a0` 1 and `*q` the integer, or `a0` 0; the callee
+        # frames `[sp - 192, sp)` a `clob` of `tifW'`
+        s = to_aff(a0)
+        terms = tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))) if s else None
+        so = slot_of(terms, s[1]) if s else None
+        q = to_aff(a1)
+        md = litval(st.get(12))
+        if so is None or so[2] != 0 or q is None or q[0] != {"sp": 1} or md not in (1, 2):
+            raise Stop(f"luaV_tointeger of {a0}, {a1}, {st.get(12)}")
+        f, k, _ = so
+        out = []
+        for ok in (True, False):
+            p2 = State(post.regs, post.log, post.facts)
+            p2.bounds = {(f, k)}
+            sp = (("sp", 1),)
+            nslot = f"(X.w.base + 16 * X.ins.{f}" + (f" + {16 * k})" if k else ")")
+            p2.log.insert(0, ("clob", sp, -192, (192, f"fun X M => Lua.Vm.Sim.Kit.tifW' {md} 0x{ret:x}#64 "
+                                                       f"{den(st.get(8))} {den(st.get(9))} "
+                                                       f"{nslot} (X.w.sp + {q[1]}) X.w.sp M")))
+            if ok:
+                p2.store("sd", sp, q[1], ("tiv", md, f, k))
+            p2.set(10, ("lit", 1 if ok else 0))
+            hs = hyps + [f"(ht : slotTag X.c.σ.mem (X.w.slot (X.ins.{f} + {k})) = 19#8)",
+                         f"(hg_ti : Lua.Vm.Sim.Kit.tiOk {md} (Loc.den X (.val .{f} {k})) = {'true' if ok else 'false'})"]
+            proof = f"at_tif {f} {k} {md} {'ok' if ok else 'no'}"
+            p2.path, p2.joined = dict(st.path), st.joined
+            out.append((p2, hs, "\n  ".join(["at_open"] + [f"obtain ⟨_, h⟩ := {p} h" for p in pins] + [proof]),
+                        pre_regs, "_ok" if ok else "_no"))
+        return out
     elif callee == "luaV_tointeger":
         s = to_aff(a0)
         if s is None or not slot_of(tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))), s[1]):
@@ -961,7 +1046,7 @@ def call_effect(st, callee, ret):
         post.store("sd", sp, -8, st.get(1))
         post.store("sd", qt, q[1], post.load(terms, s[1], 8))
         post.set(10, ("lit", 1))
-        proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ hframe? _ _ "
+        proof = ("at_call [{pins}] (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ _ hframe? _ _ "
                  "(by constructor <;> first | decide | kit_disch) (by rfl) (by at_pre ht))")
     else:
         raise Stop(f"no summary for {callee}")
@@ -1151,7 +1236,9 @@ class Arm:
                             loc, v = (x, litval(y)) if litval(y) is not None else (y, litval(x))
                             if v is not None and litval(loc) is None:
                                 eq = (head == "==") == taken
-                                st2.facts[loc] = ("eq" if eq else "ne", v)
+                                # lane F1-F8: a seeded tag's value is kept (`SEED_VAL`)
+                                if not (CUR[0].op in SEED_VAL and st2.facts.get(loc, ("",))[0] == "eq"):
+                                    st2.facts[loc] = ("eq" if eq else "ne", v)
                         if not ground:
                             if len(guards) != 1:
                                 raise Stop(f"guards {guards}")
@@ -1268,7 +1355,19 @@ class Arm:
         callee = CALLS.get(entry)
         if entry in FCALL_ARM.get(self.op, {}):
             callee = f"fcall_{FCALL_ARM[self.op][entry][0]}"
-        post, hyps, proof, _ = call_effect(st, callee, ret)
+        eff = call_effect(st, callee, ret)
+        if isinstance(eff, list):
+            # lane F1-F8: variant call lemmas (a guard each), the walk on from each
+            out = []
+            for post, hyps, proof, _, sfx in eff:
+                post.regs = {r: v for r, v in post.regs.items() if printable(v)}
+                rest = self.walk(ret, post, depth + 1)
+                if rest is None:
+                    continue
+                out += [lambda post=post, hyps=hyps, proof=proof, sfx=sfx:
+                        self.emit_call(entry, ret, st, post, hyps, proof, None, sfx)] + rest
+            return out or None
+        post, hyps, proof, _ = eff
         nxt = ret
         if callee in OBSERVED:
             # run on through the observing segment at `ret`
@@ -1293,16 +1392,18 @@ class Arm:
             return None
         return [lambda: self.emit_call(entry, ret, st, post, hyps, proof, nxt)] + rest
 
-    def emit_call(self, entry, ret, st, post, hyps, proof, nxt=None):
+    def emit_call(self, entry, ret, st, post, hyps, proof, nxt=None, sfx=""):
         nxt = ret if nxt is None else nxt
         pre_row, pre_log = self.row(st.regs), self.logname(st.log)
         post_row, post_log = self.row(post.regs), self.logname(post.log)
-        key = ("call", entry, ret, pre_row, pre_log)
+        key = ("call", entry, ret, pre_row, pre_log, sfx)
         if key not in self.lemmas:
             hyps = [h.replace("{log}", pre_log) for h in hyps]
             hs = ["(X : Cx)", "(hX : X.Ok)"] + self.bounds(post) + hyps
             if ENV[0]:
                 hs += ENV_HYPS
+            # a variant (lane F1-F8) is told apart by its guard; its name takes
+            # the next free index (`call_<ret>_<k>`, as `at_run` looks up)
             lname = self.name(f"call_{ret:08x}", key)
             text = (f"theorem {lname} {' '.join(hs)} :\n"
                     f"    AtStep X 0x{entry:08x}#64 ({pre_row}) {pre_log} 0x{nxt:08x}#64 ({post_row}) {post_log} := by\n"
@@ -1382,7 +1483,8 @@ class Arm:
                     f"theorem {lname} {' '.join(hs)} {{c : Config}}\n"
                     f"    (h : At X 0x{HEAD:08x}#64 ({row}) {log} c) :\n"
                     f"    AtFin X {log} [{', '.join(ws)}] ({pc_txt}) c := by\n"
-                    f"  at_fin_with ({lname}_frame {args}), ({lname}_keep {args})\n")
+                    f"  {'at_fin_withG' if self.op.startswith('OP_FORPREP_C') else 'at_fin_with'} "
+                    f"({lname}_frame {args}), ({lname}_keep {args})\n")
         self.lemmas[key] = (lname, text)
         self.order.append(key)
 
@@ -1393,6 +1495,7 @@ class Arm:
         CUR[0] = self
         self.dropped = []
         st = State(HEADROW, [], {loc: ("eq", VNUMFLT_) for loc in FLOAT_SEED.get(self.op, [])})
+        st.facts.update({loc: ("eq", v) for loc, v in SEED_VAL.get(self.op, [])})
         thunks = self.walk(self.target, st) or []
         while self.join_pending:
             pc = self.join_pending.pop(0)
@@ -1418,7 +1521,8 @@ class Arm:
         proved = sorted({FPROVED[k[0]] for k in self.fsites if k[0] in FPROVED})
         extra = "".join(f"import {m}\n" for m in IMPORTS.get(self.op, []) + proved)
         # a premised routine's result is chosen from its premise (`noncomputable`)
-        prem = any(key[0] in PREMISE_FORM for key in self.fsites) or self.op in ("OP_EQ_F", "OP_EQK_F")
+        prem = (any(key[0] in PREMISE_FORM for key in self.fsites) or self.op in ("OP_EQ_F", "OP_EQK_F")
+                or self.op.startswith("OP_FORPREP_T") or self.op.startswith("OP_FORPREP_C"))
         nc_open = "noncomputable section\n" if prem else ""
         # lane F1-F6: an arm's own call nodes (`FCALL_ARM`) opaque too
         fopq_arm = "".join(f"attribute [local irreducible] Lua.Vm.Fn.{m}.F Lua.Vm.Fn.{m}.Fm\n"
@@ -2923,6 +3027,45 @@ EXT_OK = ["sp_lo : 0x87800000 + 4096 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp
     "L_g : X.n 1 + 200 ≤ X.n 2 + 24 ∨ X.n 2 + 32 ≤ X.n 1"]
 
 
+def tif(mod, mode, doc):
+    """lane F1-F8: `luaV_tointeger(n, q, mode)` on a float `TValue` (`F2Ifloor`
+    = 1, `F2Iceil` = 2: FORPREP's `forlimit`): X.n 0 = sp, X.n 1 = n, X.n 2 =
+    q (the caller's out-parameter, at or above `sp`); X.b 0 = ra, X.b 1… the
+    caller's `s0`–`s11` (all callee-saved, kept: FORPREP's `s6`, `s10` live
+    across the call). `luaV_tointegerns` → `luaV_flttointeger` inlined:
+    `floor`, `__eqdf2`, for `F2Iceil` `__adddf3(f, 1.0)`, the range against
+    `.rodata`, `__fixdfdi`, the store `*q`."""
+    row = abi_row({10: N((1, 1)), 11: N((2, 1)), 12: ("lit", mode)})
+    return dict(
+        mod=mod, entry=0x8001ade8, row=row, float=True,
+        ok=["sp_lo : 0x8005c6c0 + 16 + 192 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 8 = 0",
+            "n_lo : 0x8005c6c0 + 16 ≤ X.n 1", "n_hi : X.n 1 + 16 + 192 ≤ X.n 0",
+            "q_lo : X.n 0 ≤ X.n 2", "q_hi : X.n 2 + 8 ≤ 2 ^ 32", "q_al : X.n 2 % 8 = 0",
+            "ra : (X.b 0).toNat % 4 = 0", "hro : RodataRead X.m"],
+        lb={1: 0x8005c6d0},
+        cells={(8, 0x8005c478): 0xc3e0000000000000, (8, 0x8005c480): 0x43e0000000000000,
+               (8, 0x8005c488): 0x3ff0000000000000},
+        rcellsw={(1, ((1, 1),), 8): 19},
+        imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
+
+
+def toni(mod, doc):
+    """lane F1-F8: `luaV_tonumber_(obj, q)` on an integer `TValue` (`cvt2num`:
+    `__floatdidf`, the store `*q`): X.n 0 = sp, X.n 1 = obj, X.n 2 = q (the
+    caller's out-parameter, at or above `sp`); X.b 0 = ra, X.b 1… the
+    caller's `s0`–`s11`."""
+    row = abi_row({10: N((1, 1)), 11: N((2, 1))})
+    return dict(
+        mod=mod, entry=0x8001ab58, row=row, float=True,
+        ok=["sp_lo : 0x8005c6c0 + 16 + 80 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 8 = 0",
+            "n_lo : 0x8005c6c0 + 16 ≤ X.n 1", "n_hi : X.n 1 + 16 + 80 ≤ X.n 0",
+            "q_lo : X.n 0 ≤ X.n 2", "q_hi : X.n 2 + 8 ≤ 2 ^ 32", "q_al : X.n 2 % 8 = 0",
+            "ra : (X.b 0).toNat % 4 = 0", "hro : RodataRead X.m"],
+        lb={1: 0x8005c6d0},
+        rcellsw={(1, ((1, 1),), 8): 3},
+        imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
+
+
 def eqf(mod, t1, t2, doc):
     """lane F1-F4: `luaV_equalobj(L, t1, t2)` on the tags `t1`, `t2` (a float
     one of them): X.n 0 = sp, X.n 1 = t1, X.n 2 = t2; X.b 0 = ra, X.b 1 = gp,
@@ -3015,6 +3158,11 @@ FNS = {
     "luaV_equalobj/ff": eqf("EqobjFF", 19, 19, "`luaV_equalobj` on two floats."),
     "luaV_equalobj/if": eqf("EqobjIF", 3, 19, "`luaV_equalobj` on an integer and a float."),
     "luaV_equalobj/fi": eqf("EqobjFI", 19, 3, "`luaV_equalobj` on a float and an integer."),
+    # lane F1-F8: `luaV_tointeger` on a float limit (FORPREP's coerced integer loop)
+    "luaV_tointeger/flt1": tif("TointF1", 1, "`luaV_tointeger(n, q, F2Ifloor)` on a float."),
+    "luaV_tointeger/flt2": tif("TointF2", 2, "`luaV_tointeger(n, q, F2Iceil)` on a float."),
+    # lane F1-F8: `luaV_tonumber_` on an integer (FORPREP's float loop)
+    "luaV_tonumber_/int": toni("TonumI", "`luaV_tonumber_(obj, q)` on an integer."),
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
     "fflush": dict(

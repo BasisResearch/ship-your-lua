@@ -369,7 +369,11 @@ stored `floor` by `FloorR`), the float paths of `MOD`, `MODK` (lane F1-F7:
 libm `fmod` by `FmodR`, its `errno` store at `x % 0.0` by `Complement.errno`). libm `floor`'s premise `FloorSpec` is
 `floorSpec_proved` (lane float-sf3), passed by the generated at-lemmas of both
 routes (lane F1-F5, `PREMISE_PROOF`). `EQI` (lane F1-F5: `At.eqiFlt_proved`).
-`FORPREP` is proved but for the paths its field names (`At.FpCoerce_Statement`). -/
+`FORPREP` is proved but for the paths its field names: lane F1-F8 proved its
+coerced number classes (`At.fpCoerce_of`: the integer loop with a float limit,
+`luaV_tointeger`'s float summary; the float loops with integer control values,
+`luaV_tonumber_`'s integer summary), so the field is the string classes
+(`At.FpStr_Statement`). -/
 structure FloatArms : Prop where
   /-- the soft-float routines' level-2 equations not yet proved
   (`Lua/Vm/Fn/Spec.lean`): empty since lane float-sf2, every routine's is a
@@ -379,10 +383,10 @@ structure FloatArms : Prop where
   POW : SimArm .POW
   /-- `OP_POWK` (T4) -/
   POWK : SimArm .POWK
-  /-- `OP_FORPREP`'s coerced classes, neither three integers nor three floats
-  (`forlimit`'s `luaV_tointeger`/`luaV_tonumber_` → `strtod`); the float loop
-  is `At.sim_FORPREP_flt` -/
-  FORPREP : At.FpCoerce_Statement
+  /-- `OP_FORPREP` with a string control value (`luaV_tonumber_`/
+  `luaV_tointeger` → `luaO_str2num` → `strtod`); the float loop is
+  `At.sim_FORPREP_flt`, the other coerced classes `At.fpCoerce_of` -/
+  FORPREP : At.FpStr_Statement
 
 /-- **The arm table**: the proved arms (off their float paths) and the open
 premises cover `armOps`. -/
@@ -443,7 +447,7 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case GEI => exact SimArm.split @sim_GEI (At.sim_GEI_flt hF.soft)
   case TEST => exact @sim_TEST
   case TESTSET => exact @sim_TESTSET
-  case FORPREP => exact SimArm.split At.sim_FORPREP (At.sim_FORPREP_flt hF.soft hF.FORPREP)
+  case FORPREP => exact SimArm.split At.sim_FORPREP (At.sim_FORPREP_flt hF.soft (At.fpCoerce_of hF.FORPREP))
   case FORLOOP => exact SimArm.split @sim_FORLOOP (At.sim_FORLOOP_flt hF.soft)
   case CALL => exact Kit.sim_CALL (Kit.printCall_of h.CALL_open) h.CALL_heap
   all_goals simp [armOps, kernelOps] at ho

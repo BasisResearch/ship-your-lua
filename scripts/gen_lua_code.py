@@ -108,7 +108,9 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          # lane F1-FMT: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)`:
          # `_svfprintf_r` on that format, its locale and output callees
          "snprintf", "_svfprintf_r", "_localeconv_r", "__locale_mb_cur_max",
-         "__ascii_mbtowc", "__ssprint_r", "__ssputs_r"]
+         "__ascii_mbtowc", "__ssprint_r", "__ssputs_r",
+         # lane F1-F8: FORPREP's string coercion (`luaO_str2num`'s `l_str2int`)
+         "luaO_str2num"]
 # a static name defined twice whose first (lowest) definition is the one
 # pinned: main.c's `l_alloc` (`g->frealloc`; lauxlib.c's is the second)
 DUP_FIRST = {"l_alloc"}

@@ -509,7 +509,7 @@ theorem at_8001e1f0_8001e200 (X : Cx) (hX : X.Ok) (hs_a3 : X.ins.a + 3 < X.p.max
 theorem call_8001e200 (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 3#8) :
     AtStep X 0x8001ade8#64 (r5 X) m1 0x8001e200#64 (r6 X) m2 := by
   at_open
-  at_call (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ hframe? _ _ (by constructor <;> first | decide | kit_disch) (by rfl) (by at_pre ht))
+  at_call (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ _ hframe? _ _ (by constructor <;> first | decide | kit_disch) (by rfl) (by at_pre ht))
 
 theorem at_8001e200_8001e208_t (X : Cx) (hX : X.Ok) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) :
     AtStep X 0x8001e200#64 (r6 X) m2 0x8001e20c#64 (r7 X) m2 := by
@@ -574,7 +574,7 @@ theorem at_8001f9a4_8001f9b4 (X : Cx) (hX : X.Ok) (hs_a3 : X.ins.a + 3 < X.p.max
 theorem call_8001f9b4 (X : Cx) (hX : X.Ok) (hs_a1 : X.ins.a + 1 < X.p.maxstacksize) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) (ht : slotTag X.c.σ.mem (X.w.slot (X.ins.a + 1)) = 3#8) :
     AtStep X 0x8001ade8#64 (r16 X) m1 0x8001f9b4#64 (r6 X) m5 := by
   at_open
-  at_call (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ hframe? _ _ (by constructor <;> first | decide | kit_disch) (by rfl) (by at_pre ht))
+  at_call (Lua.Vm.Sim.Kit.toint_sum _ _ X.w.sp _ _ hframe? _ _ (by constructor <;> first | decide | kit_disch) (by rfl) (by at_pre ht))
 
 theorem at_8001f9b4_8001f9bc_t (X : Cx) (hX : X.Ok) (hs_a3 : X.ins.a + 3 < X.p.maxstacksize) :
     AtStep X 0x8001f9b4#64 (r6 X) m5 0x8001fa74#64 (r7 X) m5 := by

@@ -65,10 +65,10 @@ local macro_rules
        rw [ld_ra, Vsa.Sim.ret_tgt _ (by assumption)]; assumption))
 
 /-- **`luaV_tointeger` on an integer, the call-node summary.** -/
-theorem toint_sum (n q sp : Nat) (r : BitVec 64) (f : HFrame) (m : Mem) (o : Array String)
+theorem toint_sum (n q sp : Nat) (r md : BitVec 64) (f : HFrame) (m : Mem) (o : Array String)
     (hx : TiCtx n q sp r) (hsp : f.sp = BitVec.ofNat 64 sp) (ht : slotTag m n = 3#8) :
     Triple (SegSt 0x8001ade8#64 (⟨Register.x10, BitVec.ofNat 64 n⟩ :: ⟨Register.x11, BitVec.ofNat 64 q⟩ ::
-        ⟨Register.x1, r⟩ :: f.pins) (ArmPay m o))
+        ⟨Register.x12, md⟩ :: ⟨Register.x1, r⟩ :: f.pins) (ArmPay m o))
       (SegSt r (⟨Register.x10, 1#64⟩ :: f.pins) (ArmPay (tiMem m sp q f.s1 r (slotVal m n)) o)) := by
   intro c h
   have acc := Steps.refl c

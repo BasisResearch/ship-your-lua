@@ -68,6 +68,11 @@ def takeSign : List UInt8 → Bool × List UInt8
 
 /-! ## Integers: `l_str2int` -/
 
+/-- A leading `0x`/`0X` (`l_str2int`, lobject.c:285-287). -/
+def hexStrip : List UInt8 → Bool × List UInt8
+  | 48 :: x :: t => if x == 120 || x == 88 then (true, t) else (false, 48 :: x :: t)
+  | s => (false, s)
+
 /-- `l_str2int` (lobject.c:276-305) on a whole Lua string, with
 `luaO_str2num`'s length check (`l_strton`, lvm.c; `lua_stringtonumber`):
 spaces, a sign, `0x` hex digits (wrapping mod 2^64) or decimal digits
@@ -80,9 +85,7 @@ equal to it (`Lua/Num/DecimalBridge.lean`). -/
 def str2int (s : List UInt8) : Option (BitVec 64) :=
   let s := s.dropWhile isSpace
   let (neg, s) := takeSign s
-  let (hex, s) := match s with
-    | 48 :: x :: t => if x == 120 || x == 88 then (true, t) else (false, s)
-    | _ => (false, s)
+  let (hex, s) := hexStrip s
   let (a, n, rest) := digits hex s 0 0
   if n = 0 ∨ (rest.dropWhile isSpace) ≠ [] ∨ (!hex ∧ 2 ^ 63 - 1 + (if neg then 1 else 0) < a) then
     none
