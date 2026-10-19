@@ -34,7 +34,7 @@ def Fm (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame) (v10 : BitVec 64) : Mem 
 theorem sum (m : Mem) (o : Array String) (s : Nat) (r : BitVec 64) (g : SFrame) (v10 : BitVec 64)
     (hs : FnSp s 112) (hr : r.toNat % 4 = 0) (hrod : RodataRead m)
     (hgp : g.gp = BitVec.ofNat 64 Lua.Vm.Layout.symGlobalPointer)
-    (hsI : Lua.Vm.Layout.symImpurePtr + 8 + 112 ≤ s)
+    (hsI : 8 + 112 + Lua.Vm.Layout.symImpurePtr ≤ s)
     (himp : bytesT8 m Lua.Vm.Layout.symImpurePtr = BitVec.ofNat 64 Lua.Vm.Layout.symImpureData) :
     Triple (SegSt 0x8002d2d0#64 [⟨Register.x10, v10⟩, ⟨Register.x1, r⟩, ⟨Register.x2, (BitVec.ofNat 64 s)⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay m o))
       (SegSt r [⟨Register.x10, F (m) s r v10⟩, ⟨Register.x2, BitVec.ofNat 64 s⟩, ⟨Register.x3, g.gp⟩, ⟨Register.x8, g.s0⟩, ⟨Register.x9, g.s1⟩, ⟨Register.x18, g.s2⟩, ⟨Register.x19, g.s3⟩, ⟨Register.x20, g.s4⟩, ⟨Register.x21, g.s5⟩, ⟨Register.x22, g.s6⟩, ⟨Register.x23, g.s7⟩, ⟨Register.x24, g.s8⟩, ⟨Register.x25, g.s9⟩, ⟨Register.x26, g.s10⟩, ⟨Register.x27, g.s11⟩] (ArmPay (memPatch (memPatch m (Fm (m) s r g v10) (s - 112) 112) (Fm (m) s r g v10) Lua.Vm.Layout.symImpureData 4) o)) := by

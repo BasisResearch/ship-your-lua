@@ -70,3 +70,15 @@ theorem sum_le (m : Mem) (o : Array String) (r : BitVec 64) (f : HFrame) (v10 v1
   rwa [spec_proved v10 v11] at h
 
 end Lua.Vm.Fn.Ledf2
+
+namespace Lua.Vm.Fn.Gedf2
+
+/-- **`__gedf2`'s summary, result `Gedf2.S`** (`sum`, then `spec_proved`). -/
+theorem sum_ge (m : Mem) (o : Array String) (r : BitVec 64) (f : HFrame) (v10 v11 : BitVec 64)
+    (hr : r.toNat % 4 = 0) :
+    Triple (SegSt 0x8002e3c0#64 (⟨Register.x10, v10⟩ :: ⟨Register.x11, v11⟩ :: ⟨Register.x1, r⟩ :: f.pins) (ArmPay m o))
+      (SegSt r (⟨Register.x10, S v10 v11⟩ :: f.pins) (ArmPay m o)) := by
+  have h := sum m o r f v10 v11 hr
+  rwa [spec_proved v10 v11] at h
+
+end Lua.Vm.Fn.Gedf2

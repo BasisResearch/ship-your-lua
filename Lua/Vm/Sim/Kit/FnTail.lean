@@ -24,6 +24,18 @@ namespace Lua.Vm.Sim
 theorem fn_sp_le {s W W' : Nat} (hs : FnSp s W) (h : W' ≤ W) : FnSp s W' :=
   ⟨by have := hs.lo; omega, hs.hi, hs.al⟩
 
+/-- `FnSp`'s bound with `tohostAddr`'s value. `omega` unfolds `Nat.add` on a
+literal summand past the recursion limit (`tohostAddr + 16 + 288`, a
+definition plus a literal), and takes the literal sum. -/
+theorem FnSp.lo_lit {s W : Nat} (hs : FnSp s W) : 0x8005c6c0 + 16 + W ≤ s := hs.lo
+
+set_option hygiene false in
+/-- `fn_sp_facts` for a wide window (`__ieee754_pow`'s): the bound by its
+literal (`FnSp.lo_lit`). -/
+macro "fn_sp_factsW" : tactic => `(tactic| (
+  have := FnSp.lo_lit hs; have := hs.hi; have := hs.al
+  have hTH : tohostAddr = 0x8005c6c0 := rfl))
+
 /-- **A tail callee's patch inside the window** is the routine's patch. -/
 theorem memPatch_tail {m X : Mem} {lo n lo' n' : Nat} (h1 : lo ≤ lo') (h2 : lo' + n' ≤ lo + n) :
     memPatch m (memPatch m X lo' n') lo n = memPatch m X lo' n' :=
@@ -46,6 +58,16 @@ theorem memPatch_tail_outer {m X : Mem} {lo n lo' n' A k : Nat} (h1 : lo ≤ lo'
       split
       · rfl
       · rw [getElem?_memPatch_out (by omega), getElem?_memPatch_out (by omega)]
+
+/-- **A tail callee without an outer word** in a routine with one
+(`__ieee754_pow`'s `sqrt`): the outer word patched from the final memory. -/
+theorem memPatch_tail_outer0 {m X : Mem} {lo n lo' n' A k : Nat} (h1 : lo ≤ lo') (h2 : lo' + n' ≤ lo + n) :
+    memPatch (memPatch m (memPatch m X lo' n') lo n) (memPatch m X lo' n') A k = memPatch m X lo' n' :=
+  Std.ExtHashMap.ext_getElem? fun x => by
+    rw [getElem?_memPatch (memPatch m (memPatch m X lo' n') lo n)]
+    split
+    · rfl
+    · rw [memPatch_tail h1 h2]
 
 /-- **An outer store in the returning segment**: the routine's two patches of
 the final memory (`with_errno`'s `errno` word written last). -/
