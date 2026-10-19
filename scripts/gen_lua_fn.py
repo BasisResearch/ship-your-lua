@@ -170,7 +170,8 @@ SF6 = {"fabs": ("Fabs", 0x8002d78c, 0, [10], 0), "finite": ("Finite", 0x8002bd9c
        "with_errno": ("WithErrno", 0x8002d244, 32, [10, 11], 32),
        "xflow": ("Xflow", 0x8002d278, 32, [10, 11], 112),
        "__math_oflow": ("MathOflow", 0x8002d2d0, 0, [10], 112),
-       "__math_uflow": ("MathUflow", 0x8002d2b8, 0, [10], 112)}
+       "__math_uflow": ("MathUflow", 0x8002d2b8, 0, [10], 112),
+       "scalbn": ("Scalbn", 0x8002d09c, 32, [10, 11], 112)}
 SF6_OUTER = {"with_errno", "xflow", "__math_oflow", "__math_uflow"}
 for _fn, (_mod, _e, _F, _args, _W) in SF6.items():
     ROUTINES[_fn] = (_mod, _e, _F, _args)
