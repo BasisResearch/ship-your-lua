@@ -115,12 +115,22 @@ FLOAT_ARMS.update({"OP_MOD_F": ("ModF", 0x8001dc58), "OP_MODK_F": ("ModkF", 0x80
 # module per class of tags (`SEED_VAL`)
 FP_CLASSES = {"IIF": (3, 3, 19), "IFF": (3, 19, 19), "FII": (19, 3, 3), "FIF": (19, 3, 19),
               "FFI": (19, 19, 3)}
-FLOAT_ARMS.update({"OP_FORPREP_TI": ("ForprepTI", 0x8001c0f8)})
+# lane F1-F9: a string control value `luaO_str2num` reads as an integer
+# (`S`, seeded as a tag that is neither `LUA_VNUMINT` nor `LUA_VNUMFLT`): the
+# float loop's classes with a string among the three (all but `ISI`, the
+# integer loop with a string limit, `OP_FORPREP_SI`)
+STR_SEED = ("nes", (3, 19))
+FP_TAGS = {"I": 3, "F": 19, "S": STR_SEED}
+FP_CLASSES.update({a + b + c: (FP_TAGS[a], FP_TAGS[b], FP_TAGS[c])
+                   for a in "IFS" for b in "IFS" for c in "IFS"
+                   if "S" in a + b + c and a + b + c != "ISI"})
+FLOAT_ARMS.update({"OP_FORPREP_TI": ("ForprepTI", 0x8001c0f8), "OP_FORPREP_SI": ("ForprepSI", 0x8001c0f8)})
 FLOAT_ARMS.update({f"OP_FORPREP_C{k}": (f"ForprepC{k}", 0x8001c0f8) for k in FP_CLASSES})
 SEG_OP = {"OP_BANDK_F": "OP_BANDK", "OP_BORK_F": "OP_BORK", "OP_BXORK_F": "OP_BXORK",
           **{f"OP_{o}_F": f"OP_{o}" for o in ("SHL", "SHR", "SHLI", "SHRI")},
 "OP_FORPREP_F": "OP_FORPREP", "OP_LT_F": "OP_LT", "OP_UNM_F": "OP_UNM",
-          "OP_FORPREP_TI": "OP_FORPREP", **{f"OP_FORPREP_C{k}": "OP_FORPREP" for k in FP_CLASSES},
+          "OP_FORPREP_TI": "OP_FORPREP", "OP_FORPREP_SI": "OP_FORPREP",
+          **{f"OP_FORPREP_C{k}": "OP_FORPREP" for k in FP_CLASSES},
           "OP_LE_F": "OP_LE", "OP_EQ_F": "OP_EQ", "OP_EQK_F": "OP_EQK",
           "OP_IDIV_F": "OP_IDIV", "OP_IDIVK_F": "OP_IDIVK",
           "OP_MOD_F": "OP_MOD", "OP_MODK_F": "OP_MODK",
@@ -136,7 +146,8 @@ FLOAT_SEED = {"OP_EQI": [("tag", "a", 0)], "OP_LTI": [("tag", "a", 0)],
               "OP_SHLI_F": [("tag", "b", 0)], "OP_SHRI_F": [("tag", "b", 0)]}
 VNUMFLT_ = 19
 # lane F1-F8: seeds with a tag value (a location's fact `("eq", v)`)
-SEED_VAL = {"OP_FORPREP_TI": [(("tag", "a", 0), 3), (("tag", "a", 1), 19), (("tag", "a", 2), 3)]}
+SEED_VAL = {"OP_FORPREP_TI": [(("tag", "a", 0), 3), (("tag", "a", 1), 19), (("tag", "a", 2), 3)],
+            "OP_FORPREP_SI": [(("tag", "a", 0), 3), (("tag", "a", 1), STR_SEED), (("tag", "a", 2), 3)]}
 SEED_VAL.update({f"OP_FORPREP_C{k}": [(("tag", "a", i), t) for i, t in enumerate(ts)]
                  for k, ts in FP_CLASSES.items()})
 # round 5 (A-JOIN): the cut points at the machine's joins. arm -> {join pc:
@@ -234,6 +245,10 @@ IMPORTS["OP_FORPREP_TI"] = IMPORTS["OP_FORPREP_TI"] + ["Lua.Vm.Sim.Kit.AtCoerce"
 for _k in FP_CLASSES:
     IMPORTS[f"OP_FORPREP_C{_k}"] = IMPORTS[f"OP_FORPREP_C{_k}"] + ["Lua.Vm.Sim.Kit.AtJoinRow",
                                                                     "Lua.Vm.Sim.Kit.AtCoerce"]
+    # lane F1-F9: the string call nodes (`Kit/AtCoerceS.lean`)
+    if "S" in _k:
+        IMPORTS[f"OP_FORPREP_C{_k}"] = IMPORTS[f"OP_FORPREP_C{_k}"] + ["Lua.Vm.Sim.Kit.AtCoerceS"]
+IMPORTS["OP_FORPREP_SI"] = IMPORTS["OP_FORPREP_SI"] + ["Lua.Vm.Sim.Kit.AtCoerce", "Lua.Vm.Sim.Kit.AtCoerceS"]
 # lane F3: `K[C]`'s address read through a callee's frame (`at_side_ext`, `Kit/AtFrame.lean`)
 for _op in ("OP_BANDK_F", "OP_BORK_F", "OP_BXORK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtFrame"]
@@ -396,6 +411,13 @@ def lean_loc(x):
     if k == "toni":
         # lane F1-F8: `luaV_tonumber_`'s converted integer (`__floatdidf`)
         return f"(.fn fun X => Lua.Vm.Fn.Floatdidf.S (Loc.den X (.val .{x[1]} {x[2]})))"
+    if k == "tons":
+        # lane F1-F9: `luaV_tonumber_`'s converted string integer numeral
+        return (f"(.fn fun X => Lua.Vm.Fn.Floatdidf.S (Lua.Vm.Sim.Kit.strIntOf "
+                f"(Lua.Vm.Sim.Kit.rsOf X (X.ins.{x[1]} + {x[2]}))))")
+    if k == "tois":
+        # lane F1-F9: `luaV_tointeger`'s string integer numeral
+        return f"(.fn fun X => Lua.Vm.Sim.Kit.strIntOf (Lua.Vm.Sim.Kit.rsOf X (X.ins.{x[1]} + {x[2]})))"
     if k == "tiv":
         # lane F1-F8: `luaV_tointeger`'s integer of a float (`flttointeger`)
         return f"(.fn fun X => Lua.Vm.Sim.Kit.tiv {x[1]} (Loc.den X (.val .{x[2]} {x[3]})))"
@@ -757,7 +779,9 @@ def decide(head, x, y, facts, f1=True):
             return head == "!="
         if loc is not None and loc in facts:
             rel, w = facts[loc]
-            eq = (w == v) if rel == "eq" else (False if w == v else None)
+            # lane F1-F9: `nes`, a seeded tag none of the listed values (a string)
+            eq = ((w == v) if rel == "eq" else (False if v in w else None) if rel == "nes"
+                  else (False if w == v else None))
             if eq is not None:
                 return eq if head == "==" else not eq
     return None
@@ -988,16 +1012,29 @@ def call_effect(st, callee, ret):
         if so is None or so[2] != 0 or q is None or q[0] != {"sp": 1}:
             raise Stop(f"luaV_tonumber_ of {a0}, {a1}")
         f, k, _ = so
-        hyps.append(f"(ht : slotTag X.c.σ.mem (X.w.slot (X.ins.{f} + {k})) = 3#8)")
         post.bounds = {(f, k)}
         sp = (("sp", 1),)
         # the slot's address in the row's form (`Aff.den` unfolded)
         nslot = f"(X.w.base + 16 * X.ins.{f}" + (f" + {16 * k})" if k else ")")
-        post.log.insert(0, ("clob", sp, -80, (80, f"fun X M => Lua.Vm.Sim.Kit.toniW 0x{ret:x}#64 "
-                                                    f"{nslot} (X.w.sp + {q[1]}) X.w.sp M")))
-        post.store("sd", sp, q[1], ("toni", f, k))
+        if CUR[0].op[-3:][k] == "S":
+            # lane F1-F9: `tons_sum` on a string `luaO_str2num` reads as an
+            # integer: `a0 = 1`, the callee frames `[sp - 80, sp)` a `clob` of
+            # `tonsW`, `*q` the converted integer
+            j = f"X.ins.{f} + {k}"
+            hyps += ["(xs : List UInt8)", f"(hsx : X.s.regs ({j}) = some (.str xs))",
+                     "(hxi : (Lua.Num.str2int xs).isSome = true)"]
+            post.log.insert(0, ("clob", sp, -80, (80, f"fun X M => Lua.Vm.Sim.Kit.tonsW 0x{ret:x}#64 "
+                                                        f"{nslot} (X.w.sp + {q[1]}) X.w.sp M "
+                                                        f"(Lua.Vm.Sim.Kit.strIntOf (Lua.Vm.Sim.Kit.rsOf X ({j})))")))
+            post.store("sd", sp, q[1], ("tons", f, k))
+            proof = f"at_tons {f} {k}"
+        else:
+            hyps.append(f"(ht : slotTag X.c.σ.mem (X.w.slot (X.ins.{f} + {k})) = 3#8)")
+            post.log.insert(0, ("clob", sp, -80, (80, f"fun X M => Lua.Vm.Sim.Kit.toniW 0x{ret:x}#64 "
+                                                        f"{nslot} (X.w.sp + {q[1]}) X.w.sp M")))
+            post.store("sd", sp, q[1], ("toni", f, k))
+            proof = f"at_toni {f} {k}"
         post.set(10, ("lit", 1))
-        proof = f"at_toni {f} {k}"
         post.path, post.joined = dict(st.path), st.joined
         return post, hyps, "\n  ".join(["at_open"] + [f"obtain ⟨_, h⟩ := {p} h" for p in pins] + [proof]), pre_regs
     elif callee == "luaV_tointeger" and CUR[0].op == "OP_FORPREP_TI":
@@ -1032,6 +1069,32 @@ def call_effect(st, callee, ret):
             out.append((p2, hs, "\n  ".join(["at_open"] + [f"obtain ⟨_, h⟩ := {p} h" for p in pins] + [proof]),
                         pre_regs, "_ok" if ok else "_no"))
         return out
+    elif callee == "luaV_tointeger" and CUR[0].op == "OP_FORPREP_SI":
+        # lane F1-F9: `tois_sum` on a string limit `luaO_str2num` reads as an
+        # integer: `a0 = 1`, `*q` the integer; the callee frame `[sp - 80,
+        # sp)` a `clob` of `toisW`
+        s = to_aff(a0)
+        terms = tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))) if s else None
+        so = slot_of(terms, s[1]) if s else None
+        q = to_aff(a1)
+        md = litval(st.get(12))
+        if so is None or so[2] != 0 or q is None or q[0] != {"sp": 1} or md not in (1, 2):
+            raise Stop(f"luaV_tointeger of {a0}, {a1}, {st.get(12)}")
+        f, k, _ = so
+        j = f"X.ins.{f} + {k}"
+        post.bounds = {(f, k)}
+        sp = (("sp", 1),)
+        nslot = f"(X.w.base + 16 * X.ins.{f}" + (f" + {16 * k})" if k else ")")
+        post.log.insert(0, ("clob", sp, -80, (80, f"fun X M => Lua.Vm.Sim.Kit.toisW 0x{ret:x}#64 "
+                                                    f"{den(st.get(9))} {md}#64 {nslot} (X.w.sp + {q[1]}) "
+                                                    f"X.w.sp M (Lua.Vm.Sim.Kit.strIntOf (Lua.Vm.Sim.Kit.rsOf X ({j})))")))
+        post.store("sd", sp, q[1], ("tois", f, k))
+        post.set(10, ("lit", 1))
+        hyps += ["(xs : List UInt8)", f"(hsx : X.s.regs ({j}) = some (.str xs))",
+                 "(hxi : (Lua.Num.str2int xs).isSome = true)"]
+        proof = f"at_tois {f} {k} {md}"
+        post.path, post.joined = dict(st.path), st.joined
+        return post, hyps, "\n  ".join(["at_open"] + [f"obtain ⟨_, h⟩ := {p} h" for p in pins] + [proof]), pre_regs
     elif callee == "luaV_tointeger":
         s = to_aff(a0)
         if s is None or not slot_of(tuple(sorted(s[0].items(), key=lambda y: ATOMS.index(y[0]))), s[1]):
@@ -1237,7 +1300,7 @@ class Arm:
                             if v is not None and litval(loc) is None:
                                 eq = (head == "==") == taken
                                 # lane F1-F8: a seeded tag's value is kept (`SEED_VAL`)
-                                if not (CUR[0].op in SEED_VAL and st2.facts.get(loc, ("",))[0] == "eq"):
+                                if not (CUR[0].op in SEED_VAL and st2.facts.get(loc, ("",))[0] in ("eq", "nes")):
                                     st2.facts[loc] = ("eq" if eq else "ne", v)
                         if not ground:
                             if len(guards) != 1:
@@ -1495,7 +1558,7 @@ class Arm:
         CUR[0] = self
         self.dropped = []
         st = State(HEADROW, [], {loc: ("eq", VNUMFLT_) for loc in FLOAT_SEED.get(self.op, [])})
-        st.facts.update({loc: ("eq", v) for loc, v in SEED_VAL.get(self.op, [])})
+        st.facts.update({loc: (v if isinstance(v, tuple) else ("eq", v)) for loc, v in SEED_VAL.get(self.op, [])})
         thunks = self.walk(self.target, st) or []
         while self.join_pending:
             pc = self.join_pending.pop(0)
