@@ -3066,6 +3066,68 @@ def toni(mod, doc):
         imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
 
 
+def str_cells(tag, lng, base):
+    """lane F1-F9: a string `TValue` at `X.n 1` of tag `tag` (`0x44` short,
+    `0x54` long), its `TString` at `X.n 3`, its length `X.n 4`: the tag, the
+    pointer, and a long string's `shrlen` (`0xff`) and `lnglen`; after
+    `luaO_str2num` (the root at `base`) the result's tag `3` in the frame."""
+    rw = {(1, ((1, 1),), 8): tag}
+    rc = {(((1, 1),), 0): N((3, 1))}
+    if lng:
+        rw[(1, ((3, 1),), 11)] = 0xff
+        rc[(((3, 1),), 16)] = N((4, 1))
+    return rw, rc
+
+
+STR_OK = ["ts_lo : 0x8005c6c0 + 16 ≤ X.n 3", "ts_hi : X.n 3 + 24 + X.n 4 + 16 ≤ 2 ^ 32", "len_hi : X.n 4 ≤ 2 ^ 40"]
+
+
+def tons(mod, tag, lng, doc):
+    """lane F1-F9: `luaV_tonumber_(obj, q)` on a string `TValue` that
+    `luaO_str2num` reads as an integer (`l_strton`: the call a node with
+    `a0 = len + 1`, its stores in the frame `[sp - 48, sp)` the root facts
+    after it; `tsslen`; `__floatdidf`; the store `*q`): X.n 0 = sp, X.n 1 =
+    obj, X.n 2 = q, X.n 3 = the `TString`, X.n 4 = its length; X.b 13 = the
+    integer; X.b 0 = ra, X.b 1… the caller's `s0`–`s11`."""
+    row = abi_row({10: N((1, 1)), 11: N((2, 1))})
+    rw, rc = str_cells(tag, lng, 0x8001abc4)
+    rc[(((0, 1),), -32)] = ("bv", 13)
+    return dict(
+        mod=mod, entry=0x8001ab58, row=row, float=True,
+        ok=["sp_lo : 0x8005c6c0 + 16 + 80 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 8 = 0",
+            "n_lo : 0x8005c6c0 + 16 ≤ X.n 1", "n_hi : X.n 1 + 16 + 80 ≤ X.n 0",
+            "q_lo : X.n 0 ≤ X.n 2", "q_hi : X.n 2 + 8 ≤ 2 ^ 32", "q_al : X.n 2 % 8 = 0",
+            "ra : (X.b 0).toNat % 4 = 0", "hro : RodataRead X.m"] + STR_OK,
+        lb={1: 0x8005c6d0, 3: 0x8005c6d0},
+        rcellsw=rw, rcells=rc,
+        root_rcellsw={0x8001abc4: {(1, ((0, 1),), -24): 3}},
+        calls={0x80011998: dict(ret={10: N((4, 1), add=1)})},
+        imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
+
+
+def tois(mod, tag, lng, doc):
+    """lane F1-F9: `luaV_tointeger(obj, q, mode)` on a string `TValue` that
+    `luaO_str2num` reads as an integer (FORPREP's `forlimit` on a string
+    limit): the call a node with `a0 = len + 1`, the result's tag `3`, the
+    store `*q`; X.n 0 = sp, X.n 1 = obj, X.n 2 = q, X.n 3 = the `TString`,
+    X.n 4 = its length; X.b 13 = the integer, X.b 14 = the mode; X.b 0 = ra,
+    X.b 1… the caller's `s0`–`s11`."""
+    row = abi_row({10: N((1, 1)), 11: N((2, 1)), 12: ("bv", 14)})
+    rw, rc = str_cells(tag, lng, 0x8001ae68)
+    rc[(((0, 1),), -48)] = ("bv", 13)
+    return dict(
+        mod=mod, entry=0x8001ade8, row=row, float=True,
+        ok=["sp_lo : 0x8005c6c0 + 16 + 80 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 8 = 0",
+            "n_lo : 0x8005c6c0 + 16 ≤ X.n 1", "n_hi : X.n 1 + 16 + 80 ≤ X.n 0",
+            "q_lo : X.n 0 ≤ X.n 2", "q_hi : X.n 2 + 8 ≤ 2 ^ 32", "q_al : X.n 2 % 8 = 0",
+            "ra : (X.b 0).toNat % 4 = 0"] + STR_OK,
+        lb={1: 0x8005c6d0, 3: 0x8005c6d0},
+        rcellsw=rw, rcells=rc,
+        root_rcellsw={0x8001ae68: {(1, ((0, 1),), -40): 3}},
+        calls={0x80011998: dict(ret={10: N((4, 1), add=1)})},
+        imports=["Lua.Vm.Sim.Kit.AtFnFlt"], doc=doc)
+
+
 def eqf(mod, t1, t2, doc):
     """lane F1-F4: `luaV_equalobj(L, t1, t2)` on the tags `t1`, `t2` (a float
     one of them): X.n 0 = sp, X.n 1 = t1, X.n 2 = t2; X.b 0 = ra, X.b 1 = gp,
@@ -3163,6 +3225,16 @@ FNS = {
     "luaV_tointeger/flt2": tif("TointF2", 2, "`luaV_tointeger(n, q, F2Iceil)` on a float."),
     # lane F1-F8: `luaV_tonumber_` on an integer (FORPREP's float loop)
     "luaV_tonumber_/int": toni("TonumI", "`luaV_tonumber_(obj, q)` on an integer."),
+    # lane F1-F9: `luaV_tonumber_` and `luaV_tointeger` on a string that
+    # `luaO_str2num` reads as an integer (FORPREP's string control values)
+    "luaV_tonumber_/strS": tons("TonumSS", 0x44, False,
+                                "`luaV_tonumber_(obj, q)` on a short string integer numeral."),
+    "luaV_tonumber_/strL": tons("TonumSL", 0x54, True,
+                                "`luaV_tonumber_(obj, q)` on a long string integer numeral."),
+    "luaV_tointeger/strS": tois("TointSS", 0x44, False,
+                                "`luaV_tointeger(obj, q, mode)` on a short string integer numeral."),
+    "luaV_tointeger/strL": tois("TointSL", 0x54, True,
+                                "`luaV_tointeger(obj, q, mode)` on a long string integer numeral."),
     # `fflush(stdout)` on the set-up line-buffered `stdout` (`StdioUp`): the
     # lock no-ops around `__sflush_r` (its summary `sflush_sum` at the call)
     "fflush": dict(
