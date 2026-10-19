@@ -172,8 +172,9 @@ SF6 = {"fabs": ("Fabs", 0x8002d78c, 0, [10], 0), "finite": ("Finite", 0x8002bd9c
        "__math_oflow": ("MathOflow", 0x8002d2d0, 0, [10], 112),
        "__math_uflow": ("MathUflow", 0x8002d2b8, 0, [10], 112),
        "scalbn": ("Scalbn", 0x8002d09c, 32, [10, 11], 112),
-       "__ieee754_pow": ("Ieee754Pow", 0x8002c2a8, 176, [10, 11], 288)}
-SF6_OUTER = {"with_errno", "xflow", "__math_oflow", "__math_uflow", "__ieee754_pow"}
+       "__ieee754_pow": ("Ieee754Pow", 0x8002c2a8, 176, [10, 11], 288),
+       "pow": ("Pow", 0x8002b9fc, 32, [10, 11], 320)}
+SF6_OUTER = {"with_errno", "xflow", "__math_oflow", "__math_uflow", "__ieee754_pow", "pow"}
 for _fn, (_mod, _e, _F, _args, _W) in SF6.items():
     ROUTINES[_fn] = (_mod, _e, _F, _args)
     if _W != _F:
@@ -182,7 +183,7 @@ for _fn, (_mod, _e, _F, _args, _W) in SF6.items():
         OUTER[_fn] = ("Lua.Vm.Layout.symImpureData", 4)
         FACTS[_fn] = errno_facts(_W)
         DISCH[_fn] = "fn_odisch"
-PRO_SAVES |= {"with_errno", "__ieee754_pow"}
+PRO_SAVES |= {"with_errno", "__ieee754_pow", "pow"}
 
 # the error-exit chain's callees (their `FACTS` passed on: `gp`, the stack
 # above `_impure_ptr` by `omega`, `_impure_ptr` read back by `fn_imp`)
@@ -226,12 +227,17 @@ def sf6_callees():
                        "Lua.Vm.Fn.Floatsidf.F ({m}) {sp} ({r}) ({a0})", 1, 32,
                        "Lua.Vm.Fn.Floatsidf.Fm ({m}) {sp} ({r}) ({a0})",
                        ("Lua.Vm.Fn.Floatsidf.F", "Lua.Vm.Fn.Floatsidf.Fm"), "Lua.Vm.Fn.Floatsidf"),
+    0x8002c2a8: Callee("Lua.Vm.Fn.Ieee754Pow.sum", SF6_ARGS,
+                       "Lua.Vm.Fn.Ieee754Pow.F ({m}) {sp} ({r}) {g} ({a0}) ({a1})", 2, 288,
+                       "Lua.Vm.Fn.Ieee754Pow.Fm ({m}) {sp} ({r}) {g} ({a0}) ({a1})",
+                       ("Lua.Vm.Fn.Ieee754Pow.F", "Lua.Vm.Fn.Ieee754Pow.Fm"), "Lua.Vm.Fn.Ieee754Pow",
+                       outer=_IMPD),
     0x8002d448: Callee("Lua.Vm.Fn.Ieee754Sqrt.sum_ref", "_ _ {sp} _ {g} _ {fsp} {hr} (by fn_rod)",
                        "Lua.Num.F64.sqrt ({a0})", 1, 160,
                        "Lua.Vm.Fn.Ieee754Sqrt.Fm ({m}) {sp} ({r}) {g} ({a0})",
                        ("Lua.Num.F64.sqrt", "Lua.Vm.Fn.Ieee754Sqrt.Fm"), "Lua.Vm.Fn.SqrtSpec"),
   }
-MEMLESS |= {"with_errno", "xflow", "__math_oflow", "__math_uflow"}
+MEMLESS |= {"with_errno", "xflow", "__math_oflow", "__math_uflow", "pow"}
 
 
 class Callee:
@@ -653,6 +659,9 @@ class Fn:
                 c = s_callee(s)
                 mem = (f"memPatch ({mem}) ({c.mf.format(**fmt)}) ({fmt['sp']} - {c.frame}) "
                        f"{c.frame}")
+                if c.outer:
+                    # lane float-sf6: and its outer word (`pow`'s `__ieee754_pow`)
+                    mem = f"memPatch ({mem}) ({c.mf.format(**fmt)}) {c.outer[0]} {c.outer[1]}"
         return post, mem
 
     def side(self, s):
@@ -1317,7 +1326,11 @@ class Fn:
         out.append(f"{I}  ({self.succ_app(s.succ, pc, s, ht)})")
         out.append(f"{I}refine ⟨_, acc, ?_⟩")
         out.append(f"{I}{unfold}")
-        if framed_call:
+        if framed_call and s_callee(s).outer and self.fn in OUTER:
+            # lane float-sf6: a callee's two patches (its window, the outer
+            # word) inside the routine's (`pow`'s `__ieee754_pow`)
+            out.append(f"{I}simp (disch := kit_disch) only [memPatch_patch_outer_in] at h")
+        elif framed_call:
             out.append(f"{I}simp (disch := kit_disch) only [memPatch_patch_in] at h")
         if "writeMap8" in s.mem:
             out.append(f"{I}simp (disch := kit_disch) only [memPatch_wm8_in] at h")

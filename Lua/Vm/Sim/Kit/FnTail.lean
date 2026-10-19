@@ -69,6 +69,22 @@ theorem memPatch_tail_outer0 {m X : Mem} {lo n lo' n' A k : Nat} (h1 : lo ≤ lo
     · rfl
     · rw [memPatch_tail h1 h2]
 
+/-- **A called routine's two patches** (its window and the outer word) inside
+the caller's (`pow`'s call of `__ieee754_pow`). -/
+theorem memPatch_patch_outer_in {M X Y : Mem} {lo n lo' n' A k : Nat} (h1 : lo ≤ lo')
+    (h2 : lo' + n' ≤ lo + n) :
+    memPatch (memPatch (memPatch (memPatch M X lo' n') X A k) Y lo n) Y A k =
+      memPatch (memPatch M Y lo n) Y A k :=
+  Std.ExtHashMap.ext_getElem? fun x => by
+    rw [getElem?_memPatch (memPatch (memPatch (memPatch M X lo' n') X A k) Y lo n),
+      getElem?_memPatch (memPatch M Y lo n)]
+    split
+    · rfl
+    · rw [getElem?_memPatch (memPatch (memPatch M X lo' n') X A k) Y lo x n, getElem?_memPatch M Y lo x n]
+      split
+      · rfl
+      · rw [getElem?_memPatch_out (by omega), getElem?_memPatch_out (by omega)]
+
 /-- **An outer store in the returning segment**: the routine's two patches of
 the final memory (`with_errno`'s `errno` word written last). -/
 theorem memPatch_ret_wm4 {m : Mem} {lo n A a : Nat} {d : BitVec (8 * 4)} (ha : a = A)
