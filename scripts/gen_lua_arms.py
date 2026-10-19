@@ -474,14 +474,14 @@ FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc),
               # (`s_scalbn.c`), the error exits (`math_err.c`: `__math_*` -> `xflow`
               # -> `with_errno`, the `errno` store), `fabs`, `finite`
               ("pow", "Pow", 0x8002b9fc, 0x8002bb14),
-              ("finite", "finite", 0x8002bd9c, 0x8002bdb4),
+              ("finite", "Finite", 0x8002bd9c, 0x8002bdb4),
               ("__ieee754_pow", "__ieee754_pow", 0x8002c2a8, 0x8002d09c),
-              ("scalbn", "scalbn", 0x8002d09c, 0x8002d244),
-              ("with_errno", "with_errno", 0x8002d244, 0x8002d278),
-              ("xflow", "xflow", 0x8002d278, 0x8002d2b8),
+              ("scalbn", "Scalbn", 0x8002d09c, 0x8002d244),
+              ("with_errno", "With_errno", 0x8002d244, 0x8002d278),
+              ("xflow", "Xflow", 0x8002d278, 0x8002d2b8),
               ("__math_uflow", "__math_uflow", 0x8002d2b8, 0x8002d2c4),
               ("__math_oflow", "__math_oflow", 0x8002d2d0, 0x8002d2dc),
-              ("fabs", "fabs", 0x8002d78c, 0x8002d7a8)]
+              ("fabs", "Fabs", 0x8002d78c, 0x8002d7a8)]
 # a lifted routine's computed-jump targets (its jump tables' entries), and
 # cuts between a spill and a reload of another slot (`0x8002e1f0`: the reload
 # then reads the node's memory, a forwarded slot, `gen_lua_fn.py` `FORWARD`)

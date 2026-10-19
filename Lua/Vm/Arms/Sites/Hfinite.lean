@@ -1,6 +1,6 @@
 import Vsa.Sim.ValueSites
 import Vsa.Sim.DecodeNF
-import Lua.Vm.Code.FixedImage_finite
+import Lua.Vm.Code.FixedImage_Finite
 import Lua.Vm.Arms.Text
 
 /-!
@@ -36,7 +36,7 @@ theorem site_8002bd9c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x14 (shift_bits_left v10 (Sail.BitVec.extractLsb (0x01#6) 5 0))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bd9c (Lua.Vm.Code.textLoaded_finiteLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bd9c (Lua.Vm.Code.textLoaded_FiniteLoaded hmem)
   exact stepObs_alu σ i u (0x8002bd9c#64) vminstret (0x00151713#32)
     (instruction.SHIFTIOP (0x01#6, regidx.Regidx 0x0a#5, regidx.Regidx 0x0e#5, sop.SLLI))
     Register.x14 (shift_bits_left v10 (Sail.BitVec.extractLsb (0x01#6) 5 0))
@@ -68,7 +68,7 @@ theorem site_8002bda0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (sign_extend (m := 64) ((0x80100#20) +++ 0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bda0 (Lua.Vm.Code.textLoaded_finiteLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bda0 (Lua.Vm.Code.textLoaded_FiniteLoaded hmem)
   exact stepObs_alu σ i u (0x8002bda0#64) vminstret (0x801007b7#32)
     (instruction.UTYPE (0x80100#20, regidx.Regidx 0x0f#5, uop.LUI))
     Register.x15 (sign_extend (m := 64) ((0x80100#20) +++ 0x000#12))
@@ -99,7 +99,7 @@ theorem site_8002bda4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v14 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10 (shift_bits_right v14 (Sail.BitVec.extractLsb (0x21#6) 5 0))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bda4 (Lua.Vm.Code.textLoaded_finiteLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bda4 (Lua.Vm.Code.textLoaded_FiniteLoaded hmem)
   exact stepObs_alu σ i u (0x8002bda4#64) vminstret (0x02175513#32)
     (instruction.SHIFTIOP (0x21#6, regidx.Regidx 0x0e#5, regidx.Regidx 0x0a#5, sop.SRLI))
     Register.x10 (shift_bits_right v14 (Sail.BitVec.extractLsb (0x21#6) 5 0))
@@ -133,7 +133,7 @@ theorem site_8002bda8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10 (sign_extend (m := 64) ((Sail.BitVec.extractLsb v10 31 0) + (Sail.BitVec.extractLsb v15 31 0)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bda8 (Lua.Vm.Code.textLoaded_finiteLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bda8 (Lua.Vm.Code.textLoaded_FiniteLoaded hmem)
   exact stepObs_alu σ i u (0x8002bda8#64) vminstret (0x00f5053b#32)
     (instruction.RTYPEW (regidx.Regidx 0x0f#5, regidx.Regidx 0x0a#5, regidx.Regidx 0x0a#5, ropw.ADDW))
     Register.x10 (sign_extend (m := 64) ((Sail.BitVec.extractLsb v10 31 0) + (Sail.BitVec.extractLsb v15 31 0)))
@@ -168,7 +168,7 @@ theorem site_8002bdac (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v10 31 0) (0x1f#5)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bdac (Lua.Vm.Code.textLoaded_finiteLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bdac (Lua.Vm.Code.textLoaded_FiniteLoaded hmem)
   exact stepObs_alu σ i u (0x8002bdac#64) vminstret (0x01f5551b#32)
     (instruction.SHIFTIWOP (0x1f#5, regidx.Regidx 0x0a#5, regidx.Regidx 0x0a#5, sopw.SRLIW))
     Register.x10 (sign_extend (m := 64) (shift_bits_right (Sail.BitVec.extractLsb v10 31 0) (0x1f#5)))
@@ -204,7 +204,7 @@ theorem site_8002bdb0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v1 :
       ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret
           (BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bdb0 (Lua.Vm.Code.textLoaded_finiteLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.finite_at_8002bdb0 (Lua.Vm.Code.textLoaded_FiniteLoaded hmem)
   exact stepObs_jr σ i u (0x8002bdb0#64) vminstret v1 (0x00008067#32) (0x000#12)
     (regidx.Regidx 0x01#5) (0x67#8) (0x80#8) (0x00#8) (0x00#8)
     hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)

@@ -152,6 +152,70 @@ LOAD_RE = r"bytesT8 \(m0\) " + SLOT_RE
 MEM_RE = r"\bm\b(?!\s*:=)"
 
 
+# lane float-sf6: libm `pow`'s routines. The leaves `fabs`, `finite`; the error
+# exits of `math_err.c` (`with_errno` stores `errno`: `OUTER`, its frame's `s0`
+# saved and reassigned: `PRO_SAVES`; `xflow` and the frameless `__math_oflow`,
+# `__math_uflow` reach it by tail jumps: `TAILS`), `scalbn`, `__ieee754_pow`
+# (`e_pow.c`, tail jumps to `__ieee754_sqrt` and the error exits) and the
+# wrapper `pow` (`w_pow.c`). A routine reaching the `errno` store carries the
+# `FACTS` of `fmod` over its own window.
+def errno_facts(W):
+    return [("hgp", "g.gp = BitVec.ofNat 64 Lua.Vm.Layout.symGlobalPointer", None),
+            ("hsI", f"Lua.Vm.Layout.symImpurePtr + 8 + {W} ≤ s", None),
+            ("himp", "bytesT8 m Lua.Vm.Layout.symImpurePtr = "
+             "BitVec.ofNat 64 Lua.Vm.Layout.symImpureData", "fn_imp")]
+
+
+SF6 = {"fabs": ("Fabs", 0x8002d78c, 0, [10], 0), "finite": ("Finite", 0x8002bd9c, 0, [10], 0),
+       "with_errno": ("WithErrno", 0x8002d244, 32, [10, 11], 32),
+       "xflow": ("Xflow", 0x8002d278, 32, [10, 11], 112),
+       "__math_oflow": ("MathOflow", 0x8002d2d0, 0, [10], 112),
+       "__math_uflow": ("MathUflow", 0x8002d2b8, 0, [10], 112)}
+SF6_OUTER = {"with_errno", "xflow", "__math_oflow", "__math_uflow"}
+for _fn, (_mod, _e, _F, _args, _W) in SF6.items():
+    ROUTINES[_fn] = (_mod, _e, _F, _args)
+    if _W != _F:
+        WINDOW[_fn] = _W
+    if _fn in SF6_OUTER:
+        OUTER[_fn] = ("Lua.Vm.Layout.symImpureData", 4)
+        FACTS[_fn] = errno_facts(_W)
+        DISCH[_fn] = "fn_odisch"
+PRO_SAVES |= {"with_errno"}
+
+# the error-exit chain's callees (their `FACTS` passed on: `gp`, the stack
+# above `_impure_ptr` by `omega`, `_impure_ptr` read back by `fn_imp`)
+SF6_ARGS = "_ _ {sp} _ {g} _ _ {fsp} {hr} (by fn_rod) hgp (by omega) (by fn_imp)"
+SF6_ARGS1 = "_ _ {sp} _ {g} _ {fsp} {hr} (by fn_rod) hgp (by omega) (by fn_imp)"
+_IMPD = ("Lua.Vm.Layout.symImpureData", 4)
+def sf6_callees():
+  return {
+    0x8002d244: Callee("Lua.Vm.Fn.WithErrno.sum", SF6_ARGS,
+                       "Lua.Vm.Fn.WithErrno.F ({m}) {sp} ({r}) ({a0}) ({a1})", 2, 32,
+                       "Lua.Vm.Fn.WithErrno.Fm ({m}) {sp} ({r}) {g} ({a0}) ({a1})",
+                       ("Lua.Vm.Fn.WithErrno.F", "Lua.Vm.Fn.WithErrno.Fm"), "Lua.Vm.Fn.WithErrno",
+                       outer=_IMPD),
+    0x8002d278: Callee("Lua.Vm.Fn.Xflow.sum", SF6_ARGS,
+                       "Lua.Vm.Fn.Xflow.F ({m}) {sp} ({r}) ({a0}) ({a1})", 2, 112,
+                       "Lua.Vm.Fn.Xflow.Fm ({m}) {sp} ({r}) {g} ({a0}) ({a1})",
+                       ("Lua.Vm.Fn.Xflow.F", "Lua.Vm.Fn.Xflow.Fm"), "Lua.Vm.Fn.Xflow", outer=_IMPD),
+    0x8002d2b8: Callee("Lua.Vm.Fn.MathUflow.sum", SF6_ARGS1,
+                       "Lua.Vm.Fn.MathUflow.F ({m}) {sp} ({r}) ({a0})", 1, 112,
+                       "Lua.Vm.Fn.MathUflow.Fm ({m}) {sp} ({r}) {g} ({a0})",
+                       ("Lua.Vm.Fn.MathUflow.F", "Lua.Vm.Fn.MathUflow.Fm"), "Lua.Vm.Fn.MathUflow",
+                       outer=_IMPD),
+    0x8002d2d0: Callee("Lua.Vm.Fn.MathOflow.sum", SF6_ARGS1,
+                       "Lua.Vm.Fn.MathOflow.F ({m}) {sp} ({r}) ({a0})", 1, 112,
+                       "Lua.Vm.Fn.MathOflow.Fm ({m}) {sp} ({r}) {g} ({a0})",
+                       ("Lua.Vm.Fn.MathOflow.F", "Lua.Vm.Fn.MathOflow.Fm"), "Lua.Vm.Fn.MathOflow",
+                       outer=_IMPD),
+    0x8002d78c: Callee("Lua.Vm.Fn.Fabs.sum", "_ _ _ hframe? _ (by decide)",
+                       "Lua.Vm.Fn.Fabs.F ({a0})", 1, opaque=("Lua.Vm.Fn.Fabs.F",), imp="Lua.Vm.Fn.Fabs"),
+    0x8002bd9c: Callee("Lua.Vm.Fn.Finite.sum", "_ _ _ hframe? _ (by decide)",
+                       "Lua.Vm.Fn.Finite.F ({a0})", 1, opaque=("Lua.Vm.Fn.Finite.F",), imp="Lua.Vm.Fn.Finite"),
+  }
+MEMLESS |= {"with_errno", "xflow", "__math_oflow", "__math_uflow"}
+
+
 class Callee:
     """A call node's callee (lane float-sf3: call nodes to proved summaries).
 
@@ -305,6 +369,24 @@ def args_of(text):
     return out
 
 
+def strip_wm4(text):
+    """`bytesT8 (writeMap4 (m0) (A) (D)) x` -> `bytesT8 (m0) x` (lane float-sf6)."""
+    key = "bytesT8 (writeMap4 (m0) "
+    while key in text:
+        i = text.index(key) + len("bytesT8 ")
+        depth, j = 0, i
+        while True:
+            if text[j] == "(":
+                depth += 1
+            elif text[j] == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        text = text[:i] + "(m0)" + text[j + 1:]
+    return text
+
+
 def wm8_chain(mem):
     """`writeMap8 (writeMap8 (m0) (a1) (d1)) (a2) (d2)` -> [(a1, d1), (a2, d2)]."""
     stores = []
@@ -387,6 +469,9 @@ CALLEES_FOR = {"__ieee754_sqrt": {
                        "Lua.Vm.Fn.Ledf2.S ({a0}) ({a1})", 2, opaque=("Lua.Vm.Fn.Ledf2.S",),
                        imp="Lua.Vm.Fn.FSum")}}
 CUR_FN = [None]
+CALLEES.update(sf6_callees())
+for _fn in ("xflow", "scalbn", "__ieee754_pow"):
+    CALLEES_FOR[_fn] = CALLEES_FOR["__ieee754_sqrt"]
 
 
 def callee_of(e):
@@ -422,6 +507,16 @@ class Fn:
                     raise SystemExit(f"{s.name}: table entry {k} jumps out of the helper")
                 segs.append(c)
         self.segs = segs
+        # lane float-sf6: in a routine with an outer store, a frame slot read
+        # after the store (`with_errno`'s `s0` restore after `errno`'s `sw`)
+        # reads the memory before it (`bytesT8_wm4_far`, the outer word apart)
+        if fn in OUTER:
+            for s in self.segs:
+                s.wm4_reads = False
+                for r, e in list(s.post.items()):
+                    e2 = strip_wm4(e)
+                    if e2 != e:
+                        s.post[r], s.wm4_reads = e2, True
         # a framed callee's patch: `.rodata` and the saved `ra` read through it
         self.patch = any(s.kind == "call" and s_callee(s).frame for s in self.segs)
         # the syntactic closers (`Kit/FnCall.lean`) where a callee's patch or a
@@ -489,7 +584,7 @@ class Fn:
         # the memory functions take the caller's frame: they store it (`saves`)
         # or a callee's frame stores it (`{g}` in `Callee.mf`)
         self.mem_g = bool(self.sv_slot) or any(
-            s.kind == "call" and "{g}" in (s_callee(s).mf or "") for s in self.segs)
+            s.kind in ("call", "tail") and "{g}" in (s_callee(s).mf or "") for s in self.segs)
         # lane F1-F7: a register a node's only edge in sets to a literal is
         # that literal in the node (`OUTER`: `__errno`'s result, the address
         # of the outer store)
@@ -505,7 +600,7 @@ class Fn:
         # caller's saved registers (stored before a call whose callee reads
         # memory) takes the caller's frame `g`, as every node reading memory does
         self.val_g = self.mem_g and any(
-            re.search(r"\bg\.", self.body(pc, s)) for pc in self.order for s in self.nodes[pc])
+            re.search(r"(?<![\w.])g\b", self.body(pc, s)) for pc in self.order for s in self.nodes[pc])
 
     def const_prop(self):
         """`self.consts`: node -> {register: literal} (an acyclic routine)."""
@@ -1124,6 +1219,8 @@ class Fn:
             out.append(f"{I}rw [{self.tn(pc)}{pol}] at hTs")
         out += [f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (by pins_of h)",
                 f"{I}  ({self.seg_app(pc, s, neg)})"]
+        if getattr(s, "wm4_reads", False):
+            out.append(f"{I}simp (disch := fn_odisch) only [bytesT8_wm4_far] at h")
         if self.sv_slot and self.inside(pc):
             sv = sorted(set(re.findall(SV_RE, " ".join(s.post.values()))) & set(self.sv_slot))
             if sv:
@@ -1154,14 +1251,19 @@ class Fn:
             out.append(f"{I}refine ⟨_, acc, ?_⟩")
             out.append(f"{I}{unfold}")
             if self.framed():
-                out.append(f"{I}rw [memPatch_self" + (", memPatch_self]" if self.fn in OUTER else "]"))
+                if self.fn in OUTER and "writeMap4" in s.mem:
+                    # lane float-sf6: the outer store in the returning segment
+                    out.append(f"{I}rw [memPatch_ret_wm4 (by fn_odisch) (by fn_odisch)]")
+                else:
+                    out.append(f"{I}rw [memPatch_self" + (", memPatch_self]" if self.fn in OUTER else "]"))
             out.append(f"{I}exact (h.at ({tgt})).repin (by pins_of h)")
             return out
         framed_call = s.kind == "call" and s_callee(s).frame
         if s.kind == "call":
             c = s_callee(s)
             post = {r: self.subst(pc, e) for r, e in s.post.items()}
-            args = c.args.format(sp=self.sp_nat(pc, s) if c.frame else "", g=self.call_g(pc, s, post)).replace(
+            args = c.args.format(sp=self.sp_nat(pc, s) if c.frame else "", g=self.call_g(pc, s, post),
+                                 fsp="(fn_sp_in hs (by decide) (by decide))", hr="(by decide)").replace(
                 "(by fn_rod)", f"(by {self.rod})")
             # a framed callee's `s` is the caller's `sp` as a `Nat`: its pin
             # put in front (`SegSt.pin_sp`), and back after the return
@@ -1206,7 +1308,8 @@ class Fn:
             out.append(f"{I}rw [fn_sp_restore s ({self.pro_imm}#12) ({s.sp_imm}#12) (by decide)] at h")
             out.append(f"{I}rw [Lua.Vm.Sim.fn_sv_ld hra] at h")
         post = {r: self.subst(pc, e) for r, e in s.post.items()}
-        args = c.args.format(sp="s", g=self.call_g(pc, s, post)).replace("(by fn_rod)", f"(by {self.rod})")
+        args = c.args.format(sp="s", g=self.call_g(pc, s, post),
+                             fsp=f"(Lua.Vm.Sim.fn_sp_le (W' := {c.frame}) hs (by decide))", hr="hr").replace("(by fn_rod)", f"(by {self.rod})")
         out.append(f"{I}obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)")
         out.append(f"{I}  ({c.summ} {args})")
         out.append(f"{I}refine ⟨_, acc, ?_⟩")
@@ -1401,7 +1504,7 @@ class Fn:
             imports += "import Lua.Vm.Sim.Kit.FnCall\n"
         if self.fn in OUTER:
             imports += "import Lua.Vm.Sim.Kit.FnOuter\n"
-        if any(s.kind == "tail" for s in self.segs):
+        if any(s.kind == "tail" for s in self.segs) or (self.fn in OUTER and self.fn in SF6):
             imports += "import Lua.Vm.Sim.Kit.FnTail\n"
         if self.cyc:
             imports += "import Lua.Vm.Sim.Kit.FnLoop\n"
@@ -1454,7 +1557,7 @@ CHUNK = 40
 # lane float-sf6: the terminal node kinds (a `ret`; a tail jump to a summarised
 # callee), and the routines whose `j <callee>` are tail nodes
 TERM = ("ret", "tail")
-TAILS = set()
+TAILS = {"xflow", "__math_oflow", "__math_uflow"}
 # lane float-sf6: the routines whose cycle blocks put each node's step in its
 # own declaration (`Fn.cyc_split`)
 CYC_SPLIT = {"__ieee754_sqrt"}

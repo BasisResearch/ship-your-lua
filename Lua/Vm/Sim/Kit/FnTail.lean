@@ -20,6 +20,10 @@ open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail Vsa Vsa.Sim
 
 namespace Lua.Vm.Sim
 
+/-- The stack room of a tail callee (at the routine's `sp`, a smaller window). -/
+theorem fn_sp_le {s W W' : Nat} (hs : FnSp s W) (h : W' ≤ W) : FnSp s W' :=
+  ⟨by have := hs.lo; omega, hs.hi, hs.al⟩
+
 /-- **A tail callee's patch inside the window** is the routine's patch. -/
 theorem memPatch_tail {m X : Mem} {lo n lo' n' : Nat} (h1 : lo ≤ lo') (h2 : lo' + n' ≤ lo + n) :
     memPatch m (memPatch m X lo' n') lo n = memPatch m X lo' n' :=
@@ -42,5 +46,20 @@ theorem memPatch_tail_outer {m X : Mem} {lo n lo' n' A k : Nat} (h1 : lo ≤ lo'
       split
       · rfl
       · rw [getElem?_memPatch_out (by omega), getElem?_memPatch_out (by omega)]
+
+/-- **An outer store in the returning segment**: the routine's two patches of
+the final memory (`with_errno`'s `errno` word written last). -/
+theorem memPatch_ret_wm4 {m : Mem} {lo n A a : Nat} {d : BitVec (8 * 4)} (ha : a = A)
+    (hs : A + 4 ≤ lo ∨ lo + n ≤ A) :
+    memPatch (memPatch m (writeMap4 m a d) lo n) (writeMap4 m a d) A 4 = writeMap4 m a d :=
+  Std.ExtHashMap.ext_getElem? fun x => by
+    subst ha
+    rw [getElem?_memPatch (memPatch m (writeMap4 m a d) lo n)]
+    split
+    · rfl
+    · rw [getElem?_memPatch]
+      split
+      · rfl
+      · rw [getElem?_writeMap4_out m a d x (by omega)]
 
 end Lua.Vm.Sim
