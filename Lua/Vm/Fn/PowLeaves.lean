@@ -61,6 +61,16 @@ theorem uflow_v (m : Mem) (s : Nat) (r : BitVec 64) (b : Bool) (hro : RodataRead
   unfold Pow.mathUflow Pow.xflow
   cases b <;> (pw_lens_r; pw_walk)
 
+/-- `__math_oflow(0)` (the sign known: `e_pow.c:201-204`). -/
+theorem oflow_0 (m : Mem) (s : Nat) (r : BitVec 64) (hro : RodataRead m) (hs : FnSp s 112) :
+    MathOflow.F m s r (BitVec.ofInt 64 0) = BitVec.ofInt 64 (W (Pow.mathOflow false)) :=
+  oflow_v m s r false hro hs
+
+/-- `__math_uflow(0)` (the sign known: `e_pow.c:201-204`). -/
+theorem uflow_0 (m : Mem) (s : Nat) (r : BitVec 64) (hro : RodataRead m) (hs : FnSp s 112) :
+    MathUflow.F m s r (BitVec.ofInt 64 0) = BitVec.ofInt 64 (W (Pow.mathUflow false)) :=
+  uflow_v m s r false hro hs
+
 /-- `__floatsidf(n)` (`e_pow.c:263`) of a word: the model's `ofInt`. -/
 theorem floatsidf_l (m : Mem) (s : Nat) (r : BitVec 64) (n : Int) (hs : FnSp s 32)
     (h1 : -2 ^ 31 ≤ n) (h2 : n < 2 ^ 31) :
@@ -83,5 +93,48 @@ theorem log2Exp_eq (x : Float.Model) (ix hy iy : Int32) (y sign : Float.Model) :
       | .inr (t1, t2) => Pow.exp2Tail y t1 t2 sign) = Pow.log2Exp x ix hy iy y sign := by
   unfold Pow.log2Split Pow.log2Exp Pow.logGen Pow.logGenK Pow.logNear Pow.logExp
   pw_ite_cases
+
+/-- `ieee754Pow` is its stage form `powTop` (`Lua/Vm/Fn/PowStage.lean`). -/
+theorem ieee754Pow_stage (x y : Float.Model) : Pow.ieee754Pow x y = Pow.powTop x y := by
+  unfold Pow.ieee754Pow Pow.powTop Pow.powYi Pow.powAx Pow.powXZ Pow.powNY Pow.powSign
+  unfold Pow.log2Split Pow.log2Exp Pow.logGen Pow.logGenK Pow.logNear Pow.logExp
+  pw_ite_cases
+
+/-- The machine's sign flip (`xor` of bit 63) of a datum that is not a NaN is
+the model's `neg` (`e_pow.c:183`). -/
+theorem negW_l (z : Float.Model) (hn : ¬ (W z / 2 ^ 52 % 2048 = 2047 ∧ W z % 2 ^ 52 ≠ 0)) :
+    BitVec.ofInt 64 (W z + 9223372036854775808) = BitVec.ofInt 64 (W z.neg) := by
+  have h1 := mneg_l (W z) hn
+  rw [model_W] at h1
+  rw [h1, W_ofInt _ (by omega)]
+  apply BitVec.eq_of_toInt_eq
+  simp only [BitVec.toInt_ofInt]
+  simp only [Int.bmod, Nat.reducePow, Int.reducePow]
+  have := W_lo z; have := W_hi z
+  split <;> split <;> omega
+
+attribute [pw_lens] negW_l
+
+/-- `1/|x|` of `|x| ∈ {0, ∞, 1}` (`e_pow.c:177`) is not a NaN. -/
+theorem notNaN_div_one (a : Float.Model)
+    (h : W a = 0 ∨ W a = 9218868437227405312 ∨ W a = 4607182418800017408) :
+    ¬ (W ((F64.toModel (BitVec.ofInt 64 4607182418800017408)).div a) / 2 ^ 52 % 2048 = 2047 ∧
+      W ((F64.toModel (BitVec.ofInt 64 4607182418800017408)).div a) % 2 ^ 52 ≠ 0) := by
+  have e : ∀ c : BitVec 64, W ((F64.toModel (BitVec.ofInt 64 4607182418800017408)).div (F64.toModel c)) =
+      (F64.div (BitVec.ofInt 64 4607182418800017408) c).toInt := by
+    intro c; rw [div_l, BitVec.toInt_ofInt]
+    have := W_lo ((F64.toModel (BitVec.ofInt 64 4607182418800017408)).div (F64.toModel c))
+    have := W_hi ((F64.toModel (BitVec.ofInt 64 4607182418800017408)).div (F64.toModel c))
+    simp only [Int.bmod, Nat.reducePow, Int.reducePow]; split <;> omega
+  rw [← model_W a]
+  rcases h with h | h | h <;> rw [h, e] <;> decide
+
+/-- `pw_notnan`: `|x|` or `1/|x|` of an `x` the context pins to `±0`, `±∞`, `±1`. -/
+macro_rules | `(tactic| pw_notnan) => `(tactic| (subst_vars; first
+  | (with_reducible apply Lua.Vm.Fn.PowLens.notNaN_div_one
+     simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [Lua.Num.Pow.fabs, pw_mlens]
+     first | omega | pw_omega)
+  | (simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [Lua.Num.Pow.fabs, pw_mlens]
+     first | omega | pw_omega)))
 
 end Lua.Vm.Fn.PowLens

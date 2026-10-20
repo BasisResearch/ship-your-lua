@@ -383,6 +383,21 @@ theorem xor_m1 (a : Int) : BitVec.ofInt 64 a ^^^ BitVec.ofInt 64 (-1) = BitVec.o
   have h2 : 0 ≤ (-1 - a) % 2 ^ 64 := Int.emod_nonneg _ (by decide)
   omega
 
+/-- `or` with the high mask `-2^30` (`lui 0xc0000`): the low 30 bits kept,
+the rest set. -/
+theorem or_np30 (a : Int) : BitVec.ofInt 64 a ||| BitVec.ofInt 64 (-1073741824) =
+    BitVec.ofInt 64 (a % 1073741824 - 1073741824) := by
+  have hn : ∀ c : Int, ~~~(BitVec.ofInt 64 c) = BitVec.ofInt 64 (-1 - c) := by
+    intro c
+    rw [← BitVec.xor_allOnes, show BitVec.allOnes 64 = BitVec.ofInt 64 (-1) by decide]
+    exact xor_m1 c
+  have e1 : BitVec.ofInt 64 (-1073741824) = ~~~(BitVec.ofInt 64 (((2 ^ 30 - 1 : Nat) : Int))) := by
+    rw [hn]; rfl
+  rw [e1, ← BitVec.not_not (b := BitVec.ofInt 64 a), ← BitVec.not_and, hn a, and_low _ 30 (by decide), hn]
+  congr 1
+  simp only [Nat.reducePow, Nat.reduceSub, Int.reduceNatCast]
+  omega
+
 theorem nat_xor_top (u : Nat) (hu : u < 2 ^ 64) : u ^^^ 2 ^ 63 = (u + 2 ^ 63) % 2 ^ 64 := by
   have hb : ∀ v : Nat, v < 2 ^ 63 → ∀ i, (2 ^ 63 + v).testBit i = (decide (63 = i) ^^ v.testBit i) := by
     intro v hv i
@@ -1098,7 +1113,7 @@ macro "pw_disch_l" : tactic => `(tactic| first | (fm_ground; decide) | omega | p
 
 -- The machine lens (`fm_nf`'s lemmas with the routine's masks, `not`, the
 -- sign flip, `srai`, and the float lens).
-attribute [pw_lens] Lua.Vm.Fn.FmodLens.sext64 Lua.Vm.Fn.FmodLens.lo_ofInt Lua.Vm.Fn.FmodLens.lo5_ofInt Lua.Vm.Fn.FmodLens.sub32 Lua.Vm.Fn.FmodLens.add32 Lua.Vm.Fn.FmodLens.sll32 Lua.Vm.Fn.FmodLens.srl32 Lua.Vm.Fn.FmodLens.sra32 Lua.Vm.Fn.FmodLens.add64 Lua.Vm.Fn.FmodLens.sub64 Lua.Vm.Fn.FmodLens.sll64 Lua.Vm.Fn.FmodLens.srl64 Lua.Vm.Fn.FmodLens.toNat_ofInt5 Lua.Vm.Fn.FmodLens.toNat_ofInt32 Lua.Vm.Fn.FmodLens.toInt_ofInt32 Lua.Vm.Fn.FmodLens.ext6_toNat Lua.Vm.Fn.FmodLens.bmod_small Lua.Vm.Fn.FmodLens.bmod_small' BitVec.toInt_ofInt Int.reduceNatCast Int.cast_ofNat_Int Lua.Vm.Fn.FmodLens.lit_pos Lua.Vm.Fn.FmodLens.lit_neg Lua.Vm.Fn.FmodLens.lit_pos' Lua.Vm.Fn.FmodLens.lit_neg' Lua.Vm.Fn.FmodLens.slt_ofInt Lua.Vm.Fn.FmodLens.sge_ofInt Lua.Vm.Fn.FmodLens.ult_ofInt Lua.Vm.Fn.FmodLens.uge_ofInt Lua.Vm.Fn.FmodLens.beq_ofInt Lua.Vm.Fn.FmodLens.bne_ofInt Lua.Vm.Fn.FmodLens.or_beq0 Lua.Vm.Fn.FmodLens.or_bne0 Lua.Vm.Fn.FmodLens.or_zero_ofInt Lua.Vm.Fn.FmodLens.zero_or_ofInt Lua.Vm.Fn.FmodLens.or_k20 Lua.Vm.Fn.FmodLens.or_k31 Lua.Vm.Fn.FmodLens.or_k32 Lua.Vm.Fn.FmodLens.or_sx Lua.Vm.Fn.FmodLens.or_k20' Lua.Vm.Fn.FmodLens.and_2047 Lua.Vm.Fn.FmodLens.and_fffff Lua.Vm.Fn.FmodLens.and_7fffffff Lua.Vm.Fn.FmodLens.and_7ff00000 Lua.Vm.Fn.FmodLens.and_hi31 Lua.Vm.Fn.FmodLens.or_shr' Lua.Vm.Fn.FmodLens.or_shr0 Lua.Vm.Fn.FmodLens.or_lo_beq0 Lua.Vm.Fn.FmodLens.or_lo_toInt0 Lua.Vm.Fn.FmodLens.add_ofInt0 ite_eq_left ite_eq_right Int.shiftRight_eq_div_pow BitVec.reduceToInt BitVec.reduceToNat BitVec.reduceAppend BitVec.reduceSignExtend BitVec.reduceAdd BitVec.reduceXOr BitVec.reduceAnd BitVec.reduceOr BitVec.reduceNot BitVec.reduceExtractLsb Int.reducePow Int.reduceMul Int.reduceAdd Int.reduceSub Int.reduceNeg Int.reduceMod Int.reduceDiv Int.reduceToNat Nat.reducePow Nat.reduceMod Nat.reduceAdd Nat.reduceSub Nat.reduceMul Int.add_zero Int.zero_add Int.mul_one Int.sub_zero decide_eq_true_eq decide_eq_false_iff_not Bool.not_eq_true' Bool.not_eq_true Bool.not_true Bool.not_false Bool.not_not decide_true decide_false Bool.false_eq_true Bool.true_eq_false ite_true ite_false Lua.Vm.Fn.PowLens.and_7fffffff' Lua.Vm.Fn.PowLens.and_fffff' Lua.Vm.Fn.PowLens.and_2047' Lua.Vm.Fn.PowLens.and_1' Lua.Vm.Fn.PowLens.xor_m1 Lua.Vm.Fn.PowLens.xor_top Lua.Vm.Fn.PowLens.and_800fffff64 Lua.Vm.Fn.Ieee754Sqrt.sra64 Lua.Vm.Fn.PowLens.add_l Lua.Vm.Fn.PowLens.sub_l Lua.Vm.Fn.PowLens.mul_l Lua.Vm.Fn.PowLens.div_l Lua.Vm.Fn.PowLens.sqrt_l Lua.Vm.Fn.PowLens.model_W Lua.Vm.Fn.PowLens.or_k32' Lua.Vm.Fn.PowLens.or_k29' Int.add_neg_eq_sub Int.reduceBmod Lua.Vm.Sim.sdData_id Lua.Vm.Sim.bytesT8_writeMap8
+attribute [pw_lens] Lua.Vm.Fn.FmodLens.sext64 Lua.Vm.Fn.FmodLens.lo_ofInt Lua.Vm.Fn.FmodLens.lo5_ofInt Lua.Vm.Fn.FmodLens.sub32 Lua.Vm.Fn.FmodLens.add32 Lua.Vm.Fn.FmodLens.sll32 Lua.Vm.Fn.FmodLens.srl32 Lua.Vm.Fn.FmodLens.sra32 Lua.Vm.Fn.FmodLens.add64 Lua.Vm.Fn.FmodLens.sub64 Lua.Vm.Fn.FmodLens.sll64 Lua.Vm.Fn.FmodLens.srl64 Lua.Vm.Fn.FmodLens.toNat_ofInt5 Lua.Vm.Fn.FmodLens.toNat_ofInt32 Lua.Vm.Fn.FmodLens.toInt_ofInt32 Lua.Vm.Fn.FmodLens.ext6_toNat Lua.Vm.Fn.FmodLens.bmod_small Lua.Vm.Fn.FmodLens.bmod_small' BitVec.toInt_ofInt Int.reduceNatCast Int.cast_ofNat_Int Lua.Vm.Fn.FmodLens.lit_pos Lua.Vm.Fn.FmodLens.lit_neg Lua.Vm.Fn.FmodLens.lit_pos' Lua.Vm.Fn.FmodLens.lit_neg' Lua.Vm.Fn.FmodLens.slt_ofInt Lua.Vm.Fn.FmodLens.sge_ofInt Lua.Vm.Fn.FmodLens.ult_ofInt Lua.Vm.Fn.FmodLens.uge_ofInt Lua.Vm.Fn.FmodLens.beq_ofInt Lua.Vm.Fn.FmodLens.bne_ofInt Lua.Vm.Fn.FmodLens.or_beq0 Lua.Vm.Fn.FmodLens.or_bne0 Lua.Vm.Fn.FmodLens.or_zero_ofInt Lua.Vm.Fn.FmodLens.zero_or_ofInt Lua.Vm.Fn.FmodLens.or_k20 Lua.Vm.Fn.FmodLens.or_k31 Lua.Vm.Fn.FmodLens.or_k32 Lua.Vm.Fn.FmodLens.or_sx Lua.Vm.Fn.FmodLens.or_k20' Lua.Vm.Fn.FmodLens.and_2047 Lua.Vm.Fn.FmodLens.and_fffff Lua.Vm.Fn.FmodLens.and_7fffffff Lua.Vm.Fn.FmodLens.and_7ff00000 Lua.Vm.Fn.FmodLens.and_hi31 Lua.Vm.Fn.FmodLens.or_shr' Lua.Vm.Fn.FmodLens.or_shr0 Lua.Vm.Fn.FmodLens.or_lo_beq0 Lua.Vm.Fn.FmodLens.or_lo_toInt0 Lua.Vm.Fn.FmodLens.add_ofInt0 ite_eq_left ite_eq_right Int.shiftRight_eq_div_pow BitVec.reduceToInt BitVec.reduceToNat BitVec.reduceAppend BitVec.reduceSignExtend BitVec.reduceAdd BitVec.reduceXOr BitVec.reduceAnd BitVec.reduceOr BitVec.reduceNot BitVec.reduceExtractLsb Int.reducePow Int.reduceMul Int.reduceAdd Int.reduceSub Int.reduceNeg Int.reduceMod Int.reduceDiv Int.reduceToNat Nat.reducePow Nat.reduceMod Nat.reduceAdd Nat.reduceSub Nat.reduceMul Int.add_zero Int.zero_add Int.mul_one Int.sub_zero decide_eq_true_eq decide_eq_false_iff_not Bool.not_eq_true' Bool.not_eq_true Bool.not_true Bool.not_false Bool.not_not decide_true decide_false Bool.false_eq_true Bool.true_eq_false ite_true ite_false Lua.Vm.Fn.PowLens.and_7fffffff' Lua.Vm.Fn.PowLens.and_fffff' Lua.Vm.Fn.PowLens.and_2047' Lua.Vm.Fn.PowLens.and_1' Lua.Vm.Fn.PowLens.xor_m1 Lua.Vm.Fn.PowLens.xor_top Lua.Vm.Fn.PowLens.and_800fffff64 Lua.Vm.Fn.Ieee754Sqrt.sra64 Lua.Vm.Fn.PowLens.add_l Lua.Vm.Fn.PowLens.sub_l Lua.Vm.Fn.PowLens.mul_l Lua.Vm.Fn.PowLens.div_l Lua.Vm.Fn.PowLens.sqrt_l Lua.Vm.Fn.PowLens.model_W Lua.Vm.Fn.PowLens.or_k32' Lua.Vm.Fn.PowLens.or_k29' Lua.Vm.Fn.PowLens.or_np30 Int.add_neg_eq_sub Int.reduceBmod Lua.Vm.Sim.sdData_id Lua.Vm.Sim.bytesT8_writeMap8
 
 -- The model lens.
 attribute [pw_mlens] Lua.Vm.Fn.PowLens.hiW_l Lua.Vm.Fn.PowLens.loW_l Lua.Num.Pow.setHigh Lua.Vm.Fn.PowLens.insertWords_l Lua.Vm.Fn.PowLens.issignaling_false Lua.Num.Pow.K Lua.Vm.Fn.PowLens.ofBits_lit_neg Lua.Vm.Fn.PowLens.ofBits_lit_pos Lua.Num.Pow.one Lua.Num.Pow.zero Lua.Num.Pow.two Lua.Vm.Fn.PowLens.i32_lit Lua.Vm.Fn.PowLens.u32_lit Lua.Vm.Fn.PowLens.i32_add Lua.Vm.Fn.PowLens.i32_sub Lua.Vm.Fn.PowLens.i32_neg Lua.Vm.Fn.PowLens.u32_sub Lua.Vm.Fn.PowLens.i32_toU Lua.Vm.Fn.PowLens.u32_toI Lua.Vm.Fn.PowLens.i32_lt Lua.Vm.Fn.PowLens.i32_le Lua.Vm.Fn.PowLens.i32_beq Lua.Vm.Fn.PowLens.u32_beq Lua.Vm.Fn.PowLens.i32_bne Lua.Vm.Fn.PowLens.u32_bne Lua.Vm.Fn.PowLens.i32_and_7fffffff Lua.Vm.Fn.PowLens.i32_and_fffff Lua.Vm.Fn.PowLens.i32_and_1 Lua.Vm.Fn.PowLens.u32_and_7fffffff Lua.Vm.Fn.PowLens.u32_or_beq0 Lua.Vm.Fn.PowLens.i32_or_beq0 Lua.Vm.Fn.PowLens.i32_or_k20 Lua.Vm.Fn.PowLens.i32_or_k20' Lua.Vm.Fn.PowLens.i32_or_k29' Lua.Vm.Fn.PowLens.i32_sra Lua.Vm.Fn.PowLens.i32_shl Lua.Vm.Fn.PowLens.u32_srl Lua.Vm.Fn.PowLens.u32_shl Lua.Vm.Fn.PowLens.u32_and_800fffff Lua.Vm.Fn.PowLens.u32_and_80000000 Lua.Vm.Fn.PowLens.i32_and_7ff00000 Lua.Vm.Fn.PowLens.u32_or_slk Lua.Vm.Fn.PowLens.u32_or_31 Lua.Num.Pow.u Lua.Num.Pow.copysign Lua.Vm.Fn.PowLens.W_ofInt Lua.Vm.Fn.FmodLens.bmod_small' gt_iff_lt ge_iff_le  ite_true ite_false Int.reduceMod Int.reducePow Int.reduceDiv Int.reduceNeg Int.reduceAdd Int.reduceSub Int.reduceMul Int.reduceToNat Int.reduceBmod Nat.reducePow Bool.and_eq_true Bool.or_eq_true decide_eq_true_eq Bool.not_eq_true' Bool.not_eq_eq_eq_not Bool.not_true Bool.not_false Int.cast_ofNat_Int Bool.and_true Bool.true_and Bool.or_false Bool.false_or decide_eq_false_iff_not Bool.false_eq_true Bool.true_eq_false decide_true decide_false Lua.Vm.Fn.PowLens.model_W Lua.Vm.Fn.PowLens.mneg_l Lua.Num.Pow.L1 Lua.Num.Pow.L2 Lua.Num.Pow.L3 Lua.Num.Pow.L4 Lua.Num.Pow.L5 Lua.Num.Pow.L6 Lua.Num.Pow.P1 Lua.Num.Pow.P2 Lua.Num.Pow.P3 Lua.Num.Pow.P4 Lua.Num.Pow.P5 Lua.Num.Pow.lg2 Lua.Num.Pow.lg2_h Lua.Num.Pow.lg2_l Lua.Num.Pow.ovt Lua.Num.Pow.cp Lua.Num.Pow.cp_h Lua.Num.Pow.cp_l Lua.Num.Pow.ivln2 Lua.Num.Pow.ivln2_h Lua.Num.Pow.ivln2_l Lua.Num.Pow.bp Lua.Num.Pow.dp_h Lua.Num.Pow.dp_l Lua.Num.Pow.half Lua.Num.Pow.third Lua.Num.Pow.quarter Lua.Num.Pow.three Lua.Num.Pow.two53 Lua.Vm.Fn.PowLens.madd_neglit Lua.Vm.Fn.PowLens.madd_neglit' Lua.Vm.Fn.PowLens.i32_not Lua.Vm.Fn.PowLens.i32_and_np1 Lua.Vm.Fn.PowLens.i32_and_np2 Lua.Vm.Fn.PowLens.i32_and_np3 Lua.Vm.Fn.PowLens.i32_and_np4 Lua.Vm.Fn.PowLens.i32_and_np5 Lua.Vm.Fn.PowLens.i32_and_np6 Lua.Vm.Fn.PowLens.i32_and_np7 Lua.Vm.Fn.PowLens.i32_and_np8 Lua.Vm.Fn.PowLens.i32_and_np9 Lua.Vm.Fn.PowLens.i32_and_np10 Lua.Vm.Fn.PowLens.i32_and_np11 Lua.Vm.Fn.PowLens.i32_and_np12 Lua.Vm.Fn.PowLens.i32_and_np13 Lua.Vm.Fn.PowLens.i32_and_np14 Lua.Vm.Fn.PowLens.i32_and_np15 Lua.Vm.Fn.PowLens.i32_and_np16 Lua.Vm.Fn.PowLens.i32_and_np17 Lua.Vm.Fn.PowLens.i32_and_np18 Lua.Vm.Fn.PowLens.i32_and_np19 Lua.Vm.Fn.PowLens.i32_and_np20 Lua.Vm.Fn.PowLens.i32_and_np21 Lua.Vm.Fn.PowLens.i32_and_np22 Lua.Vm.Fn.PowLens.i32_and_np23 Lua.Vm.Fn.PowLens.i32_and_np24 Lua.Vm.Fn.PowLens.i32_and_np25 Lua.Vm.Fn.PowLens.i32_and_np26 Lua.Vm.Fn.PowLens.i32_and_np27 Lua.Vm.Fn.PowLens.i32_and_np28 Lua.Vm.Fn.PowLens.i32_and_np29 Lua.Vm.Fn.PowLens.i32_and_np30 Lua.Vm.Fn.PowLens.i32_and_np31 Lua.Vm.Fn.PowLens.u32_or_bne0 Lua.Vm.Fn.PowLens.i32_or_bne0 Lua.Vm.Fn.PowLens.i32_toInt Int.add_zero Int.zero_add Int.sub_zero
@@ -1219,13 +1234,18 @@ partial def firstIte? (e : Expr) : Option Expr :=
     | .mdata _ b => firstIte? b
     | _ => none
 
+/-- A datum the walk passes to a cut is not a NaN (the cut's premise); its
+rules are `Lua/Vm/Fn/PowLeaves.lean`'s. -/
+syntax "pw_notnan" : tactic
+macro_rules | `(tactic| pw_notnan) => `(tactic| fail "pw_notnan")
+
 open Lean Elab Tactic Meta in
 /-- Case-split every `if` of the goal (outermost first, `let`s inlined, the
 `match`es on constructors reduced), each case by `simp only` with its
 condition; the cases closed by `rfl`. For stage equations between
 `Lua/Num/Pow.lean`'s functions and their restatements. -/
 partial def iteCases (fuel : Nat) : TacticM Unit := do
-  if fuel = 0 then return
+  if fuel = 0 then throwError "pw_ite_cases: out of fuel"
   for g in ← getGoals do
     setGoals [g]
     evalTactic (← `(tactic| try simp (config := { zeta := true, failIfUnchanged := false }) only []))
@@ -1234,11 +1254,13 @@ partial def iteCases (fuel : Nat) : TacticM Unit := do
     match firstIte? t with
     | none => evalTactic (← `(tactic| rfl))
     | some it =>
+      if (← getOptions).getBool `pw.debug false then
+        IO.println s!"ite_cases {← ppExpr (it.getArg! 1)}"
       let (gp, gn) ← (← getMainGoal).byCases (it.getArg! 1) `hi_
       for sg in [gp, gn] do
         setGoals [sg.mvarId]
         let h := mkIdent (← sg.mvarId.withContext do return (← sg.fvarId.getDecl).userName)
-        evalTactic (← `(tactic| simp (config := { failIfUnchanged := false }) only [$h:ident, ↓reduceIte]))
+        evalTactic (← `(tactic| simp (config := { failIfUnchanged := false }) only [$h:ident, ↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, ite_true, ite_false]))
         iteCases (fuel - 1)
   setGoals []
 
@@ -1582,7 +1604,7 @@ def tryCuts (cuts : Array Name) : TacticM Bool := do
           setGoals [a.mvarId!]
           let hsI := mkIdent `hs
           try
-            evalTactic (← `(tactic| first | with_reducible rfl | fn_assumption | exact Eq.symm (by assumption) | exact Lua.Vm.Sim.fn_sp_in $hsI (by decide) (by decide) | exact Lua.Vm.Fn.PowLens.fnsp_le $hsI (by decide) | pw_disch))
+            evalTactic (← `(tactic| first | with_reducible rfl | fn_assumption | exact Eq.symm (by assumption) | exact Lua.Vm.Sim.fn_sp_in $hsI (by decide) (by decide) | exact Lua.Vm.Fn.PowLens.fnsp_le $hsI (by decide) | pw_disch | pw_notnan))
           catch e =>
             pwDbg s!"sidefail {← ppExpr (← instantiateMVars (← a.mvarId!.getType))}"
             throw e
@@ -1664,6 +1686,8 @@ partial def pwWalk (cuts : Array Name) (fuel : Nat) : TacticM Unit := do
   pwDbg "gen"
   pwGen
   if (← getGoals).isEmpty then return
+  if (← getOptions).getBool `pw.debug.goal false then
+    pwDbg s!"goal after gen:\n{← ppExpr (← instantiateMVars (← getMainTarget))}"
   -- a shift by a register: one case per amount the context allows
   let lhsAm := match goalLhs? (← instantiateMVars (← getMainTarget)).cleanupAnnotations with
     | some l => (powAmounts l).toList.eraseDups

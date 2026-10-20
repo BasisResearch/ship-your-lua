@@ -236,4 +236,59 @@ returns of `:199-209`, `logNear` or `logGen`. -/
     else logNear ax y sign
   else logGen ax ix y sign
 
+/-- `ieee754Pow` from the sign (`e_pow.c:193-318`): `sign` and `log2Exp`. -/
+@[pw_stage] def powSign (x y : Float.Model) (ix hy iy n yi : Int32) : Float.Model :=
+  let sign := if (n ||| (yi - 1)) == 0 then Float.Model.neg one else one -- :193-196
+  log2Exp x ix hy iy y sign
+
+/-- `ieee754Pow` from `:190`: `(x-x)/(x-x)` for a negative `x` and a
+non-integer `y`, else `powSign`. -/
+@[pw_stage] def powNY (x y : Float.Model) (hx ix hy iy yi : Int32) : Float.Model :=
+  let n : Int32 := ((u hx >>> 31) - 1).toInt32                        -- :190
+  if (n ||| yi) == 0 then (x -. x) /. (x -. x)                        -- :191
+  else powSign x y ix hy iy n yi
+
+/-- `ieee754Pow`'s `x = ±0, ±∞, ±1` past `z = |x|^±1` (`e_pow.c:178-185`). -/
+@[pw_stage] def powXZ (z : Float.Model) (hx ix yi : Int32) : Float.Model :=
+  if hx < 0 then
+    if ((ix - 0x3ff00000) ||| yi) == 0 then (z -. z) /. (z -. z)
+    else if yi == 1 then Float.Model.neg z
+    else z
+  else z
+
+/-- `ieee754Pow` past the special `y` (`e_pow.c:172-318`): the special `x`
+(`:174-186`) or `powNY`. -/
+@[pw_stage] def powAx (x y : Float.Model) (hx : Int32) (lx : UInt32) (ix hy iy yi : Int32) : Float.Model :=
+  let ax := fabs x                                                    -- :172
+  if lx == 0 && (ix == 0x7ff00000 || ix == 0 || ix == 0x3ff00000) then
+    powXZ (if hy < 0 then one /. ax else ax) hx ix yi
+  else powNY x y hx ix hy iy yi
+
+/-- `ieee754Pow` past the NaN tests (`e_pow.c:137-318`) given `yisint`'s
+value: the special `y` (`:153-170`), else `powAx`. -/
+@[pw_stage] def powYi (x y : Float.Model) (hx : Int32) (lx : UInt32) (ix hy : Int32) (ly : UInt32)
+    (iy yi : Int32) : Float.Model :=
+  if ly == 0 then
+    if iy == 0x7ff00000 then
+      if (u (ix - 0x3ff00000) ||| lx) == 0 then one
+      else if ix ≥ 0x3ff00000 then (if hy ≥ 0 then y else zero)
+      else (if hy < 0 then Float.Model.neg y else zero)
+    else if iy == 0x3ff00000 then (if hy < 0 then one /. x else x)
+    else if hy == 0x40000000 then x *. x
+    else if hy == 0x3fe00000 && hx ≥ 0 then Float.Model.sqrt x
+    else powAx x y hx lx ix hy iy yi
+  else powAx x y hx lx ix hy iy yi
+
+/-- `ieee754Pow` as its zero and NaN tests (`e_pow.c:115-130`) and `powYi`. -/
+@[pw_stage] def powTop (x y : Float.Model) : Float.Model :=
+  let hx := hiW x; let lx := loW x
+  let hy := hiW y; let ly := loW y
+  let ix := hx &&& 0x7fffffff; let iy := hy &&& 0x7fffffff
+  if (u iy ||| ly) == 0 then
+    if issignaling x then x +. y else one
+  else if ix > 0x7ff00000 || (ix == 0x7ff00000 && lx != 0) ||
+          iy > 0x7ff00000 || (iy == 0x7ff00000 && ly != 0) then
+    if (u (hx - 0x3ff00000) ||| lx) == 0 && !issignaling y then one else x +. y
+  else powYi x y hx lx ix hy ly iy (yisint hx iy ly)
+
 end Lua.Num.Pow
