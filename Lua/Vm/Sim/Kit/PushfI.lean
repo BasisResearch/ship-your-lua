@@ -699,4 +699,203 @@ theorem pf_nl (hM : MallocR_Statement) (sp L g top : Nat) (i r : BitVec 64) (f :
     · simp only [Below] at ha; exact ⟨by omega, by omega⟩
     · exact ha
 
+/-- **What `lua_pushfstring` leaves after `luaS_newlstr`'s return** (`M3`,
+`T`'s root memory): the string pushed at `L->top` (`setsvalue2s`, the tag
+`LUA_VSHRSTR | BIT_ISCOLLECTABLE`), `L->top` advanced; every byte off the
+slot, `L->top`, `g->totalbytes` and `g->GCdebt` (`luaC_step`) and the frames
+kept. -/
+structure PfPost (M3 M : Mem) (sp L g top ts : Nat) : Prop where
+  val : bytesT8 M top = BitVec.ofNat 64 ts
+  tag : bytesT1 M (top + 8) = 0x44#8
+  top_w : bytesT8 M (L + 16) = BitVec.ofNat 64 (top + 16)
+  keep : ∀ a, ¬ (Rng top 9 a ∨ Rng (L + 16) 8 a ∨ Rng (g + gTotalbytesOff) 8 a ∨ Rng (g + gGCdebtOff) 8 a ∨
+    PfFr sp a) → bytesT1 M a = bytesT1 M3 a
+
+/-- `T`'s context. -/
+@[at_row] abbrev pfX3 (sp L g top n ts : Nat) (r : BitVec 64) (f : AbiFrame) (i a3 a4 a5 a6 a7 : BitVec 64) (M : Mem)
+    (o : Array String) : FCx :=
+  pfX [sp, L, g, top, n, ts] r f i a3 a4 a5 a6 a7 (pfS8 sp) M o
+
+/-- The push's stores (the generated `m11`) at the slot, its tag, `L->top`. -/
+theorem pf_m11 {sp L g top n ts : Nat} {r : BitVec 64} {f : AbiFrame} {i a3 a4 a5 a6 a7 : BitVec 64} {M : Mem}
+    {o : Array String} (htL : top + 16 ≤ L ∨ L + 200 ≤ top) :
+    bytesT8 (Lua.Vm.AtF.PushfI.m11 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) top = BitVec.ofNat 64 ts ∧
+    bytesT1 (Lua.Vm.AtF.PushfI.m11 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (top + 8) = 0x44#8 ∧
+    bytesT8 (Lua.Vm.AtF.PushfI.m11 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (L + 16) =
+      BitVec.ofNat 64 (top + 16) ∧
+    ∀ a, ¬ (Rng top 9 a ∨ Rng (L + 16) 8 a) →
+      bytesT1 (Lua.Vm.AtF.PushfI.m11 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) a = bytesT1 M a := by
+  simp only [Lua.Vm.AtF.PushfI.m11, pfX3, pfX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  refine ⟨?_, ?_, ?_, fun a ha => ?_⟩
+  · simp (disch := omega) only [fw8_wm8, fw8_ins, fw8_same]
+  · simp (disch := omega) only [fw1_wm8, fw1_same]; decide
+  · simp (disch := omega) only [fw8_same]
+  · simp only [Rng, not_or, not_and, Nat.not_lt] at ha
+    simp (disch := omega) only [fw1_wm8, fw1_ins]
+
+/-- The push's stores and the return value's slot (the generated `m12`). -/
+theorem pf_m12 {sp L g top n ts : Nat} {r : BitVec 64} {f : AbiFrame} {i a3 a4 a5 a6 a7 : BitVec 64} {M : Mem}
+    {o : Array String} (htL : top + 16 ≤ L ∨ L + 200 ≤ top) (hts : top + 16 ≤ sp - 88) (hL : L + 200 ≤ sp - 88) :
+    bytesT8 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) top = BitVec.ofNat 64 ts ∧
+    bytesT1 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (top + 8) = 0x44#8 ∧
+    bytesT8 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (L + 16) =
+      BitVec.ofNat 64 (top + 16) ∧
+    bytesT8 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (sp - 88) =
+      BitVec.ofNat 64 (ts + 24) ∧
+    ∀ a, ¬ (Rng top 9 a ∨ Rng (L + 16) 8 a ∨ Rng (sp - 88) 8 a) →
+      bytesT1 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) a = bytesT1 M a := by
+  simp only [Lua.Vm.AtF.PushfI.m12, pfX3, pfX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  refine ⟨?_, ?_, ?_, ?_, fun a ha => ?_⟩
+  · simp (disch := omega) only [fw8_wm8, fw8_ins, fw8_same]
+  · simp (disch := omega) only [fw1_wm8, fw1_same]; decide
+  · simp (disch := omega) only [fw8_wm8, fw8_same]
+  · simp (disch := omega) only [fw8_same]
+  · simp only [Rng, not_or, not_and, Nat.not_lt] at ha
+    simp (disch := omega) only [fw1_wm8, fw1_ins]
+
+/-- **From `luaS_newlstr`'s return to `lua_pushfstring`'s**: the push,
+`luaO_pushvfstring`'s epilogue, `luaC_checkGC` (a positive debt: `luaC_step`
+with the collector stopped). -/
+theorem pf_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a5 a6 a7 : BitVec 64)
+    (m M3 : Mem) (o : Array String) (hP : PfIn m sp L g top r) (hT : PfT M3 sp L g top ts r f)
+    (hn1 : 1 ≤ n) (hn2 : n ≤ 20) (hgc : bytesT1 M3 (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
+    Triple (SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfI.r9 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
+        (ArmPay M3 o))
+      (fun c => ∃ M, PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
+  intro c h
+  pf_in hP
+  have := hT.ts_lo; have := hT.ts_hi; have := hT.tts
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  have hX : Lua.Vm.AtF.PushfI.Ok_T (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o) := by fcx_ok
+  have h : SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfI.r9 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
+      (ArmPay (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o).m (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o).o)
+      c := h
+  have S := hT.slots
+  have acc := Steps.refl c
+  obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+    (Lua.Vm.AtF.PushfI.at_80011ec0_80011ee4_n _ hX hT.tt hT.top_w S.pushed)
+  obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+    (Lua.Vm.AtF.PushfI.at_80011ee4_80011f2c _ hX S.ra2 S.L112 S.s1 S.s2 S.s3 S.s4 S.s5 S.s6 S.s7 S.s8 S.s9 S.s10 S.s11)
+  obtain ⟨hv, htg, htw, hk11⟩ := pf_m11 (sp := sp) (n := n) (r := r) (f := f) (i := i) (a3 := a3) (a4 := a4)
+    (a5 := a5) (a6 := a6) (a7 := a7) (M := M3) (o := o) (g := g) (ts := ts) (by omega)
+  cases hb : zopz0zKzJ_s (0x0#64) (bytesT8 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o).m
+      ((pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o).n 2 + 24))
+  · -- a positive debt: `luaC_step` with the collector stopped
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+      (Lua.Vm.AtF.PushfI.at_800030dc_800030ec_n _ hX hT.Lg_w hb)
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+      (Lua.Vm.AtF.PushfI.at_800030ec_800030f8 _ hX)
+    obtain ⟨hv2, htg2, htw2, h88, hk12⟩ := pf_m12 (sp := sp) (n := n) (r := r) (f := f) (i := i) (a3 := a3)
+      (a4 := a4) (a5 := a5) (a6 := a6) (a7 := a7) (M := M3) (o := o) (g := g) (ts := ts) (by omega) (by omega)
+      (by omega)
+    generalize hM12 : Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o) = M12 at h hv2 htg2 htw2 h88 hk12
+    have hG12 : bytesT8 M12 (L + 24) = BitVec.ofNat 64 g :=
+      (bytesT8_congrT fun j _ => hk12 _ (by simp only [Rng]; omega)).trans hT.Lg_w
+    have hS12 : bytesT1 M12 (g + gGcstpOff) = 0x1#8 :=
+      (hk12 _ (by simp only [Rng, gGcstpOff]; omega)).trans hgc
+    fcx_unfold at h
+    obtain ⟨c4, s4, M4, hret, hst⟩ := luaC_step_sum (sp - 96) L g 0x800030f8#64
+      ⟨BitVec.ofNat 64 L, f.s1, f.s2, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11⟩ M12 o
+      ⟨by omega, by omega, by omega, by decide, by omega, by omega, by omega, by omega, by omega, hgal⟩ hG12 hS12 _
+      (by simp only [callPre, AbiFrame.pins, List.cons_append, List.nil_append]; exact h.repin (by pins_of h))
+    have acc := acc.trans s4
+    have k4 : ∀ a, ¬ (Rng (g + gTotalbytesOff) 8 a ∨ Rng (g + gGCdebtOff) 8 a ∨ PfFr sp a) →
+        bytesT1 M4 a = bytesT1 M12 a := fun a ha => hst.keep a fun hc => ha (by
+      rcases hc with hc | hc | hc
+      · exact .inl hc
+      · exact .inr (.inl hc)
+      · simp only [Below, PfFr] at hc ⊢; exact .inr (.inr ⟨by omega, by omega⟩))
+    have nG : ∀ a, (a + 1400 ≤ g ∨ g + 1400 ≤ a) → ¬ (Rng (g + gTotalbytesOff) 8 a ∨ Rng (g + gGCdebtOff) 8 a) := by
+      intro a ha; simp only [Rng, gTotalbytesOff, gGCdebtOff]; omega
+    have hX4 : Lua.Vm.AtF.PushfI.Ok_T (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o) := by fcx_ok
+    have h29 : bytesT8 M4 (sp - 88) = BitVec.ofNat 64 (ts + 24) :=
+      (bytesT8_congrT fun j _ => hst.keep _ (by simp only [Rng, Below, gTotalbytesOff, gGCdebtOff]; omega)).trans h88
+    have h27 : bytesT8 M4 (sp - 56) = r :=
+      (bytesT8_congrT fun j _ => (hst.keep _ (by simp only [Rng, Below, gTotalbytesOff, gGCdebtOff]; omega)).trans
+        (hk12 _ (by simp only [Rng]; omega))).trans S.ra
+    have h28 : bytesT8 M4 (sp - 64) = f.s0 :=
+      (bytesT8_congrT fun j _ => (hst.keep _ (by simp only [Rng, Below, gTotalbytesOff, gGCdebtOff]; omega)).trans
+        (hk12 _ (by simp only [Rng]; omega))).trans S.s0
+    simp only [wrRet] at hret
+    have h : SegSt 0x800030f8#64 (Lua.Vm.AtF.PushfI.r14 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o))
+        (ArmPay (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o).m (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o).o)
+        c4 := by fcx_unfold; exact hret.repin (by pins_of hret)
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+      (Lua.Vm.AtF.PushfI.at_800030f8_800030fc _ hX4 h29)
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+      (Lua.Vm.AtF.PushfI.at_800030fc_80003110_1 _ hX4 h27 h28)
+    refine ⟨_, acc, M4, ⟨?_, ?_, ?_, fun a ha => ?_⟩, ?_⟩
+    · exact (bytesT8_congrT fun j _ => k4 _ (by simp only [Rng, gTotalbytesOff, gGCdebtOff, PfFr]; omega)).trans hv2
+    · exact (k4 _ (by simp only [Rng, gTotalbytesOff, gGCdebtOff, PfFr]; omega)).trans htg2
+    · exact (bytesT8_congrT fun j _ => k4 _ (by simp only [Rng, gTotalbytesOff, gGCdebtOff, PfFr]; omega)).trans htw2
+    · simp only [not_or] at ha
+      obtain ⟨h1, h2, h3, h4, h5⟩ := ha
+      rw [k4 a (by simp only [not_or]; exact ⟨h3, h4, h5⟩), hk12 a (by
+        simp only [PfFr, Rng] at h1 h2 h5 ⊢; omega)]
+    · simp only [wrRet]
+      fcx_unfold at h
+      exact h.repin (by pins_of h)
+  · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+      (Lua.Vm.AtF.PushfI.at_800030dc_800030ec_t _ hX hT.Lg_w hb)
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+      (Lua.Vm.AtF.PushfI.at_800030fc_80003110 _ hX S.ra S.s0)
+    refine ⟨_, acc, _, ⟨hv, htg, htw, fun a ha => hk11 a fun hc => ha ?_⟩, ?_⟩
+    · rcases hc with hc | hc
+      · exact .inl hc
+      · exact .inr (.inl hc)
+    · simp only [wrRet]
+      fcx_unfold at h
+      exact h.repin (by pins_of h)
+
+/-- A word of `g`'s object `luaS_newlstr` does not write (not `GCdebt`,
+`nuse`, `g->allgc`), as it was. -/
+theorem PfStr.gw {m M3 : Mem} {sp L g top : Nat} {b : List UInt8} {seed : UInt32} {K X W : Nat → Prop}
+    {cw : BitVec 8} {size hash head d nuse ts : Nat} {H H' : HeapIx}
+    (hT : NlTab m L g top b seed K X W cw size hash head d nuse H) (hsp : 0x87800000 + 8192 ≤ sp)
+    (hg : g + 1400 ≤ 0x87800000) (hs : PfStr m M3 sp g b seed K X W size hash nuse head H ts H') {a : Nat} (h1 : g ≤ a) (h2 : a < g + 1400)
+    (hw : ¬ (Rng (g + 24) 8 a ∨ Rng (g + 56) 4 a ∨ Rng (g + 112) 8 a)) : bytesT1 M3 a = bytesT1 m a := by
+  have e1 : heapStart = 0x8006ecd0 := rfl
+  have e2 : heapEnd = 0x87800000 := rfl
+  have hu := hT.new.g_in a h1 h2
+  have hlo : heapStart + 16 ≤ a := Nat.le_of_not_lt fun hc => ChunkWalk.notInUse_lo hT.new.heap.walk a hc hu
+  have hhi : a < heapEnd + 8 := Nat.lt_of_not_le fun hc =>
+    ChunkWalk.notInUse_hi hT.new.heap.walk a (by have := hT.new.heap.top_le; have := hT.new.heap.brk_le; omega) hu
+  have := hT.new.kg
+  rcases hs with ⟨hh, -⟩ | hp
+  · exact hh.keep a (by simp only [PfFr]; omega)
+  · refine hp.keep a fun hc => ?_
+    simp only [Rng] at hw
+    rcases hc with hc | hc | hc | hc | hc | hc | hc
+    · rcases hc with hc | hc
+      · exact absurd hc.lo (by omega)
+      · exact hc.2.2 hu
+    · exact hp.fresh a hc.1 hc.2 hu
+    all_goals simp only [Rng, PfFr] at hc; omega
+
+/-- **`lua_pushfstring(L, "%I", i)`** (lane F1-20): the digits of `i`
+interned (found or created, `PfStr`) and pushed at `L->top` (`PfPost`),
+`getstr` of the string returned. -/
+theorem pushfI_sum (hM : MallocR_Statement) (hI2S : IntegerToStr_Statement) (sp L g top : Nat) (i r : BitVec 64)
+    (f : AbiFrame) (m : Mem) (o : Array String) (hP : PfIn m sp L g top r) (hst : FmtStatic m) (seed : UInt32)
+    (K X W : Nat → Prop) (cw : BitVec 8) (size hash head d nuse : Nat) (H : HeapIx)
+    (hT : NlTab m L g top (intU8 i) seed K X W cw size hash head d nuse H)
+    (hgc : bytesT1 m (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
+    Triple (SegSt 0x800030a4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, 0x8004fd58#64⟩,
+        ⟨Register.x12, i⟩] sp r f) (ArmPay m o))
+      (fun c => ∃ ts M3 M H', PfStr m M3 sp g (intU8 i) seed K X W size hash nuse head H ts H' ∧
+        PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
+  intro c h
+  pf_in hP
+  have hn1 := (intBytes_len i).1
+  have hn2 := (intBytes_len i).2
+  obtain ⟨c1, s1, a3, a4, a5, a6, a7, h1⟩ := pf_cut sp L g top i r f m o hP c h
+  obtain ⟨c2, s2, M2, hS, h2⟩ := pf_snp hI2S sp L g top i r f a3 a4 a5 a6 a7 m _ o hP hst (pfC_of (by omega)) c1 h1
+  obtain ⟨c3, s3, ts, M3, H', hPT, hstr, h3⟩ :=
+    pf_nl hM sp L g top i r f a3 a4 a5 a6 a7 m M2 o hP hS seed K X W cw size hash head d nuse H hT _ rfl c2 h2
+  have hgc3 : bytesT1 M3 (g + gGcstpOff) = 0x1#8 :=
+    (hstr.gw hT (by omega) (by omega) (by simp only [gGcstpOff]; omega) (by simp only [gGcstpOff]; omega)
+      (by simp only [Rng, gGcstpOff]; omega)).trans hgc
+  obtain ⟨c4, s4, M, hpost, hret⟩ := pf_ret sp L g top _ ts i r f a3 a4 a5 a6 a7 m M3 o hP hPT hn1 hn2 hgc3 hgal c3 h3
+  exact ⟨c4, ((s1.trans s2).trans s3).trans s4, ts, M3, M, H', hstr, hpost, hret⟩
+
 end Lua.Vm.Sim.Kit
