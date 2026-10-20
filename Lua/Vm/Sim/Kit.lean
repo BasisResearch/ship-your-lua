@@ -123,6 +123,7 @@ import Lua.Vm.Sim.Kit.Newlstr
 import Lua.Vm.Sim.Kit.LitsInsert
 import Lua.Vm.Sim.Kit.PushfI
 import Lua.Vm.Sim.Kit.TolInt
+import Lua.Vm.Sim.Kit.TolIntProof
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

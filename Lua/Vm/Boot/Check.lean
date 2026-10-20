@@ -1161,6 +1161,95 @@ theorem litsCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZ
     candsCheck_sound h hca, strMtCheck_sound h hsm, hb1, hb2, hb3,
     fun l hl => by simpa using List.all_eq_true.mp hlc l hl, strtOffCheck_sound h hoff⟩
 
+/-! ## (lane F1-23) `g->strt`'s words in the literals' footprint -/
+
+/-- Two reads of one value that see every byte agree byte by byte. -/
+theorem rdLE_bytes_eq : ∀ {n : Nat} {m m' : Mem} {a x : Nat}, rdLE m a n = some x → rdLE m' a n = some x →
+    ∀ i, i < n → m[a + i]? = m'[a + i]?
+  | 0, _, _, _, _, _, _, i, hi => absurd hi (Nat.not_lt_zero _)
+  | n + 1, m, m', a, x, h, h', i, hi => by
+    rw [rdLE_succ] at h h'
+    simp only [Option.bind_eq_bind, Option.bind_eq_some_iff, Option.pure_def, Option.some.injEq] at h h'
+    obtain ⟨b, hb, r, hr, hx⟩ := h
+    obtain ⟨b', hb', r', hr', hx'⟩ := h'
+    have h1 : b.toNat < 256 := b.isLt
+    have h2 : b'.toNat < 256 := b'.isLt
+    have e1 : b.toNat = b'.toNat := by omega
+    have e2 : r = r' := by omega
+    subst e2
+    cases i with
+    | zero => rw [Nat.add_zero, hb, hb', BitVec.eq_of_toNat_eq e1]
+    | succ i =>
+      rw [show a + (i + 1) = a + 1 + i by omega]
+      exact rdLE_bytes_eq hr hr' i (by omega)
+
+/-- A zero fill's total reads are the memory's. -/
+theorem getD_fill (m : Mem) (a : Nat) : ((Vsa.Densify.fillZeroMem m)[a]?).getD 0 = (m[a]?).getD 0 := by
+  rw [Vsa.Densify.fillZeroMem_get]; split <;> simp
+
+/-- An `ld` of a zero fill, as the memory's total read. -/
+theorem bytesT8_toNat_of_fill {m : Mem} {a x : Nat} (h : rd64 (Vsa.Densify.fillZeroMem m) a = some x) :
+    (Vsa.Sim.bytesT8 m a).toNat = x := by
+  obtain ⟨hlt, hb⟩ := rdLE_spec 8 _ a x h
+  rw [Vsa.Sim.bytesT_eight_eq] at hb
+  have e : Vsa.Sim.bytesT8 m a = Vsa.Sim.bytesT8 (Vsa.Densify.fillZeroMem m) a := by
+    simp only [Vsa.Sim.bytesT8, getD_fill]
+  rw [e, hb, BitVec.toNat_ofNat]
+  exact Nat.mod_eq_of_lt hlt
+
+/-- An `lw` of a zero fill, as the memory's total read. -/
+theorem bytesT4_toNat_of_fill {m : Mem} {a x : Nat} (h : rd32 (Vsa.Densify.fillZeroMem m) a = some x) :
+    (Vsa.Sim.bytesT4 m a).toNat = x := by
+  obtain ⟨hlt, hb⟩ := rdLE_spec 4 _ a x h
+  rw [Vsa.Sim.bytesT_four_eq] at hb
+  have e : Vsa.Sim.bytesT4 m a = Vsa.Sim.bytesT4 (Vsa.Densify.fillZeroMem m) a := by
+    simp only [Vsa.Sim.bytesT4, getD_fill]
+  rw [e, hb, BitVec.toNat_ofNat]
+  exact Nat.mod_eq_of_lt hlt
+
+/-- (lane F1-23) **The literals' check pins `g->strt`'s words to its
+footprint** (`TabFoot`): the check over the view restricted to `t` reads the
+header and every bucket, at the witness's table `rt`, so a memory that differs
+from `m` at one byte outside `t` passes it too, at the same `rt`, and two reads
+of one value see the same bytes: none of `TabFoot`'s is outside `t`. -/
+theorem litsCheck_tab {m : Mem} {v : View} (h : PartialView m v) {t : RTree} {g sl : Nat} {ls : LitPtrs}
+    {rt : RtPtrs} (hc : litsCheck (v.only t) g sl ls rt = true) : ∀ a, TabFoot m g a → InRanges t a := by
+  intro a ha
+  refine Classical.byContradiction fun hn => ?_
+  have hL0 := litsCheck_sound (h.only t fun _ _ => rfl).fill hc
+  have hS0 := hL0.nil.strt
+  have hg := hL0.g
+  obtain ⟨z, hzd⟩ : ∃ z : BitVec 8, z = ((Vsa.Densify.fillZeroMem m)[a]?).getD 0 + 1#8 := ⟨_, rfl⟩
+  have hM : ∀ k, InRanges t k → (m.insert a z)[k]? = m[k]? := fun k hk => by
+    have : ¬ (a = k) := fun e => hn (e ▸ hk)
+    simp [Std.ExtHashMap.getElem?_insert, this]
+  have hS1 := (litsCheck_sound (h.only t hM).fill hc).nil.strt
+  have hz : (Vsa.Densify.fillZeroMem (m.insert a z))[a]? = some z := Vsa.Densify.fillZeroMem_some (by simp)
+  have key : ∀ {lo n x : Nat}, rdLE (Vsa.Densify.fillZeroMem m) lo n = some x →
+      rdLE (Vsa.Densify.fillZeroMem (m.insert a z)) lo n = some x → lo ≤ a → a < lo + n → False := by
+    intro lo n x h0 h1 hl hh
+    have e := rdLE_bytes_eq h0 h1 (a - lo) (by omega)
+    rw [show lo + (a - lo) = a by omega, hz] at e
+    have e2 : ((Vsa.Densify.fillZeroMem m)[a]?).getD 0 = z := by rw [e]; rfl
+    have e3 := congrArg BitVec.toNat (e2.trans hzd)
+    have hlt : (((Vsa.Densify.fillZeroMem m)[a]?).getD 0).toNat < 256 := BitVec.isLt _
+    simp only [BitVec.toNat_add, BitVec.toNat_ofNat] at e3
+    omega
+  have eh := bytesT8_toNat_of_fill (hg ▸ hS0.hash)
+  have es := bytesT4_toNat_of_fill (hg ▸ hS0.size)
+  unfold TabFoot at ha
+  rw [eh, es] at ha
+  rcases ha with ha | ha
+  · rw [← hg] at ha
+    simp only [gStrtHashOff] at ha
+    by_cases h56 : a < rt.g + 56
+    · exact key hS0.hash hS1.hash (by simp only [gStrtHashOff]; omega) (by simp only [gStrtHashOff]; omega)
+    · by_cases h60 : a < rt.g + 60
+      · exact key hS0.nuse hS1.nuse (by simp only [gStrtNuseOff]; omega) (by simp only [gStrtNuseOff]; omega)
+      · exact key hS0.size hS1.size (by simp only [gStrtSizeOff]; omega) (by simp only [gStrtSizeOff]; omega)
+  · have hi : (a - rt.strtHash) / 8 < rt.strtHeads.length := by rw [hS0.heads_len]; omega
+    exact key (hS0.bucket _ hi) (hS1.bucket _ hi) (by omega) (by omega)
+
 /-- The string at `ts`'s `n` content bytes, off the view. -/
 def strBytesV (v : View) (ts n : Nat) : List UInt8 :=
   (List.range n).map fun j => ((v (ts + tstringContentsOff + j)).getD 0).toNat.toUInt8
@@ -1290,23 +1379,24 @@ theorem offX_sound {t : RTree} {xs : List (Nat × Nat)} {lo n : Nat} (h : offX t
   · omega
 
 /-- **Bucket `i`'s chain from `ts`, safe** (`StrChainK`): each string short,
-its object in one chunk in use of `cs`, its mark and `u.hnext` off `XAt t
-xs`; `fuel` links at most. -/
-def strSafeCheck (v : View) (cs : List DlHeap.Chunk) (xs : List (Nat × Nat)) (t : RTree) (size i : Nat) :
+its object in one chunk in use of `cs` and (lane F1-23) off the ranges `ws`,
+its mark and `u.hnext` off `XAt t xs`; `fuel` links at most. -/
+def strSafeCheck (v : View) (cs : List DlHeap.Chunk) (xs ws : List (Nat × Nat)) (t : RTree) (size i : Nat) :
     Nat → Nat → Bool
   | 0, ts => ts == 0
   | f + 1, ts => ts == 0 ||
       (r8 v (ts + gcTtOff) == some gcShrStr &&
        (match r8 v (ts + tstringShrlenOff), r32 v (ts + tstringHashOff), r64 v (ts + tstringLnglenOff) with
         | some l, some hh, some nx => decide (l ≤ maxShortLen) && hh % size == i &&
-            inHeapChunk cs (ts, tstringContentsOff + l + 1) && offX t xs (ts + gcMarkedOff) 1 &&
-            offX t xs (ts + tstringLnglenOff) 8 && strSafeCheck v cs xs t size i f nx
+            inHeapChunk cs (ts, tstringContentsOff + l + 1) && offX .leaf ws ts (tstringContentsOff + l + 1) &&
+            offX t xs (ts + gcMarkedOff) 1 &&
+            offX t xs (ts + tstringLnglenOff) 8 && strSafeCheck v cs xs ws t size i f nx
         | _, _, _ => false))
 
 theorem strSafeCheck_sound {m : Mem} {v : View} (h : PartialView m v) {cs : List DlHeap.Chunk}
-    {xs : List (Nat × Nat)} {t : RTree} {size i : Nat} :
-    ∀ {f ts : Nat}, strSafeCheck v cs xs t size i f ts = true →
-      StrChainK m (HeapIn cs) (XAt t xs) (fun _ => False) size i ts
+    {xs ws : List (Nat × Nat)} {t : RTree} {size i : Nat} :
+    ∀ {f ts : Nat}, strSafeCheck v cs xs ws t size i f ts = true →
+      StrChainK m (HeapIn cs) (XAt t xs) (InList ws) size i ts
   | 0, ts, hc => by
     simp only [strSafeCheck, beq_iff_eq] at hc
     subst hc; exact .nil
@@ -1327,25 +1417,29 @@ theorem strSafeCheck_sound {m : Mem} {v : View} (h : PartialView m v) {cs : List
       | some nx =>
       rw [hl, hhv, hnx] at hrest
       simp only [Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq] at hrest
-      obtain ⟨⟨⟨⟨⟨hle, hmod⟩, hin⟩, hmk⟩, hhn⟩, hrec⟩ := hrest
+      obtain ⟨⟨⟨⟨⟨⟨hle, hmod⟩, hin⟩, hw⟩, hmk⟩, hhn⟩, hrec⟩ := hrest
       exact .cons h0 (h.rd8 htag) (h.rd8 hl) hle (h.rd32 hhv) hmod (h.rd64 hnx)
-        (fun a h1 h2 => ⟨inChunk_sound hin h1 (by show a < ts + (tstringContentsOff + l + 1); omega), id⟩)
+        (fun a h1 h2 => ⟨inChunk_sound hin h1 (by show a < ts + (tstringContentsOff + l + 1); omega),
+          fun hws => offX_sound hw h1 (by show a < ts + (tstringContentsOff + l + 1); omega) (.inr (.inl hws))⟩)
         (offX_sound hmk (Nat.le_refl _) (by omega))
         (fun a h1 h2 => offX_sound hhn h1 h2) (strSafeCheck_sound h hrec)
 
 /-- **`g->strt` safe** (`StrtSafe`) over the view, at the witness's table:
 the bucket array in one chunk in use and off `XAt t xs`, every chain. -/
-def strtSafeCheck (v : View) (cs : List DlHeap.Chunk) (xs : List (Nat × Nat)) (t : RTree) (rt : RtPtrs) : Bool :=
+def strtSafeCheck (v : View) (cs : List DlHeap.Chunk) (xs ws : List (Nat × Nat)) (t : RTree) (rt : RtPtrs) :
+    Bool :=
   inHeapChunk cs (rt.strtHash, 8 * rt.strtSize) && offX t xs rt.strtHash (8 * rt.strtSize) &&
+  offX .leaf ws rt.strtHash (8 * rt.strtSize) &&
   (List.range rt.strtHeads.length).all fun i =>
-    strSafeCheck v cs xs t rt.strtSize i (rt.strtNuse + 1) (rt.strtHeads.getD i 0)
+    strSafeCheck v cs xs ws t rt.strtSize i (rt.strtNuse + 1) (rt.strtHeads.getD i 0)
 
 theorem strtSafeCheck_sound {m : Mem} {v : View} (h : PartialView m v) {cs : List DlHeap.Chunk}
-    {xs : List (Nat × Nat)} {t : RTree} {rt : RtPtrs} (hc : strtSafeCheck v cs xs t rt = true) :
-    StrtSafe m rt (HeapIn cs) (XAt t xs) (fun _ => False) := by
+    {xs ws : List (Nat × Nat)} {t : RTree} {rt : RtPtrs} (hc : strtSafeCheck v cs xs ws t rt = true) :
+    StrtSafe m rt (HeapIn cs) (XAt t xs) (InList ws) := by
   simp only [strtSafeCheck, Bool.and_eq_true] at hc
-  obtain ⟨⟨hin, hoff⟩, hall⟩ := hc
-  refine ⟨fun a h1 h2 => ⟨inChunk_sound hin h1 h2, offX_sound hoff h1 h2, id⟩, fun j hj => ?_⟩
+  obtain ⟨⟨⟨hin, hoff⟩, hoffw⟩, hall⟩ := hc
+  refine ⟨fun a h1 h2 => ⟨inChunk_sound hin h1 h2, offX_sound hoff h1 h2,
+    fun hws => offX_sound hoffw h1 h2 (.inr (.inl hws))⟩, fun j hj => ?_⟩
   have := List.all_eq_true.mp hall j (List.mem_range.mpr hj)
   rw [getD_of_lt _ hj] at this
   exact strSafeCheck_sound h this
@@ -1378,6 +1472,19 @@ theorem _root_.Lua.Vm.StrtSafe.congr_rt {m : Mem} {rt rt' : RtPtrs} {K X W : Nat
 /-- `EntryX`'s ranges besides `e.foot` and below the heap. -/
 def entryXRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
   [(L, stateSize), (e.g, gEnd), (ci, ciSize), (e.func + 16, e.stackLast - (e.func + 16))]
+
+/-- (lane F1-23) `EntryW`'s ranges. -/
+def entryWRanges (L ci : Nat) (e : EntryPtrs) : List (Nat × Nat) :=
+  [(L, stateSize), (e.g, gEnd), (ci, ciSize), (e.func, e.stackLast - e.func)]
+
+theorem entryW_sub {L ci : Nat} {e : EntryPtrs} {a : Nat} (ha : EntryW L ci e a) :
+    InList (entryWRanges L ci e) a := by
+  rcases ha with h | h | h | h
+  · exact ⟨_, List.Mem.head _, h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.head _), h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _)), h.1, h.2⟩
+  · exact ⟨_, List.Mem.tail _ (List.Mem.tail _ (List.Mem.tail _ (List.Mem.head _))), h.1, by
+      show a < e.func + (e.stackLast - e.func); omega⟩
 
 theorem entryX_sub {L ci : Nat} {e : EntryPtrs} {cs : List DlHeap.Chunk} :
     ∀ a, HeapIn cs a → EntryX L ci e a → XAt e.foot (entryXRanges L ci e) a := by
@@ -1470,7 +1577,7 @@ def entryCheck (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : Print
     Bool :=
   entryBaseCheck v L ci p e slot &&
   frozenCheck v L ci p e slot && litsEntryCheck v L ci e rt && placedCheck v L ci e rt &&
-  strtSafeCheck (v.only e.litFoot) rt.chunks (entryXRanges L ci e) e.foot rt
+  strtSafeCheck (v.only e.litFoot) rt.chunks (entryXRanges L ci e) (entryWRanges L ci e) e.foot rt
 
 /-- `entryCheck`'s parts, one `decide +kernel` each in a witness. -/
 structure EntryChecks (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot : PrintSlot) (rt : RtPtrs) :
@@ -1480,7 +1587,7 @@ structure EntryChecks (v : View) (L ci : Nat) (p : Proto) (e : EntryPtrs) (slot 
   lits : litsEntryCheck v L ci e rt = true
   placed : placedCheck v L ci e rt = true
   /-- (lane F1-19) the string table's safety -/
-  strt : strtSafeCheck (v.only e.litFoot) rt.chunks (entryXRanges L ci e) e.foot rt = true
+  strt : strtSafeCheck (v.only e.litFoot) rt.chunks (entryXRanges L ci e) (entryWRanges L ci e) e.foot rt = true
 
 theorem EntryChecks.check {v : View} {L ci : Nat} {p : Proto} {e : EntryPtrs} {slot : PrintSlot} {rt : RtPtrs}
     (h : EntryChecks v L ci p e slot rt) : entryCheck v L ci p e slot rt = true := by
@@ -1564,7 +1671,8 @@ theorem entryCheck_sound {m : Mem} {v : View} (h : PartialView m v) {L ci : Nat}
         have hL := litsCheck_sound (h.only _ hm).fill hlc
         exact ((strtSafeCheck_sound (h.only _ hm).fill hss).congr_rt
           (strtAt_same hL.nil.strt hrt'.nil.strt (hrt'.g.trans hL.g.symm))).weaken
-          (fun _ h => h) entryX_sub fun _ _ h => h }
+          (fun _ h => h) entryX_sub fun _ _ h => entryW_sub h
+      lits_tab := litsCheck_tab h hlc }
 
 /-- **The checks after `OP_VARARGPREP`'s stores** (`RuntimeReadyAt.vararg`): the
 memory structures at the view `postView`, for the moved witness. -/

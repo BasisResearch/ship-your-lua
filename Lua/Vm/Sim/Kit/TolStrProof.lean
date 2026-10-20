@@ -269,7 +269,7 @@ theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
     · exact hd a (hIn.dirty a (.inr (.inr (.inl (by simp only [Rng, gTotalbytesOff]; omega))))) ha
     · exact hd a (hIn.dirty a (.inr (.inr (.inr (.inl (by simp only [Rng, gGCdebtOff]; omega)))))) ha
   have hl' : LitsFoot g sl ls H ph D FL m' :=
-    ⟨hl.facts.trans kFL, hl.kept, hl.apart, hl.strs, hl.marks, hT.cache⟩
+    hl.trans kFL hT.cache
   -- (lane F1-18) `g->strt`'s words are off them
   have kT := hT.strt (by homega) (by omega) (by simp only [stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at p10; omega)
     (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at p12; have := hp.room; omega)
@@ -481,15 +481,5 @@ theorem tolStr_proved : TolStr_Statement := by
   | int _ => exact absurd hC id
   | flt _ _ => exact absurd hC id
   | builtin _ => exact absurd hC id
-
-/-- **`luaB_print` on the C frame** from `CALL`'s open part (lane F1-15;
-F1-17; F1-18): `lua_pushstring` of the literals proved (`pushLit_proved`),
-`luaL_tolstring` on strings proved (`tolStr_proved`), `_malloc_r` proved
-(lane F1-A0-M, `AllocProof.mallocR_proved`); the allocating classes by
-`CallOpen`'s fields: integers per argument (`tolInt`), floats (`printFlt`),
-functions (`printFn`); lane F1-19: no off-route list (`printAllocOff_proved`:
-the budget has room in the string table). -/
-theorem CallOpen.print (O : CallOpen) : PrintRel_Statement :=
-  printRel_of AllocProof.mallocR_proved pushLit_proved tolStr_proved O.tolInt O.printFlt O.printFn
 
 end Lua.Vm.Sim.Kit
