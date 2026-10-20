@@ -242,18 +242,36 @@ macro "tons_go " ns:ident : tactic => `(tactic| (
 /-- **`luaV_tonumber_` on a string integer numeral, the call-node summary**:
 `a0 = 1`, the callee frames `tonsW`, `*q` the converted integer
 (`__floatdidf`). -/
+abbrev TonsSum (n q sp : Nat) (r : BitVec 64) (f : HFrame) (m : Mem) (o : Array String) (v : BitVec 64) :
+    Prop :=
+  Triple (SegSt 0x8001ab58#64 (⟨Register.x10, BitVec.ofNat 64 n⟩ :: ⟨Register.x11, BitVec.ofNat 64 q⟩ ::
+      ⟨Register.x1, r⟩ :: f.pins) (ArmPay m o))
+    (SegSt r (⟨Register.x10, 1#64⟩ :: f.pins)
+      (ArmPay (writeMap8 (memPatch m (tonsW r n q sp m v) (sp - 80) 80) q
+        (sdData_val (Lua.Vm.Fn.Floatdidf.S v))) o))
+
+/-- `TonsSum` on a short string (`TonumSS`); one declaration per kind, the
+heartbeat budget being per declaration. -/
+theorem tons_short (n q sp ts : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem)
+    (o : Array String) (hx : TifCtx m n q sp r) (hsp : f.sp = BitVec.ofNat 64 sp)
+    (hgp : f.gp = 0x8005ced0#64) (hs : TsCtx m n ts sp s) {v : BitVec 64} (hv : str2int s = some v)
+    (hsh : s.length ≤ maxShortLen) : TonsSum n q sp r f m o v := by
+  ts_setup; ts_tag; tons_go Lua.Vm.AtF.TonumSS
+
+/-- `TonsSum` on a long string (`TonumSL`). -/
+theorem tons_long (n q sp ts : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem)
+    (o : Array String) (hx : TifCtx m n q sp r) (hsp : f.sp = BitVec.ofNat 64 sp)
+    (hgp : f.gp = 0x8005ced0#64) (hs : TsCtx m n ts sp s) {v : BitVec 64} (hv : str2int s = some v)
+    (hsh : ¬ s.length ≤ maxShortLen) : TonsSum n q sp r f m o v := by
+  ts_setup; ts_tag; tons_go Lua.Vm.AtF.TonumSL
+
+/-- **`luaV_tonumber_` on a string integer numeral**, either kind. -/
 theorem tons_sum (n q sp ts : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame) (m : Mem)
     (o : Array String) (hx : TifCtx m n q sp r) (hsp : f.sp = BitVec.ofNat 64 sp)
     (hgp : f.gp = 0x8005ced0#64) (hs : TsCtx m n ts sp s) {v : BitVec 64} (hv : str2int s = some v) :
-    Triple (SegSt 0x8001ab58#64 (⟨Register.x10, BitVec.ofNat 64 n⟩ :: ⟨Register.x11, BitVec.ofNat 64 q⟩ ::
-        ⟨Register.x1, r⟩ :: f.pins) (ArmPay m o))
-      (SegSt r (⟨Register.x10, 1#64⟩ :: f.pins)
-        (ArmPay (writeMap8 (memPatch m (tonsW r n q sp m v) (sp - 80) 80) q
-          (sdData_val (Lua.Vm.Fn.Floatdidf.S v))) o)) := by
-  ts_setup
-  by_cases hsh : s.length ≤ maxShortLen <;> ts_tag
-  · tons_go Lua.Vm.AtF.TonumSS
-  · tons_go Lua.Vm.AtF.TonumSL
+    TonsSum n q sp r f m o v :=
+  if hsh : s.length ≤ maxShortLen then tons_short n q sp ts s r f m o hx hsp hgp hs hv hsh
+  else tons_long n q sp ts s r f m o hx hsp hgp hs hv hsh
 
 /-! ## `luaV_tointeger` -/
 
@@ -338,16 +356,33 @@ macro "tois_go " ns:ident : tactic => `(tactic| (
 
 /-- **`luaV_tointeger` on a string integer numeral, the call-node summary**:
 `a0 = 1`, the callee frame `toisW`, `*q` the integer (whatever the mode). -/
+abbrev ToisSum (n q sp : Nat) (r md : BitVec 64) (f : HFrame) (m : Mem) (o : Array String) (v : BitVec 64) :
+    Prop :=
+  Triple (SegSt 0x8001ade8#64 (⟨Register.x10, BitVec.ofNat 64 n⟩ :: ⟨Register.x11, BitVec.ofNat 64 q⟩ ::
+      ⟨Register.x12, md⟩ :: ⟨Register.x1, r⟩ :: f.pins) (ArmPay m o))
+    (SegSt r (⟨Register.x10, 1#64⟩ :: f.pins)
+      (ArmPay (writeMap8 (memPatch m (toisW r f.s1 md n q sp m v) (sp - 80) 80) q (sdData_val v)) o))
+
+/-- `ToisSum` on a short string (`TointSS`). -/
+theorem tois_short (n q sp ts : Nat) (s : List UInt8) (r md : BitVec 64) (f : HFrame) (m : Mem)
+    (o : Array String) (hx : TifCtx m n q sp r) (hsp : f.sp = BitVec.ofNat 64 sp)
+    (hgp : f.gp = 0x8005ced0#64) (hs : TsCtx m n ts sp s) {v : BitVec 64} (hv : str2int s = some v)
+    (hsh : s.length ≤ maxShortLen) : ToisSum n q sp r md f m o v := by
+  ts_setup; ts_tag; tois_go Lua.Vm.AtF.TointSS
+
+/-- `ToisSum` on a long string (`TointSL`). -/
+theorem tois_long (n q sp ts : Nat) (s : List UInt8) (r md : BitVec 64) (f : HFrame) (m : Mem)
+    (o : Array String) (hx : TifCtx m n q sp r) (hsp : f.sp = BitVec.ofNat 64 sp)
+    (hgp : f.gp = 0x8005ced0#64) (hs : TsCtx m n ts sp s) {v : BitVec 64} (hv : str2int s = some v)
+    (hsh : ¬ s.length ≤ maxShortLen) : ToisSum n q sp r md f m o v := by
+  ts_setup; ts_tag; tois_go Lua.Vm.AtF.TointSL
+
+/-- **`luaV_tointeger` on a string integer numeral**, either kind. -/
 theorem tois_sum (n q sp ts : Nat) (s : List UInt8) (r md : BitVec 64) (f : HFrame) (m : Mem)
     (o : Array String) (hx : TifCtx m n q sp r) (hsp : f.sp = BitVec.ofNat 64 sp)
     (hgp : f.gp = 0x8005ced0#64) (hs : TsCtx m n ts sp s) {v : BitVec 64} (hv : str2int s = some v) :
-    Triple (SegSt 0x8001ade8#64 (⟨Register.x10, BitVec.ofNat 64 n⟩ :: ⟨Register.x11, BitVec.ofNat 64 q⟩ ::
-        ⟨Register.x12, md⟩ :: ⟨Register.x1, r⟩ :: f.pins) (ArmPay m o))
-      (SegSt r (⟨Register.x10, 1#64⟩ :: f.pins)
-        (ArmPay (writeMap8 (memPatch m (toisW r f.s1 md n q sp m v) (sp - 80) 80) q (sdData_val v)) o)) := by
-  ts_setup
-  by_cases hsh : s.length ≤ maxShortLen <;> ts_tag
-  · tois_go Lua.Vm.AtF.TointSS
-  · tois_go Lua.Vm.AtF.TointSL
+    ToisSum n q sp r md f m o v :=
+  if hsh : s.length ≤ maxShortLen then tois_short n q sp ts s r md f m o hx hsp hgp hs hv hsh
+  else tois_long n q sp ts s r md f m o hx hsp hgp hs hv hsh
 
 end Lua.Vm.Sim.Kit
