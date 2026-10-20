@@ -71,6 +71,14 @@ theorem Agree.st4 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec (8 * 4)} 
     · refine .inr (Nat.not_lt.1 fun h2 => hx ?_)
       have := hR (x - a) (by omega); rwa [Nat.add_sub_cancel' h1] at this)]
   exact h x hx
+theorem Agree.st2 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec (8 * 2)} (h : Agree R M m)
+    (hR : ∀ j, j < 2 → R (a + j)) : Agree R M (writeMap2 m a d) := fun x hx => by
+  rw [getElem?_writeMap2_out m a d x (by
+    rcases Nat.lt_or_ge x a with h1 | h1
+    · exact .inl h1
+    · refine .inr (Nat.not_lt.1 fun h2 => hx ?_)
+      have := hR (x - a) (by omega); rwa [Nat.add_sub_cancel' h1] at this)]
+  exact h x hx
 theorem Agree.st1 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec 8} (h : Agree R M m)
     (hR : R a) : Agree R M (m.insert a d) := fun x hx => by
   rw [Lua.Vm.Sim.AtF.ins_out m a d x (by
@@ -84,7 +92,7 @@ theorem Agree.st1 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec 8} (h : A
 region, by `omega` on its offsets). -/
 macro "fmt_agree2" : tactic => `(tactic| (
   sn_unfold
-  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st1)
+  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st2 | with_reducible apply Agree.st1)
   all_goals first
     | exact Agree.refl _ _
     | (intro j hj; simp only [snWd, snWk, snWdN, snWkN]; omega)
@@ -367,7 +375,7 @@ macro "sn_mv" : tactic => `(tactic| (
 generic context: its root memory is the base of the chain). -/
 macro "fmt_agree3" : tactic => `(tactic| (
   simp only [at_row]
-  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st1)
+  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st2 | with_reducible apply Agree.st1)
   all_goals first
     | (intro j hj; simp only [snWdN]; omega)
     | (simp only [snWdN]; omega)))

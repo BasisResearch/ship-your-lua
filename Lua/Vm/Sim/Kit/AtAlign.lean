@@ -11,7 +11,7 @@ value equation, one `at_eq_ext` rule (`and_sxm8_bv`, guarded by the mask's
 presence, `at_has_and8`; the `toNat`s expanded by `rw`, never `simp`: `simp`'s
 proof of `toNat_ofNat` on `sp - k + (2 ^ 64 - 1)` sends the kernel past its
 recursion limit), and the decided signed test, one `fat_gnd` rule
-(`and_sxm8`, `ofNat_sub_ofNat`, `slt_ofNat`); an address plus a 32-bit literal
+(`andm8`, `ofNat_sub_ofNat`, `slt_ofNat`); an address plus a 32-bit literal
 count (`fmt_sext32_ofNat`). No `FmtLib` hooks: a callee
 outside the format routines imports this alone (its `at_eq` hooks unify
 `zero_extend (bytesT1 …)` against an `ofNat` of a stack offset at default
@@ -24,39 +24,64 @@ open Vsa.Sim Vsa.Logic
 
 namespace Lua.Vm.Sim.Kit
 
-theorem nat_and_m8 (n : Nat) (h : n < 2 ^ 64) : n &&& (2 ^ 64 - 8) = n - n % 8 := by
-  apply Nat.eq_of_testBit_eq
-  intro i
-  rw [Nat.testBit_and, show n - n % 8 = 2 ^ 3 * (n / 2 ^ 3) by omega, Nat.testBit_two_pow_mul,
-    Nat.testBit_div_two_pow]
-  by_cases hi : 3 ≤ i
-  · by_cases h64 : i < 64
-    · have : (2 ^ 64 - 8).testBit i = true := by
-        rw [show 2 ^ 64 - 8 = 2 ^ 3 * (2 ^ 61 - 1) by decide, Nat.testBit_two_pow_mul,
-          Nat.testBit_two_pow_sub_one]
-        simp; omega
-      rw [this, show i - 3 + 3 = i by omega]; simp [hi]
-    · have : n.testBit i = false :=
-        Nat.testBit_lt_two_pow (Nat.lt_of_lt_of_le h (Nat.pow_le_pow_right (by decide) (by omega)))
-      rw [this, show i - 3 + 3 = i by omega, this]; simp
-  · have : (2 ^ 64 - 8).testBit i = false := by
-      rw [show 2 ^ 64 - 8 = 2 ^ 3 * (2 ^ 61 - 1) by decide, Nat.testBit_two_pow_mul]
-      simp; omega
-    rw [this]; simp; omega
+/-- `andi rd, rs, -8` on a Nat-valued register: the value rounded down to 8. -/
+theorem andm8 (x : Nat) (hx : x < 2 ^ 64) :
+    BitVec.ofNat 64 x &&& sign_extend (m := 64) (0xff8#12) = BitVec.ofNat 64 (8 * (x / 8)) := by
+  rw [show sign_extend (m := 64) (0xff8#12) = BitVec.ofNat 64 18446744073709551608 by decide]
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_ofNat, hi, decide_true, Bool.true_and]
+  rw [show 8 * (x / 8) = 2 ^ 3 * (x / 2 ^ 3) by rfl, Nat.testBit_two_pow_mul, Nat.testBit_div_two_pow]
+  by_cases h3 : 3 ≤ i
+  · have e : (18446744073709551608 : Nat) = 2 ^ 3 * (2 ^ 61 - 1) := by decide
+    rw [e, Nat.testBit_two_pow_mul, Nat.testBit_two_pow_sub_one]
+    simp only [h3, decide_true, Bool.true_and, show i - 3 + 3 = i by omega]
+    have : i - 3 < 61 := by omega
+    simp [this]
+  · have e : (18446744073709551608 : Nat) = 2 ^ 3 * (2 ^ 61 - 1) := by decide
+    rw [e, Nat.testBit_two_pow_mul]
+    simp [h3]
 
-/-- **An address rounded down to its word**: the address less its residue. -/
-theorem and_sxm8 (n : Nat) (h : n < 2 ^ 64) :
-    BitVec.ofNat 64 n &&& sign_extend (m := 64) (0xff8#12) = BitVec.ofNat 64 (n - n % 8) := by
-  rw [show sign_extend (m := 64) (0xff8#12) = BitVec.ofNat 64 (2 ^ 64 - 8) by decide]
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h,
-    Nat.mod_eq_of_lt (show 2 ^ 64 - 8 < 2 ^ 64 by decide), Nat.mod_eq_of_lt (show n - n % 8 < 2 ^ 64 by omega)]
-  exact nat_and_m8 n h
+/-- Two 8-aligned addresses: their `xor`'s low three bits are zero. -/
+theorem xor_al (s d : Nat) (hs : s % 8 = 0) (hd : d % 8 = 0) :
+    (((BitVec.ofNat 64 s) ^^^ (BitVec.ofNat 64 d)) &&& sign_extend (m := 64) (0x007#12) != (0#64)) = false := by
+  rw [show sign_extend (m := 64) (0x007#12) = BitVec.ofNat 64 7 by decide]
+  simp only [bne_eq_false_iff_eq]
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [BitVec.getLsbD_and, BitVec.getLsbD_xor, BitVec.getLsbD_ofNat, hi, decide_true, Bool.true_and,
+    BitVec.getLsbD_zero]
+  by_cases h3 : i < 3
+  · have e1 : s = 2 ^ 3 * (s / 8) := by omega
+    have e2 : d = 2 ^ 3 * (d / 8) := by omega
+    rw [e1, e2, Nat.testBit_two_pow_mul, Nat.testBit_two_pow_mul]
+    simp [show ¬ (3 ≤ i) by omega]
+  · have : (7 : Nat).testBit i = false := Nat.testBit_lt_two_pow (by
+      calc 7 < 2 ^ 3 := by decide
+        _ ≤ 2 ^ i := Nat.pow_le_pow_right (by decide) (by omega))
+    simp [this]
+
+/-- Two addresses of different residues mod 8: their `xor`'s low three bits
+are not all zero (`memcpy`'s byte path). -/
+theorem xor_mis (s d : Nat) (hs : s < 2 ^ 64) (hd : d < 2 ^ 64) (h : s % 8 ≠ d % 8) :
+    (((BitVec.ofNat 64 s) ^^^ (BitVec.ofNat 64 d)) &&& sign_extend (m := 64) (0x007#12) != (0#64)) = true := by
+  rw [show sign_extend (m := 64) (0x007#12) = BitVec.ofNat 64 7 by decide]
+  simp only [bne_iff_ne, ne_eq]
+  intro he
+  have e := congrArg BitVec.toNat he
+  simp only [BitVec.toNat_and, BitVec.toNat_xor, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hd,
+    Nat.zero_mod] at e
+  rw [Nat.mod_eq_of_lt (show (7 : Nat) < 2 ^ 64 by decide),
+    show (7 : Nat) = 2 ^ 3 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod, Nat.xor_mod_two_pow] at e
+  have h1 : s % 2 ^ 3 < 8 := Nat.mod_lt _ (by decide)
+  have h2 : d % 2 ^ 3 < 8 := Nat.mod_lt _ (by decide)
+  have key : ∀ a, a < 8 → ∀ b, b < 8 → a ≠ b → (a ^^^ b) ≠ 0 := by decide
+  exact key _ h1 _ h2 h e
 
 /-- Any word rounded down: the `ofNat` of its `Nat` less the residue. -/
 theorem and_sxm8_bv (x : BitVec 64) :
-    x &&& sign_extend (m := 64) (0xff8#12) = BitVec.ofNat 64 (x.toNat - x.toNat % 8) := by
-  have h := and_sxm8 x.toNat x.isLt
+    x &&& sign_extend (m := 64) (0xff8#12) = BitVec.ofNat 64 (8 * (x.toNat / 8)) := by
+  have h := andm8 x.toNat x.isLt
   simp only [BitVec.ofNat_toNat, BitVec.setWidth_eq] at h
   exact h
 
@@ -99,7 +124,7 @@ macro_rules
 macro_rules
   | `(tactic| fat_gnd) => `(tactic| (
       at_has_and8
-      rw [and_sxm8 _ (by omega), ofNat_sub_ofNat (by omega) (by omega)]
+      rw [andm8 _ (by omega), ofNat_sub_ofNat (by omega) (by omega)]
       simp (disch := omega) only [add_imm]
       rw [slt_ofNat (by omega) (by omega)]
       simp only [decide_eq_false_iff_not, decide_eq_true_eq]
