@@ -6,6 +6,7 @@ import Lua.Vm.Sim.Env
 import Lua.Vm.Sim.StdioState
 import Lua.Vm.Sim.Step
 import Vsa.Sim.SegState
+import Lua.Vm.Sim.Quiet
 
 /-!
 # `VmRel`: the machine at `luaV_execute`'s fetch head represents a `BcSem` state (A1)
@@ -105,8 +106,12 @@ inductive ValRepr (mo : Mem) (ι : Strs) : BitVec 8 → BitVec 64 → Value → 
   | int {i} : ValRepr mo ι (BitVec.ofNat 8 vNumInt) i (.int i)
   /-- a float (`LUA_VNUMFLT`): the payload is the double; the value is its
   model (`Float.Model.ofBits`, which canonicalises NaN payloads) and its sign
-  bit -/
-  | flt {x} : ValRepr mo ι (BitVec.ofNat 8 vNumFlt) x
+  bit. The payload is quiet (`isSNaN x = false`, lane F1-22): `Float.Model`
+  has no signalling NaN, so on one the ELF's libm and the model part
+  (`pow(sNaN, ±0)`); a constant is quiet by `Const.toValue?` (a binary
+  chunk's sNaN, copied raw by `lundump.c`'s `loadNumber`, has no value), a
+  stored result by `isSNaN_toBits`, a sign flip by `isSNaN_xor_sign`. -/
+  | flt {x} : isSNaN x = false → ValRepr mo ι (BitVec.ofNat 8 vNumFlt) x
       (.flt (Float.Model.ofBits (UInt64.ofBitVec x)) x.msb)
   | str {x s} : TStringRepr mo x.toNat s → (s.length ≤ maxShortLen → x.toNat = ι.ptr s) →
       ι.own x.toNat s → ValRepr mo ι (BitVec.ofNat 8 (strTag s)) x (.str s)

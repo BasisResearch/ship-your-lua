@@ -20,11 +20,12 @@ float), so their arms are every path (`at_jarithA`'s views): `at_jpow1`,
 
 **Signalling NaNs.** `pow`'s level (b) (`PowQ.spec`) holds on quiet operands
 only: `Float.Model` has no signalling NaN, and the ELF's `pow(sNaN, ±0)` and
-`pow(1, sNaN)` are a NaN where the model's are `1`. The relation admits a
-float register or constant with a signalling payload (`ValRepr.flt` holds of
-every bit pattern), so the arms are proved on the states whose float operands
-are quiet (`PowQuiet`, `PowKQuiet`: a predicate of the machine's memory, so
-`SimArmOnM`, not `SimArmOn`); the other states are `FloatArms`' fields.
+`pow(1, sNaN)` are a NaN where the model's are `1`. The arms are proved on the
+states whose float operands are quiet (`PowQuiet`, `PowKQuiet`: a predicate of
+the machine's memory, so `SimArmOnM`, not `SimArmOn`), and since lane F1-22
+every related state is one: `ValRepr.flt` keeps its payload quiet, so a
+register or constant the step reads is (`powQuiet_of`, `powKQuiet_of`), and
+the arm is `SimArmOnM.of_all`.
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -44,12 +45,16 @@ def SimArmOnM (o : OpCode) (Q : Proto → Mem → RelPtrs → Word → Prop) : P
     ∀ {ins : Word}, p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
       Q p c.σ.mem w ins → ∃ c' n, 0 < n ∧ StepsN n c c' ∧ VmRel p c' s'
 
-/-- **An arm from its two machine-level path families**: off `Q`, and on `Q`. -/
-theorem SimArmOnM.split {o : OpCode} {Q : Proto → Mem → RelPtrs → Word → Prop}
-    (h₁ : SimArmOnM o fun p m w ins => ¬ Q p m w ins) (h₂ : SimArmOnM o Q) : SimArm o :=
+/-- **An arm from a machine-level path family every related state is in**
+(lane F1-22: the quiet operands, `powQuiet_of`). -/
+theorem SimArmOnM.of_all {o : OpCode} {Q : Proto → Mem → RelPtrs → Word → Prop}
+    (hQ : ∀ {p : Proto} {c : Config} {s s' : State} {w : RelPtrs} {ins : Word}, Supported p →
+      VmRelAt p c s w → p.fetch s.pc = some ins → ins.op? = some o → Step binaryHost p s s' →
+      Q p c.σ.mem w ins)
+    (h : SimArmOnM o Q) : SimArm o :=
   fun {p} hS {c s _} hR {ins} hf hop hstep => by
     obtain ⟨w, hR⟩ := hR
-    exact (Classical.em (Q p c.σ.mem w ins)).elim (h₂ hS hR hf hop hstep) (h₁ hS hR hf hop hstep)
+    exact h hS hR hf hop hstep (hQ hS hR hf hop hstep)
 
 /-- A slot whose tag is the float tag holds a quiet payload (not a signalling
 NaN; `Lua.Vm.Fn.PowR.NotSNaN`). -/
@@ -72,6 +77,49 @@ def PowQuiet (_p : Proto) (m : Mem) (w : RelPtrs) (ins : Word) : Prop :=
 /-- `OP_POWK`'s operands `R[B]`, `K[C]` quiet. -/
 def PowKQuiet (_p : Proto) (m : Mem) (w : RelPtrs) (ins : Word) : Prop :=
   QuietOps m (w.slot ins.b) (w.k + 16 * ins.c)
+
+/-- A register the state defines is quiet in the relation (`ValRepr.flt`'s
+premise, lane F1-22). -/
+theorem QuietAt.of_reg {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hc : Core p c s w)
+    {j : Nat} {v : Value} (hj : j < p.maxstacksize) (hv : s.regs j = some v) :
+    QuietAt c.σ.mem (w.slot j) := fun ht =>
+  (isSNaN_eq_false_iff _).1 ((hc.stack j v hj hv).quiet_of_tag ht)
+
+/-- A constant with a value is quiet (`Const.toValue?`: a signalling NaN has
+none). -/
+theorem QuietAt.of_k {p : Proto} {c : Config} {s : State} {w : RelPtrs} (hc : Core p c s w)
+    {i : Nat} {v : Value} (hk : kval p i = some v) : QuietAt c.σ.mem (w.k + 16 * i) := fun ht =>
+  (isSNaN_eq_false_iff _).1 ((hc.kconst hk).quiet_of_tag ht)
+
+/-- **`OP_POW`'s operands are quiet in every related state that steps**: the
+kernel reads both registers. -/
+theorem powQuiet_of {p : Proto} {c : Config} {s s' : State} {w : RelPtrs} {ins : Word}
+    (hS : Supported p) (hR : VmRelAt p c s w) (hf : p.fetch s.pc = some ins)
+    (hop : ins.op? = some .POW) (hstep : Step binaryHost p s s') : PowQuiet p c.σ.mem w ins := by
+  have hc := hR.core
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, arithRR, opArith, Kernel.regTop, Opnd.ports, Option.map] at htop
+  have hk := (kstep_iff _ _).1 hstep
+  simp [kstep, decide?, kernelAt, hf, kernel, hop, opKernel, arithRR, opArith, Opnd.ports] at hk
+  rcases hb : s.regs ins.b with _ | vb <;> simp [hb] at hk
+  rcases hc' : s.regs ins.c with _ | vc <;> simp [hc'] at hk
+  exact ⟨QuietAt.of_reg hc (by omega) hb, QuietAt.of_reg hc (by omega) hc'⟩
+
+/-- **`OP_POWK`'s operands are quiet in every related state that steps**: the
+kernel reads `R[B]` and a constant with a value. -/
+theorem powKQuiet_of {p : Proto} {c : Config} {s s' : State} {w : RelPtrs} {ins : Word}
+    (hS : Supported p) (hR : VmRelAt p c s w) (hf : p.fetch s.pc = some ins)
+    (hop : ins.op? = some .POWK) (hstep : Step binaryHost p s s') : PowKQuiet p c.σ.mem w ins := by
+  have hc := hR.core
+  have htop := supported_regTop hS hf
+  simp [regTop, kernel, hop, opKernel, arithRK, opArith, Kernel.regTop, Opnd.ports, Option.map] at htop
+  have hk := (kstep_iff _ _).1 hstep
+  simp [kstep, decide?, kernelAt, hf, kernel, hop, opKernel, arithRK, opArith, Opnd.ports] at hk
+  rcases hkv : kval p ins.c with _ | y
+  · simp [hkv] at hk
+  simp [hkv] at hk htop
+  rcases hb : s.regs ins.b with _ | vb <;> simp [hb] at hk
+  exact ⟨QuietAt.of_reg hc (by omega) hb, QuietAt.of_k hc hkv⟩
 
 namespace At
 

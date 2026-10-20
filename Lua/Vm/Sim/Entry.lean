@@ -144,9 +144,10 @@ theorem _root_.Lua.Vm.ConstRepr.valRepr {m : Mem} {a : Nat} {c : Const} {v : Val
     simp only [Const.toValue?] at hv
     split at hv
     · cases hv
-    · simp only [Option.some.injEq] at hv; subst hv
+    · rename_i hq
+      simp only [Option.some.injEq] at hv; subst hv
       rw [slotTag_of_tagAt ht, slotVal_of_rd64 hb, BitVec.ofNat_toNat, BitVec.setWidth_eq]
-      exact .flt
+      exact .flt (by simpa using hq)
   | str h =>
     simp only [Const.toValue?, Option.some.injEq] at hv; subst hv
     exact h.valRepr (by simp) (fun s ts e => hι s ts (by cases e; rfl))

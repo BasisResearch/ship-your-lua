@@ -302,12 +302,16 @@ elab "at_tags" : tactic => withMainContext do
 macro_rules | `(tactic| at_hyp) => `(tactic| at_tags)
 
 /-- A stored float tag over an entry payload (`setfltvalue` of a register's own
-float, `forprep`'s float loop). -/
-theorem _root_.Lua.Vm.Sim.ValRepr.flt_lit {mo : Mem} {ι : Strs} {x : BitVec 64} :
+float, `forprep`'s float loop), quiet as the register it was read from
+(`at_quiet`). -/
+theorem _root_.Lua.Vm.Sim.ValRepr.flt_lit {mo : Mem} {ι : Strs} {x : BitVec 64} (hq : isSNaN x = false) :
     ValRepr mo ι (stData 1 (0x13#64 : BitVec 64)) x (.flt (F64.toModel x) x.msb) := by
-  rw [show stData 1 (0x13#64 : BitVec 64) = BitVec.ofNat 8 vNumFlt by decide]; exact .flt
+  rw [show stData 1 (0x13#64 : BitVec 64) = BitVec.ofNat 8 vNumFlt by decide]; exact .flt hq
 
-macro_rules | `(tactic| at_new_ext) => `(tactic| exact ValRepr.flt_lit)
+/- `refine … ?_` first: the payload is unified from the goal before the
+premise is sought (an explicit `(by …)` argument makes the elaborator unify the
+value `F64.toModel ?x` first, which unfolds deeply on a computed payload). -/
+macro_rules | `(tactic| at_new_ext) => `(tactic| (refine ValRepr.flt_lit ?_; at_quiet))
 
 /-! ## The run: Boolean forks -/
 

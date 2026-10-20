@@ -53,6 +53,21 @@ theorem ValRepr.flt_of_tag (h : ValRepr mo ι t x v) (ht : t = BitVec.ofNat 8 vN
   | flt => rfl
   | _ => exact absurd ht (by decide)
 
+/-- **A float register's payload is quiet** (lane F1-22: `ValRepr.flt`'s
+premise), read off its tag. -/
+theorem ValRepr.quiet_of_tag (h : ValRepr mo ι t x v) (ht : t = BitVec.ofNat 8 vNumFlt) :
+    isSNaN x = false := by
+  cases h with
+  | str => rcases strTag_cases _ with e | e <;> rw [e] at ht <;> exact absurd ht (by decide)
+  | flt hq => exact hq
+  | _ => exact absurd ht (by decide)
+
+/-- A float value's payload is quiet. -/
+theorem ValRepr.quiet {y : Float.Model} {n : Bool} (h : ValRepr mo ι t x (.flt y n)) :
+    isSNaN x = false := by
+  cases h with
+  | flt hq => exact hq
+
 theorem ValRepr.int_of_tag (h : ValRepr mo ι t x v) (ht : t = BitVec.ofNat 8 vNumInt) :
     v = .int x := by
   cases h with

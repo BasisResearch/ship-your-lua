@@ -70,7 +70,7 @@ theorem _root_.Lua.Vm.Sim.ValRepr.transfer {mo mo' : Mem} {ι : Strs} {t : BitVe
   | false_ => exact .false_
   | true_ => exact .true_
   | int => exact .int
-  | flt => exact .flt
+  | flt hq => exact .flt hq
   | str _ hp ho => exact .str (hs _ _ ho) hp ho
   | print hx => exact .print hx
 

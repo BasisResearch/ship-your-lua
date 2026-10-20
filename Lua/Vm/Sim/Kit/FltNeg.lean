@@ -50,18 +50,19 @@ end Lua.Num.F64
 
 namespace Lua.Vm.Sim
 
-open Lua.Num Lua.Vm.Layout
+open Lua.Num Lua.Vm.Layout Lua.Bytecode
 
 /-- **`OP_UNM`'s stored float**: the float tag and the payload with its sign
 bit flipped represent the kernel's `.flt (neg x) (!n)`. -/
 theorem ValRepr.flt_neg {mo : Mem} {ι : Strs} {t : BitVec 8} (ht : t = BitVec.ofNat 8 vNumFlt)
-    (b : BitVec 64) :
+    (b : BitVec 64) (hq : isSNaN b = false) :
     ValRepr mo ι t (b ^^^ 0x8000000000000000#64) (.flt (F64.toModel b).neg !b.msb) := by
   subst ht
   have hm : (F64.neg b).msb = !b.msb := by
     rw [F64.neg_eq_xor, BitVec.msb_xor, show (0x8000000000000000#64 : BitVec 64).msb = true by decide,
       Bool.xor_true]
+  have hq' : isSNaN (F64.neg b) = false := by rw [F64.neg_eq_xor, isSNaN_xor_sign, hq]
   rw [← F64.neg_eq_xor, ← F64.toModel_neg, ← hm]
-  exact ValRepr.flt
+  exact ValRepr.flt hq'
 
 end Lua.Vm.Sim
