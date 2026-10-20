@@ -79,15 +79,15 @@ theorem PrintSt.buf_lo {m : Mem} {ph : StdoutPh} {H : HeapIx} (h : PrintSt m ph 
 /-! ## `luaB_print`'s Lua state: the API calls and the stability -/
 
 /-- The entry's kept bytes, at a later state. -/
-theorem PrSt.kept {L nci func tbc sl g n i k : Nat} {ls : LitPtrs} {args : List Value} {D G B FL : Nat → Prop}
+theorem PrStR.kept {L nci func tbc sl g n i k r : Nat} {ls : LitPtrs} {args : List Value} {D G B FL : Nat → Prop}
     {M0 m : Mem} {ph0 ph : StdoutPh} {H0 H : HeapIx}
-    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k ph H m) {a : Nat}
+    (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k r ph H m) {a : Nat}
     (h : Kept H0 ph0 a) : Kept H ph a := h.mono hS.chunks hS.buf
 
 /-- A later buffer lies in the arena. -/
-theorem PrSt.buf_lo {L nci func tbc sl g n i k : Nat} {ls : LitPtrs} {args : List Value} {D G B FL : Nat → Prop}
+theorem PrStR.buf_lo {L nci func tbc sl g n i k r : Nat} {ls : LitPtrs} {args : List Value} {D G B FL : Nat → Prop}
     {M0 m : Mem} {ph0 ph : StdoutPh} {H0 H : HeapIx}
-    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k ph H m)
+    (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k r ph H m)
     (h0 : ∀ a, ph0.Buf a → heapStart ≤ a) : ∀ a, ph.Buf a → heapStart ≤ a := fun a ha =>
   (hS.buf a ha).elim (h0 a) fun h => h.1
 
@@ -305,10 +305,10 @@ theorem reentWord_not_printW {sp a : Nat} {H : HeapIx} {ph : StdoutPh} (hsp : he
 /-- (lane F1-23) **`luaB_print`'s state after a `luaL_tolstring` that keeps
 the table and the literals' footprint**: the budget of the arguments from
 `i + 1` on at most argument `i`'s (a found string costs nothing). -/
-theorem PrSt.nextKeep {L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {D G B FL : Nat → Prop}
-    {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {i k k' : Nat} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
-    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k ph H m)
-    (hc : prCost args (i + 1) ≤ prCost args i) (ha : prAllocs args (i + 1) ≤ prAllocs args i)
+theorem PrStR.nextKeep {L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {D G B FL : Nat → Prop}
+    {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {i k k' r : Nat} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
+    (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k r ph H m)
+    (hc : prCost args (i + 1) ≤ r) (ha : prAllocs args (i + 1) ≤ prAllocs args i)
     (hapi : ApiAt m' L nci func k' tbc)
     (hl : LitsFoot g sl ls H ph D FL m') (hk : ∀ a, PrKeep L g func n G a → bytesT1 m' a = bytesT1 M0 a)
     (kFL : ∀ a, FL a → bytesT1 m' a = bytesT1 m a)
@@ -446,7 +446,7 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
       · rw [prCost_past (by rw [hIn.len]; omega)]; exact fun h => absurd h (Nat.lt_irrefl 0)
     -- (lane F1-19) `_dtoa_r`'s bignums are kept chunks, `_REENT`'s words no write's
     have kB : ∀ a, BigFoot B a → bytesT1 m' a = bytesT1 m a := fun a ha =>
-      ha.elim (fun hb => k0 a (hS.bigIn.inK a hb)) fun hr => hk a (reentWord_not_printW hsp hbuf' hr)
+      ha.elim (fun hb => kK a (hS.bigIn.inK a hb)) fun hr => hk a (reentWord_not_printW hsp hbuf' hr)
     refine ⟨FL, B, hS.api.congrT fun a ha => k0 a ?_, ⟨hl.facts.trans fun a ha => kK a (hl.kept a ha),
         fun a ha => (hl.kept a ha).mono hkept hbf, hl.apart, fun ts hts a h1 h2 => (hl.strs ts hts a h1 h2).mono hkept hbf,
         hl.marks, hl.cache.congr fun a h1 h2 => k0 a (hIn.g_in a (by omega) h2),
@@ -454,8 +454,8 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
       fun a ha => (?_ : bytesT1 m' a = bytesT1 m a).trans (hS.keep a ha), hS.buf.trans hbf hS.chunks,
       fun c hc hu => hkept c (hS.chunks c hc hu) hu, hR, by rw [hn', hz]; exact hS.strt,
       (hS.safe.trans fun a ha => kK a (hl.kept a ha)).conseq fun M hM =>
-        hM.mono fun a ha => ha.mono hkept hbf, hS.gc, fun h => (hS.stat h).congr kA, hS.big.trans kB, hS.bigIn,
-      hS.big_fl⟩
+        hM.mono fun a ha => ha.mono hkept hbf, hS.gc, fun h => (hS.stat h).congr kA, hS.big.trans kB,
+      ⟨fun a hb => (hS.bigIn.inK a hb).mono hkept hbf, hS.bigIn.x, hS.bigIn.lit⟩, hS.big_fl⟩
     · rcases ha with h | h | h | h
       · exact hIn.L_in a (by simp only [Rng] at h; omega) (by simp only [Rng, stateSize] at h ⊢; omega)
       · exact hIn.L_in a (by simp only [Rng] at h; omega) (by simp only [Rng, stateSize] at h ⊢; omega)
@@ -525,9 +525,9 @@ structure LitKeeps (L nci g func n : Nat) (G B FL : Nat → Prop) (ph : StdoutPh
 everything from `heapEnd + 32` up. -/
 theorem litKeeps_of {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
     {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
-    {ts i : Nat}
+    {ts i r : Nat}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n ph H m) (hP : PrintSt m ph H)
+    (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n r ph H m) (hP : PrintSt m ph H)
     (kW : ∀ a, a < heapEnd + 32 → ¬ Rng (L + 16) 8 a → ¬ Rng (func + 16 * n + 16) 16 a →
       ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a → ¬ Rng (g + gTotalbytesOff) 8 a →
       ¬ Rng (g + gGCdebtOff) 8 a → ¬ Rng (ts + gcMarkedOff) 1 a → bytesT1 m' a = bytesT1 m a)
@@ -886,9 +886,20 @@ theorem int_ascii (x : Int) : ∀ c ∈ (toString x).toList, c.toNat < 256 := by
     · simp at hc; subst hc; decide
     · exact toDigits_ascii _ c hc
 
-/-- The characters of a value that is no float are bytes (lane F1-18:
-integers too; lane F1-24: `print`'s `"function: 0x80022f18"`). -/
-theorem show_ascii (v : Value) (hf : ¬ IsFlt v) :
+/-- (lane F1-25) The characters of a byte string are bytes. -/
+theorem bytesToString_ascii (s : List UInt8) : ∀ c ∈ (bytesToString s).toList, c.toNat < 256 := by
+  intro c hc
+  simp only [bytesToString, String.toList_ofList, List.mem_map] at hc
+  obtain ⟨b, -, rfl⟩ := hc
+  have := UInt8.toNat_lt b
+  rw [show (Char.ofNat b.toNat).toNat = b.toNat by
+    rw [Char.ofNat, dif_pos (Or.inl (by omega))]; rfl]
+  omega
+
+/-- The characters of a value are bytes (lane F1-18: integers too; lane
+F1-24: `print`'s `"function: 0x80022f18"`; lane F1-25: a float's
+`tostringbuff`). -/
+theorem show_ascii (v : Value) :
     ∀ c ∈ (Value.show binaryHost v).toList, c.toNat < 256 := by
   intro c hc
   cases v with
@@ -897,15 +908,9 @@ theorem show_ascii (v : Value) (hf : ¬ IsFlt v) :
     cases b <;> simp [Value.show] at hc
     · rcases hc with rfl | rfl | rfl | rfl | rfl <;> decide
     · rcases hc with rfl | rfl | rfl | rfl <;> decide
-  | str s =>
-    simp only [Value.show, bytesToString, String.toList_ofList, List.mem_map] at hc
-    obtain ⟨b, -, rfl⟩ := hc
-    have := UInt8.toNat_lt b
-    rw [show (Char.ofNat b.toNat).toNat = b.toNat by
-      rw [Char.ofNat, dif_pos (Or.inl (by omega))]; rfl]
-    omega
+  | str s => exact bytesToString_ascii s c hc
   | int i => exact int_ascii _ c hc
-  | flt _ _ => exact absurd trivial hf
+  | flt x nn => exact bytesToString_ascii _ c hc
   | builtin bf =>
     cases bf
     exact (by decide : ∀ c ∈ (Value.show binaryHost (.builtin .print)).toList, c.toNat < 256) c hc
@@ -921,8 +926,8 @@ theorem argBytes_chars (v : Value) (h : ∀ c ∈ (Value.show binaryHost v).toLi
   intro c hc
   exact key c (h c hc)
 
-/-- **The console's line** from `luaB_print`'s bytes (no float). -/
-theorem prLine_chars (args : List Value) (hna : ∀ v ∈ args, ¬ IsFlt v) :
+/-- **The console's line** from `luaB_print`'s bytes. -/
+theorem prLine_chars (args : List Value) :
     charsOf (prLine (fun i => argBytes (args.getD (i - 1) .nil)) args.length ++ [0x0a#8]) =
       printLine binaryHost args := by
   have h : ∀ i (hi : i < (args.map fun v => (Value.show binaryHost v).toList).length),
@@ -933,7 +938,7 @@ theorem prLine_chars (args : List Value) (hna : ∀ v ∈ args, ¬ IsFlt v) :
     show List.map chr (argBytes (args.getD (i + 1 - 1) .nil)) = _
     rw [Nat.add_sub_cancel, List.getElem_map, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi,
       Option.getD_some]
-    exact argBytes_chars _ (show_ascii _ (hna _ (List.getElem_mem hi)))
+    exact argBytes_chars _ (show_ascii _)
   have hl := prLine_map (fun i => argBytes (args.getD (i - 1) .nil))
     (args.map fun v => (Value.show binaryHost v).toList) h args.length (by simp)
   rw [List.take_of_length_le (by simp)] at hl
@@ -954,17 +959,14 @@ theorem printAllocOff_proved : PrintAllocOff_Statement := by
 
 /-- **`luaB_print` on the C frame from its parts** (lane F1-15; split by value
 class, lane F1-18; functions per argument, lane F1-24): a list with a float
-by `PrintFlt_Statement`; otherwise `print_sum` over `PrSt'` (`printLua_st`,
-the per-argument budget from `PrBudget`, lane F1-19 the string table's safety
-and `_dtoa_r`'s bignums from `PrintIn.alloc`), `luaL_tolstring` per argument
-by `tolLit_proved` (nil, booleans), `TolStr_Statement` (strings),
-`TolInt_Statement` (integers) and `TolFn_Statement` (`print`). -/
+`print_sum` over `PrSt'` (`printLua_st`, the per-argument budget from
+`PrBudget`, lane F1-19 the string table's safety and `_dtoa_r`'s bignums from
+`PrintIn.alloc`), `luaL_tolstring` per argument by `tolLit_proved` (nil,
+booleans), `TolStr_Statement` (strings), `TolInt_Statement` (integers),
+`TolFn_Statement` (`print`) and (lane F1-25) `TolFlt_Statement` (floats). -/
 theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : TolStr_Statement)
-    (hTI : TolInt_Statement) (hTF : TolFn_Statement) (hFl : PrintFlt_Statement) : PrintRel_Statement := by
+    (hTI : TolInt_Statement) (hTF : TolFn_Statement) (hTFl : TolFlt_Statement) : PrintRel_Statement := by
   intro sp L nci func n tbc sl g ls args ι D G ph H f M o _ hIn hn hbud
-  by_cases hfl : HasClass IsFlt args
-  · exact hFl sp L nci func n tbc sl g ls args ι D G ph H f M o hfl hIn hn hbud
-  have hna : ∀ v ∈ args, ¬ IsFlt v := fun v hv h => hfl ⟨v, hv, h⟩
   have hlen := hIn.len
   -- the state before the first argument
   obtain ⟨FL, B, hA⟩ := hIn.alloc
@@ -985,13 +987,12 @@ theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : To
     refine printLua_st hIn hn fun i ph' H' m o' r f' hi1 hin ⟨FL', B', hS⟩ hP hr => ?_
     have hv : args[i - 1]? = some (args.getD (i - 1) .nil) := by
       rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by omega)]; rfl
-    have hnv := hna _ (List.mem_of_getElem? hv)
     cases hw : args.getD (i - 1) .nil with
     | nil => rw [hw] at hv; exact hTL _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
     | bool b => rw [hw] at hv; exact hTL _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
     | str s => rw [hw] at hv; exact hTS _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
     | int _ => rw [hw] at hv; exact hTI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
-    | flt _ _ => rw [hw] at hnv; exact absurd trivial hnv
+    | flt _ _ => rw [hw] at hv; exact hTFl _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
     | builtin _ => rw [hw] at hv; exact hTF _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
   intro c h
   obtain ⟨c', hs, m', out, hret, hend⟩ :=
@@ -999,9 +1000,9 @@ theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : To
   refine ⟨c', hs, m', out, hret, ?_⟩
   obtain ⟨buf, H', hP', ⟨FL', B', hS'⟩, hk⟩ := hend.st
   refine ⟨?_, .intro buf H' ⟨hP', hk, hS'.buf, .intro FL' B' ⟨hS'.lits, hS'.safe, hS'.big,
-    ⟨fun a hb => (hS'.bigIn.inK a hb).mono hS'.chunks hS'.buf, hS'.bigIn.x, hS'.bigIn.lit⟩, hS'.big_fl⟩⟩,
+    hS'.bigIn, hS'.big_fl⟩⟩,
     fun a ha => hS'.keep a (.inl ha), hend.above⟩
   rw [hend.out, hIn.pend, List.nil_append, ← hlen]
-  exact prLine_chars args hna
+  exact prLine_chars args
 
 end Lua.Vm.Sim.Kit

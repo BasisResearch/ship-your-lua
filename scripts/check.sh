@@ -977,7 +977,8 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.argStr_fn
 #print axioms Lua.Vm.Sim.Kit.tolPost_of_run
 #print axioms Lua.Vm.Sim.Kit.tolFn_proved
-#print axioms Lua.Vm.Sim.Kit.printFn_of_flt
+#print axioms Lua.Vm.Sim.Kit.printFn_of_tol
+#print axioms Lua.Vm.Sim.Kit.printFlt_of_tol
 #print axioms Lua.Vm.Sim.Kit.show_ascii
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }

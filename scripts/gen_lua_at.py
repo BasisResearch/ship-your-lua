@@ -4303,6 +4303,97 @@ def tol_fn(mod):
 FNS.update({"luaL_tolstring/fn": tol_fn("TolFn")})
 
 
+# ---- lane F1-25: `luaL_tolstring` on a float ----------------------------------
+
+# `strspn(s, "-0123456789")` (`tostringbuff`'s "looks like an int"): X.n 1 = s,
+# X.n 2 = the cursor; the set a `.rodata` literal (its bytes cells), so the
+# inner scan over it is unrolled (a fork per character); the outer loop a root
+# (`O`, `0x800368f0`: X.b 13 the cursor's byte)
+SPN_SET = 0x8004f3e0
+SPN_CELLS = {(1, SPN_SET + k): b for k, b in enumerate(b"-0123456789\0")}
+SPN_OK = ["s_lo : 0x8005c6c8 ≤ X.n 1", "sp_hi : X.n 0 ≤ 2 ^ 32", "ra : (X.b 0).toNat % 4 = 0"]
+SPN_OKO = SPN_OK + ["p_ge : X.n 1 ≤ X.n 2", "p_hi : X.n 2 + 2 ≤ 2 ^ 32"]
+FNS.update({
+    "strspn": dict(
+        mod="Strspn", entry=0x800368dc,
+        row=abi_row({10: N((1, 1)), 11: ("lit", SPN_SET)}),
+        ok=SPN_OK + ["s_hi : X.n 1 + 2 ≤ 2 ^ 32"], lb={1: 0x8005c6c8}, cells=SPN_CELLS, depth=200,
+        loops={0x800368f0: dict(name="O", row={**frame_row(), 10: N((1, 1)), 11: ("lit", SPN_SET),
+                                                12: N((2, 1)), 13: ("bv", 13), 16: ("lit", 0x2d)},
+                                ok=SPN_OKO, lb={1: 0x8005c6c8, 2: 0x8005c6c8})},
+        doc="`strspn(s, \"-0123456789\")` (`tostringbuff`'s test)."),
+})
+
+# `tostringbuff`'s float part (`tostringbuff.part.0.isra.0`, `n` in `a0`, the
+# buffer in `a1`): `snprintf(buf, 44, "%.14g", n)` (a call node: the count
+# X.n 2, root `S`), `strspn(buf, "-0123456789")` (a call node: X.n 3, root
+# `P`), the byte there, the `".0"` suffix when it is the terminator. X.n 0 = sp,
+# X.n 1 = buf (in the caller's frame), X.b 13 = n
+TSB_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+          "ra : (X.b 0).toNat % 4 = 0", "b_lo : X.n 0 ≤ X.n 1", "b_hi : X.n 1 + 44 ≤ 2 ^ 32"]
+TSB_S = TSB_OK + ["n_lo : 1 ≤ X.n 2", "n_hi : X.n 2 ≤ 21"]
+TSB_P = TSB_S + ["k_le : X.n 3 ≤ X.n 2"]
+FNS.update({
+    "tostringbuff/f": dict(
+        mod="TsbF", entry=0x8001142c,
+        row=abi_row({10: ("bv", 13), 11: N((1, 1))}),
+        ok=TSB_OK, lb={1: 0x87800000}, ub={2: 21}, junk=(12, 14, 15, 16, 17),
+        cells={(1, 0x8004f3d8 + k): b for k, b in enumerate(b"%.14g\0")},
+        calls={0x80034de0: dict(ret={10: N((2, 1))}, root="S", ok=TSB_S, lb={1: 0x87800000, 2: 1}),
+               0x800368dc: dict(ret={10: N((3, 1))}, root="P", ok=TSB_P, lb={1: 0x87800000, 2: 1})},
+        doc="`tostringbuff`'s float part: `snprintf(buf, 44, \"%.14g\", n)`, `strspn`, the `\".0\"` suffix."),
+})
+
+# `lua_pushfstring(L, "%f", n)` (`luaL_tolstring` on a float): `luaO_pushvfstring`
+# on `"%f"` (`.rodata`, its word and bytes cells, the conversion switch's word
+# for `'f'`): `strchr`, `addstr2buff` of the empty prefix, `'f'`: the
+# `TValue` `nv` (tag `LUA_VNUMFLT`) and `addnum2buff` -> `tostringbuff`'s float
+# part (a call node: the count X.n 4, root `S`), the empty rest, `luaS_newlstr`
+# (a call node: X.n 5, root `T`), the push, `luaC_checkGC`. Atoms as
+# `lua_pushfstring/I`'s (`pfX`: X.b 13 = n)
+PFF_FMT = 0x8004fd60
+PFF_CELLS = {(8, PFF_FMT): 0x6625, (1, PFF_FMT): 0x25, (1, PFF_FMT + 1): 0x66, (1, PFF_FMT + 2): 0,
+             (4, 0x80052c90): 0xfffbf34c}
+PFF_S = PF_OK + ["n_lo : 1 ≤ X.n 4", "n_hi : X.n 4 ≤ 40"]
+PFF_T = PFF_S + ["ts_lo : 0x8005c6d0 ≤ X.n 5", "ts_hi : X.n 5 + 24 ≤ 0x87800000",
+                 "ttt : X.n 5 + 9 ≤ X.n 3 ∨ X.n 3 + 8 ≤ X.n 5 + 8"]
+FNS.update({
+    "lua_pushfstring/f": dict(
+        mod="PushfF", entry=0x800030a4,
+        row=abi_row({10: N((1, 1)), 11: ("lit", PFF_FMT), 12: ("bv", 13), 13: ("bv", 14), 14: ("bv", 15),
+                     15: ("bv", 16), 16: ("bv", 17), 17: ("bv", 18)}),
+        ok=PF_OK, lb=PF_LB, ub={4: 40}, depth=200, junk=(14, 16, 17), res={0: (16, 0)}, xres=True,
+        cells=PFF_CELLS,
+        rcells={(((1, 1),), 24): N((2, 1)), (((1, 1),), 16): N((3, 1))},
+        rcellsw={(1, ((5, 1),), 8): 4},
+        cuts={0x80011df8: dict(root="C", ok=PF_OK, lb=PF_LB)},
+        calls={0x8001142c: dict(ret={10: N((4, 1))}, root="S", ok=PFF_S, lb=PF_LB),
+               0x80017694: dict(ret={10: N((5, 1))}, root="T", ok=PFF_T, lb=PF_LB),
+               0x8000ec80: dict(ret={})},
+        imports=["Lua.Vm.Sim.Kit.AtNarrow", "Lua.Vm.Sim.Kit.AtAlign"],
+        doc="`lua_pushfstring(L, \"%f\", n)`: `luaO_pushvfstring` on `\"%f\"` (`strchr`, `addstr2buff`, "
+            "`addnum2buff` -> `tostringbuff`'s float part, `luaS_newlstr`, the push), `luaC_checkGC`."),
+})
+
+
+def tol_flt(mod):
+    """lane F1-25: `luaL_tolstring(L, i, &l)` on a float argument: the atoms
+    of `tol_lit` (`G(L)->mt[LUA_TNUMBER]` NULL), X.b 13 = the double
+    (`lua_tonumberx`'s load); `lua_pushfstring(L, "%f", n)` a call node."""
+    d = tol_lit(mod, 0x13, "a float")
+    d["rcells"] = {**d["rcells"], (((2, 16), (5, 1)), 0): ("bv", 13)}
+    d["calls"] = {0x800030a4: dict(ret={})}
+    d["junk"] = (13, 14, 15, 16, 17)
+    d["prune_nat"] = True
+    d["imports"] = ["Lua.Vm.Sim.Kit.AtNarrow"]
+    d["doc"] = ("`luaL_tolstring(L, i, &l)` on a float argument (`lua_isinteger`, `lua_tonumberx`, "
+                "`lua_pushfstring(L, \"%f\", n)`), up to its tail `lua_tolstring(L, -1, &l)`.")
+    return d
+
+
+FNS.update({"luaL_tolstring/flt": tol_flt("TolFlt")})
+
+
 def fn_main(names, check):
     sys.setrecursionlimit(20000)
     drift = False

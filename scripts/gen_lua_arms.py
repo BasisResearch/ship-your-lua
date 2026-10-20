@@ -692,6 +692,23 @@ helper_edit("luaO_pushvfstring", roots=[0x80011e54, 0x80011f2c], stops=[0x800121
 helper_edit("_svfprintf_r", roots=[0x80043c48], stops=[0x80043c70, 0x800438c8, 0x8004434c, 0x80043ed8],
             unstop=[0x800438ac])
 
+# lane F1-25: `luaL_tolstring` on a float (`0x80021cb0`, no longer a stop):
+# `lua_isinteger` false, `lua_tonumberx` on a positive index below the top
+# (stops as `lua_tointegerx`'s: a pseudo-index `0x80002764`, an index past the
+# top `0x8000278c`, a non-float `0x800027a0`), `lua_pushfstring(L, "%f", n)`:
+# `luaO_pushvfstring`'s `'f'` target `0x80011f68` a root, `addnum2buff`'s float
+# branch (`0x800115b8`, no longer a stop) calling `tostringbuff`'s float part
+# (`tostringbuff.part.0.isra.0`: `snprintf(buf, 44, "%.14g", n)`, `strspn(buf,
+# "-0123456789")`, the `".0"` suffix), `strspn` (its two loops)
+helper_edit("luaL_tolstring", unstop=[0x80021cb0])
+helper_edit("addnum2buff", unstop=[0x800115b8])
+helper_edit("luaO_pushvfstring", roots=[0x80011f68])
+HELPERS += [("lua_tonumberx", "Lua_tonumberx", 0x80002714, 0x800027fc, [22, 26], [],
+             [0x80002764, 0x8000278c, 0x800027a0]),
+            ("tostringbuff.part.0.isra.0", "Tostringbuff_part_0_isra_0", 0x8001142c, 0x800114b0, [22, 26], [], []),
+            ("strspn", "Strspn", 0x800368dc, 0x80036928, [22, 26], [0x800368f0], [])]
+RESULTS.update({"lua_tonumberx": {"x10"}, "tostringbuff.part.0.isra.0": {"x10"}, "strspn": {"x10"}})
+
 
 def helper_cfg(lo, hi):
     """{addr: (row, successors, ends_segment)} over one helper's range."""

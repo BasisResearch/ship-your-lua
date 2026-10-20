@@ -310,11 +310,13 @@ def StdioGlob (a : Nat) : Prop := 0x8005cee0 ≤ a ∧ a < 0x8005e7d8
 (`__malloc_sbrk_base`, `brk.0`, `__malloc_max_total_mem`,
 `__malloc_max_sbrked_mem`, `__malloc_top_pad`, `errno`,
 `__malloc_current_mallinfo`; lane F1-A0-M: `_REENT->_errno` and
-`__malloc_trim_threshold`, in the ported proof's footprint): `_malloc_r` writes
-them, no stdio state reads them. -/
+`__malloc_trim_threshold`, in the ported proof's footprint; lane F1-25: the
+bignum allocator's, `_REENT`'s `_result`, `_result_k`, `_p5s`, `_freelist`
+(`ReentWord`, `_impure_data + [80, 112)`), which `_dtoa_r` writes): the
+allocators write them, no stdio state reads them. -/
 def AllocWords (a : Nat) : Prop :=
   (0x8005d1b8 ≤ a ∧ a < 0x8005d1bc) ∨ (0x8005d388 ≤ a ∧ a < 0x8005d398) ∨ (0x8005d3b8 ≤ a ∧ a < 0x8005d3c0) ∨ (0x8005d3c8 ≤ a ∧ a < 0x8005d3e0) ∨
-    (0x8005d408 ≤ a ∧ a < 0x8005d40c) ∨ (0x8005e560 ≤ a ∧ a < 0x8005e5b0)
+    (0x8005d408 ≤ a ∧ a < 0x8005d40c) ∨ (0x8005e560 ≤ a ∧ a < 0x8005e5b0) ∨ (0x8005d208 ≤ a ∧ a < 0x8005d228)
 
 /-- **What the stdio state reads** among the stdio globals: all but the
 allocator's words, so it is kept across a `_malloc_r`. -/

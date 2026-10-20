@@ -3,6 +3,8 @@ import Lua.Vm.Sim.Kit.PrintS
 import Lua.Vm.Sim.Kit.RetPoscall
 import Lua.Vm.Sim.Kit.Tolstring
 import Lua.Vm.LayoutPrint
+import Lua.Vm.Sim.Kit.BigHeap
+import Lua.Vm.Sim.Kit.FltFmt
 
 /-!
 # `OP_CALL print`'s open parts, in the relation's terms (lane F1-13)
@@ -134,10 +136,6 @@ survive the push at `L->top`). -/
 def StrtSafeIn (L nci g func n sl : Nat) (ls : LitPtrs) (D G B K : Nat → Prop) (M : Mem) : Prop :=
   ∀ rt, LitsIn M g sl ls rt → StrtSafe (fillZeroMem M) rt K (fun a => PrX L nci g func n sl G a ∨ B a)
     (fun a => B a ∨ D a)
-
-/-- (lane F1-19) **The bytes `_dtoa_r`'s bignums' facts read**: the bignums
-`B`, `_REENT`'s words. -/
-def BigFoot (B : Nat → Prop) (a : Nat) : Prop := B a ∨ ReentWord a
 
 /-- (lane F1-19) **Where `_dtoa_r`'s bignums `B` lie**: in `K`, apart from
 what the caller holds (`PrX`) and from the literals' objects. -/
@@ -386,15 +384,16 @@ chunks in use kept; the break room of the arguments from `i` on, and, while
 one of them makes a string, room for those strings in `g->strt`. Lane F1-19:
 the table's chains safe (frozen with the literals) always, and `_dtoa_r`'s
 bignums `B` (frozen on `BigFoot B`), apart. -/
-structure PrSt (L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) (D G B FL : Nat → Prop)
-    (M0 : Mem) (ph0 : StdoutPh) (H0 : HeapIx) (i k : Nat) (ph : StdoutPh) (H : HeapIx) (m : Mem) : Prop where
+structure PrStR (L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) (D G B FL : Nat → Prop)
+    (M0 : Mem) (ph0 : StdoutPh) (H0 : HeapIx) (i k r : Nat) (ph : StdoutPh) (H : HeapIx) (m : Mem) : Prop where
   api : ApiAt m L nci func k tbc
   lits : LitsFoot g sl ls H ph D FL m
   keep : ∀ a, PrKeep L g func n G a → bytesT1 m a = bytesT1 M0 a
   buf : BufFrom ph0 ph H0
   chunks : ∀ c ∈ H0.chunks, c.inuse = true → c ∈ H.chunks
-  /-- (lane F1-18) the break room of the arguments from `i` on -/
-  room : PrRoom (prCost args i) ph H
+  /-- (lane F1-18) the break room of the arguments from `i` on (lane F1-25:
+  `r`; `PrSt`'s is `prCost args i`) -/
+  room : PrRoom r ph H
   /-- (lane F1-18) room in `g->strt` for their new strings: no `luaS_resize` -/
   strt : 0 < prAllocs args i → strtNuse m g + prAllocs args i ≤ strtSize m g
   /-- (lane F1-18; unconditional, lane F1-19) the table's chains readable, in
@@ -406,10 +405,19 @@ structure PrSt (L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) 
   stat : 0 < prAllocs args i → AllocStatic m g
   /-- (lane F1-19) `_dtoa_r`'s bignums -/
   big : Frozen (BigFoot B) (fun M => ReentMp (fillZeroMem M) B) m
-  /-- (lane F1-19) where they lie, at the entry's heap -/
-  bigIn : PrBigIn L nci g func n sl ls G B (Kept H0 ph0)
+  /-- (lane F1-19) where they lie (lane F1-25: at the current heap, which a
+  float's `_dtoa_r` grows by its bignums) -/
+  bigIn : PrBigIn L nci g func n sl ls G B (Kept H ph)
   /-- (lane F1-19) apart from the literals' footprint -/
   big_fl : ∀ a, B a → ¬ FL a
+
+/-- **`luaB_print`'s Lua state before argument `i`** (`PrStR` with the break
+room of the arguments from `i` on, `prCost args i`). Lane F1-25: `PrStR` with
+another room is the state part-way through an argument's `luaL_tolstring`
+(a float's after `_dtoa_r`, `PrSt.bigRun`). -/
+abbrev PrSt (L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) (D G B FL : Nat → Prop)
+    (M0 : Mem) (ph0 : StdoutPh) (H0 : HeapIx) (i k : Nat) (ph : StdoutPh) (H : HeapIx) (m : Mem) : Prop :=
+  PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k (prCost args i) ph H m
 
 /-- **`luaB_print`'s Lua state for some literals' footprint and bignums**
 (`print_sum`'s `S`): a new string changes the table the literals' facts read
@@ -483,6 +491,16 @@ NULL, `PrintIn.mt_fn`, kept by `PrKeep`), `lua_type`, `lua_typename`,
 `luaS_newlstr` of `"function: 0x80022f18"`: found or created as an integer's
 digits), `luaC_checkGC`, the tail `lua_tolstring(L, -1, &l)`. -/
 def TolFn_Statement : Prop := TolArg IsFn
+
+/-- **`luaL_tolstring` on a float argument** (lane F1-25): `luaL_callmeta(L,
+idx, "__tostring")` (no metatable for numbers), `lua_isinteger`,
+`lua_tonumberx`, `lua_pushfstring(L, "%f", n)` → `luaO_pushvfstring` →
+`addnum2buff` → `tostringbuff` → `lua_number2str` = `snprintf(buf, 44,
+"%.14g", n)` (`_svfprintf_r`'s `'g'` path → `cvt` → `_dtoa_r`: the bignums
+`B` change, `_Balloc` → `_calloc_r` within `argCost`'s room, a `BigRun`) →
+`strspn` and the `".0"` suffix → `luaS_newlstr` (found or created, as an
+integer's digits), the tail `lua_tolstring(L, -1, &l)`. -/
+def TolFlt_Statement : Prop := TolArg IsFlt
 
 /-- **`luaB_print` on an allocating argument list off the per-argument
 route** (lane F1-18; lane F1-19 restated): integers (no float, no function)
@@ -645,10 +663,14 @@ unbounded, `frozen_lits_head_tt`); lane F1-23 bounded it (`PrintIn.dirty_in`,
 writes) and proved `tolInt` (`tolInt_proved`, `Kit/TolIntProof.lean`), so the
 field is gone. Lane F1-24 routed functions per argument (`TolFn_Statement`,
 proved: `tolFn_proved`, `Kit/TolFnProof.lean`), so `printFn` is gone too
-(`PrintFn_Statement` follows from `printFlt`: `printFn_of_flt`). -/
+(`PrintFn_Statement` follows from `printFlt`: `printFn_of_flt`). Lane
+F1-25 routed floats per argument (`TolFlt_Statement`, `printRel_of`) and
+proved them from `lua_number2str`'s run (`tolFlt_of`, `Kit/TolFltProof.lean`),
+so the one field is `snprintf(buf, 44, "%.14g", x)` (`FloatToStr_Statement`:
+`_svfprintf_r`'s float path and `_dtoa_r`, a bignum computation `BigRun`). -/
 structure CallOpen : Prop where
-  /-- (lane F1-18) `luaB_print` when an argument is a float -/
-  printFlt : PrintFlt_Statement
+  /-- (lane F1-25) `lua_number2str` = `snprintf(buf, 44, "%.14g", x)` -/
+  floatToStr : FloatToStr_Statement
 
 /-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the
 `CALL` invariant keeps `LUA_MINSTACK` slots above the frame (`growFree`, from

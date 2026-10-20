@@ -1,4 +1,5 @@
 import Lua.Vm.Sim.Kit.Newlstr
+import Lua.Vm.Sim.Kit.Strspn
 import Lua.Vm.Sim.Kit.PushLit
 import Lua.Vm.Sim.Kit.CallSpec
 import Lua.Vm.Sim.Kit.DecDigits
@@ -465,10 +466,6 @@ theorem ofNat_sub_le {a b : Nat} (h : b ≤ a) (ha : a < 2 ^ 64) :
   omega
 
 /-- A byte of a list read by `bytesAt`. -/
-theorem bytesAt_get {M : Mem} {a n : Nat} {l : List (BitVec 8)} (h : bytesAt M a n = l) {j : Nat} (hj : j < n) :
-    bytesT1 M (a + j) = l.getD j 0 := by
-  subst h
-  simp [bytesAt, List.getD_eq_getElem?_getD, hj]
 
 /-- A new string's facts with more of the frames excluded. -/
 theorem IaNewPost.mono {M m' : Mem} {F F' : Nat → Prop} {g bkt nuse head p : Nat} {b : List UInt8}
