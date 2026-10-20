@@ -440,10 +440,10 @@ def PfFr (sp a : Nat) : Prop := sp - 8192 ≤ a ∧ a < sp
 
 /-- **`luaS_newlstr`'s outcome for `lua_pushfstring`**: found (the heap as
 it was) or created (`IaNewPost` off the frames). -/
-def PfStr (m M : Mem) (sp g : Nat) (b : List UInt8) (seed : UInt32) (K X W : Nat → Prop) (size hash nuse head : Nat)
-    (H : HeapIx) (ts : Nat) (H' : HeapIx) : Prop :=
-  (PfHit m M (PfFr sp) K X W ts b ∧ H' = H) ∨
-    IaNewPost m M (PfFr sp) g (hash + 8 * ((luaHash seed b).toNat % size)) nuse head b (hw (luaHash seed b)) H ts H'
+def PfStr (m M : Mem) (F : Nat → Prop) (g : Nat) (b : List UInt8) (seed : UInt32) (K X W : Nat → Prop)
+    (size hash nuse head : Nat) (H : HeapIx) (ts : Nat) (H' : HeapIx) : Prop :=
+  (PfHit m M F K X W ts b ∧ H' = H) ∨
+    IaNewPost m M F g (hash + 8 * ((luaHash seed b).toNat % size)) nuse head b (hw (luaHash seed b)) H ts H'
 
 /-- **The memory at `luaS_newlstr`'s return** (`T`'s root memory): the
 slots, `L->top` and `G(L)`, the string's tag, where it lies. -/
@@ -651,7 +651,7 @@ theorem pf_nl (hM : MallocR_Statement) (sp L g top : Nat) (i r : BitVec 64) (f :
     Triple (SegSt 0x800115f4#64 (Lua.Vm.AtF.PushfI.r6 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o))
         (ArmPay (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).m (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).o))
       (fun c => ∃ ts M3 H', PfT M3 sp L g top ts r f ∧
-        PfStr m M3 sp g (intU8 i) seed K X W size hash nuse head H ts H' ∧
+        PfStr m M3 (PfFr sp) g (intU8 i) seed K X W size hash nuse head H ts H' ∧
         SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfI.r9 (pfX [sp, L, g, top, n, ts] r f i a3 a4 a5 a6 a7 (pfS8 sp) M3 o))
           (ArmPay M3 o) c) := by
   intro c h
@@ -849,10 +849,11 @@ theorem pf_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a
 
 /-- A word of `g`'s object `luaS_newlstr` does not write (not `GCdebt`,
 `nuse`, `g->allgc`), as it was. -/
-theorem PfStr.gw {m M3 : Mem} {sp L g top : Nat} {b : List UInt8} {seed : UInt32} {K X W : Nat → Prop}
+theorem PfStr.gw {m M3 : Mem} {L g top : Nat} {b : List UInt8} {seed : UInt32} {K X W : Nat → Prop}
     {cw : BitVec 8} {size hash head d nuse ts : Nat} {H H' : HeapIx}
-    (hT : NlTab m L g top b seed K X W cw size hash head d nuse H) (hsp : 0x87800000 + 8192 ≤ sp)
-    (hg : g + 1400 ≤ 0x87800000) (hs : PfStr m M3 sp g b seed K X W size hash nuse head H ts H') {a : Nat} (h1 : g ≤ a) (h2 : a < g + 1400)
+    (hT : NlTab m L g top b seed K X W cw size hash head d nuse H)
+    (hg : g + 1400 ≤ 0x87800000) {F : Nat → Prop} (hF : ∀ a, F a → 0x87800000 ≤ a)
+    (hs : PfStr m M3 F g b seed K X W size hash nuse head H ts H') {a : Nat} (h1 : g ≤ a) (h2 : a < g + 1400)
     (hw : ¬ (Rng (g + 24) 8 a ∨ Rng (g + 56) 4 a ∨ Rng (g + 112) 8 a)) : bytesT1 M3 a = bytesT1 m a := by
   have e1 : heapStart = 0x8006ecd0 := rfl
   have e2 : heapEnd = 0x87800000 := rfl
@@ -862,7 +863,7 @@ theorem PfStr.gw {m M3 : Mem} {sp L g top : Nat} {b : List UInt8} {seed : UInt32
     ChunkWalk.notInUse_hi hT.new.heap.walk a (by have := hT.new.heap.top_le; have := hT.new.heap.brk_le; omega) hu
   have := hT.new.kg
   rcases hs with ⟨hh, -⟩ | hp
-  · exact hh.keep a (by simp only [PfFr]; omega)
+  · exact hh.keep a fun hf => by have := hF a hf; omega
   · refine hp.keep a fun hc => ?_
     simp only [Rng] at hw
     rcases hc with hc | hc | hc | hc | hc | hc | hc
@@ -870,7 +871,7 @@ theorem PfStr.gw {m M3 : Mem} {sp L g top : Nat} {b : List UInt8} {seed : UInt32
       · exact absurd hc.lo (by omega)
       · exact hc.2.2 hu
     · exact hp.fresh a hc.1 hc.2 hu
-    all_goals simp only [Rng, PfFr] at hc; omega
+    all_goals first | (simp only [Rng] at hc; omega) | (have := hF a hc; omega)
 
 /-- **`lua_pushfstring(L, "%I", i)`** (lane F1-20): the digits of `i`
 interned (found or created, `PfStr`) and pushed at `L->top` (`PfPost`),
@@ -882,7 +883,7 @@ theorem pushfI_sum (hM : MallocR_Statement) (hI2S : IntegerToStr_Statement) (sp 
     (hgc : bytesT1 m (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
     Triple (SegSt 0x800030a4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, 0x8004fd58#64⟩,
         ⟨Register.x12, i⟩] sp r f) (ArmPay m o))
-      (fun c => ∃ ts M3 M H', PfStr m M3 sp g (intU8 i) seed K X W size hash nuse head H ts H' ∧
+      (fun c => ∃ ts M3 M H', PfStr m M3 (PfFr sp) g (intU8 i) seed K X W size hash nuse head H ts H' ∧
         PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
   intro c h
   pf_in hP
@@ -893,7 +894,8 @@ theorem pushfI_sum (hM : MallocR_Statement) (hI2S : IntegerToStr_Statement) (sp 
   obtain ⟨c3, s3, ts, M3, H', hPT, hstr, h3⟩ :=
     pf_nl hM sp L g top i r f a3 a4 a5 a6 a7 m M2 o hP hS seed K X W cw size hash head d nuse H hT _ rfl c2 h2
   have hgc3 : bytesT1 M3 (g + gGcstpOff) = 0x1#8 :=
-    (hstr.gw hT (by omega) (by omega) (by simp only [gGcstpOff]; omega) (by simp only [gGcstpOff]; omega)
+    (hstr.gw (a := g + gGcstpOff) (F := PfFr sp) hT (by omega) (fun a ha => by simp only [PfFr] at ha; omega)
+      (by simp only [gGcstpOff]; omega) (by simp only [gGcstpOff]; omega)
       (by simp only [Rng, gGcstpOff]; omega)).trans hgc
   obtain ⟨c4, s4, M, hpost, hret⟩ := pf_ret sp L g top _ ts i r f a3 a4 a5 a6 a7 m M3 o hP hPT hn1 hn2 hgc3 hgal c3 h3
   exact ⟨c4, ((s1.trans s2).trans s3).trans s4, ts, M3, M, H', hstr, hpost, hret⟩
