@@ -188,6 +188,9 @@ FPROVED["FloorR"] = "Lua.Vm.Fn.FloorR"
 # rounded; it takes the image's `RodataRead` (`one`, `tiny`) and `FnSp s 160`;
 # its call node, in `__ieee754_pow`'s `sqrt` tail, is an arm lane's)
 FPROVED["Ieee754Sqrt"] = "Lua.Vm.Fn.SqrtSpec"
+# lane float-sf6: `__unorddf2` (`Unorddf2.spec_proved`: `S`, `1` on a NaN
+# operand), proved beside libm `pow`'s wrapper (`Lua.Vm.Fn.PowR`)
+FPROVED["Unorddf2"] = "Lua.Vm.Fn.PowR"
 # lane F1-F7: libm `fmod` (`Lua.Vm.Fn.FmodR`: the reference `SfRef.fmod` as
 # its result), MOD's and MODK's own call node. Its frame stores the caller's
 # callee-saved registers through `__ieee754_fmod`'s and `__divdf3`'s frames:

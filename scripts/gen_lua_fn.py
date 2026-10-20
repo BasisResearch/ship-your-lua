@@ -1560,8 +1560,10 @@ class Fn:
         if self.cyc:
             imports += "import Lua.Vm.Sim.Kit.FnLoop\n"
         callees = sorted({s.callee for s in self.segs if s.kind in ("call", "tail")})
-        for e in callees:
-            imports += f"import {callee_of(e).imp}\n"
+        # each callee module once (lane float-sf6: `FSum` holds several)
+        for imp in dict.fromkeys(callee_of(e).imp for e in callees):
+            if f"import {imp}\n" not in imports:
+                imports += f"import {imp}\n"
         imports += f"import Lua.Vm.Arms.Segs.H{self.fn.lstrip('_')}\n"
         doc = (f"`{self.fn}` (entry `0x{self.entry:08x}`): its {nseg} generated segments\n"
                f"(`Lua/Vm/Arms/Segs/H{self.fn.lstrip('_')}.lean`) folded into {len(self.order)} nodes, {kind}.\n"

@@ -9,10 +9,6 @@ import Lua.Vm.Fn.SqrtSpec
 import Lua.Vm.Fn.Fabs
 import Lua.Vm.Fn.FSum
 import Lua.Vm.Fn.DivSum
-import Lua.Vm.Fn.FSum
-import Lua.Vm.Fn.FSum
-import Lua.Vm.Fn.FSum
-import Lua.Vm.Fn.FSum
 import Lua.Vm.Fn.Floatsidf
 import Lua.Vm.Arms.Segs.Hieee754_pow
 
