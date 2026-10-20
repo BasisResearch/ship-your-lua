@@ -96,8 +96,8 @@ heap with the new object's block `p` in use (fresh, in the arena, 16-aligned),
 its header, hash (`hh`'s low word), length, contents `b` and terminator, its
 `u.hnext` the old head and its `next` the old `g->allgc`; the bucket, `nuse`
 and `g->allgc` updated; every other byte off the allocator's writes, `GCdebt`
-and the frames below `sp` kept. -/
-structure IaNewPost (M m' : Mem) (sp g bkt nuse head : Nat) (b : List UInt8) (hh : BitVec 64) (H : HeapIx)
+and the frames `F` (below the callee's `sp`) kept. -/
+structure IaNewPost (M m' : Mem) (F : Nat → Prop) (g bkt nuse head : Nat) (b : List UInt8) (hh : BitVec 64) (H : HeapIx)
     (p : Nat) (H' : HeapIx) : Prop where
   heap : HeapAt (fillZeroMem m') H'.top H'.brk H'.chunks H'.bins
   brk : H'.brk ≤ H.brk + (16384 + 4096 + 128)
@@ -120,7 +120,7 @@ structure IaNewPost (M m' : Mem) (sp g bkt nuse head : Nat) (b : List UInt8) (hh
   nuse : bytesT4 m' (g + 56) = BitVec.ofNat 32 (nuse + 1)
   allgc : bytesT8 m' (g + 112) = BitVec.ofNat 64 p
   keep : ∀ a, ¬ (MallocW H.chunks a ∨ Rng p (b.length + 25) a ∨ Rng bkt 8 a ∨ Rng (g + 56) 4 a ∨
-      Rng (g + 112) 8 a ∨ Rng (g + 24) 8 a ∨ Below sp 2048 a) → bytesT1 m' a = bytesT1 M a
+      Rng (g + 112) 8 a ∨ Rng (g + 24) 8 a ∨ F a) → bytesT1 m' a = bytesT1 M a
 
 /-- The frame `l_alloc` sees from `luaM_malloc_` (via `luaC_newobj`, from
 `internshrstr`): `s0 = g`, `s1 = L`, `s2 = tag`, `internshrstr`'s `s3`–`s7`. -/
@@ -237,7 +237,7 @@ theorem ia_new_mem {m M M3 m' M6 M8 MF : Mem} {sp L s g bkt size nuse head p : N
     (hM6 : Lua.Vm.AtF.InternAny.m6 (iaX (iaN sp L s g bkt size nuse p head b) r f hh ud m' o) = M6)
     (hMo : MoveOut M6 M8 (p + 24) s b.length)
     (hMF : Lua.Vm.AtF.InternAny.m7 (iaX (iaN sp L s g bkt size nuse p head b) r f hh ud M8 o) = MF) :
-    IaNewPost M MF sp g bkt nuse head b hh H p ⟨top', brk', chunks', bins'⟩ := by
+    IaNewPost M MF (Below sp 2048) g bkt nuse head b hh H p ⟨top', brk', chunks', bins'⟩ := by
   ia_new_ctx
   have A := iaAllocFacts hN hP
   have := A.pL; have := A.pg; have := A.pk; have := A.gLo; have := A.kLo
@@ -345,7 +345,7 @@ theorem ia_new (hM : MallocR_Statement) (m M : Mem) (sp L s g bkt size nuse head
     (hud : bytesT8 M (g + 8) = ud) :
     Triple (SegSt 0x8001742c#64 (Lua.Vm.AtF.InternAny.r15 (iaX (iaN sp L s g bkt size 0 0 0 b) r f hh ud M o))
         (ArmPay M o))
-      (fun c => ∃ m' p H', wrRet r sp p f m' o c ∧ IaNewPost M m' sp g bkt nuse head b hh H p H') := by
+      (fun c => ∃ m' p H', wrRet r sp p f m' o c ∧ IaNewPost M m' (Below sp 2048) g bkt nuse head b hh H p H') := by
   intro c h
   ia_new_ctx
   -- the root `N`, with `nuse` and the old head

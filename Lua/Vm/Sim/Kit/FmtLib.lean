@@ -154,7 +154,16 @@ macro "fmt_scmp" : tactic => `(tactic| (
   (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, ge_iff_le, Bool.not_eq_true]) <;>
   omega))
 
+open Lean Elab Tactic Meta in
+/-- Fails unless the goal is a signed test (`fmt_scmp`'s goals): its `simp`
+and `omega` stay off other hypotheses (lane F1-20: on a stack word's fact
+they ran past the recursion limit). -/
+elab "fmt_scmp_goal" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  unless (t.find? fun e => e.isConstOf ``zopz0zI_s || e.isConstOf ``zopz0zKzJ_s).isSome do
+    throwError "fmt_scmp_goal: not a signed test"
+
 macro_rules
-  | `(tactic| fat_hyp) => `(tactic| (fmt_scmp; done))
+  | `(tactic| fat_hyp) => `(tactic| (fmt_scmp_goal; fmt_scmp; done))
 
 end Lua.Vm.Sim.Kit

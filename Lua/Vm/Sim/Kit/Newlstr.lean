@@ -80,8 +80,8 @@ theorem IaHit.toNl {m M : Mem} {K X W : Nat → Prop} {sp ts : Nat} {b : List UI
 memory is the caller's off `internshrstr`'s frame. -/
 theorem IaNewPost.ofM0 {m m' : Mem} {sp g bkt nuse head p : Nat} {b : List UInt8} {hh r : BitVec 64}
     {f : AbiFrame} {o : Array String} {H H' : HeapIx} (hsp : 0x87800000 + 16384 ≤ sp)
-    (h : IaNewPost (iaM0 sp r f m o) m' sp g bkt nuse head b hh H p H') (hg : g + 1400 ≤ 0x87800000) :
-    IaNewPost m m' sp g bkt nuse head b hh H p H' := by
+    (h : IaNewPost (iaM0 sp r f m o) m' (Below sp 2048) g bkt nuse head b hh H p H') (hg : g + 1400 ≤ 0x87800000) :
+    IaNewPost m m' (Below sp 2048) g bkt nuse head b hh H p H' := by
   have k : ∀ a, a + 80 < sp → bytesT1 (iaM0 sp r f m o) a = bytesT1 m a := fun a ha =>
     iaM0_keep (by omega) a (by simp only [Below]; omega)
   refine ⟨h.heap, h.brk, h.kept, h.obj_in, h.fresh, h.lo, h.hi, h.al, h.tt, ?_, h.extra, h.len, h.hash, h.hnext,
@@ -106,14 +106,14 @@ theorem newlstr_any_sum (hM : MallocR_Statement) (sp L s g size hash head d nuse
     Triple (SegSt 0x80017694#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 s⟩,
         ⟨Register.x12, BitVec.ofNat 64 b.length⟩] sp r f) (ArmPay m o))
       (fun c => (∃ ts m', wrRet r sp ts f m' o c ∧ NlHit m m' K X W sp ts b) ∨
-        ∃ m' p H', wrRet r sp p f m' o c ∧ IaNewPost m m' sp g (hash + 8 * ((luaHash seed b).toNat % size))
+        ∃ m' p H', wrRet r sp p f m' o c ∧ IaNewPost m m' (Below sp 2048) g (hash + 8 * ((luaHash seed b).toNat % size))
           nuse head b (hw (luaHash seed b)) H p H') := by
   intro c h
   have := hI.sp_lo; have := hI.g_hi
   have k : ∀ a, a < 0x87800000 + 64 → bytesT1 (iaM0 sp r f m o) a = bytesT1 m a := fun a ha =>
     iaM0_keep (by omega) a (by simp only [Below]; omega)
   obtain ⟨c', s', hq⟩ := ia_walk_sum sp L s g size hash head d b seed r f m o hI K X W cw hT
-    (fun c => ∃ m' p H', wrRet r sp p f m' o c ∧ IaNewPost m m' sp g (hash + 8 * ((luaHash seed b).toNat % size))
+    (fun c => ∃ m' p H', wrRet r sp p f m' o c ∧ IaNewPost m m' (Below sp 2048) g (hash + 8 * ((luaHash seed b).toNat % size))
       nuse head b (hw (luaHash seed b)) H p H')
     (fun c F h' => by
       obtain ⟨c2, s2, m', p, H', hr, hp⟩ := ia_new hM m (iaM0 sp r f m o) sp L s g

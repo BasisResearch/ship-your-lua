@@ -380,4 +380,168 @@ theorem pf_snp (hS : IntegerToStr_Statement) (sp L g top : Nat) (i r : BitVec 64
   simp only [wrRet] at hret
   exact ⟨c2, acc, M2, P, by fcx_unfold; exact hret.repin (by pins_of hret)⟩
 
+/-- **The new string's facts against another memory** agreeing off `G`
+(where `g`'s white and `g->allgc` lie outside it). -/
+theorem IaNewPost.trans {M0 M m' : Mem} {F G : Nat → Prop} {g bkt nuse head p : Nat} {b : List UInt8}
+    {hh : BitVec 64} {H H' : HeapIx} (h : IaNewPost M m' F g bkt nuse head b hh H p H')
+    (hk : ∀ a, ¬ G a → bytesT1 M a = bytesT1 M0 a) (h100 : ¬ G (g + 100)) (h112 : ∀ i, i < 8 → ¬ G (g + 112 + i)) :
+    IaNewPost M0 m' (fun a => F a ∨ G a) g bkt nuse head b hh H p H' := by
+  refine ⟨h.heap, h.brk, h.kept, h.obj_in, h.fresh, h.lo, h.hi, h.al, h.tt, ?_, h.extra, h.len, h.hash, h.hnext,
+    ?_, h.bytes, h.nul, h.bucket, h.nuse, h.allgc, fun a ha => ?_⟩
+  · rw [h.mark, hk _ h100]
+  · rw [h.next]; exact bytesT8_congrT fun i hi => hk _ (h112 i hi)
+  · refine (h.keep a fun hc => ha ?_).trans (hk a fun hG => ha (.inr (.inr (.inr (.inr (.inr (.inr (.inr hG))))))))
+    rcases hc with hc | hc | hc | hc | hc | hc | hc
+    · exact .inl hc
+    · exact .inr (.inl hc)
+    · exact .inr (.inr (.inl hc))
+    · exact .inr (.inr (.inr (.inl hc)))
+    · exact .inr (.inr (.inr (.inr (.inl hc))))
+    · exact .inr (.inr (.inr (.inr (.inr (.inl hc)))))
+    · exact .inr (.inr (.inr (.inr (.inr (.inr (.inl hc))))))
+
+/-- The digits as bytes. -/
+def intU8 (i : BitVec 64) : List UInt8 := (intBytes i).map UInt8.ofBitVec
+
+theorem intU8_length (i : BitVec 64) : (intU8 i).length = (intBytes i).length := by simp [intU8]
+
+theorem intU8_get (i : BitVec 64) (j : Nat) (hj : j < (intBytes i).length) :
+    BitVec.ofNat 8 ((intU8 i).getD j 0).toNat = (intBytes i)[j] := by
+  simp only [intU8, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_eq_getElem hj, Option.map_some,
+    Option.getD_some]
+  apply BitVec.eq_of_toNat_eq
+  simp
+
+/-- **`luaS_newlstr`'s table at `lua_pushfstring`'s entry** (lane F1-20): the
+seed, the table as `internshrstr` reads it at any memory agreeing below the
+stack (its chains' nodes in `K`, in the arena, apart from `L->top`'s slot),
+the creation path's inputs, `L->top`'s slot in a chunk in use. -/
+structure NlTab (m : Mem) (L g top : Nat) (b : List UInt8) (seed : UInt32) (K X W : Nat → Prop) (cw : BitVec 8)
+    (size hash head d nuse : Nat) (H : HeapIx) : Prop where
+  seed_w : bytesT4 m (g + 96) = seed.toBitVec
+  hK : ∀ a, K a → 0x8006ecd0 ≤ a ∧ a < 0x87800000
+  kt : ∀ a, K a → ¬ Rng top 16 a
+  tab : ∀ M : Mem, (∀ a, a < 0x87800000 → bytesT1 M a = bytesT1 m a) →
+    bytesT1 M (g + 100) = cw ∧ IaTab M g (luaHash seed b) b cw (IaNode M K X W) size hash head d
+  new : IaNewIn m L g (hash + 8 * ((luaHash seed b).toNat % size)) size nuse head b H
+  top_in : ∀ a, Rng top 16 a → InUse H.chunks a
+
+/-- **A string found**, against the entry's memory `m`: the node's facts,
+its length and contents; every byte off `F` (the frames) kept. -/
+structure PfHit (m M : Mem) (F K X W : Nat → Prop) (ts : Nat) (b : List UInt8) : Prop where
+  node : IaNode m K X W ts
+  len : bytesT1 m (ts + 11) = BitVec.ofNat 8 b.length
+  bytes : ∀ i, i < b.length → bytesT1 m (ts + 24 + i) = BitVec.ofNat 8 (b.getD i 0).toNat
+  keep : ∀ a, ¬ F a → bytesT1 M a = bytesT1 m a
+
+/-- `lua_pushfstring`'s frames: `[sp - 8192, sp)`. -/
+def PfFr (sp a : Nat) : Prop := sp - 8192 ≤ a ∧ a < sp
+
+/-- **`luaS_newlstr`'s outcome for `lua_pushfstring`**: found (the heap as
+it was) or created (`IaNewPost` off the frames). -/
+def PfStr (m M : Mem) (sp g : Nat) (b : List UInt8) (seed : UInt32) (K X W : Nat → Prop) (size hash nuse head : Nat)
+    (H : HeapIx) (ts : Nat) (H' : HeapIx) : Prop :=
+  (PfHit m M (PfFr sp) K X W ts b ∧ H' = H) ∨
+    IaNewPost m M (PfFr sp) g (hash + 8 * ((luaHash seed b).toNat % size)) nuse head b (hw (luaHash seed b)) H ts H'
+
+/-- **The memory at `luaS_newlstr`'s return** (`T`'s root memory): the
+slots, `L->top` and `G(L)`, the string's tag, where it lies. -/
+structure PfT (M : Mem) (sp L g top ts : Nat) (r : BitVec 64) (f : AbiFrame) : Prop where
+  slots : PfSlots M sp L r f
+  top_w : bytesT8 M (L + 16) = BitVec.ofNat 64 top
+  Lg_w : bytesT8 M (L + 24) = BitVec.ofNat 64 g
+  tt : bytesT1 M (ts + 8) = 0x4#8
+  ts_lo : 0x8005c6d0 ≤ ts
+  ts_hi : ts + 24 ≤ 0x87800000
+  tts : top + 16 ≤ ts ∨ ts + 16 ≤ top
+
+theorem ofNat_sub_le {a b : Nat} (h : b ≤ a) (ha : a < 2 ^ 64) :
+    BitVec.ofNat 64 a - BitVec.ofNat 64 b = BitVec.ofNat 64 (a - b) := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]
+  omega
+
+/-- A byte of a list read by `bytesAt`. -/
+theorem bytesAt_get {M : Mem} {a n : Nat} {l : List (BitVec 8)} (h : bytesAt M a n = l) {j : Nat} (hj : j < n) :
+    bytesT1 M (a + j) = l.getD j 0 := by
+  subst h
+  simp [bytesAt, List.getD_eq_getElem?_getD, hj]
+
+/-- A new string's facts with more of the frames excluded. -/
+theorem IaNewPost.mono {M m' : Mem} {F F' : Nat → Prop} {g bkt nuse head p : Nat} {b : List UInt8}
+    {hh : BitVec 64} {H H' : HeapIx} (h : IaNewPost M m' F g bkt nuse head b hh H p H') (hF : ∀ a, F a → F' a) :
+    IaNewPost M m' F' g bkt nuse head b hh H p H' := by
+  refine ⟨h.heap, h.brk, h.kept, h.obj_in, h.fresh, h.lo, h.hi, h.al, h.tt, h.mark, h.extra, h.len, h.hash, h.hnext,
+    h.next, h.bytes, h.nul, h.bucket, h.nuse, h.allgc, fun a ha => h.keep a fun hc => ha ?_⟩
+  rcases hc with hc | hc | hc | hc | hc | hc | hc
+  · exact .inl hc
+  · exact .inr (.inl hc)
+  · exact .inr (.inr (.inl hc))
+  · exact .inr (.inr (.inr (.inl hc)))
+  · exact .inr (.inr (.inr (.inr (.inl hc))))
+  · exact .inr (.inr (.inr (.inr (.inr (.inl hc)))))
+  · exact .inr (.inr (.inr (.inr (.inr (.inr (hF a hc))))))
+
+/-- `S`'s context. -/
+@[at_row] abbrev pfX2 (sp L g top n : Nat) (r : BitVec 64) (f : AbiFrame) (i a3 a4 a5 a6 a7 : BitVec 64) (M : Mem)
+    (o : Array String) : FCx :=
+  pfX [sp, L, g, top, n] r f i a3 a4 a5 a6 a7 (pfS8 sp) M o
+
+/-- **From `snprintf`'s return to `luaS_newlstr`'s call**: `addsize`, the
+second `strchr` (none), `addstr2buff` of the empty suffix (`memcpy` of no
+bytes, its alignment test either way), `clearbuff`. -/
+theorem pf_nl_reach (sp L g top : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a5 a6 a7 : BitVec 64)
+    (m M2 : Mem) (o : Array String) (hP : PfIn m sp L g top r) (hS : PfS M2 m sp L r i f) (n : Nat)
+    (hn : (intBytes i).length = n) (c : Config)
+    (h : SegSt 0x800115f4#64 (Lua.Vm.AtF.PushfI.r6 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o))
+      (ArmPay (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).m (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).o) c) :
+    ∃ c', Steps c c' ∧ SegSt 0x80017694#64 (Lua.Vm.AtF.PushfI.r8 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o))
+      (ArmPay (Lua.Vm.AtF.PushfI.m10 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o)) o) c' := by
+  pf_in hP
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  have R := pfRod_of hP.rod
+  have hn1 := (intBytes_len i).1
+  have hn2 := (intBytes_len i).2
+  rw [hn] at hn1 hn2
+  have hX : Lua.Vm.AtF.PushfI.Ok_S (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o) := by fcx_ok
+  have hc2 : bytesT4 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).m
+      ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 0 - 412) = 0x0#32 := hS.blen
+  have hc6 : bytesT8 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).m
+      ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 0 - 472) = 0x80011fe0#64 := hS.ra3
+  have hc7 : bytesT8 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).m
+      ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 0 - 480) =
+      BitVec.ofNat 64 ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 0 - 40) := hS.bufp
+  have hc8 : bytesT1 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).m 0x8004fd5a = 0x0#8 :=
+    (hS.low _ (.inl (by omega))).trans R.fmt2
+  have hc9 : bytesT8 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).m
+      ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 0 - 424) =
+      BitVec.ofNat 64 ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 1) := hS.slots.buffL
+  have hc10 : bytesT8 (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).m
+      ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 1 + 16) =
+      BitVec.ofNat 64 ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 3) :=
+    show bytesT8 M2 (L + 16) = BitVec.ofNat 64 top from
+      (bytesT8_congrT fun j _ => hS.low _ (.inl (by omega))).trans hP.top_w
+  have hg_4 : zopz0zI_s ((BitVec.ofNat 64 (199) - BitVec.ofNat 64 ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 4)))
+      (0x0#64) = false := by
+    simp only [pfX2, pfX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    rw [ofNat_sub_le (by omega) (by omega)]
+    fmt_scmp
+  have hg_2 : zopz0zKzJ_u (BitVec.ofNat 64 ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 0 +
+      (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 4 - 408))
+      (BitVec.ofNat 64 ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 0 +
+      (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 4 - 408)) = true := uge_self _
+  have acc := Steps.refl c
+  fat_run Lua.Vm.AtF.PushfI h acc until [0x8003b648]
+  -- `memcpy`'s alignment test, either way
+  cases hb : ((((0x8004fd5a#64) ^^^ (BitVec.ofNat 64 ((pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 0 +
+      (pfX2 sp L g top n r f i a3 a4 a5 a6 a7 M2 o).n 4 - 408))) &&& sign_extend (m := 64) (0x007#12)) != (0#64))
+  · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+      (Lua.Vm.AtF.PushfI.at_8003b648_8003b658_n _ hX hb)
+    fat_run Lua.Vm.AtF.PushfI h acc until [0x80017694]
+    exact ⟨_, acc, h⟩
+  · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
+      (Lua.Vm.AtF.PushfI.at_8003b648_8003b658_t _ hX hb)
+    fat_run Lua.Vm.AtF.PushfI h acc until [0x80017694]
+    exact ⟨_, acc, h⟩
+
 end Lua.Vm.Sim.Kit
