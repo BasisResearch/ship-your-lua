@@ -236,6 +236,8 @@ import Lua.Vm.Arms.Segs.Hlocale_mb_cur_max
 import Lua.Vm.Arms.Segs.Hascii_mbtowc
 import Lua.Vm.Arms.Segs.Hssprint_r
 import Lua.Vm.Arms.Segs.Hssputs_r
+import Lua.Vm.Arms.Segs.Hlua_typename
+import Lua.Vm.Arms.Segs.Hlua_topointer
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

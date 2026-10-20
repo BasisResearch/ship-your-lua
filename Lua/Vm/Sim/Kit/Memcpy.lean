@@ -1,5 +1,6 @@
 import Lua.Vm.Sim.Kit.Memmove
 import Lua.Vm.Sim.Kit.FmtLib
+import Lua.Vm.Sim.Kit.AtAlign
 import Lua.Vm.AtF.Memcpy
 
 /-!
@@ -24,43 +25,6 @@ open Lua.Vm.Sim Lua.Vm.Sim.AtF Lua.Vm.Layout
 open Vsa.Machine (Config Steps)
 
 /-! ## The size arithmetic -/
-
-/-- `andi rd, rs, -8` on a Nat-valued register: the value rounded down to 8. -/
-theorem andm8 (x : Nat) (hx : x < 2 ^ 64) :
-    BitVec.ofNat 64 x &&& sign_extend (m := 64) (0xff8#12) = BitVec.ofNat 64 (8 * (x / 8)) := by
-  rw [show sign_extend (m := 64) (0xff8#12) = BitVec.ofNat 64 18446744073709551608 by decide]
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  simp only [BitVec.getLsbD_and, BitVec.getLsbD_ofNat, hi, decide_true, Bool.true_and]
-  rw [show 8 * (x / 8) = 2 ^ 3 * (x / 2 ^ 3) by rfl, Nat.testBit_two_pow_mul, Nat.testBit_div_two_pow]
-  by_cases h3 : 3 ≤ i
-  · have e : (18446744073709551608 : Nat) = 2 ^ 3 * (2 ^ 61 - 1) := by decide
-    rw [e, Nat.testBit_two_pow_mul, Nat.testBit_two_pow_sub_one]
-    simp only [h3, decide_true, Bool.true_and, show i - 3 + 3 = i by omega]
-    have : i - 3 < 61 := by omega
-    simp [this]
-  · have e : (18446744073709551608 : Nat) = 2 ^ 3 * (2 ^ 61 - 1) := by decide
-    rw [e, Nat.testBit_two_pow_mul]
-    simp [h3]
-
-/-- Two 8-aligned addresses: their `xor`'s low three bits are zero. -/
-theorem xor_al (s d : Nat) (hs : s % 8 = 0) (hd : d % 8 = 0) :
-    (((BitVec.ofNat 64 s) ^^^ (BitVec.ofNat 64 d)) &&& sign_extend (m := 64) (0x007#12) != (0#64)) = false := by
-  rw [show sign_extend (m := 64) (0x007#12) = BitVec.ofNat 64 7 by decide]
-  simp only [bne_eq_false_iff_eq]
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  simp only [BitVec.getLsbD_and, BitVec.getLsbD_xor, BitVec.getLsbD_ofNat, hi, decide_true, Bool.true_and,
-    BitVec.getLsbD_zero]
-  by_cases h3 : i < 3
-  · have e1 : s = 2 ^ 3 * (s / 8) := by omega
-    have e2 : d = 2 ^ 3 * (d / 8) := by omega
-    rw [e1, e2, Nat.testBit_two_pow_mul, Nat.testBit_two_pow_mul]
-    simp [show ¬ (3 ≤ i) by omega]
-  · have : (7 : Nat).testBit i = false := Nat.testBit_lt_two_pow (by
-      calc 7 < 2 ^ 3 := by decide
-        _ ≤ 2 ^ i := Nat.pow_le_pow_right (by decide) (by omega))
-    simp [this]
 
 /-- The `n < 8` test (`sltiu a2, a2, 8; bnez`). -/
 theorem sltiu8 (n : Nat) (hn : n < 2 ^ 64) :

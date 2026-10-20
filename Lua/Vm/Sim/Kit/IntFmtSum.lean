@@ -71,6 +71,14 @@ theorem Agree.st4 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec (8 * 4)} 
     · refine .inr (Nat.not_lt.1 fun h2 => hx ?_)
       have := hR (x - a) (by omega); rwa [Nat.add_sub_cancel' h1] at this)]
   exact h x hx
+theorem Agree.st2 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec (8 * 2)} (h : Agree R M m)
+    (hR : ∀ j, j < 2 → R (a + j)) : Agree R M (writeMap2 m a d) := fun x hx => by
+  rw [getElem?_writeMap2_out m a d x (by
+    rcases Nat.lt_or_ge x a with h1 | h1
+    · exact .inl h1
+    · refine .inr (Nat.not_lt.1 fun h2 => hx ?_)
+      have := hR (x - a) (by omega); rwa [Nat.add_sub_cancel' h1] at this)]
+  exact h x hx
 theorem Agree.st1 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec 8} (h : Agree R M m)
     (hR : R a) : Agree R M (m.insert a d) := fun x hx => by
   rw [Lua.Vm.Sim.AtF.ins_out m a d x (by
@@ -84,7 +92,7 @@ theorem Agree.st1 {R : Nat → Prop} {M m : Mem} {a : Nat} {d : BitVec 8} (h : A
 region, by `omega` on its offsets). -/
 macro "fmt_agree2" : tactic => `(tactic| (
   sn_unfold
-  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st1)
+  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st2 | with_reducible apply Agree.st1)
   all_goals first
     | exact Agree.refl _ _
     | (intro j hj; simp only [snWd, snWk, snWdN, snWkN]; omega)
@@ -224,13 +232,14 @@ structure SnSaveA (G : SnG) (M : Mem) : Prop where
   s11 : bytesT8 M (G.sp - 376) = G.f.s11
 
 /-- **The words `snprintf` and `_svfprintf_r`'s prologue stored** that the
-return reads. -/
-structure SnSaveB (G : SnG) (M : Mem) : Prop where
+return reads (`sz`: `snprintf`'s saved `s0`, the buffer's size; lane F1-24
+generalised it: `%lld`'s 44, `%p`'s 32). -/
+structure SnSaveB (G : SnG) (sz : BitVec 64) (M : Mem) : Prop where
   fp : bytesT8 M (G.sp - 856) = BitVec.ofNat 64 (G.sp - 264)
   flags : bytesT2 M (G.sp - 248) = 0x208#16
   s6 : bytesT8 M (G.sp - 336) = G.f.s6
   vra : bytesT8 M (G.sp - 280) = 0x80034e58#64
-  vs0 : bytesT8 M (G.sp - 288) = 0x2c#64
+  vs0 : bytesT8 M (G.sp - 288) = sz
   vs1 : bytesT8 M (G.sp - 296) = 0x8005d1b8#64
   cs1 : bytesT8 M (G.sp - 72) = G.f.s1
   cra : bytesT8 M (G.sp - 56) = G.r
@@ -238,9 +247,9 @@ structure SnSaveB (G : SnG) (M : Mem) : Prop where
 
 /-- **The frame the return reads**, on every memory after the `'d'`
 conversion (none of it in `snWd`). -/
-structure SnSave (G : SnG) (M : Mem) : Prop where
+structure SnSave (G : SnG) (sz : BitVec 64) (M : Mem) : Prop where
   a : SnSaveA G M
-  b : SnSaveB G M
+  b : SnSaveB G sz M
 
 /-- The format scan's stores (`_svfprintf_r`'s saves, its slots) are below
 `snprintf`'s `FILE`. -/
@@ -253,17 +262,17 @@ theorem snSaveA_D (G : SnG) (m : Mem) (h : G.In m) : SnSaveA G (G.MD m) := by
   have := h.sp_lo
   constructor <;> sn_rd
 
-theorem snSaveB_D (G : SnG) (m : Mem) (h : G.In m) : SnSaveB G (G.MD m) := by
+theorem snSaveB_D (G : SnG) (m : Mem) (h : G.In m) : SnSaveB G 0x2c#64 (G.MD m) := by
   have := h.sp_lo
   have hfl : bytesT2 (G.MD m) (G.sp - 248) = 0x208#16 :=
     ((agree_F2 G m h).b2 fun i _ => by omega).trans (flags_F G m h)
   refine ⟨?_, hfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩ <;> sn_rd
 
-theorem snSave_D (G : SnG) (m : Mem) (h : G.In m) : SnSave G (G.MD m) :=
+theorem snSave_D (G : SnG) (m : Mem) (h : G.In m) : SnSave G 0x2c#64 (G.MD m) :=
   ⟨snSaveA_D G m h, snSaveB_D G m h⟩
 
-theorem SnSave.congr {G : SnG} {M M' : Mem} (h : SnSave G M) (ha : Agree (snWd G) M M')
-    (hs : 0x8005e720 + 8192 ≤ G.sp) (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) : SnSave G M' where
+theorem SnSave.congr {G : SnG} {sz : BitVec 64} {M M' : Mem} (h : SnSave G sz M) (ha : Agree (snWd G) M M')
+    (hs : 0x8005e720 + 8192 ≤ G.sp) (hb : G.buf + 44 + 4096 ≤ G.sp ∨ G.sp ≤ G.buf) : SnSave G sz M' where
   a := {
     s2 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s2
     s3 := (ha.b8 fun i _ => by simp only [snWd, snWdN]; omega).trans h.a.s3
@@ -366,7 +375,7 @@ macro "sn_mv" : tactic => `(tactic| (
 generic context: its root memory is the base of the chain). -/
 macro "fmt_agree3" : tactic => `(tactic| (
   simp only [at_row]
-  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st1)
+  repeat (first | with_reducible exact Agree.refl _ _ | with_reducible apply Agree.st8 | with_reducible apply Agree.st4 | with_reducible apply Agree.st2 | with_reducible apply Agree.st1)
   all_goals first
     | (intro j hj; simp only [snWdN]; omega)
     | (simp only [snWdN]; omega)))

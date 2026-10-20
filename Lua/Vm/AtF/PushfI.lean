@@ -1693,6 +1693,7 @@ theorem at_80011e40_80011e54 (X : FCx) (hX : Ok_C X) (hf0 : (X.n 0 - 408) ≤ (X
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fmt_pin h 14 Register.x14
   fmt_pin h 17 Register.x17
   fat_seg Lua.Vm.Arms.seg_80011e40_80011e54
   fat_close
@@ -1703,6 +1704,7 @@ theorem at_80011e34_80011e40_n (X : FCx) (hX : Ok_C X) (hf0 : (X.n 0 - 408) ≤ 
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fmt_pin h 14 Register.x14
   fmt_pin h 17 Register.x17
   fat_seg Lua.Vm.Arms.seg_80011e34_80011e40_n
   fat_close
@@ -1713,6 +1715,7 @@ theorem at_80011e2c_80011e34_n (X : FCx) (hX : Ok_C X) (hf0 : (X.n 0 - 408) ≤ 
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
+  fmt_pin h 14 Register.x14
   fmt_pin h 17 Register.x17
   fat_seg Lua.Vm.Arms.seg_80011e2c_80011e34_n
   fat_close

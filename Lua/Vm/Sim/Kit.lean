@@ -124,6 +124,12 @@ import Lua.Vm.Sim.Kit.LitsInsert
 import Lua.Vm.Sim.Kit.PushfI
 import Lua.Vm.Sim.Kit.TolInt
 import Lua.Vm.Sim.Kit.TolIntProof
+import Lua.Vm.Sim.Kit.AtSubw
+import Lua.Vm.Sim.Kit.AtAlign
+import Lua.Vm.Sim.Kit.PtrFmt
+import Lua.Vm.Sim.Kit.PushfP
+import Lua.Vm.Sim.Kit.TolFn
+import Lua.Vm.Sim.Kit.TolFnProof
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)
@@ -158,4 +164,11 @@ Lane F1-21: `OP_POW`, `OP_POWK` on the join route (`Kit/AtJoinPow.lean`:
 operands (`SimArmOnM`, `PowQuiet`, `PowKQuiet`), given
 `Lua.Vm.Fn.PowR.Ieee754PowSpec_Statement` (`Kit/AtFltPow.lean`,
 `Kit/AtFltPowk.lean`).
+
+Lane F1-24: `luaL_tolstring` on `print` (`tolFn_proved`, `Kit/TolFnProof.lean`):
+`snprintf(buf, 32, "%p", print)` (`snprintfP_sum`, `Kit/PtrFmt.lean` over
+`AtF/SnprintfP`), `lua_pushfstring(L, "%s: %p", …)` (`pushfP_sum`,
+`Kit/PushfP.lean`, the tail shared with `"%I"` by `pf_tail`, `luaS_newlstr` by
+`pf_newlstr`), `tolfn_sum` (`Kit/TolFn.lean`); the glue to `TolPost` once for
+every allocating class (`tolPost_of_run` over `ArgStr`, `Kit/TolIntProof.lean`).
 -/

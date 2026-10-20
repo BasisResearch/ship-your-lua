@@ -582,8 +582,8 @@ theorem run_Qn2 (X : FCx) (hX : Lua.Vm.AtF.SnprintfLld.Ok_D X)
 /-- The root path `Lc`: `0x80043b38` to `0x80043b38`. -/
 theorem run_Lc (X : FCx) (hX : Lua.Vm.AtF.SnprintfLld.Ok_L X)
     (hg_5 : zopz0zKzJ_u (0x9#64) (X.b 18) = false)
-    : Triple (SegSt 0x80043b38#64 (Lua.Vm.AtF.SnprintfLld.r133 X) (ArmPay X.m X.o))
-      (SegSt (0x80043b38#64) (Lua.Vm.AtF.SnprintfLld.r134 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m55 X) X.o)) := by
+    : Triple (SegSt 0x80043b38#64 (Lua.Vm.AtF.SnprintfLld.r134 X) (ArmPay X.m X.o))
+      (SegSt (0x80043b38#64) (Lua.Vm.AtF.SnprintfLld.r135 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m55 X) X.o)) := by
   intro c h
   have acc := Steps.refl c
   have hX' := hX
@@ -608,8 +608,8 @@ theorem run_Lx (X : FCx) (hX : Lua.Vm.AtF.SnprintfLld.Ok_L X)
     (hc64 : bytesT8 X.m (X.n 0 - 752) = BitVec.ofNat 64 (X.n 0 - 516))
     (hc65 : bytesT8 X.m (X.n 0 - 808) = 0xffffffffffffffff#64)
     (hc66 : bytesT8 X.m (X.n 0 - 824) = 0x20#64)
-    : Triple (SegSt 0x80043b38#64 (Lua.Vm.AtF.SnprintfLld.r133 X) (ArmPay X.m X.o))
-      (SegSt (0x80043b88#64) (Lua.Vm.AtF.SnprintfLld.r135 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m56 X) X.o)) := by
+    : Triple (SegSt 0x80043b38#64 (Lua.Vm.AtF.SnprintfLld.r134 X) (ArmPay X.m X.o))
+      (SegSt (0x80043b88#64) (Lua.Vm.AtF.SnprintfLld.r136 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m56 X) X.o)) := by
   intro c h
   have acc := Steps.refl c
   have hX' := hX
@@ -643,8 +643,8 @@ theorem run_Pn (X : FCx) (hX : Lua.Vm.AtF.SnprintfLld.Ok_P X)
     (hc22 : bytesT8 X.m (X.n 0 - 640) = BitVec.ofNat 64 (X.n 0 - 512))
     (hc23 : bytesT4 X.m (X.n 0 - 252) = 0x2b#32)
     (hc24 : bytesT8 X.m (X.n 0 - 264) = BitVec.ofNat 64 (X.n 1))
-    : Triple (SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r141 X) (ArmPay X.m X.o))
-      (SegSt (0x8003b444#64) (Lua.Vm.AtF.SnprintfLld.r186 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m78 X) X.o)) := by
+    : Triple (SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r142 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b444#64) (Lua.Vm.AtF.SnprintfLld.r187 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m78 X) X.o)) := by
   intro c h
   have acc := Steps.refl c
   have hX' := hX
@@ -722,8 +722,8 @@ theorem run_Pp (X : FCx) (hX : Lua.Vm.AtF.SnprintfLld.Ok_P X)
     (hc22 : bytesT8 X.m (X.n 0 - 640) = BitVec.ofNat 64 (X.n 0 - 512))
     (hc23 : bytesT4 X.m (X.n 0 - 252) = 0x2b#32)
     (hc24 : bytesT8 X.m (X.n 0 - 264) = BitVec.ofNat 64 (X.n 1))
-    : Triple (SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r141 X) (ArmPay X.m X.o))
-      (SegSt (0x8003b444#64) (Lua.Vm.AtF.SnprintfLld.r143 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m65 X) X.o)) := by
+    : Triple (SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r142 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b444#64) (Lua.Vm.AtF.SnprintfLld.r144 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m65 X) X.o)) := by
   intro c h
   have acc := Steps.refl c
   have hX' := hX
@@ -819,8 +819,8 @@ theorem run_Rp (X : FCx) (hX : Lua.Vm.AtF.SnprintfLld.Ok_P X)
     (hc53 : bytesT8 X.m (X.n 0 - 64) = X.b 1)
     (hc54 : bytesT8 X.m (X.n 0 - 56) = X.b 0)
     (hc55 : bytesT8 X.m (X.n 0 - 72) = X.b 2)
-    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r144 X) (ArmPay X.m X.o))
-      (SegSt (X.b 0) (Lua.Vm.AtF.SnprintfLld.r146 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m71 X) X.o)) := by
+    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r145 X) (ArmPay X.m X.o))
+      (SegSt (X.b 0) (Lua.Vm.AtF.SnprintfLld.r147 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m71 X) X.o)) := by
   intro c h
   have acc := Steps.refl c
   have hX' := hX
@@ -886,8 +886,8 @@ theorem run_Rn1 (X : FCx) (hX : Lua.Vm.AtF.SnprintfLld.Ok_P X)
     (hc57 : bytesT4 X.m (X.n 0 - 632) = 0x1#32)
     (hc73 : bytesT8 X.m (X.n 0 - 488) = BitVec.ofNat 64 (X.n 4))
     (hc74 : bytesT8 X.m (X.n 0 - 496) = BitVec.ofNat 64 (X.n 5))
-    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r187 X) (ArmPay X.m X.o))
-      (SegSt (0x8003b444#64) (Lua.Vm.AtF.SnprintfLld.r189 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m81 X) X.o)) := by
+    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r188 X) (ArmPay X.m X.o))
+      (SegSt (0x8003b444#64) (Lua.Vm.AtF.SnprintfLld.r190 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m81 X) X.o)) := by
   intro c h
   have acc := Steps.refl c
   have hX' := hX
@@ -949,8 +949,8 @@ theorem run_Rn2 (X : FCx) (hX : Lua.Vm.AtF.SnprintfLld.Ok_P X)
     (hc53 : bytesT8 X.m (X.n 0 - 64) = X.b 1)
     (hc54 : bytesT8 X.m (X.n 0 - 56) = X.b 0)
     (hc55 : bytesT8 X.m (X.n 0 - 72) = X.b 2)
-    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r190 X) (ArmPay X.m X.o))
-      (SegSt (X.b 0) (Lua.Vm.AtF.SnprintfLld.r192 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m87 X) X.o)) := by
+    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r191 X) (ArmPay X.m X.o))
+      (SegSt (X.b 0) (Lua.Vm.AtF.SnprintfLld.r193 X) (ArmPay (Lua.Vm.AtF.SnprintfLld.m87 X) X.o)) := by
   intro c h
   have acc := Steps.refl c
   have hX' := hX

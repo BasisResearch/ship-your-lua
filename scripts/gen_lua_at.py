@@ -1935,9 +1935,14 @@ class FState:
         self.nfacts = []              # the path's branch outcomes over Nat atoms (`hf*`)
         self.entry = False            # in the entry root (`entry_rcells` hold)
         self.rootpc = None            # the pc the root starts at (`root_cells`)
+        # lane F1-24 (`xres`): an opaque register's residue mod 8 or exact value
+        # (`xor` of values with known residues, then `andi … 7`), for deciding a
+        # branch only: the register stays opaque and the guard is emitted
+        self.known = {}
 
     def copy(self):
         s = FState(self.regs, self.log, self.carried, self.facts, self.root)
+        s.known = dict(self.known)
         s.hyps = list(self.hyps)
         s.nfacts = list(self.nfacts)
         s.entry = self.entry
@@ -1954,6 +1959,7 @@ class FState:
     def set(self, r, v):
         if r != 0:
             self.regs[r] = v
+            self.known.pop(r, None)
 
 
 LD = {"ld": (8, True), "lw": (4, True), "lwu": (4, False), "lh": (2, True),
@@ -2245,6 +2251,24 @@ class Fn:
         elif mnem == "slli" and st.get(R(o[1]))[0] == "nat":
             x, k = st.get(R(o[1])), imm(o[2])
             st.set(R(o[0]), self.fnat(tuple((i, c << k) for i, c in x[1]), x[2] << k))
+        elif (self.spec.get("xres") and mnem == "xor" and None not in [self.res8(st, R(x)) for x in o[1:3]]
+              and not (st.get(R(o[1]))[0] == "lit" and st.get(R(o[2]))[0] == "lit")):
+            # lane F1-24: `xor` of two values with known residues mod 8 (an
+            # alignment test of two pointers): opaque, its residue known
+            r8 = self.res8(st, R(o[1])) ^ self.res8(st, R(o[2]))
+            st.set(R(o[0]), ("opq",))
+            st.known[R(o[0])] = ("res8", r8)
+        elif (self.spec.get("xres") and mnem == "andi" and imm(o[2]) < 0 and (-imm(o[2])) & (-imm(o[2]) - 1) == 0
+              and st.get(R(o[1]))[0] == "nat" and self.residue(st.get(R(o[1])), -imm(o[2])) is not None):
+            # lane F1-24: `x & -2^k` of an affine value whose residue is known:
+            # `x` less the residue
+            x = st.get(R(o[1]))
+            st.set(R(o[0]), self.fnat(x[1], x[2] - self.residue(x, -imm(o[2]))))
+        elif (self.spec.get("xres") and mnem == "andi" and imm(o[2]) == 7
+              and st.known.get(R(o[1]), ("",))[0] == "res8"):
+            v = st.known[R(o[1])][1] & 7
+            st.set(R(o[0]), ("opq",))
+            st.known[R(o[0])] = ("val", v)
         else:
             srcs = [st.get(R(x)) for x in o[1:] if x in ABI]
             vals = [lit(x) for x in srcs]
@@ -2302,6 +2326,21 @@ class Fn:
         if iv is None or iv[0] < -2 ** 31 or iv[1] >= 2 ** 31:
             return None
         return res
+
+    def res8(self, st, r):
+        """lane F1-24 (`xres`): a register's residue mod 8, if known (a literal,
+        an affine value over atoms with residues, a recorded residue)."""
+        if r == 0:
+            return 0
+        v = st.regs.get(r)
+        if v is None:
+            return None
+        if v[0] == "lit":
+            return v[1] % 8
+        if v[0] == "nat":
+            return self.residue(v, 8)
+        k = st.known.get(r)
+        return k[1] % 8 if k and k[0] in ("res8", "val") else None
 
     def residue(self, v, mod):
         """`v mod mod` for an affine value whose atoms' residues are known
@@ -2390,6 +2429,12 @@ class Fn:
                         if litval(z) == 0 and u[0] == "nat" and all(c > 0 for _, c in u[1]) and \
                                 sum(c * self.lb(i) for i, c in u[1]) + u[2] > 0:
                             d = head == "!="
+                if d is None and self.spec.get("xres") and head in ("==", "!="):
+                    # lane F1-24: an opaque register of known value against a literal
+                    for (u, ru), z in (((x, rx), y), ((y, ry), x)):
+                        k = st2.known.get(ru)
+                        if u[0] == "opq" and k and k[0] == "val" and litval(z) is not None:
+                            d = (k[1] == litval(z)) == (head == "==")
                 if d is not None and d != taken:
                     raise Stop("infeasible")
                 # lane F1-20: an outcome the path's own Nat facts refute (the same
@@ -3116,6 +3161,8 @@ def tol_lit(mod, tag, what):
         rcellsw={(1, ((2, 16), (5, 1)), 8): tag},
         calls={0x80002fe4: dict(ret={})},
         ends=[0x80002994],
+        # lane F1-24: the function path (`0x80021c5c`, `tol_fn`) is a module of its own
+        stops=[0x80021c5c],
         doc=f"`luaL_tolstring(L, i, &l)` on a {what} argument, up to its tail "
             "`lua_tolstring(L, -1, &l)`.")
 
@@ -3974,9 +4021,9 @@ SNP_RUNS = {
                extra=["(hsg : bytesT1 X.m (X.n 0 - 697) = 0x2d#8)"]),
     "Pp": dict(at=0x80043b88, ctx="Ok_P", until=0x8003b444, when=[SNP_SGN], derive=True,
                extra=["(hsg : bytesT1 X.m (X.n 0 - 697) = 0x0#8)"]),
-    "Rp": dict(at=0x8004e4e8, ctx="Ok_P", until=None, row="r144"),
-    "Rn1": dict(at=0x8004e4e8, ctx="Ok_P", until=0x8003b444, row="r187"),
-    "Rn2": dict(at=0x8004e4e8, ctx="Ok_P", until=None, row="r190"),
+    "Rp": dict(at=0x8004e4e8, ctx="Ok_P", until=None, row="r145"),
+    "Rn1": dict(at=0x8004e4e8, ctx="Ok_P", until=0x8003b444, row="r188"),
+    "Rn2": dict(at=0x8004e4e8, ctx="Ok_P", until=None, row="r191"),
 }
 FNS.update({
     "snprintf/lld": dict(
@@ -4081,7 +4128,7 @@ FNS.update({
         mod="PushfI", entry=0x800030a4,
         row=abi_row({10: N((1, 1)), 11: ("lit", 0x8004fd58), 12: ("bv", 13), 13: ("bv", 14), 14: ("bv", 15),
                      15: ("bv", 16), 16: ("bv", 17), 17: ("bv", 18)}),
-        ok=PF_OK, lb=PF_LB, ub={4: 20}, depth=200, junk=(17,),
+        ok=PF_OK, lb=PF_LB, ub={4: 20}, depth=200, junk=(14, 16, 17),
         cells=PF_CELLS,
         rcells={(((1, 1),), 24): N((2, 1)), (((1, 1),), 16): N((3, 1))},
         rcellsw={(1, ((5, 1),), 8): 4},
@@ -4142,6 +4189,118 @@ FNS.update({
                              ok=MCP_OK + ["i_lt : X.n 4 < X.n 3"], lb=MM_LB)},
         doc="`memcpy(dst, src, n)` on 8-aligned disjoint ranges, `n ≤ 64`."),
 })
+
+
+# ---- lane F1-24: `luaL_tolstring` on a function --------------------------------
+
+# `lua_pointer2str` = `snprintf(buf, 32, "%p", p)` on F1's one light C
+# function (`print`: `p = 0x80022f18`), from `luaO_pushvfstring`'s `'p'`
+# conversion: `_svfprintf_r`'s prologue (the root `F`, as `"%lld"`'s), the
+# format's walk to the `'p'` conversion (a root, `C`), the hex digits of the
+# literal pointer unrolled, the `0x` prefix and the digits written by
+# `__ssprint_r` (two `memmove`s, call nodes: the roots after them), the format's
+# end, `snprintf`'s `'\0'` and return. Atoms as `snprintf/lld`'s (`SnG.X`): X.n 0
+# = sp, X.n 1 = buf, X.n 2 = the format (`"%p"`, its bytes `rcellsw`); X.b 14-17
+# = a4-a7 (the varargs spill); the pointer a literal.
+SNPP_PTR = 0x80022f18
+SNPP_CELLS = {k: v for k, v in SNP_CELLS.items() if k not in ((4, 0x800555f4), (4, 0x800555d4))}
+SNPP_CELLS.update({(4, 0x80055604): 0xfffee784,   # the conversion switch's word for 'p'
+                   # `xdigs_lower`
+                   **{(1, 0x80051b70 + d): ord("0123456789abcdef"[d]) for d in range(16)}})
+SNPP_CELLSW = {**{(1, ((2, 1),), k): b for k, b in enumerate([0x25, 0x70, 0])},
+               (4, ((0, 1),), SVF + 232): 0, (2, ((0, 1),), -272 + 24): 0x208,
+               (4, ((0, 1),), -272 + 20): 31}
+SNPP_FRAME = {**SNP_FRAME, svf_at(576): ("lit", 32), svf_at(0): N((2, 1), add=2),
+              (((0, 1),), -40): ("lit", SNPP_PTR)}
+# the `'p'` conversion (`0x80043c48`): s0 `_REENT`, s4 the precision (-1), s6 the
+# switch's table, s7 the iov cursor, s8 'p', s9 the format past it, s10 'Z',
+# s11 0, t1 the flags (none)
+SNPP_ROW_C = {**SNP_ROW_D, 6: ("lit", 0), 24: ("lit", 0x70), 25: N((2, 1), add=2)}
+SNPP_RUNS = {
+    "E": dict(at=0x80034de0, ctx="Ok", until=0x80042ec0),
+    "F": dict(at=0x80042ec0, ctx="Ok_F", until=0x80043c48),
+    "C": dict(at=0x80043c48, ctx="Ok_C", until=0x8003b444),
+    "Q1": dict(at=0x8004e4e8, ctx="Ok_C", until=0x8003b444, row="r33"),
+    "Q2": dict(at=0x8004e4e8, ctx="Ok_C", until=None, row="r36"),
+}
+FNS.update({
+    "snprintf/p": dict(
+        mod="SnprintfP", entry=0x80034de0,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 32), 12: N((2, 1)), 13: ("lit", SNPP_PTR),
+                     14: ("bv", 14), 15: ("bv", 15), 16: ("bv", 16), 17: ("bv", 17)}),
+        ok=SNP_OK, lb=SNP_LB, depth=200,
+        cells=SNPP_CELLS, rcells=SNPP_FRAME, rcellsw=SNPP_CELLSW,
+        calls={0x8003b444: dict(ret={})}, junk=(15,),
+        loops={0x80042ec0: dict(name="F", row=SNP_ROW_F, ok=SNP_OK, lb=SNP_LB),
+               0x80043c48: dict(name="C", row=SNPP_ROW_C, ok=SNP_OK, lb=SNP_LB)},
+        imports=["Lua.Vm.Sim.Kit.FmtLib", "Lua.Vm.Sim.Kit.AtSubw"],
+        runs=SNPP_RUNS,
+        doc="`snprintf(buf, 32, \"%p\", p)` (`lua_pointer2str`) on `print`'s address."),
+})
+
+# `lua_pushfstring(L, "%s: %p", "function", p)` (`luaL_tolstring`'s default
+# case on a light C function): `luaO_pushvfstring` on `"%s: %p"` (`.rodata`, its
+# word and bytes cells, the conversion switch's words for `'s'` and `'p'`):
+# `strchr`, `addstr2buff` of the empty prefix, `'s'`: `strlen` and `addstr2buff`
+# of the type name (`.rodata` `"function"`, its words cells; `memcpy`'s word
+# path), `strchr` past it, `addstr2buff` of `": "` (`memcpy`'s byte path), `'p'`:
+# `snprintf(buf + 10, 32, "%p", p)` (a call node: `snprintfP_sum`, ten bytes),
+# the empty rest, `luaS_newlstr` of the twenty bytes (a call node), the push,
+# `luaC_checkGC`. Atoms and roots as `lua_pushfstring/I`'s (`pfX`: X.n 4 unused,
+# the count a literal; X.b 13, 14 unused, the arguments literals).
+PFP_FMT = 0x8004fd68
+PFP_KIND = 0x8004f290       # `luaT_typenames_[LUA_TFUNCTION + 1]`, `"function"`
+PFP_CELLS = {(8, PFP_FMT): int.from_bytes(b"%s: %p\0\0", "little"),
+             **{(1, PFP_FMT + k): b for k, b in enumerate(b"%s: %p\0")},
+             (4, 0x80052cc4): 0xfffbf238, (4, 0x80052cb8): 0xfffbf310,
+             (8, PFP_KIND): int.from_bytes(b"function", "little"), (8, PFP_KIND + 8): 0,
+             (1, PFP_KIND + 8): 0}
+PFP_T = PF_OK + ["ts_lo : 0x8005c6d0 ≤ X.n 5", "ts_hi : X.n 5 + 24 ≤ 0x87800000",
+                 "ttt : X.n 5 + 9 ≤ X.n 3 ∨ X.n 3 + 8 ≤ X.n 5 + 8"]
+FNS.update({
+    "lua_pushfstring/sp": dict(
+        mod="PushfP", entry=0x800030a4,
+        row=abi_row({10: N((1, 1)), 11: ("lit", PFP_FMT), 12: ("lit", PFP_KIND), 13: ("lit", SNPP_PTR),
+                     14: ("bv", 15), 15: ("bv", 16), 16: ("bv", 17), 17: ("bv", 18)}),
+        ok=PF_OK, lb=PF_LB, depth=200, junk=(14, 16, 17), res={0: (16, 0)}, xres=True,
+        cells=PFP_CELLS,
+        rcells={(((1, 1),), 24): N((2, 1)), (((1, 1),), 16): N((3, 1))},
+        rcellsw={(1, ((5, 1),), 8): 4},
+        cuts={0x80011df8: dict(root="C", ok=PF_OK, lb=PF_LB),
+              # the `'s'` and `'p'` conversions: the store chains of `addstr2buff` cut
+              0x80011e54: dict(root="K", ok=PF_OK, lb=PF_LB), 0x80011e7c: dict(root="J", ok=PF_OK, lb=PF_LB),
+              0x80011f2c: dict(root="P", ok=PF_OK, lb=PF_LB)},
+        calls={0x80034de0: dict(ret={10: ("lit", 10)}, root="S", ok=PF_OK, lb=PF_LB),
+               0x80017694: dict(ret={10: N((5, 1))}, root="T", ok=PFP_T, lb=PF_LB),
+               0x8000ec80: dict(ret={})},
+        imports=["Lua.Vm.Sim.Kit.AtNarrow", "Lua.Vm.Sim.Kit.AtAlign"],
+        doc="`lua_pushfstring(L, \"%s: %p\", \"function\", p)`: `luaO_pushvfstring` on `\"%s: %p\"` "
+            "(`strchr`, `strlen` and `addstr2buff` of the type name and of `\": \"`, "
+            "`snprintf(buf + 10, 32, \"%p\", p)`, `luaS_newlstr`, the push), `luaC_checkGC`."),
+})
+
+
+def tol_fn(mod):
+    """lane F1-24: `luaL_tolstring(L, i, &l)` on a light C function (F1's one:
+    `print`): the atoms of `tol_lit` (`G(L)->mt[LUA_TFUNCTION]` NULL), the
+    argument's payload the function's address; `lua_getmetatable` (none),
+    `lua_type`, `lua_typename` (`.rodata`), `lua_topointer`,
+    `lua_pushfstring(L, "%s: %p", …)` a call node."""
+    d = tol_lit(mod, 0x16, "light C function")
+    d.pop("stops")
+    d["rcells"] = {**d["rcells"], (((2, 16), (5, 1)), 0): ("lit", SNPP_PTR)}
+    d["cells"] = {(8, 0x80053288): PFP_KIND}
+    d["calls"] = {0x800030a4: dict(ret={})}
+    d["junk"] = (14, 15, 16, 17)
+    d["prune_nat"] = True
+    d["imports"] = ["Lua.Vm.Sim.Kit.AtNarrow"]
+    d["doc"] = ("`luaL_tolstring(L, i, &l)` on a light C function (`lua_getmetatable`, `lua_type`, "
+                "`lua_typename`, `lua_topointer`, `lua_pushfstring(L, \"%s: %p\", …)`), up to its tail "
+                "`lua_tolstring(L, -1, &l)`.")
+    return d
+
+
+FNS.update({"luaL_tolstring/fn": tol_fn("TolFn")})
 
 
 def fn_main(names, check):

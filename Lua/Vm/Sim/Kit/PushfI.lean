@@ -102,7 +102,7 @@ structure PfIn (m : Mem) (sp L g top : Nat) (r : BitVec 64) : Prop where
 
 set_option hygiene false in
 /-- `PfIn`'s facts in context. -/
-local macro "pf_in" hP:ident : tactic => `(tactic| (
+macro "pf_in" hP:ident : tactic => `(tactic| (
   have := ($hP).sp_lo; have := ($hP).sp_hi; have := ($hP).sp_al; have := ($hP).ra; have := ($hP).L_lo
   have := ($hP).L_al; have := ($hP).L_he; have := ($hP).g_lo; have := ($hP).g_hi; have := ($hP).t_lo
   have := ($hP).t_hi; have := ($hP).t_al; have := ($hP).tL; have := ($hP).tg; have := ($hP).Lg))
@@ -563,12 +563,12 @@ theorem node_off_X {X : Nat → Prop} {ts lo hi k : Nat} (hm : ¬ X (ts + 9))
   · exact hh (ts + 16) (Nat.le_refl _) (by omega) (hx _ (by omega) (by omega))
 
 /-- **The `T` root's facts when the string is found.** -/
-theorem pfT_hit {m M2 M10 M3 : Mem} {sp L g top ts : Nat} {i r : BitVec 64} {f : AbiFrame} {K X W : Nat → Prop}
-    (hP : PfIn m sp L g top r) (hS : PfS M2 m sp L r i f)
+theorem pfT_hit {m M2 M10 M3 : Mem} {sp L g top ts : Nat} {r : BitVec 64} {f : AbiFrame} {K X W : Nat → Prop}
+    {b : List UInt8} (hP : PfIn m sp L g top r) (hS : PfSlots M2 sp L r f)
     (k10 : ∀ a, (a + 600 < sp ∨ (sp - 424 ≤ a ∧ a < sp - 412) ∨ sp - 408 ≤ a) → bytesT1 M10 a = bytesT1 M2 a)
     (low10 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M10 a = bytesT1 m a)
     (hK : ∀ a, K a → 0x8006ecd0 ≤ a ∧ a < 0x87800000) (xt : ∀ a, Rng top 16 a → X a)
-    (hh : NlHit M10 M3 K X W (sp - 464) ts (intU8 i)) : PfT M3 sp L g top ts r f := by
+    (hh : NlHit M10 M3 K X W (sp - 464) ts b) : PfT M3 sp L g top ts r f := by
   pf_in hP
   have k3 : ∀ a, (a + 600 < sp ∨ sp - 464 ≤ a) → bytesT1 M3 a = bytesT1 M10 a := fun a ha =>
     hh.keep a (by simp only [Below]; omega)
@@ -576,7 +576,7 @@ theorem pfT_hit {m M2 M10 M3 : Mem} {sp L g top ts : Nat} {i r : BitVec 64} {f :
   have o23 := hh.node.obj (ts + 23) (by omega) (by omega)
   have := (hK _ o0.1).1; have := (hK _ o23.1).2
   exact {
-    slots := hS.slots.congr (by omega) fun a ha => (k3 a (by omega)).trans (k10 a (by omega))
+    slots := hS.congr (by omega) fun a ha => (k3 a (by omega)).trans (k10 a (by omega))
     top_w := (bytesT8_congrT fun j _ => (k3 _ (by omega)).trans (low10 _ (by omega))).trans hP.top_w
     Lg_w := (bytesT8_congrT fun j _ => (k3 _ (by omega)).trans (low10 _ (by omega))).trans hP.Lg_w
     tt := (k3 _ (by omega)).trans hh.node.tt
@@ -602,9 +602,9 @@ theorem pfHit_of {m M10 M3 : Mem} {sp ts : Nat} {b : List UInt8} {K X W : Nat �
   · exact (hh.keep a (by simp only [Below, PfFr] at ha ⊢; omega)).trans (low10 a (by simp only [PfFr] at ha; omega))
 
 /-- **The `T` root's facts when the string is created.** -/
-theorem pfT_new {m M2 M10 M3 : Mem} {sp L g top bkt nuse head p : Nat} {i r : BitVec 64} {f : AbiFrame}
+theorem pfT_new {m M2 M10 M3 : Mem} {sp L g top bkt nuse head p : Nat} {r : BitVec 64} {f : AbiFrame}
     {size : Nat} {b : List UInt8} {hh : BitVec 64} {H H' : HeapIx}
-    (hP : PfIn m sp L g top r) (hS : PfS M2 m sp L r i f)
+    (hP : PfIn m sp L g top r) (hS : PfSlots M2 sp L r f)
     (k10 : ∀ a, (a + 600 < sp ∨ (sp - 424 ≤ a ∧ a < sp - 412) ∨ sp - 408 ≤ a) → bytesT1 M10 a = bytesT1 M2 a)
     (low10 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M10 a = bytesT1 m a)
     (hN : IaNewIn m L g bkt size nuse head b H) (Lk : bkt + 8 ≤ L ∨ L + 200 ≤ bkt)
@@ -634,7 +634,7 @@ theorem pfT_new {m M2 M10 M3 : Mem} {sp L g top bkt nuse head p : Nat} {i r : Bi
       · exact hp.fresh a hc.1 hc.2 hu
       all_goals simp only [Rng, Below] at hc; omega
   exact {
-    slots := hS.slots.congr (by omega) fun a ha => (kS a (by omega) (by omega)).trans (k10 a (by omega))
+    slots := hS.congr (by omega) fun a ha => (kS a (by omega) (by omega)).trans (k10 a (by omega))
     top_w := (bytesT8_congrT fun j _ => (kL _ (by omega) (by omega)).trans (low10 _ (by omega))).trans hP.top_w
     Lg_w := (bytesT8_congrT fun j _ => (kL _ (by omega) (by omega)).trans (low10 _ (by omega))).trans hP.Lg_w
     tt := hp.tt
@@ -643,6 +643,46 @@ theorem pfT_new {m M2 M10 M3 : Mem} {sp L g top bkt nuse head p : Nat} {i r : Bi
     ttt := (apart_of_use (x := top) (n := 16) (p := p) (k := b.length + 25) (fun a h1 h2 => top_in a ⟨h1, h2⟩)
       (fun a h1 h2 => hp.fresh a h1 (by omega)) (by omega) (by omega)).elim (fun h => .inr (by omega))
       (fun h => .inl (by omega)) }
+
+/-- **`luaO_pushvfstring`'s `luaS_newlstr(L, buff, n)`** (every format's
+`pushstr`): the bytes `b` in the buffer at `sp - 408`, the call from `sp - 464`
+returning to `0x80011ec0` with the frame `fr`; the string found or created
+(`PfStr`), `T`'s facts (`PfT`, the slots `PfSlots` at the call's memory). -/
+theorem pf_newlstr (hM : MallocR_Statement) (sp L g top : Nat) (r : BitVec 64) (f fr : AbiFrame) (m M10 : Mem)
+    (o : Array String) (hP : PfIn m sp L g top r) (hS : PfSlots M10 sp L r f)
+    (low10 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M10 a = bytesT1 m a) (b : List UInt8)
+    (hb1 : 1 ≤ b.length) (hb40 : b.length ≤ 40)
+    (hbytes : ∀ j, j < b.length → bytesT1 M10 (sp - 408 + j) = BitVec.ofNat 8 (b.getD j 0).toNat)
+    (seed : UInt32) (K X W : Nat → Prop) (cw : BitVec 8) (size hash head d nuse : Nat)
+    (H : HeapIx) (hT : NlTab m L g top b seed K X W cw size hash head d nuse H) :
+    Triple (SegSt 0x80017694#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 (sp - 408)⟩,
+        ⟨Register.x12, BitVec.ofNat 64 b.length⟩] (sp - 464) 0x80011ec0#64 fr) (ArmPay M10 o))
+      (fun c => ∃ ts M3 H', PfT M3 sp L g top ts r f ∧
+        PfStr m M3 (PfFr sp) g b seed K X W size hash nuse head H ts H' ∧ wrRet 0x80011ec0#64 (sp - 464) ts fr M3 o c) := by
+  intro c h
+  pf_in hP
+  have hIa : IaIn M10 (sp - 464) L (sp - 408) g b seed 0x80011ec0#64 := {
+    sp_lo := by omega, sp_hi := by omega, sp_al := by omega, ra := by decide, L_lo := by omega
+    L_he := by omega, L_al := by omega, s_ge := by omega, s_hi := by omega
+    s_al := by omega, l_lo := hb1, l_hi := hb40, g_lo := by omega, g_hi := by omega
+    Lg := (bytesT8_congrT fun j _ => low10 _ (by omega)).trans hP.Lg_w
+    bytes := hbytes
+    seed_w := (bytesT4_congrT fun j _ => low10 _ (by omega)).trans hT.seed_w }
+  obtain ⟨c2, s2, hq⟩ := newlstr_any_sum hM (sp - 464) L (sp - 408) g size hash head d nuse b seed
+    0x80011ec0#64 fr M10 o hIa K X W cw (fun a ha => (hT.hK a ha).2)
+    (fun M hM => hT.tab M fun a ha => (hM a ha).trans (low10 a (.inl (by omega)))) H
+    (hT.new.congr fun a ha => low10 a (.inl (by omega))) c h
+  have k10 : ∀ a, (a + 600 < sp ∨ (sp - 424 ≤ a ∧ a < sp - 412) ∨ sp - 408 ≤ a) → bytesT1 M10 a = bytesT1 M10 a :=
+    fun _ _ => rfl
+  rcases hq with ⟨ts, M3, hret, hh⟩ | ⟨M3, p, H', hret, hp⟩
+  · exact ⟨c2, s2, ts, M3, H, pfT_hit hP hS k10 low10 hT.hK hT.xt hh,
+      .inl ⟨pfHit_of low10 (by omega) hT.hK hb40 hh, rfl⟩, hret⟩
+  · refine ⟨c2, s2, p, M3, H', pfT_new hP hS k10 low10 hT.new hT.Lk hT.top_in hb40 hp, .inr ?_, hret⟩
+    refine (hp.trans (G := PfFr sp) (fun a ha => low10 a (by simp only [PfFr] at ha; omega))
+      (by simp only [PfFr]; omega) (fun j _ => by simp only [PfFr]; omega)).mono fun a ha => ?_
+    rcases ha with ha | ha
+    · simp only [Below] at ha; exact ⟨by omega, by omega⟩
+    · exact ha
 
 /-- **From `snprintf`'s return to `luaS_newlstr`'s** (`T`, `0x80011ec0`): the
 string found or created (`PfStr`), `T`'s facts (`PfT`). -/
@@ -671,36 +711,19 @@ theorem pf_nl (hM : MallocR_Statement) (sp L g top : Nat) (i r : BitVec 64) (f :
   have low10 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M10 a = bytesT1 m a := fun a ha =>
     (k10 a (by omega)).trans (hS.low a ha)
   have hb40 : (intU8 i).length ≤ 40 := by rw [intU8_length]; omega
-  have hIa : IaIn M10 (sp - 464) L (sp - 408) g (intU8 i) seed 0x80011ec0#64 := {
-    sp_lo := by omega, sp_hi := by omega, sp_al := by omega, ra := by decide, L_lo := by omega
-    L_he := by omega, L_al := by omega, s_ge := by omega, s_hi := by rw [intU8_length]; omega
-    s_al := by omega, l_lo := by rw [intU8_length]; omega, l_hi := hb40, g_lo := by omega, g_hi := by omega
-    Lg := (bytesT8_congrT fun j _ => low10 _ (by omega)).trans hP.Lg_w
-    bytes := fun j hj => by
+  fcx_unfold at h
+  obtain ⟨c2, s2, ts, M3, H', hPT, hstr, hret⟩ := pf_newlstr hM sp L g top r f (pfNlFr sp L top f) m M10 o hP
+    (hS.slots.congr (by omega) fun a ha => k10 a (by omega)) low10 (intU8 i) (by rw [intU8_length]; omega) hb40
+    (fun j hj => by
       rw [intU8_length] at hj
       rw [k10 _ (by omega), bytesAt_get hS.digits (by omega), intU8_get i j hj]
-      simp [List.getD_eq_getElem?_getD, List.getElem?_append_left hj, List.getElem?_eq_getElem hj]
-    seed_w := (bytesT4_congrT fun j _ => low10 _ (by omega)).trans hT.seed_w }
-  fcx_unfold at h
-  obtain ⟨c2, s2, hq⟩ := newlstr_any_sum hM (sp - 464) L (sp - 408) g size hash head d nuse (intU8 i) seed
-    0x80011ec0#64 (pfNlFr sp L top f) M10 o hIa K X W cw (fun a ha => (hT.hK a ha).2)
-    (fun M hM => hT.tab M fun a ha => (hM a ha).trans (low10 a (.inl (by omega)))) H
-    (hT.new.congr fun a ha => low10 a (.inl (by omega))) _ (by
+      simp [List.getD_eq_getElem?_getD, List.getElem?_append_left hj, List.getElem?_eq_getElem hj])
+    seed K X W cw size hash head d nuse H hT _ (by
       simp only [callPre, AbiFrame.pins, List.cons_append, List.nil_append]
       rw [intU8_length, hn]
       exact h.repin (by pins_of h))
-  rcases hq with ⟨ts, M3, hret, hh⟩ | ⟨M3, p, H', hret, hp⟩
-  · simp only [wrRet] at hret
-    exact ⟨c2, s1.trans s2, ts, M3, H, pfT_hit hP hS k10 low10 hT.hK hT.xt hh,
-      .inl ⟨pfHit_of low10 (by omega) hT.hK hb40 hh, rfl⟩, by fcx_unfold; exact hret.repin (by pins_of hret)⟩
-  · simp only [wrRet] at hret
-    refine ⟨c2, s1.trans s2, p, M3, H', pfT_new hP hS k10 low10 hT.new hT.Lk hT.top_in hb40 hp, .inr ?_,
-      by fcx_unfold; exact hret.repin (by pins_of hret)⟩
-    refine (hp.trans (G := PfFr sp) (fun a ha => low10 a (by simp only [PfFr] at ha; omega))
-      (by simp only [PfFr]; omega) (fun j _ => by simp only [PfFr]; omega)).mono fun a ha => ?_
-    rcases ha with ha | ha
-    · simp only [Below] at ha; exact ⟨by omega, by omega⟩
-    · exact ha
+  simp only [wrRet] at hret
+  exact ⟨c2, s1.trans s2, ts, M3, H', hPT, hstr, by fcx_unfold; exact hret.repin (by pins_of hret)⟩
 
 /-- **What `lua_pushfstring` leaves after `luaS_newlstr`'s return** (`M3`,
 `T`'s root memory): the string pushed at `L->top` (`setsvalue2s`, the tag
@@ -719,16 +742,19 @@ structure PfPost (M3 M : Mem) (sp L g top ts : Nat) : Prop where
     (o : Array String) : FCx :=
   pfX [sp, L, g, top, n, ts] r f i a3 a4 a5 a6 a7 (pfS8 sp) M o
 
-/-- The push's stores (the generated `m11`) at the slot, its tag, `L->top`. -/
-theorem pf_m11 {sp L g top n ts : Nat} {r : BitVec 64} {f : AbiFrame} {i a3 a4 a5 a6 a7 : BitVec 64} {M : Mem}
-    {o : Array String} (htL : top + 16 ≤ L ∨ L + 200 ≤ top) :
-    bytesT8 (Lua.Vm.AtF.PushfI.m11 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) top = BitVec.ofNat 64 ts ∧
-    bytesT1 (Lua.Vm.AtF.PushfI.m11 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (top + 8) = 0x44#8 ∧
-    bytesT8 (Lua.Vm.AtF.PushfI.m11 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (L + 16) =
-      BitVec.ofNat 64 (top + 16) ∧
-    ∀ a, ¬ (Rng top 9 a ∨ Rng (L + 16) 8 a) →
-      bytesT1 (Lua.Vm.AtF.PushfI.m11 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) a = bytesT1 M a := by
-  simp only [Lua.Vm.AtF.PushfI.m11, pfX3, pfX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+/-- The push's stores (`setsvalue2s` of the string at `L->top`, `L->top++`:
+every `lua_pushfstring` module's memory after `luaS_newlstr`'s return). -/
+abbrev pfPush (M : Mem) (L top ts : Nat) : Mem :=
+  writeMap8 ((writeMap8 M top (sdData_val (BitVec.ofNat 64 ts))).insert (top + 8) (stData 1 (0x44#64)))
+    (L + 16) (sdData_val (BitVec.ofNat 64 (top + 16)))
+
+/-- The push's stores at the slot, its tag, `L->top`. -/
+theorem pf_m11 {M : Mem} {L top ts : Nat} (htL : top + 16 ≤ L ∨ L + 200 ≤ top) :
+    bytesT8 (pfPush M L top ts) top = BitVec.ofNat 64 ts ∧
+    bytesT1 (pfPush M L top ts) (top + 8) = 0x44#8 ∧
+    bytesT8 (pfPush M L top ts) (L + 16) = BitVec.ofNat 64 (top + 16) ∧
+    ∀ a, ¬ (Rng top 9 a ∨ Rng (L + 16) 8 a) → bytesT1 (pfPush M L top ts) a = bytesT1 M a := by
+  simp only [pfPush]
   refine ⟨?_, ?_, ?_, fun a ha => ?_⟩
   · simp (disch := omega) only [fw8_wm8, fw8_ins, fw8_same]
   · simp (disch := omega) only [fw1_wm8, fw1_same]; decide
@@ -736,18 +762,19 @@ theorem pf_m11 {sp L g top n ts : Nat} {r : BitVec 64} {f : AbiFrame} {i a3 a4 a
   · simp only [Rng, not_or, not_and, Nat.not_lt] at ha
     simp (disch := omega) only [fw1_wm8, fw1_ins]
 
-/-- The push's stores and the return value's slot (the generated `m12`). -/
-theorem pf_m12 {sp L g top n ts : Nat} {r : BitVec 64} {f : AbiFrame} {i a3 a4 a5 a6 a7 : BitVec 64} {M : Mem}
-    {o : Array String} (htL : top + 16 ≤ L ∨ L + 200 ≤ top) (hts : top + 16 ≤ sp - 88) (hL : L + 200 ≤ sp - 88) :
-    bytesT8 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) top = BitVec.ofNat 64 ts ∧
-    bytesT1 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (top + 8) = 0x44#8 ∧
-    bytesT8 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (L + 16) =
+/-- The push's stores and the return value's slot. -/
+theorem pf_m12 {M : Mem} {sp L top ts : Nat} (htL : top + 16 ≤ L ∨ L + 200 ≤ top) (hts : top + 16 ≤ sp - 88)
+    (hL : L + 200 ≤ sp - 88) :
+    bytesT8 (writeMap8 (pfPush M L top ts) (sp - 88) (sdData_val (BitVec.ofNat 64 (ts + 24)))) top =
+      BitVec.ofNat 64 ts ∧
+    bytesT1 (writeMap8 (pfPush M L top ts) (sp - 88) (sdData_val (BitVec.ofNat 64 (ts + 24)))) (top + 8) = 0x44#8 ∧
+    bytesT8 (writeMap8 (pfPush M L top ts) (sp - 88) (sdData_val (BitVec.ofNat 64 (ts + 24)))) (L + 16) =
       BitVec.ofNat 64 (top + 16) ∧
-    bytesT8 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) (sp - 88) =
+    bytesT8 (writeMap8 (pfPush M L top ts) (sp - 88) (sdData_val (BitVec.ofNat 64 (ts + 24)))) (sp - 88) =
       BitVec.ofNat 64 (ts + 24) ∧
     ∀ a, ¬ (Rng top 9 a ∨ Rng (L + 16) 8 a ∨ Rng (sp - 88) 8 a) →
-      bytesT1 (Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M o)) a = bytesT1 M a := by
-  simp only [Lua.Vm.AtF.PushfI.m12, pfX3, pfX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+      bytesT1 (writeMap8 (pfPush M L top ts) (sp - 88) (sdData_val (BitVec.ofNat 64 (ts + 24)))) a = bytesT1 M a := by
+  simp only [pfPush]
   refine ⟨?_, ?_, ?_, ?_, fun a ha => ?_⟩
   · simp (disch := omega) only [fw8_wm8, fw8_ins, fw8_same]
   · simp (disch := omega) only [fw1_wm8, fw1_same]; decide
@@ -756,42 +783,59 @@ theorem pf_m12 {sp L g top n ts : Nat} {r : BitVec 64} {f : AbiFrame} {i a3 a4 a
   · simp only [Rng, not_or, not_and, Nat.not_lt] at ha
     simp (disch := omega) only [fw1_wm8, fw1_ins]
 
-/-- **From `luaS_newlstr`'s return to `lua_pushfstring`'s**: the push,
-`luaO_pushvfstring`'s epilogue, `luaC_checkGC` (a positive debt: `luaC_step`
-with the collector stopped). -/
-theorem pf_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a5 a6 a7 : BitVec 64)
-    (m M3 : Mem) (o : Array String) (hP : PfIn m sp L g top r) (hT : PfT M3 sp L g top ts r f)
-    (hn1 : 1 ≤ n) (hn2 : n ≤ 20) (hgc : bytesT1 M3 (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
-    Triple (SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfI.r9 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
-        (ArmPay M3 o))
-      (fun c => ∃ M, PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
+set_option hygiene false in
+/-- **`pf_tail ns rT rS mA mB`**: from `luaS_newlstr`'s return (the root `T`
+of a `lua_pushfstring` module `ns`, row `rT`) to `lua_pushfstring`'s return:
+the push (the module's memory `mA` is `pfPush`), `luaO_pushvfstring`'s
+epilogue, `luaC_checkGC` (a positive debt: `luaC_step` with the collector
+stopped, its return root `rS`, the module's memory `mB` the push and the
+return value's slot). One tactic for every format's module (`%I`, `%s: %p`),
+never a copied proof. Expects `pf_ret`'s statement's names in scope. -/
+macro "pf_tail " ns:ident rT:ident rS:ident mA:ident mB:ident : tactic => do
+  let okT := Lean.mkIdent (ns.getId ++ `Ok_T)
+  let a1 := Lean.mkIdent (ns.getId ++ `at_80011ec0_80011ee4_n)
+  let a2 := Lean.mkIdent (ns.getId ++ `at_80011ee4_80011f2c)
+  let a3n := Lean.mkIdent (ns.getId ++ `at_800030dc_800030ec_n)
+  let a3t := Lean.mkIdent (ns.getId ++ `at_800030dc_800030ec_t)
+  let a4 := Lean.mkIdent (ns.getId ++ `at_800030ec_800030f8)
+  let a5 := Lean.mkIdent (ns.getId ++ `at_800030f8_800030fc)
+  let a6 := Lean.mkIdent (ns.getId ++ `at_800030fc_80003110_1)
+  let a7 := Lean.mkIdent (ns.getId ++ `at_800030fc_80003110)
+  let mAq := Lean.mkIdent (ns.getId ++ mA.getId)
+  let mBq := Lean.mkIdent (ns.getId ++ mB.getId)
+  let rSq := Lean.mkIdent (ns.getId ++ rS.getId)
+  let rTq := Lean.mkIdent (ns.getId ++ rT.getId)
+  `(tactic| (
   intro c h
   pf_in hP
   have := hT.ts_lo; have := hT.ts_hi; have := hT.ttt
   have hTH : tohostAddr = 0x8005c6c0 := rfl
-  have hX : Lua.Vm.AtF.PushfI.Ok_T (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o) := by fcx_ok
-  have h : SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfI.r9 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
+  have hX : $okT (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o) := by fcx_ok
+  have h : SegSt 0x80011ec0#64 ($rTq (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
       (ArmPay (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o).m (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o).o)
       c := h
   have S := hT.slots
   have acc := Steps.refl c
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
-    (Lua.Vm.AtF.PushfI.at_80011ec0_80011ee4_n _ hX hT.tt hT.top_w S.pushed)
+    ($a1 _ hX hT.tt hT.top_w S.pushed)
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
-    (Lua.Vm.AtF.PushfI.at_80011ee4_80011f2c _ hX S.ra2 S.L112 S.s1 S.s2 S.s3 S.s4 S.s5 S.s6 S.s7 S.s8 S.s9 S.s10 S.s11)
-  obtain ⟨hv, htg, htw, hk11⟩ := pf_m11 (sp := sp) (n := n) (r := r) (f := f) (i := i) (a3 := a3) (a4 := a4)
-    (a5 := a5) (a6 := a6) (a7 := a7) (M := M3) (o := o) (g := g) (ts := ts) (by omega)
+    ($a2 _ hX S.ra2 S.L112 S.s1 S.s2 S.s3 S.s4 S.s5 S.s6 S.s7 S.s8 S.s9 S.s10 S.s11)
+  have eA : $mAq (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o) = pfPush M3 L top ts := rfl
+  rw [eA] at h
+  obtain ⟨hv, htg, htw, hk11⟩ := pf_m11 (M := M3) (L := L) (top := top) (ts := ts) (by omega)
   cases hb : zopz0zKzJ_s (0x0#64) (bytesT8 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o).m
       ((pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o).n 2 + 24))
   · -- a positive debt: `luaC_step` with the collector stopped
-    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
-      (Lua.Vm.AtF.PushfI.at_800030dc_800030ec_n _ hX hT.Lg_w hb)
-    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
-      (Lua.Vm.AtF.PushfI.at_800030ec_800030f8 _ hX)
-    obtain ⟨hv2, htg2, htw2, h88, hk12⟩ := pf_m12 (sp := sp) (n := n) (r := r) (f := f) (i := i) (a3 := a3)
-      (a4 := a4) (a5 := a5) (a6 := a6) (a7 := a7) (M := M3) (o := o) (g := g) (ts := ts) (by omega) (by omega)
-      (by omega)
-    generalize hM12 : Lua.Vm.AtF.PushfI.m12 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o) = M12 at h hv2 htg2 htw2 h88 hk12
+    rw [← eA] at h
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h) ($a3n _ hX hT.Lg_w hb)
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h) ($a4 _ hX)
+    have eB : $mBq (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o) =
+        writeMap8 (pfPush M3 L top ts) (sp - 88) (sdData_val (BitVec.ofNat 64 (ts + 24))) := rfl
+    rw [eB] at h
+    obtain ⟨hv2, htg2, htw2, h88, hk12⟩ := pf_m12 (M := M3) (sp := sp) (L := L) (top := top) (ts := ts)
+      (by omega) (by omega) (by omega)
+    generalize hM12 : writeMap8 (pfPush M3 L top ts) (sp - 88) (sdData_val (BitVec.ofNat 64 (ts + 24))) = M12
+      at h hv2 htg2 htw2 h88 hk12
     have hG12 : bytesT8 M12 (L + 24) = BitVec.ofNat 64 g :=
       (bytesT8_congrT fun j _ => hk12 _ (by simp only [Rng]; omega)).trans hT.Lg_w
     have hS12 : bytesT1 M12 (g + gGcstpOff) = 0x1#8 :=
@@ -808,9 +852,7 @@ theorem pf_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a
       · exact .inl hc
       · exact .inr (.inl hc)
       · simp only [Below, PfFr] at hc ⊢; exact .inr (.inr ⟨by omega, by omega⟩))
-    have nG : ∀ a, (a + 1400 ≤ g ∨ g + 1400 ≤ a) → ¬ (Rng (g + gTotalbytesOff) 8 a ∨ Rng (g + gGCdebtOff) 8 a) := by
-      intro a ha; simp only [Rng, gTotalbytesOff, gGCdebtOff]; omega
-    have hX4 : Lua.Vm.AtF.PushfI.Ok_T (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o) := by fcx_ok
+    have hX4 : $okT (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o) := by fcx_ok
     have h29 : bytesT8 M4 (sp - 88) = BitVec.ofNat 64 (ts + 24) :=
       (bytesT8_congrT fun j _ => hst.keep _ (by simp only [Rng, Below, gTotalbytesOff, gGCdebtOff]; omega)).trans h88
     have h27 : bytesT8 M4 (sp - 56) = r :=
@@ -820,13 +862,11 @@ theorem pf_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a
       (bytesT8_congrT fun j _ => (hst.keep _ (by simp only [Rng, Below, gTotalbytesOff, gGCdebtOff]; omega)).trans
         (hk12 _ (by simp only [Rng]; omega))).trans S.s0
     simp only [wrRet] at hret
-    have h : SegSt 0x800030f8#64 (Lua.Vm.AtF.PushfI.r14 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o))
+    have h : SegSt 0x800030f8#64 ($rSq (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o))
         (ArmPay (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o).m (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M4 o).o)
         c4 := by fcx_unfold; exact hret.repin (by pins_of hret)
-    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
-      (Lua.Vm.AtF.PushfI.at_800030f8_800030fc _ hX4 h29)
-    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
-      (Lua.Vm.AtF.PushfI.at_800030fc_80003110_1 _ hX4 h27 h28)
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h) ($a5 _ hX4 h29)
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h) ($a6 _ hX4 h27 h28)
     refine ⟨_, acc, M4, ⟨?_, ?_, ?_, fun a ha => ?_⟩, ?_⟩
     · exact (bytesT8_congrT fun j _ => k4 _ (by simp only [Rng, gTotalbytesOff, gGCdebtOff, PfFr]; omega)).trans hv2
     · exact (k4 _ (by simp only [Rng, gTotalbytesOff, gGCdebtOff, PfFr]; omega)).trans htg2
@@ -838,17 +878,28 @@ theorem pf_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a
     · simp only [wrRet]
       fcx_unfold at h
       exact h.repin (by pins_of h)
-  · obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
-      (Lua.Vm.AtF.PushfI.at_800030dc_800030ec_t _ hX hT.Lg_w hb)
-    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
-      (Lua.Vm.AtF.PushfI.at_800030fc_80003110 _ hX S.ra S.s0)
+  · rw [← eA] at h
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h) ($a3t _ hX hT.Lg_w hb)
+    obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h) ($a7 _ hX S.ra S.s0)
+    rw [eA] at h
     refine ⟨_, acc, _, ⟨hv, htg, htw, fun a ha => hk11 a fun hc => ha ?_⟩, ?_⟩
     · rcases hc with hc | hc
       · exact .inl hc
       · exact .inr (.inl hc)
     · simp only [wrRet]
       fcx_unfold at h
-      exact h.repin (by pins_of h)
+      exact h.repin (by pins_of h)))
+
+/-- **From `luaS_newlstr`'s return to `lua_pushfstring`'s**: the push,
+`luaO_pushvfstring`'s epilogue, `luaC_checkGC` (a positive debt: `luaC_step`
+with the collector stopped). -/
+theorem pf_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a5 a6 a7 : BitVec 64)
+    (m M3 : Mem) (o : Array String) (hP : PfIn m sp L g top r) (hT : PfT M3 sp L g top ts r f)
+    (hn1 : 1 ≤ n) (hn2 : n ≤ 20) (hgc : bytesT1 M3 (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
+    Triple (SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfI.r9 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
+        (ArmPay M3 o))
+      (fun c => ∃ M, PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
+  pf_tail Lua.Vm.AtF.PushfI r9 r14 m11 m12
 
 /-- A word of `g`'s object `luaS_newlstr` does not write (not `GCdebt`,
 `nuse`, `g->allgc`), as it was. -/

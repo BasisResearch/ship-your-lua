@@ -24,11 +24,11 @@ Roots (a fresh context each):
 * `0x8004e4e8` from `r40`
 * `0x8004e4e8` from `r90`
 * `0x8004e4e8` from `r90`
-* `0x80043b38` from `r133`
-* `0x80043b88` from `r141`
-* `0x8004e4e8` from `r144`
-* `0x8004e4e8` from `r187`
-* `0x8004e4e8` from `r190`
+* `0x80043b38` from `r134`
+* `0x80043b88` from `r142`
+* `0x8004e4e8` from `r145`
+* `0x8004e4e8` from `r188`
+* `0x8004e4e8` from `r191`
 
 Ends:
 
@@ -41,13 +41,13 @@ Ends:
 * call 0x8003b444: `r89`, memory `(m45 X)`
 * call 0x8003b444: `r92`, memory `(m48 X)`
 * return: `r94`, memory `(m54 X)`
-* loop 0x80043b88: `r135`, memory `(m56 X)`
-* loop 0x80043b38: `r134`, memory `(m55 X)`
-* call 0x8003b444: `r143`, memory `(m65 X)`
-* return: `r146`, memory `(m71 X)`
-* call 0x8003b444: `r186`, memory `(m78 X)`
-* call 0x8003b444: `r189`, memory `(m81 X)`
-* return: `r192`, memory `(m87 X)`
+* loop 0x80043b88: `r136`, memory `(m56 X)`
+* loop 0x80043b38: `r135`, memory `(m55 X)`
+* call 0x8003b444: `r144`, memory `(m65 X)`
+* return: `r147`, memory `(m71 X)`
+* call 0x8003b444: `r187`, memory `(m78 X)`
+* call 0x8003b444: `r190`, memory `(m81 X)`
+* return: `r193`, memory `(m87 X)`
 
 Paths not followed:
 
@@ -3006,7 +3006,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x6, 0x20#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
    ⟨Register.x9, 0x8005cff0#64⟩,
-   ⟨Register.x16, 0x1#64⟩,
+   ⟨Register.x16, 0x2#64⟩,
    ⟨Register.x18, 0x10#64⟩,
    ⟨Register.x19, 0x25#64⟩,
    ⟨Register.x20, 0xffffffffffffffff#64⟩,
@@ -3027,6 +3027,27 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x6, 0x20#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
    ⟨Register.x9, 0x8005cff0#64⟩,
+   ⟨Register.x16, 0x1#64⟩,
+   ⟨Register.x18, 0x10#64⟩,
+   ⟨Register.x19, 0x25#64⟩,
+   ⟨Register.x20, 0xffffffffffffffff#64⟩,
+   ⟨Register.x21, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x22, 0x1#64⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x24, 0x64#64⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 2 + 4)⟩,
+   ⟨Register.x26, BitVec.ofNat 64 (X.n 0 - 517)⟩,
+   ⟨Register.x27, 0x0#64⟩,
+   ⟨Register.x28, 0x0#64⟩,
+   ⟨Register.x30, 0x2d#64⟩,
+   ⟨Register.x31, 0x0#64⟩]
+
+@[at_row] abbrev r133 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x6, 0x20#64⟩,
+   ⟨Register.x8, 0x8005d1b8#64⟩,
+   ⟨Register.x9, 0x8005cff0#64⟩,
    ⟨Register.x14, (sign_extend (m := 64) (Sail.BitVec.extractLsb ((((0#64) - (X.b 13))) + sign_extend (m := 64) (0x030#12)) 31 0))⟩,
    ⟨Register.x16, 0xffffffffffffffff#64⟩,
    ⟨Register.x18, 0x10#64⟩,
@@ -3041,7 +3062,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r133 (X : FCx) : List Pin :=
+@[at_row] abbrev r134 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, X.b 18⟩,
@@ -3057,7 +3078,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 21⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r134 (X : FCx) : List Pin :=
+@[at_row] abbrev r135 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, Lua.Vm.Sim.Kit.udivT (X.b 18) (0xa#64)⟩,
@@ -3075,7 +3096,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 3 - 1)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r135 (X : FCx) : List Pin :=
+@[at_row] abbrev r136 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -3092,7 +3113,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 3 - 1)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r136 (X : FCx) : List Pin :=
+@[at_row] abbrev r137 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043b24#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3110,7 +3131,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 3 - 1)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r137 (X : FCx) : List Pin :=
+@[at_row] abbrev r138 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, X.b 18⟩,
@@ -3127,7 +3148,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 3 - 1)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r138 (X : FCx) : List Pin :=
+@[at_row] abbrev r139 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043b24#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3146,7 +3167,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 3 - 1)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r139 (X : FCx) : List Pin :=
+@[at_row] abbrev r140 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, X.b 18⟩,
@@ -3163,7 +3184,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 21⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r140 (X : FCx) : List Pin :=
+@[at_row] abbrev r141 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043b44#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3182,7 +3203,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 21⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r141 (X : FCx) : List Pin :=
+@[at_row] abbrev r142 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -3199,7 +3220,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r142 (X : FCx) : List Pin :=
+@[at_row] abbrev r143 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3220,7 +3241,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r143 (X : FCx) : List Pin :=
+@[at_row] abbrev r144 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004e4e8#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3243,7 +3264,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r144 (X : FCx) : List Pin :=
+@[at_row] abbrev r145 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 264)⟩,
@@ -3259,7 +3280,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r145 (X : FCx) : List Pin :=
+@[at_row] abbrev r146 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 272)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x2c#64⟩,
@@ -3276,7 +3297,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r146 (X : FCx) : List Pin :=
+@[at_row] abbrev r147 (X : FCx) : List Pin :=
   [⟨Register.x1, X.b 0⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3295,7 +3316,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r147 (X : FCx) : List Pin :=
+@[at_row] abbrev r148 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 272)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x2c#64⟩,
@@ -3313,7 +3334,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r148 (X : FCx) : List Pin :=
+@[at_row] abbrev r149 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80034e58#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 272)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3331,7 +3352,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r149 (X : FCx) : List Pin :=
+@[at_row] abbrev r150 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -3348,30 +3369,12 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r150 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x8, 0x8005d1b8#64⟩,
-   ⟨Register.x9, 0x8005cff0#64⟩,
-   ⟨Register.x15, 0x0#64⟩,
-   ⟨Register.x18, 0x10#64⟩,
-   ⟨Register.x19, 0x25#64⟩,
-   ⟨Register.x20, 0x0#64⟩,
-   ⟨Register.x21, BitVec.ofNat 64 (X.n 0 - 512)⟩,
-   ⟨Register.x22, BitVec.ofNat 64 (X.n 2 + 4)⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 0 - 512)⟩,
-   ⟨Register.x24, 0x0#64⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
-   ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
-   ⟨Register.x27, 0x0#64⟩]
-
 @[at_row] abbrev r151 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
    ⟨Register.x9, 0x8005cff0#64⟩,
-   ⟨Register.x10, 0x0#64⟩,
-   ⟨Register.x15, BitVec.ofNat 64 (X.n 2 + 4)⟩,
+   ⟨Register.x15, 0x0#64⟩,
    ⟨Register.x18, 0x10#64⟩,
    ⟨Register.x19, 0x25#64⟩,
    ⟨Register.x20, 0x0#64⟩,
@@ -3389,6 +3392,24 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x8, 0x8005d1b8#64⟩,
    ⟨Register.x9, 0x8005cff0#64⟩,
    ⟨Register.x10, 0x0#64⟩,
+   ⟨Register.x15, BitVec.ofNat 64 (X.n 2 + 4)⟩,
+   ⟨Register.x18, 0x10#64⟩,
+   ⟨Register.x19, 0x25#64⟩,
+   ⟨Register.x20, 0x0#64⟩,
+   ⟨Register.x21, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 2 + 4)⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x24, 0x0#64⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
+   ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
+   ⟨Register.x27, 0x0#64⟩]
+
+@[at_row] abbrev r153 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x8, 0x8005d1b8#64⟩,
+   ⟨Register.x9, 0x8005cff0#64⟩,
+   ⟨Register.x10, 0x0#64⟩,
    ⟨Register.x18, 0x10#64⟩,
    ⟨Register.x19, 0x25#64⟩,
    ⟨Register.x20, 0x8003cd58#64⟩,
@@ -3400,7 +3421,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r153 (X : FCx) : List Pin :=
+@[at_row] abbrev r154 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80042f60#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3421,7 +3442,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r154 (X : FCx) : List Pin :=
+@[at_row] abbrev r155 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80042f60#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3441,7 +3462,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r155 (X : FCx) : List Pin :=
+@[at_row] abbrev r156 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80042f60#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3463,7 +3484,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r156 (X : FCx) : List Pin :=
+@[at_row] abbrev r157 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80042f48#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3481,7 +3502,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r157 (X : FCx) : List Pin :=
+@[at_row] abbrev r158 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80042f48#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3498,7 +3519,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r158 (X : FCx) : List Pin :=
+@[at_row] abbrev r159 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -3514,7 +3535,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r159 (X : FCx) : List Pin :=
+@[at_row] abbrev r160 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -3531,7 +3552,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r160 (X : FCx) : List Pin :=
+@[at_row] abbrev r161 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -3548,7 +3569,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r161 (X : FCx) : List Pin :=
+@[at_row] abbrev r162 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3566,7 +3587,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r162 (X : FCx) : List Pin :=
+@[at_row] abbrev r163 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -3582,7 +3603,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r163 (X : FCx) : List Pin :=
+@[at_row] abbrev r164 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 496)⟩,
@@ -3600,7 +3621,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r164 (X : FCx) : List Pin :=
+@[at_row] abbrev r165 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 512)⟩,
@@ -3617,7 +3638,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r165 (X : FCx) : List Pin :=
+@[at_row] abbrev r166 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3637,7 +3658,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r166 (X : FCx) : List Pin :=
+@[at_row] abbrev r167 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3658,7 +3679,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r167 (X : FCx) : List Pin :=
+@[at_row] abbrev r168 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 512)⟩,
@@ -3674,7 +3695,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r168 (X : FCx) : List Pin :=
+@[at_row] abbrev r169 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 512)⟩,
@@ -3694,7 +3715,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r169 (X : FCx) : List Pin :=
+@[at_row] abbrev r170 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 512)⟩,
@@ -3714,7 +3735,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r170 (X : FCx) : List Pin :=
+@[at_row] abbrev r171 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3735,7 +3756,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r171 (X : FCx) : List Pin :=
+@[at_row] abbrev r172 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -3755,7 +3776,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r172 (X : FCx) : List Pin :=
+@[at_row] abbrev r173 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -3774,7 +3795,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r173 (X : FCx) : List Pin :=
+@[at_row] abbrev r174 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -3793,7 +3814,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r174 (X : FCx) : List Pin :=
+@[at_row] abbrev r175 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -3813,7 +3834,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r175 (X : FCx) : List Pin :=
+@[at_row] abbrev r176 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x0#64⟩,
@@ -3833,7 +3854,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r176 (X : FCx) : List Pin :=
+@[at_row] abbrev r177 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -3855,7 +3876,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r177 (X : FCx) : List Pin :=
+@[at_row] abbrev r178 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -3876,7 +3897,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r178 (X : FCx) : List Pin :=
+@[at_row] abbrev r179 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -3896,7 +3917,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r179 (X : FCx) : List Pin :=
+@[at_row] abbrev r180 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -3917,7 +3938,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r180 (X : FCx) : List Pin :=
+@[at_row] abbrev r181 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x5, 0x0#64⟩,
@@ -3939,7 +3960,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r181 (X : FCx) : List Pin :=
+@[at_row] abbrev r182 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x5, 0x0#64⟩,
@@ -3948,25 +3969,6 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x9, 0x8005cff0#64⟩,
    ⟨Register.x10, 0x0#64⟩,
    ⟨Register.x12, 0x0#64⟩,
-   ⟨Register.x16, BitVec.ofNat 64 (X.n 4)⟩,
-   ⟨Register.x18, 0x10#64⟩,
-   ⟨Register.x19, 0x25#64⟩,
-   ⟨Register.x20, 0xffffffffffffffff#64⟩,
-   ⟨Register.x21, BitVec.ofNat 64 (X.n 0 - 512)⟩,
-   ⟨Register.x22, BitVec.ofNat 64 (X.n 4)⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 0 - 512)⟩,
-   ⟨Register.x24, 0x64#64⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
-   ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
-   ⟨Register.x27, 0x0#64⟩,
-   ⟨Register.x28, 0x0#64⟩]
-
-@[at_row] abbrev r182 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x6, 0x20#64⟩,
-   ⟨Register.x8, 0x8005d1b8#64⟩,
-   ⟨Register.x9, 0x8005cff0#64⟩,
    ⟨Register.x16, BitVec.ofNat 64 (X.n 4)⟩,
    ⟨Register.x18, 0x10#64⟩,
    ⟨Register.x19, 0x25#64⟩,
@@ -3997,10 +3999,29 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩,
+   ⟨Register.x28, 0x0#64⟩]
+
+@[at_row] abbrev r184 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x6, 0x20#64⟩,
+   ⟨Register.x8, 0x8005d1b8#64⟩,
+   ⟨Register.x9, 0x8005cff0#64⟩,
+   ⟨Register.x16, BitVec.ofNat 64 (X.n 4)⟩,
+   ⟨Register.x18, 0x10#64⟩,
+   ⟨Register.x19, 0x25#64⟩,
+   ⟨Register.x20, 0xffffffffffffffff#64⟩,
+   ⟨Register.x21, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 4)⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x24, 0x64#64⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
+   ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
+   ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩,
    ⟨Register.x31, 0x0#64⟩]
 
-@[at_row] abbrev r184 (X : FCx) : List Pin :=
+@[at_row] abbrev r185 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -4021,7 +4042,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x30, zero_extend (m := 64) (bytesT1 X.m (X.n 0 - 697) : BitVec (8 * 1))⟩,
    ⟨Register.x31, 0x0#64⟩]
 
-@[at_row] abbrev r185 (X : FCx) : List Pin :=
+@[at_row] abbrev r186 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4042,7 +4063,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r186 (X : FCx) : List Pin :=
+@[at_row] abbrev r187 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004e4e8#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4065,7 +4086,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r187 (X : FCx) : List Pin :=
+@[at_row] abbrev r188 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 264)⟩,
@@ -4081,7 +4102,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r188 (X : FCx) : List Pin :=
+@[at_row] abbrev r189 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4102,7 +4123,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r189 (X : FCx) : List Pin :=
+@[at_row] abbrev r190 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004e4e8#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4125,7 +4146,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r190 (X : FCx) : List Pin :=
+@[at_row] abbrev r191 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 992)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 264)⟩,
@@ -4141,7 +4162,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r191 (X : FCx) : List Pin :=
+@[at_row] abbrev r192 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 272)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x2c#64⟩,
@@ -4158,7 +4179,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r192 (X : FCx) : List Pin :=
+@[at_row] abbrev r193 (X : FCx) : List Pin :=
   [⟨Register.x1, X.b 0⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4177,7 +4198,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r193 (X : FCx) : List Pin :=
+@[at_row] abbrev r194 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 272)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x2c#64⟩,
@@ -4195,7 +4216,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r194 (X : FCx) : List Pin :=
+@[at_row] abbrev r195 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80034e58#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 272)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4213,7 +4234,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, X.b 11⟩,
    ⟨Register.x27, X.b 12⟩]
 
-@[at_row] abbrev r195 (X : FCx) : List Pin :=
+@[at_row] abbrev r196 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -4230,7 +4251,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r196 (X : FCx) : List Pin :=
+@[at_row] abbrev r197 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -4247,7 +4268,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r197 (X : FCx) : List Pin :=
+@[at_row] abbrev r198 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4265,7 +4286,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r198 (X : FCx) : List Pin :=
+@[at_row] abbrev r199 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -4281,7 +4302,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r199 (X : FCx) : List Pin :=
+@[at_row] abbrev r200 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 480)⟩,
@@ -4299,7 +4320,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r200 (X : FCx) : List Pin :=
+@[at_row] abbrev r201 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 496)⟩,
@@ -4316,7 +4337,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r201 (X : FCx) : List Pin :=
+@[at_row] abbrev r202 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4336,7 +4357,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r202 (X : FCx) : List Pin :=
+@[at_row] abbrev r203 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4357,7 +4378,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r203 (X : FCx) : List Pin :=
+@[at_row] abbrev r204 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 496)⟩,
@@ -4373,7 +4394,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r204 (X : FCx) : List Pin :=
+@[at_row] abbrev r205 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 496)⟩,
@@ -4393,7 +4414,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r205 (X : FCx) : List Pin :=
+@[at_row] abbrev r206 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 496)⟩,
@@ -4411,7 +4432,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r206 (X : FCx) : List Pin :=
+@[at_row] abbrev r207 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 512)⟩,
@@ -4428,7 +4449,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r207 (X : FCx) : List Pin :=
+@[at_row] abbrev r208 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4448,7 +4469,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r208 (X : FCx) : List Pin :=
+@[at_row] abbrev r209 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x8004975c#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4469,7 +4490,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r209 (X : FCx) : List Pin :=
+@[at_row] abbrev r210 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 512)⟩,
@@ -4485,7 +4506,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r210 (X : FCx) : List Pin :=
+@[at_row] abbrev r211 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 512)⟩,
@@ -4505,7 +4526,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r211 (X : FCx) : List Pin :=
+@[at_row] abbrev r212 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, BitVec.ofNat 64 (X.n 0 - 512)⟩,
@@ -4525,7 +4546,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r212 (X : FCx) : List Pin :=
+@[at_row] abbrev r213 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 928)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4546,7 +4567,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r213 (X : FCx) : List Pin :=
+@[at_row] abbrev r214 (X : FCx) : List Pin :=
   [⟨Register.x1, 0x80043ea4#64⟩,
    ⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
@@ -4566,7 +4587,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r214 (X : FCx) : List Pin :=
+@[at_row] abbrev r215 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -4585,7 +4606,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r215 (X : FCx) : List Pin :=
+@[at_row] abbrev r216 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -4604,7 +4625,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩]
 
-@[at_row] abbrev r216 (X : FCx) : List Pin :=
+@[at_row] abbrev r217 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x8, 0x8005d1b8#64⟩,
@@ -4624,7 +4645,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r217 (X : FCx) : List Pin :=
+@[at_row] abbrev r218 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x0#64⟩,
@@ -4644,7 +4665,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r218 (X : FCx) : List Pin :=
+@[at_row] abbrev r219 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -4666,7 +4687,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r219 (X : FCx) : List Pin :=
+@[at_row] abbrev r220 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -4687,7 +4708,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r220 (X : FCx) : List Pin :=
+@[at_row] abbrev r221 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,
@@ -4707,7 +4728,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r221 (X : FCx) : List Pin :=
+@[at_row] abbrev r222 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x5, 0x0#64⟩,
@@ -4729,7 +4750,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r222 (X : FCx) : List Pin :=
+@[at_row] abbrev r223 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x5, 0x0#64⟩,
@@ -4750,7 +4771,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r223 (X : FCx) : List Pin :=
+@[at_row] abbrev r224 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x5, 0x0#64⟩,
@@ -4774,7 +4795,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x28, 0x0#64⟩,
    ⟨Register.x29, 0x1#64⟩]
 
-@[at_row] abbrev r224 (X : FCx) : List Pin :=
+@[at_row] abbrev r225 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x5, 0x0#64⟩,
@@ -4796,7 +4817,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r225 (X : FCx) : List Pin :=
+@[at_row] abbrev r226 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x5, 0x0#64⟩,
@@ -4818,7 +4839,7 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩]
 
-@[at_row] abbrev r226 (X : FCx) : List Pin :=
+@[at_row] abbrev r227 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x5, 0x0#64⟩,
@@ -4827,25 +4848,6 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x9, 0x8005cff0#64⟩,
    ⟨Register.x10, 0x0#64⟩,
    ⟨Register.x12, 0x0#64⟩,
-   ⟨Register.x16, BitVec.ofNat 64 (X.n 4 + 1)⟩,
-   ⟨Register.x18, 0x10#64⟩,
-   ⟨Register.x19, 0x25#64⟩,
-   ⟨Register.x20, 0xffffffffffffffff#64⟩,
-   ⟨Register.x21, BitVec.ofNat 64 (X.n 0 - 512)⟩,
-   ⟨Register.x22, BitVec.ofNat 64 (X.n 4)⟩,
-   ⟨Register.x23, BitVec.ofNat 64 (X.n 0 - 512)⟩,
-   ⟨Register.x24, 0x64#64⟩,
-   ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
-   ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
-   ⟨Register.x27, 0x0#64⟩,
-   ⟨Register.x28, 0x0#64⟩]
-
-@[at_row] abbrev r227 (X : FCx) : List Pin :=
-  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
-   ⟨Register.x3, 0x8005ced0#64⟩,
-   ⟨Register.x6, 0x20#64⟩,
-   ⟨Register.x8, 0x8005d1b8#64⟩,
-   ⟨Register.x9, 0x8005cff0#64⟩,
    ⟨Register.x16, BitVec.ofNat 64 (X.n 4 + 1)⟩,
    ⟨Register.x18, 0x10#64⟩,
    ⟨Register.x19, 0x25#64⟩,
@@ -4876,10 +4878,50 @@ structure Ok_P (X : FCx) : Prop where
    ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
    ⟨Register.x27, 0x0#64⟩,
+   ⟨Register.x28, 0x0#64⟩]
+
+@[at_row] abbrev r229 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x6, 0x20#64⟩,
+   ⟨Register.x8, 0x8005d1b8#64⟩,
+   ⟨Register.x9, 0x8005cff0#64⟩,
+   ⟨Register.x16, BitVec.ofNat 64 (X.n 4 + 1)⟩,
+   ⟨Register.x18, 0x10#64⟩,
+   ⟨Register.x19, 0x25#64⟩,
+   ⟨Register.x20, 0xffffffffffffffff#64⟩,
+   ⟨Register.x21, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 4)⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x24, 0x64#64⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
+   ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
+   ⟨Register.x27, 0x0#64⟩,
    ⟨Register.x28, 0x0#64⟩,
    ⟨Register.x31, 0x0#64⟩]
 
-@[at_row] abbrev r229 (X : FCx) : List Pin :=
+@[at_row] abbrev r230 (X : FCx) : List Pin :=
+  [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
+   ⟨Register.x3, 0x8005ced0#64⟩,
+   ⟨Register.x6, 0x20#64⟩,
+   ⟨Register.x8, 0x8005d1b8#64⟩,
+   ⟨Register.x9, 0x8005cff0#64⟩,
+   ⟨Register.x16, BitVec.ofNat 64 (X.n 4 + 1)⟩,
+   ⟨Register.x18, 0x10#64⟩,
+   ⟨Register.x19, 0x25#64⟩,
+   ⟨Register.x20, 0xffffffffffffffff#64⟩,
+   ⟨Register.x21, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x22, BitVec.ofNat 64 (X.n 4)⟩,
+   ⟨Register.x23, BitVec.ofNat 64 (X.n 0 - 512)⟩,
+   ⟨Register.x24, 0x64#64⟩,
+   ⟨Register.x25, BitVec.ofNat 64 (X.n 5)⟩,
+   ⟨Register.x26, BitVec.ofNat 64 (X.n 5)⟩,
+   ⟨Register.x27, 0x0#64⟩,
+   ⟨Register.x28, 0x0#64⟩,
+   ⟨Register.x30, zero_extend (m := 64) (bytesT1 X.m (X.n 0 - 697) : BitVec (8 * 1))⟩,
+   ⟨Register.x31, 0x0#64⟩]
+
+@[at_row] abbrev r231 (X : FCx) : List Pin :=
   [⟨Register.x2, BitVec.ofNat 64 (X.n 0 - 864)⟩,
    ⟨Register.x3, 0x8005ced0#64⟩,
    ⟨Register.x6, 0x20#64⟩,

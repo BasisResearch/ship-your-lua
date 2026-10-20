@@ -950,10 +950,10 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.closeX_sub
 #print axioms Lua.Vm.Sim.Kit.tolInt_proved
 #print axioms Lua.Vm.Sim.Kit.CallOpen.print
-#print axioms Lua.Vm.Sim.Kit.tolI_in
-#print axioms Lua.Vm.Sim.Kit.tolI_tab
-#print axioms Lua.Vm.Sim.Kit.prIntHit
-#print axioms Lua.Vm.Sim.Kit.prIntNew
+#print axioms Lua.Vm.Sim.Kit.tolV_in
+#print axioms Lua.Vm.Sim.Kit.tolV_tab
+#print axioms Lua.Vm.Sim.Kit.prStrHit
+#print axioms Lua.Vm.Sim.Kit.prStrNew
 #print axioms Lua.Vm.Sim.Kit.TiNew.ins
 #print axioms Lua.Vm.Sim.Kit.TiNew.st
 #print axioms Lua.Vm.Sim.Kit.KWalk.congr
@@ -965,6 +965,20 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Boot.rdLE_bytes_eq
 #print axioms Lua.Vm.Boot.entryW_sub
 #print axioms Lua.Vm.Sim.Kit.call_printIn
+#print axioms Lua.Vm.Sim.Kit.snprintfP_sum
+#print axioms Lua.Vm.Sim.Kit.pf_newlstr
+#print axioms Lua.Vm.Sim.Kit.pfp_snp
+#print axioms Lua.Vm.Sim.Kit.pfp_nl
+#print axioms Lua.Vm.Sim.Kit.pfp_ret
+#print axioms Lua.Vm.Sim.Kit.pushfP_sum
+#print axioms Lua.Vm.Sim.Kit.tf_pre
+#print axioms Lua.Vm.Sim.Kit.tolfn_sum
+#print axioms Lua.Vm.Sim.Kit.argStr_int
+#print axioms Lua.Vm.Sim.Kit.argStr_fn
+#print axioms Lua.Vm.Sim.Kit.tolPost_of_run
+#print axioms Lua.Vm.Sim.Kit.tolFn_proved
+#print axioms Lua.Vm.Sim.Kit.printFn_of_flt
+#print axioms Lua.Vm.Sim.Kit.show_ascii
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"

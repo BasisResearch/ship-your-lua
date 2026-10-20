@@ -124,12 +124,12 @@ theorem okl_c {sp c l : Nat} (h0 : 0 < l) (h1 : sp - 536 + l ≤ c) (h2 : c ≤ 
 
 /-- The loop head's state. -/
 abbrev SnLS (G : SnG) (M0 : Mem) (q0 : Nat) (a : SnL) (c : Config) : Prop :=
-  SegSt 0x80043b38#64 (Lua.Vm.AtF.SnprintfLld.r133 (G.X a.V a.M)) (ArmPay (G.X a.V a.M).m (G.X a.V a.M).o) c ∧
+  SegSt 0x80043b38#64 (Lua.Vm.AtF.SnprintfLld.r134 (G.X a.V a.M)) (ArmPay (G.X a.V a.M).m (G.X a.V a.M).o) c ∧
     SnLI G M0 q0 a
 
 /-- The loop's exit state. -/
 abbrev SnLX (G : SnG) (M0 : Mem) (q0 : Nat) (c : Config) : Prop :=
-  ∃ V M, SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r141 (G.X V M)) (ArmPay (G.X V M).m (G.X V M).o) c ∧
+  ∃ V M, SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r142 (G.X V M)) (ArmPay (G.X V M).m (G.X V M).o) c ∧
     SnLO G M0 q0 V M
 
 /-- **One pass of the digit loop** (`run_Lc`: a digit and the quotient by
@@ -183,7 +183,7 @@ theorem snp_loop_body (G : SnG) (m : Mem) (hin : G.In m) (M0 : Mem) (FL : FacL G
       (by sn_u1; exact r808) (by sn_u1; exact r824) c h
     have hlt := decBytes_lt (n := a.V.q.toNat) (by omega)
     have hl1 : (decBytes a.V.q.toNat).length = 1 := by rw [hlt]; rfl
-    simp only [Lua.Vm.AtF.SnprintfLld.r135] at h1
+    simp only [Lua.Vm.AtF.SnprintfLld.r136] at h1
     rw [lx_k (G.X a.V a.M) (by sn_u1; exact r752) (by sn_u1; omega) (by sn_u1; omega) (by sn_u1; omega)
       (by sn_u1; omega)] at h1
     refine ⟨c1, s1, .inr ⟨a.V.exit G.sp, Lua.Vm.AtF.SnprintfLld.m56 (G.X a.V a.M), ?_, ?_⟩⟩
@@ -383,9 +383,9 @@ theorem agree_87X (X : FCx) (h : 0x8005e720 + 8192 ≤ X.n 0) (hk : X.n 4 ≤ 20
 digits** (`run_Pp`). -/
 theorem snp_pm_mv (G : SnG) (m : Mem) (hin : G.In m) {M0 : Mem} {q0 : Nat} (V : SnV) (M : Mem)
     (O : SnLO G M0 q0 V M) (F : FacP G 0x0#8 M) (c : Config)
-    (h : SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r141 (G.X V M)) (ArmPay (G.X V M).m (G.X V M).o) c) :
+    (h : SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r142 (G.X V M)) (ArmPay (G.X V M).m (G.X V M).o) c) :
     ∃ c2 M2, Steps c c2 ∧
-      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r144 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o) c2 ∧
+      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r145 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o) c2 ∧
       MoveOut (Lua.Vm.AtF.SnprintfLld.m65 (G.X V M)) M2 G.buf V.c5 V.k := by
   obtain ⟨c1, s1, h1⟩ := run_Pp (G.X V M) (okP_of hin O _) (by sn_u1; exact F.sgn) (by sn_u1; exact F.s832)
     (by sn_u1; exact F.s816) (by sn_u1; exact F.s744) (by sn_u1; exact F.resid) (by sn_u1; exact F.cnt)
@@ -396,13 +396,13 @@ theorem snp_pm_mv (G : SnG) (m : Mem) (hin : G.In m) {M0 : Mem} {q0 : Nat} (V : 
     ⟨mmspan_dig hin.sp_lo hin.sp_hi hin.b_ap hin.b_hi hin.b_lo O.k_hi O.k_c,
       Nat.le_trans (Nat.sub_le _ _) hin.sp_hi, by rfl⟩ c1
     (h1.repin (by
-      simp only [Lua.Vm.AtF.SnprintfLld.r143, SnG.X, FCx.mk', List.getD_cons_zero,
+      simp only [Lua.Vm.AtF.SnprintfLld.r144, SnG.X, FCx.mk', List.getD_cons_zero,
         List.getD_cons_succ] at h1
       pins_of h1))
   refine ⟨c2, M2, s1.trans s2, ?_, hmv⟩
   dsimp only [mmRet] at hr
   refine hr.repin ?_
-  simp only [Lua.Vm.AtF.SnprintfLld.r144, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  simp only [Lua.Vm.AtF.SnprintfLld.r145, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
   pins_of hr
 
 /-- What the root after the digits' `memmove` reads (`k` digits copied). -/
@@ -452,7 +452,7 @@ theorem intBytes_pos {i : BitVec 64} (hp : zopz0zKzJ_s i (0x0#64) = true) : intB
 theorem snp_pm_ret (G : SnG) (m : Mem) (hin : G.In m) (hp : zopz0zKzJ_s G.i (0x0#64) = true)
     (V : SnV) (M M2 : Mem) (O : SnLO G (Lua.Vm.AtF.SnprintfLld.m18 (G.XD m)) G.i.toNat V M)
     (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m65 (G.X V M)) M2 G.buf V.c5 V.k)
-    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r144 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o))
+    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r145 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o))
       (SnPost G m) := by
   intro c2 hQ
   have := hin.sp_lo; have := hin.sp_hi; have := hin.b_lo
@@ -486,7 +486,7 @@ theorem snp_pm_ret (G : SnG) (m : Mem) (hin : G.In m) (hp : zopz0zKzJ_s G.i (0x0
   · rw [hl]
     dsimp only [wrRet]
     refine h3.repin ?_
-    simp only [Lua.Vm.AtF.SnprintfLld.r146, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] at h3
+    simp only [Lua.Vm.AtF.SnprintfLld.r147, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] at h3
     pins_of h3
   · rw [hl, hib, ← O.dig, bytesAt_succ]
     have k0 : bytesAt (Lua.Vm.AtF.SnprintfLld.m71 (G.X V M2)) G.buf V.k = bytesAt M2 G.buf V.k := by
@@ -527,9 +527,9 @@ theorem intBytes_neg {i : BitVec 64} (hp : zopz0zKzJ_s i (0x0#64) = false) :
 (`run_Pn`). -/
 theorem snp_nm_mv (G : SnG) (m : Mem) (hin : G.In m) {M0 : Mem} {q0 : Nat} (V : SnV) (M : Mem)
     (O : SnLO G M0 q0 V M) (F : FacP G 0x2d#8 M) (c : Config)
-    (h : SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r141 (G.X V M)) (ArmPay (G.X V M).m (G.X V M).o) c) :
+    (h : SegSt 0x80043b88#64 (Lua.Vm.AtF.SnprintfLld.r142 (G.X V M)) (ArmPay (G.X V M).m (G.X V M).o) c) :
     ∃ c2 M2, Steps c c2 ∧
-      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r187 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o) c2 ∧
+      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r188 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o) c2 ∧
       MoveOut (Lua.Vm.AtF.SnprintfLld.m78 (G.X V M)) M2 G.buf (G.sp - 697) 1 := by
   obtain ⟨c1, s1, h1⟩ := run_Pn (G.X V M) (okP_of hin O _) (by sn_u1; exact F.sgn) (by sn_u1; exact F.s832)
     (by sn_u1; exact F.s816) (by sn_u1; exact F.s744) (by sn_u1; exact F.resid) (by sn_u1; exact F.cnt)
@@ -540,13 +540,13 @@ theorem snp_nm_mv (G : SnG) (m : Mem) (hin : G.In m) {M0 : Mem} {q0 : Nat} (V : 
     ⟨mmspan_sgn hin.sp_lo hin.sp_hi hin.b_ap hin.b_hi hin.b_lo,
       Nat.le_trans (Nat.sub_le _ _) hin.sp_hi, by rfl⟩ c1
     (h1.repin (by
-      simp only [Lua.Vm.AtF.SnprintfLld.r186, SnG.X, FCx.mk', List.getD_cons_zero,
+      simp only [Lua.Vm.AtF.SnprintfLld.r187, SnG.X, FCx.mk', List.getD_cons_zero,
         List.getD_cons_succ] at h1
       pins_of h1))
   refine ⟨c2, M2, s1.trans s2, ?_, hmv⟩
   dsimp only [mmRet] at hr
   refine hr.repin ?_
-  simp only [Lua.Vm.AtF.SnprintfLld.r187, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  simp only [Lua.Vm.AtF.SnprintfLld.r188, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
   pins_of hr
 
 /-- What the root after the sign's `memmove` reads. -/
@@ -595,9 +595,9 @@ theorem facN1b (G : SnG) (V : SnV) (M : Mem) (F : FacP G 0x2d#8 M) (hs : 0x8005e
 theorem snp_nm_mv2 (G : SnG) (m : Mem) (hin : G.In m) {M0 : Mem} {q0 : Nat} (V : SnV) (M M2 : Mem)
     (O : SnLO G M0 q0 V M) (F : FacP G 0x2d#8 M)
     (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m78 (G.X V M)) M2 G.buf (G.sp - 697) 1) (c2 : Config)
-    (hQ : SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r187 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o) c2) :
+    (hQ : SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r188 (G.X V M2)) (ArmPay (G.X V M2).m (G.X V M2).o) c2) :
     ∃ c3 M3, Steps c2 c3 ∧
-      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r190 (G.X V M3)) (ArmPay (G.X V M3).m (G.X V M3).o) c3 ∧
+      SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r191 (G.X V M3)) (ArmPay (G.X V M3).m (G.X V M3).o) c3 ∧
       MoveOut (Lua.Vm.AtF.SnprintfLld.m81 (G.X V M2)) M3 (G.buf + 1) V.c5 V.k := by
   obtain ⟨a1, a2, a3, a4, a5, a6, a7, a8, a9⟩ := facN1a G V M F hin.sp_lo hin.b_ap M2 hmv
   obtain ⟨c3, s3, h3⟩ := run_Rn1 (G.X V M2) (okP_of hin O _) (by sn_u1; exact a1) (by sn_u1; exact a2)
@@ -608,13 +608,13 @@ theorem snp_nm_mv2 (G : SnG) (m : Mem) (hin : G.In m) {M0 : Mem} {q0 : Nat} (V :
     ⟨mmspan_dig1 hin.sp_lo hin.sp_hi hin.b_ap hin.b_hi hin.b_lo O.k_hi O.k_c,
       Nat.le_trans (Nat.sub_le _ _) hin.sp_hi, by rfl⟩ c3
     (h3.repin (by
-      simp only [Lua.Vm.AtF.SnprintfLld.r189, SnG.X, FCx.mk', List.getD_cons_zero,
+      simp only [Lua.Vm.AtF.SnprintfLld.r190, SnG.X, FCx.mk', List.getD_cons_zero,
         List.getD_cons_succ] at h3
       pins_of h3))
   refine ⟨c4, M3, s3.trans s4, ?_, hmv2⟩
   dsimp only [mmRet] at hr
   refine hr.repin ?_
-  simp only [Lua.Vm.AtF.SnprintfLld.r190, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  simp only [Lua.Vm.AtF.SnprintfLld.r191, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
   pins_of hr
 
 /-- What the root after the digits' `memmove` reads (the negative path). -/
@@ -651,7 +651,7 @@ theorem snp_nm_ret (G : SnG) (m : Mem) (hin : G.In m) (hp : zopz0zKzJ_s G.i (0x0
     (V : SnV) (M M2 M3 : Mem) (O : SnLO G (Lua.Vm.AtF.SnprintfLld.m35 (G.XD m)) (0#64 - G.i).toNat V M)
     (hmv : MoveOut (Lua.Vm.AtF.SnprintfLld.m78 (G.X V M)) M2 G.buf (G.sp - 697) 1)
     (hmv2 : MoveOut (Lua.Vm.AtF.SnprintfLld.m81 (G.X V M2)) M3 (G.buf + 1) V.c5 V.k)
-    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r190 (G.X V M3)) (ArmPay (G.X V M3).m (G.X V M3).o))
+    : Triple (SegSt 0x8004e4e8#64 (Lua.Vm.AtF.SnprintfLld.r191 (G.X V M3)) (ArmPay (G.X V M3).m (G.X V M3).o))
       (SnPost G m) := by
   intro c3 hQ
   have := hin.sp_lo; have := hin.sp_hi; have := hin.b_lo
@@ -688,7 +688,7 @@ theorem snp_nm_ret (G : SnG) (m : Mem) (hin : G.In m) (hp : zopz0zKzJ_s G.i (0x0
   · rw [hl]
     dsimp only [wrRet]
     refine h4.repin ?_
-    simp only [Lua.Vm.AtF.SnprintfLld.r192, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] at h4
+    simp only [Lua.Vm.AtF.SnprintfLld.r193, SnG.X, FCx.mk', List.getD_cons_zero, List.getD_cons_succ] at h4
     pins_of h4
   · rw [hl, hib, ← O.dig, bytesAt_succ, bytesAt_cons]
     have hS : 4096 ≤ G.sp := by omega
