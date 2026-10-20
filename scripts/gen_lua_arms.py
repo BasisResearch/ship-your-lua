@@ -663,6 +663,36 @@ INDIRECT[0x80042f5c] = 0x8003cd58
 PASS_THROUGH_FOR[0x8002f734] = PASS_THROUGH_FOR[0x8002f734] | {"_svfprintf_r"}
 
 
+def helper_edit(fn, roots=(), stops=(), unstop=()):
+    """A helper's roots and stops widened by a later lane (in place)."""
+    for k, h in enumerate(HELPERS):
+        if h[0] == fn:
+            HELPERS[k] = (*h[:5], [*h[5], *roots], [s for s in h[6] if s not in unstop] + list(stops))
+            return
+    raise KeyError(fn)
+
+
+# lane F1-24: `luaL_tolstring` on a function (the `default` case `0x80021c5c`):
+# `lua_getmetatable` finds no metatable (`G(L)->mt[LUA_TFUNCTION]` NULL; a
+# metatable found, `0x80021cd0`, a stop), `lua_type`, `lua_typename`,
+# `lua_topointer` of a light C function (stops: pseudo-indices `0x80002e64`, an
+# index past the top `0x80002e8c`, a closure or userdata `0x80002ea4`, other
+# values `0x80002e48`), `lua_pushfstring(L, "%s: %p", kind, p)`:
+# `luaO_pushvfstring`'s `'s'` and `'p'` targets roots (stops: a NULL string
+# `0x8001219c`, a flush before `%p` `0x80012148`), `strlen` of the type name,
+# `snprintf(buf, 32, "%p", p)`: `_svfprintf_r`'s `'p'` target a root, the
+# hex digit loop and the `0x` prefix (`0x800438ac` no longer a stop; stops: a
+# precision `0x80043c70`, padding `0x800438c8`, `0x8004434c`, a sign `0x80043ed8`)
+helper_edit("luaL_tolstring", stops=[0x80021cd0], unstop=[0x80021c5c])
+HELPERS += [("lua_typename", "Lua_typename", 0x8000211c, 0x80002138, [22, 26], [], []),
+            ("lua_topointer", "Lua_topointer", 0x80002e14, 0x80002f1c, [22, 26], [],
+             [0x80002e64, 0x80002e8c, 0x80002ea4, 0x80002e48])]
+RESULTS.update({"lua_typename": {"x10"}, "lua_topointer": {"x10"}})
+helper_edit("luaO_pushvfstring", roots=[0x80011e54, 0x80011f2c], stops=[0x8001219c, 0x80012148])
+helper_edit("_svfprintf_r", roots=[0x80043c48], stops=[0x80043c70, 0x800438c8, 0x8004434c, 0x80043ed8],
+            unstop=[0x800438ac])
+
+
 def helper_cfg(lo, hi):
     """{addr: (row, successors, ends_segment)} over one helper's range."""
     out = {}

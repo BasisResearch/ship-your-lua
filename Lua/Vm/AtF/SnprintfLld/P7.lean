@@ -12,8 +12,8 @@ open Vsa.Machine (Config)
 namespace Lua.Vm.AtF.SnprintfLld
 
 theorem at_80049740_80049748_n_4 (X : FCx) (hX : Ok_P X) (hf3 : (X.n 4) ≠ 0) (hc73 : bytesT8 X.m (X.n 0 - 488) = BitVec.ofNat 64 (X.n 4)) (hg_2 : (BitVec.ofNat 64 (X.n 4) == 0x0#64) = false) :
-    Triple (SegSt 0x80049740#64 (r204 X) (ArmPay (m80 X) X.o))
-      (SegSt (0x80049748#64) (r203 X) (ArmPay (m80 X) X.o)) := by
+    Triple (SegSt 0x80049740#64 (r205 X) (ArmPay (m80 X) X.o))
+      (SegSt (0x80049748#64) (r204 X) (ArmPay (m80 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -21,8 +21,8 @@ theorem at_80049740_80049748_n_4 (X : FCx) (hX : Ok_P X) (hf3 : (X.n 4) ≠ 0) (
   fat_close
 
 theorem at_8004972c_80049740_n_4 (X : FCx) (hX : Ok_P X) (hf3 : (X.n 4) ≠ 0) (hc57 : bytesT4 X.m (X.n 0 - 632) = 0x1#32) :
-    Triple (SegSt 0x8004972c#64 (r205 X) (ArmPay (m79 X) X.o))
-      (SegSt (0x80049740#64) (r204 X) (ArmPay (m80 X) X.o)) := by
+    Triple (SegSt 0x8004972c#64 (r206 X) (ArmPay (m79 X) X.o))
+      (SegSt (0x80049740#64) (r205 X) (ArmPay (m80 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -30,8 +30,8 @@ theorem at_8004972c_80049740_n_4 (X : FCx) (hX : Ok_P X) (hf3 : (X.n 4) ≠ 0) (
   fat_close
 
 theorem at_80049760_80049778_t_1 (X : FCx) (hX : Ok_P X) (hc72 : bytesT8 X.m (X.n 0 - 624) = BitVec.ofNat 64 (X.n 4 + 1)) (hg_6 : (BitVec.ofNat 64 (X.n 4) != 0x0#64) = true) :
-    Triple (SegSt 0x80049760#64 (r206 X) (ArmPay (m28 X) X.o))
-      (SegSt (0x8004972c#64) (r205 X) (ArmPay (m79 X) X.o)) := by
+    Triple (SegSt 0x80049760#64 (r207 X) (ArmPay (m28 X) X.o))
+      (SegSt (0x8004972c#64) (r206 X) (ArmPay (m79 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -39,8 +39,8 @@ theorem at_80049760_80049778_t_1 (X : FCx) (hX : Ok_P X) (hc72 : bytesT8 X.m (X.
   fat_close
 
 theorem at_8004975c_80049760_n_5 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x8004975c#64 (r207 X) (ArmPay (m28 X) X.o))
-      (SegSt (0x80049760#64) (r206 X) (ArmPay (m28 X) X.o)) := by
+    Triple (SegSt 0x8004975c#64 (r208 X) (ArmPay (m28 X) X.o))
+      (SegSt (0x80049760#64) (r207 X) (ArmPay (m28 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -48,8 +48,8 @@ theorem at_8004975c_80049760_n_5 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_8004e4e8_8004e518_5 (X : FCx) (hX : Ok_P X) (hc23 : bytesT4 X.m (X.n 0 - 252) = 0x2b#32) (hc24 : bytesT8 X.m (X.n 0 - 264) = BitVec.ofNat 64 (X.n 1)) (hc25 : bytesT8 X.m (X.n 0 - 936) = 0x8004975c#64) (hc26 : bytesT8 X.m (X.n 0 - 944) = BitVec.ofNat 64 (X.n 0 - 512)) (hc27 : bytesT8 X.m (X.n 0 - 952) = BitVec.ofNat 64 (X.n 0 - 640)) :
-    Triple (SegSt 0x8004e4e8#64 (r187 X) (ArmPay X.m X.o))
-      (SegSt (0x8004975c#64) (r207 X) (ArmPay (m28 X) X.o)) := by
+    Triple (SegSt 0x8004e4e8#64 (r188 X) (ArmPay X.m X.o))
+      (SegSt (0x8004975c#64) (r208 X) (ArmPay (m28 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -57,8 +57,8 @@ theorem at_8004e4e8_8004e518_5 (X : FCx) (hX : Ok_P X) (hc23 : bytesT4 X.m (X.n 
   fat_close
 
 theorem at_8004e4b0_8004e4d0_n_5 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0) (hc23 : bytesT4 X.m (X.n 0 - 252) = 0x2b#32) :
-    Triple (SegSt 0x8004e4b0#64 (r208 X) (ArmPay (m77 X) X.o))
-      (SegSt (0x8004e4d0#64) (r185 X) (ArmPay (m78 X) X.o)) := by
+    Triple (SegSt 0x8004e4b0#64 (r209 X) (ArmPay (m77 X) X.o))
+      (SegSt (0x8004e4d0#64) (r186 X) (ArmPay (m78 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -66,8 +66,8 @@ theorem at_8004e4b0_8004e4d0_n_5 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 
   fat_close
 
 theorem at_80049748_8004975c_5 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0) :
-    Triple (SegSt 0x80049748#64 (r209 X) (ArmPay (m77 X) X.o))
-      (SegSt (0x8004e4b0#64) (r208 X) (ArmPay (m77 X) X.o)) := by
+    Triple (SegSt 0x80049748#64 (r210 X) (ArmPay (m77 X) X.o))
+      (SegSt (0x8004e4b0#64) (r209 X) (ArmPay (m77 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -75,8 +75,8 @@ theorem at_80049748_8004975c_5 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0)
   fat_close
 
 theorem at_80049740_80049748_n_5 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0) :
-    Triple (SegSt 0x80049740#64 (r210 X) (ArmPay (m77 X) X.o))
-      (SegSt (0x80049748#64) (r209 X) (ArmPay (m77 X) X.o)) := by
+    Triple (SegSt 0x80049740#64 (r211 X) (ArmPay (m77 X) X.o))
+      (SegSt (0x80049748#64) (r210 X) (ArmPay (m77 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -84,8 +84,8 @@ theorem at_80049740_80049748_n_5 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 
   fat_close
 
 theorem at_8004972c_80049740_n_5 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0) :
-    Triple (SegSt 0x8004972c#64 (r211 X) (ArmPay (m76 X) X.o))
-      (SegSt (0x80049740#64) (r210 X) (ArmPay (m77 X) X.o)) := by
+    Triple (SegSt 0x8004972c#64 (r212 X) (ArmPay (m76 X) X.o))
+      (SegSt (0x80049740#64) (r211 X) (ArmPay (m77 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -93,8 +93,8 @@ theorem at_8004972c_80049740_n_5 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 
   fat_close
 
 theorem at_800496fc_80049724_3 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0) (hc22 : bytesT8 X.m (X.n 0 - 640) = BitVec.ofNat 64 (X.n 0 - 512)) :
-    Triple (SegSt 0x800496fc#64 (r212 X) (ArmPay (m75 X) X.o))
-      (SegSt (0x8004972c#64) (r211 X) (ArmPay (m76 X) X.o)) := by
+    Triple (SegSt 0x800496fc#64 (r213 X) (ArmPay (m75 X) X.o))
+      (SegSt (0x8004972c#64) (r212 X) (ArmPay (m76 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -102,8 +102,8 @@ theorem at_800496fc_80049724_3 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0)
   fat_close
 
 theorem at_800496e4_800496fc_n_3 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0) (hg_6 : (BitVec.ofNat 64 (X.n 4 + 1) == 0x0#64) = false) :
-    Triple (SegSt 0x800496e4#64 (r213 X) (ArmPay (m74 X) X.o))
-      (SegSt (0x800496fc#64) (r212 X) (ArmPay (m75 X) X.o)) := by
+    Triple (SegSt 0x800496e4#64 (r214 X) (ArmPay (m74 X) X.o))
+      (SegSt (0x800496fc#64) (r213 X) (ArmPay (m75 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -111,8 +111,8 @@ theorem at_800496e4_800496fc_n_3 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 
   fat_close
 
 theorem at_80043e94_80043ea4_3 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0) (hc21 : bytesT8 X.m (X.n 0 - 856) = BitVec.ofNat 64 (X.n 0 - 264)) :
-    Triple (SegSt 0x80043e94#64 (r214 X) (ArmPay (m74 X) X.o))
-      (SegSt (0x800496e4#64) (r213 X) (ArmPay (m74 X) X.o)) := by
+    Triple (SegSt 0x80043e94#64 (r215 X) (ArmPay (m74 X) X.o))
+      (SegSt (0x800496e4#64) (r214 X) (ArmPay (m74 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -120,8 +120,8 @@ theorem at_80043e94_80043ea4_3 (X : FCx) (hX : Ok_P X) (hf5 : (X.n 4 + 1) ≠ 0)
   fat_close
 
 theorem at_80043124_80043134_t_3 (X : FCx) (hX : Ok_P X) (hc20 : bytesT8 X.m (X.n 0 - 848) = 0x0#64) (hg_4 : (BitVec.ofNat 64 (X.n 4 + 1) != 0x0#64) = true) :
-    Triple (SegSt 0x80043124#64 (r215 X) (ArmPay (m73 X) X.o))
-      (SegSt (0x80043e94#64) (r214 X) (ArmPay (m74 X) X.o)) := by
+    Triple (SegSt 0x80043124#64 (r216 X) (ArmPay (m73 X) X.o))
+      (SegSt (0x80043e94#64) (r215 X) (ArmPay (m74 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -129,8 +129,8 @@ theorem at_80043124_80043134_t_3 (X : FCx) (hX : Ok_P X) (hc20 : bytesT8 X.m (X.
   fat_close
 
 theorem at_80043120_80043124_3 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x80043120#64 (r216 X) (ArmPay (m73 X) X.o))
-      (SegSt (0x80043124#64) (r215 X) (ArmPay (m73 X) X.o)) := by
+    Triple (SegSt 0x80043120#64 (r217 X) (ArmPay (m73 X) X.o))
+      (SegSt (0x80043124#64) (r216 X) (ArmPay (m73 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -138,8 +138,8 @@ theorem at_80043120_80043124_3 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_80043118_80043120_n_3 (X : FCx) (hX : Ok_P X) (hg_2 : zopz0zKzJ_s (0x0#64) (BitVec.ofNat 64 (X.n 4 + 1)) = false) :
-    Triple (SegSt 0x80043118#64 (r217 X) (ArmPay (m73 X) X.o))
-      (SegSt (0x80043120#64) (r216 X) (ArmPay (m73 X) X.o)) := by
+    Triple (SegSt 0x80043118#64 (r218 X) (ArmPay (m73 X) X.o))
+      (SegSt (0x80043120#64) (r217 X) (ArmPay (m73 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -147,8 +147,8 @@ theorem at_80043118_80043120_n_3 (X : FCx) (hX : Ok_P X) (hg_2 : zopz0zKzJ_s (0x
   fat_close
 
 theorem at_80043104_80043110_t_3 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x80043104#64 (r218 X) (ArmPay (m73 X) X.o))
-      (SegSt (0x80043118#64) (r217 X) (ArmPay (m73 X) X.o)) := by
+    Triple (SegSt 0x80043104#64 (r219 X) (ArmPay (m73 X) X.o))
+      (SegSt (0x80043118#64) (r218 X) (ArmPay (m73 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -156,8 +156,8 @@ theorem at_80043104_80043110_t_3 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_800430e0_80043104_n_3 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x800430e0#64 (r219 X) (ArmPay (m72 X) X.o))
-      (SegSt (0x80043104#64) (r218 X) (ArmPay (m73 X) X.o)) := by
+    Triple (SegSt 0x800430e0#64 (r220 X) (ArmPay (m72 X) X.o))
+      (SegSt (0x80043104#64) (r219 X) (ArmPay (m73 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -165,8 +165,8 @@ theorem at_800430e0_80043104_n_3 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_800430d8_800430e0_n_3 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x800430d8#64 (r220 X) (ArmPay (m72 X) X.o))
-      (SegSt (0x800430e0#64) (r219 X) (ArmPay (m72 X) X.o)) := by
+    Triple (SegSt 0x800430d8#64 (r221 X) (ArmPay (m72 X) X.o))
+      (SegSt (0x800430e0#64) (r220 X) (ArmPay (m72 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -174,8 +174,8 @@ theorem at_800430d8_800430e0_n_3 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_800430d0_800430d8_n_1 (X : FCx) (hX : Ok_P X) (hg_2 : zopz0zI_s (0x0#64) ((BitVec.ofNat 64 (0) - BitVec.ofNat 64 (X.n 4 + 1))) = false) :
-    Triple (SegSt 0x800430d0#64 (r221 X) (ArmPay (m72 X) X.o))
-      (SegSt (0x800430d8#64) (r220 X) (ArmPay (m72 X) X.o)) := by
+    Triple (SegSt 0x800430d0#64 (r222 X) (ArmPay (m72 X) X.o))
+      (SegSt (0x800430d8#64) (r221 X) (ArmPay (m72 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -183,8 +183,8 @@ theorem at_800430d0_800430d8_n_1 (X : FCx) (hX : Ok_P X) (hg_2 : zopz0zI_s (0x0#
   fat_close
 
 theorem at_800430c8_800430d0_n_1 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x800430c8#64 (r222 X) (ArmPay (m72 X) X.o))
-      (SegSt (0x800430d0#64) (r221 X) (ArmPay (m72 X) X.o)) := by
+    Triple (SegSt 0x800430c8#64 (r223 X) (ArmPay (m72 X) X.o))
+      (SegSt (0x800430d0#64) (r222 X) (ArmPay (m72 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -192,8 +192,8 @@ theorem at_800430c8_800430d0_n_1 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_80043094_80043098_t_1 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x80043094#64 (r223 X) (ArmPay (m72 X) X.o))
-      (SegSt (0x800430c8#64) (r222 X) (ArmPay (m72 X) X.o)) := by
+    Triple (SegSt 0x80043094#64 (r224 X) (ArmPay (m72 X) X.o))
+      (SegSt (0x800430c8#64) (r223 X) (ArmPay (m72 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -201,8 +201,8 @@ theorem at_80043094_80043098_t_1 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_80043060_80043094_n_1 (X : FCx) (hX : Ok_P X) (hc19 : bytesT4 X.m (X.n 0 - 632) = 0x0#32) :
-    Triple (SegSt 0x80043060#64 (r224 X) (ArmPay (m59 X) X.o))
-      (SegSt (0x80043094#64) (r223 X) (ArmPay (m72 X) X.o)) := by
+    Triple (SegSt 0x80043060#64 (r225 X) (ArmPay (m59 X) X.o))
+      (SegSt (0x80043094#64) (r224 X) (ArmPay (m72 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -210,8 +210,8 @@ theorem at_80043060_80043094_n_1 (X : FCx) (hX : Ok_P X) (hc19 : bytesT4 X.m (X.
   fat_close
 
 theorem at_800434f8_80043500_t_1 (X : FCx) (hX : Ok_P X) (hg_2 : (zero_extend (m := 64) (bytesT1 X.m (X.n 0 - 697) : BitVec (8 * 1)) != 0x0#64) = true) :
-    Triple (SegSt 0x800434f8#64 (r225 X) (ArmPay (m59 X) X.o))
-      (SegSt (0x80043060#64) (r224 X) (ArmPay (m59 X) X.o)) := by
+    Triple (SegSt 0x800434f8#64 (r226 X) (ArmPay (m59 X) X.o))
+      (SegSt (0x80043060#64) (r225 X) (ArmPay (m59 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -219,8 +219,8 @@ theorem at_800434f8_80043500_t_1 (X : FCx) (hX : Ok_P X) (hg_2 : (zero_extend (m
   fat_close
 
 theorem at_800434f0_800434f8_n_3 (X : FCx) (hX : Ok_P X) (hg_2 : zopz0zI_s (0x0#64) ((BitVec.ofNat 64 (0) - BitVec.ofNat 64 (X.n 4 + 1))) = false) :
-    Triple (SegSt 0x800434f0#64 (r226 X) (ArmPay (m59 X) X.o))
-      (SegSt (0x800434f8#64) (r225 X) (ArmPay (m59 X) X.o)) := by
+    Triple (SegSt 0x800434f0#64 (r227 X) (ArmPay (m59 X) X.o))
+      (SegSt (0x800434f8#64) (r226 X) (ArmPay (m59 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -228,8 +228,8 @@ theorem at_800434f0_800434f8_n_3 (X : FCx) (hX : Ok_P X) (hg_2 : zopz0zI_s (0x0#
   fat_close
 
 theorem at_80043048_80043058_t_3 (X : FCx) (hX : Ok_P X) (hc18 : bytesT8 X.m (X.n 0 - 624) = 0x0#64) :
-    Triple (SegSt 0x80043048#64 (r227 X) (ArmPay (m59 X) X.o))
-      (SegSt (0x800434f0#64) (r226 X) (ArmPay (m59 X) X.o)) := by
+    Triple (SegSt 0x80043048#64 (r228 X) (ArmPay (m59 X) X.o))
+      (SegSt (0x800434f0#64) (r227 X) (ArmPay (m59 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -237,8 +237,8 @@ theorem at_80043048_80043058_t_3 (X : FCx) (hX : Ok_P X) (hc18 : bytesT8 X.m (X.
   fat_close
 
 theorem at_8004604c_80046058_3 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x8004604c#64 (r227 X) (ArmPay (m58 X) X.o))
-      (SegSt (0x80043048#64) (r227 X) (ArmPay (m59 X) X.o)) := by
+    Triple (SegSt 0x8004604c#64 (r228 X) (ArmPay (m58 X) X.o))
+      (SegSt (0x80043048#64) (r228 X) (ArmPay (m59 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -246,8 +246,8 @@ theorem at_8004604c_80046058_3 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_800438a8_800438ac_3 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x800438a8#64 (r228 X) (ArmPay (m58 X) X.o))
-      (SegSt (0x8004604c#64) (r227 X) (ArmPay (m58 X) X.o)) := by
+    Triple (SegSt 0x800438a8#64 (r229 X) (ArmPay (m58 X) X.o))
+      (SegSt (0x8004604c#64) (r228 X) (ArmPay (m58 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -255,8 +255,8 @@ theorem at_800438a8_800438ac_3 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_800438a4_800438a8_n_3 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x800438a4#64 (r228 X) (ArmPay (m58 X) X.o))
-      (SegSt (0x800438a8#64) (r228 X) (ArmPay (m58 X) X.o)) := by
+    Triple (SegSt 0x800438a4#64 (r230 X) (ArmPay (m58 X) X.o))
+      (SegSt (0x800438a8#64) (r229 X) (ArmPay (m58 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -264,8 +264,8 @@ theorem at_800438a4_800438a8_n_3 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_8004394c_80043954_1 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x8004394c#64 (r184 X) (ArmPay (m58 X) X.o))
-      (SegSt (0x800438a4#64) (r228 X) (ArmPay (m58 X) X.o)) := by
+    Triple (SegSt 0x8004394c#64 (r185 X) (ArmPay (m58 X) X.o))
+      (SegSt (0x800438a4#64) (r230 X) (ArmPay (m58 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -273,8 +273,8 @@ theorem at_8004394c_80043954_1 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_80043948_8004394c_n_1 (X : FCx) (hX : Ok_P X) (hg_1 : (zero_extend (m := 64) (bytesT1 X.m (X.n 0 - 697) : BitVec (8 * 1)) == 0x0#64) = false) :
-    Triple (SegSt 0x80043948#64 (r184 X) (ArmPay (m58 X) X.o))
-      (SegSt (0x8004394c#64) (r184 X) (ArmPay (m58 X) X.o)) := by
+    Triple (SegSt 0x80043948#64 (r185 X) (ArmPay (m58 X) X.o))
+      (SegSt (0x8004394c#64) (r185 X) (ArmPay (m58 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -282,8 +282,8 @@ theorem at_80043948_8004394c_n_1 (X : FCx) (hX : Ok_P X) (hg_1 : (zero_extend (m
   fat_close
 
 theorem at_80043ba4_80043bb4 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x80043ba4#64 (r182 X) (ArmPay (m57 X) X.o))
-      (SegSt (0x80043948#64) (r184 X) (ArmPay (m58 X) X.o)) := by
+    Triple (SegSt 0x80043ba4#64 (r183 X) (ArmPay (m57 X) X.o))
+      (SegSt (0x80043948#64) (r185 X) (ArmPay (m58 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -291,8 +291,8 @@ theorem at_80043ba4_80043bb4 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_80043ba0_80043ba4 (X : FCx) (hX : Ok_P X) :
-    Triple (SegSt 0x80043ba0#64 (r229 X) (ArmPay (m57 X) X.o))
-      (SegSt (0x80043ba4#64) (r182 X) (ArmPay (m57 X) X.o)) := by
+    Triple (SegSt 0x80043ba0#64 (r231 X) (ArmPay (m57 X) X.o))
+      (SegSt (0x80043ba4#64) (r183 X) (ArmPay (m57 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
@@ -300,8 +300,8 @@ theorem at_80043ba0_80043ba4 (X : FCx) (hX : Ok_P X) :
   fat_close
 
 theorem at_80043b88_80043ba0_n (X : FCx) (hX : Ok_P X) (hc36 : bytesT8 X.m (X.n 0 - 832) = 0x0#64) (hc67 : bytesT8 X.m (X.n 0 - 816) = BitVec.ofNat 64 (X.n 0 - 512)) (hc68 : bytesT8 X.m (X.n 0 - 744) = 0x8005d1b8#64) (hg_6 : zopz0zKzJ_s (0xffffffffffffffff#64) (BitVec.ofNat 64 (X.n 4)) = false) :
-    Triple (SegSt 0x80043b88#64 (r141 X) (ArmPay X.m X.o))
-      (SegSt (0x80043ba0#64) (r229 X) (ArmPay (m57 X) X.o)) := by
+    Triple (SegSt 0x80043b88#64 (r142 X) (ArmPay X.m X.o))
+      (SegSt (0x80043ba0#64) (r231 X) (ArmPay (m57 X) X.o)) := by
   intro c h
   obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_b_lo, hx_b_ap, hx_b_hi, hx_f_lo, hx_f_hi, hx_k_lo, hx_k_hi, hx_k_c⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
