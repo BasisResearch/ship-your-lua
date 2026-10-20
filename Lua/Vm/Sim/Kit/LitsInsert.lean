@@ -817,4 +817,78 @@ theorem frozen_insert (hL0 : LitsIn m g sl ls rt0) (hjd : h.toNat % rt0.strtSize
 
 end Frz
 
+/-! ## Why a new string's header joins the literals' footprint -/
+
+/-- **A frozen footprint of the literals' facts holds every bucket head's tag
+byte** (lane F1-20): a memory differing from `M` only at a nonzero head's
+`tt` has that bucket's chain start at a node of the wrong tag, so no table
+reading satisfies `LitsIn` there. So after `internshrstr` links a new string
+`p` at its bucket's head, every footprint on which the literals' facts are
+frozen (`PrSt.lits`, `LitsFoot.facts`) contains `p + gcTtOff`, which
+`LitsFoot.apart` must keep off the dirty set `D`: `TolInt_Statement`
+(`TolArg`, for every `D`) needs `D` off the new string's header. -/
+theorem frozen_lits_head_tt {M : Mem} {F : Nat → Prop} {g sl : Nat} {ls : LitPtrs} {rt : RtPtrs}
+    (hF : Frozen F (fun M => LitsHold M g sl ls) M) (hL : LitsIn M g sl ls rt) {j : Nat}
+    (hj : j < rt.strtHeads.length) (hp : rt.strtHeads[j] ≠ 0) : F (rt.strtHeads[j] + gcTtOff) := by
+  have hS := hL.nil.strt
+  obtain ⟨cw, -, hch⟩ := hL.off.white
+  have hc0 := hch j hj
+  have hbk := hS.bucket j hj
+  generalize hpj : rt.strtHeads[j] = p at hp hc0 hbk ⊢
+  refine Classical.byContradiction fun hc => ?_
+  have hA : ∀ a, ¬ a = p + gcTtOff →
+      (fillZeroMem (M.insert (p + gcTtOff) 0#8))[a]? = (fillZeroMem M)[a]? := by
+    intro a ha
+    have : ¬ p + gcTtOff = a := fun e => ha e.symm
+    simp [fillZeroMem_get, Std.ExtHashMap.getElem?_insert, this]
+  have hag : ∀ a, F a → bytesT1 (M.insert (p + gcTtOff) 0#8) a = bytesT1 M a := fun a ha => by
+    have hne : ¬ p + gcTtOff = a := fun e => hc (e ▸ ha)
+    simp [bytesT1, Std.ExtHashMap.getElem?_insert, hne]
+  obtain ⟨rt', hL'⟩ := hF _ hag
+  have hS' := hL'.nil.strt
+  -- the head's object is off the table's words
+  have hoff : ¬ TabW rt (p + gcTtOff) := by
+    cases hc0 with
+    | nil => exact absurd rfl hp
+    | cons _ _ _ hT _ _ => exact hT _ (by simp [gcTtOff]) (by simp [gcTtOff, tstringContentsOff]; omega)
+  have hW : ∀ a, (rt.g ≤ a ∧ a < rt.g + 64) ∨ (rt.strtHash ≤ a ∧ a < rt.strtHash + 8 * rt.strtSize) →
+      ¬ a = p + gcTtOff := fun a ha he => hoff (by
+    subst he
+    simp only [TabW, gStrcacheOff, strcacheN, strcacheM] at ha ⊢
+    omega)
+  have eg : rt'.g = rt.g := hL'.g.trans hL.g.symm
+  have rd : ∀ {a n : Nat}, (∀ i, i < n → (rt.g ≤ a + i ∧ a + i < rt.g + 64) ∨
+      (rt.strtHash ≤ a + i ∧ a + i < rt.strtHash + 8 * rt.strtSize)) →
+      rdLE (fillZeroMem (M.insert (p + gcTtOff) 0#8)) a n = rdLE (fillZeroMem M) a n :=
+    fun {a n} h => rdLE_off hA fun i hi => hW _ (h i hi)
+  have ehash : rt'.strtHash = rt.strtHash := by
+    have h1 := hS'.hash
+    rw [eg, show rd64 (fillZeroMem (M.insert (p + gcTtOff) 0#8)) (rt.g + gStrtHashOff) =
+      rd64 (fillZeroMem M) (rt.g + gStrtHashOff) from rd fun i hi => .inl ⟨by simp only [gStrtHashOff]; omega,
+        by simp only [gStrtHashOff]; omega⟩, hS.hash] at h1
+    exact (Option.some.inj h1).symm
+  have esize : rt'.strtSize = rt.strtSize := by
+    have h1 := hS'.size
+    rw [eg, show rd32 (fillZeroMem (M.insert (p + gcTtOff) 0#8)) (rt.g + gStrtSizeOff) =
+      rd32 (fillZeroMem M) (rt.g + gStrtSizeOff) from rd fun i hi => .inl ⟨by simp only [gStrtSizeOff]; omega,
+        by simp only [gStrtSizeOff]; omega⟩, hS.size] at h1
+    exact (Option.some.inj h1).symm
+  have hj' : j < rt'.strtHeads.length := by rw [hS'.heads_len, esize, ← hS.heads_len]; exact hj
+  have ehead : rt'.strtHeads[j] = p := by
+    have h1 := hS'.bucket j hj'
+    rw [ehash, show rd64 (fillZeroMem (M.insert (p + gcTtOff) 0#8)) (rt.strtHash + 8 * j) =
+      rd64 (fillZeroMem M) (rt.strtHash + 8 * j) from rd fun i hi => .inr ⟨by omega, by
+        have := hS.heads_len; omega⟩, hbk] at h1
+    exact (Option.some.inj h1).symm
+  have hch' := hS'.chain j hj'
+  generalize rt'.strtHeads[j] = q at hch' ehead
+  subst ehead
+  cases hch' with
+  | nil => exact hp rfl
+  | cons _ htt _ _ _ _ =>
+    have h0 : (fillZeroMem (M.insert (q + gcTtOff) 0#8))[q + gcTtOff]? = some 0#8 :=
+      fillZeroMem_some (by simp)
+    simp only [rd8, rdLE, List.range_one, List.foldr_cons, List.foldr_nil, Nat.add_zero, h0] at htt
+    simp [gcShrStr] at htt
+
 end Lua.Vm.Sim.Kit
