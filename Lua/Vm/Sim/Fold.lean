@@ -376,16 +376,29 @@ coerced number classes (`At.fpCoerce_of`: the integer loop with a float limit,
 numerals (`At.fpCoerce_of_flt`: `luaV_tonumber_`/`luaV_tointeger` on a string
 `l_str2int` reads, `str2num_int` spliced; a string that is no numeral leaves
 the kernel stuck), so the field is the float numeral strings
-(`At.FpStrFlt_Statement`: `l_str2d` → newlib `strtod`). -/
+(`At.FpStrFlt_Statement`: `l_str2d` → newlib `strtod`). `POW` and `POWK`
+(lane F1-21: `luai_numpow`, libm `pow` by `PowQ`, every path) are proved on
+quiet float operands given `pow_spec` (`__ieee754_pow`'s level (b)); their
+fields are the states with a signalling-NaN operand, which the relation
+admits and on which `pow` and `Lua.Num.pow` differ. -/
 structure FloatArms : Prop where
   /-- the soft-float routines' level-2 equations not yet proved
   (`Lua/Vm/Fn/Spec.lean`): empty since lane float-sf2, every routine's is a
   theorem `Lua.Vm.Fn.<R>.spec_proved`; kept while the arms name it -/
   soft : SoftFloatSpec
-  /-- `OP_POW` (`luai_numpow`: `__muldf3`, newlib `pow`; T4) -/
-  POW : SimArm .POW
-  /-- `OP_POWK` (T4) -/
-  POWK : SimArm .POWK
+  /-- libm `__ieee754_pow` at level (b) (`e_pow.c`'s transcription, its
+  canonical datum, on quiet operands; open, lane float-sf6): the one premise
+  of `OP_POW`'s and `OP_POWK`'s arms (`At.sim_POW`, `At.sim_POWK`, lane F1-21) -/
+  pow_spec : Lua.Vm.Fn.PowR.Ieee754PowSpec_Statement
+  /-- `OP_POW` with a signalling-NaN float operand (`¬ PowQuiet`): the
+  relation admits such a payload (`ValRepr.flt` holds of every bit pattern),
+  `Float.Model` has none, and the ELF's `pow(sNaN, ±0)` and `pow(1, sNaN)`
+  are a NaN where the kernel's `Lua.Num.pow` is `1`, so this field is false
+  as stated until the relation keeps float payloads quiet (lane F1-21's
+  obstruction; every other `OP_POW` state is `At.sim_POW`) -/
+  POW : SimArmOnM .POW fun p m w ins => ¬ PowQuiet p m w ins
+  /-- `OP_POWK` with a signalling-NaN `R[B]` or `K[C]` (`¬ PowKQuiet`; as `POW`) -/
+  POWK : SimArmOnM .POWK fun p m w ins => ¬ PowKQuiet p m w ins
   /-- `OP_FORPREP` with a float numeral string among its control values
   (`luaV_tonumber_`/`luaV_tointeger` → `luaO_str2num` → `l_str2d` →
   `strtod`); the float loop is `At.sim_FORPREP_flt`, the other coerced
@@ -417,14 +430,14 @@ theorem armTable (h : OpenArms) (hF : FloatArms) : ∀ o ∈ armOps, SimArm o :=
   case SHL => exact SimArm.split At.sim_SHL (At.sim_SHL_flt hF.soft)
   case SHR => exact SimArm.split At.sim_SHR (At.sim_SHR_flt hF.soft)
   case DIV => exact At.sim_DIV
-  case POW => exact hF.POW
+  case POW => exact SimArmOnM.split hF.POW (At.sim_POW hF.pow_spec)
   case ADDK => exact SimArm.split @sim_ADDK (At.sim_ADDK_flt hF.soft)
   case SUBK => exact SimArm.split @sim_SUBK (At.sim_SUBK_flt hF.soft)
   case MULK => exact SimArm.split Kit.sim_MULK At.sim_MULK_flt
   case MODK => exact SimArm.split At.sim_MODK At.sim_MODK_flt
   case IDIVK => exact SimArm.split At.sim_IDIVK At.sim_IDIVK_flt
   case DIVK => exact At.sim_DIVK
-  case POWK => exact hF.POWK
+  case POWK => exact SimArmOnM.split hF.POWK (At.sim_POWK hF.pow_spec)
   case BANDK => exact SimArm.split At.sim_BANDK (At.sim_BANDK_flt hF.soft)
   case BORK => exact SimArm.split At.sim_BORK (At.sim_BORK_flt hF.soft)
   case BXORK => exact SimArm.split At.sim_BXORK (At.sim_BXORK_flt hF.soft)

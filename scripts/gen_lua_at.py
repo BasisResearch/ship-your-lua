@@ -108,6 +108,9 @@ FLOAT_ARMS.update({"OP_DIV": ("Div", 0x8001d494), "OP_DIVK": ("Divk", 0x8001d7d8
 # lane F1-F7: `luai_nummod` (libm `fmod`, its `errno` store, then the sign
 # correction): MOD's and MODK's float paths, over the integer arms' segments
 FLOAT_ARMS.update({"OP_MOD_F": ("ModF", 0x8001dc58), "OP_MODK_F": ("ModkF", 0x8001dad0)})
+# lane F1-21: `luai_numpow` (`b == 2`: `__muldf3`; else libm `pow`, its `errno`
+# stores): POW and POWK, every path (always float), on their own segments
+FLOAT_ARMS.update({"OP_POW": ("Pow", 0x8001d4f0), "OP_POWK": ("Powk", 0x8001d804)})
 # lane F1-F8: FORPREP's coerced classes (`FpCoerce`), over FORPREP's segments:
 # the integer loop with a float limit (`luaV_tointeger`'s float summary, its
 # two outcomes as variant call lemmas), and the float loop with integer
@@ -233,6 +236,25 @@ FRAME_FN = {"FmodR": "Lua.Vm.Sim.SFrame.mk"}
 FARGS = {"FmodR": " (by at_gp) (at_sI hX) (by at_imp)"}
 FSP = {"FmodR": "(at_fnSp' hX)"}
 FOUTER = {"FmodR": (0x8005d1b8, 4)}
+# lane F1-21: libm `pow` (`luai_numpow` when `b ≠ 2`: `Lua.Vm.Fn.PowQ`, the
+# level (a) summary `Pow.sum`), POW's and POWK's own call node: its frame the
+# row's thirteen registers, its `errno` stores the second window, as `fmod`'s.
+# Its value reads the caller's frame too (`FRAME_F`: `F` takes the frame), and
+# its level (b) is a conditional equation (`FSPEC_HYP`: the premise, the
+# operands' guard and the proof), stated beside the call node
+for _op in ("OP_POW", "OP_POWK"):
+    FCALL_ARM[_op] = {0x8002b9fc: ("PowQ", 2, 320)}
+FPROVED["PowQ"] = "Lua.Vm.Fn.PowQ"
+FRAME_G["PowQ"] = ("Lua.Vm.Fn.PowQ.sum", (3, 8, 9, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27))
+FRAME_FN["PowQ"] = "Lua.Vm.Sim.SFrame.mk"
+FARGS["PowQ"] = " (by at_gp) (at_sIp hX) (by at_imp)"
+FSP["PowQ"] = "(at_fnSp' hX)"
+FOUTER["PowQ"] = (0x8005d1b8, 4)
+FRAME_F = {"PowQ"}
+FSPEC_HYP = {"PowQ": ("(hpw : Lua.Vm.Fn.PowR.Ieee754PowSpec_Statement) ",
+                      "(hq : Lua.Vm.Fn.PowQ.Q {xs}) ",
+                      "Lua.Vm.Fn.PowQ.spec hpw _ _ _ _ {xs} (at_fnSp' hX)\n"
+                      "    (by at_facts hX; at_unfold; at_rod) hq")}
 FLOAT_ON = [False]
 # the soft-float lifted functions are opaque to the arm (a definitional
 # unfolding of one is exponential in its paths)
@@ -265,6 +287,11 @@ for _op in ("OP_DIVK", "OP_IDIVK_F"):
 # lane F1-F7: `fmod`'s call node and the `errno` close
 IMPORTS["OP_MOD_F"] = IMPORTS["OP_MOD_F"] + ["Lua.Vm.Sim.Kit.AtFmod"]
 IMPORTS["OP_MODK_F"] = IMPORTS["OP_MODK_F"] + ["Lua.Vm.Sim.Kit.AtFrame", "Lua.Vm.Sim.Kit.AtFmod"]
+# lane F1-21: `pow`'s call node (`Kit/AtPow.lean`) and POWK's `K[C]` after
+# `__floatdidf`'s frame
+IMPORTS["OP_POW"] = IMPORTS["OP_POW"] + ["Lua.Vm.Sim.Kit.AtPow", "Lua.Vm.Arms.Segs.XPOW"]
+IMPORTS["OP_POWK"] = IMPORTS["OP_POWK"] + ["Lua.Vm.Sim.Kit.AtFrame", "Lua.Vm.Sim.Kit.AtPow",
+                                           "Lua.Vm.Arms.Segs.XPOWK"]
 # lane F1-F4: the float call node of `luaV_equalobj` (`Kit/AtEqF.lean`)
 for _op in ("OP_EQ_F", "OP_EQK_F"):
     IMPORTS[_op] = IMPORTS[_op] + ["Lua.Vm.Sim.Kit.AtEqF"]
@@ -1175,16 +1202,27 @@ class Arm:
                            f"    Lua.Num.F64.toModel (f{k} X) = Lua.Num.floor (Lua.Num.F64.toModel {xs}) :=\n"
                            f"  Lua.Vm.Fn.{mod}.spec {arg} _ _ _ _ (at_fnSp hX)\n")
             elif frame:
-                out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
-                           f"def f{k} (X : Cx) : BitVec 64 :=\n"
-                           f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {xs}\n")
                 # lane F1-F6: a frame that stores the caller's saved registers
                 # (`FRAME_G`) is over their row values (`frame4`)
                 gs = (f"({FRAME_FN.get(mod, 'Lua.Vm.Sim.At.frame4')} "
                       + " ".join(f"(Loc.den X {lean_loc(y)})" for y in g) + ") ") if g else ""
+                # lane F1-21: a value that reads the frame too (`FRAME_F`)
+                gf = gs if mod in FRAME_F else ""
+                out.append(f"/-- `{mod}` returning to `0x{ret:x}`: its result. -/\n"
+                           f"def f{k} (X : Cx) : BitVec 64 :=\n"
+                           f"  Lua.Vm.Fn.{mod}.F (Log.den X {self.logname(log)}) X.w.sp {r} {gf}{xs}\n")
                 out.append(f"/-- ... its frame. -/\n"
                            f"def k{k} (X : Cx) (M : Mem) : Mem :=\n"
                            f"  Lua.Vm.Fn.{mod}.Fm M X.w.sp {r} {gs}{xs}\n")
+                if mod in FSPEC_HYP:
+                    # lane F1-21: a conditional level (b): under its premise and
+                    # the operands' guard
+                    hp, hg, pf = FSPEC_HYP[mod]
+                    out.append(f"@[at_fspec] theorem f{k}_eq {hp}(X : Cx) (hX : X.Ok) "
+                               f"{hg.format(xs=xs)}:\n"
+                               f"    f{k} X = Lua.Vm.Fn.{mod}.S {xs} :=\n"
+                               f"  {pf.format(xs=xs)}\n")
+                    continue
                 hsf, spec = (("", "spec_proved") if mod in FPROVED
                              else ("(hsf : SoftFloatSpec) ", "spec hsf"))
                 out.append(f"@[at_fspec] theorem f{k}_eq {hsf}(X : Cx) (hX : X.Ok) :\n"

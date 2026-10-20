@@ -82,6 +82,12 @@ EXTRA_ARMS = ["OP_LEN"]
 # lane F1-F6: `OP_DIV`, `OP_DIVK` (`op_arithf(K)`, always float: no integer kernel
 # case, so outside the census summary's F1 list)
 EXTRA_ARMS += ["OP_DIV", "OP_DIVK"]
+# lane F1-21: `OP_POW`, `OP_POWK` (`op_arithf(K)`'s `luai_numpow`, always float)
+EXTRA_ARMS += ["OP_POW", "OP_POWK"]
+# extra arms whose segment modules the index `Lua/Vm/Arms.lean` does not import
+# (their at-files do, `gen_lua_at.py` `IMPORTS`), so a new arm leaves the index,
+# and every at-file importing it, as they are
+STANDALONE = {"OP_POW", "OP_POWK"}
 SIM_OPS |= set(EXTRA_ARMS)
 KEEP = [2, 3, 8, 9, 18, 19, 20, 21, 23, 24, 25, 27]
 # The register invariant a `sim` segment threads (every GPR present, the HTIF
@@ -542,6 +548,13 @@ FLOAT_ARMS |= {"OP_DIV", "OP_DIVK", "OP_IDIV", "OP_IDIVK"}
 FLOAT_CALLS |= {"fmod"}
 FLOAT_ARMS |= {"OP_MOD", "OP_MODK"}
 FLOAT_CALL_KEEP = {"fmod": {"x22", "x26"}}
+# lane F1-21: `luai_numpow` by libm `pow` (`b == 2`: `__muldf3`; else `pow`,
+# `Lua.Vm.Fn.PowQ`: its `errno` stores outside the frame), a call node of
+# POW's and POWK's paths; its frame stores the caller's callee-saved
+# registers, so every one is live into its call, as for `fmod`
+FLOAT_CALLS |= {"pow"}
+FLOAT_ARMS |= {"OP_POW", "OP_POWK"}
+FLOAT_CALL_KEEP["pow"] = {"x22", "x26"}
 SIM_OPS |= {"OP_LOADF"}
 # `tohost` seams: a stop that is a console store (`sd rs2, imm(rs1)` to
 # `tohost`, run by `Kit/Console.lean`'s step) and the registers it reads; the
@@ -1212,11 +1225,16 @@ namespace {NS}
 
 end {NS}
 """
+    # the standalone arms' own modules are left out of the index and its counts
+    solo = {"X" + op[3:] for op in STANDALONE}
+    n_specs = len(specs) - sum(len(xsegs.get(op, [])) for op in STANDALONE)
+    n_sites = len(sites) - sum(len(xsites.get(op, {})) for op in STANDALONE)
+    n_arms = len(arms) - sum(1 for op, _ in arms if op in STANDALONE)
     files[ROOT / "Lua/Vm/Arms.lean"] = (
-        "\n".join(f"import {NS}.Segs.{m}" for m in seg_mods)
+        "\n".join(f"import {NS}.Segs.{m}" for m in seg_mods if m not in solo)
         + f"\nimport {NS}.Head\nimport {NS}.Prologue"
         + f"\n\n/-! {HEADER}\n\nThe segment theorems of the F1 arms of `luaV_execute`: "
-        f"{len(specs)} segments ({len(sites)} site lemmas) over {len(arms)} arms, "
+        f"{n_specs} segments ({n_sites} site lemmas) over {n_arms} arms, "
         f"the fetch head `{hname}` (`Lua/Vm/Arms/Head.lean`) and the prologue `{pname}` "
         "(`Lua/Vm/Arms/Prologue.lean`); "
         "`Lua/Vm/Arms/arms.tsv` lists each arm's segments. -/\n")
