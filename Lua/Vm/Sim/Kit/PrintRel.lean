@@ -302,6 +302,38 @@ theorem reentWord_not_printW {sp a : Nat} {H : HeapIx} {ph : StdoutPh} (hsp : he
   · simp only [Below] at hw; omega
   · simp only [Rng] at hw; omega
 
+/-- (lane F1-23) **`luaB_print`'s state after a `luaL_tolstring` that keeps
+the table and the literals' footprint**: the budget of the arguments from
+`i + 1` on at most argument `i`'s (a found string costs nothing). -/
+theorem PrSt.nextKeep {L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {D G B FL : Nat → Prop}
+    {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {i k k' : Nat} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
+    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k ph H m)
+    (hc : prCost args (i + 1) ≤ prCost args i) (ha : prAllocs args (i + 1) ≤ prAllocs args i)
+    (hapi : ApiAt m' L nci func k' tbc)
+    (hl : LitsFoot g sl ls H ph D FL m') (hk : ∀ a, PrKeep L g func n G a → bytesT1 m' a = bytesT1 M0 a)
+    (kFL : ∀ a, FL a → bytesT1 m' a = bytesT1 m a)
+    (kS : ∀ a, PrStatic g a → bytesT1 m' a = bytesT1 m a)
+    (kB : ∀ a, BigFoot B a → bytesT1 m' a = bytesT1 m a) :
+    PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 (i + 1) k' ph H m' := by
+  have kT : ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a :=
+    fun a h1 h2 => kS a (.inl ⟨h1, h2⟩)
+  have hn : strtNuse m' g = strtNuse m g := by
+    simp only [strtNuse]; congr 1
+    exact bytesT4_congrT fun j hj => kT _ (by omega) (by omega)
+  have hz : strtSize m' g = strtSize m g := by
+    simp only [strtSize, gStrtSizeOff]; congr 1
+    exact bytesT4_congrT fun j hj => kT _ (by simp only [gStrtNuseOff]; omega) (by simp only [gStrtNuseOff]; omega)
+  refine ⟨hapi, hl, hk, hS.buf, hS.chunks, ?_, ?_, hS.safe.trans kFL, ?_, ?_, hS.big.trans kB, hS.bigIn,
+    hS.big_fl⟩
+  · intro hpos
+    have := hS.room (by omega)
+    omega
+  · intro hpos
+    have := hS.strt (by omega)
+    rw [hn, hz]; omega
+  · exact fun hpos => hS.gc (by omega)
+  · exact fun hpos => (hS.stat (by omega)).congr fun a ha' => kS a (.inr ha')
+
 /-- **`luaB_print`'s state after a non-allocating `luaL_tolstring`**: the
 budget of the arguments from `i + 1` on is argument `i`'s (it costs nothing),
 the table's words and the literals' footprint kept. -/
@@ -313,25 +345,8 @@ theorem PrSt.next0 {L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Val
     (kFL : ∀ a, FL a → bytesT1 m' a = bytesT1 m a)
     (kS : ∀ a, PrStatic g a → bytesT1 m' a = bytesT1 m a)
     (kB : ∀ a, BigFoot B a → bytesT1 m' a = bytesT1 m a) :
-    PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 (i + 1) k' ph H m' := by
-  have kT : ∀ a, g + gStrtNuseOff ≤ a → a < g + gStrtNuseOff + 8 → bytesT1 m' a = bytesT1 m a :=
-    fun a h1 h2 => kS a (.inl ⟨h1, h2⟩)
-  have hc := prCost_succ hi hv
-  have ha := prAllocs_succ hi hv
-  rw [h0, Nat.zero_add] at hc
-  rw [h0, if_neg (Nat.lt_irrefl 0), Nat.zero_add] at ha
-  have hn : strtNuse m' g = strtNuse m g := by
-    simp only [strtNuse]; congr 1
-    exact bytesT4_congrT fun j hj => kT _ (by omega) (by omega)
-  have hz : strtSize m' g = strtSize m g := by
-    simp only [strtSize, gStrtSizeOff]; congr 1
-    exact bytesT4_congrT fun j hj => kT _ (by simp only [gStrtNuseOff]; omega) (by simp only [gStrtNuseOff]; omega)
-  refine ⟨hapi, hl, hk, hS.buf, hS.chunks, ?_, ?_, hS.safe.trans kFL, ?_, ?_, hS.big.trans kB, hS.bigIn,
-    hS.big_fl⟩
-  · rw [← hc]; exact hS.room
-  · rw [hn, hz, ← ha]; exact hS.strt
-  · rw [← ha]; exact hS.gc
-  · rw [← ha]; exact fun h => (hS.stat h).congr fun a ha' => kS a (.inr ha')
+    PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 (i + 1) k' ph H m' :=
+  hS.nextKeep (by rw [prCost_succ hi hv, h0]; omega) (by rw [prAllocs_succ hi hv, h0]; simp) hapi hl hk kFL kS kB
 
 /-- **`PrintLua` for `luaB_print`'s Lua state** (`PrSt'`): `lua_gettop`,
 `lua_settop(L, -2)` and the stability are proved (lane F1-18: with the
@@ -505,12 +520,17 @@ structure LitKeeps (L nci g func n : Nat) (G B FL : Nat → Prop) (ph : StdoutPh
   /-- (lane F1-19) `_dtoa_r`'s bignums and `_REENT`'s words -/
   big : ∀ a, BigFoot B a → bytesT1 m' a = bytesT1 m a
 
-theorem litKeeps {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
+/-- (lane F1-23) **What a push keeps** (`LitKeeps`), from its stores (`kW`):
+`L->top`, the slot, `g`'s cache, `totalbytes`, `GCdebt`, a literal's mark,
+everything from `heapEnd + 32` up. -/
+theorem litKeeps_of {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
     {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
-    {ts len i : Nat}
+    {ts i : Nat}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
     (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n ph H m) (hP : PrintSt m ph H)
-    (hT : TolLitPost m m' (sp0 - 64) L (sp0 - 56) g (func + 16 * n + 16) ts len ls)
+    (kW : ∀ a, a < heapEnd + 32 → ¬ Rng (L + 16) 8 a → ¬ Rng (func + 16 * n + 16) 16 a →
+      ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a → ¬ Rng (g + gTotalbytesOff) 8 a →
+      ¬ Rng (g + gGCdebtOff) 8 a → ¬ Rng (ts + gcMarkedOff) 1 a → bytesT1 m' a = bytesT1 m a)
     (hts : ts ∈ ls.strs) : LitKeeps L nci g func n G B FL ph H m m' := by
   have q := hn.ok
   have hp := hIn.placed
@@ -521,11 +541,6 @@ theorem litKeeps {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List V
   have hHS : heapStart = 0x8006ecd0 := rfl
   obtain ⟨tl1, tl2, tlL, tlg, tln, tls⟩ := hp.lits ts hts
   have hl := hS.lits
-  -- the run's stores: `L->top`, the slot, `g`'s cache, `totalbytes`, `GCdebt`, the mark, `&l`, below `sp0 - 64`
-  have kW : ∀ a, a < heapEnd + 32 → ¬ Rng (L + 16) 8 a → ¬ Rng (func + 16 * n + 16) 16 a →
-      ¬ Rng (g + gStrcacheOff) (8 * strcacheN * strcacheM) a → ¬ Rng (g + gTotalbytesOff) 8 a →
-      ¬ Rng (g + gGCdebtOff) 8 a → ¬ Rng (ts + gcMarkedOff) 1 a → bytesT1 m' a = bytesT1 m a :=
-    fun a h0 h1 h2 h3 h4 h5 h6 => hT.keep a (.inr ⟨by omega, h1, h2, h3, h4, h5, h6⟩)
   -- the literals' footprint is off them
   have kFL : ∀ a, FL a → bytesT1 m' a = bytesT1 m a := by
     intro a ha
@@ -541,14 +556,12 @@ theorem litKeeps {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List V
     simp only [Rng] at h
     rw [show a = ts + gcMarkedOff by omega] at ha
     exact this ha
-  have hl' : LitsFoot g sl ls H ph D FL m' :=
-    hl.trans kFL hT.cache
   -- (lane F1-18) `g->strt`'s words are off them
-  have kT := hT.strt (by homega) (by simp only [stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at p10; omega)
-    (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at p12; have := hp.room; omega)
-    (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at tlg; omega)
-    ⟨by have : heapStart = 0x8006ecd0 := rfl; omega, by have : heapStart = 0x8006ecd0 := rfl; omega,
-      by have : heapStart = 0x8006ecd0 := rfl; omega, by have : heapStart = 0x8006ecd0 := rfl; omega⟩
+  have kT : ∀ a, PrStatic g a → bytesT1 m' a = bytesT1 m a := by
+    intro a ha
+    simp only [PrStatic, AllocStaticFoot, gStrtNuseOff] at ha
+    have hsym : symTohost = 0x8005c6c0 := rfl
+    refine kW a ?_ ?_ ?_ ?_ ?_ ?_ ?_ <;> pr_omega
   -- the kept bytes are off them
   have kK : ∀ a, PrKeep L g func n G a → bytesT1 m' a = bytesT1 m a := by
     intro a ha
@@ -604,6 +617,16 @@ theorem litKeeps {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List V
     · simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hr
       refine kW a (by omega) ?_ ?_ ?_ ?_ ?_ ?_ <;> pr_omega
   exact ⟨kFL, kT, kK, kA, kP, kB⟩
+
+theorem litKeeps {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
+    {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
+    {ts len i : Nat}
+    (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
+    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n ph H m) (hP : PrintSt m ph H)
+    (hT : TolLitPost m m' (sp0 - 64) L (sp0 - 56) g (func + 16 * n + 16) ts len ls)
+    (hts : ts ∈ ls.strs) : LitKeeps L nci g func n G B FL ph H m m' :=
+  litKeeps_of hIn hn hS hP (fun a h0 h1 h2 h3 h4 h5 h6 => hT.keep a (.inr ⟨by
+    have := hn.sp_big; have : heapEnd = 0x87800000 := rfl; omega, h1, h2, h3, h4, h5, h6⟩)) hts
 
 /-- **`TolPost` from a literal's push** (`tol_nil`, `tol_true`, `tol_false`):
 the state with one more value (the literal at the top), `stdout` as it was,

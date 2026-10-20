@@ -618,10 +618,13 @@ def ExitUp_Statement : Prop :=
 Lane F1-19: each true as stated (the relation carries what the allocating
 classes need: `CallInvAt.alloc`, `CallDirty`'s `g->allgc`, `LuaStatic.mt_fn`,
 `StatFacts.locale`); lane F1-18's `allocOff` is proved
-(`printAllocOff_proved`), its states beyond `HeapBudget` (A8). -/
+(`printAllocOff_proved`), its states beyond `HeapBudget` (A8). Lane F1-20
+found `tolInt`, `printFlt`, `printFn` false as stated (`PrintIn`'s dirty set
+unbounded, `frozen_lits_head_tt`); lane F1-23 bounded it (`PrintIn.dirty_in`,
+`dirty_g`, `LitsFoot.tab`, the table's strings apart from what a `CALL`
+writes) and proved `tolInt` (`tolInt_proved`, `Kit/TolIntProof.lean`), so the
+field is gone. -/
 structure CallOpen : Prop where
-  /-- (lane F1-18) `luaL_tolstring` on an integer, per argument -/
-  tolInt : TolInt_Statement
   /-- (lane F1-18) `luaB_print` when an argument is a float -/
   printFlt : PrintFlt_Statement
   /-- (lane F1-18) `luaB_print` when an argument is a function -/

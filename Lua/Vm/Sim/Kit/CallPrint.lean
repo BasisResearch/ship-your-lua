@@ -3,6 +3,7 @@ import Lua.Vm.Sim.Kit.ExitUp
 import Lua.Vm.Sim.Kit.PoscallN
 import Lua.Vm.Sim.Kit.ExtendCI
 import Lua.Vm.Sim.Kit.TolStrProof
+import Lua.Vm.Sim.Kit.TolIntProof
 
 /-!
 # `PrintCall_Statement CallInv` from `CALL`'s open parts (lane F1-13)
@@ -1494,22 +1495,6 @@ theorem StaticW.not_mallocW {chunks : List Chunk} {a : Nat} (h : StaticW a) : ¬
     omega
   · have := h.lt; have e0 : heapStart = 0x8006ecd0 := rfl; omega
 
-/-- A byte of a chunk in use is no byte `_malloc_r` writes. -/
-theorem Kept.not_mallocW {H : HeapIx} {ph : StdoutPh} {a : Nat} (h : Kept H ph a) : ¬ MallocW H.chunks a := by
-  rintro (hg | ⟨-, -, hu⟩)
-  · have := h.lo
-    have e0 : heapStart = symEnd := rfl
-    have e1 : symEnd = 0x8006ecd0 := rfl
-    have e4 : symMallocAv = 0x8005c6d0 := rfl
-    have e5 : symMallocSbrkBase = 0x8005d388 := rfl
-    have e6 : symBrk = 0x8005d3b8 := rfl
-    have e8 : symMallocMaxSbrked = 0x8005d3d0 := rfl
-    have e9 : symMallocMallinfo = 0x8005e560 := rfl
-    have e10 : errnoAddr = 0x8005d408 := rfl
-    simp only [MallocGlobal] at hg
-    omega
-  · exact hu h.inuse
-
 /-- The bytes below `_malloc_r`'s globals, `__atexit` and the bytes past the
 arena are no bytes `_malloc_r` writes. -/
 theorem not_mallocW_of {chunks : List Chunk} {a : Nat}
@@ -1530,18 +1515,6 @@ theorem not_mallocW_of {chunks : List Chunk} {a : Nat}
     have e2 : heapStart = symEnd := rfl
     have e3 : symEnd = 0x8006ecd0 := rfl
     omega
-
-/-- `stdout`'s buffer lies in a chunk in use. -/
-theorem StdoutIn.buf_inUse {m : Mem} {H : HeapIx} {ph : StdoutPh} {a : Nat} (h : StdoutIn m H ph)
-    (hb : ph.Buf a) : InUse H.chunks a := by
-  cases h with
-  | boot => exact hb.elim
-  | fresh => exact hb.elim
-  | up _ _ ho _ =>
-    obtain ⟨sz, hc, hsz⟩ := ho.block
-    have hl := ho.lo
-    simp only [StdoutPh.Buf, Rng] at hb
-    exact ⟨_, hc, rfl, by dsimp only; omega, by dsimp only; omega⟩
 
 /-- A range of chunks in use lies apart from a range off them. -/
 theorem apart_of_kept {H : HeapIx} {ph : StdoutPh} {x n y k : Nat}
