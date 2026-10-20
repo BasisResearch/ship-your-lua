@@ -49,6 +49,12 @@ theorem _root_.Lua.Vm.Sim.ValRepr.str_tag {mo : Mem} {ι : Strs} {t : BitVec 8} 
     {s : List UInt8} (h : ValRepr mo ι t x (.str s)) : t = BitVec.ofNat 8 (strTag s) := by
   cases h; rfl
 
+/-- A string register's tag is neither the integer's nor the float's. -/
+theorem _root_.Lua.Vm.Sim.ValRepr.str_ne {mo : Mem} {ι : Strs} {t : BitVec 8} {x : BitVec 64}
+    {s : List UInt8} (h : ValRepr mo ι t x (.str s)) :
+    t ≠ BitVec.ofNat 8 vNumInt ∧ t ≠ BitVec.ofNat 8 19 := by
+  rw [h.str_tag]; rcases strTag_cases s with e | e <;> rw [e] <;> decide
+
 /-- **A string register at a call**: its object live and apart from the
 callee frames below `sp` (`TsCtx`), in a memory exact outside `Scratch`
 whose slot reads are the entry's. -/
@@ -124,7 +130,7 @@ set_option hygiene false in
 fields. -/
 macro "ts_hsx" : tactic => `(tactic| first
   | exact hsx
-  | simpa only [Word.a, Word.field, Nat.shiftRight_eq_div_pow] using hsx)
+  | simpa only [Word.a, Word.field, Nat.shiftRight_eq_div_pow, Nat.add_zero] using hsx)
 
 /-- The slot's address in the row's form. -/
 macro "ts_slot" : tactic => `(tactic| (
@@ -139,7 +145,7 @@ syntax "at_tons " ident num : tactic
 set_option hygiene false in
 macro_rules
   | `(tactic| at_tons $fl:ident $k:num) => do
-    let j ← if k.getNat == 0 then `(X.ins.$fl) else `(X.ins.$fl + $k)
+    let j ← `(X.ins.$fl + $k)
     `(tactic| (
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)
       (Lua.Vm.Sim.Kit.tons_at (j := $j) hX (by at_win) (by ts_bound) (by ts_hsx) hxi (sp := X.w.sp)
@@ -154,7 +160,7 @@ syntax "at_tois " ident num num : tactic
 set_option hygiene false in
 macro_rules
   | `(tactic| at_tois $fl:ident $k:num $md:num) => do
-    let j ← if k.getNat == 0 then `(X.ins.$fl) else `(X.ins.$fl + $k)
+    let j ← `(X.ins.$fl + $k)
     `(tactic| (
     obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.call acc h (by pins_of h)
       (Lua.Vm.Sim.Kit.tois_at (j := $j) (md := BitVec.ofNat 64 $md) hX (by at_win) (by ts_bound)

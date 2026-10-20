@@ -260,7 +260,7 @@ theorem tons_sum (n q sp ts : Nat) (s : List UInt8) (r : BitVec 64) (f : HFrame)
 /-- The callee frame of `luaV_tointeger` on a string integer numeral
 (`[sp - 80, sp)`: the caller's `s1`, `ra`, the `TValue`, the mode, the
 `TString`, the result `TValue` `luaO_str2num` stores). -/
-noncomputable def toisW (r s1 md : BitVec 64) (n q sp : Nat) (m : Mem) (v : BitVec 64) : Mem :=
+def toisW (r s1 md : BitVec 64) (n q sp : Nat) (m : Mem) (v : BitVec 64) : Mem :=
   s2Mem (Lua.Vm.AtF.TointSS.m1 (FCx.mk' [sp, n, q, (bytesT8 m n).toNat]
     [r, 0, s1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, md] m #[])) (sp - 48) v
 
