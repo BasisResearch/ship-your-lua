@@ -20,3 +20,4 @@ R18-hand-floor-chamber	Lua/Vm/Fn/SfRefFloor*.lean	^\s*theorem\s+ch_\w+	floor cha
 R18-hand-floor-chamber	Lua/Vm/Fn/SfRefMul*.lean	^\s*theorem\s+ch_\w+	__muldf3 chamber lemma by hand: emit chambers with smc_chambers (Lua/Vm/Fn/SfRefMul.lean), never a hand chamber list
 R18-hand-floor-chamber	Lua/Vm/Fn/SfRefDiv*.lean	^\s*theorem\s+ch_\w+	__divdf3 chamber lemma by hand: emit chambers with sdc_chambers (Lua/Vm/Fn/SfRefDiv.lean), never a hand chamber list
 R18-hand-fmod-chamber	Lua/Vm/Fn/Fmod*.lean	^\s*theorem\s+(psub|yc0b4|ybe94|xbe78|dc0e8|dc0d8)_\d+	__ieee754_fmod per-exponent chamber by hand: emit chambers with the fm_<site>_chambers generators and join them with fm_cover (Lua/Vm/Fn/FmodLens.lean), never a hand chamber list
+R18-hand-pow-chamber	Lua/Vm/Fn/Pow*.lean	^\s*theorem\s+(n_cf98|e_c580)	__ieee754_pow per-amount chamber by hand: emit chambers and their cover with pw_chambers nm [lo, hi] (k) (Lua/Vm/Fn/PowLens.lean), never a hand chamber list
