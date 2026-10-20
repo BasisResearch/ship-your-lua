@@ -643,6 +643,41 @@ theorem call_strt {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word
   have e3 : prAllocs args 1 = newStrs args := by simp [prAllocs, newStrs]
   rw [e1, e2, e3]; exact hb
 
+/-- (lane F1-23) **What the literals stay apart from across the call is in
+chunks in use** (`PrintIn.dirty_in`): `L`'s words, the `CallInfo`s, the Lua
+stack, `g`'s counters and cache. -/
+theorem call_dirty_in {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) : ∀ a, CallD w nci a → Kept H ph a := by
+  have kmono : ∀ {a}, Kept w.rt.hix ph a → Kept H ph a := fun ha => ha.mono hJ.kept fun _ h => .inl h
+  call_nums
+  intro a ha
+  simp only [CallD, CallLitDirty, stateTopOff, stateCiOff, stateNciOff, gGCdebtOff, gTotalbytesOff] at ha
+  rcases ha with (h | h | h | h | h | h | h | h) | h
+  · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
+  · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
+  · exact kmono (hI.ci_in a h.1 h.2)
+  · exact kmono (hI.stack_in a h.1 h.2)
+  · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
+  · exact kmono (hI.g_in a (by omega) (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega))
+  · exact kmono (hI.g_in a (by omega) (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega))
+  · exact kmono (hI.g_in a (by have := h.1; simp only [gStrcacheOff] at this; omega) h.2)
+  · exact (hJ.nci_kept a h.1 h.2).1
+
+/-- (lane F1-23) **What the literals stay apart from across the call is off
+`g->currentwhite` and `g->allgc`** (`PrintIn.dirty_g`). -/
+theorem call_dirty_g {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
+    {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
+    {H : HeapIx} (cx : CallCx p c s w ins args) (hI : CallInvAt p w ph F FL ls)
+    (hJ : JoinIn p c w ins ph F FL ls r f MJ nci H) : ∀ a, CallD w nci a → ¬ InsG w.rt.g a := by
+  call_nums
+  intro a ha hg
+  simp only [InsG, Rng, gCurrentwhiteOff, gAllgcOff] at hg
+  simp only [CallD, CallLitDirty, stateTopOff, stateCiOff, stateNciOff, gGCdebtOff, gTotalbytesOff,
+    gStrcacheOff, gEnd, strcacheN, strcacheM, ciSize] at ha
+  omega
+
 /-- **`luaB_print`'s entry at the join** (`PrintIn`). -/
 theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
     {ph : StdoutPh} {F FL : Nat → Prop} {ls : LitPtrs} {r : BitVec 64} {f : AbiFrame} {MJ : Mem} {nci : Nat}
@@ -699,23 +734,8 @@ theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
       mt_fn := by
         have SF := hI.stat _ (call_footMC cx hI hJ)
         exact bT8_of_fill (bytesT8_of_rd64 SF.lua.mt_fn)
-      dirty_in := fun a ha => by
-        simp only [CallD, CallLitDirty, stateTopOff, stateCiOff, stateNciOff, gGCdebtOff, gTotalbytesOff] at ha
-        rcases ha with (h | h | h | h | h | h | h | h) | h
-        · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
-        · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
-        · exact kmono (hI.ci_in a h.1 h.2)
-        · exact kmono (hI.stack_in a h.1 h.2)
-        · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
-        · exact kmono (hI.g_in a (by omega) (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega))
-        · exact kmono (hI.g_in a (by omega) (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega))
-        · exact kmono (hI.g_in a (by have := h.1; simp only [gStrcacheOff] at this; omega) h.2)
-        · exact (hJ.nci_kept a h.1 h.2).1
-      dirty_g := fun a ha hg => by
-        simp only [InsG, Rng, gCurrentwhiteOff, gAllgcOff] at hg
-        simp only [CallD, CallLitDirty, stateTopOff, stateCiOff, stateNciOff, gGCdebtOff, gTotalbytesOff,
-          gStrcacheOff, gEnd, strcacheN, strcacheM, ciSize] at ha
-        omega }
+      dirty_in := call_dirty_in cx hI hJ
+      dirty_g := call_dirty_g cx hI hJ }
 
 /-- **The C function at the join** (`PcC`): `luaB_print` (`PrintRel_Statement`)
 from the memory `luaD_precall` builds, its entry (`call_printIn`) from the
