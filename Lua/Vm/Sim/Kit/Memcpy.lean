@@ -117,7 +117,7 @@ theorem tailW (s d w : Nat) (hw : 1 ≤ w) (h : d + 8 * w < 2 ^ 64) :
 /-! ## The loops -/
 
 /-- A context of `memcpy`'s rows: `sp`, the Nat atoms, `ra`, the frame. -/
-@[at_row] abbrev mcCx (ns : List Nat) (r : BitVec 64) (f : AbiFrame) (M : Mem) (o : Array String) : FCx :=
+@[at_row] abbrev mcpCx (ns : List Nat) (r : BitVec 64) (f : AbiFrame) (M : Mem) (o : Array String) : FCx :=
   FCx.mk' ns [r, f.s0, f.s1, f.s2, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11] M o
 
 /-- What `memcpy(dst, src, n)` needs: both 8-aligned, the ranges apart, in
@@ -131,20 +131,20 @@ structure McpCtx (sp dst src n : Nat) (r : BitVec 64) : Prop where
   s_al : src % 8 = 0
 
 /-- **The byte loop** (`0x8003b6c8`) from `i` of the `n` bytes. -/
-theorem mc_bytes (sp d s n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+theorem mcp_bytes (sp d s n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hx : McpCtx sp d s n r) :
     ∀ i M, i < n → MoveOut m M d s i →
-      Triple (SegSt 0x8003b6c8#64 (Lua.Vm.AtF.Memcpy.r14 (mcCx [sp, d, s, n, i] r f M o))
-          (ArmPay (mcCx [sp, d, s, n, i] r f M o).m (mcCx [sp, d, s, n, i] r f M o).o))
+      Triple (SegSt 0x8003b6c8#64 (Lua.Vm.AtF.Memcpy.r14 (mcpCx [sp, d, s, n, i] r f M o))
+          (ArmPay (mcpCx [sp, d, s, n, i] r f M o).m (mcpCx [sp, d, s, n, i] r f M o).o))
         (fun c => ∃ M', mmRet r sp (BitVec.ofNat 64 d) f M' o c ∧ MoveOut m M' d s n) := by
   intro i₀ M₀ hi₀ hM₀ c₀ h₀
   obtain ⟨hk, hsp, hra, hn64, hda, hsa⟩ := hx
   have := hk.d_lo; have := hk.s_lo; have := hk.disj; have := hk.d_hi; have := hk.s_hi; have := hk.s_th
   refine seg_loop (S := fun (p : Nat × Mem) c => p.1 < n ∧ MoveOut m p.2 d s p.1 ∧
-      SegSt 0x8003b6c8#64 (Lua.Vm.AtF.Memcpy.r14 (mcCx [sp, d, s, n, p.1] r f p.2 o))
-        (ArmPay (mcCx [sp, d, s, n, p.1] r f p.2 o).m (mcCx [sp, d, s, n, p.1] r f p.2 o).o) c)
+      SegSt 0x8003b6c8#64 (Lua.Vm.AtF.Memcpy.r14 (mcpCx [sp, d, s, n, p.1] r f p.2 o))
+        (ArmPay (mcpCx [sp, d, s, n, p.1] r f p.2 o).m (mcpCx [sp, d, s, n, p.1] r f p.2 o).o) c)
     (fun p => n - p.1) (fun ⟨i, M⟩ c ⟨hi, hM, h⟩ => ?_) (i₀, M₀) c₀ ⟨hi₀, hM₀, h₀⟩
-  have hX : Lua.Vm.AtF.Memcpy.Ok_B (mcCx [sp, d, s, n, i] r f M o) := by fcx_ok
+  have hX : Lua.Vm.AtF.Memcpy.Ok_B (mcpCx [sp, d, s, n, i] r f M o) := by fcx_ok
   have acc := Steps.refl c
   have hb : bytesT1 M (s + i) = bytesT1 m (s + i) := hM.rd1 (by omega)
   have hM' := hM.ins (a := d + i) (b := bytesT1 m (s + i)) (by omega) rfl
@@ -162,21 +162,21 @@ theorem mc_bytes (sp d s n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : 
 
 /-- **The word loop** (`0x8003b688`) from `i` of `w = n / 8` words, then the
 `n % 8` byte tail, then the return. -/
-theorem mc_words (sp d s n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+theorem mcp_words (sp d s n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hx : McpCtx sp d s n r) (hw : 1 ≤ n / 8) :
     ∀ i M, i < n / 8 → MoveOut m M d s (8 * i) →
-      Triple (SegSt 0x8003b688#64 (Lua.Vm.AtF.Memcpy.r9 (mcCx [sp, d, s, n, i, n / 8] r f M o))
-          (ArmPay (mcCx [sp, d, s, n, i, n / 8] r f M o).m (mcCx [sp, d, s, n, i, n / 8] r f M o).o))
+      Triple (SegSt 0x8003b688#64 (Lua.Vm.AtF.Memcpy.r9 (mcpCx [sp, d, s, n, i, n / 8] r f M o))
+          (ArmPay (mcpCx [sp, d, s, n, i, n / 8] r f M o).m (mcpCx [sp, d, s, n, i, n / 8] r f M o).o))
         (fun c => ∃ M', mmRet r sp (BitVec.ofNat 64 d) f M' o c ∧ MoveOut m M' d s n) := by
   intro i₀ M₀ hi₀ hM₀ c₀ h₀
   have hx' := hx
   obtain ⟨hk, hsp, hra, hn64, hda, hsa⟩ := hx'
   have := hk.d_lo; have := hk.s_lo; have := hk.disj; have := hk.d_hi; have := hk.s_hi; have := hk.s_th
   refine seg_loop (S := fun (p : Nat × Mem) c => p.1 < n / 8 ∧ MoveOut m p.2 d s (8 * p.1) ∧
-      SegSt 0x8003b688#64 (Lua.Vm.AtF.Memcpy.r9 (mcCx [sp, d, s, n, p.1, n / 8] r f p.2 o))
-        (ArmPay (mcCx [sp, d, s, n, p.1, n / 8] r f p.2 o).m (mcCx [sp, d, s, n, p.1, n / 8] r f p.2 o).o) c)
+      SegSt 0x8003b688#64 (Lua.Vm.AtF.Memcpy.r9 (mcpCx [sp, d, s, n, p.1, n / 8] r f p.2 o))
+        (ArmPay (mcpCx [sp, d, s, n, p.1, n / 8] r f p.2 o).m (mcpCx [sp, d, s, n, p.1, n / 8] r f p.2 o).o) c)
     (fun p => n / 8 - p.1) (fun ⟨i, M⟩ c ⟨hi, hM, h⟩ => ?_) (i₀, M₀) c₀ ⟨hi₀, hM₀, h₀⟩
-  have hX : Lua.Vm.AtF.Memcpy.Ok_W (mcCx [sp, d, s, n, i, n / 8] r f M o) := by fcx_ok
+  have hX : Lua.Vm.AtF.Memcpy.Ok_W (mcpCx [sp, d, s, n, i, n / 8] r f M o) := by fcx_ok
   have acc := Steps.refl c
   have hv : bytesT8 M (s + 8 * i) = bytesT8 m (s + 8 * i) := hM.rd8 (by omega)
   have hM' := hM.wm8 (a := d + 8 * i) (v := bytesT8 m (s + 8 * i)) (by omega) rfl
@@ -190,7 +190,7 @@ theorem mc_words (sp d s n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : 
       fat_run Lua.Vm.AtF.Memcpy h acc until [0x8003b6c8]
       fcx_unfold at h
       rw [hv, tailW d d (n / 8) hw (by omega), tailW s d (n / 8) hw (by omega)] at h
-      obtain ⟨c2, s2, M2, hr, hMo⟩ := mc_bytes sp d s n r f m o hx (8 * (n / 8))
+      obtain ⟨c2, s2, M2, hr, hMo⟩ := mcp_bytes sp d s n r f m o hx (8 * (n / 8))
         (writeMap8 M (d + 8 * i) (sdData_val (bytesT8 m (s + 8 * i)))) h8 (hM'.mono (by omega)) _
         (by fcx_unfold; exact h.repin (by at_pins h))
       exact ⟨c2, acc.trans s2, .inr ⟨M2, hr, hMo⟩⟩
@@ -221,9 +221,9 @@ theorem memcpy_sum (sp dst src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem)
   obtain ⟨hk, hsp, hra, hn64, hda, hsa⟩ := hx'
   have := hk.d_lo; have := hk.s_lo; have := hk.disj; have := hk.d_hi; have := hk.s_hi; have := hk.s_th
   simp only [callPre, List.cons_append, List.nil_append] at h
-  have hX : Lua.Vm.AtF.Memcpy.Ok (mcCx [sp, dst, src, n] r f m o) := by fcx_ok
-  have h : SegSt 0x8003b648#64 (Lua.Vm.AtF.Memcpy.r0 (mcCx [sp, dst, src, n] r f m o))
-      (ArmPay (mcCx [sp, dst, src, n] r f m o).m (mcCx [sp, dst, src, n] r f m o).o) c :=
+  have hX : Lua.Vm.AtF.Memcpy.Ok (mcpCx [sp, dst, src, n] r f m o) := by fcx_ok
+  have h : SegSt 0x8003b648#64 (Lua.Vm.AtF.Memcpy.r0 (mcpCx [sp, dst, src, n] r f m o))
+      (ArmPay (mcpCx [sp, dst, src, n] r f m o).m (mcpCx [sp, dst, src, n] r f m o).o) c :=
     h.repin (by pins_of h)
   have acc := Steps.refl c
   have hg4 := xor_al src dst hsa hda
@@ -236,7 +236,7 @@ theorem memcpy_sum (sp dst src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem)
   by_cases hs8 : n < 8
   · rw [decide_eq_true hs8] at hg2
     fat_run Lua.Vm.AtF.Memcpy h acc until [0x8003b6c8]
-    obtain ⟨c2, s2, M2, hr, hMo⟩ := mc_bytes sp dst src n r f m o hx 0 m (by omega) (MoveOut.zero m dst src) _
+    obtain ⟨c2, s2, M2, hr, hMo⟩ := mcp_bytes sp dst src n r f m o hx 0 m (by omega) (MoveOut.zero m dst src) _
       (by fcx_unfold at h ⊢; exact h.repin (by at_pins h))
     exact ⟨c2, acc.trans s2, M2, hr, hMo⟩
   · rw [decide_eq_false hs8] at hg2
@@ -247,7 +247,7 @@ theorem memcpy_sum (sp dst src n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem)
     fat_run Lua.Vm.AtF.Memcpy h acc until [0x8003b688]
     fcx_unfold at h
     rw [endW dst n hda (by omega)] at h
-    obtain ⟨c2, s2, M2, hr, hMo⟩ := mc_words sp dst src n r f m o hx (by omega) 0 m (by omega)
+    obtain ⟨c2, s2, M2, hr, hMo⟩ := mcp_words sp dst src n r f m o hx (by omega) 0 m (by omega)
       (MoveOut.zero m dst src) _ (by fcx_unfold; exact h.repin (by at_pins h))
     exact ⟨c2, acc.trans s2, M2, hr, hMo⟩
 

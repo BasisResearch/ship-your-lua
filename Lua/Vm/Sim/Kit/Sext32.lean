@@ -41,4 +41,18 @@ theorem addiw32_ofNat {n k : Nat} (hk : k < 2 ^ 11) (h : n + k < 2 ^ 31) :
     rw [Nat.mod_mod_of_dvd _ (by decide)]
   rw [e, fmt_sext32_ofNat h]
 
+/-- `sb` of a count's word. -/
+theorem stData1_ofNat (n : Nat) : stData 1 (BitVec.ofNat 64 n) = BitVec.ofNat 8 n := by
+  apply BitVec.eq_of_toNat_eq
+  show (Sail.BitVec.extractLsb (BitVec.ofNat 64 n) 7 0).toNat = _
+  simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_toNat, Nat.shiftRight_zero, BitVec.toNat_ofNat]
+  rw [Nat.mod_mod_of_dvd _ (by decide)]
+
+/-- `sw` of a count's word. -/
+theorem swData_ofNat (n : Nat) : swData (BitVec.ofNat 64 n) = BitVec.ofNat 32 n := by
+  apply BitVec.eq_of_toNat_eq
+  show (Sail.BitVec.extractLsb (BitVec.ofNat 64 n) 31 0).toNat = _
+  simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_toNat, Nat.shiftRight_zero, BitVec.toNat_ofNat]
+  rw [Nat.mod_mod_of_dvd _ (by decide)]
+
 end Lua.Vm.Sim.Kit
