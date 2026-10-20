@@ -816,6 +816,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     need(all(off_tab(ts, 40) for ts in lits), "the literals off the table's words")
     need(all(off_tab(p + lay["tstringContentsOff"], 11) for _, p in cands), "the candidates off the table's words")
     need(off_tab(smt, 64) and off_tab(node, lay["nodeSize"] * (1 << lsz)), "the string metatable off the table's words")
+    need(sh % 8 == 0, "the bucket array 8-aligned")
     lit_foot = split(ranges_of(M.rec))
     M.rec = None
     need(all(lo + n <= lay["symTohost"] or in_chunk(lo, n) for lo, n in lit_foot) and

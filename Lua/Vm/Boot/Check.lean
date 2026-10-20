@@ -1126,15 +1126,15 @@ def strtOffCheck (v : View) (ls : LitPtrs) (rt : RtPtrs) : Bool :=
     | none => false) &&
   ls.strs.all (fun ts => offTab rt ts 40) &&
   ls.cands.all (fun c => offTab rt (c.2 + tstringContentsOff) 11) &&
-  offTab rt ls.smt 64 && offTab rt ls.smtNode (nodeSize * 2 ^ ls.smtLsz)
+  offTab rt ls.smt 64 && offTab rt ls.smtNode (nodeSize * 2 ^ ls.smtLsz) && rt.strtHash % 8 == 0
 
 theorem strtOffCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ls : LitPtrs} {rt : RtPtrs}
     (hc : strtOffCheck v ls rt = true) : StrtOff m ls rt := by
   simp only [strtOffCheck, Bool.and_eq_true, List.all_eq_true] at hc
-  obtain ⟨⟨⟨⟨hw, hl⟩, hcd⟩, hs⟩, hn⟩ := hc
+  obtain ⟨⟨⟨⟨⟨hw, hl⟩, hcd⟩, hs⟩, hn⟩, hal⟩ := hc
   refine ⟨?_, fun ts hts a h1 h2 => offTab_sound (hl ts hts) h1 h2,
     fun c hcm a h1 h2 => offTab_sound (hcd c hcm) h1 h2, fun a h1 h2 => offTab_sound hs h1 h2,
-    fun a h1 h2 => offTab_sound hn h1 h2⟩
+    fun a h1 h2 => offTab_sound hn h1 h2, by simpa using hal⟩
   split at hw
   · rename_i cw hcw
     refine ⟨cw, h.rd8 hcw, fun j hj => ?_⟩

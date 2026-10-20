@@ -1897,6 +1897,11 @@ class Fn:
         self.oks = {"Ok": (spec["ok"], spec.get("lb", {}))}
         for pc, lp in spec.get("loops", {}).items():
             self.oks[f"Ok_{lp['name']}"] = (lp["ok"], lp.get("lb", {}))
+        # lane F1-20: the root after a call node with facts of its own (the
+        # callee's result: `calls[...]["root"]`)
+        for pc, cl in spec.get("calls", {}).items():
+            if isinstance(cl, dict) and "root" in cl:
+                self.oks[f"Ok_{cl['root']}"] = (cl["ok"], cl.get("lb", {}))
         self.cur = "Ok"
 
     def lb(self, i):
@@ -2006,9 +2011,26 @@ class Fn:
                         st.hyps.append(self.fact(f"bytesT2 X.m ({nat_txt(terms, add, True)}) = 0x{val:x}#16"))
                     return ("lit", sx(val, 16) if signed else val)
                 if a2 != add or w2 != w:
+                    # lane F1-20: a narrow load inside a wider literal store (`lw` of
+                    # `luaO_pushvfstring`'s `pushed`/`blen` after `sd zero`): its bytes
+                    if v[0] == "lit" and a2 <= add and add + w <= a2 + w2:
+                        val = (v[1] >> (8 * (add - a2))) & ((1 << 8 * w) - 1)
+                        if src is st.carried:
+                            st.hyps.append(self.fact(
+                                f"bytesT{w} X.m ({nat_txt(terms, add, True)}) = 0x{val:x}#{8 * w}"))
+                        return ("lit", sx(val, 8 * w) if signed else val)
                     raise Stop("a partial overlap")
                 if w != 8:
                     if v[0] != "lit":
+                        # lane F1-20: a 32-bit count stored and reloaded (`sw`, then
+                        # `lw` of `blen`), in the signed 32-bit range (`ub`): the count
+                        iv = self.interval(v) if v[0] == "nat" else None
+                        if w == 4 and iv is not None and 0 <= iv[0] and iv[1] < 2 ** 31:
+                            if src is st.carried:
+                                st.hyps.append(self.fact(
+                                    f"bytesT4 X.m ({nat_txt(terms, add, True)}) = "
+                                    f"BitVec.ofNat 32 ({nat_txt(v[1], v[2])})"))
+                            return v
                         raise Stop("a narrow reload of a symbolic store")
                     val = v[1] & ((1 << 8 * w) - 1)
                     res = ("lit", sx(val, 8 * w) if signed else val)
@@ -2039,6 +2061,12 @@ class Fn:
         rw_ = {**self.spec.get("rcellsw", {}), **self.spec.get("root_rcellsw", {}).get(st.rootpc, {})}
         if (w, terms, add) in rw_:
             val = rw_[(w, terms, add)]
+            if isinstance(val, tuple):
+                # lane F1-20: a root's narrow count over the atoms (`g->strt.nuse`,
+                # `size`): `BitVec.ofNat` of its `Nat`
+                st.hyps.append(self.fact(f"bytesT{w} X.m ({nat_txt(terms, add, True)}) = "
+                                         f"BitVec.ofNat {8 * w} ({nat_txt(val[1], val[2])})"))
+                return val
             st.hyps.append(self.fact(f"bytesT{w} X.m ({nat_txt(terms, add, True)}) = 0x{val:x}#{8 * w}"))
             return ("lit", sx(val, 8 * w) if signed else val)
         return ("ld", w, signed, terms, add)
@@ -2405,7 +2433,7 @@ class Fn:
         for var in (variants if isinstance(variants, list) else [variants]):
             regs2 = dict(regs)
             regs2.update(var)
-            self.root(ret, FState(regs2, [], carried, root=st.root))
+            self.root(ret, FState(regs2, [], carried, root=f"Ok_{spec['root']}" if 'root' in spec else st.root))
 
     def fresh_nat(self, ret, r):
         """The Nat atom standing for register `r`'s value at the return `ret`."""
@@ -3773,6 +3801,136 @@ FNS.update({
         runs=SNP_RUNS,
         parts=8, doc="`snprintf(buf, 44, \"%lld\", i)` (`lua_integer2str`)."),
 })
+
+
+# ---- lane F1-20: `luaL_tolstring` on an integer --------------------------------
+
+def tol_int(mod):
+    """lane F1-20: `luaL_tolstring(L, i, &l)` on an integer argument: the atoms
+    of `tol_lit` (`G(L)->mt[LUA_TNUMBER]` NULL), X.b 13 = the integer
+    (`lua_tointegerx`'s load); `lua_pushfstring(L, "%I", i)` a call node."""
+    d = tol_lit(mod, 0x03, "an integer")
+    d["rcells"] = {**d["rcells"], (((2, 16), (5, 1)), 0): ("bv", 13)}
+    d["calls"] = {0x800030a4: dict(ret={})}
+    d["junk"] = (13, 14, 15, 16, 17)
+    d["doc"] = ("`luaL_tolstring(L, i, &l)` on an integer argument (`lua_isinteger`, `lua_tointegerx`, "
+                "`lua_pushfstring(L, \"%I\", i)`), up to its tail `lua_tolstring(L, -1, &l)`.")
+    return d
+
+
+# `lua_pushfstring(L, "%I", i)`: X.n 0 = its `sp`, X.n 1 = L, X.n 2 = g, X.n 3 =
+# `L->top`, X.n 4 = the digits' count (`snprintf`'s), X.n 5 = the string
+# (`luaS_newlstr`'s); X.b 13 = i, X.b 14–18 the vararg registers a3–a7
+PF_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+         "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + [
+         "L_he : X.n 1 + 200 ≤ 0x87800000",
+         "g_lo : 0x8005c6d0 ≤ X.n 2", "g_hi : X.n 2 + 1400 ≤ 0x87800000",
+         "t_lo : 0x8005c6d0 ≤ X.n 3", "t_hi : X.n 3 + 32 ≤ 0x87800000", "t_al : X.n 3 % 8 = 0",
+         "tL : X.n 3 + 16 ≤ X.n 1 ∨ X.n 1 + 200 ≤ X.n 3",
+         "tg : X.n 3 + 16 ≤ X.n 2 ∨ X.n 2 + 1400 ≤ X.n 3",
+         "Lg : X.n 1 + 200 ≤ X.n 2 ∨ X.n 2 + 1400 ≤ X.n 1"]
+# after `snprintf`: the count; after `luaS_newlstr`: the string, apart from the slot
+PF_S = PF_OK + ["n_lo : 1 ≤ X.n 4", "n_hi : X.n 4 ≤ 20"]
+PF_T = PF_S + ["ts_lo : 0x8005c6d0 ≤ X.n 5", "ts_hi : X.n 5 + 64 ≤ 0x87800000",
+               "tts : X.n 3 + 16 ≤ X.n 5 ∨ X.n 5 + 64 ≤ X.n 3"]
+PF_LB = {**LUA_LB, 2: 0x8005c6d0, 3: 0x8005c6d0, 4: 1, 5: 0x8005c6d0}
+# `"%I"` (`.rodata`), its bytes as `strchr` and the conversion switch read them,
+# the switch's jump table word for `'I'`
+PF_CELLS = {(8, 0x8004fd58): 0x4925, (1, 0x8004fd58): 0x25, (1, 0x8004fd59): 0x49, (1, 0x8004fd5a): 0,
+            (4, 0x80052c1c): 0xfffbf3a4}
+
+# `luaS_newlstr(L, str, l)` on any short contents in a caller's frame (the tail
+# `j internshrstr`): X.n 0 = its `sp`, X.n 1 = L, X.n 2 = str, X.n 3 = l, X.n 4 =
+# g; the hash loop's cursor X.n 5 (hash X.b 13), the chain's node X.n 6, the
+# bucket X.n 7, `memcmp`'s answer X.n 8, the table's size X.n 9; the creation
+# path: `nuse` X.n 10, the new object X.n 11 (`l_alloc`'s), the old head X.n 12
+IA_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 + 80 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
+         "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + ["L_he : X.n 1 + 200 ≤ 0x87800000",
+         "s_ge : X.n 0 ≤ X.n 2", "s_hi : X.n 2 + X.n 3 + 1 ≤ 2 ^ 32", "l_lo : 1 ≤ X.n 3",
+         "l_hi : X.n 3 ≤ 40", "g_lo : 0x8005c6d0 ≤ X.n 4", "g_hi : X.n 4 + 1400 ≤ 0x87800000"]
+IA_LB = {**LUA_LB, 2: 0x87800000, 3: 1, 4: 0x8005c6d0}
+IA_BKT = IA_OK + ["k_lo : 0x8005c6d0 ≤ X.n 7", "k_he : X.n 7 + 8 ≤ 0x87800000",
+                  "kg : X.n 7 + 8 ≤ X.n 4 ∨ X.n 4 + 1400 ≤ X.n 7", "g_al : X.n 4 % 8 = 0",
+                  "k_al : X.n 7 % 8 = 0", "sz_hi : X.n 9 < 2 ^ 30", "nu_hi : X.n 10 < 2 ^ 30"]
+IA_NEW = IA_BKT + ["p_lo : 0x8006ecd0 + 16 ≤ X.n 11", "p_he : X.n 11 + X.n 3 + 25 ≤ 0x87800000",
+                  "p_al : X.n 11 % 16 = 0",
+                  "pg : X.n 11 + X.n 3 + 25 ≤ X.n 4 ∨ X.n 4 + 1400 ≤ X.n 11",
+                  "pk : X.n 11 + X.n 3 + 25 ≤ X.n 7 ∨ X.n 7 + 8 ≤ X.n 11",
+                  "pL : X.n 11 + X.n 3 + 25 ≤ X.n 1 ∨ X.n 1 + 200 ≤ X.n 11"]
+IA_NLB = {**IA_LB, 7: 0x8005c6d0, 11: 0x8006ece0}
+
+
+def ia_row(extra):
+    return int_row(extra)
+
+
+FNS.update({
+    "luaL_tolstring/int": tol_int("TolInt"),
+    "lua_pushfstring/I": dict(
+        mod="PushfI", entry=0x800030a4,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 0x8004fd58), 12: ("bv", 13), 13: ("bv", 14), 14: ("bv", 15),
+                     15: ("bv", 16), 16: ("bv", 17), 17: ("bv", 18)}),
+        ok=PF_OK, lb=PF_LB, ub={4: 20}, depth=200, junk=(17,),
+        cells=PF_CELLS,
+        rcells={(((1, 1),), 24): N((2, 1)), (((1, 1),), 16): N((3, 1))},
+        rcellsw={(1, ((5, 1),), 8): 4},
+        calls={0x80034de0: dict(ret={10: N((4, 1))}, root="S", ok=PF_S, lb=PF_LB),
+               0x80017694: dict(ret={10: N((5, 1))}, root="T", ok=PF_T, lb=PF_LB),
+               0x8000ec80: dict(ret={})},
+        imports=["Lua.Vm.Sim.Kit.FmtLib"],
+        doc="`lua_pushfstring(L, \"%I\", i)`: `luaO_pushvfstring` on `\"%I\"` (`strchr`, `addstr2buff`, "
+            "`addnum2buff` → `snprintf(buf, 44, \"%lld\", i)`, `luaS_newlstr`, the push), `luaC_checkGC`."),
+    "luaS_newlstr/any": dict(
+        mod="InternAny", entry=0x80017694,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=IA_OK, lb={**IA_LB, 8: 1}, ub={3: 40, 9: 2 ** 30, 10: 2 ** 30},
+        rcells={(((1, 1),), 24): N((4, 1)), **int_saved(), (((4, 1),), 0): ("lit", 0x8000172c),
+                (((4, 1),), 8): ("bv", 14), (((7, 1),), 0): N((12, 1))},
+        rcellsw={(4, ((4, 1),), 56): N((10, 1)), (4, ((4, 1),), 60): N((9, 1))},
+        calls={0x80036198: dict(ret=[{10: ("lit", 0)}, {10: N((8, 1))}]),
+               0x8000172c: dict(ret={10: N((11, 1))}, root="P", ok=IA_NEW, lb=IA_NLB),
+               0x8003b648: dict(ret={})},
+        loops={
+            0x800173a4: dict(name="H", row=ia_row({15: N((5, 1)), 11: N((2, 1), add=-1), 8: ("bv", 1),
+                                                   22: ("bv", 7), 23: ("bv", 8)}),
+                             ok=IA_OK + ["c_ge : X.n 2 ≤ X.n 5", "c_lt : X.n 5 < X.n 2 + X.n 3"],
+                             lb={**IA_LB, 5: 0x87800000}),
+            0x800173f0: dict(name="C", row=ia_row({8: N((6, 1)), 22: N((7, 1)), 23: N((9, 1))}),
+                             ok=IA_OK + ["n_lo : 0x8005c6d0 ≤ X.n 6", "n_hi : X.n 6 + 24 ≤ 0x87800000",
+                                         "k_lo : 0x8005c6d0 ≤ X.n 7", "k_he : X.n 7 + 8 ≤ 0x87800000"],
+                             lb={**IA_LB, 6: 0x8005c6d0, 7: 0x8005c6d0, 8: 1}),
+            0x8001742c: dict(name="N", row=ia_row({8: ("lit", 0), 22: N((7, 1)), 23: N((9, 1))}),
+                             ok=IA_BKT, lb={**IA_LB, 7: 0x8005c6d0})},
+        stops=[0x800174b4], ends=[0x800173c4], imports=["Lua.Vm.Sim.Kit.FmtLib"],
+        doc="`luaS_newlstr(L, str, l)` on short contents in a caller's frame: `internshrstr`'s hash, "
+            "the chain walk with `memcmp`, `isdead`, and the creation path (`luaC_newobj` → "
+            "`luaM_malloc_` → `l_alloc`, the header, `memcpy`, the bucket's head, `nuse`)."),
+})
+
+
+# lane F1-20: `memcpy(dst, src, n)` with both 8-aligned and the ranges disjoint
+# (`internshrstr`'s copy of the contents into the new object): X.n 1 = dst,
+# X.n 2 = src, X.n 3 = n (at most 64: the 64-byte blocks `0x8003b6e0` a stop);
+# the words (X.n 4 done of X.n 5), the tail's arithmetic `0x8003b69c` an end,
+# the bytes (X.n 4 done)
+MCP_OK = MM_RAM + mm_span("X.n 3") + ["n_hi : X.n 3 ≤ 64", "d_al : X.n 1 % 8 = 0", "s_al : X.n 2 % 8 = 0"]
+FNS.update({
+    "memcpy": dict(
+        mod="Memcpy", entry=0x8003b648,
+        row=abi_row({10: N((1, 1)), 11: N((2, 1)), 12: N((3, 1))}),
+        ok=MCP_OK, lb=MM_LB, res={1: (8, 0), 2: (8, 0)},
+        loops={
+            0x8003b688: dict(name="W", row={**frame_row(), 10: N((1, 1)), 11: N((2, 1)), 14: N((1, 1)),
+                                             13: N((2, 1), (4, 8)), 15: N((1, 1), (4, 8)),
+                                             12: N((1, 1), (5, 8)), 17: N((1, 1), (3, 1))},
+                             ok=MCP_OK + ["i_lt : X.n 4 < X.n 5", "w_le : 8 * X.n 5 ≤ X.n 3"],
+                             lb={**MM_LB, 5: 1}),
+            0x8003b6c8: dict(name="B", row={**frame_row(), 10: N((1, 1)), 11: N((2, 1), (4, 1)),
+                                             14: N((1, 1), (4, 1)), 17: N((1, 1), (3, 1))},
+                             ok=MCP_OK + ["i_lt : X.n 4 < X.n 3"], lb=MM_LB)},
+        doc="`memcpy(dst, src, n)` on 8-aligned disjoint ranges, `n ≤ 64`."),
+})
+
 
 def fn_main(names, check):
     sys.setrecursionlimit(20000)

@@ -363,6 +363,8 @@ structure StrtOff (m : Mem) (ls : LitPtrs) (rt : RtPtrs) : Prop where
   cands : ∀ c ∈ ls.cands, ∀ a, c.2 + tstringContentsOff ≤ a → a < c.2 + tstringContentsOff + 11 → ¬ TabW rt a
   smt : ∀ a, ls.smt ≤ a → a < ls.smt + 64 → ¬ TabW rt a
   node : ∀ a, ls.smtNode ≤ a → a < ls.smtNode + nodeSize * 2 ^ ls.smtLsz → ¬ TabW rt a
+  /-- the bucket array 8-aligned (`sd` of the new head) -/
+  hash_al : rt.strtHash % 8 = 0
 
 /-- **The reserved literals interned** in a memory `M` (lane F1-13), for some
 string table `rt` of `G(L) = g` and stack end `sl`. -/
