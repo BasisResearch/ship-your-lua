@@ -11,23 +11,25 @@ import Lua.Vm.LayoutPrint
 invariant) is proved in `Kit/CallPrint.lean` (`printCall_of`) from
 `luaD_precall`'s C path (`precall_reuse`, `precall_ext`), `luaD_poscall` with
 `C = 1` (`poscall_sum`) and the relation's region facts, over the named
-premises collected here (`CallOpen`: `tolInt`, `printFlt`, `printFn`,
-`allocOff`, lane F1-18) and the theorems it composes:
+premises collected here (`CallOpen`: `printFlt`, `printFn`; lane F1-23:
+`tolInt` proved, `tolInt_proved`) and the theorems it composes:
 
 * `PrintRel_Statement`: `luaB_print` on the C frame `luaD_precall` builds,
   stated over the regions it keeps (`PrintIn`/`PrintOut`): the line on the
   console, `stdout` set up and flushed, the bytes `G` the caller needs kept,
-  the interned literals again. Proved (`CallOpen.print`, `Kit/PrintRel.lean`,
+  the interned literals again. Proved (`CallOpen.print`, `Kit/TolIntProof.lean`,
   lane F1-15) from `print_sum` (lane F1-11) with `luaL_tolstring` per value
   class: nil/booleans over `pushLit_proved`, strings `TolStr_Statement`
   (`tolStr_proved`, lane F1-17), and `_malloc_r` (`AllocProof.mallocR_proved`,
   lane F1-A0-M); the allocating classes split by value class (lane F1-18):
   integers per argument over `print_sum`'s per-argument budget
-  (`TolInt_Statement`, field `tolInt`; `PrSt.room`/`strt`/`safe`), lists
-  with a float (`PrintFlt_Statement`) or a function (`PrintFn_Statement`);
-  lane F1-19: each true as stated, the relation's `CallInvAt.alloc` carrying
-  what they need (the string table safe, `_dtoa_r`'s bignums apart), and the
-  table's growth (`luaS_resize`) beyond `HeapBudget` (A8);
+  (`TolInt_Statement`, `tolInt_proved`, lane F1-23; `PrSt.room`/`strt`/`safe`),
+  lists with a float (`PrintFlt_Statement`) or a function (`PrintFn_Statement`);
+  lane F1-19: the relation's `CallInvAt.alloc` carrying what they need (the
+  string table safe, `_dtoa_r`'s bignums apart), and the table's growth
+  (`luaS_resize`) beyond `HeapBudget` (A8); lane F1-23: `PrintIn`'s dirty set
+  bounded (`dirty_in`, `dirty_g`), `g->strt`'s words in the literals' footprint
+  (`LitsFoot.tab`), the table's strings off it (`StrtSafeIn`'s `W`);
 * `ExtendCI_Statement`: `luaE_extendCI` (`ci->next` NULL at the first
   `print`), `extendCI_proved`;
 * `PoscallN_Statement`: `luaD_poscall` with `C ≥ 2` (`wanted ≥ 1` nils);
@@ -344,7 +346,12 @@ from the string table, `PrintIn.gc`/`alloc` keep the new string's writes
 (`g->allgc`, the bucket's head) off `G`, `PrBudget` has room for every
 allocation (`argCost`: sixteen `_malloc_r` per float; the Sail trace of lane
 F1-19 sees at most four, the first `%.14g` of a run) and no `luaS_resize`, and
-`PrintIn.stat` pins the static words `snprintf` and `localeconv` read. -/
+`PrintIn.stat` pins the static words `snprintf` and `localeconv` read. Lane
+F1-20 found it false (a created string's header joins the literals'
+footprint, `frozen_lits_head_tt`, and `D` was unbounded); lane F1-23 bounded
+`D` (`PrintIn.dirty_in`/`dirty_g`, `LitsFoot.tab`) and kept the table's strings
+off it (`StrtSafeIn`'s `W`), the steps `tolInt_proved` takes for a created
+(`TiNew.ins`) or found (`prIntHit`) string. -/
 def PrintFlt_Statement : Prop := PrintRelOn (HasClass IsFlt)
 
 /-- **Named premise: `luaB_print` when an argument is a function** (lane
@@ -354,7 +361,9 @@ F1-18): `luaL_tolstring`'s `luaL_getmetafield(L, idx, "__name")` →
 (`lua_pointer2str` = `snprintf(buf, 44, "%p")`) → `luaS_newlstr` of
 `"function: 0x80022f18"` (`binaryHost`). **True as stated** (lane F1-19):
 `PrintIn.mt_fn` pins the slot NULL (the relation's frozen `LuaStatic.mt_fn`,
-boot-checked), and the new string's writes are apart as for floats. -/
+boot-checked), and the new string's writes are apart as for floats. Lane
+F1-20 found it false for the same reason as `PrintFlt_Statement`; lane F1-23's
+bound on `D` applies to it alike. -/
 def PrintFn_Statement : Prop := PrintRelOn (HasClass IsFn)
 
 /-! ## `luaB_print`'s Lua state (lane F1-15) -/
@@ -446,7 +455,8 @@ library's metatable) → `luaL_getmetafield` → `lua_pushstring("__tostring")`
 the argument's short or long string. -/
 def TolStr_Statement : Prop := TolArg IsStr
 
-/-- **Named premise: `luaL_tolstring` on an integer argument** (lane F1-18,
+/-- **`luaL_tolstring` on an integer argument** (lane F1-18; proved, lane
+F1-23: `tolInt_proved`, `Kit/TolIntProof.lean`;
 the integer class of lane F1-15's `PrintAlloc_Statement`, per argument):
 `luaL_callmeta(L, idx, "__tostring")` (no metatable for numbers),
 `lua_isinteger`, `lua_tointegerx`, `lua_pushfstring(L, "%I", i)` →

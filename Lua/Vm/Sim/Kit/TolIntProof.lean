@@ -796,11 +796,6 @@ theorem TiNew.insOk (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 
   have hSS : StrtSafe (fillZeroMem m) rt0 (Kept H ph) (fun a => PrX L nci g func n sl G a ∨ B a)
       (fun a => B a ∨ D a) := h.hS.safe.self rt0 h.hL
   have hsz := hS0.size_pos
-  -- the bucket array apart from `g`
-  obtain ⟨s', hs'⟩ : ∃ s', rt0.strtSize = s' + 1 := ⟨rt0.strtSize - 1, by omega⟩
-  have a0 := (hSS.hash rt0.strtHash (Nat.le_refl _) (by omega)).2.1
-  have a1 := (hSS.hash (rt0.strtHash + 8 * s' + 7) (by omega) (by omega)).2.1
-  simp only [PrX, Rng, gEnd, gStrcacheOff, strcacheN, strcacheM, not_or, not_and, Nat.not_lt] at a0 a1
   have hpos := prAllocs_int_pos h.hi1 h.hv
   obtain ⟨-, -, hst⟩ := h.hS.strt_lt h.hL hpos
   refine {
@@ -1115,7 +1110,7 @@ theorem TiNew.st (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0
   obtain ⟨e1, e2, hst⟩ := h.hS.strt_lt h.hL hpos
   have hc := prCost_int h.hi1 h.hv
   have ha := prAllocs_succ h.hi1 h.hv
-  simp only [argCost, show (0 : Nat) < 16384 + 4096 + 128 from by decide, if_true] at ha
+  simp only [argCost, show (0 : Nat) < 16384 + 4096 + 128 from by decide, ite_true] at ha
   have hsz := h.hL.size_hi
   have hNO := h.obj
   have eN : strtNuse (tiM M sp0 x) g = rt0.strtNuse + 1 := by
