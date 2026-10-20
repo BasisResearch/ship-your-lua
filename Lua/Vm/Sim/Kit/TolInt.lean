@@ -95,12 +95,13 @@ theorem PfStr.stack {m0 M3 : Mem} {F : Nat → Prop} {g : Nat} {b : List UInt8} 
   FCx.mk' [sp, L, i, lenp, nci, func, top, g]
     [r, f.s0, f.s1, f.s2, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11, v] m o
 
-/-- **What `luaL_tolstring` needs on an integer argument**: the frame (room for
+/-- **What `luaL_tolstring` needs on an argument of tag `tag` and payload
+`w`** (lane F1-20; over the tag, lane F1-24): the frame (room for
 `lua_pushfstring`'s below it), `L`, `L->ci`, `func`, `L->top`, `G(L)` and
-where they lie, the argument's slot (`LUA_VNUMINT`, the integer `v`), no
-metatable for numbers, `.rodata`, `snprintf`'s static words, the collector
-stopped. -/
-structure TolIIn (m : Mem) (sp L i lenp nci func top g : Nat) (v r : BitVec 64) : Prop where
+where they lie, the argument's slot, no metatable for its type (the word
+`g + mto`), `.rodata`, `snprintf`'s static words, the collector stopped. -/
+structure TolVIn (m : Mem) (sp L i lenp nci func top g : Nat) (tag : BitVec 8) (mto : Nat) (w r : BitVec 64) :
+    Prop where
   sp_lo : 0x87800000 + 16384 + 8192 + 48 ≤ sp
   sp_hi : sp ≤ 2 ^ 32
   sp_al : sp % 16 = 0
@@ -130,12 +131,17 @@ structure TolIIn (m : Mem) (sp L i lenp nci func top g : Nat) (v r : BitVec 64) 
   func_w : bytesT8 m nci = BitVec.ofNat 64 func
   top_w : bytesT8 m (L + 16) = BitVec.ofNat 64 top
   g_w : bytesT8 m (L + 24) = BitVec.ofNat 64 g
-  tag_w : bytesT1 m (16 * i + func + 8) = 0x3#8
-  val_w : bytesT8 m (16 * i + func) = v
-  mt_w : bytesT8 m (g + 504) = 0x0#64
+  tag_w : bytesT1 m (16 * i + func + 8) = tag
+  val_w : bytesT8 m (16 * i + func) = w
+  mt_w : bytesT8 m (g + mto) = 0x0#64
   rod : RodataRead m
   stat : FmtStatic m
   gcstp : bytesT1 m (g + gGcstpOff) = 0x1#8
+
+/-- **What `luaL_tolstring` needs on an integer argument** (`LUA_VNUMINT`,
+the integer `v`, `G(L)->mt[LUA_TNUMBER]`). -/
+abbrev TolIIn (m : Mem) (sp L i lenp nci func top g : Nat) (v r : BitVec 64) : Prop :=
+  TolVIn m sp L i lenp nci func top g 0x3#8 504 v r
 
 /-- `luaL_tolstring`'s and its callees' frames: `[sp - 8240, sp)` (stated additively: `omega` on
 nested truncated subtractions of large constants runs past the recursion limit). -/
@@ -154,8 +160,8 @@ abbrev tiFr (L i lenp : Nat) (f : AbiFrame) : AbiFrame :=
     f.s10, f.s11⟩
 
 set_option hygiene false in
-/-- `TolIIn`'s numbers in context. -/
-local macro "ti_in" hx:ident : tactic => `(tactic| (
+/-- `TolVIn`'s numbers in context. -/
+macro "ti_in" hx:ident : tactic => `(tactic| (
   have := ($hx).sp_lo; have := ($hx).sp_hi; have := ($hx).sp_al; have := ($hx).ra; have := ($hx).L_lo
   have := ($hx).L_al; have := ($hx).L_he; have := ($hx).i_lo; have := ($hx).i_hi; have := ($hx).l_lo
   have := ($hx).l_hi; have := ($hx).l_al; have := ($hx).ci_lo; have := ($hx).ci_he; have := ($hx).f_lo

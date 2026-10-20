@@ -726,7 +726,7 @@ theorem tolLit_in {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
   have hga := hIn.g_al
   have kG : ∀ a, Rng (L + stateGOff) 8 a → bytesT1 m a = bytesT1 M0 a := fun a h => hS.keep a (.inr (.inr (.inr
     (.inr (.inr (.inl h))))))
-  have kMt : ∀ a, Rng (g + gMtOff) 32 a → bytesT1 m a = bytesT1 M0 a := fun a h => hS.keep a (.inr (.inr (.inr
+  have kMt : ∀ a, Rng (g + gMtOff) 56 a → bytesT1 m a = bytesT1 M0 a := fun a h => hS.keep a (.inr (.inr (.inr
     (.inr (.inl h)))))
   have hapi := hS.api
   refine ⟨?_, ⟨hapi.ci_w, hapi.func_w, hapi.top_w, ?_, ?_, ?_⟩, ⟨hS.lits.facts, fun a ha => (hS.lits.kept a ha).hi,
@@ -886,9 +886,9 @@ theorem int_ascii (x : Int) : ∀ c ∈ (toString x).toList, c.toNat < 256 := by
     · simp at hc; subst hc; decide
     · exact toDigits_ascii _ c hc
 
-/-- The characters of a value that is no float and no function are bytes
-(lane F1-18: integers too). -/
-theorem show_ascii (v : Value) (hf : ¬ IsFlt v) (hn : ¬ IsFn v) :
+/-- The characters of a value that is no float are bytes (lane F1-18:
+integers too; lane F1-24: `print`'s `"function: 0x80022f18"`). -/
+theorem show_ascii (v : Value) (hf : ¬ IsFlt v) :
     ∀ c ∈ (Value.show binaryHost v).toList, c.toNat < 256 := by
   intro c hc
   cases v with
@@ -906,7 +906,9 @@ theorem show_ascii (v : Value) (hf : ¬ IsFlt v) (hn : ¬ IsFn v) :
     omega
   | int i => exact int_ascii _ c hc
   | flt _ _ => exact absurd trivial hf
-  | builtin _ => exact absurd trivial hn
+  | builtin bf =>
+    cases bf
+    exact (by decide : ∀ c ∈ (Value.show binaryHost (.builtin .print)).toList, c.toNat < 256) c hc
 
 /-- The characters of a value whose characters are bytes. -/
 theorem argBytes_chars (v : Value) (h : ∀ c ∈ (Value.show binaryHost v).toList, c.toNat < 256) :
@@ -919,8 +921,8 @@ theorem argBytes_chars (v : Value) (h : ∀ c ∈ (Value.show binaryHost v).toLi
   intro c hc
   exact key c (h c hc)
 
-/-- **The console's line** from `luaB_print`'s bytes (no float, no function). -/
-theorem prLine_chars (args : List Value) (hna : ∀ v ∈ args, ¬ IsFlt v ∧ ¬ IsFn v) :
+/-- **The console's line** from `luaB_print`'s bytes (no float). -/
+theorem prLine_chars (args : List Value) (hna : ∀ v ∈ args, ¬ IsFlt v) :
     charsOf (prLine (fun i => argBytes (args.getD (i - 1) .nil)) args.length ++ [0x0a#8]) =
       printLine binaryHost args := by
   have h : ∀ i (hi : i < (args.map fun v => (Value.show binaryHost v).toList).length),
@@ -931,8 +933,7 @@ theorem prLine_chars (args : List Value) (hna : ∀ v ∈ args, ¬ IsFlt v ∧ �
     show List.map chr (argBytes (args.getD (i + 1 - 1) .nil)) = _
     rw [Nat.add_sub_cancel, List.getElem_map, List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hi,
       Option.getD_some]
-    have hm := hna _ (List.getElem_mem hi)
-    exact argBytes_chars _ (show_ascii _ hm.1 hm.2)
+    exact argBytes_chars _ (show_ascii _ (hna _ (List.getElem_mem hi)))
   have hl := prLine_map (fun i => argBytes (args.getD (i - 1) .nil))
     (args.map fun v => (Value.show binaryHost v).toList) h args.length (by simp)
   rw [List.take_of_length_le (by simp)] at hl
@@ -952,20 +953,18 @@ theorem printAllocOff_proved : PrintAllocOff_Statement := by
   exact absurd (hbud hQ.1).strt (Nat.not_le.mpr hQ.2.2)
 
 /-- **`luaB_print` on the C frame from its parts** (lane F1-15; split by value
-class, lane F1-18): a list with a float by `PrintFlt_Statement`, with a
-function by `PrintFn_Statement`; otherwise `print_sum` over `PrSt'`
-(`printLua_st`, the per-argument budget from `PrBudget`, lane F1-19 the
-string table's safety and `_dtoa_r`'s bignums from `PrintIn.alloc`),
-`luaL_tolstring` per argument by `tolLit_proved` (nil, booleans),
-`TolStr_Statement` (strings) and `TolInt_Statement` (integers). -/
+class, lane F1-18; functions per argument, lane F1-24): a list with a float
+by `PrintFlt_Statement`; otherwise `print_sum` over `PrSt'` (`printLua_st`,
+the per-argument budget from `PrBudget`, lane F1-19 the string table's safety
+and `_dtoa_r`'s bignums from `PrintIn.alloc`), `luaL_tolstring` per argument
+by `tolLit_proved` (nil, booleans), `TolStr_Statement` (strings),
+`TolInt_Statement` (integers) and `TolFn_Statement` (`print`). -/
 theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : TolStr_Statement)
-    (hTI : TolInt_Statement) (hFl : PrintFlt_Statement) (hFn : PrintFn_Statement) : PrintRel_Statement := by
+    (hTI : TolInt_Statement) (hTF : TolFn_Statement) (hFl : PrintFlt_Statement) : PrintRel_Statement := by
   intro sp L nci func n tbc sl g ls args ι D G ph H f M o _ hIn hn hbud
   by_cases hfl : HasClass IsFlt args
   · exact hFl sp L nci func n tbc sl g ls args ι D G ph H f M o hfl hIn hn hbud
-  by_cases hfn : HasClass IsFn args
-  · exact hFn sp L nci func n tbc sl g ls args ι D G ph H f M o hfn hIn hn hbud
-  have hna : ∀ v ∈ args, ¬ IsFlt v ∧ ¬ IsFn v := fun v hv => ⟨fun h => hfl ⟨v, hv, h⟩, fun h => hfn ⟨v, hv, h⟩⟩
+  have hna : ∀ v ∈ args, ¬ IsFlt v := fun v hv h => hfl ⟨v, hv, h⟩
   have hlen := hIn.len
   -- the state before the first argument
   obtain ⟨FL, B, hA⟩ := hIn.alloc
@@ -992,8 +991,8 @@ theorem printRel_of (hM : MallocR_Statement) (hPL : PushLit_Statement) (hTS : To
     | bool b => rw [hw] at hv; exact hTL _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
     | str s => rw [hw] at hv; exact hTS _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
     | int _ => rw [hw] at hv; exact hTI _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
-    | flt _ _ => rw [hw] at hnv; exact absurd trivial hnv.1
-    | builtin _ => rw [hw] at hnv; exact absurd trivial hnv.2
+    | flt _ _ => rw [hw] at hnv; exact absurd trivial hnv
+    | builtin _ => rw [hw] at hv; exact hTF _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hIn hn hv trivial hi1 hin _ _ _ _ _ _ hS hP hr
   intro c h
   obtain ⟨c', hs, m', out, hret, hend⟩ :=
     print_sum hM hL 0x8000ac8c#64 (pcFr L f) M o ph H hn.ok ⟨FL, B, hS0⟩ hIn.st c h

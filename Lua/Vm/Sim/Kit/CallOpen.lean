@@ -113,11 +113,11 @@ def ArgsAt (func : Nat) (ι : Strs) (args : List Value) (M : Mem) : Prop :=
 /-! ## What an allocating class must find apart (lane F1-19) -/
 
 /-- **The bytes `luaB_print`'s Lua state keeps from its entry memory**: `G`,
-the arguments' slots, `.rodata`, `g->gcstp`, `G(L)->mt[nil … number]`,
+the arguments' slots, `.rodata`, `g->gcstp`, `G(L)->mt[nil … function]` (lane F1-24: to `LUA_TFUNCTION`),
 `L->l_G`, `L->hookmask`. -/
 def PrKeep (L g func n : Nat) (G : Nat → Prop) (a : Nat) : Prop :=
   G a ∨ ArgSlot func n a ∨ (Image.rodataBase ≤ a ∧ a < Image.rodataBase + Image.rodataSize) ∨
-    Rng (g + gGcstpOff) 1 a ∨ Rng (g + gMtOff) 32 a ∨ Rng (L + stateGOff) 8 a ∨ Rng (L + stateHookmaskOff) 4 a
+    Rng (g + gGcstpOff) 1 a ∨ Rng (g + gMtOff) 56 a ∨ Rng (L + stateGOff) 8 a ∨ Rng (L + stateHookmaskOff) 4 a
 
 /-- (lane F1-19) **What `luaB_print`'s caller and its objects hold**
 (`StrtSafe`'s `X`): what the state keeps (`PrKeep`), the `lua_State`, `g` up
@@ -474,6 +474,16 @@ words); `_dtoa_r`'s bignums (`PrSt.big`) it does not touch (lane F1-19: the
 Sail trace of an integer's `luaL_tolstring` reads none of `_REENT`'s words). -/
 def TolInt_Statement : Prop := TolArg IsInt
 
+/-- **`luaL_tolstring` on a function argument** (lane F1-24; proved:
+`tolFn_proved`, `Kit/TolFnProof.lean`): F1's one function `print`, a light C
+function: `luaL_callmeta(L, idx, "__tostring")` (`G(L)->mt[LUA_TFUNCTION]`
+NULL, `PrintIn.mt_fn`, kept by `PrKeep`), `lua_type`, `lua_typename`,
+`lua_topointer`, `lua_pushfstring(L, "%s: %p", "function", print)` →
+`luaO_pushvfstring` (`strchr`, `addstr2buff`, `snprintf(buf, 32, "%p")`,
+`luaS_newlstr` of `"function: 0x80022f18"`: found or created as an integer's
+digits), `luaC_checkGC`, the tail `lua_tolstring(L, -1, &l)`. -/
+def TolFn_Statement : Prop := TolArg IsFn
+
 /-- **`luaB_print` on an allocating argument list off the per-argument
 route** (lane F1-18; lane F1-19 restated): integers (no float, no function)
 whose new strings do not fit in `g->strt` (`luaS_resize` → `luaM_reallocvector`
@@ -633,12 +643,12 @@ found `tolInt`, `printFlt`, `printFn` false as stated (`PrintIn`'s dirty set
 unbounded, `frozen_lits_head_tt`); lane F1-23 bounded it (`PrintIn.dirty_in`,
 `dirty_g`, `LitsFoot.tab`, the table's strings apart from what a `CALL`
 writes) and proved `tolInt` (`tolInt_proved`, `Kit/TolIntProof.lean`), so the
-field is gone. -/
+field is gone. Lane F1-24 routed functions per argument (`TolFn_Statement`,
+proved: `tolFn_proved`, `Kit/TolFnProof.lean`), so `printFn` is gone too
+(`PrintFn_Statement` follows from `printFlt`: `printFn_of_flt`). -/
 structure CallOpen : Prop where
   /-- (lane F1-18) `luaB_print` when an argument is a float -/
   printFlt : PrintFlt_Statement
-  /-- (lane F1-18) `luaB_print` when an argument is a function -/
-  printFn : PrintFn_Statement
 
 /-- **`luaD_precall` never grows the stack for `print`** (lane F1-14): the
 `CALL` invariant keeps `LUA_MINSTACK` slots above the frame (`growFree`, from
