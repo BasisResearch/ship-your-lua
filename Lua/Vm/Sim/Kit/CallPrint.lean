@@ -77,7 +77,7 @@ structure JoinIn (p : Proto) (c : Config) (w : RelPtrs) (ins : Word) (ph : Stdou
   `_REENT`'s words, kept from the complement -/
   keepK : ∀ a, (Kept w.rt.hix ph a ∧ ¬ CallX0 w F a) ∨ ReentWord a → bytesT1 MJ a = bytesT1 w.mo a
   /-- (lane F1-19) the C `CallInfo`'s bytes in the head's chunks in use are the caller's -/
-  nci_x : ∀ a, nci ≤ a → a < nci + ciSize → Kept w.rt.hix ph a → CallX0 w F a
+  nci_x : ∀ a, nci ≤ a → a < nci + ciSize → Kept w.rt.hix ph a → NciAt w a
   /-- (lane F1-19) `g->strt`'s count and size kept -/
   strt_w : ∀ j, j < 8 → bytesT1 MJ (w.rt.g + gStrtNuseOff + j) = bytesT1 w.mo (w.rt.g + gStrtNuseOff + j)
 
@@ -443,11 +443,12 @@ theorem call_lits {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word
     hJ.cache.congr fun a h1 h2 => callMC_keep fun hw => by
       simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at h1 h2
       simp only [PcW, Rng, ciSize, stateCiOff, Apart, gEnd, gStrcacheOff, strcacheN, strcacheM] at hw hng hLg
-      omega⟩
-  rcases hw with hw | hw | hw
-  · exact (hJ.nci_kept a hw.1 hw.2).2.2 ha
-  · exact hI.lits_apart a ha (.inr (.inl (by simp only [Rng] at hw; exact hw)))
-  · have := (hI.lits_in a ha).hi; simp only [Rng] at hw; omega
+      omega, TabFoot.trans hI.tab_fl fun a ha => (callMC_keep fun hw => ?_).trans (hJ.fl_w a ha)⟩
+  all_goals
+    rcases hw with hw | hw | hw
+    · exact (hJ.nci_kept a hw.1 hw.2).2.2 ha
+    · exact hI.lits_apart a ha (.inr (.inl (by simp only [Rng] at hw; exact hw)))
+    · have := (hI.lits_in a ha).hi; simp only [Rng] at hw; omega
 
 /-- (lane F1-15) **Where `luaB_print`'s Lua objects lie, apart**, at the join. -/
 theorem call_objs {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {args : List Value}
@@ -540,7 +541,7 @@ theorem call_x {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {
   rcases hx with ((hF | hci | hn | hsl | hat) | hA | hro | hgc | hmt | hlg | hhk) | hL | hg | hs | hn | hlo
   · exact .inl hF
   · exact .inr (.inr (.inr (.inl hci)))
-  · exact hJ.nci_x a hn.1 hn.2 hk
+  · exact .inr (.inr (.inr (.inr (.inr (.inl (hJ.nci_x a hn.1 hn.2 hk))))))
   · exact .inr (.inr (.inr (.inr (.inl ⟨by rw [← hbase]; exact hsl.1, by omega⟩))))
   · simp only [Rng, symAtexit] at hat; omega
   · simp only [ArgSlot] at hA
@@ -557,7 +558,7 @@ theorem call_x {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word} {
   · exact .inr (.inl hL)
   · exact .inr (.inr (.inl hg))
   · exact .inr (.inr (.inr (.inr (.inl ⟨by omega, hs.2⟩))))
-  · exact hJ.nci_x a hn.1 hn.2 hk
+  · exact .inr (.inr (.inr (.inr (.inr (.inl (hJ.nci_x a hn.1 hn.2 hk))))))
   · exact .inr (.inr (.inr (.inr (.inr (.inr hlo)))))
 
 /-- (lane F1-19) **What an allocating class needs at the join** (`PrintIn.alloc`):
@@ -586,14 +587,15 @@ theorem call_alloc {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
     · have hk := hA.big_in a hb
       refine (callMC_keep fun hw => ?_).trans (hJ.keepK a (.inl ⟨hk, hA.big_x a hb⟩))
       rcases hw with hw | hw | hw
-      · exact hA.big_x a hb (hJ.nci_x a hw.1 hw.2 hk)
+      · exact hA.big_x a hb (.inr (.inr (.inr (.inr (.inr (.inl (hJ.nci_x a hw.1 hw.2 hk)))))))
       · exact hA.big_x a hb (.inr (.inl (by simp only [Rng, stateCiOff, stateSize] at hw ⊢; omega)))
       · have := hk.hi; simp only [Rng] at hw; omega
     · refine (callMC_keep fun hw => ?_).trans (hJ.keepK a (.inr hr'))
       simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hr'
       simp only [PcW, Rng, ciSize, stateCiOff] at hw; omega
   exact .intro FL B ⟨hl, (hA.strt.trans kFL).conseq fun M hM rt hrt => (hM rt hrt).weaken
-      (fun _ h => kmono h) (fun a hk hx' => hx'.imp (hx a hk) id) fun _ _ h => h,
+      (fun _ h => kmono h) (fun a hk hx' => hx'.imp (hx a hk) id)
+      fun a hk hw => hw.imp id fun hw => hw.elim .inl fun hn => .inr (hJ.nci_x a hn.1 hn.2 hk),
     hA.big.trans kB, ⟨fun a hb => kmono (hA.big_in a hb), fun a hb hp => hA.big_x a hb (hx a (hA.big_in a hb) hp),
       hA.big_lit⟩, hA.big_fl⟩
 
@@ -695,7 +697,24 @@ theorem call_printIn {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : W
           rw [← bytesT1_fill]; simp only [bytesT1, SF.rodata o ho, Option.getD_some]⟩
       mt_fn := by
         have SF := hI.stat _ (call_footMC cx hI hJ)
-        exact bT8_of_fill (bytesT8_of_rd64 SF.lua.mt_fn) }
+        exact bT8_of_fill (bytesT8_of_rd64 SF.lua.mt_fn)
+      dirty_in := fun a ha => by
+        simp only [CallD, CallLitDirty, stateTopOff, stateCiOff, stateNciOff, gGCdebtOff, gTotalbytesOff] at ha
+        rcases ha with (h | h | h | h | h | h | h | h) | h
+        · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
+        · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
+        · exact kmono (hI.ci_in a h.1 h.2)
+        · exact kmono (hI.stack_in a h.1 h.2)
+        · exact kmono (hI.L_in a (by omega) (by simp only [stateSize]; omega))
+        · exact kmono (hI.g_in a (by omega) (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega))
+        · exact kmono (hI.g_in a (by omega) (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega))
+        · exact kmono (hI.g_in a (by have := h.1; simp only [gStrcacheOff] at this; omega) h.2)
+        · exact (hJ.nci_kept a h.1 h.2).1
+      dirty_g := fun a ha hg => by
+        simp only [InsG, Rng, gCurrentwhiteOff, gAllgcOff] at hg
+        simp only [CallD, CallLitDirty, stateTopOff, stateCiOff, stateNciOff, gGCdebtOff, gTotalbytesOff,
+          gStrcacheOff, gEnd, strcacheN, strcacheM, ciSize] at ha
+        omega }
 
 /-- **The C function at the join** (`PcC`): `luaB_print` (`PrintRel_Statement`)
 from the memory `luaD_precall` builds, its entry (`call_printIn`) from the
@@ -947,21 +966,21 @@ theorem close_lits {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
       FL' m'' := by
   call_nums
   have hHE : heapEnd = 0x87800000 := rfl
-  refine ⟨hl.facts.trans fun a ha => ?_, hl.kept, hl.apart, hl.strs, hl.marks,
-    hl.cache.congr fun a h1 h2 => hK.pos a ?_ ?_ ?_ ?_⟩
-  rotate_left
+  have kFL : ∀ a, FL' a → bytesT1 m'' a = bytesT1 m' a := by
+    intro a ha
+    have hk := hl.kept a ha
+    have hd := hl.apart a ha
+    simp only [CallD, CallLitDirty, not_or, stateTopOff, stateCiOff] at hd
+    obtain ⟨⟨d1, d2, -, d4, -⟩, -⟩ := hd
+    have := hk.hi
+    clear hLci hLg hcig hgst hcist hLsl hnL hng hnci hnst
+    exact hK.pos a (by omega) (by omega) (by omega) (by omega)
+  refine hl.trans kFL (hl.cache.congr fun a h1 h2 => hK.pos a ?_ ?_ ?_ ?_)
   · simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at h1 h2; omega
   · simp only [Apart, stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at hLg h2; omega
   · simp only [Apart, stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at hLg h2; omega
   · simp only [Apart, gEnd, gStrcacheOff, strcacheN, strcacheM] at hgst h2
     simp only [RelPtrs.slot, RelPtrs.base, stackValueSize] at hslot ⊢; omega
-  have hk := hl.kept a ha
-  have hd := hl.apart a ha
-  simp only [CallD, CallLitDirty, not_or, stateTopOff, stateCiOff] at hd
-  obtain ⟨⟨d1, d2, -, d4, -⟩, -⟩ := hd
-  have := hk.hi
-  clear hLci hLg hcig hgst hcist hLsl hnL hng hnci hnst
-  exact hK.pos a (by omega) (by omega) (by omega) (by omega)
 
 /-- The frozen objects after the call. -/
 theorem close_foot {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
@@ -1373,7 +1392,7 @@ theorem join_reuse {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Wor
       lits := hI.lits.trans fW
       fl_w := fW
       keepK := kX
-      nci_x := fun a h1 h2 _ => .inr (.inr (.inr (.inr (.inr (.inl ⟨nci, hnext, h0, h1, h2⟩)))))
+      nci_x := fun a h1 h2 _ => ⟨nci, hnext, h0, h1, h2⟩
       strt_w := sW
       cache := hI.cache.congr fun a h1 h2 => ?_
       next := ?_

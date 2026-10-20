@@ -401,11 +401,28 @@ theorem strt_boot {m0 m : Mem} {L ci func pa code k sp : Nat} {p : Proto} {e : E
       StrtSafe (Vsa.Densify.fillZeroMem M) rt' (Kit.Kept rt.hix .boot)
         (fun a => CallX0 ⟨L, ci, func, pa, code, k, sp, m, ι, rt⟩
           (fun a => InRanges e.foot a ∨ (Image.rodataBase ≤ a ∧ a < Image.rodataBase + Image.rodataSize)) a ∨ False)
-        fun _ => False) m := fun M hM rt' hL => by
+        fun a => False ∨ CallLitDirty ⟨L, ci, func, pa, code, k, sp, m, ι, rt⟩ a ∨
+          NciAt ⟨L, ci, func, pa, code, k, sp, m, ι, rt⟩ a) m := fun M hM rt' hL => by
   have h := hE.strt_safe rt.top rt.chunks hheap.top_ptr hheap.walk (Vsa.Densify.fillZeroMem M) (hPL M hM) rt'
     (by rw [heg, hesl]; exact hL.to_fill)
   rw [fill_fill] at h
-  refine h.weaken (fun a ha => ⟨ha.inuse, ha.lo, ha.hi, fun hb => hb⟩) (fun a _ hx => ?_) fun _ _ h => h
+  -- (lane F1-23) what a `CALL` writes in the Lua objects is in `EntryW`'s places
+  have hW : ∀ a, HeapIn rt.chunks a → (False ∨ CallLitDirty ⟨L, ci, func, pa, code, k, sp, m, ι, rt⟩ a ∨
+      NciAt ⟨L, ci, func, pa, code, k, sp, m, ι, rt⟩ a) → EntryW L ci e a := by
+    intro a _ hw
+    rcases hw with hf | hd | ⟨n, hn, h0, -⟩
+    · exact hf.elim
+    · simp only [CallLitDirty, stateTopOff, stateCiOff, stateNciOff, gGCdebtOff, gTotalbytesOff] at hd
+      simp only [EntryW, stateSize, ciSize, gEnd, gStrcacheOff, strcacheN, strcacheM]
+      rw [heg, hesl]
+      rcases hd with h | h | h | h | h | h | h | h
+      all_goals first
+        | exact .inl ⟨by omega, by omega⟩
+        | exact .inr (.inl ⟨by omega, by (try simp only [gStrcacheOff, gEnd, strcacheN, strcacheM] at h); omega⟩)
+        | exact .inr (.inr (.inl h))
+        | exact .inr (.inr (.inr ⟨by omega, h.2⟩))
+    · exact absurd (Option.some.inj (hnext.symm.trans hn)).symm h0
+  refine h.weaken (fun a ha => ⟨ha.inuse, ha.lo, ha.hi, fun hb => hb⟩) (fun a _ hx => ?_) hW
   have : Image.rodataBase = 0x8004ecc8 := rfl
   have : Image.rodataSize = 55776 := rfl
   have : DlHeap.heapStart = 0x8006ecd0 := rfl
@@ -601,7 +618,9 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
       objs := ?_
       alloc := .intro (fun _ => False)
         ⟨strt_boot hE hheap heg hesl hfunc hnext hPL, reent_boot hE hm0 hRam, fun _ h => h.elim,
-          fun _ h => h.elim, fun _ h => h.elim, fun _ _ _ _ _ h => h⟩ }
+          fun _ h => h.elim, fun _ h => h.elim, fun _ _ _ _ _ h => h⟩
+      tab_fl := fun a ha => TabFoot.trans (m := m0) (m' := m) (F := InRanges e.litFoot) hE.lits_tab
+        (fun a ha => by simp only [bytesT1, hLm a ha]) a (by rw [heg]; exact ha) }
   · exact hS.congr fun a ha => hlow a (by simp only [Kit.StdioGlob] at ha; omega)
       (by simp only [Kit.StdioGlob] at ha; omega)
   · exact hFs.congr fun a ha => hlow a (by simp only [Kit.StdioGlob] at ha; omega)

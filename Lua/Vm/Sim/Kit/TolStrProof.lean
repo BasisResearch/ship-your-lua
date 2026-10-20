@@ -269,7 +269,7 @@ theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
     · exact hd a (hIn.dirty a (.inr (.inr (.inl (by simp only [Rng, gTotalbytesOff]; omega))))) ha
     · exact hd a (hIn.dirty a (.inr (.inr (.inr (.inl (by simp only [Rng, gGCdebtOff]; omega)))))) ha
   have hl' : LitsFoot g sl ls H ph D FL m' :=
-    ⟨hl.facts.trans kFL, hl.kept, hl.apart, hl.strs, hl.marks, hT.cache⟩
+    hl.trans kFL hT.cache
   -- (lane F1-18) `g->strt`'s words are off them
   have kT := hT.strt (by homega) (by omega) (by simp only [stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at p10; omega)
     (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at p12; have := hp.room; omega)

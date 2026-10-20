@@ -65,6 +65,22 @@ structure LitsFoot (g sl : Nat) (ls : LitPtrs) (H : HeapIx) (ph : StdoutPh) (D F
   marks : ∀ ts ∈ ls.strs, ¬ FL (ts + gcMarkedOff)
   /-- (lane F1-15) the string cache holds candidates -/
   cache : LitCache m g ls
+  /-- (lane F1-23) `g->strt`'s header and bucket array in `FL` (`TabFoot`), so
+  apart from `D`: a new string's insertion writes them -/
+  tab : ∀ a, TabFoot m g a → FL a
+
+/-- (lane F1-23) **The literals across a change that keeps their footprint**
+and the string cache's candidates. -/
+theorem LitsFoot.trans {g sl : Nat} {ls : LitPtrs} {H : HeapIx} {ph : StdoutPh} {D FL : Nat → Prop} {m m' : Mem}
+    (h : LitsFoot g sl ls H ph D FL m) (hk : ∀ a, FL a → bytesT1 m' a = bytesT1 m a) (hc : LitCache m' g ls) :
+    LitsFoot g sl ls H ph D FL m' :=
+  ⟨h.facts.trans hk, h.kept, h.apart, h.strs, h.marks, hc, TabFoot.trans h.tab hk⟩
+
+/-- (lane F1-23) **`g`'s words a new string's insertion makes part of the
+literals' footprint** besides `g->strt`'s (`TabFoot`, in it already):
+`g->currentwhite` (the new object's mark) and `g->allgc` (`luaC_newobj`'s
+link). -/
+def InsG (g a : Nat) : Prop := Rng (g + gCurrentwhiteOff) 1 a ∨ Rng (g + gAllgcOff) 8 a
 
 /-- `[a, a + n)` and `[b, b + k)` apart, the other way round. -/
 theorem _root_.Lua.Vm.Apart.symm {a n b k : Nat} (h : Apart a n b k) : Apart b k a n := Or.symm h
@@ -111,9 +127,11 @@ def PrX (L nci g func n sl : Nat) (G : Nat → Prop) (a : Nat) : Prop :=
 
 /-- **The string table of every reading of the literals' facts is safe**
 (`StrtSafe` with `X` what the caller holds and `_dtoa_r`'s bignums `B`, `W`
-the bignums). -/
-def StrtSafeIn (L nci g func n sl : Nat) (ls : LitPtrs) (G B K : Nat → Prop) (M : Mem) : Prop :=
-  ∀ rt, LitsIn M g sl ls rt → StrtSafe (fillZeroMem M) rt K (fun a => PrX L nci g func n sl G a ∨ B a) B
+the bignums and (lane F1-23) the dirty set `D`: a found string's bytes
+survive the push at `L->top`). -/
+def StrtSafeIn (L nci g func n sl : Nat) (ls : LitPtrs) (D G B K : Nat → Prop) (M : Mem) : Prop :=
+  ∀ rt, LitsIn M g sl ls rt → StrtSafe (fillZeroMem M) rt K (fun a => PrX L nci g func n sl G a ∨ B a)
+    (fun a => B a ∨ D a)
 
 /-- (lane F1-19) **The bytes `_dtoa_r`'s bignums' facts read**: the bignums
 `B`, `_REENT`'s words. -/
@@ -148,7 +166,7 @@ literals), the bignums (`ReentMp`, frozen on `BigFoot B`), where they lie
 structure PrAllocAt (L nci func n sl g : Nat) (ls : LitPtrs) (D G : Nat → Prop) (ph : StdoutPh) (H : HeapIx)
     (m : Mem) (FL B : Nat → Prop) : Prop where
   lits : LitsFoot g sl ls H ph D FL m
-  safe : Frozen FL (StrtSafeIn L nci g func n sl ls G B (Kept H ph)) m
+  safe : Frozen FL (StrtSafeIn L nci g func n sl ls D G B (Kept H ph)) m
   big : Frozen (BigFoot B) (fun M => ReentMp (fillZeroMem M) B) m
   bigIn : PrBigIn L nci g func n sl ls G B (Kept H ph)
   big_fl : ∀ a, B a → ¬ FL a
@@ -215,6 +233,14 @@ structure PrintIn (L nci func n tbc sl g : Nat) (ls : LitPtrs) (args : List Valu
   stat : AllocStatic M g
   /-- (lane F1-19) no metatable for functions -/
   mt_fn : bytesT8 M (g + gMtOff + 8 * luaTfunction) = 0#64
+  /-- (lane F1-23) **`D`'s upper bound, in the heap**: in chunks in use, so
+  off every block an allocation claims (a new string's object joins the
+  literals' footprint, `frozen_insert`, `frozen_lits_head_tt`) -/
+  dirty_in : ∀ a, D a → Kept H ph a
+  /-- (lane F1-23) **`D`'s upper bound, in `g`**: off `g->currentwhite` and
+  `g->allgc` (`InsG`), which a new string's insertion makes part of the
+  literals' footprint (`g->strt`'s words are in it already: `LitsFoot.tab`) -/
+  dirty_g : ∀ a, D a → ¬ InsG g a
 
 /-- (lane F1-19) **`stdout` and the heap after `luaB_print`**, at the buffer
 `buf` and the heap `H'`: set up and flushed, the chunks in use kept, the
@@ -364,7 +390,7 @@ structure PrSt (L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) 
   strt : 0 < prAllocs args i → strtNuse m g + prAllocs args i ≤ strtSize m g
   /-- (lane F1-18; unconditional, lane F1-19) the table's chains readable, in
   chunks in use, apart -/
-  safe : Frozen FL (StrtSafeIn L nci g func n sl ls G B (Kept H ph)) m
+  safe : Frozen FL (StrtSafeIn L nci g func n sl ls D G B (Kept H ph)) m
   /-- (lane F1-18) `g->allgc` (`luaC_newobj`'s link) off what the state keeps -/
   gc : 0 < prAllocs args i → ∀ a, Rng (g + gAllgcOff) 8 a → ¬ PrKeep L g func n G a
   /-- (lane F1-18) the static words an allocation and `snprintf` read -/

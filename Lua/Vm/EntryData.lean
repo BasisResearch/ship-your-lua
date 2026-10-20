@@ -340,6 +340,17 @@ def TabW (rt : RtPtrs) (a : Nat) : Prop :=
   (rt.strtHash ≤ a ∧ a < rt.strtHash + 8 * rt.strtSize) ∨
     (rt.g ≤ a ∧ a < rt.g + (gStrcacheOff + 8 * strcacheN * strcacheM))
 
+/-- (lane F1-23) **`g->strt`'s words, as a memory `m` reads them**: its header
+(`hash`, `nuse`, `size`) and the bucket array the header points to. A new
+string's insertion writes a bucket's word and `nuse` (`TabWr`), so the
+literals' footprint must hold them; the `CALL` invariant keeps them in it
+(`CallInvAt.tab_fl`, boot-checked: `VmEntryData.lits_tab`), and so apart
+from what a `CALL` writes. -/
+def TabFoot (m : Mem) (g a : Nat) : Prop :=
+  (g + gStrtHashOff ≤ a ∧ a < g + gStrtHashOff + 16) ∨
+    ((Vsa.Sim.bytesT8 m (g + gStrtHashOff)).toNat ≤ a ∧
+      a < (Vsa.Sim.bytesT8 m (g + gStrtHashOff)).toNat + 8 * (Vsa.Sim.bytesT4 m (g + gStrtSizeOff)).toNat)
+
 /-- (lane F1-20) **A chain's nodes apart from the table's words, and alive**:
 each node's object `[ts, ts + 24 + shrlen + 1)` off `T`, and, unless it is one
 of `lits`, not dead (`isdead`: `marked & (currentwhite ^ WHITEBITS)` zero for
@@ -610,6 +621,15 @@ def EntryX (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
   InRanges e.foot a ∨ (L ≤ a ∧ a < L + stateSize) ∨ (e.g ≤ a ∧ a < e.g + gEnd) ∨ (ci ≤ a ∧ a < ci + ciSize) ∨
     (e.func + 16 ≤ a ∧ a < e.stackLast) ∨ a < DlHeap.heapStart
 
+/-- (lane F1-23) **The Lua objects a `CALL print` writes in, at the boot's
+places** (`StrtSafe`'s `W`): the `lua_State`, `g` up to its string cache, the
+`CallInfo`, the Lua stack from `ci->func`. No string of the table lies there
+(`luaL_tolstring`'s push writes `L->top` and the stack's top slot after
+`internshrstr` finds a string, whose bytes `luaB_print` then writes). -/
+def EntryW (L ci : Nat) (e : EntryPtrs) (a : Nat) : Prop :=
+  (L ≤ a ∧ a < L + stateSize) ∨ (e.g ≤ a ∧ a < e.g + gEnd) ∨ (ci ≤ a ∧ a < ci + ciSize) ∨
+    (e.func ≤ a ∧ a < e.stackLast)
+
 /-- **The objects a `CALL print` writes are apart** (lane F1-13): `g` up to
 its string cache, the literals' objects, the `lua_State`, the `CallInfo` and
 the Lua stack above `ci->func`. -/
@@ -753,6 +773,9 @@ structure VmEntryData (m : Mem) (L ci : Nat) (p : Proto) (e : EntryPtrs) : Prop 
   with this one on `e.litFoot`, for the heap's chunk walk -/
   strt_safe : ∀ top cs, rd64 m DlHeap.topAddr = some top → DlHeap.ChunkWalk m DlHeap.heapStart top cs →
     ∀ M : Mem, (∀ a, InRanges e.litFoot a → M[a]? = m[a]?) → ∀ rt, LitsIn M e.g e.stackLast e.lits rt →
-    StrtSafe (fillZeroMem M) rt (HeapIn cs) (EntryX L ci e) (fun _ => False)
+    StrtSafe (fillZeroMem M) rt (HeapIn cs) (EntryX L ci e) (EntryW L ci e)
+  /-- (lane F1-23) **`g->strt`'s words in `e.litFoot`** (`TabFoot`): the
+  literals' check reads the header and every bucket through the footprint -/
+  lits_tab : ∀ a, TabFoot m e.g a → InRanges e.litFoot a
 
 end Lua.Vm

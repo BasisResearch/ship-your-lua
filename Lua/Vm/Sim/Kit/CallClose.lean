@@ -150,7 +150,8 @@ structure CloseIn (p : Proto) (c : Config) (w : RelPtrs) (ins : Word) (args : Li
   nci_lits : ∀ ts ∈ ls.strs, Apart nci ciSize ts 30
   /-- (lane F1-19) the string table safe, frozen with the literals -/
   safe : Frozen FL (fun M => ∀ rt, LitsIn M w.rt.g w.rt.stackLast ls rt →
-    StrtSafe (fillZeroMem M) rt (Kept H (.up buf [])) (fun a => CloseX w F nci a ∨ B a) B) m
+    StrtSafe (fillZeroMem M) rt (Kept H (.up buf [])) (fun a => CloseX w F nci a ∨ B a)
+      (fun a => B a ∨ CallLitDirty w a ∨ (nci ≤ a ∧ a < nci + ciSize))) m
   /-- (lane F1-19) `_dtoa_r`'s bignums, where they lie -/
   big : Frozen (BigFoot B) (fun M => ReentMp (fillZeroMem M) B) m
   big_in : ∀ a, B a → Kept H (.up buf []) a
@@ -290,9 +291,13 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
         hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack, hI.objs.L_stack⟩
       alloc := .intro B
         ⟨(h.safe.trans fun a _ => bytesT1_fill m a).conseq fun M hM rt hrt => (hM rt hrt).weaken (fun _ ha => keptH ha)
-            (fun a _ hx => hx.elim (fun hx => .inl (callX0_after hnext hx)) .inr) fun _ _ hb => hb,
+            (fun a _ hx => hx.elim (fun hx => .inl (callX0_after hnext hx)) .inr)
+            fun a _ hw => hw.imp id fun hw => hw.imp id fun ⟨n, hn, _, h1, h2⟩ => by
+              obtain rfl : n = nci := Option.some.inj (hn.symm.trans hnext)
+              exact ⟨h1, h2⟩,
           h.big.trans fun a _ => bytesT1_fill m a, fun a ha => keptH (h.big_in a ha),
-          fun a ha hx => h.big_x a ha (callX0_after hnext hx), h.big_fl, h.big_lit⟩ }
+          fun a ha hx => h.big_x a ha (callX0_after hnext hx), h.big_fl, h.big_lit⟩
+      tab_fl := TabFoot.trans h.lits.tab fun a _ => bytesT1_fill m a }
   have comp : Complement p (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) := by
     obtain ⟨hsz, hwords⟩ := SF.proto.code SF.proto_code
     refine

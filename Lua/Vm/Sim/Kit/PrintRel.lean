@@ -216,8 +216,9 @@ theorem stdoutNeed_le (ph : StdoutPh) : stdoutNeed ph ≤ 1024 + 16384 + 4096 :=
   cases ph <;> simp [stdoutNeed]
 
 /-- The string table's safety, with a larger set of kept bytes. -/
-theorem StrtSafeIn.mono {L nci g func n sl : Nat} {ls : LitPtrs} {G B K K' : Nat → Prop} {M : Mem}
-    (h : StrtSafeIn L nci g func n sl ls G B K M) (hK : ∀ a, K a → K' a) : StrtSafeIn L nci g func n sl ls G B K' M :=
+theorem StrtSafeIn.mono {L nci g func n sl : Nat} {ls : LitPtrs} {D G B K K' : Nat → Prop} {M : Mem}
+    (h : StrtSafeIn L nci g func n sl ls D G B K M) (hK : ∀ a, K a → K' a) :
+    StrtSafeIn L nci g func n sl ls D G B K' M :=
   fun rt hrt => (h rt hrt).weaken hK (fun _ _ h => h) fun _ _ h => h
 
 /-- (lane F1-18) **`AllocStatic` depends only on its bytes.** -/
@@ -389,8 +390,8 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
       · simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff, Rng] at hr hr'
         have : heapStart = 0x8006ecd0 := rfl
         omega
-    refine ⟨c', s', m', hret, ⟨FL, B, ⟨hapi, ⟨hl.facts.trans kFL, hl.kept, hl.apart, hl.strs, hl.marks,
-        hl.cache.congr fun a h1 h2 => hk a (by have := hp.L_g; pr_omega)⟩,
+    refine ⟨c', s', m', hret, ⟨FL, B, ⟨hapi, hl.trans kFL
+        (hl.cache.congr fun a h1 h2 => hk a (by have := hp.L_g; pr_omega)),
       fun a ha => (hk a (hp.keep_top (fun a h => (hIn.keep_apart a h).1) ha)).trans (hS.keep a ha),
       hS.buf, hS.chunks, hS.room, by rw [hn', hz]; exact hS.strt, hS.safe.trans kFL, hS.gc,
       fun h => (hS.stat h).congr kA, hS.big.trans kB, hS.bigIn, hS.big_fl⟩⟩,
@@ -433,7 +434,8 @@ theorem printLua_st {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
       ha.elim (fun hb => k0 a (hS.bigIn.inK a hb)) fun hr => hk a (reentWord_not_printW hsp hbuf' hr)
     refine ⟨FL, B, hS.api.congrT fun a ha => k0 a ?_, ⟨hl.facts.trans fun a ha => kK a (hl.kept a ha),
         fun a ha => (hl.kept a ha).mono hkept hbf, hl.apart, fun ts hts a h1 h2 => (hl.strs ts hts a h1 h2).mono hkept hbf,
-        hl.marks, hl.cache.congr fun a h1 h2 => k0 a (hIn.g_in a (by omega) h2)⟩,
+        hl.marks, hl.cache.congr fun a h1 h2 => k0 a (hIn.g_in a (by omega) h2),
+        TabFoot.trans hl.tab fun a ha => kK a (hl.kept a ha)⟩,
       fun a ha => (?_ : bytesT1 m' a = bytesT1 m a).trans (hS.keep a ha), hS.buf.trans hbf hS.chunks,
       fun c hc hu => hkept c (hS.chunks c hc hu) hu, hR, by rw [hn', hz]; exact hS.strt,
       (hS.safe.trans fun a ha => kK a (hl.kept a ha)).conseq fun M hM =>
@@ -540,7 +542,7 @@ theorem litKeeps {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List V
     rw [show a = ts + gcMarkedOff by omega] at ha
     exact this ha
   have hl' : LitsFoot g sl ls H ph D FL m' :=
-    ⟨hl.facts.trans kFL, hl.kept, hl.apart, hl.strs, hl.marks, hT.cache⟩
+    hl.trans kFL hT.cache
   -- (lane F1-18) `g->strt`'s words are off them
   have kT := hT.strt (by homega) (by simp only [stateSize, gEnd, gStrcacheOff, strcacheN, strcacheM] at p10; omega)
     (by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM] at p12; have := hp.room; omega)
@@ -630,7 +632,7 @@ theorem prLitPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
   have K := litKeeps hIn hn hS hP hT hts
   have kFL := K.fl; have kT := K.strt; have kK := K.keep; have kA := K.api; have kP := K.io
   have hl' : LitsFoot g sl ls H ph D FL m' :=
-    ⟨hl.facts.trans kFL, hl.kept, hl.apart, hl.strs, hl.marks, hT.cache⟩
+    hl.trans kFL hT.cache
   -- the literal's bytes, from the literals' facts at `m'`
   obtain ⟨rt, hLI⟩ := hl'.facts.self
   have hb := bytesAt_of_repr (hsel m' rt hLI)

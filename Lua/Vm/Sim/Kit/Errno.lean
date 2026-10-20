@@ -281,10 +281,15 @@ theorem _root_.Lua.Vm.Sim.Complement.errno (hc : Complement p w) (hr : Ranges p 
             · exact .inr (.inr (.inr (.inr (.inl h))))
             · exact .inr (.inr (.inr (.inr (.inr (.inl ⟨n, (ciRd ciNextOff 8 (by decide)).symm.trans hn, h0, h1⟩)))))
             · exact .inr (.inr (.inr (.inr (.inr (.inr h)))))
+          -- (lane F1-23) and what a `CALL` writes reads only `ci->next` too
+          have hW : ∀ a, NciAt (w.errno M) a → NciAt w a := fun a ⟨n, hn, h0, h1⟩ =>
+            ⟨n, (ciRd ciNextOff 8 (by decide)).symm.trans hn, h0, h1⟩
           exact .intro B ⟨(hA.strt.trans fun a ha => ag a (nFL a ha)).conseq fun M' hM rt hrt =>
-              (hM rt hrt).weaken (fun _ h => h) (fun a _ h => h.imp (hX a) id) fun _ _ h => h,
+              (hM rt hrt).weaken (fun _ h => h) (fun a _ h => h.imp (hX a) id)
+                fun a _ h => h.imp id fun h => h.imp id (hW a),
             hA.big.trans fun a ha => ag a (ha.elim (fun hb => nK (hA.big_in a hb)) notErrno_of_reent),
-            hA.big_in, fun a hb hx => hA.big_x a hb (hX a hx), hA.big_fl, hA.big_lit⟩ }
+            hA.big_in, fun a hb hx => hA.big_x a hb (hX a hx), hA.big_fl, hA.big_lit⟩
+        tab_fl := TabFoot.trans hI.tab_fl fun a ha => ag a (nFL a ha) }
 
 end
 

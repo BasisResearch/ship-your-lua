@@ -460,11 +460,14 @@ region `B` of `_dtoa_r`'s bignums: the string table's chains readable and
 apart from what the caller keeps and from `B` (`StrtSafe`, frozen with the
 literals on `FL`), the bignums (`ReentMp`, frozen on `B` and `_REENT`'s
 words), `B` in chunks in use and apart from the caller's objects, the
-literals' footprint and objects. -/
+literals' footprint and objects. Lane F1-23: the strings' objects also apart
+from what a `CALL` writes in the Lua objects (`CallLitDirty`) and the C
+`CallInfo` (`NciAt`): a found string's bytes survive `luaL_tolstring`'s push. -/
 structure CallAllocAt (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (ls : LitPtrs) (B : Nat → Prop) :
     Prop where
   strt : Kit.Frozen FL (fun M => ∀ rt, LitsIn M w.rt.g w.rt.stackLast ls rt →
-    StrtSafe (Vsa.Densify.fillZeroMem M) rt (Kit.Kept w.rt.hix ph) (fun a => CallX0 w F a ∨ B a) B) w.mo
+    StrtSafe (Vsa.Densify.fillZeroMem M) rt (Kit.Kept w.rt.hix ph) (fun a => CallX0 w F a ∨ B a)
+      (fun a => B a ∨ CallLitDirty w a ∨ NciAt w a)) w.mo
   big : Kit.Frozen (fun a => B a ∨ ReentWord a) (fun M => ReentMp (Vsa.Densify.fillZeroMem M) B) w.mo
   big_in : ∀ a, B a → Kit.Kept w.rt.hix ph a
   big_x : ∀ a, B a → ¬ CallX0 w F a
@@ -474,6 +477,25 @@ structure CallAllocAt (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (l
 /-- (lane F1-19) `CallAllocAt` for some region of bignums. -/
 inductive CallAlloc (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (ls : LitPtrs) : Prop where
   | intro (B : Nat → Prop) (h : CallAllocAt w ph F FL ls B)
+
+/-- (lane F1-23) **`g->strt`'s words in a footprint stay in it** across a
+change that keeps the footprint: the header is among them, so the bucket array
+it points to is the same. -/
+theorem _root_.Lua.Vm.TabFoot.trans {m m' : Mem} {g : Nat} {F : Nat → Prop} (h : ∀ a, TabFoot m g a → F a)
+    (hk : ∀ a, F a → bytesT1 m' a = bytesT1 m a) : ∀ a, TabFoot m' g a → F a := by
+  have hh : ∀ j, j < 16 → bytesT1 m' (g + gStrtHashOff + j) = bytesT1 m (g + gStrtHashOff + j) := fun j hj =>
+    hk _ (h _ (.inl ⟨by omega, by omega⟩))
+  have e8 : bytesT8 m' (g + gStrtHashOff) = bytesT8 m (g + gStrtHashOff) :=
+    bytesT8_congrT fun j hj => hh j (by omega)
+  have e4 : bytesT4 m' (g + gStrtSizeOff) = bytesT4 m (g + gStrtSizeOff) :=
+    bytesT4_congrT fun j hj => by
+      have := hh (12 + j) (by omega)
+      rwa [show g + gStrtHashOff + (12 + j) = g + gStrtSizeOff + j by simp only [gStrtHashOff, gStrtSizeOff]; omega]
+        at this
+  intro a ha
+  unfold TabFoot at ha
+  rw [e8, e4] at ha
+  exact h a ha
 
 /-- **The `CALL` invariant** at `stdout`'s phase `ph`, the footprints `F` (the
 objects a `print` leaves alone) and `FL` (the interned literals), and the
@@ -527,6 +549,11 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   objs : CallObjs w ls
   /-- (lane F1-19) what an allocating `print` must find apart (`CallAlloc`) -/
   alloc : CallAlloc w ph F FL ls
+  /-- (lane F1-23) `g->strt`'s header and bucket array in the literals'
+  footprint (`TabFoot`): a new string's insertion writes a bucket's word and
+  `nuse`, which so stay apart from what a `CALL` writes (`lits_apart`);
+  boot-checked (`VmEntryData.lits_tab`), carried by `print` (`LitsFoot.tab`) -/
+  tab_fl : ∀ a, TabFoot w.mo w.rt.g a → FL a
 
 -- discipline: allow(R7-conj-tower-def) one existential over the invariant's
 -- witnesses; its body is the named-field structure `CallInvAt`
