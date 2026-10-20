@@ -20,9 +20,11 @@ NaN operand.
 
 **(b2) on the model** (`model`): `pow` is `Lua.Num.pow` (`Lua/Num/Pow.lean`,
 `w_pow.c`'s transcription over `Float.Model`) on the model of its operands,
-given `__ieee754_pow`'s level (b), the named obligation
-`Ieee754PowSpec_Statement` (`e_pow.c`'s transcription `Lua.Num.Pow.ieee754Pow`
-against the lifted `Ieee754Pow.F`; open, PHASES.md). Signalling-NaN operands are
+given `__ieee754_pow`'s value on the model (`Ieee754PowModel`), which follows
+from its level (b), the named obligation `Ieee754PowSpec_Statement` (the lifted
+`Ieee754Pow.F` is the canonical datum of `e_pow.c`'s transcription
+`Lua.Num.Pow.ieee754Pow`; open, PHASES.md; `Lua.Vm.Fn.PowQ`: the wrapper's
+bits, for the `POW` arms). Signalling-NaN operands are
 outside `Float.Model` (`Lua/Num/Pow.lean`'s header: `pow(sNaN, 0)` is a NaN on
 the ELF, `1` on the model), so the obligation and `model` exclude them
 (`NotSNaN`).
@@ -113,13 +115,26 @@ open Lua.Num
 signalling NaN). -/
 def NotSNaN (x : F64) : Prop := F64.isNaN x = true → x.toNat / 2 ^ 51 % 2 = 1
 
-/-- **`__ieee754_pow` at level (b)** (open; PHASES.md): the lifted function is
-`e_pow.c`'s transcription `Lua.Num.Pow.ieee754Pow` on the model of quiet
-operands. Evidence: `Lua/Vm/Fn/PowTest.lean` (16,900 operand pairs). -/
-def Ieee754PowSpec_Statement : Prop :=
+/-- `__ieee754_pow`'s value on the model of quiet operands: the lifted function
+is `e_pow.c`'s transcription `Lua.Num.Pow.ieee754Pow` up to the NaN payload
+(a consequence of `Ieee754PowSpec_Statement`, `PowQ.powModel_of`). -/
+def Ieee754PowModel : Prop :=
   ∀ (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame) (x y : F64), RodataRead m → FnSp s 288 →
     NotSNaN x → NotSNaN y →
     F64.toModel (Ieee754Pow.F m s r g x y) = Lua.Num.Pow.ieee754Pow (F64.toModel x) (F64.toModel y)
+
+/-- **`__ieee754_pow` at level (b)** (open; PHASES.md): on quiet operands the
+lifted function's bits are the canonical datum of `e_pow.c`'s transcription
+`Lua.Num.Pow.ieee754Pow` (every NaN result is soft-fp's `0x7ff8000000000000`,
+as for the other routines' `F = F64.op`). The bits, not the model only, because
+an arm stores the result and a stored float's sign bit is the kernel's
+(`ValRepr.flt`, `Value.ofFloat`: a NaN's sign too). Evidence: on the 16,900
+operand pairs of `Lua/Vm/Fn/PowTest.lean` the bits agree exactly (lane F1-21). -/
+def Ieee754PowSpec_Statement : Prop :=
+  ∀ (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame) (x y : F64), RodataRead m → FnSp s 288 →
+    NotSNaN x → NotSNaN y →
+    Ieee754Pow.F m s r g x y =
+      (Lua.Num.Pow.ieee754Pow (F64.toModel x) (F64.toModel y)).toBits.toBitVec
 
 /-- `w_pow.c`'s `1.0` (`.rodata` at `0x8005c488`). -/
 abbrev oneW : BitVec 64 := 0x3ff0000000000000#64
@@ -185,7 +200,7 @@ theorem wrap_model {z x y : F64}
   cases hn : F64.isNaN y <;> cases e1 : F64.eq x 0#64 <;> cases e2 : F64.eq y 0#64 <;> rfl
 
 /-- **`pow` on the model** (`w_pow.c`), given `__ieee754_pow`'s level (b). -/
-theorem model (hP : Ieee754PowSpec_Statement) (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame)
+theorem model (hP : Ieee754PowModel) (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame)
     (x y : F64) (hro : RodataRead m) (hs : FnSp s 320) (hx : NotSNaN x) (hy : NotSNaN y) :
     F64.toModel (Pow.F m s r g x y) = Lua.Num.pow (F64.toModel x) (F64.toModel y) := by
   have z0 : sign_extend (m := 64) (0x000#12) = 0#64 := by decide

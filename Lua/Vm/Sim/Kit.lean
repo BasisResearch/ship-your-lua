@@ -102,6 +102,8 @@ import Lua.Vm.Sim.Kit.AtFltIdiv
 import Lua.Vm.Sim.Kit.AtFltIdivk
 import Lua.Vm.Sim.Kit.AtFltMod
 import Lua.Vm.Sim.Kit.AtFltModk
+import Lua.Vm.Sim.Kit.AtFltPow
+import Lua.Vm.Sim.Kit.AtFltPowk
 import Lua.Vm.Sim.Kit.PushLitProof
 import Lua.Vm.Sim.Kit.Getmetafield
 import Lua.Vm.Sim.Kit.TolStr
@@ -140,4 +142,10 @@ Lane F1-FMT: `snprintf(buf, 44, "%lld", i)` on the callee-context route
 (`Kit/IntFmt.lean` over `AtF/SnprintfLld`, `Kit/IntFmtSum.lean`,
 `Kit/IntFmtLoop.lean`: the digit loop by `seg_loop`), `integerToStr_proved :
 IntegerToStr_Statement`.
+
+Lane F1-21: `OP_POW`, `OP_POWK` on the join route (`Kit/AtJoinPow.lean`:
+`luai_numpow`, libm `pow` the call node `PowQ`, `Kit/AtPow.lean`), on quiet
+operands (`SimArmOnM`, `PowQuiet`, `PowKQuiet`), given
+`Lua.Vm.Fn.PowR.Ieee754PowSpec_Statement` (`Kit/AtFltPow.lean`,
+`Kit/AtFltPowk.lean`).
 -/

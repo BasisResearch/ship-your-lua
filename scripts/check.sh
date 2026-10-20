@@ -252,6 +252,15 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Fn.PowR.n_wrap
 #print axioms Lua.Vm.Fn.PowR.wrap_model
 #print axioms Lua.Vm.Fn.PowR.model
+#print axioms Lua.Vm.Fn.PowQ.notSNaN_toBits
+#print axioms Lua.Vm.Fn.PowQ.powModel_of
+#print axioms Lua.Vm.Fn.PowQ.wrap_bits
+#print axioms Lua.Vm.Fn.PowQ.spec
+#print axioms Lua.Vm.Fn.PowQ.sum
+#print axioms Lua.Vm.Sim.SimArmOnM.split
+#print axioms Lua.Vm.Sim.At.sim_arm_onEM
+#print axioms Lua.Vm.Sim.At.sim_POW
+#print axioms Lua.Vm.Sim.At.sim_POWK
 #print axioms Lua.Num.SfRef.sqrt_eq
 #print axioms Lua.Vm.Fn.Divdf3.sum_div
 #print axioms Lua.Num.SfRef.fmod_cls

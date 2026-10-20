@@ -14,7 +14,8 @@ against `Lua.Num.Pow.ieee754Pow` and `Lua.Num.pow`, the transcriptions of
 `Lua.Num.Pow.scalbn`, on edge and pseudo-random operands. The memory holds
 `.rodata` (`Image.rodataByte`) around the routines' constants. Signalling-NaN
 inputs are outside `Float.Model` (`Lua/Num/Pow.lean`'s header) and are left
-out. Every disagreement line must print `[]`.
+out of the pairs; their disagreement is checked on its own (lane F1-21). Every
+disagreement line must print `[]`.
 -/
 
 open Lua.Num Lua.Vm.Sim
@@ -74,6 +75,15 @@ def refW (x y : F64) : F64 := (Lua.Num.pow (F64.toModel x) (F64.toModel y)).toBi
 #eval (pairs.filter fun (x, y) => !agree (Ieee754Pow.F mRod sp ra g x y) (ref x y)).take 5
 -- machine `pow` = `w_pow.c`'s transcription
 #eval (pairs.filter fun (x, y) => !agree (Lua.Vm.Fn.Pow.F mRod sp ra g x y) (refW x y)).take 5
+-- lane F1-21: the bits exactly (`PowR.Ieee754PowSpec_Statement`'s form: every NaN
+-- result the canonical datum), for `__ieee754_pow` and for `pow`
+#eval (pairs.filter fun (x, y) => Ieee754Pow.F mRod sp ra g x y != ref x y).take 5
+#eval (pairs.filter fun (x, y) => Lua.Vm.Fn.Pow.F mRod sp ra g x y != refW x y).take 5
+-- lane F1-21: signalling-NaN operands (outside `Float.Model`): `pow(sNaN, ±0)` and
+-- `pow(1, sNaN)` are the NaN on the ELF, `1.0` on the model (prints `true`)
+#eval [(0x7ff0000000000001#64, 0#64), (0x7ff0000000000001#64, 0x8000000000000000#64),
+    (0xfff4000000000000#64, 0#64), (0x3ff0000000000000#64, 0x7ff0000000000001#64)].all
+  fun (x, y) => Lua.Vm.Fn.Pow.F mRod sp ra g x y == F64.qnan && refW x y == 0x3ff0000000000000#64
 -- machine `scalbn` = `s_scalbn.c`'s transcription, `n` over `[-1100, 1100]`
 #eval ((ops.flatMap fun x => [-1100, -1075, -1074, -1023, -54, -1, 0, 1, 53, 1023, 1024, 1100].map (x, ·)).filter
     fun (x, n) => !agree (Scalbn.F mRod sp ra x (BitVec.ofInt 64 n))
