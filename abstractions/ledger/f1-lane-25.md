@@ -91,4 +91,4 @@ traces (at most four `_malloc_r` per float, far within `dtoaRoom`; `_REENT`'s wo
 `PrStR.bigRun`, `TolPost.pre`, `tolPost_of_runP`, `tolPost_of_split`, `strspn_sum`, `spanLen_of`, `tsbBytes_eq`,
 `tsb_sum`, `pff_tsb`, `pushfF_pre`, `pushfF_post`, `tolflt_pre`, `tolflt_post`, `argStr_flt`, `lits_nomatch_flt`,
 `tolFlt_of`, `printRel_tol`, `CallOpen.print`, `printFlt_of`, `printFn_of`, `Lua.Num.fmt14g_byte` (and
-`printFn_of_tol`, `printFlt_of_tol` for the retired `printFn_of_flt`): AXIOMS.
+`printFn_of_tol`, `printFlt_of_tol` for the retired `printFn_of_flt`): every one `[propext, Classical.choice, Quot.sound]`. `scripts/check.sh` passes (all stages, the full `lake build Lua Vsa VsaIris` included); `python3 abstractions/gate.py` ok.

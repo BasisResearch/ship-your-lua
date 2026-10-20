@@ -957,7 +957,7 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.TiNew.ins
 #print axioms Lua.Vm.Sim.Kit.TiNew.st
 #print axioms Lua.Vm.Sim.Kit.KWalk.congr
-#print axioms Lua.Vm.Sim.Kit.PrSt.nextKeep
+#print axioms Lua.Vm.Sim.Kit.PrStR.nextKeep
 #print axioms Lua.Vm.Sim.Kit.litKeeps_of
 #print axioms Lua.Vm.Sim.Kit.LitsFoot.trans
 #print axioms Lua.Vm.TabFoot.trans
