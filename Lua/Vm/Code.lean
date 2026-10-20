@@ -124,6 +124,15 @@ import Lua.Vm.Code.FixedImage_With_errno
 import Lua.Vm.Code.FixedImage_Xflow
 import Lua.Vm.Code.FixedImage___math_uflow
 import Lua.Vm.Code.FixedImage___math_oflow
+import Lua.Vm.Code.FixedImage_Lua_isinteger
+import Lua.Vm.Code.FixedImage_Lua_tointegerx
+import Lua.Vm.Code.FixedImage_Lua_pushfstring
+import Lua.Vm.Code.FixedImage_LuaO_pushvfstring
+import Lua.Vm.Code.FixedImage_Addstr2buff
+import Lua.Vm.Code.FixedImage_Addnum2buff
+import Lua.Vm.Code.FixedImage_Strchr
+import Lua.Vm.Code.FixedImage_Memcpy
+import Lua.Vm.Code.FixedImage_LuaC_newobj
 import Lua.Vm.Code.FixedImage_Snprintf
 import Lua.Vm.Code.FixedImage__svfprintf_r
 import Lua.Vm.Code.FixedImage__localeconv_r
@@ -264,6 +273,15 @@ Code pins for `luaV_execute` and its F1 callees, each derived from
 * `xflow` (16 instructions)
 * `__math_uflow` (3 instructions)
 * `__math_oflow` (3 instructions)
+* `lua_isinteger` (41 instructions)
+* `lua_tointegerx` (60 instructions)
+* `lua_pushfstring` (27 instructions)
+* `luaO_pushvfstring` (282 instructions)
+* `addstr2buff` (53 instructions)
+* `addnum2buff` (43 instructions)
+* `strchr` (92 instructions)
+* `memcpy` (74 instructions)
+* `luaC_newobj` (21 instructions)
 * `snprintf` (53 instructions)
 * `_svfprintf_r` (3212 instructions)
 * `_localeconv_r` (2 instructions)

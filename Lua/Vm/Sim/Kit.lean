@@ -114,6 +114,15 @@ import Lua.Vm.Sim.Kit.TonumStr
 import Lua.Vm.Sim.Kit.AtCoerceS
 import Lua.Vm.Sim.Kit.AtFltForprepS
 import Lua.Vm.Sim.Kit.Str2int
+import Lua.Vm.Sim.Kit.Sext32
+import Lua.Vm.Sim.Kit.AtNarrow
+import Lua.Vm.Sim.Kit.Memcpy
+import Lua.Vm.Sim.Kit.InternAny
+import Lua.Vm.Sim.Kit.InternNew
+import Lua.Vm.Sim.Kit.Newlstr
+import Lua.Vm.Sim.Kit.LitsInsert
+import Lua.Vm.Sim.Kit.PushfI
+import Lua.Vm.Sim.Kit.TolInt
 
 /-!
 # The direct kit (round-3 bake-off, contender KIT)

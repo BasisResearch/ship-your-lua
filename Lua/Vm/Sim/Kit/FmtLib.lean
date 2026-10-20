@@ -1,5 +1,6 @@
 import Lua.Vm.Sim.Kit.AtFn
 import Lua.Vm.Sim.Kit.Umoddi3
+import Lua.Vm.Sim.Kit.Sext32
 
 /-!
 # The formatting callees' library (lane F1-FMT)
@@ -34,14 +35,6 @@ theorem udivdi3_sumF (n d r : BitVec 64) (f : HFrame) (m : Mem) (o : Array Strin
   obtain ⟨c', hs, h'⟩ := udivdi3_sumT n d r t f m o hr c (h.repin (by pins_of h))
   exact ⟨c', hs, h'.repin (by pins_of h')⟩
 
-/-- **`fmt_pin h n R`**: register `R` (GPR `n`) pinned at whatever it holds
-(every GPR holds a value, `RegsOk`): a register a segment carries that the
-path never set (`gen_lua_at.py` `junk`). -/
-macro "fmt_pin " h:ident n:num R:ident : tactic => `(tactic| (
-  obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp
-    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk $h) $n (by decide) (by decide))
-  have $h := Vsa.Sim.SegSt.repin (L' := ⟨$R, t⟩ :: _) $h ⟨ht, Vsa.Sim.SegSt.pins $h⟩))
-
 /-! ## 32-bit arithmetic on small counts
 
 The generator keeps `sext.w`/`addiw`/`addw`/`subw` of counts whose ranges stay
@@ -74,19 +67,6 @@ theorem sxw_id (x : BitVec 64) (h : x.toNat < 2 ^ 31 ∨ 2 ^ 64 - 2 ^ 31 ≤ x.t
   simp only [sign_extend, Sail.BitVec.signExtend, BitVec.toNat_signExtend, BitVec.toNat_setWidth,
     BitVec.msb_eq_decide, e32]
   split <;> rename_i hm <;> simp only [decide_eq_true_eq] at hm <;> omega
-
-/-- A 32-bit literal's `sext.w` (a `lw` of a small word). -/
-theorem fmt_sext32_ofNat {n : Nat} (h : n < 2 ^ 31) :
-    sign_extend (m := 64) (BitVec.ofNat 32 n) = BitVec.ofNat 64 n := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [sign_extend, Sail.BitVec.signExtend, BitVec.toNat_signExtend, BitVec.toNat_setWidth,
-    BitVec.msb_eq_decide, BitVec.toNat_ofNat]
-  split <;> rename_i hm <;> simp only [decide_eq_true_eq] at hm <;> omega
-
-theorem extract_ofNat (n : Nat) : Sail.BitVec.extractLsb (BitVec.ofNat 64 n) 31 0 = BitVec.ofNat 32 n := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_toNat, Nat.shiftRight_zero, BitVec.toNat_ofNat]
-  rw [Nat.mod_mod_of_dvd _ (by decide)]
 
 /-- `sext.w` of a negative 32-bit difference (`subw` of a count from `0`). -/
 theorem sext32_neg {n : Nat} (h0 : 0 < n) (h : n ≤ 2 ^ 31) :
@@ -174,7 +154,16 @@ macro "fmt_scmp" : tactic => `(tactic| (
   (try simp only [decide_eq_true_eq, decide_eq_false_iff_not, ge_iff_le, Bool.not_eq_true]) <;>
   omega))
 
+open Lean Elab Tactic Meta in
+/-- Fails unless the goal is a signed test (`fmt_scmp`'s goals): its `simp`
+and `omega` stay off other hypotheses (lane F1-20: on a stack word's fact
+they ran past the recursion limit). -/
+elab "fmt_scmp_goal" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  unless (t.find? fun e => e.isConstOf ``zopz0zI_s || e.isConstOf ``zopz0zKzJ_s).isSome do
+    throwError "fmt_scmp_goal: not a signed test"
+
 macro_rules
-  | `(tactic| fat_hyp) => `(tactic| (fmt_scmp; done))
+  | `(tactic| fat_hyp) => `(tactic| (fmt_scmp_goal; fmt_scmp; done))
 
 end Lua.Vm.Sim.Kit

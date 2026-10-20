@@ -114,6 +114,10 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          "__math_uflow", "__math_oflow",
          # lane F1-FMT: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)`:
          # `_svfprintf_r` on that format, its locale and output callees
+         # lane F1-20: `luaL_tolstring` on an integer (`lua_pushfstring(L, "%I")`,
+         # `internshrstr`'s creation path)
+         "lua_isinteger", "lua_tointegerx", "lua_pushfstring", "luaO_pushvfstring", "addstr2buff",
+         "addnum2buff", "strchr", "memcpy", "luaC_newobj",
          "snprintf", "_svfprintf_r", "_localeconv_r", "__locale_mb_cur_max",
          "__ascii_mbtowc", "__ssprint_r", "__ssputs_r",
          # lane F1-F8: FORPREP's string coercion (`luaO_str2num`'s `l_str2int`)

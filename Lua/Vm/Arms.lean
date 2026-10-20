@@ -220,6 +220,15 @@ import Lua.Vm.Arms.Segs.Hxflow
 import Lua.Vm.Arms.Segs.Hmath_uflow
 import Lua.Vm.Arms.Segs.Hmath_oflow
 import Lua.Vm.Arms.Segs.Hfabs
+import Lua.Vm.Arms.Segs.Hlua_isinteger
+import Lua.Vm.Arms.Segs.Hlua_tointegerx
+import Lua.Vm.Arms.Segs.Hlua_pushfstring
+import Lua.Vm.Arms.Segs.HluaO_pushvfstring
+import Lua.Vm.Arms.Segs.Haddstr2buff
+import Lua.Vm.Arms.Segs.Haddnum2buff
+import Lua.Vm.Arms.Segs.Hstrchr
+import Lua.Vm.Arms.Segs.Hmemcpy
+import Lua.Vm.Arms.Segs.HluaC_newobj
 import Lua.Vm.Arms.Segs.Hsnprintf
 import Lua.Vm.Arms.Segs.Hsvfprintf_r
 import Lua.Vm.Arms.Segs.Hlocaleconv_r

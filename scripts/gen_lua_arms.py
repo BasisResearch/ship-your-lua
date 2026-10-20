@@ -350,7 +350,7 @@ HELPERS += [("luaD_precall", "LuaD_precall", 0x8000aab4, 0x8000ae3c, [22, 26], [
 # `luaL_tolstring`; pseudo-indices, absent slots, tables and full userdata;
 # a non-string or long string at the top
 HELPERS += [("luaL_tolstring", "LuaL_tolstring", 0x80021b2c, 0x80021d90, [22, 26], [],
-             [0x80021b68, 0x80021bec, 0x80021c0c, 0x80021c5c]),
+             [0x80021b68, 0x80021bec, 0x80021cb0, 0x80021c5c]),
             ("lua_absindex", "Lua_absindex", 0x80001b7c, 0x80001bb4, [22, 26], [], []),
             ("luaL_callmeta", "LuaL_callmeta", 0x80021a24, 0x80021ac0, [22, 26], [], [0x80021a80]),
             ("lua_getmetatable", "Lua_getmetatable", 0x80003788, 0x8000388c, [22, 26], [],
@@ -418,7 +418,7 @@ HELPERS += [("lua_pushstring", "Lua_pushstring", 0x80002fe4, 0x8000305c, [22, 26
             ("luaS_new", "LuaS_new", 0x8001772c, 0x800177f0, [22, 26], [], []),
             ("luaS_newlstr", "LuaS_newlstr", 0x80017694, 0x8001772c, [22, 26], [], [0x8001769c]),
             ("internshrstr", "Internshrstr", 0x80017350, 0x8001751c, [22, 26], [0x800173a4, 0x800173f0],
-             [0x8001742c]),
+             [0x800174b4]),
             ("luaC_step", "LuaC_step", 0x8000ec80, 0x8000f1c8, [22, 26], [], [0x8000ec98]),
             ("luaE_setdebt", "LuaE_setdebt", 0x80016a20, 0x80016a54, [22, 26], [], [])]
 
@@ -603,6 +603,30 @@ RESULTS.update({"luaL_getmetafield.part.0": {"x10"}, "lua_rawget": {"x10"}, "ind
                 "luaH_get": {"x10"}, "lua_pushvalue": set()})
 RESULTS.update({"lua_pushstring": {"x10"}, "luaS_new": {"x10"}, "luaS_newlstr": {"x10"},
                 "internshrstr": {"x10"}, "luaC_step": set(), "luaE_setdebt": set()})
+# lane F1-20: `luaL_tolstring` on an integer (`0x80021c0c`; the float path
+# `0x80021cb0` a stop): `lua_isinteger`, `lua_tointegerx` on a positive index
+# below the top (stops: pseudo-indices, an index past the top, a non-integer),
+# `lua_pushfstring(L, "%I", i)` -> `luaO_pushvfstring` on `"%I"` (the jump
+# table's `'I'` target `0x80011fc0` a root; stops: `"%%"`, an unknown
+# conversion, the concatenation of a second piece), `strchr` (the NUL search
+# `0x800362e8` a stop; its word test split at `0x80036250`, `0x80036274`), `addstr2buff` and `addnum2buff` with room in the
+# buffer (stops: their flushes, a float), `memcpy` (stops: the 64-byte
+# blocks, a misaligned destination), `internshrstr`'s creation path (the table's
+# growth `0x800174b4` a stop), `luaC_newobj` (over `luaM_malloc_`)
+HELPERS += [("lua_isinteger", "Lua_isinteger", 0x800021f4, 0x80002298, [22, 26], [], [0x80002228]),
+            ("lua_tointegerx", "Lua_tointegerx", 0x800027fc, 0x800028ec, [22, 26], [],
+             [0x80002850, 0x80002878, 0x8000288c]),
+            ("lua_pushfstring", "Lua_pushfstring", 0x800030a4, 0x80003110, [22, 26], [], []),
+            ("luaO_pushvfstring", "LuaO_pushvfstring", 0x80011d98, 0x80012200, [22, 26], [0x80011fc0],
+             [0x80012020, 0x800121f0, 0x800121e0]),
+            ("addstr2buff", "Addstr2buff", 0x800114b0, 0x80011584, [22, 26], [], [0x80011520, 0x80011554]),
+            ("addnum2buff", "Addnum2buff", 0x80011584, 0x80011630, [22, 26], [], [0x80011610, 0x800115b8]),
+            ("strchr", "Strchr", 0x80036204, 0x80036374, [22, 26], [0x80036250, 0x80036274], [0x800362e8]),
+            ("memcpy", "Memcpy", 0x8003b648, 0x8003b770, [22, 26], [], [0x8003b6e0, 0x8003b73c]),
+            ("luaC_newobj", "LuaC_newobj", 0x8000e8ec, 0x8000e940, [22, 26], [], [])]
+RESULTS.update({"lua_isinteger": {"x10"}, "lua_tointegerx": {"x10"}, "lua_pushfstring": {"x10"},
+                "luaO_pushvfstring": {"x10"}, "addstr2buff": set(), "addnum2buff": set(), "strchr": {"x10"},
+                "memcpy": {"x10"}, "luaC_newobj": {"x10"}})
 # lane F1-FMT: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)`: `snprintf`
 # (stops: `size > INT_MAX` `0x80034ea4`, `size == 0` `0x80034e64`, an error
 # return `0x80034e94`), `_svfprintf_r` on the paths `"%lld"` takes (its

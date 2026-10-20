@@ -323,6 +323,50 @@ def InRanges (t : RTree) (a : Nat) : Prop := t.mem a = true
 instance (t : RTree) (a : Nat) : Decidable (InRanges t a) := by
   unfold InRanges; infer_instance
 
+/-! ## The string table's own words apart (lane F1-20)
+
+A new short string (`internshrstr`'s miss) is linked at its bucket's head and
+counted (`nuse`), and `luaC_newobj` links it at `g->allgc`: three words the
+literals' facts read (the first two) or may not be apart from. So the facts
+those words do not belong to must not read them: the chains' nodes, the
+literals' objects, the cache's candidates and the string metatable lie apart
+from the bucket array and `g` (`StrtOff`). And `internshrstr`'s hit on a dead
+string writes its mark (`changewhite`); with the collector stopped no string
+but a literal is dead (the literals' marks the facts never read). -/
+
+/-- (lane F1-20) **The table's words**: the bucket array and `g` up to its
+string cache. -/
+def TabW (rt : RtPtrs) (a : Nat) : Prop :=
+  (rt.strtHash ≤ a ∧ a < rt.strtHash + 8 * rt.strtSize) ∨
+    (rt.g ≤ a ∧ a < rt.g + (gStrcacheOff + 8 * strcacheN * strcacheM))
+
+/-- (lane F1-20) **A chain's nodes apart from the table's words, and alive**:
+each node's object `[ts, ts + 24 + shrlen + 1)` off `T`, and, unless it is one
+of `lits`, not dead (`isdead`: `marked & (currentwhite ^ WHITEBITS)` zero for
+the current white `cw`, `lbu`, `xori 24`, `and`). -/
+-- discipline: allow(R7-conj-tower-def) the existentials are single witnesses inside named fields (a chain node's mark, the current white), not ∃/∧ towers
+inductive ChainOff (m : Mem) (T : Nat → Prop) (cw : Nat) (lits : List Nat) : Nat → Prop where
+  | nil : ChainOff m T cw lits 0
+  | cons {ts nx l : Nat} : ts ≠ 0 → rd8 m (ts + tstringShrlenOff) = some l →
+      rd64 m (ts + tstringLnglenOff) = some nx →
+      (∀ a, ts ≤ a → a < ts + tstringContentsOff + l + 1 → ¬ T a) →
+      (ts ∉ lits → ∃ mk, rd8 m (ts + gcMarkedOff) = some mk ∧ mk &&& (cw ^^^ 24) = 0) →
+      ChainOff m T cw lits nx → ChainOff m T cw lits ts
+
+/-- (lane F1-20) **What the literals' facts read is apart from the table's
+words** (but the table's own reads): every chain alive and off them
+(`ChainOff`, at `g->currentwhite`), the literals' objects, the cache's
+candidates' contents (`CDiffers`), the string metatable and its node array. -/
+structure StrtOff (m : Mem) (ls : LitPtrs) (rt : RtPtrs) : Prop where
+  white : ∃ cw, rd8 m (rt.g + gCurrentwhiteOff) = some cw ∧
+    ∀ j (h : j < rt.strtHeads.length), ChainOff m (TabW rt) cw ls.strs rt.strtHeads[j]
+  lits : ∀ ts ∈ ls.strs, ∀ a, ts ≤ a → a < ts + 40 → ¬ TabW rt a
+  cands : ∀ c ∈ ls.cands, ∀ a, c.2 + tstringContentsOff ≤ a → a < c.2 + tstringContentsOff + 11 → ¬ TabW rt a
+  smt : ∀ a, ls.smt ≤ a → a < ls.smt + 64 → ¬ TabW rt a
+  node : ∀ a, ls.smtNode ≤ a → a < ls.smtNode + nodeSize * 2 ^ ls.smtLsz → ¬ TabW rt a
+  /-- the bucket array 8-aligned (`sd` of the new head) -/
+  hash_al : rt.strtHash % 8 = 0
+
 /-- **The reserved literals interned** in a memory `M` (lane F1-13), for some
 string table `rt` of `G(L) = g` and stack end `sl`. -/
 structure LitsIn (M : Mem) (g sl : Nat) (ls : LitPtrs) (rt : RtPtrs) : Prop where
@@ -343,6 +387,8 @@ structure LitsIn (M : Mem) (g sl : Nat) (ls : LitPtrs) (rt : RtPtrs) : Prop wher
   size_hi : rt.strtSize < 2 ^ 30
   /-- (lane F1-15) every literal's string is a candidate of its row (`luaS_new`'s miss stores it) -/
   lit_cands : ∀ l ∈ ls.table, (l.addr % strcacheN, l.ts) ∈ ls.cands
+  /-- (lane F1-20) what the facts read apart from the table's words, no string dead -/
+  off : StrtOff (fillZeroMem M) ls rt
 
 /-- **The reserved literals are interned** in `M`, for some string table. -/
 def LitsHold (M : Mem) (g sl : Nat) (ls : LitPtrs) : Prop := ∃ rt, LitsIn M g sl ls rt
