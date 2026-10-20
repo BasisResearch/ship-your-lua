@@ -366,7 +366,7 @@ theorem _root_.Lua.Vm.LitsIn.of_fill {M : Mem} {g sl : Nat} {ls : LitPtrs} {rt :
     (h : LitsIn (Vsa.Densify.fillZeroMem M) g sl ls rt) : LitsIn M g sl ls rt := by
   have e := fill_fill M
   exact ⟨h.g, h.sl, h.nil.of_fill, h.tru.of_fill, h.fls.of_fill, h.tos.of_fill,
-    fun c hc => e ▸ h.cands c hc, e ▸ h.strmt, h.hash_lo, h.hash_hi, h.size_hi, h.lit_cands⟩
+    fun c hc => e ▸ h.cands c hc, e ▸ h.strmt, h.hash_lo, h.hash_hi, h.size_hi, h.lit_cands, e ▸ h.off⟩
 
 /-- The literals frozen on `e.litFoot`, from the boot contract. -/
 theorem lits_boot {m0 m : Mem} {L ci : Nat} {p : Proto} {e : EntryPtrs} {rt : RtPtrs} (hE : VmEntryData m0 L ci p e)
@@ -386,7 +386,7 @@ theorem _root_.Lua.Vm.LitsIn.to_fill {M : Mem} {g sl : Nat} {ls : LitPtrs} {rt :
     fun h => ⟨e ▸ h.repr, h.short, e ▸ h.strt, e ▸ h.seed_w, fun hl => e ▸ h.bucket hl, fun hl => e ▸ h.first hl,
       h.ts_lo, h.ts_hi⟩
   exact ⟨h.g, h.sl, li h.nil, li h.tru, li h.fls, li h.tos, fun c hc => e ▸ h.cands c hc, e ▸ h.strmt, h.hash_lo,
-    h.hash_hi, h.size_hi, h.lit_cands⟩
+    h.hash_hi, h.size_hi, h.lit_cands, e ▸ h.off⟩
 
 /-- (lane F1-19) **The string table's safety at the entry**, frozen on
 `e.litFoot`, from the boot contract (`strt_safe`), at the relation's places. -/

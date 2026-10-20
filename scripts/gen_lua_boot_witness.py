@@ -796,6 +796,26 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
         n_ = (n_ + lay["nodeSize"] * (gn if gn < 1 << 31 else gn - (1 << 32))) % (1 << 64)
     else:
         need(False, "the string metatable's walk ends")
+    # lane F1-20: `StrtOff`: no string but a literal dead (`isdead` reads
+    # `g->currentwhite` and the mark), every chain node, literal, cache
+    # candidate's contents and the string metatable apart from the bucket
+    # array and `g` up to its string cache
+    cw = rd(g + lay["gCurrentwhiteOff"], 1)
+    g_end0 = lay["gStrcacheOff"] + 8 * lay["strcacheN"] * lay["strcacheM"]
+
+    def off_tab(lo, n):
+        return all(lo + n <= a or a + k <= lo for a, k in [(sh, 8 * size), (g, g_end0)])
+    for i in range(size):
+        ts = heads[i]
+        while ts:
+            need(off_tab(ts, lay["tstringContentsOff"] + rd(ts + lay["tstringShrlenOff"], 1) + 1),
+                 f"a chain node off the table's words ({ts:#x})")
+            if ts not in lits:
+                need(rd(ts + lay["gcMarkedOff"], 1) & (cw ^ 24) == 0, f"a chain node alive ({ts:#x})")
+            ts = rd(ts + lay["tstringLnglenOff"], 8)
+    need(all(off_tab(ts, 40) for ts in lits), "the literals off the table's words")
+    need(all(off_tab(p + lay["tstringContentsOff"], 11) for _, p in cands), "the candidates off the table's words")
+    need(off_tab(smt, 64) and off_tab(node, lay["nodeSize"] * (1 << lsz)), "the string metatable off the table's words")
     lit_foot = split(ranges_of(M.rec))
     M.rec = None
     need(all(lo + n <= lay["symTohost"] or in_chunk(lo, n) for lo, n in lit_foot) and

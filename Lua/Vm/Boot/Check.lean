@@ -1064,22 +1064,102 @@ theorem litCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZe
   exact ⟨tstrCheck_sound h ht, hshort, hs, h.reads hr (by mem_tac),
     fun hl => chainHasCheck_sound h _ _ (hch' hl).1, fun hl => chainFirstCheck_sound h _ _ (hch' hl).2, hlo, hhi⟩
 
+/-! ### (lane F1-20) The table's words apart, no string dead -/
+
+/-- `[lo, lo + n)` off the table's words (`TabW`). -/
+def offTab (rt : RtPtrs) (lo n : Nat) : Bool :=
+  decide (Apart lo n rt.strtHash (8 * rt.strtSize)) &&
+    decide (Apart lo n rt.g (gStrcacheOff + 8 * strcacheN * strcacheM))
+
+theorem offTab_sound {rt : RtPtrs} {lo n : Nat} (h : offTab rt lo n = true) {a : Nat} (h1 : lo ≤ a)
+    (h2 : a < lo + n) : ¬ TabW rt a := by
+  simp only [offTab, Bool.and_eq_true, decide_eq_true_eq] at h
+  simp only [Apart, gStrcacheOff, strcacheN, strcacheM] at h
+  simp only [TabW, gStrcacheOff, strcacheN, strcacheM]; omega
+
+/-- **A chain alive and off the table's words** (`ChainOff`) over the view;
+`fuel` links at most. -/
+def chainOffCheck (v : View) (rt : RtPtrs) (cw : Nat) (lits : List Nat) : Nat → Nat → Bool
+  | 0, ts => ts == 0
+  | f + 1, ts => ts == 0 ||
+      (match r8 v (ts + tstringShrlenOff), r64 v (ts + tstringLnglenOff) with
+        | some l, some nx => offTab rt ts (tstringContentsOff + l + 1) &&
+            (lits.contains ts || match r8 v (ts + gcMarkedOff) with
+              | some mk => mk &&& (cw ^^^ 24) == 0
+              | none => false) && chainOffCheck v rt cw lits f nx
+        | _, _ => false)
+
+theorem chainOffCheck_sound {m : Mem} {v : View} (h : PartialView m v) {rt : RtPtrs} {cw : Nat}
+    {lits : List Nat} : ∀ {f ts : Nat}, chainOffCheck v rt cw lits f ts = true → ChainOff m (TabW rt) cw lits ts
+  | 0, ts, hc => by
+    simp only [chainOffCheck, beq_iff_eq] at hc
+    subst hc; exact .nil
+  | f + 1, ts, hc => by
+    simp only [chainOffCheck, Bool.or_eq_true, beq_iff_eq] at hc
+    rcases hc with rfl | hrest
+    · exact .nil
+    · by_cases h0 : ts = 0
+      · subst h0; exact .nil
+      cases hl : r8 v (ts + tstringShrlenOff) with
+      | none => rw [hl] at hrest; cases hrest
+      | some l =>
+      cases hnx : r64 v (ts + tstringLnglenOff) with
+      | none => rw [hl, hnx] at hrest; cases hrest
+      | some nx =>
+      rw [hl, hnx] at hrest
+      simp only [Bool.and_eq_true, Bool.or_eq_true] at hrest
+      obtain ⟨⟨hoff, hmk⟩, hrec⟩ := hrest
+      refine .cons h0 (h.rd8 hl) (h.rd64 hnx) (fun a h1 h2 => offTab_sound hoff h1 (by omega)) (fun hn => ?_)
+        (chainOffCheck_sound h hrec)
+      rcases hmk with hc | hmk
+      · exact absurd (List.contains_iff_mem.mp hc) hn
+      · split at hmk
+        · rename_i mk hm
+          exact ⟨mk, h.rd8 hm, by simpa using hmk⟩
+        · cases hmk
+
+/-- **`StrtOff`** over the view, at the witness's table. -/
+def strtOffCheck (v : View) (ls : LitPtrs) (rt : RtPtrs) : Bool :=
+  (match r8 v (rt.g + gCurrentwhiteOff) with
+    | some cw => (List.range rt.strtHeads.length).all fun j =>
+        chainOffCheck v rt cw ls.strs (rt.strtNuse + 1) (rt.strtHeads.getD j 0)
+    | none => false) &&
+  ls.strs.all (fun ts => offTab rt ts 40) &&
+  ls.cands.all (fun c => offTab rt (c.2 + tstringContentsOff) 11) &&
+  offTab rt ls.smt 64 && offTab rt ls.smtNode (nodeSize * 2 ^ ls.smtLsz)
+
+theorem strtOffCheck_sound {m : Mem} {v : View} (h : PartialView m v) {ls : LitPtrs} {rt : RtPtrs}
+    (hc : strtOffCheck v ls rt = true) : StrtOff m ls rt := by
+  simp only [strtOffCheck, Bool.and_eq_true, List.all_eq_true] at hc
+  obtain ⟨⟨⟨⟨hw, hl⟩, hcd⟩, hs⟩, hn⟩ := hc
+  refine ⟨?_, fun ts hts a h1 h2 => offTab_sound (hl ts hts) h1 h2,
+    fun c hcm a h1 h2 => offTab_sound (hcd c hcm) h1 h2, fun a h1 h2 => offTab_sound hs h1 h2,
+    fun a h1 h2 => offTab_sound hn h1 h2⟩
+  split at hw
+  · rename_i cw hcw
+    refine ⟨cw, h.rd8 hcw, fun j hj => ?_⟩
+    have := List.all_eq_true.mp hw j (List.mem_range.mpr hj)
+    rw [getD_of_lt _ hj] at this
+    exact chainOffCheck_sound h this
+  · cases hw
+
 /-- The reserved literals over a view (of the memory's fill). -/
 def litsCheck (v : View) (g sl : Nat) (ls : LitPtrs) (rt : RtPtrs) : Bool :=
   rt.g == g && rt.stackLast == sl && strtCheck v rt &&
   litCheck v rt ls.seed nilB ls.nil && litCheck v rt ls.seed trueB ls.tru && litCheck v rt ls.seed falseB ls.fls &&
   litCheck v rt ls.seed tosB ls.tos && candsCheck v ls && strMtCheck v rt.g ls &&
   decide (symTohost + 16 ≤ rt.strtHash) && decide (rt.strtHash + 8 * rt.strtSize ≤ symHeapEnd) &&
-  decide (rt.strtSize < 2 ^ 30) && ls.table.all (fun l => ls.cands.contains (l.addr % strcacheN, l.ts))
+  decide (rt.strtSize < 2 ^ 30) && ls.table.all (fun l => ls.cands.contains (l.addr % strcacheN, l.ts)) &&
+  strtOffCheck v ls rt
 
 theorem litsCheck_sound {M : Mem} {v : View} (h : PartialView (Vsa.Densify.fillZeroMem M) v) {g sl : Nat}
     {ls : LitPtrs} {rt : RtPtrs} (hc : litsCheck v g sl ls rt = true) : LitsIn M g sl ls rt := by
   simp only [litsCheck, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at hc
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hg, hsl⟩, hst⟩, hn⟩, ht⟩, hf⟩, hto⟩, hca⟩, hsm⟩, hb1⟩, hb2⟩, hb3⟩, hlc⟩ := hc
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨hg, hsl⟩, hst⟩, hn⟩, ht⟩, hf⟩, hto⟩, hca⟩, hsm⟩, hb1⟩, hb2⟩, hb3⟩, hlc⟩, hoff⟩ := hc
   have hS := strtCheck_sound h hst
   exact ⟨hg, hsl, litCheck_sound h hn hS, litCheck_sound h ht hS, litCheck_sound h hf hS, litCheck_sound h hto hS,
     candsCheck_sound h hca, strMtCheck_sound h hsm, hb1, hb2, hb3,
-    fun l hl => by simpa using List.all_eq_true.mp hlc l hl⟩
+    fun l hl => by simpa using List.all_eq_true.mp hlc l hl, strtOffCheck_sound h hoff⟩
 
 /-- The string at `ts`'s `n` content bytes, off the view. -/
 def strBytesV (v : View) (ts n : Nat) : List UInt8 :=
