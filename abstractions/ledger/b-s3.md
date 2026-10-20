@@ -17,7 +17,8 @@ each (`/usr/bin/time -v`, `LEAN_NUM_THREADS=4`).
 | the host-`pow` fold | **machine-checked counterexample** | `powFold_counterexample`, `powFold_kfold`, `powFold_not_astSupported` |
 
 Axioms: all `[propext, Classical.choice, Quot.sound]`;
-`powFold_not_astSupported` `[propext]` (check.sh stage 6).
+`powFold_not_astSupported` `[propext]` (check.sh stage 6). `scripts/check.sh`:
+all stages OK; `abstractions/gate.py`: ok.
 
 ## The exclusion (FLOAT-DESIGN.md §5 R5)
 
