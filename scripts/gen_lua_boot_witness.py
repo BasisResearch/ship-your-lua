@@ -83,6 +83,7 @@ def layout():
     (the same values Lua/Vm/Layout.lean and LayoutRt.lean hold)."""
     lay = dict(GL.probe())
     lay.update(GL.probe_rt())
+    lay.update(GL.probe_rt(GL.PRINT_FIELDS))   # lane F1-19: `g->allgc`, `LUA_TFUNCTION`, `_REENT`'s words
     syms = GL.elf_syms()
     lay.update(syms)
     for n, (a, sz) in GL.elf_syms_sized().items():
@@ -261,6 +262,14 @@ def evaluate(lay, M, regs, proto):
     need(e["func"] + lay["stackValueSize"] * (2 + proto[2]) + 320 < e["stackLast"], "call_room")
     need(e["g"] % 8 == 0, "g_al")
     check_env_get(lay, M, L, ci, e, slot)
+    # lane F1-19: no function metatable, `snprintf`'s locale words, no
+    # bignum of `_dtoa_r` yet
+    need(rd(e["g"] + lay["gMtOff"] + 8 * lay["luaTfunction"], 8) == 0, "mt_fn: no function metatable")
+    for a, n, x in LOCALE_WORDS(lay):
+        need(rd(a, n) == x, f"locale word {a:#x}")
+    imp0 = lay["symImpureData"]
+    for o in ("reentResultOff", "reentP5sOff", "reentFreelistOff"):
+        need(rd(imp0 + lay[o], 8) == 0, f"_REENT->{o} NULL at the boot")
     # ---- CStackAt
     inv = {}
     inv["spEntry"], inv["retCcall"] = regs[2], regs[1]
@@ -600,6 +609,14 @@ def rtree(rs):
 FIRST_ROOM = 4 * (16384 + 4096 + 1024 + 128)
 
 
+def LOCALE_WORDS(lay):
+    """lane F1-19: the `.data` words `snprintf` reads (`LocaleWords`):
+    `_impure_ptr`, `__global_locale`'s `decimal_point` (+0x100), `mbtowc`
+    (+0xe8) and `__mb_cur_max` (+0x160)."""
+    return [(lay["symImpurePtr"], 8, lay["symImpureData"]), (0x8005d0f0, 8, 0x8004fb10),
+            (0x8005d0d8, 8, 0x8003cd58), (0x8005d150, 1, 1)]
+
+
 def call_facts(lay, M, L, ci, e, w, slot, proto):
     """`VmEntryData`'s `CALL` facts (lane F1-13, `frozenCheck`, `litsEntryCheck`,
     `placedCheck`): the footprint `e.foot` of the objects a `print` leaves alone
@@ -615,11 +632,13 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
         return (lay["symEnd"] <= lo and lo + n <= lay["symHeapEnd"] and
                 any(a + 16 <= lo and lo + n <= a + sz + 8 for a, sz, _ in chunks))
 
+    locale = [(a, n) for a, n, _ in LOCALE_WORDS(lay)]
+
     def split(rs):
         out = []
         for lo, n in rs:
             while n > 0:
-                if lo + n <= lay["symTohost"]:
+                if lo + n <= lay["symTohost"] or (lo, n) in locale:
                     out.append((lo, n))
                     break
                 c = next(((a, sz) for a, sz, _ in chunks if a + 16 <= lo < a + sz + 8), None)
@@ -670,6 +689,8 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     static += [(g + lay["gMtOff"] + 8 * lay[t], 8) for t in ("luaTnil", "luaTboolean", "luaTnumber")]
     static += [(g, 8)]      # lane F1-14: `g->frealloc`
     static += [(g + lay["gGcstpOff"], 1)]   # lane F1-15: `g->gcstp` (`luaC_step`)
+    # lane F1-19: `G(L)->mt[LUA_TFUNCTION]`, `snprintf`'s locale words
+    static += [(g + lay["gMtOff"] + 8 * lay["luaTfunction"], 8)] + locale
     for a, n in static:
         foot.update(range(a, a + n))
     foot.update(range(ka, ka + lay["tvalueSize"] * len(proto[4])))
@@ -680,7 +701,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     dirty = [(L + lay["stateTopOff"], 8), (L + lay["stateCiOff"], 8), (ci, lay["ciSize"]),
              (e["func"], max(0, e["stackLast"] - e["func"]))]
     apart(foot, dirty + [(g + 16, 48), (g + lay["gStrcacheOff"], g_end - lay["gStrcacheOff"]),
-                         (L + lay["stateNciOff"], 2)], "e.foot")
+                         (L + lay["stateNciOff"], 2), (g + lay["gAllgcOff"], 8)], "e.foot")
     # ---- the literals
     seed = rd(g + lay["gSeedOff"], 4)
     M.rec = set()
@@ -692,6 +713,7 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
         heads.append(ts)
         while ts:
             rd(ts + lay["gcTtOff"], 1)
+            rd(ts + lay["tstringShrlenOff"], 1)   # lane F1-19: `StrtSafe` reads the length
             rd(ts + lay["tstringHashOff"], 4)
             ts = rd(ts + lay["tstringLnglenOff"], 8)
     rd(g + lay["gSeedOff"], 4)
@@ -791,7 +813,27 @@ def call_facts(lay, M, L, ci, e, w, slot, proto):
     for lo, n, what in [(L, lay["stateSize"], "L"), (g, g_end, "g"), (ci, lay["ciSize"], "ci"),
                         (e["func"], e["stackLast"] - e["func"], "the Lua stack")]:
         need(in_chunk(lo, n), f"{what} in a chunk in use")
-    need(all(in_chunk(lo, n) or lo + n <= lay["symTohost"] for lo, n in foot), "e.foot in chunks in use")
+    need(all(in_chunk(lo, n) or lo + n <= lay["symTohost"] or (lo, n) in locale for lo, n in foot),
+         "e.foot in chunks in use")
+    # lane F1-19: the string table's safety (`StrtSafe` at `EntryX`): each
+    # chain node short, its object in one chunk in use, its mark and
+    # `u.hnext` off `e.foot`, `L`, `g`, the `CallInfo`, the Lua stack above
+    # `ci->func`'s slot and below the heap; the bucket array likewise
+    xs = [(L, lay["stateSize"]), (g, g_end), (ci, lay["ciSize"]),
+          (e["func"] + 16, e["stackLast"] - (e["func"] + 16))]
+
+    def off_x(lo, n):
+        return (lay["symEnd"] <= lo and all(lo + n <= a or a + k <= lo for a, k in foot + xs))
+    need(in_chunk(sh, 8 * size) and off_x(sh, 8 * size), "the bucket array in a chunk, apart")
+    for i in range(size):
+        ts = heads[i]
+        while ts:
+            n = rd(ts + lay["tstringShrlenOff"], 1)
+            need(n <= lay["maxShortLen"], "a chain node short")
+            need(in_chunk(ts, lay["tstringContentsOff"] + n + 1), "a chain node in a chunk in use")
+            need(off_x(ts + lay["gcMarkedOff"], 1), f"a chain node's mark apart ({ts:#x})")
+            need(off_x(ts + lay["tstringLnglenOff"], 8), f"a chain node's hnext apart ({ts:#x})")
+            ts = rd(ts + lay["tstringLnglenOff"], 8)
     need(w["brkv"] + FIRST_ROOM <= lay["symHeapEnd"], "room for the first print")
     return foot, lit_foot, (seed, *lits, *lit_extra)
 

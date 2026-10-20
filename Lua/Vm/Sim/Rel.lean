@@ -353,11 +353,13 @@ def _root_.Lua.Vm.RtPtrs.hix (rt : RtPtrs) : Kit.HeapIx :=
 /-- **What a `CALL print` writes inside the heap's chunks in use**: `L->top`,
 `L->ci`, the Lua `CallInfo`, the Lua stack above `ci->func`, `g`'s first words
 (the GC debt, the string table's header) and its string cache (`EntryDirty` at
-the relation's pointers). -/
+the relation's pointers); (lane F1-19) `g->allgc`, which `luaC_newobj` links
+a new string to. -/
 def CallDirty (w : RelPtrs) (a : Nat) : Prop :=
   (w.L + stateTopOff ≤ a ∧ a < w.L + stateTopOff + 8) ∨ (w.L + stateCiOff ≤ a ∧ a < w.L + stateCiOff + 8) ∨
   (w.ci ≤ a ∧ a < w.ci + ciSize) ∨ (w.func ≤ a ∧ a < w.rt.stackLast) ∨ (w.rt.g + 16 ≤ a ∧ a < w.rt.g + 64) ∨
-  (w.rt.g + gStrcacheOff ≤ a ∧ a < w.rt.g + gEnd) ∨ (w.L + stateNciOff ≤ a ∧ a < w.L + stateNciOff + 2)
+  (w.rt.g + gStrcacheOff ≤ a ∧ a < w.rt.g + gEnd) ∨ (w.L + stateNciOff ≤ a ∧ a < w.L + stateNciOff + 2) ∨
+  (w.rt.g + gAllgcOff ≤ a ∧ a < w.rt.g + gAllgcOff + 8)
 
 /-- **What the literals' facts stay apart from**: `L->top`, `L->ci`, the Lua
 `CallInfo` and the Lua stack above `ci->func` (`LitDirty`). -/
@@ -399,6 +401,8 @@ structure LuaStatic (M : Mem) (L : Nat) (rt : RtPtrs) : Prop where
   /-- (lane F1-15) the collector stopped (`luaC_step`'s `gcrunning` test:
   `luaE_setdebt(g, -2000)` only) -/
   gcstp : rd8 M (rt.g + gGcstpOff) = some gcstpUsr
+  /-- (lane F1-19) no metatable for functions (`luaL_tolstring`'s `"%s: %p"`) -/
+  mt_fn : rd64 M (rt.g + gMtOff + 8 * luaTfunction) = some 0
 
 /-- **The objects a `CALL print` leaves alone**, in a memory `M`: `.rodata`,
 the prototype and its code pointer, the owned strings, `_ENV`'s chain to
@@ -410,6 +414,8 @@ structure StatFacts (p : Proto) (w : RelPtrs) (M : Mem) : Prop where
   strs : ∀ ts s, w.ι.own ts s → TStringRepr M ts s
   env : ∀ ts, w.ι.own ts printKey → EnvMem M w.rt.cl ts (HeapRead p w)
   lua : LuaStatic M w.L w.rt
+  /-- (lane F1-19) the `.data` words `snprintf` reads -/
+  locale : LocaleWords M
 
 /-- **The objects a `CALL print` writes are apart** at the relation's
 pointers: `g` up to its string cache, the literals' objects, the `lua_State`,
@@ -437,6 +443,38 @@ structure NciApart (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (ls :
   stack : Apart nci ciSize w.func (w.rt.stackLast - w.func)
   lits : ∀ ts ∈ ls.strs, Apart nci ciSize ts 30
 
+/-- (lane F1-19) **The C `CallInfo` after the Lua one**, once there is one. -/
+def NciAt (w : RelPtrs) (a : Nat) : Prop :=
+  ∃ nci, rd64 w.mo (w.ci + ciNextOff) = some nci ∧ nci ≠ 0 ∧ nci ≤ a ∧ a < nci + ciSize
+
+/-- (lane F1-19) **What the caller of a `print` keeps** (`StrtSafe`'s `X`):
+the frozen objects `F`, the `lua_State`, `g` up to its string cache, the
+`CallInfo`s, the Lua stack above `ci->func`'s slot, everything below the
+heap. -/
+def CallX0 (w : RelPtrs) (F : Nat → Prop) (a : Nat) : Prop :=
+  F a ∨ (w.L ≤ a ∧ a < w.L + stateSize) ∨ (w.rt.g ≤ a ∧ a < w.rt.g + gEnd) ∨ (w.ci ≤ a ∧ a < w.ci + ciSize) ∨
+    (w.func + 16 ≤ a ∧ a < w.rt.stackLast) ∨ NciAt w a ∨ a < DlHeap.heapStart
+
+/-- (lane F1-19) **What an allocating `print` must find apart**, at the
+region `B` of `_dtoa_r`'s bignums: the string table's chains readable and
+apart from what the caller keeps and from `B` (`StrtSafe`, frozen with the
+literals on `FL`), the bignums (`ReentMp`, frozen on `B` and `_REENT`'s
+words), `B` in chunks in use and apart from the caller's objects, the
+literals' footprint and objects. -/
+structure CallAllocAt (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (ls : LitPtrs) (B : Nat → Prop) :
+    Prop where
+  strt : Kit.Frozen FL (fun M => ∀ rt, LitsIn M w.rt.g w.rt.stackLast ls rt →
+    StrtSafe (Vsa.Densify.fillZeroMem M) rt (Kit.Kept w.rt.hix ph) (fun a => CallX0 w F a ∨ B a) B) w.mo
+  big : Kit.Frozen (fun a => B a ∨ ReentWord a) (fun M => ReentMp (Vsa.Densify.fillZeroMem M) B) w.mo
+  big_in : ∀ a, B a → Kit.Kept w.rt.hix ph a
+  big_x : ∀ a, B a → ¬ CallX0 w F a
+  big_fl : ∀ a, B a → ¬ FL a
+  big_lit : ∀ ts ∈ ls.strs, ∀ a, ts ≤ a → a < ts + 30 → ¬ B a
+
+/-- (lane F1-19) `CallAllocAt` for some region of bignums. -/
+inductive CallAlloc (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat → Prop) (ls : LitPtrs) : Prop where
+  | intro (B : Nat → Prop) (h : CallAllocAt w ph F FL ls B)
+
 /-- **The `CALL` invariant** at `stdout`'s phase `ph`, the footprints `F` (the
 objects a `print` leaves alone) and `FL` (the interned literals), and the
 literals `ls`. -/
@@ -455,7 +493,7 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   atexit : Vsa.Sim.bytesT8 w.mo symAtexit = 0#64
   /-- the objects a `print` leaves alone, frozen on `F` -/
   stat : Kit.Frozen F (fun M => StatFacts p w (Vsa.Densify.fillZeroMem M)) w.mo
-  stat_in : ∀ a, F a → Kit.Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost)
+  stat_in : ∀ a, F a → Kit.Kept w.rt.hix ph a ∨ (0x80000000 ≤ a ∧ a < symTohost) ∨ LocaleW a
   stat_apart : ∀ a, F a → ¬ CallDirty w a
   /-- the register frame lies below `L->stack_last` -/
   fits : w.func + stackValueSize * (1 + p.maxstacksize) ≤ w.rt.stackLast
@@ -487,6 +525,8 @@ structure CallInvAt (p : Proto) (w : RelPtrs) (ph : Kit.StdoutPh) (F FL : Nat �
   nci : ∀ nci, rd64 w.mo (w.ci + ciNextOff) = some nci → nci ≠ 0 → NciApart w ph F FL ls nci
   /-- the objects a `CALL` writes are apart (`ObjsApart` at the relation's pointers) -/
   objs : CallObjs w ls
+  /-- (lane F1-19) what an allocating `print` must find apart (`CallAlloc`) -/
+  alloc : CallAlloc w ph F FL ls
 
 -- discipline: allow(R7-conj-tower-def) one existential over the invariant's
 -- witnesses; its body is the named-field structure `CallInvAt`

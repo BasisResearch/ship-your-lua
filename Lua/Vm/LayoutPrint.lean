@@ -14,6 +14,8 @@ def gAllgcOff : Nat := 112
 def reentResultOff : Nat := 80
 /-- `offsetof(struct _reent, _result_k)` — its size class -/
 def reentResultKOff : Nat := 88
+/-- `offsetof(struct _reent, _p5s)` — `__pow5mult`'s cache of `5^(4·2^j)` (lane F1-19) -/
+def reentP5sOff : Nat := 96
 /-- `offsetof(struct _reent, _freelist)` — `_Balloc`'s free lists (`_calloc_r` on first use) -/
 def reentFreelistOff : Nat := 104
 

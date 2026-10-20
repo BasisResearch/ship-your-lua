@@ -104,6 +104,12 @@ def _root_.Lua.Vm.RtPtrs.withHeap (rt : RtPtrs) (H : HeapIx) : RtPtrs :=
 
 /-! ## The close -/
 
+/-- (lane F1-19) **What the caller of a `print` keeps after it** (`StrtSafe`'s
+`X`; `CallX0` at the pointers after the call, the C `CallInfo` `nci`). -/
+def CloseX (w : RelPtrs) (F : Nat → Prop) (nci a : Nat) : Prop :=
+  F a ∨ (w.L ≤ a ∧ a < w.L + stateSize) ∨ (w.rt.g ≤ a ∧ a < w.rt.g + gEnd) ∨ (w.ci ≤ a ∧ a < w.ci + ciSize) ∨
+    (w.func + 16 ≤ a ∧ a < w.rt.stackLast) ∨ (nci ≤ a ∧ a < nci + ciSize) ∨ a < heapStart
+
 /-- **What the call's run leaves**, at the final memory `m` (the head's
 memory `c.σ.mem`, the complement `w.mo`): the line; `stdout` set up and
 flushed with the heap `H` (the old chunks in use kept, the buffer the old
@@ -114,7 +120,7 @@ the head; the results nil; `L->ci` back; the C `CallInfo` `nci` after the Lua
 one, where it lies. -/
 structure CloseIn (p : Proto) (c : Config) (w : RelPtrs) (ins : Word) (args : List Value) (ph : StdoutPh)
     (F : Nat → Prop) (ls : LitPtrs) (m : Mem) (out : List (BitVec 8)) (nci buf : Nat) (H : HeapIx)
-    (FL : Nat → Prop) : Prop where
+    (FL B : Nat → Prop) : Prop where
   line : charsOf out = printLine binaryHost args
   text : Arms.TextLoaded m
   st : PrintSt m (.up buf []) H
@@ -142,6 +148,29 @@ structure CloseIn (p : Proto) (c : Config) (w : RelPtrs) (ins : Word) (args : Li
   nci_ci : Apart nci ciSize w.ci ciSize
   nci_stack : Apart nci ciSize w.func (w.rt.stackLast - w.func)
   nci_lits : ∀ ts ∈ ls.strs, Apart nci ciSize ts 30
+  /-- (lane F1-19) the string table safe, frozen with the literals -/
+  safe : Frozen FL (fun M => ∀ rt, LitsIn M w.rt.g w.rt.stackLast ls rt →
+    StrtSafe (fillZeroMem M) rt (Kept H (.up buf [])) (fun a => CloseX w F nci a ∨ B a) B) m
+  /-- (lane F1-19) `_dtoa_r`'s bignums, where they lie -/
+  big : Frozen (BigFoot B) (fun M => ReentMp (fillZeroMem M) B) m
+  big_in : ∀ a, B a → Kept H (.up buf []) a
+  big_x : ∀ a, B a → ¬ CloseX w F nci a
+  big_fl : ∀ a, B a → ¬ FL a
+  big_lit : ∀ ts ∈ ls.strs, ∀ a, ts ≤ a → a < ts + 30 → ¬ B a
+
+/-- (lane F1-19) What the caller keeps, at the pointers after the call. -/
+theorem callX0_after {w : RelPtrs} {F : Nat → Prop} {m : Mem} {H : HeapIx} {nci a : Nat}
+    (hnext : rd64 (fillZeroMem m) (w.ci + ciNextOff) = some nci)
+    (h : CallX0 (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) F a) : CloseX w F nci a := by
+  rcases h with h | h | h | h | h | ⟨n, hn, -, h1, h2⟩ | h
+  · exact .inl h
+  · exact .inr (.inl h)
+  · exact .inr (.inr (.inl h))
+  · exact .inr (.inr (.inr (.inl h)))
+  · exact .inr (.inr (.inr (.inr (.inl h))))
+  · obtain rfl : n = nci := Option.some.inj (hn.symm.trans hnext)
+    exact .inr (.inr (.inr (.inr (.inr (.inl ⟨h1, h2⟩)))))
+  · exact .inr (.inr (.inr (.inr (.inr (.inr h)))))
 
 /-- `omega` over the relation's ranges, the layout and the window. -/
 macro "close_omega" : tactic => `(tactic| (
@@ -163,8 +192,9 @@ the Lua stack's and `g`'s pointers. -/
 theorem _root_.Lua.Vm.Sim.StatFacts.after {p : Proto} {w : RelPtrs} {M : Mem} (h : StatFacts p w M) (mo : Mem)
     (H : HeapIx) : StatFacts p (w.after mo w.ι (w.rt.withHeap H)) M :=
   ⟨h.rodata, h.proto, h.proto_code, h.strs, fun ts ho => (h.env ts ho).mono fun _ _ hr => hr.after _ _ _,
-    h.lua.hookmask, h.lua.errfunc, h.lua.nCcalls, h.lua.openupval, h.lua.tbclist, h.lua.stack,
-    h.lua.stack_last, h.lua.g, h.lua.mt_nil, h.lua.mt_boolean, h.lua.mt_number, h.lua.errjmp, h.lua.frealloc, h.lua.gcstp⟩
+    ⟨h.lua.hookmask, h.lua.errfunc, h.lua.nCcalls, h.lua.openupval, h.lua.tbclist, h.lua.stack,
+    h.lua.stack_last, h.lua.g, h.lua.mt_nil, h.lua.mt_boolean, h.lua.mt_number, h.lua.errjmp, h.lua.frealloc, h.lua.gcstp,
+    h.lua.mt_fn⟩, h.locale⟩
 
 /-- **The relation after `CALL print`** (lane F1-13): the run's facts
 (`CloseIn`) give `CallOut` and the `CALL` invariant at the pointers after the
@@ -172,8 +202,8 @@ call, the complement the final memory's zero fill and the heap `H`. The
 post-print `exit` is `ExitUp_Statement`. -/
 theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} {w : RelPtrs} {ins : Word}
     {args : List Value} {ph : StdoutPh} {F FL0 : Nat → Prop} {ls : LitPtrs} {m : Mem}
-    {out : List (BitVec 8)} {nci buf : Nat} {H : HeapIx} {FL : Nat → Prop} (hR : VmRelAt p c s w)
-    (hI : CallInvAt p w ph F FL0 ls) (h : CloseIn p c w ins args ph F ls m out nci buf H FL) :
+    {out : List (BitVec 8)} {nci buf : Nat} {H : HeapIx} {FL B : Nat → Prop} (hR : VmRelAt p c s w)
+    (hI : CallInvAt p w ph F FL0 ls) (h : CloseIn p c w ins args ph F ls m out nci buf H FL B) :
     CallOut p w c.σ.mem ins args m out (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) ∧
       CallInv p (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) := by
   have hc := hR.core
@@ -257,7 +287,12 @@ theorem call_close (hX : ExitUp_Statement) {p : Proto} {c : Config} {s : State} 
           fun a h1 h2 => ⟨(h.nci_kept a h1 h2).2, fun hf => h.lits.apart a hf (.inr ⟨h1, h2⟩)⟩,
           h.nci_L, h.nci_g, h.nci_ci, h.nci_stack, h.nci_lits⟩
       objs := ⟨hI.objs.g_L, hI.objs.g_ci, hI.objs.g_stack, hI.objs.ci_stack, hI.objs.lit_L,
-        hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack, hI.objs.L_stack⟩ }
+        hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack, hI.objs.L_stack⟩
+      alloc := .intro B
+        ⟨(h.safe.trans fun a _ => bytesT1_fill m a).conseq fun M hM rt hrt => (hM rt hrt).weaken (fun _ ha => keptH ha)
+            (fun a _ hx => hx.elim (fun hx => .inl (callX0_after hnext hx)) .inr) fun _ _ hb => hb,
+          h.big.trans fun a _ => bytesT1_fill m a, fun a ha => keptH (h.big_in a ha),
+          fun a ha hx => h.big_x a ha (callX0_after hnext hx), h.big_fl, h.big_lit⟩ }
   have comp : Complement p (w.after (fillZeroMem m) w.ι (w.rt.withHeap H)) := by
     obtain ⟨hsz, hwords⟩ := SF.proto.code SF.proto_code
     refine

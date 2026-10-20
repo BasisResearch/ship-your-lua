@@ -375,6 +375,7 @@ PRINT_FIELDS = [
     ("gAllgcOff", "offsetof(global_State, allgc)", "`g->allgc`, which `luaC_newobj` links a new object to"),
     ("reentResultOff", "offsetof(struct _reent, _result)", "`_dtoa_r`'s last result, freed on entry"),
     ("reentResultKOff", "offsetof(struct _reent, _result_k)", "its size class"),
+    ("reentP5sOff", "offsetof(struct _reent, _p5s)", "`__pow5mult`'s cache of `5^(4·2^j)` (lane F1-19)"),
     ("reentFreelistOff", "offsetof(struct _reent, _freelist)", "`_Balloc`'s free lists (`_calloc_r` on first use)"),
 ]
 

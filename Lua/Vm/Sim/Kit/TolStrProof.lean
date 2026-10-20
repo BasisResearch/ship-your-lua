@@ -98,10 +98,10 @@ theorem str_foot_contents {G : Nat → Prop} {func n : Nat} {ι : Strs} {args : 
 `n` values, for argument `i` (its string at `ts`, in the heap, its slot's tag
 `tag`). -/
 theorem tolS_in {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
-    {D G FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m : Mem}
+    {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m : Mem}
     {i : Nat} {r : BitVec 64} {ts : Nat} {tag : BitVec 8}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls args D G FL M0 ph0 H0 i n ph H m) (hi1 : 1 ≤ i) (hin : i ≤ n)
+    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n ph H m) (hi1 : 1 ≤ i) (hin : i ≤ n)
     (hr : r.toNat % 4 = 0) (hts : heapStart ≤ ts) (hts' : ts + 64 ≤ 2 ^ 32)
     (htag : slotTag m (func + 16 * i) = tag) (hval : slotVal m (func + 16 * i) = BitVec.ofNat 64 ts) :
     TolNums (sp0 - 64) L i (sp0 - 56) nci func (func + 16 * n + 16) g ts r ∧
@@ -178,7 +178,7 @@ theorem notW_of_keep {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Li
   rcases ha with hG | hA
   · obtain ⟨g1, g2, g3, g4, g5⟩ := hIn.keep_apart a hG
     have hlo : a < heapEnd := (hIn.keep_in a hG).elim (fun k => k.hi) fun k => by
-      simp only [PrintStatic, Rng, symTohost, symAtexit] at k; omega
+      simp only [PrintStatic, Rng, symTohost, symAtexit, LocaleW, symImpurePtr] at k; omega
     exact notTolSW_of (by homega) (by omega) (by omega) (by simpa only [stateTopOff] using g1)
       (by simp only [Rng] at g2 ⊢; omega) g4 (by simp only [Rng] at g3 ⊢; omega) (g5 _ htos)
   · simp only [ArgSlot] at hA
@@ -197,7 +197,7 @@ theorem str_kept {L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value
   have hHS : heapStart = 0x8006ecd0 := rfl
   rcases str_foot_contents hIn.args_fz hv hi k hk with hG | hA
   · exact (hIn.keep_in _ hG).elim id fun h => by
-      simp only [PrintStatic, Rng, symTohost, symAtexit] at h; omega
+      simp only [PrintStatic, Rng, symTohost, symAtexit, LocaleW, symImpurePtr] at h; omega
   · have hp := hIn.placed
     simp only [ArgSlot] at hA
     exact hIn.stack_in _ (by omega) (by have := hp.room; omega)
@@ -235,10 +235,10 @@ but the length word, the length, the string's bytes (read off its
 representation at the final memory, which keeps `PrintIn`'s footprint), where
 they lie (in chunks in use: `str_kept`). -/
 theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
-    {D G FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
+    {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m m' : Mem}
     {i j : Nat} {s : List UInt8}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls args D G FL M0 ph0 H0 j n ph H m) (hP : PrintSt m ph H)
+    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 j n ph H m) (hP : PrintSt m ph H)
     (hT : TolStrPost m m' (sp0 - 64) L (sp0 - 56) g (func + 16 * n + 16) ls s.length)
     (hv : args[i]? = some (.str s)) (hin : i < n) (hj : j = i + 1) :
     TolPost sp0 n (PrSt' L nci func tbc sl g n ls args D G M0 ph0 H0 (j + 1)) (argBytes (.str s)) ph m m'
@@ -314,6 +314,19 @@ theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
       (fun h => nK (hIn.g_in a (by pr_omega) (by pr_omega)) ha) fun h => ?_)
     have := hl.strs ls.tos htos a (by simp only [gcMarkedOff] at h; omega) (by simp only [gcMarkedOff] at h; omega)
     exact this.not_printFoot ha
+  -- (lane F1-19) `_dtoa_r`'s bignums are apart from the objects, `_REENT`'s words below the heap
+  have kB : ∀ a, BigFoot B a → bytesT1 m' a = bytesT1 m a := by
+    intro a ha
+    rcases ha with hb | hr
+    · have hx := hS.bigIn.x a hb
+      have hlt := hS.bigIn.lit ls.tos htos a
+      have hkh := (hS.bigIn.inK a hb).hi
+      simp only [PrX, not_or] at hx
+      obtain ⟨-, hxL, hxg, hxs, -, -⟩ := hx
+      refine kW a (notTolSW_of hsp (by omega) (by omega) (fun h => hxL ?_) (fun h => hxs ?_) (fun h => hxg ?_)
+        (fun h => hxg ?_) fun h => hlt ?_ ?_ hb) <;> pr_omega
+    · simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hr
+      refine kW a (notTolSW_of hsp (by omega) (by omega) ?_ ?_ ?_ ?_ ?_) <;> pr_omega
   -- the string, at `m'`: its representation (the footprint kept), its bytes, where they lie
   have hAm' : ArgsAt func ι args m' := hIn.args_fz m' fun a ha => (kW a (notW_of_keep hIn hn ha)).trans
     (hS.keep a (ha.elim (fun h => .inl h) fun h => .inr (.inl h)))
@@ -330,8 +343,8 @@ theorem prStrPost {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List 
   have hapi := hS.api
   have hlen' : (argBytes (.str s)).length = s.length := by simp [argBytes_str]
   refine
-    { lua := ⟨FL, hS.next0 (by omega) (by subst hj; simpa using hv) rfl ⟨?_, ?_, ?_, ?_, by have := hapi.tbc_lt; omega⟩
-        hl' (fun a ha => (kK a ha).trans (hS.keep a ha)) kFL kT⟩
+    { lua := ⟨FL, B, hS.next0 (by omega) (by subst hj; simpa using hv) rfl ⟨?_, ?_, ?_, ?_, by have := hapi.tbc_lt; omega⟩
+        hl' (fun a ha => (kK a ha).trans (hS.keep a ha)) kFL kT kB⟩
       io := hP.keep kP
       kept := fun c hc _ => hc
       frame := fun a h1 h2 => kW a fun hw => by
@@ -378,10 +391,10 @@ theorem TolPushMem.keep {M : Mem} {sp L lenp g top ts : Nat} {ls : LitPtrs} {tag
 complement of `luaB_print`'s state keeps `PrintIn`'s footprint, so the
 string's representation (at the slot's pointer of the entry). -/
 theorem str_repr_at {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
-    {D G FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m M : Mem}
+    {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m M : Mem}
     {i : Nat} {s : List UInt8}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    {j k : Nat} (hS : PrSt L nci func tbc sl g n ls args D G FL M0 ph0 H0 j k ph H m)
+    {j k : Nat} (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 j k ph H m)
     (hv : args[i]? = some (.str s)) (hin : i < n)
     (hk : ∀ a, ¬ TolSW (sp0 - 64) L (sp0 - 56) g (func + 16 * n + 16) ls a → bytesT1 M a = bytesT1 m a) :
     TStringRepr (fillZeroMem M) (slotVal M0 (func + 16 * (i + 1))).toNat s := by
@@ -399,7 +412,7 @@ theorem str_repr_at {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : Lis
 string's facts from `PrintIn` (`tolS_in`, `str_repr_at`), `TolPost` by
 `prStrPost`. -/
 theorem tolStr_proved : TolStr_Statement := by
-  intro sp0 L nci func n tbc sl g ls args ι D G FL ph0 H0 M0 i v hIn hn hv hC hi1 hin ph H m o r f hS hP hr
+  intro sp0 L nci func n tbc sl g ls args ι D G B FL ph0 H0 M0 i v hIn hn hv hC hi1 hin ph H m o r f hS hP hr
   cases v with
   | str s =>
     have hi' : i - 1 < n := by omega
@@ -474,9 +487,9 @@ F1-17; F1-18): `lua_pushstring` of the literals proved (`pushLit_proved`),
 `luaL_tolstring` on strings proved (`tolStr_proved`), `_malloc_r` proved
 (lane F1-A0-M, `AllocProof.mallocR_proved`); the allocating classes by
 `CallOpen`'s fields: integers per argument (`tolInt`), floats (`printFlt`),
-functions (`printFn`), integer lists off the per-argument route
-(`allocOff`). -/
+functions (`printFn`); lane F1-19: no off-route list (`printAllocOff_proved`:
+the budget has room in the string table). -/
 theorem CallOpen.print (O : CallOpen) : PrintRel_Statement :=
-  printRel_of AllocProof.mallocR_proved pushLit_proved tolStr_proved O.tolInt O.printFlt O.printFn O.allocOff
+  printRel_of AllocProof.mallocR_proved pushLit_proved tolStr_proved O.tolInt O.printFlt O.printFn
 
 end Lua.Vm.Sim.Kit

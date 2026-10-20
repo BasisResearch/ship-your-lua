@@ -378,6 +378,67 @@ theorem lits_boot {m0 m : Mem} {L ci : Nat} {p : Proto} {e : EntryPtrs} {rt : Rt
   rw [heg, hesl] at hL
   exact ⟨rt', hL.of_fill⟩
 
+/-- The literals of a memory are its fill's. -/
+theorem _root_.Lua.Vm.LitsIn.to_fill {M : Mem} {g sl : Nat} {ls : LitPtrs} {rt : RtPtrs}
+    (h : LitsIn M g sl ls rt) : LitsIn (Vsa.Densify.fillZeroMem M) g sl ls rt := by
+  have e := (fill_fill M).symm
+  have li : ∀ {seed b ts}, LitInterned M rt seed b ts → LitInterned (Vsa.Densify.fillZeroMem M) rt seed b ts :=
+    fun h => ⟨e ▸ h.repr, h.short, e ▸ h.strt, e ▸ h.seed_w, fun hl => e ▸ h.bucket hl, fun hl => e ▸ h.first hl,
+      h.ts_lo, h.ts_hi⟩
+  exact ⟨h.g, h.sl, li h.nil, li h.tru, li h.fls, li h.tos, fun c hc => e ▸ h.cands c hc, e ▸ h.strmt, h.hash_lo,
+    h.hash_hi, h.size_hi, h.lit_cands⟩
+
+/-- (lane F1-19) **The string table's safety at the entry**, frozen on
+`e.litFoot`, from the boot contract (`strt_safe`), at the relation's places. -/
+theorem strt_boot {m0 m : Mem} {L ci func pa code k sp : Nat} {p : Proto} {e : EntryPtrs} {rt : RtPtrs} {ι : Strs}
+    (hE : VmEntryData m0 L ci p e)
+    (hheap : DlHeap.HeapAt m0 rt.top rt.brkv rt.chunks (fun i => rt.bins.getD i []))
+    (heg : e.g = rt.g) (hesl : e.stackLast = rt.stackLast) (hfunc : e.func ≤ func)
+    (hnext : rd64 m (ci + ciNextOff) = some 0)
+    (hPL : ∀ M : Mem, (∀ a, InRanges e.litFoot a → bytesT1 M a = bytesT1 m a) →
+      ∀ a, InRanges e.litFoot a → (Vsa.Densify.fillZeroMem M)[a]? = m0[a]?) :
+    Kit.Frozen (InRanges e.litFoot) (fun M => ∀ rt', LitsIn M rt.g rt.stackLast e.lits rt' →
+      StrtSafe (Vsa.Densify.fillZeroMem M) rt' (Kit.Kept rt.hix .boot)
+        (fun a => CallX0 ⟨L, ci, func, pa, code, k, sp, m, ι, rt⟩
+          (fun a => InRanges e.foot a ∨ (Image.rodataBase ≤ a ∧ a < Image.rodataBase + Image.rodataSize)) a ∨ False)
+        fun _ => False) m := fun M hM rt' hL => by
+  have h := hE.strt_safe rt.top rt.chunks hheap.top_ptr hheap.walk (Vsa.Densify.fillZeroMem M) (hPL M hM) rt'
+    (by rw [heg, hesl]; exact hL.to_fill)
+  rw [fill_fill] at h
+  refine h.weaken (fun a ha => ⟨ha.inuse, ha.lo, ha.hi, fun hb => hb⟩) (fun a _ hx => ?_) fun _ _ h => h
+  have : Image.rodataBase = 0x8004ecc8 := rfl
+  have : Image.rodataSize = 55776 := rfl
+  have : DlHeap.heapStart = 0x8006ecd0 := rfl
+  rcases hx with ((hF | hr) | hL | hg | hc | hs | ⟨n, hn, h0, -⟩ | hlo) | hf
+  · exact .inl hF
+  · exact .inr (.inr (.inr (.inr (.inr (by omega)))))
+  · exact .inr (.inl hL)
+  · exact .inr (.inr (.inl (by rw [heg]; exact hg)))
+  · exact .inr (.inr (.inr (.inl hc)))
+  · have h1 : func + 16 ≤ a := hs.1
+    exact .inr (.inr (.inr (.inr (.inl ⟨by omega, by rw [hesl]; exact hs.2⟩))))
+  · exact absurd (Option.some.inj (hnext.symm.trans hn)).symm h0
+  · exact .inr (.inr (.inr (.inr (.inr hlo))))
+  · exact hf.elim
+
+/-- (lane F1-19) **No bignum at the entry**, frozen on `_REENT`'s words. -/
+theorem reent_boot {m0 m : Mem} {L ci : Nat} {p : Proto} {e : EntryPtrs} (hE : VmEntryData m0 L ci p e)
+    (hm0 : ∀ a, 0x80000000 ≤ a → a < 0x8006ecd0 → m[a]? = some (bytesT1 m0 a))
+    (hRam : ∀ a, 0x80000000 ≤ a ∧ a < 0x88000000 → m0[a]? = some (bytesT1 m0 a)) :
+    Kit.Frozen (fun a => False ∨ ReentWord a) (fun M => ReentMp (Vsa.Densify.fillZeroMem M) fun _ => False) m :=
+  fun M hM => by
+  have hi : symImpureData = 0x8005d1b8 := rfl
+  have r : ∀ o, reentResultOff ≤ o → o + 8 ≤ reentFreelistOff + 8 →
+      rdLE (Vsa.Densify.fillZeroMem M) (symImpureData + o) 8 = rdLE m0 (symImpureData + o) 8 := fun o h1 h2 =>
+    rdLE_congr fun j hj => by
+      have hw : ReentWord (symImpureData + o + j) := ⟨by omega, by omega⟩
+      simp only [reentResultOff, reentFreelistOff] at h1 h2
+      rw [fill_get M (a := symImpureData + o + j) (by omega) (by omega), hM _ (.inr hw),
+        hRam _ ⟨by omega, by omega⟩]
+      simp only [bytesT1, hm0 _ (show 0x80000000 ≤ symImpureData + o + j by omega) (by omega), Option.getD_some]
+  exact ReentBoot.mp ⟨(r _ (Nat.le_refl _) (by decide)).trans hE.reent.res,
+    (r _ (by decide) (by decide)).trans hE.reent.p5, (r _ (by decide) (Nat.le_refl _)).trans hE.reent.fl⟩ _
+
 /-- `CallLitDirty` at the relation's pointers is the entry's `LitDirty`. -/
 theorem litDirty_boot {L ci func pa code k sp : Nat} {m : Mem} {ι : Strs} {e : EntryPtrs} {rt : RtPtrs} {a : Nat}
     (heg : e.g = rt.g) (hesl : e.stackLast = rt.stackLast)
@@ -514,9 +575,9 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
       room := fun _ => hroom
       atexit := ?_
       stat := fun M hM => ?_
-      stat_in := fun a ha => ha.elim (fun ha => (hpl.foot a ha).imp kept id) fun ha => .inr ⟨by
+      stat_in := fun a ha => ha.elim (fun ha => (hpl.foot a ha).imp kept id) fun ha => .inr (.inl ⟨by
         have : Image.rodataBase = 0x8004ecc8 := rfl; omega, by
-        have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl; omega⟩
+        have : Image.rodataBase = 0x8004ecc8 := rfl; have : Image.rodataSize = 55776 := rfl; omega⟩)
       stat_apart := fun a ha hd => ha.elim (fun ha => hE.foot_apart a ha ?_) fun ha => ?_
       fits := hfits
       growFree := hgrow
@@ -537,7 +598,10 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
       ci_in := fun a h1 h2 => kept (hpl.ci a h1 h2)
       stack_in := fun a h1 h2 => kept (hpl.stack a (Nat.le_trans hfunc h1) (by rw [hesl]; exact h2))
       nci := fun nci h h0 => absurd (Option.some.inj (h.symm.trans hnext)) h0
-      objs := ?_ }
+      objs := ?_
+      alloc := .intro (fun _ => False)
+        ⟨strt_boot hE hheap heg hesl hfunc hnext hPL, reent_boot hE hm0 hRam, fun _ h => h.elim,
+          fun _ h => h.elim, fun _ h => h.elim, fun _ _ _ _ _ h => h⟩ }
   · exact hS.congr fun a ha => hlow a (by simp only [Kit.StdioGlob] at ha; omega)
       (by simp only [Kit.StdioGlob] at ha; omega)
   · exact hFs.congr fun a ha => hlow a (by simp only [Kit.StdioGlob] at ha; omega)
@@ -588,7 +652,9 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         proto_code := Fr.proto_code
         strs := hstr
         env := fun ts hown => ?_
-        lua := ?_ }
+        lua := ?_
+        locale := ⟨rdW (by simp [luaStaticWords]) hE.locale.impure, rdW (by simp [luaStaticWords]) hE.locale.decpt,
+          rdW (by simp [luaStaticWords]) hE.locale.mbtowc, rdW (by simp [luaStaticWords]) hE.locale.mbmax⟩ }
     · have hown' := hown
       rw [hι] at hown'
       obtain ⟨i, hk⟩ := hown'
@@ -620,7 +686,8 @@ theorem callInv_boot {m0 m : Mem} {L ci func sp : Nat} {p : Proto} {e : EntryPtr
         hsl ▸ rdW (by simp [luaStaticWords]) hlua.stack_last, hg ▸ rdW (by simp [luaStaticWords]) hlua.g,
         rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_nil), rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_boolean),
         rdW (by simp [luaStaticWords]) (hg ▸ hlua.mt_number), rdW (by simp [luaStaticWords]) hej.ptr,
-        rdW (by simp [luaStaticWords]) (heg ▸ hE.frealloc), rdW (by simp [luaStaticWords]) (heg ▸ hE.gc_stopped)⟩
+        rdW (by simp [luaStaticWords]) (heg ▸ hE.frealloc), rdW (by simp [luaStaticWords]) (heg ▸ hE.gc_stopped),
+        rdW (by simp [luaStaticWords]) (heg ▸ hE.mt_fn)⟩
   · simp only [CallDirty, EntryDirty] at hd ⊢
     rw [heg, hesl]; omega
   · have := hreg.ci_lo; have := hreg.L_lo; have := hreg.stack_lo

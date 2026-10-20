@@ -42,6 +42,15 @@ theorem notErrno_of_heap {a : Nat} (h : heapStart ≤ a) : ¬ ErrnoW a := fun he
 theorem notErrno_of_low {a : Nat} (h : a < symTohost) : ¬ ErrnoW a := fun he => by
   simp only [ErrnoW, symTohost, symImpureData, reentErrnoOff] at he h; omega
 
+/-- (lane F1-19) A locale word is not `errno`. -/
+theorem notErrno_of_locale {a : Nat} (h : (0x80000000 ≤ a ∧ a < symTohost) ∨ LocaleW a) : ¬ ErrnoW a :=
+  fun he => by
+  simp only [ErrnoW, LocaleW, symTohost, symImpurePtr, symImpureData, reentErrnoOff] at he h; omega
+
+/-- (lane F1-19) A word of `_REENT`'s `_dtoa_r` state is not `errno`. -/
+theorem notErrno_of_reent {a : Nat} (h : ReentWord a) : ¬ ErrnoW a := fun he => by
+  simp only [ErrnoW, ReentWord, symImpureData, reentErrnoOff, reentResultOff, reentFreelistOff] at he h; omega
+
 /-- **The complement with `errno` from `m`** (the zero fill: every RAM byte present). -/
 noncomputable def errnoMo (mo m : Mem) : Mem := fillZeroMem (memPatch mo m errnoA 4)
 
@@ -65,16 +74,16 @@ variable {p : Proto} {w : RelPtrs}
 theorem _root_.Lua.Vm.Sim.StatFacts.errno {M : Mem} (h : StatFacts p w M) (m : Mem) :
     StatFacts p (w.errno m) M :=
   ⟨h.rodata, h.proto, h.proto_code, h.strs, fun ts ho => (h.env ts ho).mono fun _ _ hr => hr.after _ _ _,
-    h.lua.hookmask, h.lua.errfunc, h.lua.nCcalls, h.lua.openupval, h.lua.tbclist, h.lua.stack,
+    ⟨h.lua.hookmask, h.lua.errfunc, h.lua.nCcalls, h.lua.openupval, h.lua.tbclist, h.lua.stack,
     h.lua.stack_last, h.lua.g, h.lua.mt_nil, h.lua.mt_boolean, h.lua.mt_number, h.lua.errjmp, h.lua.frealloc,
-    h.lua.gcstp⟩
+    h.lua.gcstp, h.lua.mt_fn⟩, h.locale⟩
 
 /-- The owned strings at the complement after an `errno` store. -/
 theorem _root_.Lua.Vm.Sim.Complement.errno_strs (hc : Complement p w) (M : Mem) :
     ∀ ts s, w.ι.own ts s → TStringRepr (errnoMo w.mo M) ts s := by
   obtain ⟨ph, F, FL, ls, hI⟩ := hc.call
   refine (hI.stat (memPatch w.mo M errnoA 4) fun a ha => bytesT1_memPatch_out ?_).strs
-  have := (hI.stat_in a ha).elim (fun hk => notErrno_of_heap hk.lo) fun h => notErrno_of_low h.2
+  have := (hI.stat_in a ha).elim (fun hk => notErrno_of_heap hk.lo) notErrno_of_locale
   simp only [ErrnoW, errnoA] at this ⊢; omega
 
 /-- A value's representation at the complement after an `errno` store. -/
@@ -97,7 +106,7 @@ theorem _root_.Lua.Vm.Sim.Complement.errno (hc : Complement p w) (hr : Ranges p 
       rdLE (errnoMo w.mo M) a n = rdLE w.mo a n := fun a n h1 h2 hj =>
     rdLE_fill hd h1 h2 fun j hj' => agP _ (hj j hj')
   have nF : ∀ a, F a → ¬ ErrnoW a := fun a ha =>
-    (hI.stat_in a ha).elim nK fun h => notErrno_of_low h.2
+    (hI.stat_in a ha).elim nK notErrno_of_locale
   have nFL : ∀ a, FL a → ¬ ErrnoW a := fun a ha => nK (hI.lits_in a ha)
   have SF : StatFacts p w (errnoMo w.mo M) := hI.stat _ fun a ha => agP a (nF a ha)
   have hL : heapStart ≤ w.L := (hI.L_in w.L (Nat.le_refl _) (by simp only [stateSize]; omega)).lo
@@ -259,7 +268,23 @@ theorem _root_.Lua.Vm.Sim.Complement.errno (hc : Complement p w) (hr : Ranges p 
           have h := hI.nci n ((ciRd ciNextOff 8 (by decide)).symm.trans hn) h0
           exact ⟨h.kept, h.foot, h.L, h.g, h.ci, h.stack, h.lits⟩
         objs := ⟨hI.objs.g_L, hI.objs.g_ci, hI.objs.g_stack, hI.objs.ci_stack, hI.objs.lit_L,
-          hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack, hI.objs.L_stack⟩ }
+          hI.objs.lit_g, hI.objs.lit_ci, hI.objs.lit_stack, hI.objs.L_stack⟩
+        alloc := by
+          obtain ⟨B, hA⟩ := hI.alloc
+          -- (lane F1-19) the `CALL` invariant's `X` reads only `ci->next`
+          have hX : ∀ a, CallX0 (w.errno M) F a → CallX0 w F a := fun a h => by
+            rcases h with h | h | h | h | h | ⟨n, hn, h0, h1⟩ | h
+            · exact .inl h
+            · exact .inr (.inl h)
+            · exact .inr (.inr (.inl h))
+            · exact .inr (.inr (.inr (.inl h)))
+            · exact .inr (.inr (.inr (.inr (.inl h))))
+            · exact .inr (.inr (.inr (.inr (.inr (.inl ⟨n, (ciRd ciNextOff 8 (by decide)).symm.trans hn, h0, h1⟩)))))
+            · exact .inr (.inr (.inr (.inr (.inr (.inr h)))))
+          exact .intro B ⟨(hA.strt.trans fun a ha => ag a (nFL a ha)).conseq fun M' hM rt hrt =>
+              (hM rt hrt).weaken (fun _ h => h) (fun a _ h => h.imp (hX a) id) fun _ _ h => h,
+            hA.big.trans fun a ha => ag a (ha.elim (fun hb => nK (hA.big_in a hb)) notErrno_of_reent),
+            hA.big_in, fun a hb hx => hA.big_x a hb (hX a hx), hA.big_fl, hA.big_lit⟩ }
 
 end
 
