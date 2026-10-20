@@ -108,6 +108,9 @@ import Lua.Vm.Sim.Kit.TolStr
 import Lua.Vm.Sim.Kit.TolStrProof
 import Lua.Vm.Sim.Kit.IntFmtLoop
 import Lua.Vm.Sim.Kit.FpCoerce
+import Lua.Vm.Sim.Kit.TonumStr
+import Lua.Vm.Sim.Kit.AtCoerceS
+import Lua.Vm.Sim.Kit.AtFltForprepS
 import Lua.Vm.Sim.Kit.Str2int
 
 /-!

@@ -314,6 +314,17 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.s2_dec
 #print axioms Lua.Vm.Sim.Kit.s2_hex
 #print axioms Lua.Vm.Sim.Kit.str2num_int
+#print axioms Lua.Vm.Sim.Kit.tons_sum
+#print axioms Lua.Vm.Sim.Kit.tois_sum
+#print axioms Lua.Vm.Sim.Kit.tsCtx_at
+#print axioms Lua.Vm.Sim.Kit.tons_at
+#print axioms Lua.Vm.Sim.Kit.tois_at
+#print axioms Lua.Vm.Sim.At.fp_sIIS
+#print axioms Lua.Vm.Sim.At.fp_sSSS
+#print axioms Lua.Vm.Sim.At.fp_sSFI
+#print axioms Lua.Vm.Sim.At.fp_sISI
+#print axioms Lua.Vm.Sim.At.fpCoerce_of_flt
+#print axioms Lua.Vm.Sim.At.fpStr_of
 #print axioms Lua.Vm.Sim.Kit.eqo_ff
 #print axioms Lua.Vm.Sim.Kit.eqo_if
 #print axioms Lua.Vm.Sim.Kit.eqo_fi

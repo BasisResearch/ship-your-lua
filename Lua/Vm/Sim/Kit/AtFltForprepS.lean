@@ -1,6 +1,22 @@
 import Lua.Vm.Sim.Kit.AtFltForprepTI
 import Lua.Vm.Sim.Kit.AtCoerceS
 import Lua.Vm.At.ForprepCIIS
+import Lua.Vm.At.ForprepCIFS
+import Lua.Vm.At.ForprepCISF
+import Lua.Vm.At.ForprepCISS
+import Lua.Vm.At.ForprepCFIS
+import Lua.Vm.At.ForprepCFFS
+import Lua.Vm.At.ForprepCFSI
+import Lua.Vm.At.ForprepCFSF
+import Lua.Vm.At.ForprepCFSS
+import Lua.Vm.At.ForprepCSII
+import Lua.Vm.At.ForprepCSIF
+import Lua.Vm.At.ForprepCSIS
+import Lua.Vm.At.ForprepCSFI
+import Lua.Vm.At.ForprepCSFF
+import Lua.Vm.At.ForprepCSFS
+import Lua.Vm.At.ForprepCSSI
+import Lua.Vm.At.ForprepCSSF
 import Lua.Vm.At.ForprepCSSS
 import Lua.Vm.At.ForprepSI
 
@@ -100,9 +116,59 @@ macro "fps_arm " ns:ident : tactic => `(tactic| (
   at_walk $ns))
 
 /-- `FORPREP` on (integer, integer, string). -/
-theorem fp_sIIS : ArmBody .FORPREP (FpClsS .i .i .s) := by fps_arm Lua.Vm.At.FORPREP_CIIS
+theorem fp_sIIS : ArmBody .FORPREP (FpClsS .i .i .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CIIS
+/-- `FORPREP` on (integer, float, string). -/
+theorem fp_sIFS : ArmBody .FORPREP (FpClsS .i .f .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CIFS
+/-- `FORPREP` on (integer, string, float). -/
+theorem fp_sISF : ArmBody .FORPREP (FpClsS .i .s .f) := by
+  fps_arm Lua.Vm.At.FORPREP_CISF
+/-- `FORPREP` on (integer, string, string). -/
+theorem fp_sISS : ArmBody .FORPREP (FpClsS .i .s .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CISS
+/-- `FORPREP` on (float, integer, string). -/
+theorem fp_sFIS : ArmBody .FORPREP (FpClsS .f .i .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CFIS
+/-- `FORPREP` on (float, float, string). -/
+theorem fp_sFFS : ArmBody .FORPREP (FpClsS .f .f .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CFFS
+/-- `FORPREP` on (float, string, integer). -/
+theorem fp_sFSI : ArmBody .FORPREP (FpClsS .f .s .i) := by
+  fps_arm Lua.Vm.At.FORPREP_CFSI
+/-- `FORPREP` on (float, string, float). -/
+theorem fp_sFSF : ArmBody .FORPREP (FpClsS .f .s .f) := by
+  fps_arm Lua.Vm.At.FORPREP_CFSF
+/-- `FORPREP` on (float, string, string). -/
+theorem fp_sFSS : ArmBody .FORPREP (FpClsS .f .s .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CFSS
+/-- `FORPREP` on (string, integer, integer). -/
+theorem fp_sSII : ArmBody .FORPREP (FpClsS .s .i .i) := by
+  fps_arm Lua.Vm.At.FORPREP_CSII
+/-- `FORPREP` on (string, integer, float). -/
+theorem fp_sSIF : ArmBody .FORPREP (FpClsS .s .i .f) := by
+  fps_arm Lua.Vm.At.FORPREP_CSIF
+/-- `FORPREP` on (string, integer, string). -/
+theorem fp_sSIS : ArmBody .FORPREP (FpClsS .s .i .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CSIS
+/-- `FORPREP` on (string, float, integer). -/
+theorem fp_sSFI : ArmBody .FORPREP (FpClsS .s .f .i) := by
+  fps_arm Lua.Vm.At.FORPREP_CSFI
+/-- `FORPREP` on (string, float, float). -/
+theorem fp_sSFF : ArmBody .FORPREP (FpClsS .s .f .f) := by
+  fps_arm Lua.Vm.At.FORPREP_CSFF
+/-- `FORPREP` on (string, float, string). -/
+theorem fp_sSFS : ArmBody .FORPREP (FpClsS .s .f .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CSFS
+/-- `FORPREP` on (string, string, integer). -/
+theorem fp_sSSI : ArmBody .FORPREP (FpClsS .s .s .i) := by
+  fps_arm Lua.Vm.At.FORPREP_CSSI
+/-- `FORPREP` on (string, string, float). -/
+theorem fp_sSSF : ArmBody .FORPREP (FpClsS .s .s .f) := by
+  fps_arm Lua.Vm.At.FORPREP_CSSF
 /-- `FORPREP` on (string, string, string). -/
-theorem fp_sSSS : ArmBody .FORPREP (FpClsS .s .s .s) := by fps_arm Lua.Vm.At.FORPREP_CSSS
+theorem fp_sSSS : ArmBody .FORPREP (FpClsS .s .s .s) := by
+  fps_arm Lua.Vm.At.FORPREP_CSSS
 
 /-! ## The integer loop with a string limit -/
 
