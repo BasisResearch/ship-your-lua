@@ -295,6 +295,11 @@ value: the special `y` (`:153-170`), else `powAx`. -/
     else powAx x y hx lx ix hy iy yi
   else powAx x y hx lx ix hy iy yi
 
+/-- `ieee754Pow` of a NaN operand (`e_pow.c:126-130`): `1` for `pow(1, NaN)`
+with a quiet `y`, else `x + y`. -/
+@[pw_stage] def powNaN (x y : Float.Model) (hx : Int32) (lx : UInt32) : Float.Model :=
+  if (u (hx - 0x3ff00000) ||| lx) == 0 && !issignaling y then one else x +. y
+
 /-- `ieee754Pow` as its zero and NaN tests (`e_pow.c:115-130`) and `powYi`. -/
 @[pw_stage] def powTop (x y : Float.Model) : Float.Model :=
   let hx := hiW x; let lx := loW x
@@ -304,7 +309,7 @@ value: the special `y` (`:153-170`), else `powAx`. -/
     if issignaling x then x +. y else one
   else if ix > 0x7ff00000 || (ix == 0x7ff00000 && lx != 0) ||
           iy > 0x7ff00000 || (iy == 0x7ff00000 && ly != 0) then
-    if (u (hx - 0x3ff00000) ||| lx) == 0 && !issignaling y then one else x +. y
+    powNaN x y hx lx
   else powYi x y hx lx ix hy ly iy (yisint hx iy ly)
 
 -- `yisint` is unfolded where a walk reaches its value.

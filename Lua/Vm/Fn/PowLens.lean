@@ -1830,6 +1830,9 @@ partial def pwWalk (cuts : Array Name) (fuel : Nat) : TacticM Unit := do
           setGoals [sg.mvarId]
           withMainContext do
             rwBy (← iteEq it (mkFVar sg.fvarId) pos)
+          -- a branch the context refutes
+          evalTactic (← `(tactic| try (exfalso; omega)))
+          if (← getGoals).isEmpty then continue
           pwDbg "front"
           if !(← getGoals).isEmpty then pwFront 64
           pwWalk cuts (fuel - 1)

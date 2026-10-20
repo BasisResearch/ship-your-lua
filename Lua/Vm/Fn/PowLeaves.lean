@@ -96,7 +96,7 @@ theorem log2Exp_eq (x : Float.Model) (ix hy iy : Int32) (y sign : Float.Model) :
 
 /-- `ieee754Pow` is its stage form `powTop` (`Lua/Vm/Fn/PowStage.lean`). -/
 theorem ieee754Pow_stage (x y : Float.Model) : Pow.ieee754Pow x y = Pow.powTop x y := by
-  unfold Pow.ieee754Pow Pow.powTop Pow.powYi Pow.powAx Pow.powAx0 Pow.powXZ Pow.powXZn Pow.powNY Pow.powSign
+  unfold Pow.ieee754Pow Pow.powTop Pow.powNaN Pow.powYi Pow.powAx Pow.powAx0 Pow.powXZ Pow.powXZn Pow.powNY Pow.powSign
   unfold Pow.log2Split Pow.log2Exp Pow.logGen Pow.logGenK Pow.logNear Pow.logExp
   pw_ite_cases
 
@@ -190,6 +190,115 @@ theorem fabs_l (x : Float.Model) : Lua.Vm.Fn.Fabs.F (BitVec.ofInt 64 (W x)) = Bi
     split <;> split <;> omega
 
 attribute [pw_lens] fabs_l
+
+/-- `issignaling_inline`'s test in `Nat`: off a signalling pattern the shifted word is small. -/
+theorem sig_nat (u : Nat) (_hu : u < 2 ^ 64)
+    (hq : ¬ (u / 2 ^ 52 % 2048 = 2047 ∧ u % 2 ^ 52 ≠ 0 ∧ u / 2 ^ 51 % 2 = 0)) :
+    ((2 ^ 51 ^^^ u) * 2) % 2 ^ 64 ≤ 2 ^ 64 - 2 ^ 52 := by
+  rw [Nat.xor_comm, nat_xor_51]
+  omega
+
+/-- A word shifted past the quiet bit (`issignaling_inline`'s `2·(x ^ 2^51)`)
+stays at most `(2^11 - 1)·2^53` unless the word is a signalling NaN. -/
+theorem sig_le_bv (b : BitVec 64)
+    (hq : ¬ (b.toNat / 2 ^ 52 % 2048 = 2047 ∧ b.toNat % 2 ^ 52 ≠ 0 ∧ b.toNat / 2 ^ 51 % 2 = 0)) :
+    (shift_bits_left (BitVec.ofInt 64 2251799813685248 ^^^ b)
+        (Sail.BitVec.extractLsb (1#6) 5 0)).toNat ≤ 2 ^ 64 - 2 ^ 52 := by
+  have h2 : (BitVec.ofInt 64 2251799813685248).toNat = 2 ^ 51 := by decide
+  have h3 : (Sail.BitVec.extractLsb (1#6) 5 0).toNat = 1 := by decide
+  simp only [shift_bits_left, BitVec.shiftLeft_eq', BitVec.toNat_shiftLeft, BitVec.toNat_xor, h2, h3,
+    Nat.shiftLeft_eq, Nat.pow_one]
+  have hu := b.isLt
+  generalize b.toNat = u at hq hu ⊢
+  exact sig_nat u hu hq
+
+/-- A model datum's word is not signalling (`isSNaN_toBits`). -/
+theorem sig_le (x : Float.Model) :
+    (shift_bits_left (BitVec.ofInt 64 2251799813685248 ^^^ BitVec.ofInt 64 (W x))
+        (Sail.BitVec.extractLsb (1#6) 5 0)).toNat ≤ 2 ^ 64 - 2 ^ 52 := by
+  have hq := Lua.Bytecode.isSNaN_toBits x
+  rw [Lua.Bytecode.isSNaN_eq_false_iff, Lua.Vm.Fn.PowLens.bits_W] at hq
+  have hn : F64.isNaN (BitVec.ofInt 64 (W x)) = true ↔
+      (BitVec.ofInt 64 (W x)).toNat / 2 ^ 52 % 2048 = 2047 ∧ (BitVec.ofInt 64 (W x)).toNat % 2 ^ 52 ≠ 0 := by
+    rw [Lua.Vm.Fn.Unorddf2.isNaN_fields]; simp
+  rw [hn] at hq
+  exact sig_le_bv _ (by omega)
+
+/-- An operand's word that is not a signalling NaN (`NotSNaN`, over its
+`Int`). -/
+theorem sig_le_int (X : Int) (hq : ¬ (X / 2 ^ 52 % 2048 = 2047 ∧ X % 2 ^ 52 ≠ 0 ∧ X / 2 ^ 51 % 2 = 0)) :
+    (shift_bits_left (BitVec.ofInt 64 2251799813685248 ^^^ BitVec.ofInt 64 X)
+        (Sail.BitVec.extractLsb (1#6) 5 0)).toNat ≤ 2 ^ 64 - 2 ^ 52 := by
+  apply sig_le_bv
+  have := Lua.Vm.Fn.FmodLens.ofInt_toNat X
+  omega
+
+/-- `issignaling_inline(x)` of a quiet word: false (`bgeu`). -/
+theorem sig_ge_int (X : Int) (hq : ¬ (X / 2 ^ 52 % 2048 = 2047 ∧ X % 2 ^ 52 ≠ 0 ∧ X / 2 ^ 51 % 2 = 0)) :
+    zopz0zKzJ_u (BitVec.ofInt 64 (-4503599627370496))
+      (shift_bits_left (BitVec.ofInt 64 2251799813685248 ^^^ BitVec.ofInt 64 X)
+        (Sail.BitVec.extractLsb (1#6) 5 0)) = true := by
+  have := sig_le_int X hq
+  have h1 : (BitVec.ofInt 64 (-4503599627370496)).toNat = 2 ^ 64 - 2 ^ 52 := by decide
+  unfold zopz0zKzJ_u
+  simp only [BitVec.toNatInt, decide_eq_true_eq, ge_iff_le, h1, Int.ofNat_eq_coe]
+  omega
+
+/-- `issignaling_inline(y)` of a quiet word: false (`bltu`). -/
+theorem sig_lt_int (X : Int) (hq : ¬ (X / 2 ^ 52 % 2048 = 2047 ∧ X % 2 ^ 52 ≠ 0 ∧ X / 2 ^ 51 % 2 = 0)) :
+    zopz0zI_u (BitVec.ofInt 64 (-4503599627370496))
+      (shift_bits_left (BitVec.ofInt 64 2251799813685248 ^^^ BitVec.ofInt 64 X)
+        (Sail.BitVec.extractLsb (1#6) 5 0)) = false := by
+  have := sig_le_int X hq
+  have h1 : (BitVec.ofInt 64 (-4503599627370496)).toNat = 2 ^ 64 - 2 ^ 52 := by decide
+  unfold zopz0zI_u
+  simp only [BitVec.toNatInt, decide_eq_false_iff_not, h1, Int.ofNat_eq_coe]
+  omega
+
+/-- `issignaling_inline(x)` (`e_pow.c:121`, `bgeu`) of a model datum: false. -/
+theorem sig_ge_l (x : Float.Model) :
+    zopz0zKzJ_u (BitVec.ofInt 64 (-4503599627370496))
+      (shift_bits_left (BitVec.ofInt 64 2251799813685248 ^^^ BitVec.ofInt 64 (W x))
+        (Sail.BitVec.extractLsb (1#6) 5 0)) = true := by
+  have := sig_le x
+  have h1 : (BitVec.ofInt 64 (-4503599627370496)).toNat = 2 ^ 64 - 2 ^ 52 := by decide
+  unfold zopz0zKzJ_u
+  simp only [BitVec.toNatInt, decide_eq_true_eq, ge_iff_le, h1, Int.ofNat_eq_coe]
+  omega
+
+/-- `issignaling_inline(y)` (`e_pow.c:128`, `bltu`) of a model datum: false. -/
+theorem sig_lt_l (x : Float.Model) :
+    zopz0zI_u (BitVec.ofInt 64 (-4503599627370496))
+      (shift_bits_left (BitVec.ofInt 64 2251799813685248 ^^^ BitVec.ofInt 64 (W x))
+        (Sail.BitVec.extractLsb (1#6) 5 0)) = false := by
+  have := sig_le x
+  have h1 : (BitVec.ofInt 64 (-4503599627370496)).toNat = 2 ^ 64 - 2 ^ 52 := by decide
+  unfold zopz0zI_u
+  simp only [BitVec.toNatInt, decide_eq_false_iff_not, h1, Int.ofNat_eq_coe]
+  omega
+
+/-- A NaN pattern's model datum has the canonical bits. -/
+theorem toBits_toModel_nan (x : F64) (h : x.cls = .nan) :
+    (F64.toModel x).toBits.toBitVec = 0x7ff8000000000000#64 := by
+  show Float.Model.UnpackedFloat.pack Float.Model.Format.binary64
+    (Float.Model.UnpackedFloat.unpack Float.Model.Format.binary64 (UInt64.ofBitVec x).toBitVec) = _
+  rw [UInt64.toBitVec_ofBitVec, F64.unpack_eq, h]
+  rfl
+
+/-- The word of a NaN pattern's datum: the canonical NaN. -/
+theorem W_ofInt_nan (e : Int) (hn : e / 2 ^ 52 % 2048 = 2047 ∧ e % 2 ^ 52 ≠ 0) :
+    W (F64.toModel (BitVec.ofInt 64 e)) = 9221120237041090560 := by
+  unfold W
+  rw [toBits_toModel_nan]
+  · decide
+  have h3 := Lua.Vm.Fn.FmodLens.ofInt_toNat e
+  unfold F64.cls F64.bexp F64.frac
+  have h1 : (BitVec.ofInt 64 e).toNat / 2 ^ 52 % 2 ^ 11 = 2047 := by omega
+  have h2 : ¬ (BitVec.ofInt 64 e).toNat % 2 ^ 52 = 0 := by omega
+  rw [ite_eq_left h1, ite_eq_right h2]
+
+attribute [pw_lens] sig_ge_l sig_lt_l sig_ge_int sig_lt_int
+attribute [pw_mlens] W_ofInt_nan
 
 /-- `pw_notnan`: `|x|` or `1/|x|` of an `x` the context pins to `±0`, `±∞`, `±1`. -/
 macro_rules | `(tactic| pw_notnan) => `(tactic| (subst_vars; first
