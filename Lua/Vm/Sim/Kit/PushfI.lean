@@ -438,7 +438,7 @@ structure PfHit (m M : Mem) (F K X W : Nat → Prop) (ts : Nat) (b : List UInt8)
   keep : ∀ a, ¬ F a → bytesT1 M a = bytesT1 m a
 
 /-- `lua_pushfstring`'s frames: `[sp - 8192, sp)`. -/
-def PfFr (sp a : Nat) : Prop := sp - 8192 ≤ a ∧ a < sp
+def PfFr (sp a : Nat) : Prop := sp ≤ a + 8192 ∧ a < sp
 
 /-- **`luaS_newlstr`'s outcome for `lua_pushfstring`**: found (the heap as
 it was) or created (`IaNewPost` off the frames). -/
