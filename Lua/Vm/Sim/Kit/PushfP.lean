@@ -221,11 +221,12 @@ theorem pfpM13_buf {sp L g top : Nat} {r : BitVec 64} {f : AbiFrame} {a4 a5 a6 a
 /-- **From the cut after `strchr` to the `'s'` conversion** (`K`): the empty
 prefix's `addstr2buff` (`memcpy` of no bytes, both 8-aligned). -/
 theorem pfp_toK (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 : BitVec 64) (m M1 : Mem)
-    (o : Array String) (hP : PfIn m sp L g top r) (hC : PfC M1 m sp L r 0x8004f290#64 f) (c : Config)
-    (h : SegSt 0x80011df8#64 (Lua.Vm.AtF.PushfP.r3 (pfpX sp L g top r f a4 a5 a6 a7 M1 o)) (ArmPay M1 o) c) :
-    ∃ c', Steps c c' ∧ SegSt 0x80011e54#64
+    (o : Array String) (hP : PfIn m sp L g top r) (hC : PfC M1 m sp L r 0x8004f290#64 f) :
+    Triple (SegSt 0x80011df8#64 (Lua.Vm.AtF.PushfP.r3 (pfpX sp L g top r f a4 a5 a6 a7 M1 o)) (ArmPay M1 o))
+      (fun c => SegSt 0x80011e54#64
       (Lua.Vm.AtF.PushfP.r5 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM4 sp L g top r f a4 a5 a6 a7 o M1) o))
-      (ArmPay (pfpM4 sp L g top r f a4 a5 a6 a7 o M1) o) c' := by
+      (ArmPay (pfpM4 sp L g top r f a4 a5 a6 a7 o M1) o) c) := by
+  intro c h
   pf_in hP
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have R := (pfpRod_of hP.rod).congr fun a ha => hC.low a (.inl (by omega))
@@ -246,13 +247,14 @@ theorem pfp_toK (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 :
 /-- **From the `'s'` conversion to the format's next piece** (`J`): `strlen`
 of `"function"`, its `addstr2buff` (`memcpy`'s word path). -/
 theorem pfp_toJ (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 : BitVec 64) (m M1 : Mem)
-    (o : Array String) (hP : PfIn m sp L g top r) (hC : PfC M1 m sp L r 0x8004f290#64 f) (c : Config)
-    (h : SegSt 0x80011e54#64
+    (o : Array String) (hP : PfIn m sp L g top r) (hC : PfC M1 m sp L r 0x8004f290#64 f) :
+    Triple (SegSt 0x80011e54#64
       (Lua.Vm.AtF.PushfP.r5 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM4 sp L g top r f a4 a5 a6 a7 o M1) o))
-      (ArmPay (pfpM4 sp L g top r f a4 a5 a6 a7 o M1) o) c) :
-    ∃ c', Steps c c' ∧ SegSt 0x80011e7c#64
+      (ArmPay (pfpM4 sp L g top r f a4 a5 a6 a7 o M1) o))
+      (fun c => SegSt 0x80011e7c#64
       (Lua.Vm.AtF.PushfP.r7 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM8 sp L g top r f a4 a5 a6 a7 o M1) o))
-      (ArmPay (pfpM8 sp L g top r f a4 a5 a6 a7 o M1) o) c' := by
+      (ArmPay (pfpM8 sp L g top r f a4 a5 a6 a7 o M1) o) c) := by
+  intro c h
   pf_in hP
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have k4 := pfpM4_keep (sp := sp) (L := L) (g := g) (top := top) (r := r) (f := f) (a4 := a4) (a5 := a5)
@@ -289,13 +291,14 @@ theorem pfp_toJ (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 :
 /-- **From the format's next piece to the `'p'` conversion** (`P`): `strchr`
 past `": "`, its `addstr2buff` (`memcpy`'s byte path). -/
 theorem pfp_toP (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 : BitVec 64) (m M1 : Mem)
-    (o : Array String) (hP : PfIn m sp L g top r) (hC : PfC M1 m sp L r 0x8004f290#64 f) (c : Config)
-    (h : SegSt 0x80011e7c#64
+    (o : Array String) (hP : PfIn m sp L g top r) (hC : PfC M1 m sp L r 0x8004f290#64 f) :
+    Triple (SegSt 0x80011e7c#64
       (Lua.Vm.AtF.PushfP.r7 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM8 sp L g top r f a4 a5 a6 a7 o M1) o))
-      (ArmPay (pfpM8 sp L g top r f a4 a5 a6 a7 o M1) o) c) :
-    ∃ c', Steps c c' ∧ SegSt 0x80011f2c#64
+      (ArmPay (pfpM8 sp L g top r f a4 a5 a6 a7 o M1) o))
+      (fun c => SegSt 0x80011f2c#64
       (Lua.Vm.AtF.PushfP.r9 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM13 sp L g top r f a4 a5 a6 a7 o M1) o))
-      (ArmPay (pfpM13 sp L g top r f a4 a5 a6 a7 o M1) o) c' := by
+      (ArmPay (pfpM13 sp L g top r f a4 a5 a6 a7 o M1) o) c) := by
+  intro c h
   pf_in hP
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have k8 := pfpM8_keep (sp := sp) (L := L) (g := g) (top := top) (r := r) (f := f) (a4 := a4) (a5 := a5)
@@ -382,11 +385,12 @@ abbrev pfpM14 (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 : B
 
 /-- **From `snprintf`'s return to the empty rest** (`J2`): `addsize`. -/
 theorem pfp_toJ2 (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 : BitVec 64) (m M2 : Mem)
-    (o : Array String) (hP : PfIn m sp L g top r) (hblen : bytesT4 M2 (sp - 412) = 0xa#32) (c : Config)
-    (h : SegSt 0x80011f50#64 (Lua.Vm.AtF.PushfP.r12 (pfpX sp L g top r f a4 a5 a6 a7 M2 o)) (ArmPay M2 o) c) :
-    ∃ c', Steps c c' ∧ SegSt 0x80011e7c#64
+    (o : Array String) (hP : PfIn m sp L g top r) (hblen : bytesT4 M2 (sp - 412) = 0xa#32) :
+    Triple (SegSt 0x80011f50#64 (Lua.Vm.AtF.PushfP.r12 (pfpX sp L g top r f a4 a5 a6 a7 M2 o)) (ArmPay M2 o))
+      (fun c => SegSt 0x80011e7c#64
       (Lua.Vm.AtF.PushfP.r13 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o))
-      (ArmPay (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o) c' := by
+      (ArmPay (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o) c) := by
+  intro c h
   pf_in hP
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have hX : Lua.Vm.AtF.PushfP.Ok_S (pfpX sp L g top r f a4 a5 a6 a7 M2 o) := by fcx_ok
