@@ -121,4 +121,51 @@ def f1SrcAst : Chunk := (.mk [
   .local_ [⟨"w", .reg⟩] [(.numeral (.int 7))],
   .functioncall (.call (.var (.name "print")) (.explist [(.binop .idiv (.prefixexp (.var (.name "w"))) (.numeral (.int 2))), (.binop .mod (.unop .neg (.prefixexp (.var (.name "w")))) (.numeral (.int 3))), (.binop .or (.binop .and (.binop .gt (.prefixexp (.var (.name "w"))) (.numeral (.int 5))) (.prefixexp (.var (.name "w")))) (.numeral (.int 0))), (.binop .or (.prefixexp (.paren (.binop .lt (.prefixexp (.var (.name "w"))) (.numeral (.int 5))))) .nil)]))] none)
 
+/-- The numerals of `c/tests/f1_src.lua` as `llex.c`'s `read_numeral` reads them, with
+the values this parser gave them in `f1SrcAst` (`luaO_str2num`; checked
+against `Lua.Num.str2number` by `Lua.Compile.LexOk`). -/
+def f1SrcAstNumerals : List (List UInt8 × Numeral) := [
+  ([49], .int 1),
+  ([50], .int 2),
+  ([51], .int 3),
+  ([52], .int 4),
+  ([48], .int 0),
+  ([49], .int 1),
+  ([50, 48], .int 20),
+  ([51], .int 3),
+  ([48], .int 0),
+  ([53], .int 5),
+  ([48], .int 0),
+  ([49], .int 1),
+  ([49, 53], .int 15),
+  ([49, 48], .int 10),
+  ([48], .int 0),
+  ([50], .int 2),
+  ([53], .int 5),
+  ([48], .int 0),
+  ([50], .int 2),
+  ([49], .int 1),
+  ([54], .int 6),
+  ([49, 48, 48], .int 100),
+  ([48], .int 0),
+  ([49], .int 1),
+  ([52], .int 4),
+  ([48], .int 0),
+  ([53], .int 5),
+  ([49], .int 1),
+  ([49], .int 1),
+  ([53], .int 5),
+  ([52], .int 4),
+  ([49, 48, 48], .int 100),
+  ([48], .int 0),
+  ([49], .int 1),
+  ([50], .int 2),
+  ([51], .int 3),
+  ([55], .int 7),
+  ([50], .int 2),
+  ([51], .int 3),
+  ([53], .int 5),
+  ([48], .int 0),
+  ([53], .int 5)]
+
 end Lua.Programs

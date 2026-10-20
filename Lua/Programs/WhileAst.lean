@@ -71,4 +71,26 @@ def whileAst : Chunk := (.mk [
     .assign [(.name "a")] [(.binop .add (.prefixexp (.var (.name "a"))) (.numeral (.int 1)))]] none),
   .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "acc")))]))] none)
 
+/-- The numerals of `c/tests/while.lua` as `llex.c`'s `read_numeral` reads them, with
+the values this parser gave them in `whileAst` (`luaO_str2num`; checked
+against `Lua.Num.str2number` by `Lua.Compile.LexOk`). -/
+def whileAstNumerals : List (List UInt8 × Numeral) := [
+  ([48], .int 0),
+  ([48], .int 0),
+  ([49, 48], .int 10),
+  ([49], .int 1),
+  ([48], .int 0),
+  ([48], .int 0),
+  ([49], .int 1),
+  ([49, 48, 48], .int 100),
+  ([50], .int 2),
+  ([48], .int 0),
+  ([48], .int 0),
+  ([49], .int 1),
+  ([51], .int 3),
+  ([49], .int 1),
+  ([51], .int 3),
+  ([49], .int 1),
+  ([49], .int 1)]
+
 end Lua.Programs

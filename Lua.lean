@@ -56,8 +56,15 @@ import Lua.Programs.Escape
 import Lua.Programs.EscStrfltAst
 import Lua.Programs.EscForstrAst
 import Lua.Programs.EscUnmfltAst
+import Lua.Programs.F3Float
+import Lua.Programs.F3FloatAst
+import Lua.Programs.F3Floop
+import Lua.Programs.F3FloopAst
+import Lua.Programs.PowFold
+import Lua.Programs.PowFoldAst
 import Lua.Compile.TV
 import Lua.Compile.Corpus
+import Lua.Compile.Consts
 import Lua.Os.HtifFs
 import Lua.Os.Htif
 import Lua.Os.HtifTraces

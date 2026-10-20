@@ -17,4 +17,9 @@ def escUnmfltAst : Chunk := (.mk [
   .local_ [⟨"s", .reg⟩] [(.string [49, 46, 53])],
   .functioncall (.call (.var (.name "print")) (.explist [(.unop .neg (.prefixexp (.var (.name "s"))))]))] none)
 
+/-- The numerals of `c/tests/stuck/s_unmflt.lua` as `llex.c`'s `read_numeral` reads them, with
+the values this parser gave them in `escUnmfltAst` (`luaO_str2num`; checked
+against `Lua.Num.str2number` by `Lua.Compile.LexOk`). -/
+def escUnmfltAstNumerals : List (List UInt8 × Numeral) := []
+
 end Lua.Programs

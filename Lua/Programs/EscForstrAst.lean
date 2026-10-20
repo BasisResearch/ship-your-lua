@@ -16,4 +16,10 @@ def escForstrAst : Chunk := (.mk [
   .fornum "i" (.numeral (.int 1)) (.string [50]) none (.mk [
     .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "i")))]))] none)] none)
 
+/-- The numerals of `c/tests/stuck/s_forstr.lua` as `llex.c`'s `read_numeral` reads them, with
+the values this parser gave them in `escForstrAst` (`luaO_str2num`; checked
+against `Lua.Num.str2number` by `Lua.Compile.LexOk`). -/
+def escForstrAstNumerals : List (List UInt8 × Numeral) := [
+  ([49], .int 1)]
+
 end Lua.Programs

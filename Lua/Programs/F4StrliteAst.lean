@@ -41,4 +41,16 @@ def f4StrliteAst : Chunk := (.mk [
   .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "s"))), (.unop .len (.prefixexp (.var (.name "s")))), (.binop .add (.prefixexp (.var (.name "s"))) (.numeral (.int 0)))])),
   .functioncall (.call (.var (.name "print")) (.explist [(.binop .eq (.prefixexp (.var (.name "a"))) (.string [108, 117, 97])), (.binop .ne (.prefixexp (.var (.name "a"))) (.prefixexp (.var (.name "b"))))]))] none)
 
+/-- The numerals of `c/tests/f4_strlite.lua` as `llex.c`'s `read_numeral` reads them, with
+the values this parser gave them in `f4StrliteAst` (`luaO_str2num`; checked
+against `Lua.Num.str2number` by `Lua.Compile.LexOk`). -/
+def f4StrliteAstNumerals : List (List UInt8 × Numeral) := [
+  ([55], .int 7),
+  ([49], .int 1),
+  ([51], .int 3),
+  ([50], .int 2),
+  ([49], .int 1),
+  ([53], .int 5),
+  ([48], .int 0)]
+
 end Lua.Programs

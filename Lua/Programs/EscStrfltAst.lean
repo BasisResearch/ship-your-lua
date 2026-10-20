@@ -17,4 +17,10 @@ def escStrfltAst : Chunk := (.mk [
   .local_ [⟨"x", .reg⟩] [(.binop .add (.string [49, 46, 53]) (.numeral (.int 1)))],
   .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "x")))]))] none)
 
+/-- The numerals of `c/tests/stuck/s_strflt.lua` as `llex.c`'s `read_numeral` reads them, with
+the values this parser gave them in `escStrfltAst` (`luaO_str2num`; checked
+against `Lua.Num.str2number` by `Lua.Compile.LexOk`). -/
+def escStrfltAstNumerals : List (List UInt8 × Numeral) := [
+  ([49], .int 1)]
+
 end Lua.Programs

@@ -63,9 +63,19 @@ Meanings, each Lua 5.4's (manual §3, `lparser.c`):
   integral numbers, order on numbers (`LTnum`) and strings (`l_strcmp` in
   the C locale), `==`/`~=` raw equality (`1 == 1.0`), `..` of strings and
   numbers (`tostring`), `#` of strings, short-circuit `and`/`or`, `not`, and
-  the string library's arithmetic metamethods (`"1.5" + 1` is `2.5`). Float
-  numerals, `/`, `^`, tables and other metamethods have no rule (or are not
-  in `AstSupported`).
+  the string library's arithmetic metamethods (`"1.5" + 1` is `2.5`). `/`
+  is float division, `^` newlib's `pow` (`Lua.Num.numpow`, the ELF's). Tables
+  and other metamethods have no rule.
+* **Numerals** (§3.1): an integer numeral is its integer; a float numeral is
+  the double the lexer read (`l_str2d`, `strtod` correctly rounded; the
+  syntax keeps its bits, and the generated `…Numerals` tables check the
+  parser's reading against `Lua.Num.str2number`, `Lua.Compile.LexOk`), as
+  the constant `LOADK` loads (`Const.toValue?`).
+* **Constant folding** is not part of the meaning: `luac` folds constant
+  operators (`lcode.c` `constfolding`) with the host's arithmetic, which is
+  IEEE's for `+ - * / // %` but the host libm's for `^`. `AstSupported`
+  excludes a `^` that `luac` may fold (`powOk`), so a supported program means
+  the same whether or not its other constants are folded.
 -/
 
 namespace Lua.Ast
@@ -263,6 +273,7 @@ def rules (H : Host) : Rulebook Call Call.Res
   | .eval _ .false => pure (.bool false)
   | .eval _ .true => pure (.bool true)
   | .eval _ (.numeral (.int i)) => pure (.int i)
+  | .eval _ (.numeral (.float b)) => lift (Lua.Bytecode.Const.toValue? (.float b))
   | .eval _ (.string s) => pure (.str s)
   | .eval ρ (.prefixexp (.var (.name x))) => lift (evalName ρ x)
   | .eval ρ (.prefixexp (.paren e)) => eval ρ e
@@ -433,23 +444,52 @@ def isBound (bound : List (Name × Attrib)) (x : Name) : Bool := bound.any (·.1
 def isAssignable (bound : List (Name × Attrib)) (x : Name) : Bool :=
   (bound.find? (·.1 = x)).any (·.2 = .reg)
 
-/-- F1's operators, with F4-lite's `..` and `#` (not yet `/` and `^`:
-FLOAT-DESIGN.md S3, `luac` folds `^` with the host's `pow`). -/
-def BinOp.inF1 : BinOp → Bool
-  | .div | .pow => false
-  | _ => true
+/-- `luac` may evaluate `e` at compile time: `lcode.c`'s `constfolding` folds
+an arithmetic or bitwise operator whose operands are numerals (`tonumeral`),
+through parentheses, unary `-`/`~`, nested folds and `<const>` locals
+(`luaK_exp2const`, `const2exp`). An over-approximation (a fold `validop`
+refuses, or a NaN or zero result, is not made; a `<const>` local may hold a
+non-constant): luac folds no expression outside it. -/
+def mayFold (bound : List (Name × Attrib)) : Exp → Bool
+  | .numeral _ => true
+  | .prefixexp (.paren e) => mayFold bound e
+  | .prefixexp (.var (.name x)) => (bound.find? (·.1 = x)).any (·.2 = .const)
+  | .unop .neg a => mayFold bound a
+  | .unop .bnot a => mayFold bound a
+  | .binop op a b => op.toBc.isSome && mayFold bound a && mayFold bound b
+  | _ => false
+
+/-- A `^` that `luac` evaluates at run time, or whose fold is
+host-independent. `luac` folds a constant `^` with the HOST's libm `pow`
+(`luai_numpow`, glibc on the build machine), while `^` in the semantics and
+on the ELF is newlib's (`Lua.Num.numpow`); the two differ on concrete
+operands (`0.5 ^ -0.5`: glibc `0x3ff6a09e667f3bcd`, newlib
+`…bcc`; the corpus counterexample `powFold_counterexample`,
+`Lua/Compile/Corpus.lean`), so a `^` luac may fold is outside F1, except
+with the exponent the numeral `2`, which `luai_numpow` computes as `a*a` on
+both sides (FLOAT-DESIGN.md §5 R5). -/
+def powOk (bound : List (Name × Attrib)) (a b : Exp) : Bool :=
+  !(mayFold bound a && mayFold bound b) ||
+    match b with
+    | .numeral n => n == .int 2 || n == .float 0x4000000000000000
+    | _ => false
+
+/-- F1's binary operators: all, with `^` restricted by `powOk`. -/
+def binOk (bound : List (Name × Attrib)) : BinOp → Exp → Exp → Bool
+  | .pow, a, b => powOk bound a b
+  | _, _, _ => true
 
 def UnOp.inF1 : UnOp → Bool
   | .neg | .not | .bnot | .len => true
 
 mutual
-/-- An F1 expression: `nil`, booleans, integer numerals, string literals,
-locals in scope, parentheses, and F1's operators. -/
+/-- An F1 expression: `nil`, booleans, numerals, string literals, locals in
+scope, parentheses, and F1's operators (`binOk`). -/
 def supE (bound : List (Name × Attrib)) : Exp → Bool
-  | .nil | .false | .true | .numeral (.int _) | .string _ => true
+  | .nil | .false | .true | .numeral _ | .string _ => true
   | .prefixexp (.var (.name x)) => isBound bound x
   | .prefixexp (.paren e) => supE bound e
-  | .binop op a b => op.inF1 && supE bound a && supE bound b
+  | .binop op a b => binOk bound op a b && supE bound a && supE bound b
   | .unop op a => op.inF1 && supE bound a
   | _ => false
 
@@ -527,7 +567,9 @@ statements `;`, `local` (no `<close>`), assignment to non-`<const>` locals,
 `print(…)` calls of the global `print`, labels and `goto` (a visible label,
 not jumping into a local's scope, no label visible twice), `break` in a
 loop, `do`, `while`, `repeat`, `if`, numeric `for`; no `return`; the F1
-expressions (`supE`). -/
+expressions (`supE`: integer and float numerals, every arithmetic and bitwise
+operator, but no `^` that `luac` may constant-fold with the host's `pow`,
+`powOk`). -/
 def AstSupported (c : Chunk) : Prop := supBlock ⟨[], false, [], []⟩ false c = true
 
 instance (c : Chunk) : Decidable (AstSupported c) := inferInstanceAs (Decidable (_ = true))
