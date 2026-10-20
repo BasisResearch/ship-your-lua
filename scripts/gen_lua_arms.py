@@ -573,7 +573,7 @@ RESULTS.update({"lua_pushstring": {"x10"}, "luaS_new": {"x10"}, "luaS_newlstr": 
 # `lua_pushfstring(L, "%I", i)` -> `luaO_pushvfstring` on `"%I"` (the jump
 # table's `'I'` target `0x80011fc0` a root; stops: `"%%"`, an unknown
 # conversion, the concatenation of a second piece), `strchr` (the NUL search
-# `0x800362e8` a stop), `addstr2buff` and `addnum2buff` with room in the
+# `0x800362e8` a stop; its word test split at `0x80036250`, `0x80036274`), `addstr2buff` and `addnum2buff` with room in the
 # buffer (stops: their flushes, a float), `memcpy` (stops: the 64-byte
 # blocks, a misaligned destination), `internshrstr`'s creation path (the table's
 # growth `0x800174b4` a stop), `luaC_newobj` (over `luaM_malloc_`)
@@ -585,7 +585,7 @@ HELPERS += [("lua_isinteger", "Lua_isinteger", 0x800021f4, 0x80002298, [22, 26],
              [0x80012020, 0x800121f0, 0x800121e0]),
             ("addstr2buff", "Addstr2buff", 0x800114b0, 0x80011584, [22, 26], [], [0x80011520, 0x80011554]),
             ("addnum2buff", "Addnum2buff", 0x80011584, 0x80011630, [22, 26], [], [0x80011610, 0x800115b8]),
-            ("strchr", "Strchr", 0x80036204, 0x80036374, [22, 26], [], [0x800362e8]),
+            ("strchr", "Strchr", 0x80036204, 0x80036374, [22, 26], [0x80036250, 0x80036274], [0x800362e8]),
             ("memcpy", "Memcpy", 0x8003b648, 0x8003b770, [22, 26], [], [0x8003b6e0, 0x8003b73c]),
             ("luaC_newobj", "LuaC_newobj", 0x8000e8ec, 0x8000e940, [22, 26], [], [])]
 RESULTS.update({"lua_isinteger": {"x10"}, "lua_tointegerx": {"x10"}, "lua_pushfstring": {"x10"},

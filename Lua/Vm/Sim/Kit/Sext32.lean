@@ -4,15 +4,23 @@ import Lua.Vm.Sim.Kit.AtFn
 # A small word's `sext.w`
 
 `fmt_sext32_ofNat`: the 64-bit sign extension of a 32-bit literal below
-`2 ^ 31` is the literal (a `lw` of a small count). Its own module so a
-callee's at-lemmas can use it without `FmtLib`'s `at_eq` hooks
-(`Kit/AtNarrow.lean`).
+`2 ^ 31` is the literal (a `lw` of a small count); `fmt_pin`, a register the
+path never set. Their own module so a callee's at-lemmas can use them without
+`FmtLib`'s `at_eq` hooks (`Kit/AtNarrow.lean`).
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
 open Vsa.Sim Vsa.Logic
 
 namespace Lua.Vm.Sim.Kit
+
+/-- **`fmt_pin h n R`**: register `R` (GPR `n`) pinned at whatever it holds
+(every GPR holds a value, `RegsOk`): a register a segment carries that the
+path never set (`gen_lua_at.py` `junk`). -/
+macro "fmt_pin " h:ident n:num R:ident : tactic => `(tactic| (
+  obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp
+    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk $h) $n (by decide) (by decide))
+  have $h := Vsa.Sim.SegSt.repin (L' := ⟨$R, t⟩ :: _) $h ⟨ht, Vsa.Sim.SegSt.pins $h⟩))
 
 /-- A 32-bit literal's `sext.w` (a `lw` of a small word). -/
 theorem fmt_sext32_ofNat {n : Nat} (h : n < 2 ^ 31) :
@@ -52,6 +60,12 @@ theorem stData1_ofNat (n : Nat) : stData 1 (BitVec.ofNat 64 n) = BitVec.ofNat 8 
 theorem swData_ofNat (n : Nat) : swData (BitVec.ofNat 64 n) = BitVec.ofNat 32 n := by
   apply BitVec.eq_of_toNat_eq
   show (Sail.BitVec.extractLsb (BitVec.ofNat 64 n) 31 0).toNat = _
+  simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_toNat, Nat.shiftRight_zero, BitVec.toNat_ofNat]
+  rw [Nat.mod_mod_of_dvd _ (by decide)]
+
+/-- The low word of a count's word. -/
+theorem extract_ofNat (n : Nat) : Sail.BitVec.extractLsb (BitVec.ofNat 64 n) 31 0 = BitVec.ofNat 32 n := by
+  apply BitVec.eq_of_toNat_eq
   simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_toNat, Nat.shiftRight_zero, BitVec.toNat_ofNat]
   rw [Nat.mod_mod_of_dvd _ (by decide)]
 

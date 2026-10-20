@@ -1902,6 +1902,8 @@ class Fn:
         for pc, cl in spec.get("calls", {}).items():
             if isinstance(cl, dict) and "root" in cl:
                 self.oks[f"Ok_{cl['root']}"] = (cl["ok"], cl.get("lb", {}))
+        for pc, cl in spec.get("cuts", {}).items():
+            self.oks[f"Ok_{cl['root']}"] = (cl["ok"], cl.get("lb", {}))
         self.cur = "Ok"
 
     def lb(self, i):
@@ -2282,6 +2284,11 @@ class Fn:
                             d = head == "!="
                 if d is not None and d != taken:
                     raise Stop("infeasible")
+                # lane F1-20: an outcome the path's own Nat facts refute (the same
+                # bound tested by two callees: `index2value`'s `o < L->top` in
+                # `lua_type` and in `lua_tointegerx`), where the spec asks (`prune_nat`)
+                if self.spec.get("prune_nat") and self.nat_fact(head, x, y, not taken) in st2.nfacts:
+                    raise Stop("infeasible")
                 ground = x[0] == "lit" and y[0] == "lit"
                 if head in ("==", "!=") and "opq" not in (x[0], y[0]):
                     loc, v = (x, litval(y)) if litval(y) is not None else (y, litval(x))
@@ -2391,6 +2398,14 @@ class Fn:
             self.emit(*emit)
             self.ends.append((f"loop 0x{nxt:x}", self.row(st2.regs), self.mem(st2.log)))
             return
+        if nxt in self.spec.get("cuts", {}):
+            # lane F1-20: a cut (`cuts`): the path's log becomes the root memory
+            # of a fresh context there (a long store chain past the recursion
+            # limit of the at-lemmas' `simp`)
+            self.emit(*emit)
+            self.ends.append((f"cut 0x{nxt:x}", self.row(st2.regs), self.mem(st2.log)))
+            self.new_root_at_cut(nxt, st2)
+            return
         if nxt in self.spec.get("ends", ()):
             # a hand-off point: the summary proof continues there on another route
             self.emit(*emit)
@@ -2434,6 +2449,19 @@ class Fn:
             regs2 = dict(regs)
             regs2.update(var)
             self.root(ret, FState(regs2, [], carried, root=f"Ok_{spec['root']}" if 'root' in spec else st.root))
+
+    def new_root_at_cut(self, pc, st):
+        """lane F1-20: a fresh root at the cut `pc`: every register kept (a
+        value over the old root memory a fresh word atom), the stack words the
+        path stored carried as the new root memory's facts."""
+        spec = self.spec["cuts"][pc]
+        sp = st.get(2)
+        if sp[0] != "nat":
+            raise Stop("sp at a cut")
+        regs = {r: (v if phase_free(v) else ("bv", self.fresh_bv(pc, r))) for r, v in st.regs.items()}
+        carried = [(w, t, a, v) for w, t, a, v in st.log + st.carried
+                   if self.region(t) == "sp" and t == sp[1] and a >= sp[2] and phase_free(v)]
+        self.root(pc, FState(regs, [], carried, root=f"Ok_{spec['root']}"))
 
     def fresh_nat(self, ret, r):
         """The Nat atom standing for register `r`'s value at the return `ret`."""
@@ -3813,6 +3841,8 @@ def tol_int(mod):
     d["rcells"] = {**d["rcells"], (((2, 16), (5, 1)), 0): ("bv", 13)}
     d["calls"] = {0x800030a4: dict(ret={})}
     d["junk"] = (13, 14, 15, 16, 17)
+    d["prune_nat"] = True
+    d["imports"] = ["Lua.Vm.Sim.Kit.AtNarrow"]
     d["doc"] = ("`luaL_tolstring(L, i, &l)` on an integer argument (`lua_isinteger`, `lua_tointegerx`, "
                 "`lua_pushfstring(L, \"%I\", i)`), up to its tail `lua_tolstring(L, -1, &l)`.")
     return d
@@ -3875,10 +3905,11 @@ FNS.update({
         cells=PF_CELLS,
         rcells={(((1, 1),), 24): N((2, 1)), (((1, 1),), 16): N((3, 1))},
         rcellsw={(1, ((5, 1),), 8): 4},
+        cuts={0x80011df8: dict(root="C", ok=PF_OK, lb=PF_LB)},
         calls={0x80034de0: dict(ret={10: N((4, 1))}, root="S", ok=PF_S, lb=PF_LB),
                0x80017694: dict(ret={10: N((5, 1))}, root="T", ok=PF_T, lb=PF_LB),
                0x8000ec80: dict(ret={})},
-        imports=["Lua.Vm.Sim.Kit.AtNarrow"],
+        imports=["Lua.Vm.Sim.Kit.FmtLib", "Lua.Vm.Sim.Kit.AtNarrow"],
         doc="`lua_pushfstring(L, \"%I\", i)`: `luaO_pushvfstring` on `\"%I\"` (`strchr`, `addstr2buff`, "
             "`addnum2buff` → `snprintf(buf, 44, \"%lld\", i)`, `luaS_newlstr`, the push), `luaC_checkGC`."),
     "luaS_newlstr/any": dict(

@@ -40,7 +40,7 @@ theorem site_80011d98 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x2
         (v2 + sign_extend (m := 64) (0xe90#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011d98 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011d98 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011d98#64) vminstret (0xe9010113#32)
     (instruction.ITYPE (0xe90#12, regidx.Regidx 0x02#5, regidx.Regidx 0x02#5, iop.ADDI))
     Register.x2 (v2 + sign_extend (m := 64) (0xe90#12))
@@ -80,7 +80,7 @@ theorem site_80011d9c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011d9c#64)).mem (v2 + sign_extend (m := 64) (0x110#12)).toNat (sdData_val v26))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011d9c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011d9c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011d9c#64) vminstret (0x11a13823#32)
     (instruction.STORE (0x110#12, regidx.Regidx 0x1a#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011d9c#64)).mem (v2 + sign_extend (m := 64) (0x110#12)).toNat (sdData_val v26))
@@ -114,7 +114,7 @@ theorem site_80011da0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v11 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x26
         (v11 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011da0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011da0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011da0#64) vminstret (0x00058d13#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x0b#5, regidx.Regidx 0x1a#5, iop.ADDI))
     Register.x26 (v11 + sign_extend (m := 64) (0x000#12))
@@ -154,7 +154,7 @@ theorem site_80011da4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011da4#64)).mem (v2 + sign_extend (m := 64) (0x128#12)).toNat (sdData_val v23))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011da4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011da4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011da4#64) vminstret (0x13713423#32)
     (instruction.STORE (0x128#12, regidx.Regidx 0x17#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011da4#64)).mem (v2 + sign_extend (m := 64) (0x128#12)).toNat (sdData_val v23))
@@ -194,7 +194,7 @@ theorem site_80011da8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011da8#64)).mem (v2 + sign_extend (m := 64) (0x028#12)).toNat (sdData_val v10))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011da8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011da8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011da8#64) vminstret (0x02a13423#32)
     (instruction.STORE (0x028#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011da8#64)).mem (v2 + sign_extend (m := 64) (0x028#12)).toNat (sdData_val v10))
@@ -228,7 +228,7 @@ theorem site_80011dac (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15
         (v2 + sign_extend (m := 64) (0x100#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dac (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dac (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011dac#64) vminstret (0x10010793#32)
     (instruction.ITYPE (0x100#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0f#5, iop.ADDI))
     Register.x15 (v2 + sign_extend (m := 64) (0x100#12))
@@ -262,7 +262,7 @@ theorem site_80011db0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x23
         (v10 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011db0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011db0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011db0#64) vminstret (0x00050b93#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x17#5, iop.ADDI))
     Register.x23 (v10 + sign_extend (m := 64) (0x000#12))
@@ -295,7 +295,7 @@ theorem site_80011db4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
         ((0#64) + sign_extend (m := 64) (0x025#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011db4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011db4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011db4#64) vminstret (0x02500593#32)
     (instruction.ITYPE (0x025#12, regidx.Regidx 0x00#5, regidx.Regidx 0x0b#5, iop.ADDI))
     Register.x11 ((0#64) + sign_extend (m := 64) (0x025#12))
@@ -328,7 +328,7 @@ theorem site_80011db8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v26 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
         (v26 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011db8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011db8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011db8#64) vminstret (0x000d0513#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x1a#5, regidx.Regidx 0x0a#5, iop.ADDI))
     Register.x10 (v26 + sign_extend (m := 64) (0x000#12))
@@ -368,7 +368,7 @@ theorem site_80011dbc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dbc#64)).mem (v2 + sign_extend (m := 64) (0x160#12)).toNat (sdData_val v8))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dbc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dbc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dbc#64) vminstret (0x16813023#32)
     (instruction.STORE (0x160#12, regidx.Regidx 0x08#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dbc#64)).mem (v2 + sign_extend (m := 64) (0x160#12)).toNat (sdData_val v8))
@@ -408,7 +408,7 @@ theorem site_80011dc0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dc0#64)).mem (v2 + sign_extend (m := 64) (0x158#12)).toNat (sdData_val v9))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dc0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dc0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dc0#64) vminstret (0x14913c23#32)
     (instruction.STORE (0x158#12, regidx.Regidx 0x09#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dc0#64)).mem (v2 + sign_extend (m := 64) (0x158#12)).toNat (sdData_val v9))
@@ -448,7 +448,7 @@ theorem site_80011dc4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dc4#64)).mem (v2 + sign_extend (m := 64) (0x150#12)).toNat (sdData_val v18))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dc4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dc4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dc4#64) vminstret (0x15213823#32)
     (instruction.STORE (0x150#12, regidx.Regidx 0x12#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dc4#64)).mem (v2 + sign_extend (m := 64) (0x150#12)).toNat (sdData_val v18))
@@ -488,7 +488,7 @@ theorem site_80011dc8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dc8#64)).mem (v2 + sign_extend (m := 64) (0x148#12)).toNat (sdData_val v19))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dc8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dc8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dc8#64) vminstret (0x15313423#32)
     (instruction.STORE (0x148#12, regidx.Regidx 0x13#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dc8#64)).mem (v2 + sign_extend (m := 64) (0x148#12)).toNat (sdData_val v19))
@@ -528,7 +528,7 @@ theorem site_80011dcc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dcc#64)).mem (v2 + sign_extend (m := 64) (0x140#12)).toNat (sdData_val v20))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dcc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dcc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dcc#64) vminstret (0x15413023#32)
     (instruction.STORE (0x140#12, regidx.Regidx 0x14#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dcc#64)).mem (v2 + sign_extend (m := 64) (0x140#12)).toNat (sdData_val v20))
@@ -568,7 +568,7 @@ theorem site_80011dd0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dd0#64)).mem (v2 + sign_extend (m := 64) (0x138#12)).toNat (sdData_val v21))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dd0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dd0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dd0#64) vminstret (0x13513c23#32)
     (instruction.STORE (0x138#12, regidx.Regidx 0x15#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dd0#64)).mem (v2 + sign_extend (m := 64) (0x138#12)).toNat (sdData_val v21))
@@ -608,7 +608,7 @@ theorem site_80011dd4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dd4#64)).mem (v2 + sign_extend (m := 64) (0x130#12)).toNat (sdData_val v22))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dd4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dd4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dd4#64) vminstret (0x13613823#32)
     (instruction.STORE (0x130#12, regidx.Regidx 0x16#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dd4#64)).mem (v2 + sign_extend (m := 64) (0x130#12)).toNat (sdData_val v22))
@@ -648,7 +648,7 @@ theorem site_80011dd8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dd8#64)).mem (v2 + sign_extend (m := 64) (0x120#12)).toNat (sdData_val v24))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dd8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dd8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dd8#64) vminstret (0x13813023#32)
     (instruction.STORE (0x120#12, regidx.Regidx 0x18#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dd8#64)).mem (v2 + sign_extend (m := 64) (0x120#12)).toNat (sdData_val v24))
@@ -688,7 +688,7 @@ theorem site_80011ddc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011ddc#64)).mem (v2 + sign_extend (m := 64) (0x118#12)).toNat (sdData_val v25))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ddc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ddc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011ddc#64) vminstret (0x11913c23#32)
     (instruction.STORE (0x118#12, regidx.Regidx 0x19#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011ddc#64)).mem (v2 + sign_extend (m := 64) (0x118#12)).toNat (sdData_val v25))
@@ -728,7 +728,7 @@ theorem site_80011de0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011de0#64)).mem (v2 + sign_extend (m := 64) (0x168#12)).toNat (sdData_val v1))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011de0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011de0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011de0#64) vminstret (0x16113423#32)
     (instruction.STORE (0x168#12, regidx.Regidx 0x01#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011de0#64)).mem (v2 + sign_extend (m := 64) (0x168#12)).toNat (sdData_val v1))
@@ -768,7 +768,7 @@ theorem site_80011de4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011de4#64)).mem (v2 + sign_extend (m := 64) (0x108#12)).toNat (sdData_val v27))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011de4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011de4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011de4#64) vminstret (0x11b13423#32)
     (instruction.STORE (0x108#12, regidx.Regidx 0x1b#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011de4#64)).mem (v2 + sign_extend (m := 64) (0x108#12)).toNat (sdData_val v27))
@@ -802,7 +802,7 @@ theorem site_80011de8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x8
         (v12 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011de8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011de8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011de8#64) vminstret (0x00060413#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x0c#5, regidx.Regidx 0x08#5, iop.ADDI))
     Register.x8 (v12 + sign_extend (m := 64) (0x000#12))
@@ -841,7 +841,7 @@ theorem site_80011dec (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dec#64)).mem (v2 + sign_extend (m := 64) (0x030#12)).toNat (sdData_val (0#64)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dec (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dec (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011dec#64) vminstret (0x02013823#32)
     (instruction.STORE (0x030#12, regidx.Regidx 0x00#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011dec#64)).mem (v2 + sign_extend (m := 64) (0x030#12)).toNat (sdData_val (0#64)))
@@ -875,7 +875,7 @@ theorem site_80011df0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
         (sign_extend (m := 64)
           (Sail.BitVec.extractLsb (v15 + sign_extend (m := 64) (0xf1a#12)) 31 0))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011df0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011df0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011df0#64) vminstret (0xf1a78c1b#32)
     (instruction.ADDIW (0xf1a#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x18#5))
     Register.x24 (sign_extend (m := 64) (Sail.BitVec.extractLsb (v15 + sign_extend (m := 64) (0xf1a#12)) 31 0))
@@ -907,7 +907,7 @@ theorem site_80011df4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x024410#21) Register.x1 (BitVec.addInt pc 4)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011df4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011df4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   refine stepObs_jal σ i u (0x80011df4#64) vminstret (0x410240ef#32) (0x024410#21)
     (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x80011df4#64) 4)
     (0xef#8) (0x40#8) (0x02#8) (0x41#8)
@@ -934,7 +934,7 @@ theorem site_80011df8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x18
         ((0#64) + sign_extend (m := 64) (0x025#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011df8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011df8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011df8#64) vminstret (0x02500913#32)
     (instruction.ITYPE (0x025#12, regidx.Regidx 0x00#5, regidx.Regidx 0x12#5, iop.ADDI))
     Register.x18 ((0#64) + sign_extend (m := 64) (0x025#12))
@@ -966,7 +966,7 @@ theorem site_80011dfc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x22
         ((0#64) + sign_extend (m := 64) (0x0c6#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dfc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011dfc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011dfc#64) vminstret (0x0c600b13#32)
     (instruction.ITYPE (0x0c6#12, regidx.Regidx 0x00#5, regidx.Regidx 0x16#5, iop.ADDI))
     Register.x22 ((0#64) + sign_extend (m := 64) (0x0c6#12))
@@ -999,7 +999,7 @@ theorem site_80011e00 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x21
         (v2 + sign_extend (m := 64) (0x038#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e00 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e00 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e00#64) vminstret (0x03810a93#32)
     (instruction.ITYPE (0x038#12, regidx.Regidx 0x02#5, regidx.Regidx 0x15#5, iop.ADDI))
     Register.x21 (v2 + sign_extend (m := 64) (0x038#12))
@@ -1032,7 +1032,7 @@ theorem site_80011e04 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x19
         ((0#64) + sign_extend (m := 64) (0x02a#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e04 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e04 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e04#64) vminstret (0x02a00993#32)
     (instruction.ITYPE (0x02a#12, regidx.Regidx 0x00#5, regidx.Regidx 0x13#5, iop.ADDI))
     Register.x19 ((0#64) + sign_extend (m := 64) (0x02a#12))
@@ -1063,7 +1063,7 @@ theorem site_80011e08 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x9 ((0x80011e08#64) + sign_extend (m := 64) ((0x00041#20) +++ 0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e08 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e08 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e08#64) vminstret (0x00041497#32)
     (instruction.UTYPE (0x00041#20, regidx.Regidx 0x09#5, uop.AUIPC))
     Register.x9 ((0x80011e08#64) + sign_extend (m := 64) ((0x00041#20) +++ 0x000#12))
@@ -1096,7 +1096,7 @@ theorem site_80011e0c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v9 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x9
         (v9 + sign_extend (m := 64) (0xe14#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e0c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e0c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e0c#64) vminstret (0xe1448493#32)
     (instruction.ITYPE (0xe14#12, regidx.Regidx 0x09#5, regidx.Regidx 0x09#5, iop.ADDI))
     Register.x9 (v9 + sign_extend (m := 64) (0xe14#12))
@@ -1130,7 +1130,7 @@ theorem site_80011e10 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x20
         (v2 + sign_extend (m := 64) (0x018#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e10 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e10 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e10#64) vminstret (0x01810a13#32)
     (instruction.ITYPE (0x018#12, regidx.Regidx 0x02#5, regidx.Regidx 0x14#5, iop.ADDI))
     Register.x20 (v2 + sign_extend (m := 64) (0x018#12))
@@ -1164,7 +1164,7 @@ theorem site_80011e14 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x25
         (v10 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e14 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e14 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e14#64) vminstret (0x00050c93#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x19#5, iop.ADDI))
     Register.x25 (v10 + sign_extend (m := 64) (0x000#12))
@@ -1198,7 +1198,7 @@ theorem site_80011e18_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vmins
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e18 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e18 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_nottaken σ i u (0x80011e18#64) vminstret (0x0078#13)
     (regidx.Regidx 0x0a#5) (regidx.Regidx 0x00#5) bop.BEQ (0x06050c63#32)
     (0x63#8) (0x0c#8) (0x05#8) (0x06#8)
@@ -1236,7 +1236,7 @@ theorem site_80011e18_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstre
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0078#13)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e18 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e18 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_taken σ i u (0x80011e18#64) vminstret (0x0078#13)
     (regidx.Regidx 0x0a#5) (regidx.Regidx 0x00#5) bop.BEQ (0x06050c63#32)
     (0x63#8) (0x0c#8) (0x05#8) (0x06#8)
@@ -1270,7 +1270,7 @@ theorem site_80011e1c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v25 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x12 (v25 - v26)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e1c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e1c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e1c#64) vminstret (0x41ac8633#32)
     (instruction.RTYPE (regidx.Regidx 0x1a#5, regidx.Regidx 0x19#5, regidx.Regidx 0x0c#5, rop.SUB))
     Register.x12 (v25 - v26)
@@ -1306,7 +1306,7 @@ theorem site_80011e20 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v26 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
         (v26 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e20 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e20 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e20#64) vminstret (0x000d0593#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x1a#5, regidx.Regidx 0x0b#5, iop.ADDI))
     Register.x11 (v26 + sign_extend (m := 64) (0x000#12))
@@ -1340,7 +1340,7 @@ theorem site_80011e24 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
         (v2 + sign_extend (m := 64) (0x028#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e24 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e24 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e24#64) vminstret (0x02810513#32)
     (instruction.ITYPE (0x028#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0a#5, iop.ADDI))
     Register.x10 (v2 + sign_extend (m := 64) (0x028#12))
@@ -1372,7 +1372,7 @@ theorem site_80011e28 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x1ff688#21) Register.x1 (BitVec.addInt pc 4)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e28 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e28 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   refine stepObs_jal σ i u (0x80011e28#64) vminstret (0xe88ff0ef#32) (0x1ff688#21)
     (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x80011e28#64) 4)
     (0xef#8) (0xf0#8) (0x8f#8) (0xe8#8)
@@ -1404,7 +1404,7 @@ theorem site_80011e2c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v25 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x12 (zero_extend (m := 64) (bytesT1 σ.mem (v25 + sign_extend (m := 64) (0x001#12)).toNat : BitVec (8 * 1)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e2c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e2c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e2c#64) vminstret (0x001cc603#32)
     (instruction.LOAD (0x001#12, regidx.Regidx 0x19#5, regidx.Regidx 0x0c#5, true, 1))
     Register.x12 (zero_extend (m := 64) (bytesT1 σ.mem (v25 + sign_extend (m := 64) (0x001#12)).toNat : BitVec (8 * 1)))
@@ -1440,7 +1440,7 @@ theorem site_80011e30_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vmins
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e30 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e30 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_nottaken σ i u (0x80011e30#64) vminstret (0x01f0#13)
     (regidx.Regidx 0x0c#5) (regidx.Regidx 0x12#5) bop.BEQ (0x1f260863#32)
     (0x63#8) (0x08#8) (0x26#8) (0x1f#8)
@@ -1480,7 +1480,7 @@ theorem site_80011e30_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstre
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x01f0#13)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e30 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e30 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_taken σ i u (0x80011e30#64) vminstret (0x01f0#13)
     (regidx.Regidx 0x0c#5) (regidx.Regidx 0x12#5) bop.BEQ (0x1f260863#32)
     (0x63#8) (0x08#8) (0x26#8) (0x1f#8)
@@ -1516,7 +1516,7 @@ theorem site_80011e34 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v12 
         (sign_extend (m := 64)
           (Sail.BitVec.extractLsb (v12 + sign_extend (m := 64) (0xfb7#12)) 31 0))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e34 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e34 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e34#64) vminstret (0xfb76079b#32)
     (instruction.ADDIW (0xfb7#12, regidx.Regidx 0x0c#5, regidx.Regidx 0x0f#5))
     Register.x15 (sign_extend (m := 64) (Sail.BitVec.extractLsb (v12 + sign_extend (m := 64) (0xfb7#12)) 31 0))
@@ -1549,7 +1549,7 @@ theorem site_80011e38 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v15 &&& sign_extend (m := 64) (0x0ff#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e38 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e38 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e38#64) vminstret (0x0ff7f793#32)
     (instruction.ITYPE (0x0ff#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, iop.ANDI))
     Register.x15 (v15 &&& sign_extend (m := 64) (0x0ff#12))
@@ -1584,7 +1584,7 @@ theorem site_80011e3c_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vmins
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e3c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e3c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_nottaken σ i u (0x80011e3c#64) vminstret (0x03b4#13)
     (regidx.Regidx 0x13#5) (regidx.Regidx 0x0f#5) bop.BLTU (0x3af9ea63#32)
     (0x63#8) (0xea#8) (0xf9#8) (0x3a#8)
@@ -1624,7 +1624,7 @@ theorem site_80011e3c_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstre
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x03b4#13)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e3c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e3c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_taken σ i u (0x80011e3c#64) vminstret (0x03b4#13)
     (regidx.Regidx 0x13#5) (regidx.Regidx 0x0f#5) bop.BLTU (0x3af9ea63#32)
     (0x63#8) (0xea#8) (0xf9#8) (0x3a#8)
@@ -1658,7 +1658,7 @@ theorem site_80011e40 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e40 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e40 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e40#64) vminstret (0x00279793#32)
     (instruction.SHIFTIOP (0x02#6, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, sop.SLLI))
     Register.x15 (shift_bits_left v15 (Sail.BitVec.extractLsb (0x02#6) 5 0))
@@ -1692,7 +1692,7 @@ theorem site_80011e44 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v15 + v9)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e44 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e44 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e44#64) vminstret (0x009787b3#32)
     (instruction.RTYPE (regidx.Regidx 0x09#5, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, rop.ADD))
     Register.x15 (v15 + v9)
@@ -1734,7 +1734,7 @@ theorem site_80011e48 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
         (sign_extend (m := 64)
           (bytesT4 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 4)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e48 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e48 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e48#64) vminstret (0x0007a783#32)
     (instruction.LOAD (0x000#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, false, 4))
     Register.x15 (sign_extend (m := 64) (bytesT4 σ.mem (v15 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 4)))
@@ -1769,7 +1769,7 @@ theorem site_80011e4c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v15 + v9)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e4c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e4c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e4c#64) vminstret (0x009787b3#32)
     (instruction.RTYPE (regidx.Regidx 0x09#5, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, rop.ADD))
     Register.x15 (v15 + v9)
@@ -1807,7 +1807,7 @@ theorem site_80011e50 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
       ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret
           (BitVec.update (v15 + sign_extend (m := 64) (0x000#12)) 0 0#1)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e50 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e50 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_jr σ i u (0x80011e50#64) vminstret v15 (0x00078067#32) (0x000#12)
     (regidx.Regidx 0x0f#5) (0x67#8) (0x80#8) (0x07#8) (0x00#8)
     hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)
@@ -1833,7 +1833,7 @@ theorem site_80011e7c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
         ((0#64) + sign_extend (m := 64) (0x025#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e7c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e7c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e7c#64) vminstret (0x02500593#32)
     (instruction.ITYPE (0x025#12, regidx.Regidx 0x00#5, regidx.Regidx 0x0b#5, iop.ADDI))
     Register.x11 ((0#64) + sign_extend (m := 64) (0x025#12))
@@ -1866,7 +1866,7 @@ theorem site_80011e80 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v26 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
         (v26 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e80 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e80 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e80#64) vminstret (0x000d0513#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x1a#5, regidx.Regidx 0x0a#5, iop.ADDI))
     Register.x10 (v26 + sign_extend (m := 64) (0x000#12))
@@ -1898,7 +1898,7 @@ theorem site_80011e84 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x024380#21) Register.x1 (BitVec.addInt pc 4)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e84 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e84 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   refine stepObs_jal σ i u (0x80011e84#64) vminstret (0x380240ef#32) (0x024380#21)
     (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x80011e84#64) 4)
     (0xef#8) (0x40#8) (0x02#8) (0x38#8)
@@ -1926,7 +1926,7 @@ theorem site_80011e88 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x25
         (v10 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e88 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e88 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e88#64) vminstret (0x00050c93#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x19#5, iop.ADDI))
     Register.x25 (v10 + sign_extend (m := 64) (0x000#12))
@@ -1960,7 +1960,7 @@ theorem site_80011e8c_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vmins
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e8c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e8c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_nottaken σ i u (0x80011e8c#64) vminstret (0x1f90#13)
     (regidx.Regidx 0x0a#5) (regidx.Regidx 0x00#5) bop.BNE (0xf80518e3#32)
     (0xe3#8) (0x18#8) (0x05#8) (0xf8#8)
@@ -1998,7 +1998,7 @@ theorem site_80011e8c_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstre
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x1f90#13)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e8c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e8c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_taken σ i u (0x80011e8c#64) vminstret (0x1f90#13)
     (regidx.Regidx 0x0a#5) (regidx.Regidx 0x00#5) bop.BNE (0xf80518e3#32)
     (0xe3#8) (0x18#8) (0x05#8) (0xf8#8)
@@ -2032,7 +2032,7 @@ theorem site_80011e90 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v26 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
         (v26 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e90 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e90 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e90#64) vminstret (0x000d0513#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x1a#5, regidx.Regidx 0x0a#5, iop.ADDI))
     Register.x10 (v26 + sign_extend (m := 64) (0x000#12))
@@ -2064,7 +2064,7 @@ theorem site_80011e94 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x0298dc#21) Register.x1 (BitVec.addInt pc 4)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e94 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e94 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   refine stepObs_jal σ i u (0x80011e94#64) vminstret (0x0dd290ef#32) (0x0298dc#21)
     (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x80011e94#64) 4)
     (0xef#8) (0x90#8) (0xd2#8) (0x0d#8)
@@ -2092,7 +2092,7 @@ theorem site_80011e98 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x12
         (v10 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e98 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e98 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e98#64) vminstret (0x00050613#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x0c#5, iop.ADDI))
     Register.x12 (v10 + sign_extend (m := 64) (0x000#12))
@@ -2126,7 +2126,7 @@ theorem site_80011e9c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v26 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
         (v26 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e9c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011e9c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011e9c#64) vminstret (0x000d0593#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x1a#5, regidx.Regidx 0x0b#5, iop.ADDI))
     Register.x11 (v26 + sign_extend (m := 64) (0x000#12))
@@ -2160,7 +2160,7 @@ theorem site_80011ea0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
         (v2 + sign_extend (m := 64) (0x028#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ea0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ea0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ea0#64) vminstret (0x02810513#32)
     (instruction.ITYPE (0x028#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0a#5, iop.ADDI))
     Register.x10 (v2 + sign_extend (m := 64) (0x028#12))
@@ -2192,7 +2192,7 @@ theorem site_80011ea4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x1ff60c#21) Register.x1 (BitVec.addInt pc 4)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ea4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ea4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   refine stepObs_jal σ i u (0x80011ea4#64) vminstret (0xe0cff0ef#32) (0x1ff60c#21)
     (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x80011ea4#64) 4)
     (0xef#8) (0xf0#8) (0xcf#8) (0xe0#8)
@@ -2226,7 +2226,7 @@ theorem site_80011ea8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x028#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ea8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ea8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ea8#64) vminstret (0x02813403#32)
     (instruction.LOAD (0x028#12, regidx.Regidx 0x02#5, regidx.Regidx 0x08#5, false, 8))
     Register.x8 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x028#12)).toNat : BitVec (8 * 8)))
@@ -2267,7 +2267,7 @@ theorem site_80011eac (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT4 σ.mem (v2 + sign_extend (m := 64) (0x034#12)).toNat : BitVec (8 * 4)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eac (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eac (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011eac#64) vminstret (0x03412603#32)
     (instruction.LOAD (0x034#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0c#5, false, 4))
     Register.x12 (sign_extend (m := 64) (bytesT4 σ.mem (v2 + sign_extend (m := 64) (0x034#12)).toNat : BitVec (8 * 4)))
@@ -2302,7 +2302,7 @@ theorem site_80011eb0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
         (v2 + sign_extend (m := 64) (0x038#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eb0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eb0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011eb0#64) vminstret (0x03810593#32)
     (instruction.ITYPE (0x038#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0b#5, iop.ADDI))
     Register.x11 (v2 + sign_extend (m := 64) (0x038#12))
@@ -2342,7 +2342,7 @@ theorem site_80011eb4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v8 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v8 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eb4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eb4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011eb4#64) vminstret (0x01043483#32)
     (instruction.LOAD (0x010#12, regidx.Regidx 0x08#5, regidx.Regidx 0x09#5, false, 8))
     Register.x9 (sign_extend (m := 64) (bytesT8 σ.mem (v8 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))
@@ -2377,7 +2377,7 @@ theorem site_80011eb8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v8 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
         (v8 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eb8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eb8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011eb8#64) vminstret (0x00040513#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x08#5, regidx.Regidx 0x0a#5, iop.ADDI))
     Register.x10 (v8 + sign_extend (m := 64) (0x000#12))
@@ -2409,7 +2409,7 @@ theorem site_80011ebc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x0057d8#21) Register.x1 (BitVec.addInt pc 4)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ebc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ebc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   refine stepObs_jal σ i u (0x80011ebc#64) vminstret (0x7d8050ef#32) (0x0057d8#21)
     (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x80011ebc#64) 4)
     (0xef#8) (0x50#8) (0x80#8) (0x7d#8)
@@ -2443,7 +2443,7 @@ theorem site_80011ec0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v9 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011ec0#64)).mem (v9 + sign_extend (m := 64) (0x000#12)).toNat (sdData_val v10))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ec0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ec0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011ec0#64) vminstret (0x00a4b023#32)
     (instruction.STORE (0x000#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x09#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011ec0#64)).mem (v9 + sign_extend (m := 64) (0x000#12)).toNat (sdData_val v10))
@@ -2481,7 +2481,7 @@ theorem site_80011ec4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (zero_extend (m := 64) (bytesT1 σ.mem (v10 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ec4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ec4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ec4#64) vminstret (0x00854783#32)
     (instruction.LOAD (0x008#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x0f#5, true, 1))
     Register.x15 (zero_extend (m := 64) (bytesT1 σ.mem (v10 + sign_extend (m := 64) (0x008#12)).toNat : BitVec (8 * 1)))
@@ -2515,7 +2515,7 @@ theorem site_80011ec8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15 (v15 ||| sign_extend (m := 64) (0x040#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ec8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ec8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ec8#64) vminstret (0x0407e793#32)
     (instruction.ITYPE (0x040#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, iop.ORI))
     Register.x15 (v15 ||| sign_extend (m := 64) (0x040#12))
@@ -2554,7 +2554,7 @@ theorem site_80011ecc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v9 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (((afterNextPC (afterPrelude σ) (0x80011ecc#64)).mem.insert (v9 + sign_extend (m := 64) (0x008#12)).toNat (stData 1 v15)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ecc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ecc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011ecc#64) vminstret (0x00f48423#32)
     (instruction.STORE (0x008#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x09#5, 1))
     (((afterNextPC (afterPrelude σ) (0x80011ecc#64)).mem.insert (v9 + sign_extend (m := 64) (0x008#12)).toNat (stData 1 v15)))
@@ -2594,7 +2594,7 @@ theorem site_80011ed0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v8 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v8 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ed0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ed0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ed0#64) vminstret (0x01043783#32)
     (instruction.LOAD (0x010#12, regidx.Regidx 0x08#5, regidx.Regidx 0x0f#5, false, 8))
     Register.x15 (sign_extend (m := 64) (bytesT8 σ.mem (v8 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))
@@ -2635,7 +2635,7 @@ theorem site_80011ed4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT4 σ.mem (v2 + sign_extend (m := 64) (0x030#12)).toNat : BitVec (8 * 4)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ed4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ed4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ed4#64) vminstret (0x03012703#32)
     (instruction.LOAD (0x030#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0e#5, false, 4))
     Register.x14 (sign_extend (m := 64) (bytesT4 σ.mem (v2 + sign_extend (m := 64) (0x030#12)).toNat : BitVec (8 * 4)))
@@ -2670,7 +2670,7 @@ theorem site_80011ed8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15
         (v15 + sign_extend (m := 64) (0x010#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ed8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ed8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ed8#64) vminstret (0x01078793#32)
     (instruction.ITYPE (0x010#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0f#5, iop.ADDI))
     Register.x15 (v15 + sign_extend (m := 64) (0x010#12))
@@ -2710,7 +2710,7 @@ theorem site_80011edc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v8 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011edc#64)).mem (v8 + sign_extend (m := 64) (0x010#12)).toNat (sdData_val v15))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011edc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011edc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011edc#64) vminstret (0x00f43823#32)
     (instruction.STORE (0x010#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x08#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011edc#64)).mem (v8 + sign_extend (m := 64) (0x010#12)).toNat (sdData_val v15))
@@ -2744,7 +2744,7 @@ theorem site_80011ee0_nottaken (σ : MState) (i u : Nat) (pc : BitVec 64) (vmins
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_nottaken σ pc vminstret) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ee0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ee0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_nottaken σ i u (0x80011ee0#64) vminstret (0x0300#13)
     (regidx.Regidx 0x0e#5) (regidx.Regidx 0x00#5) bop.BNE (0x30071063#32)
     (0x63#8) (0x10#8) (0x07#8) (0x30#8)
@@ -2782,7 +2782,7 @@ theorem site_80011ee0_taken (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstre
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_branch_taken σ pc vminstret (0x0300#13)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ee0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ee0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_branch_taken σ i u (0x80011ee0#64) vminstret (0x0300#13)
     (regidx.Regidx 0x0e#5) (regidx.Regidx 0x00#5) bop.BNE (0x30071063#32)
     (0x63#8) (0x10#8) (0x07#8) (0x30#8)
@@ -2822,7 +2822,7 @@ theorem site_80011ee4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v23 
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v23 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ee4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ee4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ee4#64) vminstret (0x010bb783#32)
     (instruction.LOAD (0x010#12, regidx.Regidx 0x17#5, regidx.Regidx 0x0f#5, false, 8))
     Register.x15 (sign_extend (m := 64) (bytesT8 σ.mem (v23 + sign_extend (m := 64) (0x010#12)).toNat : BitVec (8 * 8)))
@@ -2863,7 +2863,7 @@ theorem site_80011ee8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x168#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ee8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ee8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ee8#64) vminstret (0x16813083#32)
     (instruction.LOAD (0x168#12, regidx.Regidx 0x02#5, regidx.Regidx 0x01#5, false, 8))
     Register.x1 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x168#12)).toNat : BitVec (8 * 8)))
@@ -2904,7 +2904,7 @@ theorem site_80011eec (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x160#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eec (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011eec (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011eec#64) vminstret (0x16013403#32)
     (instruction.LOAD (0x160#12, regidx.Regidx 0x02#5, regidx.Regidx 0x08#5, false, 8))
     Register.x8 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x160#12)).toNat : BitVec (8 * 8)))
@@ -2945,7 +2945,7 @@ theorem site_80011ef0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v15 
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0xff0#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ef0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ef0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ef0#64) vminstret (0xff07b503#32)
     (instruction.LOAD (0xff0#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x0a#5, false, 8))
     Register.x10 (sign_extend (m := 64) (bytesT8 σ.mem (v15 + sign_extend (m := 64) (0xff0#12)).toNat : BitVec (8 * 8)))
@@ -2986,7 +2986,7 @@ theorem site_80011ef4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x158#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ef4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ef4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ef4#64) vminstret (0x15813483#32)
     (instruction.LOAD (0x158#12, regidx.Regidx 0x02#5, regidx.Regidx 0x09#5, false, 8))
     Register.x9 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x158#12)).toNat : BitVec (8 * 8)))
@@ -3027,7 +3027,7 @@ theorem site_80011ef8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x150#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ef8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011ef8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011ef8#64) vminstret (0x15013903#32)
     (instruction.LOAD (0x150#12, regidx.Regidx 0x02#5, regidx.Regidx 0x12#5, false, 8))
     Register.x18 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x150#12)).toNat : BitVec (8 * 8)))
@@ -3068,7 +3068,7 @@ theorem site_80011efc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x148#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011efc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011efc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011efc#64) vminstret (0x14813983#32)
     (instruction.LOAD (0x148#12, regidx.Regidx 0x02#5, regidx.Regidx 0x13#5, false, 8))
     Register.x19 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x148#12)).toNat : BitVec (8 * 8)))
@@ -3109,7 +3109,7 @@ theorem site_80011f00 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x140#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f00 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f00 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f00#64) vminstret (0x14013a03#32)
     (instruction.LOAD (0x140#12, regidx.Regidx 0x02#5, regidx.Regidx 0x14#5, false, 8))
     Register.x20 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x140#12)).toNat : BitVec (8 * 8)))
@@ -3150,7 +3150,7 @@ theorem site_80011f04 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x138#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f04 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f04 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f04#64) vminstret (0x13813a83#32)
     (instruction.LOAD (0x138#12, regidx.Regidx 0x02#5, regidx.Regidx 0x15#5, false, 8))
     Register.x21 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x138#12)).toNat : BitVec (8 * 8)))
@@ -3191,7 +3191,7 @@ theorem site_80011f08 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x130#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f08 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f08 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f08#64) vminstret (0x13013b03#32)
     (instruction.LOAD (0x130#12, regidx.Regidx 0x02#5, regidx.Regidx 0x16#5, false, 8))
     Register.x22 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x130#12)).toNat : BitVec (8 * 8)))
@@ -3232,7 +3232,7 @@ theorem site_80011f0c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x128#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f0c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f0c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f0c#64) vminstret (0x12813b83#32)
     (instruction.LOAD (0x128#12, regidx.Regidx 0x02#5, regidx.Regidx 0x17#5, false, 8))
     Register.x23 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x128#12)).toNat : BitVec (8 * 8)))
@@ -3273,7 +3273,7 @@ theorem site_80011f10 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x120#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f10 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f10 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f10#64) vminstret (0x12013c03#32)
     (instruction.LOAD (0x120#12, regidx.Regidx 0x02#5, regidx.Regidx 0x18#5, false, 8))
     Register.x24 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x120#12)).toNat : BitVec (8 * 8)))
@@ -3314,7 +3314,7 @@ theorem site_80011f14 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x118#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f14 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f14 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f14#64) vminstret (0x11813c83#32)
     (instruction.LOAD (0x118#12, regidx.Regidx 0x02#5, regidx.Regidx 0x19#5, false, 8))
     Register.x25 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x118#12)).toNat : BitVec (8 * 8)))
@@ -3355,7 +3355,7 @@ theorem site_80011f18 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x110#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f18 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f18 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f18#64) vminstret (0x11013d03#32)
     (instruction.LOAD (0x110#12, regidx.Regidx 0x02#5, regidx.Regidx 0x1a#5, false, 8))
     Register.x26 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x110#12)).toNat : BitVec (8 * 8)))
@@ -3396,7 +3396,7 @@ theorem site_80011f1c (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x108#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f1c (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f1c (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f1c#64) vminstret (0x10813d83#32)
     (instruction.LOAD (0x108#12, regidx.Regidx 0x02#5, regidx.Regidx 0x1b#5, false, 8))
     Register.x27 (sign_extend (m := 64) (bytesT8 σ.mem (v2 + sign_extend (m := 64) (0x108#12)).toNat : BitVec (8 * 8)))
@@ -3431,7 +3431,7 @@ theorem site_80011f20 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v10 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
         (v10 + sign_extend (m := 64) (0x018#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f20 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f20 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f20#64) vminstret (0x01850513#32)
     (instruction.ITYPE (0x018#12, regidx.Regidx 0x0a#5, regidx.Regidx 0x0a#5, iop.ADDI))
     Register.x10 (v10 + sign_extend (m := 64) (0x018#12))
@@ -3465,7 +3465,7 @@ theorem site_80011f24 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x2
         (v2 + sign_extend (m := 64) (0x170#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f24 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f24 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011f24#64) vminstret (0x17010113#32)
     (instruction.ITYPE (0x170#12, regidx.Regidx 0x02#5, regidx.Regidx 0x02#5, iop.ADDI))
     Register.x2 (v2 + sign_extend (m := 64) (0x170#12))
@@ -3501,7 +3501,7 @@ theorem site_80011f28 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v1 :
       ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret
           (BitVec.update (v1 + sign_extend (m := 64) (0x000#12)) 0 0#1)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f28 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011f28 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_jr σ i u (0x80011f28#64) vminstret v1 (0x00008067#32) (0x000#12)
     (regidx.Regidx 0x01#5) (0x67#8) (0x80#8) (0x00#8) (0x00#8)
     hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide)
@@ -3534,7 +3534,7 @@ theorem site_80011fc0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v8 :
         (sign_extend (m := 64)
           (bytesT8 σ.mem (v8 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fc0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fc0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011fc0#64) vminstret (0x00043703#32)
     (instruction.LOAD (0x000#12, regidx.Regidx 0x08#5, regidx.Regidx 0x0e#5, false, 8))
     Register.x14 (sign_extend (m := 64) (bytesT8 σ.mem (v8 + sign_extend (m := 64) (0x000#12)).toNat : BitVec (8 * 8)))
@@ -3568,7 +3568,7 @@ theorem site_80011fc4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x15
         ((0#64) + sign_extend (m := 64) (0x003#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fc4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fc4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011fc4#64) vminstret (0x00300793#32)
     (instruction.ITYPE (0x003#12, regidx.Regidx 0x00#5, regidx.Regidx 0x0f#5, iop.ADDI))
     Register.x15 ((0#64) + sign_extend (m := 64) (0x003#12))
@@ -3601,7 +3601,7 @@ theorem site_80011fc8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v20 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x11
         (v20 + sign_extend (m := 64) (0x000#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fc8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fc8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011fc8#64) vminstret (0x000a0593#32)
     (instruction.ITYPE (0x000#12, regidx.Regidx 0x14#5, regidx.Regidx 0x0b#5, iop.ADDI))
     Register.x11 (v20 + sign_extend (m := 64) (0x000#12))
@@ -3635,7 +3635,7 @@ theorem site_80011fcc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x10
         (v2 + sign_extend (m := 64) (0x028#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fcc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fcc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011fcc#64) vminstret (0x02810513#32)
     (instruction.ITYPE (0x028#12, regidx.Regidx 0x02#5, regidx.Regidx 0x0a#5, iop.ADDI))
     Register.x10 (v2 + sign_extend (m := 64) (0x028#12))
@@ -3675,7 +3675,7 @@ theorem site_80011fd0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (writeMap8 (afterNextPC (afterPrelude σ) (0x80011fd0#64)).mem (v2 + sign_extend (m := 64) (0x018#12)).toNat (sdData_val v14))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fd0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fd0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011fd0#64) vminstret (0x00e13c23#32)
     (instruction.STORE (0x018#12, regidx.Regidx 0x0e#5, regidx.Regidx 0x02#5, 8))
     (writeMap8 (afterNextPC (afterPrelude σ) (0x80011fd0#64)).mem (v2 + sign_extend (m := 64) (0x018#12)).toNat (sdData_val v14))
@@ -3714,7 +3714,7 @@ theorem site_80011fd4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v2 v
       ReadsLikePost σ' (sigmaPost_store σ pc vminstret
         (((afterNextPC (afterPrelude σ) (0x80011fd4#64)).mem.insert (v2 + sign_extend (m := 64) (0x020#12)).toNat (stData 1 v15)))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fd4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fd4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_store σ i u (0x80011fd4#64) vminstret (0x02f10023#32)
     (instruction.STORE (0x020#12, regidx.Regidx 0x0f#5, regidx.Regidx 0x02#5, 1))
     (((afterNextPC (afterPrelude σ) (0x80011fd4#64)).mem.insert (v2 + sign_extend (m := 64) (0x020#12)).toNat (stData 1 v15)))
@@ -3748,7 +3748,7 @@ theorem site_80011fd8 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v8 :
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x8
         (v8 + sign_extend (m := 64) (0x008#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fd8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fd8 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011fd8#64) vminstret (0x00840413#32)
     (instruction.ITYPE (0x008#12, regidx.Regidx 0x08#5, regidx.Regidx 0x08#5, iop.ADDI))
     Register.x8 (v8 + sign_extend (m := 64) (0x008#12))
@@ -3780,7 +3780,7 @@ theorem site_80011fdc (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_jal σ pc vminstret (0x1ff5a8#21) Register.x1 (BitVec.addInt pc 4)) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fdc (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fdc (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   refine stepObs_jal σ i u (0x80011fdc#64) vminstret (0xda8ff0ef#32) (0x1ff5a8#21)
     (regidx.Regidx 0x01#5) Register.x1 (BitVec.addInt (0x80011fdc#64) 4)
     (0xef#8) (0xf0#8) (0x8f#8) (0xda#8)
@@ -3808,7 +3808,7 @@ theorem site_80011fe0 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret v25 
       ReadsLikePost σ' (sigmaPost_alu σ pc vminstret Register.x26
         (v25 + sign_extend (m := 64) (0x002#12))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fe0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fe0 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_alu σ i u (0x80011fe0#64) vminstret (0x002c8d13#32)
     (instruction.ITYPE (0x002#12, regidx.Regidx 0x19#5, regidx.Regidx 0x1a#5, iop.ADDI))
     Register.x26 (v25 + sign_extend (m := 64) (0x002#12))
@@ -3841,7 +3841,7 @@ theorem site_80011fe4 (σ : MState) (i u : Nat) (pc : BitVec 64) (vminstret : Bi
       σ'.mem = σ.mem ∧
       ReadsLikePost σ' (sigmaPost_jump_x0 σ pc vminstret (pc + sign_extend (m := 64) (0x1ffe98#21))) := by
   subst hpcv
-  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fe4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstringLoaded hmem)
+  obtain ⟨hb0, hb1, hb2, hb3⟩ := Lua.Vm.Code.luaO_pushvfstring_at_80011fe4 (Lua.Vm.Code.textLoaded_LuaO_pushvfstring_p00Loaded hmem)
   exact stepObs_j σ i u (0x80011fe4#64) vminstret (0xe99ff06f#32) (0x1ffe98#21)
     (0x6f#8) (0xf0#8) (0x9f#8) (0xe9#8)
     hG hpc hminstret hb0 hb1 hb2 hb3 (by decide) (by decide) (by decide) (by decide)

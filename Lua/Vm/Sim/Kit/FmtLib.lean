@@ -35,14 +35,6 @@ theorem udivdi3_sumF (n d r : BitVec 64) (f : HFrame) (m : Mem) (o : Array Strin
   obtain ⟨c', hs, h'⟩ := udivdi3_sumT n d r t f m o hr c (h.repin (by pins_of h))
   exact ⟨c', hs, h'.repin (by pins_of h')⟩
 
-/-- **`fmt_pin h n R`**: register `R` (GPR `n`) pinned at whatever it holds
-(every GPR holds a value, `RegsOk`): a register a segment carries that the
-path never set (`gen_lua_at.py` `junk`). -/
-macro "fmt_pin " h:ident n:num R:ident : tactic => `(tactic| (
-  obtain ⟨t, ht⟩ := Option.isSome_iff_exists.mp
-    (Lua.Vm.RegsOk.gpr (Vsa.Sim.SegSt.armOk $h) $n (by decide) (by decide))
-  have $h := Vsa.Sim.SegSt.repin (L' := ⟨$R, t⟩ :: _) $h ⟨ht, Vsa.Sim.SegSt.pins $h⟩))
-
 /-! ## 32-bit arithmetic on small counts
 
 The generator keeps `sext.w`/`addiw`/`addw`/`subw` of counts whose ranges stay
@@ -75,11 +67,6 @@ theorem sxw_id (x : BitVec 64) (h : x.toNat < 2 ^ 31 ∨ 2 ^ 64 - 2 ^ 31 ≤ x.t
   simp only [sign_extend, Sail.BitVec.signExtend, BitVec.toNat_signExtend, BitVec.toNat_setWidth,
     BitVec.msb_eq_decide, e32]
   split <;> rename_i hm <;> simp only [decide_eq_true_eq] at hm <;> omega
-
-theorem extract_ofNat (n : Nat) : Sail.BitVec.extractLsb (BitVec.ofNat 64 n) 31 0 = BitVec.ofNat 32 n := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_toNat, Nat.shiftRight_zero, BitVec.toNat_ofNat]
-  rw [Nat.mod_mod_of_dvd _ (by decide)]
 
 /-- `sext.w` of a negative 32-bit difference (`subw` of a count from `0`). -/
 theorem sext32_neg {n : Nat} (h0 : 0 < n) (h : n ≤ 2 ^ 31) :
