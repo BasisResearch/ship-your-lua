@@ -125,7 +125,7 @@ structure Ok_T (X : FCx) : Prop where
   n_hi : X.n 4 ≤ 20
   ts_lo : 0x8005c6d0 ≤ X.n 5
   ts_hi : X.n 5 + 24 ≤ 0x87800000
-  tts : X.n 3 + 16 ≤ X.n 5 ∨ X.n 5 + 16 ≤ X.n 3
+  ttt : X.n 5 + 9 ≤ X.n 3 ∨ X.n 3 + 8 ≤ X.n 5 + 8
 
 /-- The context's facts at the root `Ok_C` stands for. -/
 structure Ok_C (X : FCx) : Prop where
@@ -1373,7 +1373,7 @@ theorem at_800030fc_80003110 (X : FCx) (hX : Ok_T X) (hc27 : bytesT8 X.m (X.n 0 
     Triple (SegSt 0x800030fc#64 (r10 X) (ArmPay (m11 X) X.o))
       (SegSt (X.b 0) (r11 X) (ArmPay (m11 X) X.o)) := by
   intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_tts⟩ := hX
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_ttt⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_800030fc_80003110
   fat_close
@@ -1382,7 +1382,7 @@ theorem at_800030dc_800030ec_t (X : FCx) (hX : Ok_T X) (hc26 : bytesT8 X.m (X.n 
     Triple (SegSt 0x800030dc#64 (r12 X) (ArmPay (m11 X) X.o))
       (SegSt (0x800030fc#64) (r10 X) (ArmPay (m11 X) X.o)) := by
   intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_tts⟩ := hX
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_ttt⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_800030dc_800030ec_t
   fat_close
@@ -1391,7 +1391,7 @@ theorem at_800030ec_800030f8 (X : FCx) (hX : Ok_T X) :
     Triple (SegSt 0x800030ec#64 (r10 X) (ArmPay (m11 X) X.o))
       (SegSt (0x8000ec80#64) (r13 X) (ArmPay (m12 X) X.o)) := by
   intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_tts⟩ := hX
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_ttt⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_800030ec_800030f8
   fat_close
@@ -1400,7 +1400,7 @@ theorem at_800030fc_80003110_1 (X : FCx) (hX : Ok_T X) (hc27 : bytesT8 X.m (X.n 
     Triple (SegSt 0x800030fc#64 (r15 X) (ArmPay X.m X.o))
       (SegSt (X.b 0) (r11 X) (ArmPay X.m X.o)) := by
   intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_tts⟩ := hX
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_ttt⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_800030fc_80003110
   fat_close
@@ -1409,7 +1409,7 @@ theorem at_800030f8_800030fc (X : FCx) (hX : Ok_T X) (hc29 : bytesT8 X.m (X.n 0 
     Triple (SegSt 0x800030f8#64 (r14 X) (ArmPay X.m X.o))
       (SegSt (0x800030fc#64) (r15 X) (ArmPay X.m X.o)) := by
   intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_tts⟩ := hX
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_ttt⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_800030f8_800030fc
   fat_close
@@ -1418,7 +1418,7 @@ theorem at_800030dc_800030ec_n (X : FCx) (hX : Ok_T X) (hc26 : bytesT8 X.m (X.n 
     Triple (SegSt 0x800030dc#64 (r12 X) (ArmPay (m11 X) X.o))
       (SegSt (0x800030ec#64) (r10 X) (ArmPay (m11 X) X.o)) := by
   intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_tts⟩ := hX
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_ttt⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_800030dc_800030ec_n
   fat_close
@@ -1427,7 +1427,7 @@ theorem at_80011ee4_80011f2c (X : FCx) (hX : Ok_T X) (hc13 : bytesT8 X.m (X.n 0 
     Triple (SegSt 0x80011ee4#64 (r16 X) (ArmPay (m11 X) X.o))
       (SegSt (0x800030dc#64) (r12 X) (ArmPay (m11 X) X.o)) := by
   intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_tts⟩ := hX
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_ttt⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_80011ee4_80011f2c
   fat_close
@@ -1436,7 +1436,7 @@ theorem at_80011ec0_80011ee4_n (X : FCx) (hX : Ok_T X) (hc11 : bytesT1 X.m (X.n 
     Triple (SegSt 0x80011ec0#64 (r9 X) (ArmPay X.m X.o))
       (SegSt (0x80011ee4#64) (r16 X) (ArmPay (m11 X) X.o)) := by
   intro c h
-  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_tts⟩ := hX
+  obtain ⟨hx_sp_lo, hx_sp_hi, hx_sp_al, hx_ra, hx_L_lo, hx_L_hi, hx_L_al, hx_L_he, hx_g_lo, hx_g_hi, hx_t_lo, hx_t_hi, hx_t_al, hx_tL, hx_tg, hx_Lg, hx_n_lo, hx_n_hi, hx_ts_lo, hx_ts_hi, hx_ttt⟩ := hX
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   fat_seg Lua.Vm.Arms.seg_80011ec0_80011ee4_n
   fat_close

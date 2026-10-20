@@ -69,7 +69,7 @@ theorem IaHit.toNl {m M : Mem} {K X W : Nat → Prop} {sp ts : Nat} {b : List UI
     fun a h1 h2 => hK a (hn.obj a h1 h2).1
   have h11 : ts + 11 < 0x87800000 := hts _ (by omega) (by omega)
   have e11 : bytesT1 M (ts + 11) = bytesT1 m (ts + 11) := hM _ h11
-  refine ⟨m', hr, ⟨⟨?_, fun a h1 h2 => ?_, hn.mark⟩, e11 ▸ hl, fun i hi => ?_, hk⟩⟩
+  refine ⟨m', hr, ⟨⟨?_, fun a h1 h2 => ?_, hn.mark, hn.hnext⟩, e11 ▸ hl, fun i hi => ?_, hk⟩⟩
   · rw [← hM _ (hts _ (by omega) (by omega))]; exact hn.tt
   · rw [← e11] at h2; exact hn.obj a h1 h2
   · have hlen : (bytesT1 M (ts + 11)).toNat = b.length := by

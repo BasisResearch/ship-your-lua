@@ -3862,7 +3862,7 @@ PF_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp
 # after `snprintf`: the count; after `luaS_newlstr`: the string, apart from the slot
 PF_S = PF_OK + ["n_lo : 1 ≤ X.n 4", "n_hi : X.n 4 ≤ 20"]
 PF_T = PF_S + ["ts_lo : 0x8005c6d0 ≤ X.n 5", "ts_hi : X.n 5 + 24 ≤ 0x87800000",
-               "tts : X.n 3 + 16 ≤ X.n 5 ∨ X.n 5 + 16 ≤ X.n 3"]
+               "ttt : X.n 5 + 9 ≤ X.n 3 ∨ X.n 3 + 8 ≤ X.n 5 + 8"]
 PF_LB = {**LUA_LB, 2: 0x8005c6d0, 3: 0x8005c6d0, 4: 1, 5: 0x8005c6d0}
 # `"%I"` (`.rodata`), its bytes as `strchr` and the conversion switch read them,
 # the switch's jump table word for `'I'`

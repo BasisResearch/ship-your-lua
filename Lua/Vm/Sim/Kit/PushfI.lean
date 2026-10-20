@@ -420,7 +420,9 @@ structure NlTab (m : Mem) (L g top : Nat) (b : List UInt8) (seed : UInt32) (K X 
     (size hash head d nuse : Nat) (H : HeapIx) : Prop where
   seed_w : bytesT4 m (g + 96) = seed.toBitVec
   hK : ∀ a, K a → 0x8006ecd0 ≤ a ∧ a < 0x87800000
-  kt : ∀ a, K a → ¬ Rng top 16 a
+  xt : ∀ a, Rng top 16 a → X a
+  xL : ∀ a, Rng L 200 a → X a
+  xg : ∀ a, Rng g 1400 a → X a
   tab : ∀ M : Mem, (∀ a, a < 0x87800000 → bytesT1 M a = bytesT1 m a) →
     bytesT1 M (g + 100) = cw ∧ IaTab M g (luaHash seed b) b cw (IaNode M K X W) size hash head d
   new : IaNewIn m L g (hash + 8 * ((luaHash seed b).toNat % size)) size nuse head b H
@@ -454,7 +456,7 @@ structure PfT (M : Mem) (sp L g top ts : Nat) (r : BitVec 64) (f : AbiFrame) : P
   tt : bytesT1 M (ts + 8) = 0x4#8
   ts_lo : 0x8005c6d0 ≤ ts
   ts_hi : ts + 24 ≤ 0x87800000
-  tts : top + 16 ≤ ts ∨ ts + 16 ≤ top
+  ttt : ts + 9 ≤ top ∨ top + 8 ≤ ts + 8
 
 theorem ofNat_sub_le {a b : Nat} (h : b ≤ a) (ha : a < 2 ^ 64) :
     BitVec.ofNat 64 a - BitVec.ofNat 64 b = BitVec.ofNat 64 (a - b) := by
@@ -550,23 +552,22 @@ abbrev pfNlFr (sp L top : Nat) (f : AbiFrame) : AbiFrame :=
   ⟨BitVec.ofNat 64 L, BitVec.ofNat 64 top, 0x25#64, 0x2a#64, BitVec.ofNat 64 (sp - 440), BitVec.ofNat 64 (sp - 408),
     0xc6#64, BitVec.ofNat 64 L, pfS8 sp, 0x0#64, 0x8004fd5a#64, f.s11⟩
 
-/-- Two objects apart: one's bytes in `K`, the other's off it. -/
-theorem apart_of_K {K : Nat → Prop} {ts top : Nat} (hK : ∀ a, ts ≤ a → a < ts + 24 → K a)
-    (kt : ∀ a, K a → ¬ Rng top 16 a) : top + 16 ≤ ts ∨ ts + 16 ≤ top := by
-  by_cases h1 : top ≤ ts
-  · by_cases h2 : ts < top + 16
-    · exact absurd ⟨h1, h2⟩ (kt ts (hK ts (Nat.le_refl _) (by omega)))
-    · exact .inl (by omega)
-  · by_cases h2 : top < ts + 16
-    · exact absurd ⟨Nat.le_refl _, by omega⟩ (kt top (hK top (by omega) (by omega)))
-    · exact .inr (by omega)
+/-- **A chain node's header byte `ts + k` (`8 ≤ k < 16`) off a range** inside
+an object of `X` (eight bytes or more): the node's mark (`ts + 9`) and
+`u.hnext` (`ts + 16`) are off `X`. -/
+theorem node_off_X {X : Nat → Prop} {ts lo hi k : Nat} (hm : ¬ X (ts + 9))
+    (hh : ∀ a, ts + 16 ≤ a → a < ts + 24 → ¬ X a) (hx : ∀ a, lo ≤ a → a < hi → X a) (hlen : lo + 8 ≤ hi)
+    (hk1 : 8 ≤ k) (hk2 : k < 16) (h1 : lo ≤ ts + k) (h2 : ts + k + 1 < hi) : False := by
+  by_cases h : lo ≤ ts + 9
+  · exact hm (hx _ h (by omega))
+  · exact hh (ts + 16) (Nat.le_refl _) (by omega) (hx _ (by omega) (by omega))
 
 /-- **The `T` root's facts when the string is found.** -/
 theorem pfT_hit {m M2 M10 M3 : Mem} {sp L g top ts : Nat} {i r : BitVec 64} {f : AbiFrame} {K X W : Nat → Prop}
     (hP : PfIn m sp L g top r) (hS : PfS M2 m sp L r i f)
     (k10 : ∀ a, (a + 600 < sp ∨ (sp - 424 ≤ a ∧ a < sp - 412) ∨ sp - 408 ≤ a) → bytesT1 M10 a = bytesT1 M2 a)
     (low10 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M10 a = bytesT1 m a)
-    (hK : ∀ a, K a → 0x8006ecd0 ≤ a ∧ a < 0x87800000) (kt : ∀ a, K a → ¬ Rng top 16 a)
+    (hK : ∀ a, K a → 0x8006ecd0 ≤ a ∧ a < 0x87800000) (xt : ∀ a, Rng top 16 a → X a)
     (hh : NlHit M10 M3 K X W (sp - 464) ts (intU8 i)) : PfT M3 sp L g top ts r f := by
   pf_in hP
   have k3 : ∀ a, (a + 600 < sp ∨ sp - 464 ≤ a) → bytesT1 M3 a = bytesT1 M10 a := fun a ha =>
@@ -581,7 +582,8 @@ theorem pfT_hit {m M2 M10 M3 : Mem} {sp L g top ts : Nat} {i r : BitVec 64} {f :
     tt := (k3 _ (by omega)).trans hh.node.tt
     ts_lo := by omega
     ts_hi := by omega
-    tts := apart_of_K (fun a h1 h2 => (hh.node.obj a h1 (by omega)).1) kt }
+    ttt := Classical.byContradiction fun hc => node_off_X (k := 8) hh.node.mark hh.node.hnext
+      (fun a h1 h2 => xt a ⟨h1, h2⟩) (by omega) (by omega) (by omega) (by omega) (by omega) }
 
 /-- **The string found, against `lua_pushfstring`'s entry memory.** -/
 theorem pfHit_of {m M10 M3 : Mem} {sp ts : Nat} {b : List UInt8} {K X W : Nat → Prop}
@@ -593,7 +595,7 @@ theorem pfHit_of {m M10 M3 : Mem} {sp ts : Nat} {b : List UInt8} {K X W : Nat �
   have o11 := hh.node.obj (ts + 11) (by omega) (by omega)
   have e11 : bytesT1 M10 (ts + 11) = bytesT1 m (ts + 11) := kK _ o11.1
   refine ⟨⟨(kK _ (hh.node.obj (ts + 8) (by omega) (by omega)).1).symm.trans hh.node.tt, fun a h1 h2 => ?_,
-    hh.node.mark⟩, e11 ▸ hh.len, fun j hj => ?_, fun a ha => ?_⟩
+    hh.node.mark, hh.node.hnext⟩, e11 ▸ hh.len, fun j hj => ?_, fun a ha => ?_⟩
   · rw [← e11] at h2; exact hh.node.obj a h1 h2
   · have hl : (bytesT1 M10 (ts + 11)).toNat = b.length := by rw [hh.len, BitVec.toNat_ofNat]; omega
     rw [← kK _ (hh.node.obj _ (by omega) (by rw [hl]; omega)).1]; exact hh.bytes j hj
@@ -638,8 +640,9 @@ theorem pfT_new {m M2 M10 M3 : Mem} {sp L g top bkt nuse head p : Nat} {i r : Bi
     tt := hp.tt
     ts_lo := by omega
     ts_hi := by omega
-    tts := (apart_of_use (x := top) (n := 16) (p := p) (k := b.length + 25) (fun a h1 h2 => top_in a ⟨h1, h2⟩)
-      (fun a h1 h2 => hp.fresh a h1 (by omega)) (by omega) (by omega)).imp (fun h => by omega) (fun h => by omega) }
+    ttt := (apart_of_use (x := top) (n := 16) (p := p) (k := b.length + 25) (fun a h1 h2 => top_in a ⟨h1, h2⟩)
+      (fun a h1 h2 => hp.fresh a h1 (by omega)) (by omega) (by omega)).elim (fun h => .inr (by omega))
+      (fun h => .inl (by omega)) }
 
 /-- **From `snprintf`'s return to `luaS_newlstr`'s** (`T`, `0x80011ec0`): the
 string found or created (`PfStr`), `T`'s facts (`PfT`). -/
@@ -688,7 +691,7 @@ theorem pf_nl (hM : MallocR_Statement) (sp L g top : Nat) (i r : BitVec 64) (f :
       exact h.repin (by pins_of h))
   rcases hq with ⟨ts, M3, hret, hh⟩ | ⟨M3, p, H', hret, hp⟩
   · simp only [wrRet] at hret
-    exact ⟨c2, s1.trans s2, ts, M3, H, pfT_hit hP hS k10 low10 hT.hK hT.kt hh,
+    exact ⟨c2, s1.trans s2, ts, M3, H, pfT_hit hP hS k10 low10 hT.hK hT.xt hh,
       .inl ⟨pfHit_of low10 (by omega) hT.hK hb40 hh, rfl⟩, by fcx_unfold; exact hret.repin (by pins_of hret)⟩
   · simp only [wrRet] at hret
     refine ⟨c2, s1.trans s2, p, M3, H', pfT_new hP hS k10 low10 hT.new hT.Lk hT.top_in hb40 hp, .inr ?_,
@@ -764,7 +767,7 @@ theorem pf_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a
       (fun c => ∃ M, PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
   intro c h
   pf_in hP
-  have := hT.ts_lo; have := hT.ts_hi; have := hT.tts
+  have := hT.ts_lo; have := hT.ts_hi; have := hT.ttt
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   have hX : Lua.Vm.AtF.PushfI.Ok_T (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o) := by fcx_ok
   have h : SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfI.r9 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
@@ -873,6 +876,52 @@ theorem PfStr.gw {m M3 : Mem} {L g top : Nat} {b : List UInt8} {seed : UInt32} {
     · exact hp.fresh a hc.1 hc.2 hu
     all_goals first | (simp only [Rng] at hc; omega) | (have := hF a hc; omega)
 
+/-- **The pushed string at `lua_pushfstring`'s return memory**: where it
+lies, its tag and length (what `lua_tolstring` reads). -/
+structure PfTs (M : Mem) (ts len : Nat) : Prop where
+  ts_lo : 0x8005c6d0 ≤ ts
+  ts_hi : ts + 24 ≤ 0x87800000
+  tt : bytesT1 M (ts + 8) = 0x04#8
+  len : bytesT1 M (ts + 11) = BitVec.ofNat 8 len
+
+theorem pfTs_of {m M3 M : Mem} {sp L g top : Nat} {b : List UInt8} {seed : UInt32} {K X W : Nat → Prop}
+    {cw : BitVec 8} {size hash head d nuse ts : Nat} {H H' : HeapIx} {r : BitVec 64} {f : AbiFrame}
+    (hT : NlTab m L g top b seed K X W cw size hash head d nuse H) (hb40 : b.length ≤ 40)
+    (hsp : 0x87800000 + 8192 ≤ sp) (hL : L + 200 ≤ 0x87800000) (hg : g + 1400 ≤ 0x87800000)
+    (ht : top + 32 ≤ 0x87800000)
+    (hPT : PfT M3 sp L g top ts r f) (hstr : PfStr m M3 (PfFr sp) g b seed K X W size hash nuse head H ts H')
+    (hpost : PfPost M3 M sp L g top ts) : PfTs M ts b.length := by
+  have := hPT.ts_lo; have := hPT.ts_hi
+  have e1 : heapStart = 0x8006ecd0 := rfl
+  have hoff : ∀ k, 8 ≤ k → k < 16 → ¬ (Rng top 9 (ts + k) ∨ Rng (L + 16) 8 (ts + k) ∨
+      Rng (g + gTotalbytesOff) 8 (ts + k) ∨ Rng (g + gGCdebtOff) 8 (ts + k) ∨ PfFr sp (ts + k)) := by
+    intro k hk1 hk2
+    simp only [Rng, PfFr, gTotalbytesOff, gGCdebtOff]
+    rcases hstr with ⟨hh, -⟩ | hp
+    · have hm := hh.node.mark; have hn := hh.node.hnext
+      rintro (⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩)
+      · exact node_off_X hm hn (fun a h1 h2 => hT.xt a ⟨h1, h2⟩) (by omega) hk1 hk2 h1 (by omega)
+      · exact node_off_X (lo := L) (hi := L + 200) hm hn (fun a h1 h2 => hT.xL a ⟨h1, h2⟩) (by omega) hk1 hk2
+          (by omega) (by omega)
+      · exact node_off_X (lo := g) (hi := g + 1400) hm hn (fun a h1 h2 => hT.xg a ⟨h1, h2⟩) (by omega) hk1 hk2
+          (by omega) (by omega)
+      · exact node_off_X (lo := g) (hi := g + 1400) hm hn (fun a h1 h2 => hT.xg a ⟨h1, h2⟩) (by omega) hk1 hk2
+          (by omega) (by omega)
+      · omega
+    · have fr : ¬ InUse H.chunks (ts + k) := hp.fresh _ (by omega) (by omega)
+      rintro (⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩ | ⟨h1, h2⟩)
+      · exact fr (hT.top_in _ ⟨h1, by omega⟩)
+      · exact fr (hT.new.L_in _ (by omega) (by omega))
+      · exact fr (hT.new.g_in _ (by omega) (by omega))
+      · exact fr (hT.new.g_in _ (by omega) (by omega))
+      · omega
+  have l3 : bytesT1 M3 (ts + 11) = BitVec.ofNat 8 b.length := by
+    rcases hstr with ⟨hh, -⟩ | hp
+    · exact (hh.keep _ (by simp only [PfFr]; omega)).trans hh.len
+    · exact hp.len
+  exact ⟨hPT.ts_lo, hPT.ts_hi, (hpost.keep _ (hoff 8 (by omega) (by omega))).trans hPT.tt,
+    (hpost.keep _ (hoff 11 (by omega) (by omega))).trans l3⟩
+
 /-- **`lua_pushfstring(L, "%I", i)`** (lane F1-20): the digits of `i`
 interned (found or created, `PfStr`) and pushed at `L->top` (`PfPost`),
 `getstr` of the string returned. -/
@@ -884,7 +933,7 @@ theorem pushfI_sum (hM : MallocR_Statement) (hI2S : IntegerToStr_Statement) (sp 
     Triple (SegSt 0x800030a4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, 0x8004fd58#64⟩,
         ⟨Register.x12, i⟩] sp r f) (ArmPay m o))
       (fun c => ∃ ts M3 M H', PfStr m M3 (PfFr sp) g (intU8 i) seed K X W size hash nuse head H ts H' ∧
-        PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
+        PfPost M3 M sp L g top ts ∧ PfTs M ts (intU8 i).length ∧ wrRet r sp (ts + 24) f M o c) := by
   intro c h
   pf_in hP
   have hn1 := (intBytes_len i).1
@@ -898,6 +947,7 @@ theorem pushfI_sum (hM : MallocR_Statement) (hI2S : IntegerToStr_Statement) (sp 
       (by simp only [gGcstpOff]; omega) (by simp only [gGcstpOff]; omega)
       (by simp only [Rng, gGcstpOff]; omega)).trans hgc
   obtain ⟨c4, s4, M, hpost, hret⟩ := pf_ret sp L g top _ ts i r f a3 a4 a5 a6 a7 m M3 o hP hPT hn1 hn2 hgc3 hgal c3 h3
-  exact ⟨c4, ((s1.trans s2).trans s3).trans s4, ts, M3, M, H', hstr, hpost, hret⟩
+  exact ⟨c4, ((s1.trans s2).trans s3).trans s4, ts, M3, M, H', hstr, hpost,
+    pfTs_of hT (by rw [intU8_length]; omega) (by omega) (by omega) (by omega) (by omega) hPT hstr hpost, hret⟩
 
 end Lua.Vm.Sim.Kit

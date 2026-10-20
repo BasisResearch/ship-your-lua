@@ -107,6 +107,7 @@ structure IaNode (M : Mem) (K X W : Nat → Prop) (p : Nat) : Prop where
   tt : bytesT1 M (p + 8) = 0x04#8
   obj : ∀ a, p ≤ a → a < p + 24 + (bytesT1 M (p + 11)).toNat + 1 → K a ∧ ¬ W a
   mark : ¬ X (p + 9)
+  hnext : ∀ a, p + 16 ≤ a → a < p + 24 → ¬ X a
 
 /-- A byte of the fill in RAM, read as `some` of the total read. -/
 theorem bT1_of_rd8_fill {M : Mem} {a v : Nat} (h : rd8 (fillZeroMem M) a = some v) (hlo : 0x80000000 ≤ a)
@@ -142,7 +143,8 @@ theorem kwalk_of {M : Mem} {K X W T : Nat → Prop} {size j cwn : Nat} {lits : L
       have k1 := hK _ (hobj (ts + 24 + l') (by omega) (by omega)).1
       have bl : bytesT1 M (ts + 11) = BitVec.ofNat 8 l' := bT1_of_rd8_fill hl' (by omega) (by omega)
       have hl8 : (bytesT1 M (ts + 11)).toNat = l' := by rw [bl]; simp; omega
-      refine ⟨d + 1, .cons h0 (by omega) (by omega) ⟨bT1_of_rd8_fill htt (by omega) (by omega), ?_, hmk⟩
+      refine ⟨d + 1, .cons h0 (by omega) (by omega) ⟨bT1_of_rd8_fill htt (by omega) (by omega), ?_, hmk,
+          fun a h1 h2 => hhn a (by simp only [tstringLnglenOff]; omega) (by simp only [tstringLnglenOff]; omega)⟩
         (bT8_of_fill (bytesT8_of_rd64 hnx)) (rd64_lt hnx) ?_ hd⟩
       · intro a h1 h2
         rw [hl8] at h2
