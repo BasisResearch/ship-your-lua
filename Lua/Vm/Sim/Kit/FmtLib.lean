@@ -1,5 +1,6 @@
 import Lua.Vm.Sim.Kit.AtFn
 import Lua.Vm.Sim.Kit.Umoddi3
+import Lua.Vm.Sim.Kit.Sext32
 
 /-!
 # The formatting callees' library (lane F1-FMT)
@@ -73,14 +74,6 @@ theorem sxw_id (x : BitVec 64) (h : x.toNat < 2 ^ 31 ∨ 2 ^ 64 - 2 ^ 31 ≤ x.t
     simp only [Sail.BitVec.extractLsb, BitVec.extractLsb_toNat, Nat.shiftRight_zero]
   simp only [sign_extend, Sail.BitVec.signExtend, BitVec.toNat_signExtend, BitVec.toNat_setWidth,
     BitVec.msb_eq_decide, e32]
-  split <;> rename_i hm <;> simp only [decide_eq_true_eq] at hm <;> omega
-
-/-- A 32-bit literal's `sext.w` (a `lw` of a small word). -/
-theorem fmt_sext32_ofNat {n : Nat} (h : n < 2 ^ 31) :
-    sign_extend (m := 64) (BitVec.ofNat 32 n) = BitVec.ofNat 64 n := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [sign_extend, Sail.BitVec.signExtend, BitVec.toNat_signExtend, BitVec.toNat_setWidth,
-    BitVec.msb_eq_decide, BitVec.toNat_ofNat]
   split <;> rename_i hm <;> simp only [decide_eq_true_eq] at hm <;> omega
 
 theorem extract_ofNat (n : Nat) : Sail.BitVec.extractLsb (BitVec.ofNat 64 n) 31 0 = BitVec.ofNat 32 n := by

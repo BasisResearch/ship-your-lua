@@ -3831,8 +3831,8 @@ PF_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp
          "Lg : X.n 1 + 200 ≤ X.n 2 ∨ X.n 2 + 1400 ≤ X.n 1"]
 # after `snprintf`: the count; after `luaS_newlstr`: the string, apart from the slot
 PF_S = PF_OK + ["n_lo : 1 ≤ X.n 4", "n_hi : X.n 4 ≤ 20"]
-PF_T = PF_S + ["ts_lo : 0x8005c6d0 ≤ X.n 5", "ts_hi : X.n 5 + 64 ≤ 0x87800000",
-               "tts : X.n 3 + 16 ≤ X.n 5 ∨ X.n 5 + 64 ≤ X.n 3"]
+PF_T = PF_S + ["ts_lo : 0x8005c6d0 ≤ X.n 5", "ts_hi : X.n 5 + 24 ≤ 0x87800000",
+               "tts : X.n 3 + 16 ≤ X.n 5 ∨ X.n 5 + 16 ≤ X.n 3"]
 PF_LB = {**LUA_LB, 2: 0x8005c6d0, 3: 0x8005c6d0, 4: 1, 5: 0x8005c6d0}
 # `"%I"` (`.rodata`), its bytes as `strchr` and the conversion switch read them,
 # the switch's jump table word for `'I'`
@@ -3846,7 +3846,8 @@ PF_CELLS = {(8, 0x8004fd58): 0x4925, (1, 0x8004fd58): 0x25, (1, 0x8004fd59): 0x4
 # path: `nuse` X.n 10, the new object X.n 11 (`l_alloc`'s), the old head X.n 12
 IA_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 + 80 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
          "ra : (X.b 0).toNat % 4 = 0"] + LUA_OK + ["L_he : X.n 1 + 200 ≤ 0x87800000",
-         "s_ge : X.n 0 ≤ X.n 2", "s_hi : X.n 2 + X.n 3 + 1 ≤ 2 ^ 32", "l_lo : 1 ≤ X.n 3",
+         "s_lo : 0x87800000 ≤ X.n 2", "s_ge : X.n 0 ≤ X.n 2", "s_hi : X.n 2 + X.n 3 + 1 ≤ 2 ^ 32",
+         "l_lo : 1 ≤ X.n 3",
          "l_hi : X.n 3 ≤ 40", "g_lo : 0x8005c6d0 ≤ X.n 4", "g_hi : X.n 4 + 1400 ≤ 0x87800000"]
 IA_LB = {**LUA_LB, 2: 0x87800000, 3: 1, 4: 0x8005c6d0}
 IA_BKT = IA_OK + ["k_lo : 0x8005c6d0 ≤ X.n 7", "k_he : X.n 7 + 8 ≤ 0x87800000",
@@ -3877,7 +3878,7 @@ FNS.update({
         calls={0x80034de0: dict(ret={10: N((4, 1))}, root="S", ok=PF_S, lb=PF_LB),
                0x80017694: dict(ret={10: N((5, 1))}, root="T", ok=PF_T, lb=PF_LB),
                0x8000ec80: dict(ret={})},
-        imports=["Lua.Vm.Sim.Kit.FmtLib"],
+        imports=["Lua.Vm.Sim.Kit.AtNarrow"],
         doc="`lua_pushfstring(L, \"%I\", i)`: `luaO_pushvfstring` on `\"%I\"` (`strchr`, `addstr2buff`, "
             "`addnum2buff` → `snprintf(buf, 44, \"%lld\", i)`, `luaS_newlstr`, the push), `luaC_checkGC`."),
     "luaS_newlstr/any": dict(
@@ -3901,7 +3902,7 @@ FNS.update({
                              lb={**IA_LB, 6: 0x8005c6d0, 7: 0x8005c6d0, 8: 1}),
             0x8001742c: dict(name="N", row=ia_row({8: ("lit", 0), 22: N((7, 1)), 23: N((9, 1))}),
                              ok=IA_BKT, lb={**IA_LB, 7: 0x8005c6d0})},
-        stops=[0x800174b4], ends=[0x800173c4], imports=["Lua.Vm.Sim.Kit.FmtLib"],
+        stops=[0x800174b4], ends=[0x800173c4], imports=["Lua.Vm.Sim.Kit.AtNarrow"],
         doc="`luaS_newlstr(L, str, l)` on short contents in a caller's frame: `internshrstr`'s hash, "
             "the chain walk with `memcmp`, `isdead`, and the creation path (`luaC_newobj` → "
             "`luaM_malloc_` → `l_alloc`, the header, `memcpy`, the bucket's head, `nuse`)."),
