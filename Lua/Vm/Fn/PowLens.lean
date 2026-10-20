@@ -87,12 +87,12 @@ theorem W_in (X : Int) (h1 : -2 ^ 63 ≤ X) (h2 : X < 2 ^ 63)
   intro hc
   by_cases h1 : (BitVec.ofInt 64 X).toNat / 2 ^ 52 % 2 ^ 11 = 2047
   · by_cases h2 : (BitVec.ofInt 64 X).toNat % 2 ^ 52 = 0
-    · rw [if_pos h1, if_pos h2] at hc; cases hc
+    · rw [ite_eq_left h1, ite_eq_left h2] at hc; cases hc
     · exact hn ⟨by omega, by omega⟩
-  · rw [if_neg h1] at hc
+  · rw [ite_eq_right h1] at hc
     by_cases h3 : (BitVec.ofInt 64 X).toNat / 2 ^ 52 % 2 ^ 11 = 0
-    · rw [if_pos h3] at hc; split at hc <;> cases hc
-    · rw [if_neg h3] at hc; cases hc
+    · rw [ite_eq_left h3] at hc; split at hc <;> cases hc
+    · rw [ite_eq_right h3] at hc; cases hc
 
 /-- A non-NaN pattern's model keeps its bits (any `Int` image). -/
 theorem W_ofInt (e : Int) (hn : ¬ (e / 2 ^ 52 % 2048 = 2047 ∧ e % 2 ^ 52 ≠ 0)) :
@@ -104,12 +104,12 @@ theorem W_ofInt (e : Int) (hn : ¬ (e / 2 ^ 52 % 2048 = 2047 ∧ e % 2 ^ 52 ≠ 
   intro hc
   by_cases h1 : (BitVec.ofInt 64 e).toNat / 2 ^ 52 % 2 ^ 11 = 2047
   · by_cases h2 : (BitVec.ofInt 64 e).toNat % 2 ^ 52 = 0
-    · rw [if_pos h1, if_pos h2] at hc; cases hc
+    · rw [ite_eq_left h1, ite_eq_left h2] at hc; cases hc
     · exact hn ⟨by omega, by omega⟩
-  · rw [if_neg h1] at hc
+  · rw [ite_eq_right h1] at hc
     by_cases h3 : (BitVec.ofInt 64 e).toNat / 2 ^ 52 % 2 ^ 11 = 0
-    · rw [if_pos h3] at hc; split at hc <;> cases hc
-    · rw [if_neg h3] at hc; cases hc
+    · rw [ite_eq_left h3] at hc; split at hc <;> cases hc
+    · rw [ite_eq_right h3] at hc; cases hc
 
 /-- `+` and `*` of the model commute (`F64`'s, through the round trip; the
 arm kit's `At.model_mul_comm` is the same fact over its imports). -/
@@ -128,6 +128,73 @@ theorem bv64_ext (a b : Int) (h : a % 2 ^ 64 = b % 2 ^ 64) : BitVec.ofInt 64 a =
   apply BitVec.eq_of_toNat_eq
   have := ofInt_toNat a; have := ofInt_toNat b
   omega
+
+/-- `F64.neg` is the sign bit flipped. -/
+theorem f64neg_ofInt (e : Int) : F64.neg (BitVec.ofInt 64 e) = BitVec.ofInt 64 (e + 9223372036854775808) := by
+  apply BitVec.eq_of_toNat_eq
+  have hb : F64.bexp (BitVec.ofInt 64 e) < 2048 := Nat.mod_lt _ (by decide)
+  have hf : F64.frac (BitVec.ofInt 64 e) < 2 ^ 52 := Nat.mod_lt _ (by decide)
+  unfold F64.neg
+  rw [F64.toNat_bits _ _ _ hb hf]
+  have hs := F64.toNat_split (BitVec.ofInt 64 e)
+  have h1 := ofInt_toNat e
+  have h2 := ofInt_toNat (e + 9223372036854775808)
+  generalize (BitVec.ofInt 64 (e + 9223372036854775808)).toNat = v at h2 ⊢
+  unfold F64.sign at hs ⊢
+  generalize F64.bexp (BitVec.ofInt 64 e) = be at hs hb ⊢
+  generalize F64.frac (BitVec.ofInt 64 e) = f at hs hf ⊢
+  generalize (BitVec.ofInt 64 e).toNat = u at hs h1 ⊢
+  by_cases h : 2 ^ 63 ≤ u <;> simp [h] at hs ⊢ <;> omega
+
+/-- The model's negation of a non-NaN pattern: the sign bit flipped. -/
+theorem mneg_l (e : Int) (hn : ¬ (e / 2 ^ 52 % 2048 = 2047 ∧ e % 2 ^ 52 ≠ 0)) :
+    Float.Model.neg (F64.toModel (BitVec.ofInt 64 e)) = F64.toModel (BitVec.ofInt 64 (e + 9223372036854775808)) := by
+  have hc : F64.cls (BitVec.ofInt 64 e) ≠ .nan := by
+    have h3 := ofInt_toNat e
+    unfold F64.cls F64.bexp F64.frac
+    intro hc
+    by_cases h1 : (BitVec.ofInt 64 e).toNat / 2 ^ 52 % 2 ^ 11 = 2047
+    · by_cases h2 : (BitVec.ofInt 64 e).toNat % 2 ^ 52 = 0
+      · rw [ite_eq_left h1, ite_eq_left h2] at hc; cases hc
+      · exact hn ⟨by omega, by omega⟩
+    · rw [ite_eq_right h1] at hc
+      by_cases h3 : (BitVec.ofInt 64 e).toNat / 2 ^ 52 % 2 ^ 11 = 0
+      · rw [ite_eq_left h3] at hc; split at hc <;> cases hc
+      · rw [ite_eq_right h3] at hc; cases hc
+  rw [← f64neg_ofInt, F64.neg_eq_model _ hc, Lua.Vm.Sim.At.toModel_toBits]
+
+/-- `__subdf3` is `__adddf3` of the negation (soft-fp's `_FP_SUB` flips the sign). -/
+theorem f64_sub_eq_add_neg (x y : F64) : F64.sub x y = F64.add x (F64.neg y) := by
+  unfold F64.sub F64.add
+  rw [F64.cls_neg]
+  rcases hx : x.cls with _ | a | a | ⟨a, m, e⟩ <;> rcases hy : y.cls with _ | b | b | ⟨b, n, f⟩ <;>
+    simp only [F64.Cls.negate] <;> (try cases a) <;> (try cases b) <;>
+    simp [F64.sgnApply, Int.sub_eq_add_neg]
+
+/-- gcc's `x + c` for a negative literal `c` (`P2`, `P4`, `e_pow.c:311`):
+`x - (-c)`, the same datum. -/
+theorem madd_neglit (a : Float.Model) (c : Int) (h1 : -9223372036854775808 ≤ c) (h2 : c < 0) :
+    Float.Model.add a (F64.toModel (BitVec.ofInt 64 c)) =
+      Float.Model.sub a (F64.toModel (BitVec.ofInt 64 (c + 9223372036854775808))) := by
+  have h : F64.sub a.toBits.toBitVec (BitVec.ofInt 64 (c + 9223372036854775808)) =
+      F64.add a.toBits.toBitVec (BitVec.ofInt 64 c) := by
+    rw [f64_sub_eq_add_neg, f64neg_ofInt]
+    congr 1
+    apply bv64_ext
+    omega
+  have := congrArg F64.toModel h
+  rw [F64.sub_eq_model, F64.add_eq_model, Lua.Vm.Sim.At.toModel_toBits, Lua.Vm.Sim.At.toModel_toBits,
+    Lua.Vm.Sim.At.toModel_toBits] at this
+  exact this.symm
+theorem madd_neglit' (a : Float.Model) (c : Int) (h1 : -9223372036854775808 ≤ c) (h2 : c < 0) :
+    Float.Model.add (F64.toModel (BitVec.ofInt 64 c)) a =
+      Float.Model.sub a (F64.toModel (BitVec.ofInt 64 (c + 9223372036854775808))) := by
+  rw [madd_comm]; exact madd_neglit a c h1 h2
+
+/-- A register's word read back (`ld` of a spilled `sd`): `ofInt` keeps the
+residue only. -/
+theorem ofInt_bmod64 (x : Int) : BitVec.ofInt 64 (x.bmod 18446744073709551616) = BitVec.ofInt 64 x :=
+  (FmodLens.ofInt_bmod x).symm
 
 /-- Equal bit patterns modulo `2^64`: equal operands. -/
 theorem toModel_congr (a b : Int) (h : a % 2 ^ 64 = b % 2 ^ 64) :
@@ -180,6 +247,123 @@ theorem and_1' (a : Int) :
 theorem or_k32' (a b : Int) (ha : a % 4294967296 = 0) (hb0 : 0 ≤ b) (hb : b < 4294967296) :
     BitVec.ofInt 64 b ||| BitVec.ofInt 64 a = BitVec.ofInt 64 (a + b) := by
   rw [BitVec.or_comm]; exact or_low a b 32 (by decide) ha hb0 hb
+
+theorem nat_and_hi (u j : Nat) (hj : j ≤ 64) (hu : u < 2 ^ 64) :
+    u &&& (2 ^ 64 - 2 ^ j) = u - u % 2 ^ j := by
+  have e1 : 2 ^ 64 - 2 ^ j = (2 ^ (64 - j) - 1) * 2 ^ j := by
+    rw [Nat.sub_mul, Nat.one_mul, ← Nat.pow_add, Nat.sub_add_cancel hj]
+  rw [e1, land_field]
+  have hpos : 0 < 2 ^ j := Nat.pow_pos (by decide)
+  have h64 : 2 ^ 64 = 2 ^ (64 - j) * 2 ^ j := by rw [← Nat.pow_add, Nat.sub_add_cancel hj]
+  have hlt : u / 2 ^ j < 2 ^ (64 - j) := by
+    rw [Nat.div_lt_iff_lt_mul hpos, ← h64]; exact hu
+  rw [Nat.mod_eq_of_lt hlt]
+  have := Nat.mod_add_div u (2 ^ j)
+  rw [Nat.mul_comm] at this
+  generalize u / 2 ^ j * 2 ^ j = q at this ⊢
+  omega
+
+/-- `and` with a high mask `-2^j` (`sraw` of `0xfff00000` by a literal): the
+value with its low `j` bits cleared. -/
+theorem and_negpow_j (a : Int) (j : Nat) (hj : j ≤ 63) :
+    BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-(2 ^ j : Int)) = BitVec.ofInt 64 (a - a % 2 ^ j) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_and]
+  have hpos : 0 < 2 ^ j := Nat.pow_pos (by decide)
+  have hle : 2 ^ j < 2 ^ 64 := Nat.pow_lt_pow_right (by decide) (by omega)
+  have hd : ((2 ^ j : Nat) : Int) ∣ 2 ^ 64 := by
+    have : (2 ^ j : Nat) ∣ 2 ^ 64 := Nat.pow_dvd_pow 2 (by omega)
+    exact_mod_cast this
+  have hPn : ((2 : Int) ^ j) = ((2 ^ j : Nat) : Int) := by simp
+  rw [hPn]
+  have h1 := ofInt_toNat a
+  have h2 := ofInt_toNat (-((2 ^ j : Nat) : Int))
+  have h3 := ofInt_toNat (a - a % ((2 ^ j : Nat) : Int))
+  generalize (BitVec.ofInt 64 a).toNat = u at h1 ⊢
+  generalize (BitVec.ofInt 64 (-((2 ^ j : Nat) : Int))).toNat = mk at h2 ⊢
+  generalize (BitVec.ofInt 64 (a - a % ((2 ^ j : Nat) : Int))).toNat = w at h3 ⊢
+  have hmk : mk = 2 ^ 64 - 2 ^ j := by
+    generalize 2 ^ j = P at hpos hle h2 ⊢
+    omega
+  subst hmk
+  have hu : u < 2 ^ 64 := by have := Int.emod_lt_of_pos a (by decide : (0:Int) < 2 ^ 64); omega
+  rw [nat_and_hi u j (by omega) hu]
+  have e : a % ((2 ^ j : Nat) : Int) = (u : Int) % ((2 ^ j : Nat) : Int) := by
+    rw [h1, Int.emod_emod_of_dvd _ hd]
+  have hmodu : ((u % 2 ^ j : Nat) : Int) = (u : Int) % ((2 ^ j : Nat) : Int) := Int.natCast_emod _ _
+  have hle2 : u % 2 ^ j ≤ u := Nat.mod_le _ _
+  generalize u % 2 ^ j = r at hmodu hle2 ⊢
+  rw [← hmodu] at e
+  generalize ((2 ^ j : Nat) : Int) = P at e h3
+  omega
+
+/-! The high masks `-2^j` (`sraw` of `0xfff00000` by a literal), one instance per
+`j`: `and_negpow_j` at the literal (the exponent is not in the mask's syntax). -/
+
+theorem and_np1 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-2) = BitVec.ofInt 64 (a - a % 2) := by
+  simpa only [Int.reducePow] using and_negpow_j a 1 (by decide)
+theorem and_np2 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-4) = BitVec.ofInt 64 (a - a % 4) := by
+  simpa only [Int.reducePow] using and_negpow_j a 2 (by decide)
+theorem and_np3 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-8) = BitVec.ofInt 64 (a - a % 8) := by
+  simpa only [Int.reducePow] using and_negpow_j a 3 (by decide)
+theorem and_np4 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-16) = BitVec.ofInt 64 (a - a % 16) := by
+  simpa only [Int.reducePow] using and_negpow_j a 4 (by decide)
+theorem and_np5 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-32) = BitVec.ofInt 64 (a - a % 32) := by
+  simpa only [Int.reducePow] using and_negpow_j a 5 (by decide)
+theorem and_np6 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-64) = BitVec.ofInt 64 (a - a % 64) := by
+  simpa only [Int.reducePow] using and_negpow_j a 6 (by decide)
+theorem and_np7 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-128) = BitVec.ofInt 64 (a - a % 128) := by
+  simpa only [Int.reducePow] using and_negpow_j a 7 (by decide)
+theorem and_np8 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-256) = BitVec.ofInt 64 (a - a % 256) := by
+  simpa only [Int.reducePow] using and_negpow_j a 8 (by decide)
+theorem and_np9 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-512) = BitVec.ofInt 64 (a - a % 512) := by
+  simpa only [Int.reducePow] using and_negpow_j a 9 (by decide)
+theorem and_np10 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-1024) = BitVec.ofInt 64 (a - a % 1024) := by
+  simpa only [Int.reducePow] using and_negpow_j a 10 (by decide)
+theorem and_np11 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-2048) = BitVec.ofInt 64 (a - a % 2048) := by
+  simpa only [Int.reducePow] using and_negpow_j a 11 (by decide)
+theorem and_np12 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-4096) = BitVec.ofInt 64 (a - a % 4096) := by
+  simpa only [Int.reducePow] using and_negpow_j a 12 (by decide)
+theorem and_np13 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-8192) = BitVec.ofInt 64 (a - a % 8192) := by
+  simpa only [Int.reducePow] using and_negpow_j a 13 (by decide)
+theorem and_np14 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-16384) = BitVec.ofInt 64 (a - a % 16384) := by
+  simpa only [Int.reducePow] using and_negpow_j a 14 (by decide)
+theorem and_np15 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-32768) = BitVec.ofInt 64 (a - a % 32768) := by
+  simpa only [Int.reducePow] using and_negpow_j a 15 (by decide)
+theorem and_np16 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-65536) = BitVec.ofInt 64 (a - a % 65536) := by
+  simpa only [Int.reducePow] using and_negpow_j a 16 (by decide)
+theorem and_np17 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-131072) = BitVec.ofInt 64 (a - a % 131072) := by
+  simpa only [Int.reducePow] using and_negpow_j a 17 (by decide)
+theorem and_np18 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-262144) = BitVec.ofInt 64 (a - a % 262144) := by
+  simpa only [Int.reducePow] using and_negpow_j a 18 (by decide)
+theorem and_np19 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-524288) = BitVec.ofInt 64 (a - a % 524288) := by
+  simpa only [Int.reducePow] using and_negpow_j a 19 (by decide)
+theorem and_np20 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-1048576) = BitVec.ofInt 64 (a - a % 1048576) := by
+  simpa only [Int.reducePow] using and_negpow_j a 20 (by decide)
+theorem and_np21 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-2097152) = BitVec.ofInt 64 (a - a % 2097152) := by
+  simpa only [Int.reducePow] using and_negpow_j a 21 (by decide)
+theorem and_np22 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-4194304) = BitVec.ofInt 64 (a - a % 4194304) := by
+  simpa only [Int.reducePow] using and_negpow_j a 22 (by decide)
+theorem and_np23 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-8388608) = BitVec.ofInt 64 (a - a % 8388608) := by
+  simpa only [Int.reducePow] using and_negpow_j a 23 (by decide)
+theorem and_np24 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-16777216) = BitVec.ofInt 64 (a - a % 16777216) := by
+  simpa only [Int.reducePow] using and_negpow_j a 24 (by decide)
+theorem and_np25 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-33554432) = BitVec.ofInt 64 (a - a % 33554432) := by
+  simpa only [Int.reducePow] using and_negpow_j a 25 (by decide)
+theorem and_np26 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-67108864) = BitVec.ofInt 64 (a - a % 67108864) := by
+  simpa only [Int.reducePow] using and_negpow_j a 26 (by decide)
+theorem and_np27 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-134217728) = BitVec.ofInt 64 (a - a % 134217728) := by
+  simpa only [Int.reducePow] using and_negpow_j a 27 (by decide)
+theorem and_np28 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-268435456) = BitVec.ofInt 64 (a - a % 268435456) := by
+  simpa only [Int.reducePow] using and_negpow_j a 28 (by decide)
+theorem and_np29 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-536870912) = BitVec.ofInt 64 (a - a % 536870912) := by
+  simpa only [Int.reducePow] using and_negpow_j a 29 (by decide)
+theorem and_np30 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-1073741824) = BitVec.ofInt 64 (a - a % 1073741824) := by
+  simpa only [Int.reducePow] using and_negpow_j a 30 (by decide)
+theorem and_np31 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-2147483648) = BitVec.ofInt 64 (a - a % 2147483648) := by
+  simpa only [Int.reducePow] using and_negpow_j a 31 (by decide)
+theorem and_np32 (a : Int) : BitVec.ofInt 64 a &&& BitVec.ofInt 64 (-4294967296) = BitVec.ofInt 64 (a - a % 4294967296) := by
+  simpa only [Int.reducePow] using and_negpow_j a 32 (by decide)
 
 /-- `not` (`xori -1`). -/
 theorem xor_m1 (a : Int) : BitVec.ofInt 64 a ^^^ BitVec.ofInt 64 (-1) = BitVec.ofInt 64 (-1 - a) := by
@@ -460,6 +644,13 @@ theorem i32_or_beq0 (a b : Int) :
   have := ofInt_toNat32 a; have := ofInt_toNat32 b
   omega
 
+theorem u32_or_bne0 (a b : Int) :
+    (UInt32.ofInt a ||| UInt32.ofInt b != UInt32.ofInt 0) = !decide (a % 2 ^ 32 = 0 ∧ b % 2 ^ 32 = 0) := by
+  rw [bne, u32_or_beq0]
+theorem i32_or_bne0 (a b : Int) :
+    (Int32.ofInt a ||| Int32.ofInt b != Int32.ofInt 0) = !decide (a % 2 ^ 32 = 0 ∧ b % 2 ^ 32 = 0) := by
+  rw [bne, i32_or_beq0]
+
 theorem bv32_smod (k : Int) (h0 : 0 ≤ k) (h1 : k < 32) : (BitVec.ofInt 32 k).smod 32#32 = BitVec.ofInt 32 k := by
   obtain ⟨n, rfl⟩ := nat_of k h0
   have hn : n < 32 := by omega
@@ -486,6 +677,127 @@ theorem div_range32 (b P : Int) (hP : 1 ≤ P) (h1 : -2 ^ 31 ≤ b) (h2 : b < 2 
       have := Int.mul_le_mul_of_nonneg_left hP (show (0 : Int) ≤ 2 ^ 31 by decide)
       simpa using this
     omega
+
+/-- `~~~` of a word. -/
+theorem i32_not (a : Int) : ~~~Int32.ofInt a = Int32.ofInt (-1 - a) := by
+  apply Int32.toBitVec_inj.1
+  rw [Int32.toBitVec_not, Int32.toBitVec_ofInt, Int32.toBitVec_ofInt]
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_not]
+  have h1 := ofInt_toNat32 a; have h2 := ofInt_toNat32 (-1 - a)
+  generalize (BitVec.ofInt 32 a).toNat = u at h1 ⊢
+  generalize (BitVec.ofInt 32 (-1 - a)).toNat = v at h2 ⊢
+  have : u < 2 ^ 32 := by have := Int.emod_lt_of_pos a (show (0 : Int) < 2 ^ 32 by decide); omega
+  omega
+
+/-- `and` of a word with a high mask `-2^j`. -/
+theorem i32_and_negpow_j (a : Int) (j : Nat) (hj : j ≤ 31) :
+    Int32.ofInt a &&& Int32.ofInt (-(2 ^ j : Int)) = Int32.ofInt (a - a % 2 ^ j) := by
+  apply Int32.toBitVec_inj.1
+  rw [Int32.toBitVec_and, Int32.toBitVec_ofInt, Int32.toBitVec_ofInt, Int32.toBitVec_ofInt]
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_and]
+  have hpos : 0 < 2 ^ j := Nat.pow_pos (by decide)
+  have hle : 2 ^ j < 2 ^ 32 := Nat.pow_lt_pow_right (by decide) (by omega)
+  have hd : ((2 ^ j : Nat) : Int) ∣ 2 ^ 32 := by
+    have : (2 ^ j : Nat) ∣ 2 ^ 32 := Nat.pow_dvd_pow 2 (by omega)
+    exact_mod_cast this
+  have hPn : ((2 : Int) ^ j) = ((2 ^ j : Nat) : Int) := by simp
+  rw [hPn]
+  have h1 := ofInt_toNat32 a
+  have h2 := ofInt_toNat32 (-((2 ^ j : Nat) : Int))
+  have h3 := ofInt_toNat32 (a - a % ((2 ^ j : Nat) : Int))
+  generalize (BitVec.ofInt 32 a).toNat = u at h1 ⊢
+  generalize (BitVec.ofInt 32 (-((2 ^ j : Nat) : Int))).toNat = mk at h2 ⊢
+  generalize (BitVec.ofInt 32 (a - a % ((2 ^ j : Nat) : Int))).toNat = w at h3 ⊢
+  have hmk : mk = 2 ^ 32 - 2 ^ j := by
+    generalize 2 ^ j = P at hpos hle h2 ⊢
+    omega
+  subst hmk
+  have hu : u < 2 ^ 32 := by have := Int.emod_lt_of_pos a (by decide : (0:Int) < 2 ^ 32); omega
+  have hand : u &&& (2 ^ 32 - 2 ^ j) = u - u % 2 ^ j := by
+    have e1 : 2 ^ 32 - 2 ^ j = (2 ^ (32 - j) - 1) * 2 ^ j := by
+      rw [Nat.sub_mul, Nat.one_mul, ← Nat.pow_add, Nat.sub_add_cancel (by omega)]
+    rw [e1, FmodLens.land_field]
+    have h64 : 2 ^ 32 = 2 ^ (32 - j) * 2 ^ j := by rw [← Nat.pow_add, Nat.sub_add_cancel (by omega)]
+    have hlt : u / 2 ^ j < 2 ^ (32 - j) := by rw [Nat.div_lt_iff_lt_mul hpos, ← h64]; exact hu
+    rw [Nat.mod_eq_of_lt hlt]
+    have := Nat.mod_add_div u (2 ^ j)
+    rw [Nat.mul_comm] at this
+    generalize u / 2 ^ j * 2 ^ j = q at this ⊢
+    omega
+  rw [hand]
+  have e : a % ((2 ^ j : Nat) : Int) = (u : Int) % ((2 ^ j : Nat) : Int) := by
+    rw [h1, Int.emod_emod_of_dvd _ hd]
+  have hmodu : ((u % 2 ^ j : Nat) : Int) = (u : Int) % ((2 ^ j : Nat) : Int) := Int.natCast_emod _ _
+  have hle2 : u % 2 ^ j ≤ u := Nat.mod_le _ _
+  generalize u % 2 ^ j = r at hmodu hle2 ⊢
+  rw [← hmodu] at e
+  generalize ((2 ^ j : Nat) : Int) = P at e h3
+  omega
+
+theorem i32_and_np1 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-2) = Int32.ofInt (a - a % 2) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 1 (by decide)
+theorem i32_and_np2 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-4) = Int32.ofInt (a - a % 4) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 2 (by decide)
+theorem i32_and_np3 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-8) = Int32.ofInt (a - a % 8) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 3 (by decide)
+theorem i32_and_np4 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-16) = Int32.ofInt (a - a % 16) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 4 (by decide)
+theorem i32_and_np5 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-32) = Int32.ofInt (a - a % 32) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 5 (by decide)
+theorem i32_and_np6 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-64) = Int32.ofInt (a - a % 64) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 6 (by decide)
+theorem i32_and_np7 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-128) = Int32.ofInt (a - a % 128) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 7 (by decide)
+theorem i32_and_np8 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-256) = Int32.ofInt (a - a % 256) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 8 (by decide)
+theorem i32_and_np9 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-512) = Int32.ofInt (a - a % 512) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 9 (by decide)
+theorem i32_and_np10 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-1024) = Int32.ofInt (a - a % 1024) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 10 (by decide)
+theorem i32_and_np11 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-2048) = Int32.ofInt (a - a % 2048) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 11 (by decide)
+theorem i32_and_np12 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-4096) = Int32.ofInt (a - a % 4096) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 12 (by decide)
+theorem i32_and_np13 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-8192) = Int32.ofInt (a - a % 8192) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 13 (by decide)
+theorem i32_and_np14 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-16384) = Int32.ofInt (a - a % 16384) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 14 (by decide)
+theorem i32_and_np15 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-32768) = Int32.ofInt (a - a % 32768) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 15 (by decide)
+theorem i32_and_np16 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-65536) = Int32.ofInt (a - a % 65536) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 16 (by decide)
+theorem i32_and_np17 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-131072) = Int32.ofInt (a - a % 131072) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 17 (by decide)
+theorem i32_and_np18 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-262144) = Int32.ofInt (a - a % 262144) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 18 (by decide)
+theorem i32_and_np19 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-524288) = Int32.ofInt (a - a % 524288) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 19 (by decide)
+theorem i32_and_np20 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-1048576) = Int32.ofInt (a - a % 1048576) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 20 (by decide)
+theorem i32_and_np21 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-2097152) = Int32.ofInt (a - a % 2097152) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 21 (by decide)
+theorem i32_and_np22 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-4194304) = Int32.ofInt (a - a % 4194304) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 22 (by decide)
+theorem i32_and_np23 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-8388608) = Int32.ofInt (a - a % 8388608) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 23 (by decide)
+theorem i32_and_np24 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-16777216) = Int32.ofInt (a - a % 16777216) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 24 (by decide)
+theorem i32_and_np25 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-33554432) = Int32.ofInt (a - a % 33554432) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 25 (by decide)
+theorem i32_and_np26 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-67108864) = Int32.ofInt (a - a % 67108864) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 26 (by decide)
+theorem i32_and_np27 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-134217728) = Int32.ofInt (a - a % 134217728) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 27 (by decide)
+theorem i32_and_np28 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-268435456) = Int32.ofInt (a - a % 268435456) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 28 (by decide)
+theorem i32_and_np29 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-536870912) = Int32.ofInt (a - a % 536870912) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 29 (by decide)
+theorem i32_and_np30 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-1073741824) = Int32.ofInt (a - a % 1073741824) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 30 (by decide)
+theorem i32_and_np31 (a : Int) : Int32.ofInt a &&& Int32.ofInt (-2147483648) = Int32.ofInt (a - a % 2147483648) := by
+  simpa only [Int.reducePow] using i32_and_negpow_j a 31 (by decide)
 
 /-- Shifts by a word in range: `>>>` arithmetic on `Int32`, logical on `UInt32`. -/
 theorem i32_sra (a k : Int) (h0 : 0 ≤ k) (h1 : k < 32) :
@@ -624,6 +936,18 @@ theorem nat_xor_1 (v : Nat) : v ^^^ 1 = v / 2 * 2 + (1 - v % 2) := by
   rw [a1, a2] at this
   omega
 
+/-- A literal with the sign bit clear. -/
+theorem ofBits_lit_pos (n : Nat) (_h : n < 2 ^ 63) :
+    Float.Model.ofBits (no_index (OfNat.ofNat n)) = F64.toModel (BitVec.ofInt 64 (n : Int)) := ofBits_lit n
+
+/-- A literal with the sign bit set: the machine's (`lit_neg`) signed form. -/
+theorem ofBits_lit_neg (n : Nat) (h1 : 2 ^ 63 ≤ n) (h2 : n < 2 ^ 64) :
+    Float.Model.ofBits (no_index (OfNat.ofNat n)) = F64.toModel (BitVec.ofInt 64 ((n : Int) - 18446744073709551616)) := by
+  rw [ofBits_lit]
+  congr 1
+  apply bv64_ext
+  omega
+
 theorem nat_xor_51 (u : Nat) : u ^^^ 2 ^ 51 = u / 2 ^ 52 * 2 ^ 52 + (1 - u / 2 ^ 51 % 2) * 2 ^ 51 + u % 2 ^ 51 := by
   have e1 : (u ^^^ 2 ^ 51) % 2 ^ 51 = u % 2 ^ 51 := by
     rw [Nat.xor_mod_two_pow, Nat.mod_self, Nat.xor_zero]
@@ -654,6 +978,20 @@ theorem issignaling_false (d : Float.Model) : Pow.issignaling d = false := by
   · simp only [Nat.reducePow] at hc hb ⊢
     omega
 
+/-- The machine's `SET_LOW_WORD(d, 0)` (`srli 32; slli 32`) read as an
+operand: the model's `setLow d 0`, kept folded on both sides. -/
+theorem setLow0_l (d : Float.Model) :
+    F64.toModel (BitVec.ofInt 64 (W d % 18446744073709551616 / 4294967296 * 4294967296)) =
+      Pow.setLow d (UInt32.ofInt 0) := by
+  unfold Pow.setLow
+  rw [hiW_l, i32_toU, insertWords_l]
+  apply toModel_congr
+  have := W_lo d; have := W_hi d
+  simp only [Int.reducePow, Int.cast_ofNat_Int, Int.natCast_zero, Int.zero_emod, Int.add_zero]
+  omega
+
+attribute [pw_lens] setLow0_l Lua.Vm.Fn.PowLens.ofInt_bmod64 Lua.Vm.Fn.PowLens.and_np1 Lua.Vm.Fn.PowLens.and_np2 Lua.Vm.Fn.PowLens.and_np3 Lua.Vm.Fn.PowLens.and_np4 Lua.Vm.Fn.PowLens.and_np5 Lua.Vm.Fn.PowLens.and_np6 Lua.Vm.Fn.PowLens.and_np7 Lua.Vm.Fn.PowLens.and_np8 Lua.Vm.Fn.PowLens.and_np9 Lua.Vm.Fn.PowLens.and_np10 Lua.Vm.Fn.PowLens.and_np11 Lua.Vm.Fn.PowLens.and_np12 Lua.Vm.Fn.PowLens.and_np13 Lua.Vm.Fn.PowLens.and_np14 Lua.Vm.Fn.PowLens.and_np15 Lua.Vm.Fn.PowLens.and_np16 Lua.Vm.Fn.PowLens.and_np17 Lua.Vm.Fn.PowLens.and_np18 Lua.Vm.Fn.PowLens.and_np19 Lua.Vm.Fn.PowLens.and_np20 Lua.Vm.Fn.PowLens.and_np21 Lua.Vm.Fn.PowLens.and_np22 Lua.Vm.Fn.PowLens.and_np23 Lua.Vm.Fn.PowLens.and_np24 Lua.Vm.Fn.PowLens.and_np25 Lua.Vm.Fn.PowLens.and_np26 Lua.Vm.Fn.PowLens.and_np27 Lua.Vm.Fn.PowLens.and_np28 Lua.Vm.Fn.PowLens.and_np29 Lua.Vm.Fn.PowLens.and_np30 Lua.Vm.Fn.PowLens.and_np31 Lua.Vm.Fn.PowLens.and_np32
+
 /-! ## The discharger -/
 
 theorem bmod_facts (z : Int) (m : Nat) (h : 0 < m) :
@@ -662,16 +1000,25 @@ theorem bmod_facts (z : Int) (m : Nat) (h : 0 < m) :
 
 open Lean Elab Tactic Meta in
 /-- The `Int.bmod` and `W` atoms of an expression. -/
-partial def lensAtoms (e : Expr) : StateT (Array Expr) MetaM Unit := do
-  if e.isAppOfArity ``Int.bmod 2 || e.isAppOfArity ``Lua.Vm.Fn.PowLens.W 1 then
-    unless (← get).contains e do modify (·.push e)
+partial def lensAtomsGo (e : Expr) : StateM (Std.HashSet Expr × Array Expr) Unit := do
+  if (← get).1.contains e then return
+  modify fun (v, a) => (v.insert e,
+    if (e.isAppOfArity ``Int.bmod 2 || e.isAppOfArity ``Lua.Vm.Fn.PowLens.W 1) && !a.contains e then a.push e
+    else a)
   match e with
-  | .app f a => lensAtoms f; lensAtoms a
-  | .lam _ t b _ => lensAtoms t; lensAtoms b
-  | .forallE _ t b _ => lensAtoms t; lensAtoms b
-  | .letE _ t v b _ => lensAtoms t; lensAtoms v; lensAtoms b
-  | .mdata _ b => lensAtoms b
+  | .app f a => lensAtomsGo f; lensAtomsGo a
+  | .lam _ t b _ => lensAtomsGo t; lensAtomsGo b
+  | .forallE _ t b _ => lensAtomsGo t; lensAtomsGo b
+  | .letE _ t v b _ => lensAtomsGo t; lensAtomsGo v; lensAtomsGo b
+  | .mdata _ b => lensAtomsGo b
   | _ => pure ()
+
+open Lean Elab Tactic Meta in
+/-- The `Int.bmod` and `W` atoms of an expression (each shared subterm once). -/
+def lensAtoms (e : Expr) : StateT (Array Expr) MetaM Unit := do
+  let acc ← get
+  let ((), (_, a)) := (lensAtomsGo e).run ({}, acc)
+  set a
 
 open Lean Elab Tactic Meta in
 /-- `omega` with the facts of the goal's `bmod` atoms (residue and range) and
@@ -718,10 +1065,10 @@ macro "pw_disch_l" : tactic => `(tactic| first | (fm_ground; decide) | omega | p
 
 -- The machine lens (`fm_nf`'s lemmas with the routine's masks, `not`, the
 -- sign flip, `srai`, and the float lens).
-attribute [pw_lens] Lua.Vm.Fn.FmodLens.sext64 Lua.Vm.Fn.FmodLens.lo_ofInt Lua.Vm.Fn.FmodLens.lo5_ofInt Lua.Vm.Fn.FmodLens.sub32 Lua.Vm.Fn.FmodLens.add32 Lua.Vm.Fn.FmodLens.sll32 Lua.Vm.Fn.FmodLens.srl32 Lua.Vm.Fn.FmodLens.sra32 Lua.Vm.Fn.FmodLens.add64 Lua.Vm.Fn.FmodLens.sub64 Lua.Vm.Fn.FmodLens.sll64 Lua.Vm.Fn.FmodLens.srl64 Lua.Vm.Fn.FmodLens.toNat_ofInt5 Lua.Vm.Fn.FmodLens.toNat_ofInt32 Lua.Vm.Fn.FmodLens.toInt_ofInt32 Lua.Vm.Fn.FmodLens.ext6_toNat Lua.Vm.Fn.FmodLens.bmod_small Lua.Vm.Fn.FmodLens.bmod_small' BitVec.toInt_ofInt Int.reduceNatCast Int.cast_ofNat_Int Lua.Vm.Fn.FmodLens.lit_pos Lua.Vm.Fn.FmodLens.lit_neg Lua.Vm.Fn.FmodLens.lit_pos' Lua.Vm.Fn.FmodLens.lit_neg' Lua.Vm.Fn.FmodLens.slt_ofInt Lua.Vm.Fn.FmodLens.sge_ofInt Lua.Vm.Fn.FmodLens.ult_ofInt Lua.Vm.Fn.FmodLens.uge_ofInt Lua.Vm.Fn.FmodLens.beq_ofInt Lua.Vm.Fn.FmodLens.bne_ofInt Lua.Vm.Fn.FmodLens.or_beq0 Lua.Vm.Fn.FmodLens.or_bne0 Lua.Vm.Fn.FmodLens.or_zero_ofInt Lua.Vm.Fn.FmodLens.zero_or_ofInt Lua.Vm.Fn.FmodLens.or_k20 Lua.Vm.Fn.FmodLens.or_k31 Lua.Vm.Fn.FmodLens.or_k32 Lua.Vm.Fn.FmodLens.or_sx Lua.Vm.Fn.FmodLens.or_k20' Lua.Vm.Fn.FmodLens.and_2047 Lua.Vm.Fn.FmodLens.and_fffff Lua.Vm.Fn.FmodLens.and_7fffffff Lua.Vm.Fn.FmodLens.and_7ff00000 Lua.Vm.Fn.FmodLens.and_hi31 Lua.Vm.Fn.FmodLens.or_shr' Lua.Vm.Fn.FmodLens.or_shr0 Lua.Vm.Fn.FmodLens.or_lo_beq0 Lua.Vm.Fn.FmodLens.or_lo_toInt0 Lua.Vm.Fn.FmodLens.add_ofInt0 if_pos if_neg Int.shiftRight_eq_div_pow BitVec.reduceToInt BitVec.reduceToNat BitVec.reduceAppend BitVec.reduceSignExtend BitVec.reduceAdd BitVec.reduceXOr BitVec.reduceAnd BitVec.reduceOr BitVec.reduceNot BitVec.reduceExtractLsb Int.reducePow Int.reduceMul Int.reduceAdd Int.reduceSub Int.reduceNeg Int.reduceMod Int.reduceDiv Int.reduceToNat Nat.reducePow Nat.reduceMod Nat.reduceAdd Nat.reduceSub Nat.reduceMul Int.add_zero Int.zero_add Int.mul_one Int.sub_zero decide_eq_true_eq decide_eq_false_iff_not Bool.not_eq_true' Bool.not_eq_true Bool.not_true Bool.not_false Bool.not_not decide_true decide_false Bool.false_eq_true Bool.true_eq_false ite_true ite_false Lua.Vm.Fn.PowLens.and_7fffffff' Lua.Vm.Fn.PowLens.and_fffff' Lua.Vm.Fn.PowLens.and_2047' Lua.Vm.Fn.PowLens.and_1' Lua.Vm.Fn.PowLens.xor_m1 Lua.Vm.Fn.PowLens.xor_top Lua.Vm.Fn.PowLens.and_800fffff64 Lua.Vm.Fn.Ieee754Sqrt.sra64 Lua.Vm.Fn.PowLens.add_l Lua.Vm.Fn.PowLens.sub_l Lua.Vm.Fn.PowLens.mul_l Lua.Vm.Fn.PowLens.div_l Lua.Vm.Fn.PowLens.sqrt_l Lua.Vm.Fn.PowLens.model_W Lua.Vm.Fn.PowLens.or_k32' Int.reduceBmod Lua.Vm.Sim.sdData_id
+attribute [pw_lens] Lua.Vm.Fn.FmodLens.sext64 Lua.Vm.Fn.FmodLens.lo_ofInt Lua.Vm.Fn.FmodLens.lo5_ofInt Lua.Vm.Fn.FmodLens.sub32 Lua.Vm.Fn.FmodLens.add32 Lua.Vm.Fn.FmodLens.sll32 Lua.Vm.Fn.FmodLens.srl32 Lua.Vm.Fn.FmodLens.sra32 Lua.Vm.Fn.FmodLens.add64 Lua.Vm.Fn.FmodLens.sub64 Lua.Vm.Fn.FmodLens.sll64 Lua.Vm.Fn.FmodLens.srl64 Lua.Vm.Fn.FmodLens.toNat_ofInt5 Lua.Vm.Fn.FmodLens.toNat_ofInt32 Lua.Vm.Fn.FmodLens.toInt_ofInt32 Lua.Vm.Fn.FmodLens.ext6_toNat Lua.Vm.Fn.FmodLens.bmod_small Lua.Vm.Fn.FmodLens.bmod_small' BitVec.toInt_ofInt Int.reduceNatCast Int.cast_ofNat_Int Lua.Vm.Fn.FmodLens.lit_pos Lua.Vm.Fn.FmodLens.lit_neg Lua.Vm.Fn.FmodLens.lit_pos' Lua.Vm.Fn.FmodLens.lit_neg' Lua.Vm.Fn.FmodLens.slt_ofInt Lua.Vm.Fn.FmodLens.sge_ofInt Lua.Vm.Fn.FmodLens.ult_ofInt Lua.Vm.Fn.FmodLens.uge_ofInt Lua.Vm.Fn.FmodLens.beq_ofInt Lua.Vm.Fn.FmodLens.bne_ofInt Lua.Vm.Fn.FmodLens.or_beq0 Lua.Vm.Fn.FmodLens.or_bne0 Lua.Vm.Fn.FmodLens.or_zero_ofInt Lua.Vm.Fn.FmodLens.zero_or_ofInt Lua.Vm.Fn.FmodLens.or_k20 Lua.Vm.Fn.FmodLens.or_k31 Lua.Vm.Fn.FmodLens.or_k32 Lua.Vm.Fn.FmodLens.or_sx Lua.Vm.Fn.FmodLens.or_k20' Lua.Vm.Fn.FmodLens.and_2047 Lua.Vm.Fn.FmodLens.and_fffff Lua.Vm.Fn.FmodLens.and_7fffffff Lua.Vm.Fn.FmodLens.and_7ff00000 Lua.Vm.Fn.FmodLens.and_hi31 Lua.Vm.Fn.FmodLens.or_shr' Lua.Vm.Fn.FmodLens.or_shr0 Lua.Vm.Fn.FmodLens.or_lo_beq0 Lua.Vm.Fn.FmodLens.or_lo_toInt0 Lua.Vm.Fn.FmodLens.add_ofInt0 ite_eq_left ite_eq_right Int.shiftRight_eq_div_pow BitVec.reduceToInt BitVec.reduceToNat BitVec.reduceAppend BitVec.reduceSignExtend BitVec.reduceAdd BitVec.reduceXOr BitVec.reduceAnd BitVec.reduceOr BitVec.reduceNot BitVec.reduceExtractLsb Int.reducePow Int.reduceMul Int.reduceAdd Int.reduceSub Int.reduceNeg Int.reduceMod Int.reduceDiv Int.reduceToNat Nat.reducePow Nat.reduceMod Nat.reduceAdd Nat.reduceSub Nat.reduceMul Int.add_zero Int.zero_add Int.mul_one Int.sub_zero decide_eq_true_eq decide_eq_false_iff_not Bool.not_eq_true' Bool.not_eq_true Bool.not_true Bool.not_false Bool.not_not decide_true decide_false Bool.false_eq_true Bool.true_eq_false ite_true ite_false Lua.Vm.Fn.PowLens.and_7fffffff' Lua.Vm.Fn.PowLens.and_fffff' Lua.Vm.Fn.PowLens.and_2047' Lua.Vm.Fn.PowLens.and_1' Lua.Vm.Fn.PowLens.xor_m1 Lua.Vm.Fn.PowLens.xor_top Lua.Vm.Fn.PowLens.and_800fffff64 Lua.Vm.Fn.Ieee754Sqrt.sra64 Lua.Vm.Fn.PowLens.add_l Lua.Vm.Fn.PowLens.sub_l Lua.Vm.Fn.PowLens.mul_l Lua.Vm.Fn.PowLens.div_l Lua.Vm.Fn.PowLens.sqrt_l Lua.Vm.Fn.PowLens.model_W Lua.Vm.Fn.PowLens.or_k32' Int.reduceBmod Lua.Vm.Sim.sdData_id Lua.Vm.Sim.bytesT8_writeMap8
 
 -- The model lens.
-attribute [pw_mlens] Lua.Vm.Fn.PowLens.hiW_l Lua.Vm.Fn.PowLens.loW_l Lua.Num.Pow.setLow Lua.Num.Pow.setHigh Lua.Vm.Fn.PowLens.insertWords_l Lua.Vm.Fn.PowLens.issignaling_false Lua.Num.Pow.K Lua.Vm.Fn.PowLens.ofBits_lit Lua.Num.Pow.one Lua.Num.Pow.zero Lua.Num.Pow.two Lua.Vm.Fn.PowLens.i32_lit Lua.Vm.Fn.PowLens.u32_lit Lua.Vm.Fn.PowLens.i32_add Lua.Vm.Fn.PowLens.i32_sub Lua.Vm.Fn.PowLens.i32_neg Lua.Vm.Fn.PowLens.u32_sub Lua.Vm.Fn.PowLens.i32_toU Lua.Vm.Fn.PowLens.u32_toI Lua.Vm.Fn.PowLens.i32_lt Lua.Vm.Fn.PowLens.i32_le Lua.Vm.Fn.PowLens.i32_beq Lua.Vm.Fn.PowLens.u32_beq Lua.Vm.Fn.PowLens.i32_bne Lua.Vm.Fn.PowLens.u32_bne Lua.Vm.Fn.PowLens.i32_and_7fffffff Lua.Vm.Fn.PowLens.i32_and_fffff Lua.Vm.Fn.PowLens.i32_and_1 Lua.Vm.Fn.PowLens.u32_and_7fffffff Lua.Vm.Fn.PowLens.u32_or_beq0 Lua.Vm.Fn.PowLens.i32_or_beq0 Lua.Vm.Fn.PowLens.i32_or_k20 Lua.Vm.Fn.PowLens.i32_or_k20' Lua.Vm.Fn.PowLens.i32_or_k29' Lua.Vm.Fn.PowLens.i32_sra Lua.Vm.Fn.PowLens.i32_shl Lua.Vm.Fn.PowLens.u32_srl Lua.Vm.Fn.PowLens.u32_shl Lua.Vm.Fn.PowLens.u32_and_800fffff Lua.Vm.Fn.PowLens.u32_and_80000000 Lua.Vm.Fn.PowLens.i32_and_7ff00000 Lua.Vm.Fn.PowLens.u32_or_slk Lua.Vm.Fn.PowLens.u32_or_31 Lua.Num.Pow.u Lua.Num.Pow.copysign Lua.Vm.Fn.PowLens.W_ofInt Lua.Vm.Fn.FmodLens.bmod_small' gt_iff_lt ge_iff_le  ite_true ite_false Int.reduceMod Int.reducePow Int.reduceDiv Int.reduceNeg Int.reduceAdd Int.reduceSub Int.reduceMul Int.reduceToNat Int.reduceBmod Nat.reducePow Bool.and_eq_true Bool.or_eq_true decide_eq_true_eq Bool.not_eq_true' Bool.not_eq_eq_eq_not Bool.not_true Bool.not_false Int.cast_ofNat_Int Bool.and_true Bool.true_and Bool.or_false Bool.false_or decide_eq_false_iff_not Bool.false_eq_true Bool.true_eq_false decide_true decide_false Lua.Vm.Fn.PowLens.model_W
+attribute [pw_mlens] Lua.Vm.Fn.PowLens.hiW_l Lua.Vm.Fn.PowLens.loW_l Lua.Num.Pow.setHigh Lua.Vm.Fn.PowLens.insertWords_l Lua.Vm.Fn.PowLens.issignaling_false Lua.Num.Pow.K Lua.Vm.Fn.PowLens.ofBits_lit_neg Lua.Vm.Fn.PowLens.ofBits_lit_pos Lua.Num.Pow.one Lua.Num.Pow.zero Lua.Num.Pow.two Lua.Vm.Fn.PowLens.i32_lit Lua.Vm.Fn.PowLens.u32_lit Lua.Vm.Fn.PowLens.i32_add Lua.Vm.Fn.PowLens.i32_sub Lua.Vm.Fn.PowLens.i32_neg Lua.Vm.Fn.PowLens.u32_sub Lua.Vm.Fn.PowLens.i32_toU Lua.Vm.Fn.PowLens.u32_toI Lua.Vm.Fn.PowLens.i32_lt Lua.Vm.Fn.PowLens.i32_le Lua.Vm.Fn.PowLens.i32_beq Lua.Vm.Fn.PowLens.u32_beq Lua.Vm.Fn.PowLens.i32_bne Lua.Vm.Fn.PowLens.u32_bne Lua.Vm.Fn.PowLens.i32_and_7fffffff Lua.Vm.Fn.PowLens.i32_and_fffff Lua.Vm.Fn.PowLens.i32_and_1 Lua.Vm.Fn.PowLens.u32_and_7fffffff Lua.Vm.Fn.PowLens.u32_or_beq0 Lua.Vm.Fn.PowLens.i32_or_beq0 Lua.Vm.Fn.PowLens.i32_or_k20 Lua.Vm.Fn.PowLens.i32_or_k20' Lua.Vm.Fn.PowLens.i32_or_k29' Lua.Vm.Fn.PowLens.i32_sra Lua.Vm.Fn.PowLens.i32_shl Lua.Vm.Fn.PowLens.u32_srl Lua.Vm.Fn.PowLens.u32_shl Lua.Vm.Fn.PowLens.u32_and_800fffff Lua.Vm.Fn.PowLens.u32_and_80000000 Lua.Vm.Fn.PowLens.i32_and_7ff00000 Lua.Vm.Fn.PowLens.u32_or_slk Lua.Vm.Fn.PowLens.u32_or_31 Lua.Num.Pow.u Lua.Num.Pow.copysign Lua.Vm.Fn.PowLens.W_ofInt Lua.Vm.Fn.FmodLens.bmod_small' gt_iff_lt ge_iff_le  ite_true ite_false Int.reduceMod Int.reducePow Int.reduceDiv Int.reduceNeg Int.reduceAdd Int.reduceSub Int.reduceMul Int.reduceToNat Int.reduceBmod Nat.reducePow Bool.and_eq_true Bool.or_eq_true decide_eq_true_eq Bool.not_eq_true' Bool.not_eq_eq_eq_not Bool.not_true Bool.not_false Int.cast_ofNat_Int Bool.and_true Bool.true_and Bool.or_false Bool.false_or decide_eq_false_iff_not Bool.false_eq_true Bool.true_eq_false decide_true decide_false Lua.Vm.Fn.PowLens.model_W Lua.Vm.Fn.PowLens.mneg_l Lua.Num.Pow.L1 Lua.Num.Pow.L2 Lua.Num.Pow.L3 Lua.Num.Pow.L4 Lua.Num.Pow.L5 Lua.Num.Pow.L6 Lua.Num.Pow.P1 Lua.Num.Pow.P2 Lua.Num.Pow.P3 Lua.Num.Pow.P4 Lua.Num.Pow.P5 Lua.Num.Pow.lg2 Lua.Num.Pow.lg2_h Lua.Num.Pow.lg2_l Lua.Num.Pow.ovt Lua.Num.Pow.cp Lua.Num.Pow.cp_h Lua.Num.Pow.cp_l Lua.Num.Pow.ivln2 Lua.Num.Pow.ivln2_h Lua.Num.Pow.ivln2_l Lua.Num.Pow.bp Lua.Num.Pow.dp_h Lua.Num.Pow.dp_l Lua.Num.Pow.half Lua.Num.Pow.third Lua.Num.Pow.quarter Lua.Num.Pow.three Lua.Num.Pow.two53 Lua.Vm.Fn.PowLens.madd_neglit Lua.Vm.Fn.PowLens.madd_neglit' Lua.Vm.Fn.PowLens.i32_not Lua.Vm.Fn.PowLens.i32_and_np1 Lua.Vm.Fn.PowLens.i32_and_np2 Lua.Vm.Fn.PowLens.i32_and_np3 Lua.Vm.Fn.PowLens.i32_and_np4 Lua.Vm.Fn.PowLens.i32_and_np5 Lua.Vm.Fn.PowLens.i32_and_np6 Lua.Vm.Fn.PowLens.i32_and_np7 Lua.Vm.Fn.PowLens.i32_and_np8 Lua.Vm.Fn.PowLens.i32_and_np9 Lua.Vm.Fn.PowLens.i32_and_np10 Lua.Vm.Fn.PowLens.i32_and_np11 Lua.Vm.Fn.PowLens.i32_and_np12 Lua.Vm.Fn.PowLens.i32_and_np13 Lua.Vm.Fn.PowLens.i32_and_np14 Lua.Vm.Fn.PowLens.i32_and_np15 Lua.Vm.Fn.PowLens.i32_and_np16 Lua.Vm.Fn.PowLens.i32_and_np17 Lua.Vm.Fn.PowLens.i32_and_np18 Lua.Vm.Fn.PowLens.i32_and_np19 Lua.Vm.Fn.PowLens.i32_and_np20 Lua.Vm.Fn.PowLens.i32_and_np21 Lua.Vm.Fn.PowLens.i32_and_np22 Lua.Vm.Fn.PowLens.i32_and_np23 Lua.Vm.Fn.PowLens.i32_and_np24 Lua.Vm.Fn.PowLens.i32_and_np25 Lua.Vm.Fn.PowLens.i32_and_np26 Lua.Vm.Fn.PowLens.i32_and_np27 Lua.Vm.Fn.PowLens.i32_and_np28 Lua.Vm.Fn.PowLens.i32_and_np29 Lua.Vm.Fn.PowLens.i32_and_np30 Lua.Vm.Fn.PowLens.i32_and_np31 Lua.Vm.Fn.PowLens.u32_or_bne0 Lua.Vm.Fn.PowLens.i32_or_bne0
 
 /-- **`pw_nf`**: the machine's normal form. -/
 syntax "pw_nf" (Lean.Parser.Tactic.location)? : tactic
@@ -734,7 +1081,7 @@ syntax "pw_model" (" [" Lean.Parser.Tactic.simpArg,* "]")? (Lean.Parser.Tactic.l
 macro_rules | `(tactic| pw_model $[[$extra,*]]? $[$loc]?) => do
   let extra := extra.map (·.getElems) |>.getD #[]
   `(tactic| (
-  simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, ↓if_pos, ↓if_neg, ↓reduceIte, $extra,*] $[$loc]?))
+  simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, ↓ite_eq_left, ↓ite_eq_right, ↓reduceIte, $extra,*] $[$loc]?))
 
 /-- `pw_nf` on the left side, `pw_model` on the right (the walk's halves). -/
 macro "pw_nf_l" : tactic => `(tactic| (
@@ -743,7 +1090,7 @@ macro "pw_nf_l" : tactic => `(tactic| (
 macro "pw_lens_r" : tactic => `(tactic| (
   conv => rhs; simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, ↓reduceIte]))
 macro "pw_model_r" : tactic => `(tactic| (
-  conv => rhs; simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, ↓if_pos, ↓if_neg, ↓reduceIte]))
+  conv => rhs; simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, ↓ite_eq_left, ↓ite_eq_right, ↓reduceIte]))
 
 /-! ## The memory: `.rodata` only
 
@@ -809,7 +1156,8 @@ elab "pw_rod" : tactic => do
   while fuel > 0 do
     fuel := fuel - 1
     let r ← withMainContext do
-      let t ← instantiateMVars (← getMainTarget)
+      let t := (← instantiateMVars (← getMainTarget)).cleanupAnnotations
+      let t := match t.eq? with | some (_, l, _) => l | none => t
       let found := t.find? fun e => e.isAppOfArity ``Vsa.Sim.bytesT8 2 &&
         !(e.getArg! 1).hasFVar && !(e.getArg! 1).hasMVar && (e.getArg! 0).isFVar
       pure found
@@ -843,18 +1191,24 @@ open Lean Elab Tactic Meta in
 def headNode? (e : Expr) : Option Name :=
   match e.getAppFn with
   | .const n _ =>
-    if n.getPrefix.toString.startsWith "Lua.Vm.Fn." && (n.getString!.startsWith "N_") then some n else none
+    if n.getPrefix.toString.startsWith "Lua.Vm.Fn." && (n.getString!.startsWith "N_" || n.getString! == "F")
+    then some n else none
   | _ => none
 
 open Lean Elab Tactic Meta in
 /-- The model's frontier: the conditions of the `if`s not under another
 `if`'s branches nor a binder (the next decisions of `e_pow.c`). -/
-partial def frontier (e : Expr) : Array Expr :=
-  if e.isAppOfArity ``ite 5 then #[e]
+partial def frontierGo (e : Expr) : StateM (Std.HashSet Expr × Array Expr) Unit := do
+  if (← get).1.contains e then return
+  modify fun (v, a) => (v.insert e, a)
+  if e.isAppOfArity ``ite 5 then modify fun (v, a) => (v, a.push e)
   else match e with
-    | .app f a => frontier f ++ frontier a
-    | .mdata _ b => frontier b
-    | _ => #[]
+    | .app f a => frontierGo f; frontierGo a
+    | .mdata _ b => frontierGo b
+    | _ => pure ()
+
+open Lean Elab Tactic Meta in
+def frontier (e : Expr) : Array Expr := ((frontierGo e).run ({}, #[])).2.2
 
 open Lean Elab Tactic Meta in
 /-- Prove `p` by a tactic on a fresh goal; `none` if it fails. -/
@@ -876,13 +1230,82 @@ def rwBy (eq : Expr) : TacticM Unit := do
   replaceMainGoal (g' :: r.mvarIds)
 
 open Lean Elab Tactic Meta in
-/-- `if_pos`/`if_neg` at an `ite` of the goal, from a proof of its condition
+/-- `ite_eq_left`/`ite_eq_right` at an `ite` of the goal, from a proof of its condition
 or of its negation. -/
 def iteEq (ite h : Expr) (pos : Bool) : MetaM Expr := do
   let α := ite.getArg! 0
   let u ← getLevel α
-  return mkAppN (mkConst (if pos then ``if_pos else ``if_neg) [u])
+  return mkAppN (mkConst (if pos then ``ite_eq_left else ``ite_eq_right) [u])
     #[ite.getArg! 1, ite.getArg! 2, h, α, ite.getArg! 3, ite.getArg! 4]
+
+open Lean Elab Tactic Meta in
+/-- Subterms of `e` satisfying `p` (not under binders), outermost first. -/
+partial def collectGo (p : Expr → Bool) (e : Expr) : StateM (Std.HashSet Expr × Array Expr) Unit := do
+  if (← get).1.contains e then return
+  modify fun (v, a) => (v.insert e, if p e then a.push e else a)
+  match e with
+  | .app f a => collectGo p f; collectGo p a
+  | .mdata _ b => collectGo p b
+  | _ => pure ()
+
+open Lean Elab Tactic Meta in
+def collectP (p : Expr → Bool) (e : Expr) : Array Expr := ((collectGo p e).run ({}, #[])).2.2
+
+/-! ## Variable shifts: one case per amount -/
+
+open Lean Elab Tactic Meta in
+/-- The open exponents `e` of `2 ^ e.toNat` in an expression (a shift by a
+register: `sraw`, `srlw`, a model `>>>`/`<<<` by a word). -/
+def powAmounts (x : Expr) : Array Expr :=
+  (collectP (fun t => t.isAppOfArity ``HPow.hPow 6 && (t.getArg! 5).isAppOfArity ``Int.toNat 1 &&
+      ((t.getArg! 5).getArg! 0).hasFVar) x).map fun t => (t.getArg! 5).getArg! 0
+
+open Lean Elab Tactic Meta in
+/-- An integer bound of `e` from the context (`pw_disch`), by bisection over
+`[-128, 128]`: the greatest `c` with `c ≤ e` (`lower`) or the least with
+`e ≤ c`. -/
+partial def intBound (e : Expr) (lower : Bool) : TacticM (Option Int) := do
+  let go (tac : TSyntax `tactic) : TacticM (Option Int) := do
+    let test (c : Int) : TacticM Bool := do
+      let p ← if lower then mkAppM ``LE.le #[toExpr c, e] else mkAppM ``LE.le #[e, toExpr c]
+      return (← withMainContext (proveBy? p tac)).isSome
+    if lower then
+      if !(← test (-128)) then return none
+      let mut lo : Int := -128
+      let mut hi : Int := 129
+      while hi - lo > 1 do
+        let mid := (lo + hi) / 2
+        if ← test mid then lo := mid else hi := mid
+      return some lo
+    else
+      if !(← test 128) then return none
+      let mut lo : Int := -129
+      let mut hi : Int := 128
+      while hi - lo > 1 do
+        let mid := (lo + hi) / 2
+        if ← test mid then hi := mid else lo := mid
+      return some hi
+  -- `omega` alone when it bounds the amount (its failures are cheap), else `pw_disch`
+  match ← go (← `(tactic| omega)) with
+  | some b => return some b
+  | none => go (← `(tactic| pw_disch))
+
+open Lean Elab Tactic Meta in
+/-- Rewrite every open shift amount the context pins to one value. -/
+def pwShiftFix : TacticM Unit := do
+  let t := (← instantiateMVars (← getMainTarget)).cleanupAnnotations
+  for e in (powAmounts t).toList.eraseDups do
+    let some lo ← intBound e true | continue
+    let some hi ← intBound e false | continue
+    if lo != hi then continue
+    let h? ← withMainContext do proveBy? (← mkEq e (toExpr lo)) (← `(tactic| pw_disch))
+    if let some h := h? then
+      try withMainContext (rwBy h) catch _ => pure ()
+  evalTactic (← `(tactic| try simp only [Int.reduceToNat, Int.reducePow, Nat.reducePow, Int.reduceDiv,
+    Int.reduceMod, Int.reduceMul, Int.reduceAdd, Int.reduceSub, Int.reduceNeg]))
+
+open Lean Elab Tactic in
+elab "pw_shift_fix" : tactic => pwShiftFix
 
 open Lean Elab Tactic Meta in
 /-- **`pw_front`**: decide the model's frontier `if`s the context decides
@@ -896,8 +1319,7 @@ partial def pwFront (fuel : Nat) : TacticM Unit := do
   let some (_, _, rhs) := t.eq? | return
   let some it := (frontier rhs.cleanupAnnotations)[0]? | return
   let c := it.getArg! 1
-  let tac ← `(tactic| first | omega | (simp (config := { failIfUnchanged := false }) (disch := pw_disch) only
-    [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega)
+  let tac ← `(tactic| first | assumption | (simp only [Bool.not_eq_true, Bool.not_eq_false] at *; assumption) | omega | (simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega | (pw_shift_fix; simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch))
   let r ← withMainContext do
     if let some h ← proveBy? c tac then
       rwBy (← iteEq it h true); pure true
@@ -912,13 +1334,11 @@ open Lean Elab Tactic in
 elab "pw_front" : tactic => pwFront 64
 
 open Lean Elab Tactic Meta in
-/-- Subterms of `e` satisfying `p` (not under binders), outermost first. -/
-partial def collectP (p : Expr → Bool) (e : Expr) : Array Expr :=
-  let here := if p e then #[e] else #[]
-  match e with
-  | .app f a => here ++ collectP p f ++ collectP p a
-  | .mdata _ b => here ++ collectP p b
-  | _ => here
+/-- A debugging line of the walk (`set_option pw.debug true`). -/
+def pwDbg (msg : String) : TacticM Unit := do
+  if (← getOptions).getBool `pw.debug false then
+    IO.println s!"[pw {← IO.monoMsNow}] {msg}"
+
 
 open Lean Elab Tactic Meta in
 /-- A model datum the machine computed (`W d` with `d` not a variable). -/
@@ -939,33 +1359,44 @@ expressions with them (one name per value, so both sides stay small and in
 step, C's `let`s): first the model's operands aligned with the machine's
 (a commuted `+`/`*`, `mmul_comm`/`madd_comm`; a raw word construction equal
 modulo `2^64`, `toModel_congr` by `omega`). -/
+def genCheck (d : Expr) : TacticM Bool := withMainContext do
+  let g ← getMainGoal
+  let (fvs, g') ← g.generalize #[{ expr := d, xName? := `d_, hName? := some `hd_ }]
+  let dv := mkFVar fvs[0]!
+  let t := (← instantiateMVars (← g'.getType)).cleanupAnnotations
+  let some (_, _, rhs) := t.eq? | return false
+  if (collectP (fun e => e == dv) rhs).size == 0 then
+    return false
+  let (_, g'') ← g'.withContext do g'.assertHypotheses #[
+    { userName := `hWlo, type := ← inferType (← mkAppM ``Lua.Vm.Fn.PowLens.W_lo #[dv]),
+      value := ← mkAppM ``Lua.Vm.Fn.PowLens.W_lo #[dv] },
+    { userName := `hWhi, type := ← inferType (← mkAppM ``Lua.Vm.Fn.PowLens.W_hi #[dv]),
+      value := ← mkAppM ``Lua.Vm.Fn.PowLens.W_hi #[dv] }]
+  replaceMainGoal [g'']
+  return true
+
+open Lean Elab Tactic Meta in
 def pwGen : TacticM Unit := withMainContext do
   let t := (← instantiateMVars (← getMainTarget)).cleanupAnnotations
-  let some (_, lhs, rhs) := t.eq? | return
-  -- computed values
-  let t := (← instantiateMVars (← getMainTarget)).cleanupAnnotations
-  let some (_, lhs, rhs) := t.eq? | return
+  let some (_, lhs, _) := t.eq? | return
   let ws := (collectP isWApp lhs).toList.eraseDups
   for w in ws do
     let d := w.getArg! 0
-    -- commuted model operations
-    let mut found : Bool := (collectP (· == d) rhs).size > 0
-    if !found then
-      if d.isAppOfArity ``Float.Model.mul 2 || d.isAppOfArity ``Float.Model.add 2 then
-        let a := d.getArg! 0
-        let b := d.getArg! 1
-        let sw := mkAppN d.getAppFn #[b, a]
-        if (collectP (· == sw) rhs).size > 0 then
-          let lem := if d.isAppOfArity ``Float.Model.mul 2 then ``Lua.Vm.Fn.PowLens.mmul_comm
-            else ``Lua.Vm.Fn.PowLens.madd_comm
-          try rwBy (mkAppN (mkConst lem) #[b, a]); found := true catch _ => pure ()
+    let saved ← saveState
+    let r ← (try genCheck d catch e => do pwDbg s!"genCheck threw {(← e.toMessageData.toString).take 300}"; pure false)
+    pwDbg s!"gen {r} {← ppExpr d}"
+    if r then continue
+    saved.restore
+    -- a commuted `*`/`+` of the model's
+    if d.isAppOfArity ``Float.Model.mul 2 || d.isAppOfArity ``Float.Model.add 2 then
+      let lem := if d.isAppOfArity ``Float.Model.mul 2 then ``Lua.Vm.Fn.PowLens.mmul_comm
+        else ``Lua.Vm.Fn.PowLens.madd_comm
+      let ok ← (do
+          rwBy (mkAppN (mkConst lem) #[d.getArg! 1, d.getArg! 0])
+          genCheck d) <|> pure false
+      if ok then continue
+      saved.restore
     -- a value the model does not compute in this form stays (the leaf compares it)
-    if !found then continue
-    let dS ← Term.exprToSyntax d
-    try
-      evalTactic (← `(tactic| generalize hd_ : $dS:term = d_ at *))
-      evalTactic (← `(tactic| have := Lua.Vm.Fn.PowLens.W_lo d_; have := Lua.Vm.Fn.PowLens.W_hi d_))
-    catch _ => pure ()
 
 open Lean Elab Tactic Meta in
 /-- One congruence step, never closing a new goal by unfolding (a model
@@ -1058,6 +1489,99 @@ partial def pwClose (fuel : Nat) : TacticM Unit := do
 open Lean Elab Tactic in
 elab "pw_close" : tactic => pwClose 24
 
+/-- A smaller frame below the same `sp`. -/
+theorem fnsp_le {s W F : Nat} (h : Lua.Vm.Sim.FnSp s W) (hF : F ≤ W) : Lua.Vm.Sim.FnSp s F :=
+  ⟨by have := h.lo; omega, h.hi, h.al⟩
+
+open Lean Elab Tactic Meta in
+/-- Rewrite the main goal by the first cut lemma that applies anywhere in it
+(a node's lemma, a callee's value), its side conditions by `fn_assumption`,
+the frame's stack facts (`fn_sp_in`) or `pw_disch`. -/
+def tryCuts (cuts : Array Name) : TacticM Bool := do
+  let tgt0 ← instantiateMVars (← getMainTarget)
+  let tgt := (goalLhs? tgt0.cleanupAnnotations).getD tgt0
+  for c in cuts do
+    -- only a lemma whose left side's head occurs in the goal
+    let info ← getConstInfo c
+    let concl := info.type.getForallBody
+    let some (_, l, _) := concl.eq? | continue
+    let some hd := l.getAppFn.constName? | continue
+    if (collectP (fun e => e.isConstOf hd) tgt).size == 0 then continue
+    let saved ← saveState
+    pwDbg s!"try {c}"
+    let ok ← (withMainContext do
+        let main ← getMainGoal
+        let lemE ← mkConstWithFreshMVarLevels c
+        let (args, _, _) ← forallMetaTelescope (← inferType lemE)
+        let r ← main.rewrite (← main.getType) (mkAppN lemE args)
+        let main' ← main.replaceTargetEq r.eNew r.eqProof
+        for a in args do
+          if (← a.mvarId!.isAssigned) then continue
+          if !(← isProp (← inferType a)) then continue
+          setGoals [a.mvarId!]
+          let hsI := mkIdent `hs
+          try
+            evalTactic (← `(tactic| first | with_reducible rfl | fn_assumption | exact Eq.symm (by assumption) | exact Lua.Vm.Sim.fn_sp_in $hsI (by decide) (by decide) | exact Lua.Vm.Fn.PowLens.fnsp_le $hsI (by decide) | pw_disch))
+          catch e =>
+            pwDbg s!"sidefail {← ppExpr (← instantiateMVars (← a.mvarId!.getType))}"
+            throw e
+        setGoals [main']
+        pure true) <|> (do
+          saved.restore
+          if (← getOptions).getBool `pw.debug false then
+            for e in collectP (fun e => e.isAppOf hd) tgt do
+              pwDbg s!"nomatch {← ppExpr e}"
+          pure false)
+    if ok then
+      pwDbg s!"cut {c}"
+      return true
+  return false
+
+open Lean Elab Tactic Meta in
+/-- A leaf of the walk (or a node a cut closed): the model's remaining
+decisions (`pw_front`), shift amounts the context pins (`pw_shift_fix`), the
+model lens, then `rfl` or `pw_close`; a stage the walk reached without its cut
+is unfolded and the same applied. -/
+def pwLeafCore : TacticM Unit := do
+  pwDbg "leaf front"
+  pwFront 64
+  pwDbg "leaf fix"
+  if !(← getGoals).isEmpty then evalTactic (← `(tactic| try with_reducible rfl))
+  for _ in [0:3] do
+    if (← getGoals).isEmpty then break
+    let t0 ← instantiateMVars (← getMainTarget)
+    evalTactic (← `(tactic| try pw_shift_fix))
+    if !(← getGoals).isEmpty then evalTactic (← `(tactic| pw_model_r))
+    if (← getGoals).isEmpty then break
+    if (← instantiateMVars (← getMainTarget)) == t0 then break
+  pwDbg "leaf close"
+  if !(← getGoals).isEmpty then evalTactic (← `(tactic| try with_reducible rfl))
+  if !(← getGoals).isEmpty then evalTactic (← `(tactic| try pw_close))
+  pwDbg "leaf done"
+  if (← getOptions).getBool `pw.debug.goal false then
+    if !(← getGoals).isEmpty then
+      pwDbg s!"open leaf:\n{← ppGoal (← getMainGoal)}"
+
+open Lean Elab Tactic Meta in
+/-- `pwLeafCore`, and while a stage the walk reached without its cut remains
+on the model's side, its outermost one unfolded and the same again. -/
+def pwLeaf : TacticM Unit := do
+  pwLeafCore
+  for _ in [0:3] do
+    if (← getGoals).isEmpty then return
+    let some ext ← getSimpExtension? `pw_stage | return
+    let stages := (← ext.getTheorems).toUnfold
+    let t := (← instantiateMVars (← getMainTarget)).cleanupAnnotations
+    let some (_, _, rhs) := t.eq? | return
+    -- an `if` the context does not decide stays: a stage under it is not the leaf's
+    if (frontier rhs.cleanupAnnotations).size > 0 then return
+    let some st := (collectP (fun e => match e.getAppFn.constName? with
+        | some n => stages.contains n | none => false) rhs)[0]? | return
+    let nS := mkIdent st.getAppFn.constName!
+    pwDbg s!"leaf unfold {st.getAppFn.constName!}"
+    evalTactic (← `(tactic| conv => rhs; unfold $nS:ident))
+    pwLeafCore
+
 open Lean Elab Tactic Meta in
 /-- **`pw_walk`**: normalise both sides (`pw_mem`, `pw_nf`, `pw_model` with the
 extra lemmas), then split the machine's guard (`by_cases`, both sides
@@ -1066,12 +1590,67 @@ the caller's closer. -/
 partial def pwWalk (cuts : Array Name) (fuel : Nat) : TacticM Unit := do
   if fuel = 0 then return
   if (← getGoals).isEmpty then return
+  pwDbg "step"
   evalTactic (← `(tactic| pw_mem))
   evalTactic (← `(tactic| pw_rod))
   evalTactic (← `(tactic| pw_nf_l))
   if (← getGoals).isEmpty then return
+  pwDbg "gen"
   pwGen
   if (← getGoals).isEmpty then return
+  -- a shift by a register: one case per amount the context allows
+  let lhsAm := match goalLhs? (← instantiateMVars (← getMainTarget)).cleanupAnnotations with
+    | some l => (powAmounts l).toList.eraseDups
+    | none => []
+  if let some e := lhsAm.head? then
+    let lo? ← intBound e true
+    let hi? ← intBound e false
+    if let (some lo, some hi) := (lo?, hi?) then
+      if hi - lo ≤ 64 then
+        pwDbg s!"shift cases {lo}..{hi}"
+        let mut res : List MVarId := []
+        let mut c := lo
+        while c ≤ hi do
+          let g ← getMainGoal
+          let eqc ← g.withContext (mkEq e (toExpr c))
+          if c == hi then
+            -- the last value: from the others' exclusions
+            let h? ← withMainContext do proveBy? eqc (← `(tactic| pw_disch))
+            match h? with
+            | some h =>
+              withMainContext (rwBy h)
+              evalTactic (← `(tactic| pw_nf_l))
+              pwWalk cuts (fuel - 1)
+              res := res ++ (← getGoals)
+            | none => res := res ++ [g]
+          else
+            let (gp, gn) ← g.byCases eqc `hsh_
+            setGoals [gp.mvarId]
+            withMainContext (rwBy (mkFVar gp.fvarId))
+            evalTactic (← `(tactic| pw_nf_l))
+            pwWalk cuts (fuel - 1)
+            res := res ++ (← getGoals)
+            setGoals [gn.mvarId]
+          c := c + 1
+        setGoals res
+        return
+  -- a callee's value inside the node's arguments
+  let mut inner := 8
+  while inner > 0 do
+    inner := inner - 1
+    let t := (← instantiateMVars (← getMainTarget)).cleanupAnnotations
+    let some lhs := goalLhs? t | break
+    if (headNode? lhs).isSome || (firstIte? lhs).isSome then
+      -- only arguments: the head is the walk's
+      -- an `if`'s branches are the walk's too: only its condition
+      let args := if lhs.isAppOfArity ``ite 5 then #[lhs.getArg! 1] else lhs.getAppArgs
+      if !(args.any fun a => (collectP (fun e => (headNode? e).isSome) a).size > 0) then break
+    pwDbg "inner"
+    if !(← tryCuts cuts) then break
+    pwDbg "inner cut"
+    evalTactic (← `(tactic| pw_nf_l))
+    if (← getGoals).isEmpty then return
+    pwGen
   let gs ← getGoals
   let mut out : List MVarId := []
   for g in gs do
@@ -1080,64 +1659,47 @@ partial def pwWalk (cuts : Array Name) (fuel : Nat) : TacticM Unit := do
     match goalLhs? t with
     | none => out := out ++ [g]
     | some lhs =>
-      if let some it := firstIte? lhs then
+      -- a node's arguments' `if`s are values: the node first (its cut or its unfolding)
+      let splitAt? := if lhs.isAppOfArity ``ite 5 then firstIte? lhs
+        else if (headNode? lhs).isSome then none else firstIte? lhs
+      if false then pure ()
+      else if let some it := splitAt? then
         let c := it.getArg! 1
+        pwDbg s!"split"
         let (gp, gn) ← g.byCases c `hc_
         let mut res : List MVarId := []
         for (sg, pos) in [(gp, true), (gn, false)] do
           setGoals [sg.mvarId]
           withMainContext do
             rwBy (← iteEq it (mkFVar sg.fvarId) pos)
+          pwDbg "front"
           if !(← getGoals).isEmpty then pwFront 64
           pwWalk cuts (fuel - 1)
           res := res ++ (← getGoals)
         out := out ++ res
       else if let some n := headNode? lhs then
         -- a cut lemma for this node, else its unfolding
-        let mut cut := false
-        for c in cuts do
-          if cut then break
-          let cS := mkIdent c
-          let saved ← saveState
-          let ok ← (withMainContext do
-              let main ← getMainGoal
-              let lemE ← mkConstWithFreshMVarLevels c
-              let (args, _, _) ← forallMetaTelescopeReducing (← inferType lemE)
-              let r ← main.rewrite (← main.getType) (mkAppN lemE args)
-              let main' ← main.replaceTargetEq r.eNew r.eqProof
-              -- its side conditions
-              for a in args do
-                if (← a.mvarId!.isAssigned) then continue
-                if !(← isProp (← inferType a)) then continue
-                setGoals [a.mvarId!]
-                evalTactic (← `(tactic| first | fn_assumption | pw_disch))
-              setGoals [main']
-              pure true) <|> (do saved.restore; pure false)
-          if ok then
-            cut := true
-            pwFront 64
-            if !(← getGoals).isEmpty then
-              evalTactic (← `(tactic| try pw_close))
-            out := out ++ (← getGoals)
+        let cut ← tryCuts cuts
+        if cut then
+          pwLeaf
+          out := out ++ (← getGoals)
         if !cut then
           let nS := mkIdent n
+          pwDbg s!"unfold {n}"
           evalTactic (← `(tactic| conv => lhs; unfold $nS:ident))
           pwWalk cuts (fuel - 1)
           out := out ++ (← getGoals)
       else
         -- a leaf: the model's remaining decisions, its lens, the comparison
-        pwFront 64
-        if !(← getGoals).isEmpty then evalTactic (← `(tactic| try with_reducible rfl))
-        if !(← getGoals).isEmpty then evalTactic (← `(tactic| pw_model_r))
-        if !(← getGoals).isEmpty then evalTactic (← `(tactic| try with_reducible rfl))
-        if !(← getGoals).isEmpty then evalTactic (← `(tactic| try pw_close))
-        -- a stage the walk reached without its cut: unfolded, then the same
-        if !(← getGoals).isEmpty then
-          evalTactic (← `(tactic| conv => rhs; simp (config := { failIfUnchanged := false }) only [pw_stage]))
-          if !(← getGoals).isEmpty then pwFront 64
-          if !(← getGoals).isEmpty then evalTactic (← `(tactic| pw_model_r))
-          if !(← getGoals).isEmpty then evalTactic (← `(tactic| try with_reducible rfl))
-          if !(← getGoals).isEmpty then evalTactic (← `(tactic| try pw_close))
+        pwDbg "leaf"
+        let mut k := 8
+        while k > 0 do
+          k := k - 1
+          if !(← tryCuts cuts) then break
+          evalTactic (← `(tactic| pw_nf_l))
+          if (← getGoals).isEmpty then break
+        if (← getGoals).isEmpty then continue
+        pwLeaf
         out := out ++ (← getGoals)
   setGoals out
 
@@ -1150,14 +1712,67 @@ elab_rules : tactic
   let cs : Array Name := (ids.map (·.getElems) |>.getD #[]).map (·.getId)
   let cs : Array Name ← cs.mapM fun c => do
     try realizeGlobalConstNoOverloadWithInfo (mkIdent c) catch _ => pure c
-  -- the range of every datum's word in the goal
+  -- the range of every datum's word in the goal (the operands, not the model's terms)
   withMainContext do
     let t ← instantiateMVars (← getMainTarget)
     let ((), atoms) ← (lensAtoms t).run #[]
     for a in atoms do
-      if a.isAppOfArity ``Lua.Vm.Fn.PowLens.W 1 then
+      if a.isAppOfArity ``Lua.Vm.Fn.PowLens.W 1 && (a.getArg! 0).isFVar then
         let dS ← Term.exprToSyntax (a.getArg! 0)
         evalTactic (← `(tactic| have := Lua.Vm.Fn.PowLens.W_lo $dS; have := Lua.Vm.Fn.PowLens.W_hi $dS))
   pwWalk cs 400
+
+open Lean Elab Tactic in
+/-- `pw_walk` to a depth (debugging). -/
+elab "pw_walk_n " n:num : tactic => pwWalk #[] n.getNat
+
+/-! ## Chambers by an integer key -/
+
+open Lean Elab Command in
+/-- **`pw_chambers nm [lo, hi] (k) binders : stmt := by tac`**: the chamber
+generator of the walk. A statement whose machine shifts by an amount `k` (a
+term over the binders) is proved once per value: `nm_<c>` (`nm_m<c>` for a
+negative `c`) with the premise `hK : k = c`, each by `tac` in a declaration of
+its own (the heartbeat budget is per declaration), and the cover `nm` with
+`hK1 : lo ≤ k`, `hK2 : k ≤ hi`, by a balanced split on `k`; never a hand
+chamber list. -/
+syntax (name := pwChambers) "pw_chambers " ident " [" "-"? num ", " num "] " "(" term ") "
+  bracketedBinder* " : " term " := " "by " tacticSeq : command
+
+open Lean Elab Command in
+@[command_elab pwChambers] def elabPwChambers : CommandElab := fun stx => do
+  let nm := stx[1].getId
+  let lo : Int := (if stx[3].isNone then 1 else -1) * stx[4].isNatLit?.getD 0
+  let hi : Int := stx[6].isNatLit?.getD 0
+  let k : TSyntax `term := ⟨stx[9]⟩
+  let bs : Array (TSyntax ``Lean.Parser.Term.bracketedBinder) := stx[11].getArgs.map (⟨·⟩)
+  let st : TSyntax `term := ⟨stx[13]⟩
+  let tac : TSyntax ``Lean.Parser.Tactic.tacticSeq := ⟨stx[16]⟩
+  let lit (c : Int) : TSyntax `term :=
+    if c < 0 then ⟨mkNode ``Lean.Parser.Term.app #[mkIdent ``Neg.neg, mkNullNode #[Syntax.mkNumLit (toString c.natAbs)]]⟩
+    else Syntax.mkNumLit (toString c)
+  let chName (c : Int) : Ident :=
+    mkIdent (nm ++ Name.mkSimple (if c < 0 then s!"m{c.natAbs}" else s!"{c}"))
+  let mut c := lo
+  while c ≤ hi do
+    let cl := lit c
+    elabCommand (← `(command| theorem $(chName c) $bs* (hK : $k = ($cl : Int)) : $st := by $tac))
+    c := c + 1
+  -- the cover: a balanced split on `k`
+  let rec tree (a b : Int) (fuel : Nat) : CommandElabM (TSyntax `tactic) := do
+    match fuel with
+    | 0 => `(tactic| omega)
+    | fuel + 1 =>
+      if b ≤ a then
+        `(tactic| (apply $(chName a) <;> first | assumption | omega))
+      else
+        let m := (a + b) / 2
+        let t1 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree a m fuel):tactic)
+        let t2 ← `(Lean.Parser.Tactic.tacticSeq| $(← tree (m + 1) b fuel):tactic)
+        `(tactic| if _ : $k ≤ ($(lit m) : Int) then $t1 else $t2)
+  let t ← tree lo hi 64
+  elabCommand (← `(command|
+    theorem $(mkIdent nm) $bs* (hK1 : ($(lit lo) : Int) ≤ $k) (hK2 : $k ≤ ($(lit hi) : Int)) : $st := by
+      $t:tactic))
 
 end Lua.Vm.Fn.PowLens

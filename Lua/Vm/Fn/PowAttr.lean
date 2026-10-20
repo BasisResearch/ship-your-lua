@@ -16,3 +16,14 @@ register_simp_attr pw_mlens
 /-- The model's stages (`Lua/Vm/Fn/PowStage.lean`), unfolded at a leaf that
 reaches one without a cut. -/
 register_simp_attr pw_stage
+
+/-- Print the walk's steps (`pw_walk`) to the standard output (debugging). -/
+register_option pw.debug : Bool := {
+  defValue := false
+  descr := "print pw_walk's steps"
+}
+
+register_option pw.debug.goal : Bool := {
+  defValue := false
+  descr := "print the goal of each leaf pw_walk leaves open"
+}
