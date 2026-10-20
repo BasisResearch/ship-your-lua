@@ -2,7 +2,6 @@ import Lua.Vm.Sim.Kit.Fn
 import Lua.Vm.Sim.Kit.FnCall
 import Lua.Vm.Sim.Kit.Muldi3
 import Lua.Vm.Sim.Kit.Umoddi3
-import Lua.Vm.Sim.Kit.Umoddi3
 import Lua.Vm.Sim.Kit.Clzdi2
 import Lua.Vm.Arms.Segs.Hdivdf3
 

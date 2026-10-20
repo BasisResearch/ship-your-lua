@@ -473,7 +473,26 @@ FN_HELPERS = [("floor", "Floor", 0x8002bb14, 0x8002bcdc),
               ("__ieee754_fmod", "__ieee754_fmod", 0x8002bdb4, 0x8002c2a8),
               # `__unorddf2` (a leaf) and `__errno` (`_impure_ptr`'s load)
               ("__unorddf2", "__unorddf2", 0x8002f0b0, 0x8002f0f8),
-              ("__errno", "__errno", 0x8003b40c, 0x8003b414)]
+              ("__errno", "__errno", 0x8003b40c, 0x8003b414),
+              # lane float-sf6: libm `__ieee754_sqrt` (`e_sqrt.c`: bit by bit, four
+              # loops; `__muldf3`, `__adddf3`, `__subdf3`, `__divdf3`, `__ledf2` call
+              # nodes on its class paths and its rounding-direction test)
+              ("__ieee754_sqrt", "__ieee754_sqrt", 0x8002d448, 0x8002d78c),
+              # lane float-sf6: libm `pow` (`w_pow.c`: `__ieee754_pow`, `__unorddf2`,
+              # `__eqdf2`, `__ledf2`, `finite`, `__errno`), `__ieee754_pow`
+              # (`e_pow.c`: soft-float call nodes, `fabs`, `scalbn`; tail jumps to
+              # `__ieee754_sqrt`, `__math_oflow`, `__math_uflow`), `scalbn`
+              # (`s_scalbn.c`), the error exits (`math_err.c`: `__math_*` -> `xflow`
+              # -> `with_errno`, the `errno` store), `fabs`, `finite`
+              ("pow", "Pow", 0x8002b9fc, 0x8002bb14),
+              ("finite", "Finite", 0x8002bd9c, 0x8002bdb4),
+              ("__ieee754_pow", "__ieee754_pow", 0x8002c2a8, 0x8002d09c),
+              ("scalbn", "Scalbn", 0x8002d09c, 0x8002d244),
+              ("with_errno", "With_errno", 0x8002d244, 0x8002d278),
+              ("xflow", "Xflow", 0x8002d278, 0x8002d2b8),
+              ("__math_uflow", "__math_uflow", 0x8002d2b8, 0x8002d2c4),
+              ("__math_oflow", "__math_oflow", 0x8002d2d0, 0x8002d2dc),
+              ("fabs", "Fabs", 0x8002d78c, 0x8002d7a8)]
 # a lifted routine's computed-jump targets (its jump tables' entries), and
 # cuts between a spill and a reload of another slot (`0x8002e1f0`: the reload
 # then reads the node's memory, a forwarded slot, `gen_lua_fn.py` `FORWARD`)
@@ -546,6 +565,10 @@ RESULTS = {"luaS_eqlngstr": {"x10"}, "memcmp": {"x10"}, "l_strcmp": {"x10"},
            "__fixdfdi": {"x10"}, "__eqdf2": {"x10"}, "__gedf2": {"x10"}, "__ledf2": {"x10"},
            "__adddf3": {"x10"}, "__subdf3": {"x10"}, "floor": {"x10"}, "__muldf3": {"x10"}, "__divdf3": {"x10"},
            "fmod": {"x10"}, "__ieee754_fmod": {"x10"}, "__unorddf2": {"x10"}, "__errno": {"x10"},
+           "__ieee754_sqrt": {"x10"},
+           "pow": {"x10"}, "finite": {"x10"}, "__ieee754_pow": {"x10"}, "scalbn": {"x10"},
+           "with_errno": {"x10"}, "xflow": {"x10"}, "__math_uflow": {"x10"}, "__math_oflow": {"x10"},
+           "fabs": {"x10"},
            "__swsetup_r": {"x10"}, "__smakebuf_r": set(),
            "_fstat_r": {"x10"}, "_fstat": {"x10"}, "_isatty_r": {"x10"}, "_isatty": {"x10"},
            "luaB_print": {"x10"}, "lua_gettop": {"x10"}, "lua_settop": set(),

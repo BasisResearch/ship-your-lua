@@ -210,6 +210,16 @@ import Lua.Vm.Arms.Segs.Hfmod
 import Lua.Vm.Arms.Segs.Hieee754_fmod
 import Lua.Vm.Arms.Segs.Hunorddf2
 import Lua.Vm.Arms.Segs.Herrno
+import Lua.Vm.Arms.Segs.Hieee754_sqrt
+import Lua.Vm.Arms.Segs.Hpow
+import Lua.Vm.Arms.Segs.Hfinite
+import Lua.Vm.Arms.Segs.Hieee754_pow
+import Lua.Vm.Arms.Segs.Hscalbn
+import Lua.Vm.Arms.Segs.Hwith_errno
+import Lua.Vm.Arms.Segs.Hxflow
+import Lua.Vm.Arms.Segs.Hmath_uflow
+import Lua.Vm.Arms.Segs.Hmath_oflow
+import Lua.Vm.Arms.Segs.Hfabs
 import Lua.Vm.Arms.Segs.Hsnprintf
 import Lua.Vm.Arms.Segs.Hsvfprintf_r
 import Lua.Vm.Arms.Segs.Hlocaleconv_r

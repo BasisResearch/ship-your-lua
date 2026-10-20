@@ -105,6 +105,13 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          # lane float-sf5: libm `fmod` (`w_fmod.c`) over `__ieee754_fmod`
          # (`e_fmod.c`), its NaN test `__unorddf2` and `__errno`
          "fmod", "__ieee754_fmod", "__unorddf2", "__errno",
+         # lane float-sf6: libm `__ieee754_sqrt` (`e_sqrt.c`)
+         "__ieee754_sqrt",
+         # lane float-sf6: libm `pow` (`w_pow.c`) over `__ieee754_pow` (`e_pow.c`),
+         # its callees `scalbn`, `fabs`, `finite` and the error exits
+         # `__math_oflow`/`__math_uflow` -> `xflow` -> `with_errno`
+         "pow", "finite", "__ieee754_pow", "scalbn", "fabs", "with_errno", "xflow",
+         "__math_uflow", "__math_oflow",
          # lane F1-FMT: `lua_integer2str` = `snprintf(buf, 44, "%lld", i)`:
          # `_svfprintf_r` on that format, its locale and output callees
          "snprintf", "_svfprintf_r", "_localeconv_r", "__locale_mb_cur_max",
