@@ -17,7 +17,15 @@ The numbers are taken as in lanes F2–F8:
 
 ## Result
 
-MEASUREMENTS
+| target | status | theorem (file) | hand lines | generated | CPU | peak | largest decl |
+|---|---|---|---|---|---|---|---|
+| `luaV_tonumber_`, `luaV_tointeger` on a string integer numeral | **proved** | `tons_sum`, `tois_sum` (+ `tons_short`/`long`, `tois_short`/`long`) (`Kit/TonumStr.lean`) | 279 | `AtF/TonumSS` 580, `TonumSL` 445, `TointSS` 590, `TointSL` 365 | 61.7 s (AtF: 44.0, 25.3, 46.5, 25.5 s) | 3.18 GB (AtF: 2.23–2.36 GB) | ≤ 150k (AtF: ≤ 50k) |
+| the string coercions as at-route call nodes | **proved** | `tsCtx_at`, `tons_at`, `tois_at` (`Kit/AtCoerceS.lean`) | 100 | — | 2.0 s | 2.48 GB | ≤ 50k |
+| FORPREP, 18 float-loop classes with a string integer numeral | **proved** | `fp_s{IIS,IFS,ISF,ISS,FIS,FFS,FSI,FSF,FSS,SII,SIF,SIS,SFI,SFF,SFS,SSI,SSF,SSS}` (`Kit/AtFltForprepS.lean`) | 132 (with the next row) | `At/ForprepC*` 812–936 each (15,753) | 165.0 s (at-files: CSSS 186.4 s, CIIS 141.2 s, CSFF 135.7 s) | 3.41 GB (at-files 3.6–3.8 GB) | ≤ 100k (at-files: CSFF ≤ 150k; CSSS, CIIS > 150k, ≤ 200k) |
+| FORPREP, integer loop with a string limit (`ISI`) | **proved** | `fp_sISI`, `si_*` (`Kit/AtFltForprepS.lean`) | — | `At/ForprepSI` 637 | (above; at-file 168.7 s) | (at-file 4.09 GB) | (at-file > 150k, ≤ 200k) |
+| a string that is no numeral | **proved** (the kernel stuck) | `fpCoerce_of_flt` (`Kit/FpCoerce.lean`) | 139 (+79 on lane F1-F8's 60) | — | 7.5 s | 2.78 GB | ≤ 100k |
+| `FpStr_Statement` | **proved from `FpStrFlt_Statement`** | `fpStr_of` (`Kit/FpCoerce.lean`) | — | — | — | — | — |
+| FORPREP with a float numeral string | **open**, `FpStrFlt_Statement` | — | — | — | — | — | — |
 
 `FloatArms.FORPREP` is `FpStrFlt_Statement`: `FORPREP` where every string
 control value is a numeral (`str2number`) and one of them is no integer
@@ -112,15 +120,35 @@ invariant lands.
 |---|---|---|
 | `scripts/gen_lua_arms.py` | python | `luaV_tonumber_`'s and `luaV_tointeger`'s string paths no longer stops (their segments regenerate; `tonum_int_sum`, `toint_flt_sum`, `toint_sum` build unchanged) |
 | `scripts/gen_lua_at.py` | python | `FNS`: `tons`, `tois` (two roots around a `calls` node, `str_cells`); arms: `STR_SEED` (`nes`), `FP_CLASSES` with `S`, `OP_FORPREP_SI`, the `tons`/`tois` call nodes and locations, `IMPORTS` |
-| `Kit/TonumStr.lean` | HAND_TONUMSTR | `tsCx`, `TsCtx`, `StrView.kstr`, `tonsW`, `toisW`, `ts_view`, `ts_len`, `ts_setup`, `ts_tag`, `tons_go`, `tois_go`, `tons_sum`, `tois_sum` |
-| `Kit/AtCoerceS.lean` | HAND_ATCOERCES | `rsOf`, `strIntOf`, `ValRepr.str_tag`, `ValRepr.str_ne`, `tsCtx_at`, `tons_at`, `tois_at`, `at_tons`, `at_tois` |
-| `Kit/AtFltForprepS.lean` | HAND_ATFLTS | `StrIReg`, `FCl`, `ClsReg`, `FpClsS`, `str_reg_s`, `cls_reg_s`, `fps_views`, `fps_arm`, `SiQ`, `si_*`, the 19 class theorems |
-| `Kit/FpCoerce.lean` | HAND_FPC | `FpStrFlt`, `FpStrFlt_Statement`, `fp_num3`, `fp_dispatch` (string splits), `fpCoerce_of_flt`, `fpStr_of` |
+| `Kit/TonumStr.lean` | 279 | `tsCx`, `TsCtx`, `StrView.kstr`, `tonsW`, `toisW`, `ts_view`, `ts_len`, `ts_setup`, `ts_tag`, `tons_go`, `tois_go`, `tons_sum`, `tois_sum` |
+| `Kit/AtCoerceS.lean` | 100 | `rsOf`, `strIntOf`, `ValRepr.str_tag`, `ValRepr.str_ne`, `tsCtx_at`, `tons_at`, `tois_at`, `at_tons`, `at_tois` |
+| `Kit/AtFltForprepS.lean` | 132 | `StrIReg`, `FCl`, `ClsReg`, `FpClsS`, `str_reg_s`, `cls_reg_s`, `fps_views`, `fps_arm`, `SiQ`, `si_*`, the 19 class theorems |
+| `Kit/FpCoerce.lean` | +79 | `FpStrFlt`, `FpStrFlt_Statement`, `fp_num3`, `fp_dispatch` (string splits), `fpCoerce_of_flt`, `fpStr_of` |
 
 ## Gate
 
-GATE
+`python3 abstractions/gate.py` is ok after each step: `a1-float-arm` 69
+cases (first 2.5, last 2.8; 3 open named premises in its files); `a1-kit-arm`
+69 cases (first 1.9, last 4.1).
 
 ## Builds
 
-BUILDS
+- **Module builds**, one at a time under a 16 GB cap (`LEAN_NUM_THREADS=4`):
+  the four `AtF/Tonum*`/`Toint*` modules, `Kit/TonumStr`, `Kit/AtCoerceS`, the
+  19 `At/ForprepC*`/`ForprepSI` modules (38–186 s each), `Kit/AtFltForprepS`,
+  `Kit/FpCoerce`, `Sim/Fold`. A parallel `lake build` of the kit with the 19
+  at-modules stale exceeds 16 GB (the kernel OOM killer stopped it twice), so
+  they are built in sequence.
+- **Full check.** `scripts/check.sh` (every stage: generators' drift, the
+  discipline, the gate, `lake build Lua Vsa VsaIris`, the OS-spec traces,
+  stage 6's axioms) passes under a 30 GB cap: 568 s.
+- **Obstacles met.**
+  - FORPREP's float path stores to `luaV_execute`'s C frame (`sp + 16`)
+    before its conversions, so the call's memory is not `ScrFrame`-exact:
+    the string's view comes from `Core.unseal` under `WinFrame`
+    (`tsCtx_at`).
+  - The generated slot address is the row's form (`base + 16 * a + 32`), not
+    `X.w.slot j`: the call node takes the address as `n` with `n = X.w.slot j`.
+  - One declaration for both string kinds exceeded 150k heartbeats
+    (`TonumStr` `> 150k`): one declaration per kind (`tons_short`/`long`),
+    now `≤ 150k`.
