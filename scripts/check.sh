@@ -56,6 +56,9 @@ c/tests/f4_strlite.luac f4StrliteProto Lua/Programs/F4Strlite.lean
 c/tests/stuck/s_strflt.luac escStrfltProto Lua/Programs/EscStrflt.lean
 c/tests/stuck/s_forstr.luac escForstrProto Lua/Programs/EscForstr.lean
 c/tests/stuck/s_unmflt.luac escUnmfltProto Lua/Programs/EscUnmflt.lean
+c/tests/f3_float.luac f3FloatProto Lua/Programs/F3Float.lean
+c/tests/f3_floop.luac f3FloopProto Lua/Programs/F3Floop.lean
+c/tests/fold/powfold.luac powFoldProto Lua/Programs/PowFold.lean
 LIST
 # source ASTs (Layer B translation validation) <- the .lua files, parsed by
 # gen_ast.py (all of Lua 5.4); the committed .luac chunks <- the host luac on
@@ -74,13 +77,17 @@ c/tests/stuck/s_strflt.lua escStrfltAst Lua/Programs/EscStrfltAst.lean
 c/tests/stuck/s_forstr.lua escForstrAst Lua/Programs/EscForstrAst.lean
 c/tests/stuck/s_unmflt.lua escUnmfltAst Lua/Programs/EscUnmfltAst.lean
 c/tests/f4_strlite.lua f4StrliteAst Lua/Programs/F4StrliteAst.lean
+c/tests/f3_float.lua f3FloatAst Lua/Programs/F3FloatAst.lean
+c/tests/f3_floop.lua f3FloopAst Lua/Programs/F3FloopAst.lean
+c/tests/fold/powfold.lua powFoldAst Lua/Programs/PowFoldAst.lean
 LIST
-for f in f1_ops f1_src while f1b_bits f4_strlite; do
+for f in f1_ops f1_src while f1b_bits f4_strlite f3_float f3_floop; do
   ./c/luac -s -o - "c/tests/$f.lua" | cmp -s - "c/tests/$f.luac" || fail "c/tests/$f.luac is not luac -s of $f.lua"
 done
 for f in s_strflt s_forstr s_unmflt; do
   ./c/luac -s -o - "c/tests/stuck/$f.lua" | cmp -s - "c/tests/stuck/$f.luac" || fail "c/tests/stuck/$f.luac is not luac -s of $f.lua"
 done
+./c/luac -s -o - c/tests/fold/powfold.lua | cmp -s - c/tests/fold/powfold.luac || fail "c/tests/fold/powfold.luac is not luac -s of powfold.lua"
 
 echo "== (2) ELF hash"
 (cd c && sha256sum -c lua-riscv-htif.elf.sha256) || fail "ELF hash"
@@ -675,6 +682,13 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Compile.escStrflt_tv
 #print axioms Lua.Compile.escForstr_tv
 #print axioms Lua.Compile.escUnmflt_tv
+#print axioms Lua.Compile.f3Float_tv
+#print axioms Lua.Compile.f3Floop_tv
+#print axioms Lua.Compile.corpus_lexOk
+#print axioms Lua.Compile.corpus_kAccounted
+#print axioms Lua.Compile.powFold_kfold
+#print axioms Lua.Compile.powFold_counterexample
+#print axioms Lua.Compile.powFold_not_astSupported
 #print axioms Lua.Bytecode.loop_inv
 #print axioms Lua.Bytecode.forloop_regs
 #print axioms Lua.Bytecode.noEscape_of_supported

@@ -54,4 +54,50 @@ def f1bAst : Chunk := (.mk [
     .assign [(.name "h")] [(.binop .band (.prefixexp (.paren (.binop .bxor (.binop .bxor (.prefixexp (.paren (.binop .shl (.prefixexp (.var (.name "h"))) (.numeral (.int 5))))) (.prefixexp (.paren (.binop .shr (.prefixexp (.var (.name "h"))) (.numeral (.int 2)))))) (.prefixexp (.var (.name "i")))))) (.numeral (.int 16777215)))]] none),
   .functioncall (.call (.var (.name "print")) (.explist [(.prefixexp (.var (.name "h"))), (.binop .eq (.prefixexp (.paren (.binop .bxor (.prefixexp (.var (.name "h"))) (.prefixexp (.var (.name "h")))))) (.numeral (.int 0))), (.binop .eq (.unop .bnot (.unop .bnot (.prefixexp (.var (.name "h"))))) (.prefixexp (.var (.name "h"))))]))] none)
 
+/-- The numerals of `c/tests/f1b_bits.lua` as `llex.c`'s `read_numeral` reads them, with
+the values this parser gave them in `f1bAst` (`luaO_str2num`; checked
+against `Lua.Num.str2number` by `Lua.Compile.LexOk`). -/
+def f1bAstNumerals : List (List UInt8 × Numeral) := [
+  ([48, 120, 53, 65, 53, 65], .int 23130),
+  ([48, 120, 48, 70, 70, 48], .int 4080),
+  ([48], .int 0),
+  ([48, 120, 70, 70], .int 255),
+  ([48, 120, 49, 48, 48], .int 256),
+  ([48, 120, 70, 70, 70, 70], .int 65535),
+  ([49], .int 1),
+  ([48, 120, 55, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70, 70], .int 9223372036854775807),
+  ([49], .int 1),
+  ([49], .int 1),
+  ([54, 51], .int 63),
+  ([54, 51], .int 63),
+  ([52], .int 4),
+  ([52], .int 4),
+  ([54, 52], .int 64),
+  ([51], .int 3),
+  ([57, 50, 50, 51, 51, 55, 50, 48, 51, 54, 56, 53, 52, 55, 55, 53, 56, 48, 55], .int 9223372036854775807),
+  ([49], .int 1),
+  ([49], .int 1),
+  ([53], .int 5),
+  ([51], .int 3),
+  ([51], .int 3),
+  ([49], .int 1),
+  ([48, 120, 55, 48, 48], .int 1792),
+  ([49], .int 1),
+  ([53], .int 5),
+  ([56], .int 8),
+  ([48], .int 0),
+  ([48], .int 0),
+  ([54, 50], .int 62),
+  ([55], .int 7),
+  ([49], .int 1),
+  ([52, 57], .int 49),
+  ([48, 120, 56, 49], .int 129),
+  ([48], .int 0),
+  ([49], .int 1),
+  ([50, 48], .int 20),
+  ([53], .int 5),
+  ([50], .int 2),
+  ([48, 120, 70, 70, 70, 70, 70, 70], .int 16777215),
+  ([48], .int 0)]
+
 end Lua.Programs

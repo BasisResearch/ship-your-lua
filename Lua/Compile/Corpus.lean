@@ -11,6 +11,13 @@ import Lua.Programs.Escape
 import Lua.Programs.EscStrfltAst
 import Lua.Programs.EscForstrAst
 import Lua.Programs.EscUnmfltAst
+import Lua.Programs.F3Float
+import Lua.Programs.F3FloatAst
+import Lua.Programs.F3Floop
+import Lua.Programs.F3FloopAst
+import Lua.Programs.PowFold
+import Lua.Programs.PowFoldAst
+import Lua.Compile.Consts
 
 /-!
 # Layer B on a corpus: `compile_refinement` for the host `luac`'s outputs
@@ -40,7 +47,13 @@ determinism of both semantics gives the `↔`.
 * `c/tests/stuck/s_{strflt,forstr,unmflt}.lua`: string coercion to floats
   (`"1.5" + 1`, `-"1.5"`) and a coerced `for` limit (`for i = 1, "2"`), the
   former escapes (FLOAT-DESIGN.md S1/S2; outputs from the ELF on the Sail
-  model, `abstractions/ledger/f1-lane-5.md`).
+  model, `abstractions/ledger/f1-lane-5.md`);
+* `c/tests/f3_float.lua`, `c/tests/f3_floop.lua`: float numerals, `/` and
+  `^` (FLOAT-DESIGN.md S3), with the folds `luac` makes checked against the
+  model (`corpus_kAccounted`) and the parser's numerals against
+  `luaO_str2num` (`corpus_lexOk`). `c/tests/fold/powfold.lua`, a `^` folded
+  with the host's `pow`, is the counterexample outside `AstSupported`
+  (`powFold_counterexample`).
 
 Every `print(…)` is a call of the global `print`, looked up in `_ENV`.
 `print_print.lua` passes `print` itself as an argument, whose rendering is
@@ -149,6 +162,93 @@ theorem escForstr_tv : ProgramTV escForstrAst escForstrProto :=
 theorem escUnmflt_tv : ProgramTV escUnmfltAst escUnmfltProto :=
   .of_outputs escUnmflt_astSupported escUnmflt_supported escUnmflt_luaSem escUnmflt_bcSem
 
+/-! ## Floats: numerals, `/` and `^` (FLOAT-DESIGN.md S3) -/
+
+/-- `c/tests/f3_float.expected`. -/
+def f3FloatOut : String :=
+  "1.5\t0.25\t3.0\t1e+15\t0.0025\t16.0\t0.5\tinf\t9.2233720368548e+18\n6.0\t1.5\t3.5\t0.33333333333333\tinf\t-inf\t0.0\t3.3333333333333\n9.0\t1.1066819197003\t0.5\t8.0\t0.33333333333333\t2.25\t2.25\t9.0\n-0.0\t-0.0\t-inf\tnan\t-nan\tnan\n0.3\tfalse\ttrue\t3.0\t0.5\tinf\t-4.0\n"
+
+/-- `c/tests/f3_floop.expected`. -/
+def f3FloopOut : String :=
+  "1.875\n0.5\t0.25\t0.70710678118655\t2.0\n1.5\t2.25\t1.2247448713916\t0.66666666666667\n0.001\ttrue\n"
+
+theorem f3Float_astSupported : AstSupported f3FloatAst := by decide +kernel
+theorem f3Floop_astSupported : AstSupported f3FloopAst := by decide +kernel
+
+theorem f3Float_supported : Supported f3FloatProto := by decide +kernel
+theorem f3Floop_supported : Supported f3FloopProto := by decide +kernel
+
+theorem f3Float_luaSem : LuaSem binaryHost f3FloatAst f3FloatOut :=
+  luaRun_sound (fuel := 100) (by decide +kernel)
+theorem f3Floop_luaSem : LuaSem binaryHost f3FloopAst f3FloopOut :=
+  luaRun_sound (fuel := 100) (by decide +kernel)
+
+theorem f3Float_bcSem : BcSem binaryHost f3FloatProto f3FloatOut :=
+  bcSem_of_run (n := 200) (by decide +kernel)
+theorem f3Floop_bcSem : BcSem binaryHost f3FloopProto f3FloopOut :=
+  bcSem_of_run (n := 400) (by decide +kernel)
+
+/-- **Translation validation of `f3_float.lua`**: float numerals (decimal,
+hex, overflowing to `inf`, an integer numeral too large for an integer),
+`/` (folded `7 / 2`, `1 / 3`; unfolded division by zero), `^` at run time
+and folded with the exponent `2`, `-0.0` and NaN signs, folded `//`, `%`. -/
+theorem f3Float_tv : ProgramTV f3FloatAst f3FloatProto :=
+  .of_outputs f3Float_astSupported f3Float_supported f3Float_luaSem f3Float_bcSem
+
+/-- **Translation validation of `f3_floop.lua`**: float `for` loops, `/` and
+`^` on loop values, a float `while` condition. -/
+theorem f3Floop_tv : ProgramTV f3FloopAst f3FloopProto :=
+  .of_outputs f3Floop_astSupported f3Floop_supported f3Floop_luaSem f3Floop_bcSem
+
+/-! ## Numerals and folded constants -/
+
+/-- **The parser's numerals are `luaO_str2num`'s** on every corpus program
+(and on the counterexample below). -/
+theorem corpus_lexOk :
+    [whileAstNumerals, f1OpsAstNumerals, f1SrcAstNumerals, f1bAstNumerals,
+      escStrfltAstNumerals, escForstrAstNumerals, escUnmfltAstNumerals,
+      f3FloatAstNumerals, f3FloopAstNumerals, powFoldAstNumerals].all LexOk = true := by
+  decide +kernel
+
+/-- **Every float constant `luac` put in a corpus chunk is the model's**: a
+float numeral or a fold computed by `Lua.Num` (`KAccounted`). -/
+theorem corpus_kAccounted :
+    [(whileAst, whileProto), (f1OpsAst, f1OpsProto), (f1SrcAst, f1SrcProto),
+      (f1bAst, f1bProto), (escStrfltAst, escStrfltProto), (escForstrAst, escForstrProto),
+      (escUnmfltAst, escUnmfltProto), (f3FloatAst, f3FloatProto),
+      (f3FloopAst, f3FloopProto)].all (fun sp => KAccounted sp.1 sp.2) = true := by
+  decide +kernel
+
+/-! ## The counterexample: `^` folded with the host's `pow`
+
+`c/tests/fold/powfold.lua` compares a folded `0.5 ^ -0.5` with the same
+`^` at run time. Host `luac` folds it with glibc's `pow` to
+`0x3ff6a09e667f3bcd` (`K[3]`); the ELF's `^` is newlib's, `0x3ff6a09e667f3bcc`
+(1 ulp apart; of 33,092 pairs of short decimal operands, 3,127 differ:
+`abstractions/ledger/b-s3.md`). The ELF on the Sail model prints `false`
+(`c/tests/fold/powfold.expected`), the source semantics `true`: no
+translation validation holds, so `AstSupported` excludes a `^` that `luac`
+may fold (`powOk`). -/
+
+/-- `luac`'s folded constant is not the model's fold. -/
+theorem powFold_kfold : KAccounted powFoldAst powFoldProto = false := by decide +kernel
+
+/-- The source semantics: `0.5 ^ -0.5 == a ^ b` is `true`. -/
+theorem powFold_luaSem : LuaSem binaryHost powFoldAst "true\n" :=
+  luaRun_sound (fuel := 100) (by decide +kernel)
+
+/-- The bytecode semantics of `luac`'s chunk: `false`, as the ELF prints. -/
+theorem powFold_bcSem : BcSem binaryHost powFoldProto "false\n" :=
+  bcSem_of_run (n := 100) (by decide +kernel)
+
+/-- **The counterexample**: source and bytecode disagree on `powfold.lua`. -/
+theorem powFold_counterexample :
+    ¬ ∀ out, LuaSem binaryHost powFoldAst out ↔ BcSem binaryHost powFoldProto out := fun h =>
+  absurd (BcSem.deterministic ((h _).1 powFold_luaSem) powFold_bcSem) (by decide)
+
+/-- `powfold.lua` is outside `AstSupported` (`powOk`). -/
+theorem powFold_not_astSupported : ¬ AstSupported powFoldAst := by decide +kernel
+
 /-! ## The corpus relation -/
 
 /-- The host `luac -s`'s output on the validated corpus. -/
@@ -160,6 +260,8 @@ inductive CorpusCompiles : Chunk → Proto → Prop where
   | escStrflt : CorpusCompiles escStrfltAst escStrfltProto
   | escForstr : CorpusCompiles escForstrAst escForstrProto
   | escUnmflt : CorpusCompiles escUnmfltAst escUnmfltProto
+  | f3Float : CorpusCompiles f3FloatAst f3FloatProto
+  | f3Floop : CorpusCompiles f3FloopAst f3FloopProto
 
 theorem corpus_programTV : ∀ s p, CorpusCompiles s p → ProgramTV s p
   | _, _, .while_ => while_tv
@@ -169,6 +271,8 @@ theorem corpus_programTV : ∀ s p, CorpusCompiles s p → ProgramTV s p
   | _, _, .escStrflt => escStrflt_tv
   | _, _, .escForstr => escForstr_tv
   | _, _, .escUnmflt => escUnmflt_tv
+  | _, _, .f3Float => f3Float_tv
+  | _, _, .f3Floop => f3Floop_tv
 
 /-- The translation-validation obligations for the corpus. -/
 theorem corpus_compileTV : CompileTV CorpusCompiles := CompileTV.of_programTV corpus_programTV
