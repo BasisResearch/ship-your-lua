@@ -140,7 +140,7 @@ SIDE = {"__ieee754_fmod": {"seg_8002c1fc_8002c214"}}
 # generalised); a reload is that parameter, so a lifted function after a call
 # reads no memory and takes none (`Fn.need_m`): level (b) never carries the
 # frame's stores (ROUND-5 §2, "the frame reloads")
-FORWARD = {"floor", "__muldf3", "__divdf3", "__ieee754_sqrt"}
+FORWARD = {"floor", "__muldf3", "__divdf3", "__ieee754_sqrt", "__ieee754_pow", "scalbn"}
 SLOT_RE = r"\(v2 \+ sign_extend \(m := 64\) \((0x[0-9a-f]+)#12\)\)\.toNat"
 # lane F1-F7: a slot as the prologue's segment states it (over the entry `sp`)
 PRO_SLOT_RE = (r"\(\(v2 \+ sign_extend \(m := 64\) \(0x[0-9a-f]+#12\)\) \+ "
