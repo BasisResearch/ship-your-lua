@@ -87,6 +87,7 @@ local macro "ia_ctx" F:ident : tactic => `(tactic| (
 
 /-- `isdead`'s test on a node `p` at the current white `cw` (`lbu`, `xori 24`,
 `and`): zero, as bytes. -/
+-- discipline: allow(R7-conj-tower-def) the existentials are a summary's reached configuration and memory (`∃ c', Steps c c' ∧ …`), the posts named structures
 def AliveB (M : Mem) (p : Nat) (cw : BitVec 8) : Prop := bytesT1 M (p + 9) &&& (cw ^^^ 0x18#8) = 0#8
 
 /-- **The walk from `p`, `d` nodes to its end**, over the total reads of

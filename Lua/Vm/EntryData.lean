@@ -344,6 +344,7 @@ def TabW (rt : RtPtrs) (a : Nat) : Prop :=
 each node's object `[ts, ts + 24 + shrlen + 1)` off `T`, and, unless it is one
 of `lits`, not dead (`isdead`: `marked & (currentwhite ^ WHITEBITS)` zero for
 the current white `cw`, `lbu`, `xori 24`, `and`). -/
+-- discipline: allow(R7-conj-tower-def) the existentials are single witnesses inside named fields (a chain node's mark, the current white), not ∃/∧ towers
 inductive ChainOff (m : Mem) (T : Nat → Prop) (cw : Nat) (lits : List Nat) : Nat → Prop where
   | nil : ChainOff m T cw lits 0
   | cons {ts nx l : Nat} : ts ≠ 0 → rd8 m (ts + tstringShrlenOff) = some l →

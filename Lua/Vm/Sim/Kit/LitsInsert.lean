@@ -25,6 +25,7 @@ namespace Lua.Vm.Sim.Kit
 
 open Lua.Vm Lua.Vm.Layout Vsa.Densify
 
+-- discipline: allow(R16-hand-rule-arms) the arms are inductions over the string table's chain predicates (`ChainOff`, `StrChain`, `StrChainK`, `ChainHas`, `ChainFirst`, `NodeMiss`), not over semantics rules
 /-! ## Reads off the written bytes -/
 
 /-- A read whose bytes are off `Wr` is the same in a memory agreeing off `Wr`. -/
