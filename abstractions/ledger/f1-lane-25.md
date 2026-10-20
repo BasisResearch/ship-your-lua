@@ -47,7 +47,29 @@ traces (at most four `_malloc_r` per float, far within `dtoaRoom`; `_REENT`'s wo
 
 ## Numbers
 
-NUMBERS
+| file | hand lines | CPU (s) | peak (MB) | largest declaration |
+|---|---|---|---|---|
+| `Kit/BigHeap.lean (new; `MallocGlobal.lt` moved here)` | 126 | 1.5 | 1,996 | < 50k |
+| `Kit/TolSplit.lean (new)` | 214 | 3.7 | 3,601 | < 50k |
+| `Kit/FltFmt.lean (new: `FloatToStr_Statement`)` | 31 | 0.9 | 1,970 | < 50k |
+| `Lua/Num/Fmt14gFacts.lean (new)` | 112 | 3.4 | 801 | < 50k |
+| `Kit/Strspn.lean (new; `bytesAt_get` moved here)` | 241 | 27.4 | 2,212 | 100k–200k |
+| `Kit/TsbF.lean (new)` | 287 | 7.7 | 3,419 | 50k–100k |
+| `Kit/PushfF.lean (new)` | 301 | 17.7 | 3,611 | 50k–100k |
+| `Kit/TolFlt.lean (new)` | 170 | 9.4 | 3,432 | < 50k |
+| `Kit/TolFltProof.lean (new)` | 158 | 2.4 | 3,824 | < 50k |
+| `Kit/TolIntProof.lean` (`PrStR` glue, `tolPost_of_runP`, `ArgStr.cost ≥`, `tolV_in` on the slot's bits) | +29 net (+113/−84 raw) | 19.6 | 4,115 | 50k–100k (as before) |
+| `Kit/CallOpen.lean`, `Kit/PrintRel.lean`, `Kit/TolFnProof.lean`, `Kit/PushfI.lean`, `Sim/StdioState.lean`, `Kit/CallPrint.lean` | +22, +1, +6, −5, +2, 0 net | — | — | — |
+| `scripts/gen_lua_at.py` (`strspn`, `tostringbuff/f`, `lua_pushfstring/f`, `luaL_tolstring/flt`), `gen_lua_arms.py` (helpers `lua_tonumberx`, `tostringbuff.part`, `strspn`; edits), `gen_lua_code.py`, `check.sh` | +96, +17, +3, +28 raw | — | — | — |
+| **hand total (new files)** | **1640** | | | |
+
+| generated file | lines | CPU (s) | peak (MB) | largest declaration |
+|---|---|---|---|---|
+| `Lua/Vm/AtF/Strspn.lean` | 1360 | 165.6 | 2,346 | < 50k |
+| `Lua/Vm/AtF/TsbF.lean` | 309 | 15.8 | 1,969 | < 50k |
+| `Lua/Vm/AtF/PushfF.lean` | 1894 | 365.3 | 4,409 | 100k–200k |
+| `Lua/Vm/AtF/TolFlt.lean` | 1214 | 292.0 | 4,033 | 100k–200k |
+| segments, sites, code pins (`Haddnum2buff`, `HluaL_tolstring`, `HluaO_pushvfstring`, new `Hlua_tonumberx`, `Htostringbuff_part_0_isra_0`, `Hstrspn`) | +7,700 (approx.) | — | — | — |
 
 ## Obstacles
 
