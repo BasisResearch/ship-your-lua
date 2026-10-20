@@ -4303,6 +4303,51 @@ def tol_fn(mod):
 FNS.update({"luaL_tolstring/fn": tol_fn("TolFn")})
 
 
+# lane F1-26: `exit(2)` after `main`'s `fprintf(stderr, "lua: %s\n", msg)`.
+# `__sinit` has run (by a `print` or by the `fprintf`), `stderr` is written
+# (`__swsetup_r`/`__smakebuf_r`'s unbuffered set-up: `_flags` `__SORD | __SWR |
+# __SRW | __SNBF`, `_p = _bf._base = _nbuf`), `stdout` in one of three states.
+STDERR = 0x8005e720
+ERR_NBUF = STDERR + 0x77
+
+
+def fclose_w(mod, fp, fl, fd, kind, base, what):
+    """lane F1-26: `_fclose_r(_REENT, fp)` at `exit` on a write stream with
+    nothing pending (`_flags` `fl`, `__SWR` set, no `__SMBF`): `__sflush_r`'s
+    write path (`_bf._base` NULL: nothing to flush; else `_p = _bf._base`, `_w`
+    reset, no bytes written), the `_close` hook, no buffer to free, `_flags`
+    cleared."""
+    cells = {(4, fp + 176): 0, (2, fp + 16): fl, (2, fp + 18): fd, (8, fp + 24): base,
+             (8, fp + 48): fp, (8, fp + 80): SCLOSE, (8, fp + 88): 0, (8, fp + 120): 0,
+             (4, SYM_FDS + 24 * fd): kind}
+    if base:
+        cells[(8, fp)] = base
+    return dict(mod=mod, entry=FCLOSE, row=abi_row({10: ("lit", IMPURE_DATA), 11: ("lit", fp)}),
+                ok=EXIT_OK, depth=120, cells=cells,
+                doc=f"`_fclose_r(_REENT, {what})` at `exit`, nothing pending.")
+
+
+def exit_walk(mod, out_fl, err_fl):
+    """lane F1-26: `stdio_exit_handler()` as lane F1-14's, with `stdout`'s and
+    `stderr`'s `_flags` those `exit` finds after an error."""
+    return dict(mod=mod, entry=0x80032af8, row=abi_row({}), ok=EXIT_OK,
+                cells={(4, 0x8005cee8): 3, (8, 0x8005cef0): 0x8005e5b0, (8, 0x8005cee0): 0,
+                       (2, 0x8005e5c0): 0x4, (2, 0x8005e5c2): 0, (2, STDOUT + 16): out_fl,
+                       (2, STDOUT + 18): 1, (2, STDERR + 16): err_fl, (2, STDERR + 18): 2},
+                calls={FCLOSE: dict(ret={10: ("lit", 0)})},
+                doc=f"`stdio_exit_handler()` after an error (`stdout` `_flags` 0x{out_fl:x}).")
+
+
+FNS.update({
+    "_fclose_r/stderrW": fclose_w("FcloseErrW", STDERR, 0x201a, 2, 3, ERR_NBUF, "stderr"),
+    "_fclose_r/stdout9": fclose_w("FcloseOut9", STDOUT, 0x9, 1, 2, 0, "stdout"),
+    "_fclose_r/stdoutF": fclose_w("FcloseOutF", STDOUT, 0x2009, 1, 2, 0, "stdout"),
+    "stdio_exit_handler/err9": exit_walk("ExitHandlerE9", 0x9, 0x201a),
+    "stdio_exit_handler/errF": exit_walk("ExitHandlerEF", 0x2009, 0x201a),
+    "stdio_exit_handler/errU": exit_walk("ExitHandlerEU", 0x2889, 0x201a),
+})
+
+
 def fn_main(names, check):
     sys.setrecursionlimit(20000)
     drift = False
