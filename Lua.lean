@@ -76,6 +76,7 @@ import Lua.Vm.Fn.SfRefFloorSpec
 import Lua.Vm.Fn.FmodSpec
 import Lua.Vm.Fn.SqrtSpec
 import Lua.Vm.Fn.PowR
+import Lua.Vm.Fn.PowSpec
 import Lua.Vm.Fn.Muldf3
 import Lua.Num.SfRefMul
 import Lua.Vm.Fn.SfRefMul

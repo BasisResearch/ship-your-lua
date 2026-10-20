@@ -37,6 +37,7 @@ python3 scripts/gen_lua_arms.py --check || fail "F1 arm segments drift"
 python3 scripts/gen_lua_arm.py --check || fail "A1 arm simulation lemmas drift"
 python3 scripts/gen_lua_at.py --check || fail "at-lemma (location-list rows) drift"
 python3 scripts/gen_lua_fn.py --check || fail "soft-float function summaries drift"
+python3 scripts/gen_pow_rod.py --check || fail "pow .rodata words drift"
 python3 scripts/syi/gen_alloc_steps.py --check || fail "allocator step table drift"
 python3 scripts/draft_f1_arms.py | tail -1 | grep -q "; 0 steps need" || fail "F1 arm steps without a site class"
 # boot traces to luaV_execute (re-traced on the emulator, ~25 s): the runtime
@@ -257,6 +258,15 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Fn.PowQ.wrap_bits
 #print axioms Lua.Vm.Fn.PowQ.spec
 #print axioms Lua.Vm.Fn.PowQ.sum
+#print axioms Lua.Vm.Fn.Scalbn.F_model
+#print axioms Lua.Vm.Fn.Ieee754Pow.exp2_ca2c
+#print axioms Lua.Vm.Fn.Ieee754Pow.e_c458
+#print axioms Lua.Vm.Fn.Ieee754Pow.e_c580
+#print axioms Lua.Vm.Fn.Ieee754Pow.e_c374
+#print axioms Lua.Vm.Fn.Ieee754Pow.F_model
+#print axioms Lua.Vm.Fn.Ieee754Pow.spec_proved
+#print axioms Lua.Vm.Fn.PowLens.ieee754Pow_stage
+#print axioms Lua.Vm.Fn.PowLens.log2Exp_eq
 #print axioms Lua.Vm.Sim.SimArmOnM.of_all
 #print axioms Lua.Bytecode.isSNaN_fields
 #print axioms Lua.Bytecode.isSNaN_eq_false_iff
