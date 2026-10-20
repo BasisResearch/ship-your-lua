@@ -136,7 +136,7 @@ HELPERS = [("__muldi3", "__muldi3", 0x8002f6c8, 0x8002f6ec, [22, 26, 6, 14, 15, 
 # and float paths `0x8001ae4c`, `0x8001ae98` are stops: F1's limits are
 # integers, `forprepK`)
 HELPERS += [("luaV_tointeger", "LuaV_tointeger", 0x8001ade8, 0x8001af50, [22, 26], [],
-             [0x8001ae4c])]
+             [])]
 # lane F1-F8: FORPREP's coerced classes. `luaV_tointeger`'s float path
 # (`0x8001ae98`: `floor`, `__eqdf2`, `__adddf3` for `F2Iceil`, the range,
 # `__fixdfdi`) is followed; `luaV_tonumber_` on a non-string (`cvt2num`: an
@@ -147,7 +147,7 @@ SUMMARISED |= {"luaV_tonumber_"}
 # digits, the trailing spaces); the `l_str2d` fallback `0x80011b5c` a stop
 HELPERS += [("luaO_str2num", "LuaO_str2num", 0x80011998, 0x80011c94, [22, 26], [], [0x80011b5c])]
 HELPERS += [("luaV_tonumber_", "LuaV_tonumber_", 0x8001ab58, 0x8001ac18, [22, 26], [],
-             [0x8001abac])]
+             [])]
 # axis S (S-SCAN): the string callees. `luaV_equalobj`'s long-string arm
 # (`0x8001b8f8`, now a root of its jump table) tail-calls `luaS_eqlngstr` ->
 # `memcmp`; `OP_LT`/`OP_LE` on two strings call `l_strcmp` -> `strcoll`
