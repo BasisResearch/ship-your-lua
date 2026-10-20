@@ -644,6 +644,46 @@ theorem pfT_new {m M2 M10 M3 : Mem} {sp L g top bkt nuse head p : Nat} {r : BitV
       (fun a h1 h2 => hp.fresh a h1 (by omega)) (by omega) (by omega)).elim (fun h => .inr (by omega))
       (fun h => .inl (by omega)) }
 
+/-- **`luaO_pushvfstring`'s `luaS_newlstr(L, buff, n)`** (every format's
+`pushstr`): the bytes `b` in the buffer at `sp - 408`, the call from `sp - 464`
+returning to `0x80011ec0` with the frame `fr`; the string found or created
+(`PfStr`), `T`'s facts (`PfT`, the slots `PfSlots` at the call's memory). -/
+theorem pf_newlstr (hM : MallocR_Statement) (sp L g top : Nat) (r : BitVec 64) (f fr : AbiFrame) (m M10 : Mem)
+    (o : Array String) (hP : PfIn m sp L g top r) (hS : PfSlots M10 sp L r f)
+    (low10 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M10 a = bytesT1 m a) (b : List UInt8)
+    (hb1 : 1 ≤ b.length) (hb40 : b.length ≤ 40)
+    (hbytes : ∀ j, j < b.length → bytesT1 M10 (sp - 408 + j) = BitVec.ofNat 8 (b.getD j 0).toNat)
+    (seed : UInt32) (K X W : Nat → Prop) (cw : BitVec 8) (size hash head d nuse : Nat)
+    (H : HeapIx) (hT : NlTab m L g top b seed K X W cw size hash head d nuse H) :
+    Triple (SegSt 0x80017694#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 (sp - 408)⟩,
+        ⟨Register.x12, BitVec.ofNat 64 b.length⟩] (sp - 464) 0x80011ec0#64 fr) (ArmPay M10 o))
+      (fun c => ∃ ts M3 H', PfT M3 sp L g top ts r f ∧
+        PfStr m M3 (PfFr sp) g b seed K X W size hash nuse head H ts H' ∧ wrRet 0x80011ec0#64 (sp - 464) ts fr M3 o c) := by
+  intro c h
+  pf_in hP
+  have hIa : IaIn M10 (sp - 464) L (sp - 408) g b seed 0x80011ec0#64 := {
+    sp_lo := by omega, sp_hi := by omega, sp_al := by omega, ra := by decide, L_lo := by omega
+    L_he := by omega, L_al := by omega, s_ge := by omega, s_hi := by omega
+    s_al := by omega, l_lo := hb1, l_hi := hb40, g_lo := by omega, g_hi := by omega
+    Lg := (bytesT8_congrT fun j _ => low10 _ (by omega)).trans hP.Lg_w
+    bytes := hbytes
+    seed_w := (bytesT4_congrT fun j _ => low10 _ (by omega)).trans hT.seed_w }
+  obtain ⟨c2, s2, hq⟩ := newlstr_any_sum hM (sp - 464) L (sp - 408) g size hash head d nuse b seed
+    0x80011ec0#64 fr M10 o hIa K X W cw (fun a ha => (hT.hK a ha).2)
+    (fun M hM => hT.tab M fun a ha => (hM a ha).trans (low10 a (.inl (by omega)))) H
+    (hT.new.congr fun a ha => low10 a (.inl (by omega))) c h
+  have k10 : ∀ a, (a + 600 < sp ∨ (sp - 424 ≤ a ∧ a < sp - 412) ∨ sp - 408 ≤ a) → bytesT1 M10 a = bytesT1 M10 a :=
+    fun _ _ => rfl
+  rcases hq with ⟨ts, M3, hret, hh⟩ | ⟨M3, p, H', hret, hp⟩
+  · exact ⟨c2, s2, ts, M3, H, pfT_hit hP hS k10 low10 hT.hK hT.xt hh,
+      .inl ⟨pfHit_of low10 (by omega) hT.hK hb40 hh, rfl⟩, hret⟩
+  · refine ⟨c2, s2, p, M3, H', pfT_new hP hS k10 low10 hT.new hT.Lk hT.top_in hb40 hp, .inr ?_, hret⟩
+    refine (hp.trans (G := PfFr sp) (fun a ha => low10 a (by simp only [PfFr] at ha; omega))
+      (by simp only [PfFr]; omega) (fun j _ => by simp only [PfFr]; omega)).mono fun a ha => ?_
+    rcases ha with ha | ha
+    · simp only [Below] at ha; exact ⟨by omega, by omega⟩
+    · exact ha
+
 /-- **From `snprintf`'s return to `luaS_newlstr`'s** (`T`, `0x80011ec0`): the
 string found or created (`PfStr`), `T`'s facts (`PfT`). -/
 theorem pf_nl (hM : MallocR_Statement) (sp L g top : Nat) (i r : BitVec 64) (f : AbiFrame)
@@ -671,36 +711,19 @@ theorem pf_nl (hM : MallocR_Statement) (sp L g top : Nat) (i r : BitVec 64) (f :
   have low10 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M10 a = bytesT1 m a := fun a ha =>
     (k10 a (by omega)).trans (hS.low a ha)
   have hb40 : (intU8 i).length ≤ 40 := by rw [intU8_length]; omega
-  have hIa : IaIn M10 (sp - 464) L (sp - 408) g (intU8 i) seed 0x80011ec0#64 := {
-    sp_lo := by omega, sp_hi := by omega, sp_al := by omega, ra := by decide, L_lo := by omega
-    L_he := by omega, L_al := by omega, s_ge := by omega, s_hi := by rw [intU8_length]; omega
-    s_al := by omega, l_lo := by rw [intU8_length]; omega, l_hi := hb40, g_lo := by omega, g_hi := by omega
-    Lg := (bytesT8_congrT fun j _ => low10 _ (by omega)).trans hP.Lg_w
-    bytes := fun j hj => by
+  fcx_unfold at h
+  obtain ⟨c2, s2, ts, M3, H', hPT, hstr, hret⟩ := pf_newlstr hM sp L g top r f (pfNlFr sp L top f) m M10 o hP
+    (hS.slots.congr (by omega) fun a ha => k10 a (by omega)) low10 (intU8 i) (by rw [intU8_length]; omega) hb40
+    (fun j hj => by
       rw [intU8_length] at hj
       rw [k10 _ (by omega), bytesAt_get hS.digits (by omega), intU8_get i j hj]
-      simp [List.getD_eq_getElem?_getD, List.getElem?_append_left hj, List.getElem?_eq_getElem hj]
-    seed_w := (bytesT4_congrT fun j _ => low10 _ (by omega)).trans hT.seed_w }
-  fcx_unfold at h
-  obtain ⟨c2, s2, hq⟩ := newlstr_any_sum hM (sp - 464) L (sp - 408) g size hash head d nuse (intU8 i) seed
-    0x80011ec0#64 (pfNlFr sp L top f) M10 o hIa K X W cw (fun a ha => (hT.hK a ha).2)
-    (fun M hM => hT.tab M fun a ha => (hM a ha).trans (low10 a (.inl (by omega)))) H
-    (hT.new.congr fun a ha => low10 a (.inl (by omega))) _ (by
+      simp [List.getD_eq_getElem?_getD, List.getElem?_append_left hj, List.getElem?_eq_getElem hj])
+    seed K X W cw size hash head d nuse H hT _ (by
       simp only [callPre, AbiFrame.pins, List.cons_append, List.nil_append]
       rw [intU8_length, hn]
       exact h.repin (by pins_of h))
-  rcases hq with ⟨ts, M3, hret, hh⟩ | ⟨M3, p, H', hret, hp⟩
-  · simp only [wrRet] at hret
-    exact ⟨c2, s1.trans s2, ts, M3, H, pfT_hit hP hS.slots k10 low10 hT.hK hT.xt hh,
-      .inl ⟨pfHit_of low10 (by omega) hT.hK hb40 hh, rfl⟩, by fcx_unfold; exact hret.repin (by pins_of hret)⟩
-  · simp only [wrRet] at hret
-    refine ⟨c2, s1.trans s2, p, M3, H', pfT_new hP hS.slots k10 low10 hT.new hT.Lk hT.top_in hb40 hp, .inr ?_,
-      by fcx_unfold; exact hret.repin (by pins_of hret)⟩
-    refine (hp.trans (G := PfFr sp) (fun a ha => low10 a (by simp only [PfFr] at ha; omega))
-      (by simp only [PfFr]; omega) (fun j _ => by simp only [PfFr]; omega)).mono fun a ha => ?_
-    rcases ha with ha | ha
-    · simp only [Below] at ha; exact ⟨by omega, by omega⟩
-    · exact ha
+  simp only [wrRet] at hret
+  exact ⟨c2, s1.trans s2, ts, M3, H', hPT, hstr, by fcx_unfold; exact hret.repin (by pins_of hret)⟩
 
 /-- **What `lua_pushfstring` leaves after `luaS_newlstr`'s return** (`M3`,
 `T`'s root memory): the string pushed at `L->top` (`setsvalue2s`, the tag

@@ -330,4 +330,233 @@ theorem pfp_toP (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 :
   fat_run Lua.Vm.AtF.PushfP h acc until [0x80011f2c]
   exact ⟨_, acc, by fcx_unfold at h ⊢; exact h.repin (by pins_of h)⟩
 
+/-! ### `snprintf`, the empty rest, `luaS_newlstr` -/
+
+/-- `luaO_pushvfstring`'s frame at `snprintf`'s call (`'p'`). -/
+abbrev pfpSnFr (sp L : Nat) (f : AbiFrame) : AbiFrame :=
+  ⟨BitVec.ofNat 64 (sp - 40), 0x80052c1c#64, 0x25#64, 0x2a#64, BitVec.ofNat 64 (sp - 440),
+    BitVec.ofNat 64 (sp - 408), 0xc6#64, BitVec.ofNat 64 L, pfS8 sp, 0x8004fd6c#64, 0x8004fd6a#64, f.s11⟩
+
+/-- **From the `'p'` conversion to `snprintf`'s return** (`S`, `0x80011f50`):
+`snprintf(buf + 10, 32, "%p", print)` (`snprintfP_sum`), the pointer's ten
+characters and terminator at `sp - 398`. -/
+theorem pfp_snp (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 : BitVec 64) (m M13 : Mem)
+    (o : Array String) (hP : PfIn m sp L g top r) (hst : FmtStatic m)
+    (low : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M13 a = bytesT1 m a)
+    (hblen : bytesT4 M13 (sp - 412) = 0xa#32) (ha3 : bytesT8 M13 (sp - 40) = 0x80022f18#64) (c : Config)
+    (h : SegSt 0x80011f2c#64 (Lua.Vm.AtF.PushfP.r9 (pfpX sp L g top r f a4 a5 a6 a7 M13 o)) (ArmPay M13 o) c) :
+    ∃ c' M2, Steps c c' ∧ bytesAt M2 (sp - 398) 11 = ptrBytes ++ [0#8] ∧
+      (∀ a, (a + 4560 ≤ sp ∨ sp ≤ a + 464) → (a < sp - 398 ∨ sp - 354 ≤ a) → bytesT1 M2 a = bytesT1 M13 a) ∧
+      SegSt 0x80011f50#64 (Lua.Vm.AtF.PushfP.r12 (pfpX sp L g top r f a4 a5 a6 a7 M2 o)) (ArmPay M2 o) c' := by
+  pf_in hP
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  have hX : Lua.Vm.AtF.PushfP.Ok_P (pfpX sp L g top r f a4 a5 a6 a7 M13 o) := by fcx_ok
+  have hc15 : bytesT4 (pfpX sp L g top r f a4 a5 a6 a7 M13 o).m ((pfpX sp L g top r f a4 a5 a6 a7 M13 o).n 0 - 412) =
+      0xa#32 := hblen
+  have hc16 : bytesT8 (pfpX sp L g top r f a4 a5 a6 a7 M13 o).m ((pfpX sp L g top r f a4 a5 a6 a7 M13 o).n 0 - 40) =
+      0x80022f18#64 := ha3
+  have h : SegSt 0x80011f2c#64 (Lua.Vm.AtF.PushfP.r9 (pfpX sp L g top r f a4 a5 a6 a7 M13 o))
+      (ArmPay (pfpX sp L g top r f a4 a5 a6 a7 M13 o).m (pfpX sp L g top r f a4 a5 a6 a7 M13 o).o) c := h
+  have acc := Steps.refl c
+  fat_run Lua.Vm.AtF.PushfP h acc until [0x80034de0]
+  have lowR : ∀ a, a < 0x8005e720 → bytesT1 M13 a = bytesT1 m a := fun a ha => low a (.inl (by omega))
+  have hIn : PtrFmtIn M13 (sp - 464) (sp - 398) 0x8004f408 0x80011f50#64 := {
+    fmtb := (bytesAt_congr fun j hj => lowR _ (by omega)).trans (pfpRod_of hP.rod).pfmt
+    f_lo := by decide, f_hi := by decide, ra := by decide
+    sp_lo := by omega, sp_hi := by omega, sp_al := by omega, b_lo := by omega, b_ap := .inr (by omega)
+    b_hi := by omega
+    stat := hst.congr lowR
+    rod := (ptrRod_of hP.rod).congr lowR }
+  fcx_unfold at h
+  obtain ⟨c2, s2, M2, hret, hbytes, hkeep⟩ := snprintfP_sum (sp - 464) (sp - 398) 0x8004f408 0x80011f50#64
+    (pfpSnFr sp L f) M13 o hIn _ (by
+      simp only [callPre, AbiFrame.pins, List.cons_append, List.nil_append]; exact h.repin (by pins_of h))
+  simp only [wrRet] at hret
+  exact ⟨c2, M2, acc.trans s2, hbytes, fun a h1 h2 => hkeep a (by omega) (by omega),
+    by fcx_unfold; exact hret.repin (by pins_of hret)⟩
+
+/-- The memory at the empty rest (`J2`): the buffer's length `20` stored. -/
+abbrev pfpM14 (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 : BitVec 64) (o : Array String)
+    (M2 : Mem) : Mem :=
+  Lua.Vm.AtF.PushfP.m14 (pfpX sp L g top r f a4 a5 a6 a7 M2 o)
+
+/-- **From `snprintf`'s return to the empty rest** (`J2`): `addsize`. -/
+theorem pfp_toJ2 (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame) (a4 a5 a6 a7 : BitVec 64) (m M2 : Mem)
+    (o : Array String) (hP : PfIn m sp L g top r) (hblen : bytesT4 M2 (sp - 412) = 0xa#32) (c : Config)
+    (h : SegSt 0x80011f50#64 (Lua.Vm.AtF.PushfP.r12 (pfpX sp L g top r f a4 a5 a6 a7 M2 o)) (ArmPay M2 o) c) :
+    ∃ c', Steps c c' ∧ SegSt 0x80011e7c#64
+      (Lua.Vm.AtF.PushfP.r13 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o))
+      (ArmPay (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o) c' := by
+  pf_in hP
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  have hX : Lua.Vm.AtF.PushfP.Ok_S (pfpX sp L g top r f a4 a5 a6 a7 M2 o) := by fcx_ok
+  have hc15 : bytesT4 (pfpX sp L g top r f a4 a5 a6 a7 M2 o).m ((pfpX sp L g top r f a4 a5 a6 a7 M2 o).n 0 - 412) =
+      0xa#32 := hblen
+  have h : SegSt 0x80011f50#64 (Lua.Vm.AtF.PushfP.r12 (pfpX sp L g top r f a4 a5 a6 a7 M2 o))
+      (ArmPay (pfpX sp L g top r f a4 a5 a6 a7 M2 o).m (pfpX sp L g top r f a4 a5 a6 a7 M2 o).o) c := h
+  have acc := Steps.refl c
+  fat_run Lua.Vm.AtF.PushfP h acc until [0x80011e7c]
+  exact ⟨_, acc, by fcx_unfold at h ⊢; exact h.repin (by pins_of h)⟩
+
+/-- `pushstr`'s frame at `luaS_newlstr`'s call (`"%s: %p"`'s empty rest). -/
+abbrev pfpNlFr (sp L top : Nat) (f : AbiFrame) : AbiFrame :=
+  ⟨BitVec.ofNat 64 L, BitVec.ofNat 64 top, 0x25#64, 0x2a#64, BitVec.ofNat 64 (sp - 440), BitVec.ofNat 64 (sp - 408),
+    0xc6#64, BitVec.ofNat 64 L, pfS8 sp, 0x0#64, 0x8004fd6e#64, f.s11⟩
+
+/-- **The buffer's twenty bytes** from `"function: "` and `snprintf`'s ten. -/
+theorem pfp_bytes {M : Mem} {sp : Nat} (hsp : 408 ≤ sp)
+    (h1 : ∀ j, j < 10 → bytesT1 M (sp - 408 + j) = BitVec.ofNat 8 (fnU8.getD j 0).toNat)
+    (h2 : bytesAt M (sp - 398) 11 = ptrBytes ++ [0#8]) :
+    ∀ j, j < fnU8.length → bytesT1 M (sp - 408 + j) = BitVec.ofNat 8 (fnU8.getD j 0).toNat := by
+  intro j hj
+  rw [fnU8_length] at hj
+  by_cases hj10 : j < 10
+  · exact h1 j hj10
+  · have e := bytesAt_get h2 (j := j - 10) (by omega)
+    rw [show sp - 398 + (j - 10) = sp - 408 + j by omega] at e
+    rw [e]
+    have : j = 10 ∨ j = 11 ∨ j = 12 ∨ j = 13 ∨ j = 14 ∨ j = 15 ∨ j = 16 ∨ j = 17 ∨ j = 18 ∨ j = 19 := by omega
+    rcases this with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
+
+/-- **From the empty rest to `luaS_newlstr`'s return** (`T`, `0x80011ec0`):
+`addstr2buff` of nothing (`memcpy`'s byte path), `clearbuff`'s
+`luaS_newlstr` of the twenty bytes (`pf_newlstr`). -/
+theorem pfp_nl (hM : MallocR_Statement) (sp L g top : Nat) (r : BitVec 64) (f : AbiFrame)
+    (a4 a5 a6 a7 : BitVec 64) (m M2 : Mem) (o : Array String) (hP : PfIn m sp L g top r)
+    (hS : PfSlots M2 sp L r f) (low2 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M2 a = bytesT1 m a)
+    (hb : ∀ j, j < fnU8.length → bytesT1 M2 (sp - 408 + j) = BitVec.ofNat 8 (fnU8.getD j 0).toNat)
+    (seed : UInt32) (K X W : Nat → Prop) (cw : BitVec 8) (size hash head d nuse : Nat)
+    (H : HeapIx) (hT : NlTab m L g top fnU8 seed K X W cw size hash head d nuse H) (n : Nat) (i a3 : BitVec 64)
+    (c : Config)
+    (h : SegSt 0x80011e7c#64
+      (Lua.Vm.AtF.PushfP.r13 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o))
+      (ArmPay (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o) c) :
+    ∃ c' ts M3 H', Steps c c' ∧ PfT M3 sp L g top ts r f ∧
+      PfStr m M3 (PfFr sp) g fnU8 seed K X W size hash nuse head H ts H' ∧
+      SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfP.r16 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o)) (ArmPay M3 o) c' := by
+  pf_in hP
+  have hTH : tohostAddr = 0x8005c6c0 := rfl
+  have k14 : ∀ a, (a + 1 ≤ sp - 412 ∨ sp - 408 ≤ a) →
+      bytesT1 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) a = bytesT1 M2 a := by
+    intro a ha
+    simp only [pfpM14, Lua.Vm.AtF.PushfP.m14, pfpX, pfX, FCx.mk', List.getD_cons_zero]
+    simp (disch := omega) only [fw1_wm4]
+  have R := (pfpRod_of hP.rod).congr fun a ha => (k14 a (.inl (by omega))).trans (low2 a (.inl (by omega)))
+  have hX : Lua.Vm.AtF.PushfP.Ok_J
+      (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o) := by fcx_ok
+  have hc17 : bytesT1 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).m 0x8004fd6e =
+      0x0#8 := R.f6
+  have hc18 : bytesT4 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).m
+      ((pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).n 0 - 412) = 0x14#32 := by
+    simp only [pfpM14, Lua.Vm.AtF.PushfP.m14, pfpX, pfX, FCx.mk', List.getD_cons_zero]
+    rw [fw4_same rfl]; decide
+  have hc19 : bytesT8 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).m
+      ((pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).n 0 - 424) =
+      BitVec.ofNat 64 ((pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).n 1) :=
+    show bytesT8 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) (sp - 424) = BitVec.ofNat 64 L from
+      (bytesT8_congrT fun j _ => k14 _ (.inl (by omega))).trans hS.buffL
+  have hc20 : bytesT8 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).m
+      ((pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).n 1 + 16) =
+      BitVec.ofNat 64 ((pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).n 3) :=
+    show bytesT8 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) (L + 16) = BitVec.ofNat 64 top from
+      (bytesT8_congrT fun j _ => (k14 _ (.inl (by omega))).trans (low2 _ (.inl (by omega)))).trans hP.top_w
+  have hg_4 : ((((0x8004fd6e#64) ^^^ (BitVec.ofNat 64
+      ((pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).n 0 - 388))) &&&
+      sign_extend (m := 64) (0x007#12)) != (0#64)) = true :=
+    xor_mis _ _ (by decide) (by simp only [pfpX, pfX, FCx.mk', List.getD_cons_zero]; omega)
+      (by simp only [pfpX, pfX, FCx.mk', List.getD_cons_zero]; omega)
+  have hg_2 : zopz0zKzJ_u
+      (BitVec.ofNat 64 ((pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).n 0 - 388))
+      (BitVec.ofNat 64 ((pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).n 0 - 388)) =
+      true := uge_self _
+  have h : SegSt 0x80011e7c#64
+      (Lua.Vm.AtF.PushfP.r13 (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o))
+      (ArmPay (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).m
+        (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o).o) c := h
+  have acc := Steps.refl c
+  fat_run Lua.Vm.AtF.PushfP h acc until [0x80017694]
+  generalize hM17 : Lua.Vm.AtF.PushfP.m17
+    (pfpX sp L g top r f a4 a5 a6 a7 (pfpM14 sp L g top r f a4 a5 a6 a7 o M2) o) = M17 at h
+  have k17 : ∀ a, (a + 520 < sp + 0 ∨ (sp - 464 ≤ a ∧ a < sp - 412) ∨ sp - 408 ≤ a) →
+      bytesT1 M17 a = bytesT1 M2 a := by
+    intro a ha
+    rw [← hM17]
+    simp only [pfpM14, Lua.Vm.AtF.PushfP.m14, Lua.Vm.AtF.PushfP.m17, pfpX, pfX, FCx.mk', List.getD_cons_zero]
+    simp (disch := omega) only [fw1_wm8, fw1_wm4]
+  have low17 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M17 a = bytesT1 m a := fun a ha =>
+    (k17 a (by omega)).trans (low2 a ha)
+  fcx_unfold at h
+  obtain ⟨c2, s2, ts, M3, H', hPT, hstr, hret⟩ := pf_newlstr hM sp L g top r f (pfpNlFr sp L top f) m M17 o hP
+    (hS.congr (by omega) fun a ha => k17 a (by omega)) low17 fnU8 (by rw [fnU8_length]; omega)
+    (by rw [fnU8_length]; omega) (fun j hj => (k17 _ (by omega)).trans (hb j hj))
+    seed K X W cw size hash head d nuse H hT _ (by
+      simp only [callPre, AbiFrame.pins, List.cons_append, List.nil_append, fnU8_length]
+      exact h.repin (by pins_of h))
+  simp only [wrRet] at hret
+  exact ⟨c2, ts, M3, H', acc.trans s2, hPT, hstr, by fcx_unfold; exact hret.repin (by pins_of hret)⟩
+
+/-- **From `luaS_newlstr`'s return to `lua_pushfstring`'s** (`"%s: %p"`):
+`pf_tail` on this module's rows. -/
+theorem pfp_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a5 a6 a7 : BitVec 64)
+    (m M3 : Mem) (o : Array String) (hP : PfIn m sp L g top r) (hT : PfT M3 sp L g top ts r f)
+    (hgc : bytesT1 M3 (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
+    Triple (SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfP.r16 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
+        (ArmPay M3 o))
+      (fun c => ∃ M, PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
+  pf_tail Lua.Vm.AtF.PushfP r16 r21 m18 m19
+
+/-- **`lua_pushfstring(L, "%s: %p", "function", print)`** (lane F1-24): the
+twenty bytes `"function: 0x80022f18"` interned (found or created, `PfStr`)
+and pushed at `L->top` (`PfPost`), `getstr` of the string returned. -/
+theorem pushfP_sum (hM : MallocR_Statement) (sp L g top : Nat) (r : BitVec 64)
+    (f : AbiFrame) (m : Mem) (o : Array String) (hP : PfIn m sp L g top r) (hst : FmtStatic m) (seed : UInt32)
+    (K X W : Nat → Prop) (cw : BitVec 8) (size hash head d nuse : Nat) (H : HeapIx)
+    (hT : NlTab m L g top fnU8 seed K X W cw size hash head d nuse H)
+    (hgc : bytesT1 m (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
+    Triple (SegSt 0x800030a4#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, 0x8004fd68#64⟩,
+        ⟨Register.x12, 0x8004f290#64⟩, ⟨Register.x13, 0x80022f18#64⟩] sp r f) (ArmPay m o))
+      (fun c => ∃ ts M3 M H', PfStr m M3 (PfFr sp) g fnU8 seed K X W size hash nuse head H ts H' ∧
+        PfPost M3 M sp L g top ts ∧ PfTs M ts fnU8.length ∧ wrRet r sp (ts + 24) f M o c) := by
+  intro c h
+  pf_in hP
+  obtain ⟨c1, s1, a4, a5, a6, a7, h1⟩ := pfp_cut sp L g top r f m o hP c h
+  have hC : PfC (pfpM1 sp L g top r f a4 a5 a6 a7 m o) m sp L r 0x8004f290#64 f := pfC_of (by omega)
+  have ha3 : bytesT8 (pfpM1 sp L g top r f a4 a5 a6 a7 m o) (sp - 40) = 0x80022f18#64 := by
+    simp only [pfpM1]; pf_m1
+  obtain ⟨c2, s2, h2⟩ := pfp_toK sp L g top r f a4 a5 a6 a7 m _ o hP hC c1 h1
+  obtain ⟨c3, s3, h3⟩ := pfp_toJ sp L g top r f a4 a5 a6 a7 m _ o hP hC c2 h2
+  obtain ⟨c4, s4, h4⟩ := pfp_toP sp L g top r f a4 a5 a6 a7 m _ o hP hC c3 h3
+  have k13 := pfpM13_keep (sp := sp) (L := L) (g := g) (top := top) (r := r) (f := f) (a4 := a4) (a5 := a5)
+    (a6 := a6) (a7 := a7) (o := o) (M1 := pfpM1 sp L g top r f a4 a5 a6 a7 m o) (by omega)
+  have low13 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) →
+      bytesT1 (pfpM13 sp L g top r f a4 a5 a6 a7 o (pfpM1 sp L g top r f a4 a5 a6 a7 m o)) a = bytesT1 m a :=
+    fun a ha => (k13 a (by omega)).trans (hC.low a (by omega))
+  have hb13 : bytesT4 (pfpM13 sp L g top r f a4 a5 a6 a7 o (pfpM1 sp L g top r f a4 a5 a6 a7 m o)) (sp - 412) =
+      0xa#32 := by
+    simp only [pfpM13, Lua.Vm.AtF.PushfP.m13, pfpX, pfX, FCx.mk', List.getD_cons_zero]
+    rw [fw4_same rfl]; decide
+  obtain ⟨c5, M2, s5, hptr, k2, h5⟩ := pfp_snp sp L g top r f a4 a5 a6 a7 m _ o hP hst low13 hb13
+    ((bytesT8_congrT fun j _ => k13 _ (by omega)).trans ha3) c4 h4
+  have hb2 : bytesT4 M2 (sp - 412) = 0xa#32 :=
+    (bytesT4_congrT fun j _ => k2 _ (by omega) (by omega)).trans hb13
+  obtain ⟨c6, s6, h6⟩ := pfp_toJ2 sp L g top r f a4 a5 a6 a7 m M2 o hP hb2 c5 h5
+  have low2 : ∀ a, (a + 8192 ≤ sp ∨ sp ≤ a) → bytesT1 M2 a = bytesT1 m a := fun a ha =>
+    (k2 a (by omega) (by omega)).trans (low13 a ha)
+  have hS2 : PfSlots M2 sp L r f :=
+    (hC.slots.congr (by omega) fun a ha => k13 a (by omega)).congr (by omega)
+      fun a ha => k2 a (by omega) (by omega)
+  have hbuf := pfpM13_buf (sp := sp) (L := L) (g := g) (top := top) (r := r) (f := f) (a4 := a4) (a5 := a5)
+    (a6 := a6) (a7 := a7) (o := o) (M1 := pfpM1 sp L g top r f a4 a5 a6 a7 m o) (by omega)
+  have hb : ∀ j, j < fnU8.length → bytesT1 M2 (sp - 408 + j) = BitVec.ofNat 8 (fnU8.getD j 0).toNat :=
+    pfp_bytes (by omega) (fun j hj => (k2 _ (by omega) (by omega)).trans (hbuf j hj)) hptr
+  obtain ⟨c7, ts, M3, H', s7, hPT, hstr, h7⟩ := pfp_nl hM sp L g top r f a4 a5 a6 a7 m M2 o hP hS2 low2 hb
+    seed K X W cw size hash head d nuse H hT 20 0#64 0#64 c6 h6
+  have hgc3 : bytesT1 M3 (g + gGcstpOff) = 0x1#8 :=
+    (hstr.gw (a := g + gGcstpOff) (F := PfFr sp) hT (by omega) (fun a ha => by simp only [PfFr] at ha; omega)
+      (by simp only [gGcstpOff]; omega) (by simp only [gGcstpOff]; omega)
+      (by simp only [Rng, gGcstpOff]; omega)).trans hgc
+  obtain ⟨c8, s8, M, hpost, hret⟩ := pfp_ret sp L g top 20 ts 0#64 r f 0#64 a4 a5 a6 a7 m M3 o hP hPT hgc3 hgal c7 h7
+  exact ⟨c8, (((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s7).trans s8), ts, M3, M, H', hstr,
+    hpost, pfTs_of hT (by rw [fnU8_length]; omega) (by omega) (by omega) (by omega) (by omega) hPT hstr hpost, hret⟩
+
 end Lua.Vm.Sim.Kit
