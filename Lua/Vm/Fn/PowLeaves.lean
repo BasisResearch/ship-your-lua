@@ -139,6 +139,8 @@ theorem powAx_neg0 (x y : Float.Model) (hx : Int) (lx : UInt32) (ix hy iy : Int3
   simp only [hn, ↓reduceIte]
   rfl
 
+attribute [pw_mlens] powAx_neg0
+
 /-- A model datum with a NaN's bits is the canonical NaN (`Float.Model`'s only one). -/
 theorem W_nan (y : Float.Model) (h : W y / 2 ^ 52 % 2048 = 2047 ∧ W y % 2 ^ 52 ≠ 0) :
     W y = 9221120237041090560 := by

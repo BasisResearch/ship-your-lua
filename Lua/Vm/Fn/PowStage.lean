@@ -307,4 +307,7 @@ value: the special `y` (`:153-170`), else `powAx`. -/
     if (u (hx - 0x3ff00000) ||| lx) == 0 && !issignaling y then one else x +. y
   else powYi x y hx lx ix hy ly iy (yisint hx iy ly)
 
+-- `yisint` is unfolded where a walk reaches its value.
+attribute [pw_stage] yisint
+
 end Lua.Num.Pow

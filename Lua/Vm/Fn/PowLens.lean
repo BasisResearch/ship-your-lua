@@ -1101,6 +1101,19 @@ elab "pw_omega_b" : tactic => withMainContext do
   unless (t.find? (·.isAppOfArity ``Int.bmod 2)).isSome do throwError "no bmod"
   evalTactic (← `(tactic| pw_omega))
 
+open Lean Elab Tactic Meta in
+/-- `pw_omega` when the goal or a hypothesis has a `bmod` (the walk's split
+facts keep the machine's `bmod`s). -/
+elab "pw_omega_h" : tactic => withMainContext do
+  let t ← instantiateMVars (← getMainTarget)
+  let isB := fun (e : Expr) => (e.find? (·.isAppOfArity ``Int.bmod 2)).isSome
+  let mut any := isB t
+  if !any then
+    for d in ← getLCtx do
+      if !d.isImplementationDetail && isB (← instantiateMVars d.type) then any := true
+  unless any do throwError "no bmod"
+  evalTactic (← `(tactic| pw_omega))
+
 /-- The lenses' discharger: `omega`, then with the atoms' facts, then a
 closed `decide`. -/
 macro "pw_disch" : tactic => `(tactic| first | omega | pw_omega | (fm_ground; decide))
@@ -1415,9 +1428,9 @@ partial def pwFront (fuel : Nat) : TacticM Unit := do
   let c := it.getArg! 1
   let shifts := (powAmounts c).size > 0
   let tac ← if shifts then
-      `(tactic| first | assumption | (simp only [Bool.not_eq_true, Bool.not_eq_false] at *; assumption) | omega | (simp (config := { failIfUnchanged := true }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega_b | (pw_shift_fix; simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch))
+      `(tactic| first | assumption | (simp only [Bool.not_eq_true, Bool.not_eq_false] at *; assumption) | omega | (simp (config := { failIfUnchanged := true }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega_h | (pw_shift_fix; simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch))
     else
-      `(tactic| first | assumption | (simp only [Bool.not_eq_true, Bool.not_eq_false] at *; assumption) | omega | (simp (config := { failIfUnchanged := true }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega_b)
+      `(tactic| first | assumption | (simp only [Bool.not_eq_true, Bool.not_eq_false] at *; assumption) | omega | (simp (config := { failIfUnchanged := true }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega_h)
   let r ← withMainContext do
     if let some h ← proveBy? c tac then
       rwBy (← iteEq it h true); pure true
@@ -1708,9 +1721,18 @@ def pwLeaf : TacticM Unit := do
       pwDbg s!"leaf swap for {lst?.get!.getAppFn.constName!}"
       evalTactic (← `(tactic| symm))
       continue
-    let some st := rst? | return
-    -- a stage on both sides is compared, not unfolded
-    if (collectP (fun e => e.isAppOf st.getAppFn.constName!) lhs).size > 0 then return
+    -- the right's first stage (not under an `if`'s branch) the left does not have
+    let rec topStages (e : Expr) (k : Nat) : Array Expr :=
+      match k with
+      | 0 => #[]
+      | k + 1 =>
+        if e.isAppOfArity ``ite 5 then #[]
+        else
+          let here := if isStage e then #[e] else #[]
+          e.getAppArgs.foldl (fun acc a => acc ++ topStages a.cleanupAnnotations k) here
+    let cands := (topStages rhs.cleanupAnnotations 64).filter fun e =>
+      (collectP (fun f => f.isAppOf e.getAppFn.constName!) lhs).size == 0
+    let some st := cands[0]? | return
     let nS := mkIdent st.getAppFn.constName!
     pwDbg s!"leaf unfold {st.getAppFn.constName!}"
     evalTactic (← `(tactic| conv => rhs; unfold $nS:ident))

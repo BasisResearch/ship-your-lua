@@ -160,12 +160,12 @@ theorem e_cd9c (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame) (x : Float.Model
   pw_front
   pw_walk using [e_c620]
 
-/-- `e_pow.c:137-318` at `0x8002c5a4`: `powYi` for `x < 0`, `|y| < 1` (`yisint = 0`). -/
+/-- `e_pow.c:137-318` at `0x8002c5a4`: `powYi` for `x < 0`, `yisint = 0` (`y` not `±∞`, `±1`). -/
 theorem e_c5a4 (m : Mem) (s : Nat) (r : BitVec 64) (g : SFrame) (x y : Float.Model)
     (lx ly ix iy hx hy : Int) (hro : RodataRead m) (hs : FnSp s 288)
     (hx1 : -2 ^ 31 ≤ hx) (hx2 : hx < 0) (hy1 : -2 ^ 31 ≤ hy) (hy2 : hy < 2 ^ 31)
     (hl1 : -2 ^ 31 ≤ lx) (hl2 : lx < 2 ^ 31) (hm1 : -2 ^ 31 ≤ ly) (hm2 : ly < 2 ^ 31)
-    (hix : ix = hx % 2147483648) (hiy : iy = hy % 2147483648) (hiy1 : iy < 1072693248)
+    (hix : ix = hx % 2147483648) (hiy : iy = hy % 2147483648) (hiy1 : iy ≠ 2146435072) (hiy2 : iy ≠ 1072693248)
     (hW : W x / 4294967296 = hx) (hL : W x % 4294967296 = lx % 4294967296) :
     N_8002c5a4 m s r g (BitVec.ofInt 64 lx) (BitVec.ofInt 64 (W x)) (BitVec.ofInt 64 (W y))
         (BitVec.ofInt 64 ly) (BitVec.ofInt 64 ix) (BitVec.ofInt 64 hy) (BitVec.ofInt 64 ix)
