@@ -166,4 +166,74 @@ theorem exp2Tail_split (y t1 t2 sign : Float.Model) :
   by_cases h1 : j ≥ 1083179008 <;> by_cases h2 : (j &&& 2147483647) ≥ 1083231232 <;>
     cases a <;> cases b <;> cases e <;> cases f <;> simp [h1, h2]
 
+/-- `log2Split`'s general case from `:232` and `exp2Tail` (`e_pow.c:232-318`):
+`ax`'s high word set to `ix`, the series in `s = (ax - bp)/(ax + bp)`, `log2|x|`
+as `t1 + t2` with `n`, then `2^(y·log2|x|)`. -/
+@[pw_stage] def logExp (ax : Float.Model) (k n ix : Int32) (y sign : Float.Model) : Float.Model :=
+  let ax := setHigh ax (u ix)                                       -- :232
+  let u' := ax -. bp k                                              -- :235
+  let v := one /. (ax +. bp k)                                      -- :236
+  let s := u' *. v                                                  -- :237
+  let s_h := setLow s 0                                             -- :238-239
+  let t_h := setHigh zero (u (((ix >>> 1) ||| (0x20000000 : Int32)) + (0x00080000 : Int32) + (k <<< (18 : Int32)))) -- :241-242
+  let t_l := ax -. (t_h -. bp k)                                    -- :243
+  let s_l := v *. ((u' -. s_h *. t_h) -. s_h *. t_l)                -- :244
+  let s2 := s *. s                                                  -- :246
+  let r := s2 *. s2 *. (L1 +. s2 *. (L2 +. s2 *. (L3 +. s2 *. (L4 +. s2 *. (L5 +. s2 *. L6))))) -- :247
+  let r := r +. s_l *. (s_h +. s)                                   -- :248
+  let s2 := s_h *. s_h                                              -- :249
+  let t_h := setLow (three +. s2 +. r) 0                            -- :250-251
+  let t_l := r -. ((t_h -. three) -. s2)                            -- :252
+  let u' := s_h *. t_h                                              -- :254
+  let v := s_l *. t_h +. t_l *. s                                   -- :255
+  let p_h := setLow (u' +. v) 0                                     -- :257-258
+  let p_l := v -. (p_h -. u')                                       -- :259
+  let z_h := cp_h *. p_h                                            -- :260
+  let z_l := cp_l *. p_h +. p_l *. cp +. dp_l k                     -- :261
+  let t := Float.Model.ofInt n.toInt                                -- :263
+  let t1 := setLow (((z_h +. z_l) +. dp_h k) +. t) 0                -- :264-265
+  let t2 := z_l -. (((t1 -. t) -. dp_h k) -. z_h)                   -- :266
+  exp2Tail y t1 t2 sign
+
+/-- `log2Split`'s general case from `:225` (`n`, the interval `k`) and `logExp`. -/
+@[pw_stage] def logGenK (ax : Float.Model) (n0 ix : Int32) (y sign : Float.Model) : Float.Model :=
+  let n := n0 + ((ix >>> 20) - 0x3ff)                               -- :225
+  let j := ix &&& 0x000fffff                                        -- :226
+  let ix := j ||| 0x3ff00000                                        -- :228
+  if j ≤ 0x3988E then logExp ax 0 n ix y sign                       -- :229
+  else if j < 0xBB67A then logExp ax 1 n ix y sign                  -- :230
+  else logExp ax 0 (n + 1) (ix - 0x00100000) y sign                 -- :231
+
+/-- `log2Split`'s general case (`e_pow.c:220-266`, subnormal `x` scaled at
+`:223-224`) and `exp2Tail`. -/
+@[pw_stage] def logGen (ax : Float.Model) (ix : Int32) (y sign : Float.Model) : Float.Model :=
+  if ix < 0x00100000 then
+    let ax := ax *. two53
+    logGenK ax (-53) (hiW ax) y sign
+  else logGenK ax 0 ix y sign
+
+/-- `log2Split`'s case `|y| > 2^31`, `x` near one (`e_pow.c:212-218`), and `exp2Tail`. -/
+@[pw_stage] def logNear (ax y sign : Float.Model) : Float.Model :=
+  let t := ax -. one                                                -- :212
+  let w := (t *. t) *. (half -. t *. (third -. t *. quarter))        -- :213
+  let u' := ivln2_h *. t                                            -- :214
+  let v := t *. ivln2_l -. w *. ivln2                               -- :215
+  let t1 := setLow (u' +. v) 0                                      -- :216-217
+  let t2 := v -. (t1 -. u')                                         -- :218
+  exp2Tail y t1 t2 sign
+
+/-- `log2Split` and `exp2Tail` (`e_pow.c:198-318`) as one function: the early
+returns of `:199-209`, `logNear` or `logGen`. -/
+@[pw_stage] def log2Exp (x : Float.Model) (ix hy iy : Int32) (y sign : Float.Model) : Float.Model :=
+  let neg := Float.Model.lt sign zero
+  let ax := fabs x
+  if iy > 0x42000000 then
+    if iy > 0x43f00000 then
+      if ix ≤ 0x3fefffff then (if hy < 0 then mathOflow false else mathUflow false)
+      else (if hy > 0 then mathOflow false else mathUflow false)
+    else if ix < 0x3fefffff then (if hy < 0 then mathOflow neg else mathUflow neg)
+    else if ix > 0x3ff00000 then (if hy > 0 then mathOflow neg else mathUflow neg)
+    else logNear ax y sign
+  else logGen ax ix y sign
+
 end Lua.Num.Pow
