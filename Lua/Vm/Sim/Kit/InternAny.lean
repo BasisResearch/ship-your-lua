@@ -447,6 +447,14 @@ macro "ia_sv" : tactic => `(tactic| (
   simp only [iaM0, Lua.Vm.AtF.InternAny.m0, iaX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
   simp (disch := omega) only [fw8_same, fw8_wm8]))
 
+/-- The loops' root memory is the entry's off the frame. -/
+theorem iaM0_keep {sp : Nat} {r : BitVec 64} {f : AbiFrame} {m : Mem} {o : Array String} (hsp : 80 ≤ sp) :
+    ∀ a, ¬ Below sp 80 a → bytesT1 (iaM0 sp r f m o) a = bytesT1 m a := by
+  intro a ha
+  have ha' : a + 80 < sp ∨ sp ≤ a := by simp only [Below] at ha; omega
+  simp only [iaM0, Lua.Vm.AtF.InternAny.m0, iaX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  exact bT1_congr (by simp (disch := omega) only [getElem?_writeMap8_out])
+
 /-- **`luaS_newlstr(L, s, l)` up to the creation path**: the hash, the bucket,
 the walk; a node found is returned (`IaHit`), else the creation path `hN`
 runs from `0x8001742c` at the loops' root memory. -/
@@ -487,11 +495,7 @@ theorem ia_walk_sum (sp L s g size hash head d : Nat) (b : List UInt8) (seed : U
   fcx_unfold at h
   fat_rd at h
   rw [hinit_mach, hw_init, ← hashFrom_len, show s + b.length - 1 = s + (b.length - 1) by omega] at h
-  have keep : ∀ a, ¬ Below sp 80 a → bytesT1 (iaM0 sp r f m o) a = bytesT1 m a := by
-    intro a ha
-    have ha' : a + 80 < sp ∨ sp ≤ a := by simp only [Below] at ha; omega
-    simp only [iaM0, Lua.Vm.AtF.InternAny.m0, iaX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
-    exact bT1_congr (by simp (disch := omega) only [getElem?_writeMap8_out])
+  have keep : ∀ a, ¬ Below sp 80 a → bytesT1 (iaM0 sp r f m o) a = bytesT1 m a := iaM0_keep (by omega)
   have hfr : ∀ a, a < 0x87800000 → bytesT1 (iaM0 sp r f m o) a = bytesT1 m a := fun a ha =>
     keep a (by simp only [Below]; omega)
   have F : IaFacts m (iaM0 sp r f m o) sp L s g b r f := {
