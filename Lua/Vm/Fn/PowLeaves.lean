@@ -96,7 +96,7 @@ theorem log2Exp_eq (x : Float.Model) (ix hy iy : Int32) (y sign : Float.Model) :
 
 /-- `ieee754Pow` is its stage form `powTop` (`Lua/Vm/Fn/PowStage.lean`). -/
 theorem ieee754Pow_stage (x y : Float.Model) : Pow.ieee754Pow x y = Pow.powTop x y := by
-  unfold Pow.ieee754Pow Pow.powTop Pow.powYi Pow.powAx Pow.powXZ Pow.powNY Pow.powSign
+  unfold Pow.ieee754Pow Pow.powTop Pow.powYi Pow.powAx Pow.powAx0 Pow.powXZ Pow.powXZn Pow.powNY Pow.powSign
   unfold Pow.log2Split Pow.log2Exp Pow.logGen Pow.logGenK Pow.logNear Pow.logExp
   pw_ite_cases
 
@@ -128,6 +128,66 @@ theorem notNaN_div_one (a : Float.Model)
     simp only [Int.bmod, Nat.reducePow, Int.reducePow]; split <;> omega
   rw [← model_W a]
   rcases h with h | h | h <;> rw [h, e] <;> decide
+
+/-- `powAx` at `yisint = 0` for a negative `x` is `powAxN`. -/
+theorem powAx_neg0 (x y : Float.Model) (hx : Int) (lx : UInt32) (ix hy iy : Int32)
+    (h1 : -2 ^ 31 ≤ hx) (h2 : hx < 0) :
+    Pow.powAx x y (Int32.ofInt hx) lx ix hy iy (Int32.ofInt 0) = Pow.powAxN x (Int32.ofInt hx) lx ix hy := by
+  unfold Pow.powAx Pow.powAx0 Pow.powNY Pow.powAxN
+  have hn : ((Pow.u (Int32.ofInt hx) >>> 31 - 1).toInt32 ||| Int32.ofInt 0 == 0) = true := by
+    simp (disch := pw_disch) only [pw_mlens]; omega
+  simp only [hn, ↓reduceIte]
+  rfl
+
+/-- A model datum with a NaN's bits is the canonical NaN (`Float.Model`'s only one). -/
+theorem W_nan (y : Float.Model) (h : W y / 2 ^ 52 % 2048 = 2047 ∧ W y % 2 ^ 52 ≠ 0) :
+    W y = 9221120237041090560 := by
+  have hl := W_lo y; have hh := W_hi y
+  unfold W at *
+  obtain ⟨b, hv⟩ := y
+  dsimp only at h hl hh ⊢
+  have ht : (b.toBitVec.toInt : Int) % 2 ^ 64 = (b.toBitVec.toNat : Int) := by
+    rw [BitVec.toInt_eq_toNat_bmod]; have := b.toBitVec.isLt
+    simp only [Int.bmod]; split <;> omega
+  have hc : F64.cls b.toBitVec = .nan := by
+    unfold F64.cls F64.bexp F64.frac
+    simp only [Nat.reducePow, Int.reducePow] at h ht ⊢
+    have h1 : b.toBitVec.toNat / 4503599627370496 % 2048 = 2047 := by omega
+    have h2 : ¬ b.toBitVec.toNat % 4503599627370496 = 0 := by omega
+    rw [ite_eq_left h1, ite_eq_right h2]
+  have e : b.toBitVec = 0x7ff8000000000000#64 := by
+    have hpn := hv.eq_packedNaN
+    simp only [F64.cls] at hc
+    split at hc
+    · split at hc
+      · cases hc
+      · rename_i h1 h2
+        rw [hpn ((F64.exp_eq_ones _).2 h1) (fun e => h2 ((F64.man_eq_zero _).1 e))]
+        rfl
+    · split at hc
+      · split at hc <;> cases hc
+      · cases hc
+  show b.toBitVec.toInt = _
+  rw [e]; decide
+
+/-- `fabs` (`e_pow.c:172`, the bits with the sign cleared) is the model's
+`fabs`, NaN included (the model's NaN is the positive `0x7ff8000000000000`). -/
+theorem fabs_l (x : Float.Model) : Lua.Vm.Fn.Fabs.F (BitVec.ofInt 64 (W x)) = BitVec.ofInt 64 (W (Pow.fabs x)) := by
+  have hl := W_lo x; have hh := W_hi x
+  unfold Lua.Vm.Fn.Fabs.F
+  simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_lens]
+  simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [Pow.fabs, pw_mlens]
+  by_cases hn : (W x / 4294967296 % 2147483648 * 4294967296 + W x % 4294967296) / 2 ^ 52 % 2048 = 2047 ∧
+      (W x / 4294967296 % 2147483648 * 4294967296 + W x % 4294967296) % 2 ^ 52 ≠ 0
+  · have hx := W_nan x ⟨by omega, by omega⟩
+    have e : W x / 4294967296 % 2147483648 * 4294967296 + W x % 4294967296 = W x := by omega
+    rw [e, model_W, hx]; decide
+  · rw [W_ofInt _ hn]
+    apply BitVec.eq_of_toInt_eq
+    simp only [BitVec.toInt_ofInt, Int.bmod, Nat.reducePow, Int.reducePow]
+    split <;> split <;> omega
+
+attribute [pw_lens] fabs_l
 
 /-- `pw_notnan`: `|x|` or `1/|x|` of an `x` the context pins to `±0`, `±∞`, `±1`. -/
 macro_rules | `(tactic| pw_notnan) => `(tactic| (subst_vars; first

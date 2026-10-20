@@ -248,21 +248,37 @@ non-integer `y`, else `powSign`. -/
   if (n ||| yi) == 0 then (x -. x) /. (x -. x)                        -- :191
   else powSign x y ix hy iy n yi
 
-/-- `ieee754Pow`'s `x = ±0, ±∞, ±1` past `z = |x|^±1` (`e_pow.c:178-185`). -/
-@[pw_stage] def powXZ (z : Float.Model) (hx ix yi : Int32) : Float.Model :=
-  if hx < 0 then
-    if ((ix - 0x3ff00000) ||| yi) == 0 then (z -. z) /. (z -. z)
-    else if yi == 1 then Float.Model.neg z
-    else z
+/-- `powXZ` for a negative `x` (`e_pow.c:179-183`). -/
+@[pw_stage] def powXZn (z : Float.Model) (ix yi : Int32) : Float.Model :=
+  if ((ix - 0x3ff00000) ||| yi) == 0 then (z -. z) /. (z -. z)
+  else if yi == 1 then Float.Model.neg z
   else z
 
-/-- `ieee754Pow` past the special `y` (`e_pow.c:172-318`): the special `x`
-(`:174-186`) or `powNY`. -/
-@[pw_stage] def powAx (x y : Float.Model) (hx : Int32) (lx : UInt32) (ix hy iy yi : Int32) : Float.Model :=
-  let ax := fabs x                                                    -- :172
-  if lx == 0 && (ix == 0x7ff00000 || ix == 0 || ix == 0x3ff00000) then
-    powXZ (if hy < 0 then one /. ax else ax) hx ix yi
+/-- `ieee754Pow`'s `x = ±0, ±∞, ±1` past `z = |x|^±1` (`e_pow.c:178-185`). -/
+@[pw_stage] def powXZ (z : Float.Model) (hx ix yi : Int32) : Float.Model :=
+  if hx < 0 then powXZn z ix yi else z
+
+/-- `ieee754Pow` past the special `y` for `lx = 0` (`e_pow.c:172-318`): the
+special `x` (`:174-186`) or `powNY`. -/
+@[pw_stage] def powAx0 (x y : Float.Model) (hx ix hy iy yi : Int32) : Float.Model :=
+  if ix == 0x7ff00000 || ix == 0 || ix == 0x3ff00000 then
+    powXZ (if hy < 0 then one /. fabs x else fabs x) hx ix yi
   else powNY x y hx ix hy iy yi
+
+/-- `ieee754Pow` past the special `y` (`e_pow.c:172-318`): `powAx0` for
+`lx = 0` (the test `:174` in the machine's order), else `powNY`. -/
+@[pw_stage] def powAx (x y : Float.Model) (hx : Int32) (lx : UInt32) (ix hy iy yi : Int32) : Float.Model :=
+  if lx == 0 then powAx0 x y hx ix hy iy yi
+  else powNY x y hx ix hy iy yi
+
+/-- `powAx` for a negative `x` and a non-integer `y` (`yisint = 0`): `y` is
+not read (`:191`'s `(x-x)/(x-x)`, or the special `x` of `:174-186`). -/
+@[pw_stage] def powAxN (x : Float.Model) (hx : Int32) (lx : UInt32) (ix hy : Int32) : Float.Model :=
+  if lx == 0 then
+    if ix == 0x7ff00000 || ix == 0 || ix == 0x3ff00000 then
+      powXZ (if hy < 0 then one /. fabs x else fabs x) hx ix 0
+    else (x -. x) /. (x -. x)
+  else (x -. x) /. (x -. x)
 
 /-- `ieee754Pow` past the NaN tests (`e_pow.c:137-318`) given `yisint`'s
 value: the special `y` (`:153-170`), else `powAx`. -/

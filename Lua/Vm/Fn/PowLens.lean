@@ -1252,15 +1252,28 @@ partial def iteCases (fuel : Nat) : TacticM Unit := do
     if (← getGoals).isEmpty then continue
     let t ← instantiateMVars (← getMainTarget)
     match firstIte? t with
-    | none => evalTactic (← `(tactic| rfl))
+    | none => evalTactic (← `(tactic| first | rfl | (exfalso; omega)))
     | some it =>
       if (← getOptions).getBool `pw.debug false then
         IO.println s!"ite_cases {← ppExpr (it.getArg! 1)}"
-      let (gp, gn) ← (← getMainGoal).byCases (it.getArg! 1) `hi_
+      -- the first atom of a Boolean condition (`a && b`, `a || b`, `!a`): a
+      -- compound condition is decided by its atoms' cases
+      let rec atom (c : Expr) (k : Nat) : MetaM Expr := do
+        match k, c.eq? with
+        | k + 1, some (_, l, r) =>
+          if r.isConstOf ``Bool.true then
+            if l.isAppOfArity ``Bool.and 2 || l.isAppOfArity ``Bool.or 2 then
+              atom (← mkEq (l.getArg! 0) r) k
+            else if l.isAppOfArity ``Bool.not 1 then atom (← mkEq (l.getArg! 0) r) k
+            else pure c
+          else pure c
+        | _, _ => pure c
+      let c ← atom (it.getArg! 1) 16
+      let (gp, gn) ← (← getMainGoal).byCases c `hi_
       for sg in [gp, gn] do
         setGoals [sg.mvarId]
         let h := mkIdent (← sg.mvarId.withContext do return (← sg.fvarId.getDecl).userName)
-        evalTactic (← `(tactic| simp (config := { failIfUnchanged := false }) only [$h:ident, ↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, ite_true, ite_false]))
+        evalTactic (← `(tactic| simp (config := { failIfUnchanged := false }) only [$h:ident, ↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, ite_true, ite_false, Bool.true_and, Bool.false_and, Bool.and_true, Bool.and_false, Bool.true_or, Bool.false_or, Bool.or_true, Bool.or_false, Bool.not_true, Bool.not_false]))
         iteCases (fuel - 1)
   setGoals []
 
@@ -1400,7 +1413,11 @@ partial def pwFront (fuel : Nat) : TacticM Unit := do
   let some (_, _, rhs) := t.eq? | return
   let some it := (frontier rhs.cleanupAnnotations)[0]? | return
   let c := it.getArg! 1
-  let tac ← `(tactic| first | assumption | (simp only [Bool.not_eq_true, Bool.not_eq_false] at *; assumption) | omega | (simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega | (pw_shift_fix; simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch))
+  let shifts := (powAmounts c).size > 0
+  let tac ← if shifts then
+      `(tactic| first | assumption | (simp only [Bool.not_eq_true, Bool.not_eq_false] at *; assumption) | omega | (simp (config := { failIfUnchanged := true }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega_b | (pw_shift_fix; simp (config := { failIfUnchanged := false }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch))
+    else
+      `(tactic| first | assumption | (simp only [Bool.not_eq_true, Bool.not_eq_false] at *; assumption) | omega | (simp (config := { failIfUnchanged := true }) (disch := pw_disch) only [pw_mlens, decide_eq_true_eq, Bool.not_eq_true', decide_eq_false_iff_not]; pw_disch) | pw_omega_b)
   let r ← withMainContext do
     if let some h ← proveBy? c tac then
       rwBy (← iteEq it h true); pure true
@@ -1629,6 +1646,9 @@ def pwLeafCore : TacticM Unit := do
   -- a cut's right side in the machine's lens
   evalTactic (← `(tactic| try pw_nf_l))
   if (← getGoals).isEmpty then return
+  -- a path the context refutes
+  evalTactic (← `(tactic| try (exfalso; omega)))
+  if (← getGoals).isEmpty then return
   pwDbg "leaf front"
   pwFront 64
   pwDbg "leaf fix"
@@ -1653,16 +1673,42 @@ open Lean Elab Tactic Meta in
 on the model's side, its outermost one unfolded and the same again. -/
 def pwLeaf : TacticM Unit := do
   pwLeafCore
-  for _ in [0:3] do
+  for _ in [0:4] do
     if (← getGoals).isEmpty then return
     let some ext ← getSimpExtension? `pw_stage | return
     let stages := (← ext.getTheorems).toUnfold
     let t := (← instantiateMVars (← getMainTarget)).cleanupAnnotations
     let some (_, lhs, rhs) := t.eq? | return
-    -- an `if` the context does not decide stays: a stage under it is not the leaf's
-    if (frontier rhs.cleanupAnnotations).size > 0 then return
-    let some st := (collectP (fun e => match e.getAppFn.constName? with
-        | some n => stages.contains n | none => false) rhs)[0]? | return
+    let isStage := fun (e : Expr) => match e.getAppFn.constName? with
+        | some n => stages.contains n | none => false
+    -- a stage not under an `if`'s branch (the branches stay for the context to decide)
+    let rec topStage? (e : Expr) (k : Nat) : Option Expr :=
+      match k with
+      | 0 => none
+      | k + 1 =>
+        if e.isAppOfArity ``ite 5 then none
+        else if isStage e then some e
+        else e.getAppArgs.foldl (fun acc a => acc.orElse fun _ => topStage? a.cleanupAnnotations k) none
+    let lst? := topStage? lhs.cleanupAnnotations 64
+    let rst? := topStage? rhs.cleanupAnnotations 64
+    let sameHead := fun (a b : Option Expr) => match a, b with
+      | some x, some y => x.getAppFn.constName? == y.getAppFn.constName?
+      | _, _ => false
+    -- the left's stage coarser than the right's (its body calls the right's), or
+    -- the right without one: the sides swapped, the coarser one unfolded
+    let calls := fun (a b : Option Expr) => do
+      match a, b with
+      | some x, some y =>
+        let some v := (← getConstInfo x.getAppFn.constName!).value? | return false
+        return (v.find? (fun e => e.isConstOf y.getAppFn.constName!)).isSome
+      | _, _ => return false
+    if lst?.isSome && !sameHead lst? rst? &&
+        (collectP (fun e => e.isAppOf lst?.get!.getAppFn.constName!) rhs).size == 0 &&
+        (rst?.isNone || (← calls lst? rst?)) then
+      pwDbg s!"leaf swap for {lst?.get!.getAppFn.constName!}"
+      evalTactic (← `(tactic| symm))
+      continue
+    let some st := rst? | return
     -- a stage on both sides is compared, not unfolded
     if (collectP (fun e => e.isAppOf st.getAppFn.constName!) lhs).size > 0 then return
     let nS := mkIdent st.getAppFn.constName!
