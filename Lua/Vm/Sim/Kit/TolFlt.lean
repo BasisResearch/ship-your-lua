@@ -30,7 +30,7 @@ abbrev TolDIn (m : Mem) (sp L i lenp nci func top g : Nat) (x r : BitVec 64) : P
   TolVIn m sp L i lenp nci func top g 0x13#8 504 x r
 
 /-- **`luaL_tolstring` on a float, to `lua_pushfstring`'s call.** -/
-theorem tf_pre (sp L i lenp nci func top g : Nat) (x r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+theorem tfl_pre (sp L i lenp nci func top g : Nat) (x r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
     (hx : TolDIn m sp L i lenp nci func top g x r) :
     Triple (SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
         ⟨Register.x12, BitVec.ofNat 64 lenp⟩] sp r f) (ArmPay m o))
@@ -77,6 +77,21 @@ theorem tf_pre (sp L i lenp nci func top g : Nat) (x r : BitVec 64) (f : AbiFram
   fat_run Lua.Vm.AtF.TolFlt h acc until [0x800030a4]
   exact ⟨_, acc, h⟩
 
+/-- `luaL_tolstring`'s stores before `lua_pushfstring` on a float (the
+generated `m2`): its frame, the callees' below it. -/
+theorem tfl_m2 {sp L i lenp nci func top g : Nat} {r : BitVec 64} {f : AbiFrame} {v : BitVec 64} {m : Mem}
+    {o : Array String} (hsp : 80 ≤ sp) :
+    (∀ a, (a + 80 < sp ∨ sp ≤ a) →
+      bytesT1 (Lua.Vm.AtF.TolFlt.m2 (tiX sp L i lenp nci func top g r f v m o)) a = bytesT1 m a) ∧
+    bytesT8 (Lua.Vm.AtF.TolFlt.m2 (tiX sp L i lenp nci func top g r f v m o)) (sp - 8) = r ∧
+    bytesT8 (Lua.Vm.AtF.TolFlt.m2 (tiX sp L i lenp nci func top g r f v m o)) (sp - 16) = f.s0 ∧
+    bytesT8 (Lua.Vm.AtF.TolFlt.m2 (tiX sp L i lenp nci func top g r f v m o)) (sp - 24) = f.s1 ∧
+    bytesT8 (Lua.Vm.AtF.TolFlt.m2 (tiX sp L i lenp nci func top g r f v m o)) (sp - 32) = f.s2 := by
+  simp only [Lua.Vm.AtF.TolFlt.m2, tiX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+  refine ⟨fun a ha => ?_, ?_, ?_, ?_, ?_⟩
+  · simp (disch := omega) only [fw1_wm8]
+  all_goals simp (disch := omega) only [fw8_wm8, fw8_same]
+
 /-- `luaL_tolstring`'s and its callees' frames on a float: `[sp - 16432, sp)`
 (`lua_pushfstring`'s `PffFr` below `luaL_tolstring`'s 48 bytes). -/
 def TfFr (sp a : Nat) : Prop := sp ≤ a + 16432 ∧ a < sp
@@ -106,13 +121,10 @@ theorem tolflt_pre (hF : FloatToStr_Statement) (sp L i lenp nci func top g : Nat
   intro c h
   ti_in hx
   have hHE : heapEnd = 0x87800000 := rfl
-  obtain ⟨c1, s1, h1⟩ := tf_pre sp L i lenp nci func top g x r f m o hx c h
-  obtain ⟨k2, w8, w16, w24, w32⟩ := ti_m2 (sp := sp) (L := L) (i := i) (lenp := lenp) (nci := nci) (func := func)
+  obtain ⟨c1, s1, h1⟩ := tfl_pre sp L i lenp nci func top g x r f m o hx c h
+  obtain ⟨k2, w8, w16, w24, w32⟩ := tfl_m2 (sp := sp) (L := L) (i := i) (lenp := lenp) (nci := nci) (func := func)
     (top := top) (g := g) (r := r) (f := f) (v := x) (m := m) (o := o) (by omega)
-  have e2 : Lua.Vm.AtF.TolFlt.m2 (tiX sp L i lenp nci func top g r f x m o) =
-      Lua.Vm.AtF.TolInt.m2 (tiX sp L i lenp nci func top g r f x m o) := rfl
-  rw [e2] at h1
-  generalize Lua.Vm.AtF.TolInt.m2 (tiX sp L i lenp nci func top g r f x m o) = M2 at h1 k2 w8 w16 w24 w32
+  generalize Lua.Vm.AtF.TolFlt.m2 (tiX sp L i lenp nci func top g r f x m o) = M2 at h1 k2 w8 w16 w24 w32
   have kl : ∀ a, a < 0x87800000 + 64 → bytesT1 M2 a = bytesT1 m a := fun a ha => k2 a (.inl (by omega))
   have hBh : ∀ a, B a → a < heapEnd := fun a ha => (hI.big_in a ha).2.2
   have hPf : PfIn M2 (sp - 48) L g top 0x80021ccc#64 := {

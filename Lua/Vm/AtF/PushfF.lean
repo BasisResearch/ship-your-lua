@@ -6,6 +6,7 @@ import Lua.Vm.Arms.Segs.Hlua_pushfstring
 import Lua.Vm.Arms.Segs.Hmemcpy
 import Lua.Vm.Arms.Segs.Hstrchr
 import Lua.Vm.Arms.Segs.Hstrlen
+import Lua.Vm.Sim.Kit.FmtLib
 import Lua.Vm.Sim.Kit.AtNarrow
 import Lua.Vm.Sim.Kit.AtAlign
 
@@ -102,7 +103,7 @@ structure Ok_S (X : FCx) : Prop where
   tg : X.n 3 + 16 ≤ X.n 2 ∨ X.n 2 + 1400 ≤ X.n 3
   Lg : X.n 1 + 200 ≤ X.n 2 ∨ X.n 2 + 1400 ≤ X.n 1
   n_lo : 1 ≤ X.n 4
-  n_hi : X.n 4 ≤ 40
+  n_hi : X.n 4 ≤ 23
 
 /-- The context's facts at the root `Ok_T` stands for. -/
 structure Ok_T (X : FCx) : Prop where
@@ -123,7 +124,7 @@ structure Ok_T (X : FCx) : Prop where
   tg : X.n 3 + 16 ≤ X.n 2 ∨ X.n 2 + 1400 ≤ X.n 3
   Lg : X.n 1 + 200 ≤ X.n 2 ∨ X.n 2 + 1400 ≤ X.n 1
   n_lo : 1 ≤ X.n 4
-  n_hi : X.n 4 ≤ 40
+  n_hi : X.n 4 ≤ 23
   ts_lo : 0x8005c6d0 ≤ X.n 5
   ts_hi : X.n 5 + 24 ≤ 0x87800000
   ttt : X.n 5 + 9 ≤ X.n 3 ∨ X.n 3 + 8 ≤ X.n 5 + 8

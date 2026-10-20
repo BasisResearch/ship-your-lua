@@ -465,8 +465,6 @@ theorem ofNat_sub_le {a b : Nat} (h : b ≤ a) (ha : a < 2 ^ 64) :
   simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]
   omega
 
-/-- A byte of a list read by `bytesAt`. -/
-
 /-- A new string's facts with more of the frames excluded. -/
 theorem IaNewPost.mono {M m' : Mem} {F F' : Nat → Prop} {g bkt nuse head p : Nat} {b : List UInt8}
     {hh : BitVec 64} {H H' : HeapIx} (h : IaNewPost M m' F g bkt nuse head b hh H p H') (hF : ∀ a, F a → F' a) :

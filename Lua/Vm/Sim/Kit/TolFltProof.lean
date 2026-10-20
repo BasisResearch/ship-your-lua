@@ -63,9 +63,8 @@ theorem lit_nomatch_g14 {M : Mem} {rt : RtPtrs} {seed : UInt32} {lb : List UInt8
   have e2 : b.getD j 0 = lb.getD j 0 := by
     have := congrArg BitVec.toNat h2
     simp only [BitVec.toNat_ofNat] at this
-    apply UInt8.ext_iff.mpr
+    apply UInt8.toNat_inj.mp
     have := (b.getD j 0).toNat_lt; have := (lb.getD j 0).toNat_lt
-    simp only [UInt8.toNat] at *
     omega
   apply hbad
   rw [← e2]
@@ -98,7 +97,6 @@ theorem argBytes_flt (x : BitVec 64) :
   simp only [Function.comp_apply]
   have := c.toNat_lt
   rw [show (Char.ofNat c.toNat).toNat = c.toNat by rw [Char.ofNat, dif_pos (Or.inl (by omega))]; rfl]
-  rfl
 
 /-- **A float's class facts** (its string's length from the run: `snprintf`
 returns one to twenty-one bytes, `tostringbuff` adds two at most). -/
@@ -107,7 +105,7 @@ theorem argStr_flt (x : BitVec 64) (hlo : 1 ≤ (tsbBytes x).length) (hhi : (tsb
   arg := argBytes_flt x
   len_lo := by rw [tsbU8_length]; exact hlo
   len_hi := by rw [tsbU8_length]; omega
-  cost := by decide
+  cost := by simp [argCost]
   lits := fun ls => lits_ne_tsbU8 ls x
   no_lit := fun hL => lits_nomatch_flt hL x (by rw [tsbU8_length]; omega)
 
@@ -143,13 +141,13 @@ theorem tolFlt_of (hF : FloatToStr_Statement) : TolFlt_Statement := by
       have hpos : 0 < prAllocs args i := by rw [prAllocs_succ hi1 hv, if_pos hcost]; omega
       -- the entry facts at `luaB_print`'s state
       have hx : TolDIn m (sp0 - 64) L i (sp0 - 56) nci func (func + 16 * n + 16) g w r :=
-        tolV_in hIn hn hS hv hcost (fun _ => ⟨ht.symm.trans rfl, hw⟩) (by decide)
+        tolV_in hIn hn hS hv hcost (fun _ => ⟨ht.trans rfl, hw⟩) (by decide)
           (by rw [show g + 504 = g + gMtOff + 8 * luaTnumber by rfl]; exact hIn.mt luaTnumber (by simp))
           hi1 hin hr
       -- what `_dtoa_r` needs: the heap, the bignums, room for their allocations
       have hI : PffIn m H B := by
         refine ⟨(hS.stat hpos).fmt, hP.heap, ?_, hS.big, fun a hb => ?_⟩
-        · have h1 := hS.room (by rw [prCost_succ hi1 hv]; simp [argCost])
+        · have h1 := hS.room (by rw [prCost_succ hi1 hv]; simp only [argCost]; omega)
           rw [prCost_succ hi1 hv] at h1
           simp only [argCost, dtoaRoom] at h1 ⊢
           omega
@@ -160,7 +158,7 @@ theorem tolFlt_of (hF : FloatToStr_Statement) : TolFlt_Statement := by
         simp only [TfFr] at ha; omega
       intro c h
       -- the string's length, from the run's first half
-      obtain ⟨-, -, M1, H1, B1, -, hmid⟩ :=
+      obtain ⟨cm, sm, M1, H1, B1, hRm, hmid⟩ :=
         tolflt_pre hF (sp0 - 64) L i (sp0 - 56) nci func (func + 16 * n + 16) g w r f m o H B hx hI c h
       have hcls := argStr_flt w hmid.pff.len_lo hmid.pff.len_hi
       refine tolPost_of_split (c := dtoaRoom) (F := TfFr (sp0 - 64))
@@ -178,10 +176,10 @@ theorem tolFlt_of (hF : FloatToStr_Statement) : TolFlt_Statement := by
         hR1.keep_inUse (hS.kept (hIn.g_in a h1 h2)).inuse (hIn.g_in a h1 h2).lo
           (fun hb => hS.bigIn.x a hb (.inr (.inr (.inl ⟨h1, h2⟩))))
           (fun hf => by have := (hFr a hf).1; have := (hIn.g_in a h1 h2).hi; omega)
-      have hrod : RodataRead M1 := hx.rod.congr_rod fun a h1 h2 => by
+      have hrod : RodataRead M1 := RodataRead.congr_rod hx.rod fun a h1 h2 => by
         have : Image.rodataBase + Image.rodataSize = 0x8005c6a8 := rfl
         have : Image.rodataBase = 0x8004ecc8 := rfl
-        refine hR1.keep_static hBh (by omega) (fun hg => ?_) (fun hr' => ?_)
+        refine hR1.keep_static (fun a ha => (hS.bigIn.inK a ha).lo) (by omega) (fun hg => ?_) (fun hr' => ?_)
           (fun hf => by have := (hFr a hf).1; omega)
         · have : symMallocAv = 0x8005c6d0 := rfl
           have : symMallocSbrkBase = 0x8005d388 := rfl

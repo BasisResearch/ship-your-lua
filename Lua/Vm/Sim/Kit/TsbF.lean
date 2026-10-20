@@ -45,29 +45,45 @@ theorem spanLen_eq_length (l : List (BitVec 8)) : spanLen l = l.length ↔ l.all
     · simp
     · simp only [if_true, Nat.add_right_cancel_iff, true_and]; exact ih
 
+/-- `strspn`'s set read on a byte of the model. -/
+theorem spnIn_u8 (c : UInt8) : spnIn (BitVec.ofNat 8 c.toNat) = (c == 45 || (48 ≤ c && c ≤ 57)) := by
+  have h1 : (c.toNat == 45) = (c == 45) := by
+    rw [Bool.eq_iff_iff, beq_iff_eq, beq_iff_eq]
+    constructor
+    · intro h; apply UInt8.toNat_inj.mp; rw [h]; rfl
+    · intro h; rw [h]; rfl
+  have h2 : decide (48 ≤ c.toNat) = decide ((48 : UInt8) ≤ c) :=
+    decide_eq_decide.mpr (UInt8.le_iff_toNat_le (a := 48) (b := c)).symm
+  have h3 : decide (c.toNat ≤ 57) = decide (c ≤ (57 : UInt8)) :=
+    decide_eq_decide.mpr (UInt8.le_iff_toNat_le (a := c) (b := 57)).symm
+  simp only [spnIn, BitVec.toNat_ofNat, Nat.mod_eq_of_lt c.toNat_lt, h1]
+  rw [h2, h3]
+
 /-- **`tostringbuff`'s bytes** from `%.14g`'s: `".0"` appended when `strspn`
 reaches the terminator. -/
 theorem tsbBytes_eq (x : BitVec 64) :
     tsbBytes x = if spanLen (g14Bytes x) = (g14Bytes x).length then g14Bytes x ++ [0x2e#8, 0x30#8]
       else g14Bytes x := by
-  have hc : ∀ c : UInt8, spnIn (BitVec.ofNat 8 c.toNat) = (c == 45 || (48 ≤ c && c ≤ 57)) := by
-    intro c
-    simp only [spnIn, u8_toNat]
-    have h1 : (c == 45) = (c.toNat == 45) := by
-      cases h : c == 45 <;> cases h' : c.toNat == 45 <;> simp_all [UInt8.ext_iff] <;> omega
-    have h2 : ((48 : UInt8) ≤ c) = (48 ≤ c.toNat) := by
-      apply propext; rw [UInt8.le_iff_toNat_le]; simp
-    have h3 : (c ≤ (57 : UInt8)) = (c.toNat ≤ 57) := by
-      apply propext; rw [UInt8.le_iff_toNat_le]; simp
-    rw [h1]; simp only [h2, h3]
-  rw [spanLen_eq_length]
-  simp only [tsbBytes, g14Bytes, Lua.Num.tostringbuffBits, Lua.Num.tostringbuff, Lua.Num.fmt14gBits,
-    List.all_map, Function.comp_def, hc]
-  split <;> simp
+  have hiff : spanLen (g14Bytes x) = (g14Bytes x).length ↔
+      (Lua.Num.fmt14gBits x).all (fun c => c == 45 || (48 ≤ c && c ≤ 57)) = true := by
+    rw [spanLen_eq_length]
+    simp only [g14Bytes, List.all_map, Function.comp_def, spnIn_u8]
+  by_cases hb : (Lua.Num.fmt14gBits x).all (fun c => c == 45 || (48 ≤ c && c ≤ 57)) = true
+  · rw [if_pos (hiff.mpr hb)]
+    simp only [tsbBytes, Lua.Num.tostringbuffBits, Lua.Num.tostringbuff]
+    simp only [Lua.Num.fmt14gBits] at hb
+    rw [if_pos hb]
+    simp [g14Bytes, Lua.Num.fmt14gBits]
+  · rw [if_neg (fun h => hb (hiff.mp h))]
+    simp only [tsbBytes, Lua.Num.tostringbuffBits, Lua.Num.tostringbuff]
+    simp only [Lua.Num.fmt14gBits] at hb
+    rw [if_neg hb]
+    rfl
 
 /-- `%.14g`'s bytes are none zero. -/
-theorem g14Bytes_nz (x : BitVec 64) : ∀ j (h : j < (g14Bytes x).length), (g14Bytes x)[j] ≠ 0#8 := by
+theorem g14Bytes_nz (x : BitVec 64) : ∀ j, j < (g14Bytes x).length → (g14Bytes x).getD j 0 ≠ 0#8 := by
   intro j hj he
+  rw [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem hj, Option.getD_some] at he
   simp only [g14Bytes, List.getElem_map] at he
   have hm := List.getElem_mem (l := Lua.Num.fmt14gBits x) (by simpa [g14Bytes] using hj)
   have := Lua.Num.fmt14g_ne_zero _ _ _ hm
@@ -89,11 +105,15 @@ theorem rod_bytes {m : Mem} (h : RodataRead m) {a n : Nat} (h1 : Image.rodataBas
 
 /-- `"%.14g"` in `.rodata`. -/
 theorem g14Fmt_rod {m : Mem} (h : RodataRead m) : bytesAt m 0x8004f3d8 6 = g14Fmt := by
-  rw [rod_bytes h (by decide) (by decide)]; decide
+  rw [rod_bytes h (by decide) (by decide)]
+  simp only [List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil, List.map_append]
+  decide
 
 /-- `"-0123456789"` in `.rodata`. -/
 theorem spnSet_rod {m : Mem} (h : RodataRead m) : bytesAt m 0x8004f3e0 12 = spnSetBytes := by
-  rw [rod_bytes h (by decide) (by decide)]; decide
+  rw [rod_bytes h (by decide) (by decide)]
+  simp only [List.range_succ, List.range_zero, List.nil_append, List.map_cons, List.map_nil, List.map_append]
+  decide
 
 /-- `.rodata` at a memory agreeing on it. -/
 theorem RodataRead.congr_rod {m M : Mem} (h : RodataRead m)
@@ -104,7 +124,7 @@ theorem RodataRead.congr_rod {m M : Mem} (h : RodataRead m)
 
 /-- A context of `tostringbuff`'s rows: `sp`, the buffer, the count, `strspn`'s
 answer; the caller's frame, the double. -/
-@[at_row] abbrev tsX (ns : List Nat) (r : BitVec 64) (f : AbiFrame) (x : BitVec 64) (M : Mem) (o : Array String) :
+@[at_row] abbrev tbX (ns : List Nat) (r : BitVec 64) (f : AbiFrame) (x : BitVec 64) (M : Mem) (o : Array String) :
     FCx :=
   FCx.mk' ns [r, f.s0, f.s1, f.s2, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11, x] M o
 
@@ -145,10 +165,22 @@ abbrev tsSnFr (buf : Nat) (f : AbiFrame) : AbiFrame :=
 abbrev tsSpFr (buf n : Nat) (f : AbiFrame) : AbiFrame :=
   ⟨BitVec.ofNat 64 n, BitVec.ofNat 64 buf, f.s2, f.s3, f.s4, f.s5, f.s6, f.s7, f.s8, f.s9, f.s10, f.s11⟩
 
+/-- The `".0"` suffix's second address: `buf` plus the narrow count `n + 1`
+(`addiw`), as its `Nat`. -/
+theorem tsb_ad1 (b n : Nat) (hn : n + 1 < 2 ^ 31) (hb : b + n + 1 < 2 ^ 64) :
+    (BitVec.ofNat 64 b + sign_extend (m := 64) (Sail.BitVec.extractLsb (BitVec.ofNat 64 (n + 1)) 31 0)).toNat =
+      b + n + 1 := by
+  rw [extract_ofNat, fmt_sext32_ofNat hn, BitVec.ofNat_add_ofNat, BitVec.toNat_ofNat]
+  generalize (2:Nat) ^ 64 = E at hb ⊢
+  rw [Nat.mod_eq_of_lt (by omega)]
+  omega
+
 /-- A store in the stack frame is off the heap's footprint. -/
 theorem tsbFr_hi {sp buf a : Nat} (hsp : heapEnd + 16384 ≤ sp) (hb : sp ≤ buf) (h : TsbFr sp buf a) :
     heapEnd + 32 ≤ a := by
-  simp only [TsbFr, Below, Rng] at h; omega
+  simp only [TsbFr, Below, Rng] at h
+  generalize heapEnd = E at *
+  omega
 
 /-- **`tostringbuff`'s float part** from `snprintf`'s summary (the named
 premise `FloatToStr_Statement`) and `strspn`'s: the model's `tostringbuff`
@@ -165,25 +197,25 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
   have hHS : heapStart = 0x8006ecd0 := rfl
   have hTH : tohostAddr = 0x8005c6c0 := rfl
   simp only [callPre, List.cons_append, List.nil_append] at h
-  have hX : Lua.Vm.AtF.TsbF.Ok (tsX [sp, buf] r f x m o) := by fcx_ok
-  have h : SegSt 0x8001142c#64 (Lua.Vm.AtF.TsbF.r0 (tsX [sp, buf] r f x m o))
-      (ArmPay (tsX [sp, buf] r f x m o).m (tsX [sp, buf] r f x m o).o) c := h.repin (by pins_of h)
+  have hX : Lua.Vm.AtF.TsbF.Ok (tbX [sp, buf] r f x m o) := by fcx_ok
+  have h : SegSt 0x8001142c#64 (Lua.Vm.AtF.TsbF.r0 (tbX [sp, buf] r f x m o))
+      (ArmPay (tbX [sp, buf] r f x m o).m (tbX [sp, buf] r f x m o).o) c := h.repin (by pins_of h)
   have acc := Steps.refl c
   fat_run Lua.Vm.AtF.TsbF h acc until [0x80034de0]
   -- the frame's stores
-  generalize hM0 : Lua.Vm.AtF.TsbF.m0 (tsX [sp, buf] r f x m o) = M0 at h
+  generalize hM0 : Lua.Vm.AtF.TsbF.m0 (tbX [sp, buf] r f x m o) = M0 at h
   have k0 : ∀ a, (a + 24 < sp ∨ sp ≤ a) → bytesT1 M0 a = bytesT1 m a := by
     intro a ha; rw [← hM0]
-    simp only [Lua.Vm.AtF.TsbF.m0, tsX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    simp only [Lua.Vm.AtF.TsbF.m0, tbX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
     simp (disch := omega) only [fw1_wm8]
   have w8 : bytesT8 M0 (sp - 8) = r := by
-    rw [← hM0]; simp only [Lua.Vm.AtF.TsbF.m0, tsX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    rw [← hM0]; simp only [Lua.Vm.AtF.TsbF.m0, tbX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
     simp (disch := omega) only [fw8_wm8, fw8_same]
   have w16 : bytesT8 M0 (sp - 16) = f.s0 := by
-    rw [← hM0]; simp only [Lua.Vm.AtF.TsbF.m0, tsX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    rw [← hM0]; simp only [Lua.Vm.AtF.TsbF.m0, tbX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
     simp (disch := omega) only [fw8_wm8, fw8_same]
   have w24 : bytesT8 M0 (sp - 24) = f.s1 := by
-    rw [← hM0]; simp only [Lua.Vm.AtF.TsbF.m0, tsX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
+    rw [← hM0]; simp only [Lua.Vm.AtF.TsbF.m0, tbX, FCx.mk', List.getD_cons_zero, List.getD_cons_succ]
     simp (disch := omega) only [fw8_wm8, fw8_same]
   have hBh : ∀ a, B a → a < heapEnd := fun a ha => (hI.big_in a ha).2.2
   have hF0 : ∀ a, ¬ TsbFr sp buf a → bytesT1 M0 a = bytesT1 m a := fun a ha =>
@@ -193,9 +225,13 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
   have hIn : FltFmtIn M0 (sp - 32) buf 0x8004f3d8 0x80011458#64 H B := {
     fmtb := (bytesAt_congr fun j hj => lowS _ (by omega)).trans (g14Fmt_rod hI.rod)
     f_lo := by decide, f_hi := by decide, ra := by decide
-    sp_lo := by omega, sp_hi := by omega, sp_al := by omega, b_lo := by omega, b_hi := hb2
+    sp_lo := by clear hX h; revert hs1; generalize heapEnd = E; intro hs1; omega
+    sp_hi := by omega, sp_al := by omega, b_lo := by omega, b_hi := hb2
     stat := hI.stat.congr lowS
-    rod := hI.rod.congr_rod fun a h1 h2 => lowS a (by have : Image.rodataBase + Image.rodataSize = 0x8005c6a8 := rfl; omega)
+    rod := RodataRead.congr_rod hI.rod fun a h1 h2 => lowS a (by
+      have : Image.rodataBase = 0x8004ecc8 := rfl
+      have : Image.rodataSize = 55776 := rfl
+      omega)
     heap := (BigRun.ofFrame (F := TsbFr sp buf) hI.heap hI.big hBh (fun a ha => tsbFr_hi hs1 hb1 ha) hF0).heap
     room := hI.room
     big := hI.big.trans fun a ha => hF0 a fun hf => by
@@ -212,7 +248,7 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
   generalize hn : (g14Bytes x).length = n at hl1 hl2 hret
   -- `M1` keeps the frame and `.rodata`
   have kS : ∀ a, a < heapStart → ¬ MallocGlobal a → ¬ ReentWord a → bytesT1 M1 a = bytesT1 M0 a :=
-    fun a h1 h2 h3 => hP.big.keep_static hBh h1 h2 h3 fun hf => by
+    fun a h1 h2 h3 => hP.big.keep_static (fun a ha => (hI.big_in a ha).2.1) h1 h2 h3 fun hf => by
       simp only [G14Fr, Below, Rng] at hf; omega
   have kF : ∀ a, sp - 32 ≤ a → a < sp → bytesT1 M1 a = bytesT1 M0 a := fun a h1 h2 => hP.big.keep a fun hw => by
     rcases hw with hw | hw | hw | hw
@@ -222,8 +258,8 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
     · have := hBh a hw; omega
     · simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hw; omega
     · simp only [G14Fr, Below, Rng] at hw; omega
-  have rod1 : RodataRead M1 := (hI.rod.congr_rod fun a h1 h2 => lowS a (by
-      have : Image.rodataBase + Image.rodataSize = 0x8005c6a8 := rfl; omega)).congr_rod fun a h1 h2 => by
+  have rod1 : RodataRead M1 := (RodataRead.congr_rod hI.rod fun a h1 h2 => lowS a (by
+      have : Image.rodataBase + Image.rodataSize = 0x8005c6a8 := rfl; omega))|> fun hr => RodataRead.congr_rod hr fun a h1 h2 => by
     have : Image.rodataBase + Image.rodataSize = 0x8005c6a8 := rfl
     have : Image.rodataBase = 0x8004ecc8 := rfl
     refine kS a (by omega) (fun hg => ?_) (fun hr => ?_)
@@ -235,10 +271,10 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
       simp only [MallocGlobal] at hg; omega
     · simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hr; omega
   -- `S`: on to `strspn`
-  have hXS : Lua.Vm.AtF.TsbF.Ok_S (tsX [sp, buf, n] r f x M1 o) := by fcx_ok
+  have hXS : Lua.Vm.AtF.TsbF.Ok_S (tbX [sp, buf, n] r f x M1 o) := by fcx_ok
   simp only [wrRet] at hret
-  have h : SegSt 0x80011458#64 (Lua.Vm.AtF.TsbF.r2 (tsX [sp, buf, n] r f x M1 o))
-      (ArmPay (tsX [sp, buf, n] r f x M1 o).m (tsX [sp, buf, n] r f x M1 o).o) c2 := by
+  have h : SegSt 0x80011458#64 (Lua.Vm.AtF.TsbF.r2 (tbX [sp, buf, n] r f x M1 o))
+      (ArmPay (tbX [sp, buf, n] r f x M1 o).m (tbX [sp, buf, n] r f x M1 o).o) c2 := by
     fcx_unfold; exact hret.repin (by pins_of hret)
   fat_run Lua.Vm.AtF.TsbF h acc until [0x800368dc]
   fcx_unfold at h
@@ -256,19 +292,20 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
   generalize hk' : spanLen (g14Bytes x) = k at hk hret3
   rw [hn] at hk
   -- `P`: the byte at `buf + k`, the suffix
-  have hXP : Lua.Vm.AtF.TsbF.Ok_P (tsX [sp, buf, n, k] r f x M1 o) := by fcx_ok
+  have had := tsb_ad1 buf n (by omega) (by omega)
+  have hXP : Lua.Vm.AtF.TsbF.Ok_P (tbX [sp, buf, n, k] r f x M1 o) := by fcx_ok
   simp only [wrRet] at hret3
-  have h : SegSt 0x8001146c#64 (Lua.Vm.AtF.TsbF.r4 (tsX [sp, buf, n, k] r f x M1 o))
-      (ArmPay (tsX [sp, buf, n, k] r f x M1 o).m (tsX [sp, buf, n, k] r f x M1 o).o) c3 := by
+  have h : SegSt 0x8001146c#64 (Lua.Vm.AtF.TsbF.r4 (tbX [sp, buf, n, k] r f x M1 o))
+      (ArmPay (tbX [sp, buf, n, k] r f x M1 o).m (tbX [sp, buf, n, k] r f x M1 o).o) c3 := by
     fcx_unfold; exact hret3.repin (by pins_of hret3)
-  have hc0 : bytesT8 (tsX [sp, buf, n, k] r f x M1 o).m ((tsX [sp, buf, n, k] r f x M1 o).n 0 - 8) =
-      (tsX [sp, buf, n, k] r f x M1 o).b 0 :=
+  have hc0 : bytesT8 (tbX [sp, buf, n, k] r f x M1 o).m ((tbX [sp, buf, n, k] r f x M1 o).n 0 - 8) =
+      (tbX [sp, buf, n, k] r f x M1 o).b 0 :=
     show bytesT8 M1 (sp - 8) = r from (bytesT8_congrT fun j _ => kF _ (by omega) (by omega)).trans w8
-  have hc1 : bytesT8 (tsX [sp, buf, n, k] r f x M1 o).m ((tsX [sp, buf, n, k] r f x M1 o).n 0 - 16) =
-      (tsX [sp, buf, n, k] r f x M1 o).b 1 :=
+  have hc1 : bytesT8 (tbX [sp, buf, n, k] r f x M1 o).m ((tbX [sp, buf, n, k] r f x M1 o).n 0 - 16) =
+      (tbX [sp, buf, n, k] r f x M1 o).b 1 :=
     show bytesT8 M1 (sp - 16) = f.s0 from (bytesT8_congrT fun j _ => kF _ (by omega) (by omega)).trans w16
-  have hc2 : bytesT8 (tsX [sp, buf, n, k] r f x M1 o).m ((tsX [sp, buf, n, k] r f x M1 o).n 0 - 24) =
-      (tsX [sp, buf, n, k] r f x M1 o).b 2 :=
+  have hc2 : bytesT8 (tbX [sp, buf, n, k] r f x M1 o).m ((tbX [sp, buf, n, k] r f x M1 o).n 0 - 24) =
+      (tbX [sp, buf, n, k] r f x M1 o).b 2 :=
     show bytesT8 M1 (sp - 24) = f.s1 from (bytesT8_congrT fun j _ => kF _ (by omega) (by omega)).trans w24
   have hg := zb_bne0 (bytesT1 M1 (buf + k))
   have hbig := hP.big.mono (F' := TsbFr sp buf) (fun a ha => by
@@ -281,13 +318,14 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
     subst hkn
     have hz : bytesT1 M1 (buf + k) = 0#8 := by
       have := bytesAt_get hbytesB (j := k) (by omega)
-      rw [this, List.getD_eq_getElem?_getD, List.getElem?_append_right (by rw [hn])]; simp [hn]
-    simp only [hz, decide_true, Bool.not_true] at hg
+      rw [this, List.getD_eq_getElem?_getD, List.getElem?_append_right (Nat.le_of_eq hn)]; simp [hn]
+    rw [decide_eq_true hz, Bool.not_true] at hg
     fat_run Lua.Vm.AtF.TsbF h acc
     fcx_unfold at h
     have ht : tsbBytes x = g14Bytes x ++ [0x2e#8, 0x30#8] := by rw [tsbBytes_eq, if_pos (hk'.trans hn.symm |>.trans rfl)]
     have hlen : (tsbBytes x).length = k + 2 := by rw [ht]; simp [hn]
-    refine ⟨_, acc, _, H1, B1, ?_, ?_⟩
+    refine ⟨_, acc, (M1.insert (buf + k) (stData 1 (0x2e#64))).insert (buf + k + 1) (stData 1 (0x30#64)), H1, B1,
+      ?_, ?_⟩
     · rw [hlen]; exact h.repin (by pins_of h)
     · refine ⟨by omega, by omega, ?_, ?_⟩
       · rw [hlen, ht]
@@ -305,8 +343,8 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
           have : j = k ∨ j = k + 1 := by omega
           rcases this with rfl | rfl
           · simp (disch := omega) only [fw1_ins]
-            rw [fw1_same (by omega)]; decide
-          · rw [fw1_same (by omega)]; decide
+            rw [fw1_same (by omega)]; simp; decide
+          · rw [fw1_same (by omega)]; simp; decide
       · refine hbig0.frame_after hBh (fun a ha => tsbFr_hi hs1 hb1 ha) fun a ha => ?_
         simp only [TsbFr, Below, Rng, not_or, not_and, Nat.not_lt] at ha
         simp (disch := omega) only [fw1_ins]
@@ -315,13 +353,14 @@ theorem tsb_sum (hF : FloatToStr_Statement) (sp buf : Nat) (x r : BitVec 64) (f 
       have := bytesAt_get hbytesB (j := k) (by omega)
       rw [this, List.getD_eq_getElem?_getD, List.getElem?_append_left (by rw [hn]; omega),
         List.getElem?_eq_getElem (by rw [hn]; omega), Option.getD_some]
-      exact g14Bytes_nz x k (by rw [hn]; omega)
+      have := g14Bytes_nz x k (by rw [hn]; omega)
+      rwa [List.getD_eq_getElem?_getD, List.getElem?_eq_getElem (by rw [hn]; omega), Option.getD_some] at this
     simp only [hz, decide_false, Bool.not_false] at hg
     fat_run Lua.Vm.AtF.TsbF h acc
     fcx_unfold at h
     have ht : tsbBytes x = g14Bytes x := by rw [tsbBytes_eq, if_neg (by rw [hk', hn]; exact hkn)]
     have hlen : (tsbBytes x).length = n := by rw [ht, hn]
-    refine ⟨_, acc, _, H1, B1, ?_, ?_⟩
+    refine ⟨_, acc, M1, H1, B1, ?_, ?_⟩
     · rw [hlen]; exact h.repin (by pins_of h)
     · refine ⟨by omega, by omega, ?_, hbig0⟩
       rw [hlen, ht]

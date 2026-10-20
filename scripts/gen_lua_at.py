@@ -4332,7 +4332,11 @@ FNS.update({
 TSB_OK = ["sp_lo : 0x87800000 + 16384 ≤ X.n 0", "sp_hi : X.n 0 ≤ 2 ^ 32", "sp_al : X.n 0 % 16 = 0",
           "ra : (X.b 0).toNat % 4 = 0", "b_lo : X.n 0 ≤ X.n 1", "b_hi : X.n 1 + 44 ≤ 2 ^ 32"]
 TSB_S = TSB_OK + ["n_lo : 1 ≤ X.n 2", "n_hi : X.n 2 ≤ 21"]
-TSB_P = TSB_S + ["k_le : X.n 3 ≤ X.n 2"]
+# the `".0"` suffix's second address (`addiw` of the count, then `add`): the
+# narrow sum as its `Nat`, for `omega` (`tsb_ad1`)
+TSB_P = TSB_S + ["k_le : X.n 3 ≤ X.n 2",
+                 "ad1 : (BitVec.ofNat 64 (X.n 1) + sign_extend (m := 64) (Sail.BitVec.extractLsb "
+                 "(BitVec.ofNat 64 (X.n 2 + 1)) 31 0)).toNat = X.n 1 + X.n 2 + 1"]
 FNS.update({
     "tostringbuff/f": dict(
         mod="TsbF", entry=0x8001142c,
@@ -4341,6 +4345,7 @@ FNS.update({
         cells={(1, 0x8004f3d8 + k): b for k, b in enumerate(b"%.14g\0")},
         calls={0x80034de0: dict(ret={10: N((2, 1))}, root="S", ok=TSB_S, lb={1: 0x87800000, 2: 1}),
                0x800368dc: dict(ret={10: N((3, 1))}, root="P", ok=TSB_P, lb={1: 0x87800000, 2: 1})},
+        imports=["Lua.Vm.Sim.Kit.FmtLib", "Lua.Vm.Sim.Kit.AtNarrow"],
         doc="`tostringbuff`'s float part: `snprintf(buf, 44, \"%.14g\", n)`, `strspn`, the `\".0\"` suffix."),
 })
 
@@ -4354,7 +4359,7 @@ FNS.update({
 PFF_FMT = 0x8004fd60
 PFF_CELLS = {(8, PFF_FMT): 0x6625, (1, PFF_FMT): 0x25, (1, PFF_FMT + 1): 0x66, (1, PFF_FMT + 2): 0,
              (4, 0x80052c90): 0xfffbf34c}
-PFF_S = PF_OK + ["n_lo : 1 ≤ X.n 4", "n_hi : X.n 4 ≤ 40"]
+PFF_S = PF_OK + ["n_lo : 1 ≤ X.n 4", "n_hi : X.n 4 ≤ 23"]
 PFF_T = PFF_S + ["ts_lo : 0x8005c6d0 ≤ X.n 5", "ts_hi : X.n 5 + 24 ≤ 0x87800000",
                  "ttt : X.n 5 + 9 ≤ X.n 3 ∨ X.n 3 + 8 ≤ X.n 5 + 8"]
 FNS.update({
@@ -4362,7 +4367,7 @@ FNS.update({
         mod="PushfF", entry=0x800030a4,
         row=abi_row({10: N((1, 1)), 11: ("lit", PFF_FMT), 12: ("bv", 13), 13: ("bv", 14), 14: ("bv", 15),
                      15: ("bv", 16), 16: ("bv", 17), 17: ("bv", 18)}),
-        ok=PF_OK, lb=PF_LB, ub={4: 40}, depth=200, junk=(14, 16, 17), res={0: (16, 0)}, xres=True,
+        ok=PF_OK, lb=PF_LB, ub={4: 23}, depth=200, junk=(14, 16, 17), res={0: (16, 0)}, xres=True,
         cells=PFF_CELLS,
         rcells={(((1, 1),), 24): N((2, 1)), (((1, 1),), 16): N((3, 1))},
         rcellsw={(1, ((5, 1),), 8): 4},
@@ -4370,7 +4375,7 @@ FNS.update({
         calls={0x8001142c: dict(ret={10: N((4, 1))}, root="S", ok=PFF_S, lb=PF_LB),
                0x80017694: dict(ret={10: N((5, 1))}, root="T", ok=PFF_T, lb=PF_LB),
                0x8000ec80: dict(ret={})},
-        imports=["Lua.Vm.Sim.Kit.AtNarrow", "Lua.Vm.Sim.Kit.AtAlign"],
+        imports=["Lua.Vm.Sim.Kit.FmtLib", "Lua.Vm.Sim.Kit.AtNarrow", "Lua.Vm.Sim.Kit.AtAlign"],
         doc="`lua_pushfstring(L, \"%f\", n)`: `luaO_pushvfstring` on `\"%f\"` (`strchr`, `addstr2buff`, "
             "`addnum2buff` -> `tostringbuff`'s float part, `luaS_newlstr`, the push), `luaC_checkGC`."),
 })

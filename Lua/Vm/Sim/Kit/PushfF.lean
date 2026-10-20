@@ -165,6 +165,9 @@ theorem pff_tsb (hF : FloatToStr_Statement) (sp L g top : Nat) (x r : BitVec 64)
     xor_al _ _ (by decide) (by simp only [pfX, FCx.mk', List.getD_cons_zero]; omega)
   have hg_2 : zopz0zKzJ_u (BitVec.ofNat 64 ((pfX [sp, L, g, top] r f x a3 a4 a5 a6 a7 (pfS8 sp) M1 o).n 0 - 408))
       (BitVec.ofNat 64 ((pfX [sp, L, g, top] r f x a3 a4 a5 a6 a7 (pfS8 sp) M1 o).n 0 - 408)) = true := uge_self _
+  have h : SegSt 0x80011df8#64 (Lua.Vm.AtF.PushfF.r3 (pfX [sp, L, g, top] r f x a3 a4 a5 a6 a7 (pfS8 sp) M1 o))
+      (ArmPay (pfX [sp, L, g, top] r f x a3 a4 a5 a6 a7 (pfS8 sp) M1 o).m
+        (pfX [sp, L, g, top] r f x a3 a4 a5 a6 a7 (pfS8 sp) M1 o).o) c := h
   have acc := Steps.refl c
   fat_run Lua.Vm.AtF.PushfF h acc until [0x8003b648]
   obtain ⟨_, acc, h⟩ := Vsa.Sim.SegSt.run acc h (Vsa.Sim.SegSt.pins h)
@@ -189,8 +192,10 @@ theorem pff_tsb (hF : FloatToStr_Statement) (sp L g top : Nat) (x r : BitVec 64)
     sp_lo := by omega, sp_hi := by omega, sp_al := by omega, ra := by decide, b_lo := by omega
     b_hi := by omega
     stat := hI.stat.congr fun a ha => low6 a (.inl (by omega))
-    rod := hP.rod.congr_rod fun a h1 h2 => low6 a (.inl (by
-      have : Image.rodataBase + Image.rodataSize = 0x8005c6a8 := rfl; omega))
+    rod := RodataRead.congr_rod hP.rod fun a h1 h2 => low6 a (.inl (by
+      have : Image.rodataBase = 0x8004ecc8 := rfl
+      have : Image.rodataSize = 55776 := rfl
+      omega))
     heap := hR6.heap
     room := hI.room
     big := hR6.big
@@ -205,7 +210,7 @@ theorem pff_tsb (hF : FloatToStr_Statement) (sp L g top : Nat) (x r : BitVec 64)
     fun a h1 h2 => hpost.big.keep a fun hw => by
       rcases hw with hw | hw | hw | hw
       · rcases hw with hg | ⟨-, hh, -⟩
-        · have := hg.lt; omega
+        · have := hg.lt; have : heapStart = 0x8006ecd0 := rfl; omega
         · omega
       · have := hBh a hw; omega
       · simp only [ReentWord, symImpureData, reentResultOff, reentFreelistOff] at hw; omega
@@ -340,7 +345,7 @@ theorem pff_nl (hM : MallocR_Statement) (sp L g top : Nat) (x r : BitVec 64) (f 
 `pf_tail` on this module's rows. -/
 theorem pff_ret (sp L g top n ts : Nat) (i r : BitVec 64) (f : AbiFrame) (a3 a4 a5 a6 a7 : BitVec 64)
     (m M3 : Mem) (o : Array String) (hP : PfIn m sp L g top r) (hT : PfT M3 sp L g top ts r f)
-    (hgc : bytesT1 M3 (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
+    (hn1 : 1 ≤ n) (hn2 : n ≤ 23) (hgc : bytesT1 M3 (g + gGcstpOff) = 0x1#8) (hgal : g % 8 = 0) :
     Triple (SegSt 0x80011ec0#64 (Lua.Vm.AtF.PushfF.r9 (pfX3 sp L g top n ts r f i a3 a4 a5 a6 a7 M3 o))
         (ArmPay M3 o))
       (fun c => ∃ M, PfPost M3 M sp L g top ts ∧ wrRet r sp (ts + 24) f M o c) := by
@@ -387,7 +392,7 @@ theorem pushfF_post (hM : MallocR_Statement) (sp L g top : Nat) (x r : BitVec 64
     (hstr.gw (a := g + gGcstpOff) (F := PfFr sp) hT (by omega) (fun a ha => by simp only [PfFr] at ha; omega)
       (by simp only [gGcstpOff]; omega) (by simp only [gGcstpOff]; omega)
       (by simp only [Rng, gGcstpOff]; omega)).trans hgc
-  obtain ⟨c4, s4, M, hpost, hret⟩ := pff_ret sp L g top _ ts x r f a3 a4 a5 a6 a7 M2 M3 o hP hPT hgc3 hgal c3 h3
+  obtain ⟨c4, s4, M, hpost, hret⟩ := pff_ret sp L g top _ ts x r f a3 a4 a5 a6 a7 M2 M3 o hP hPT hn1 hn2 hgc3 hgal c3 h3
   exact ⟨c4, s3.trans s4, ts, M3, M, H', hstr, hpost,
     pfTs_of hT (by rw [tsbU8_length]; omega) (by omega) (by omega) (by omega) (by omega) hPT hstr hpost, hret⟩
 
