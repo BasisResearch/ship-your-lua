@@ -139,6 +139,6 @@ set_option hygiene false in
 /-- `luai_numunm`'s stored float: the sign bit flipped inline, under the
 operand's float tag (`hta`). -/
 macro_rules | `(tactic| at_new_ext) => `(tactic| exact ValRepr.flt_neg
-  (by first | decide | (simp only [stData_zext, Nat.add_zero, hta]; done)) _)
+  (by first | decide | (simp only [stData_zext, Nat.add_zero, hta]; done)) _ (by at_quiet))
 
 end Lua.Vm.Sim.At

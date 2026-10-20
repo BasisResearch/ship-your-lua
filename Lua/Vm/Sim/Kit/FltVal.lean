@@ -59,7 +59,7 @@ theorem _root_.Lua.Vm.Sim.ValRepr.ofFloat_of {mo : Mem} {ι : Strs} {t : BitVec 
     (ht : t = BitVec.ofNat 8 vNumFlt) (hx : x = y.toBits.toBitVec) :
     ValRepr mo ι t x (Value.ofFloat y) := by
   subst ht hx
-  have := ValRepr.flt (mo := mo) (ι := ι) (x := y.toBits.toBitVec)
+  have := ValRepr.flt (mo := mo) (ι := ι) (x := y.toBits.toBitVec) (isSNaN_toBits y)
   rwa [show Float.Model.ofBits (UInt64.ofBitVec y.toBits.toBitVec) = y from toModel_toBits y] at this
 
 /-- A float register's tag and model. -/
@@ -67,6 +67,42 @@ theorem _root_.Lua.Vm.Sim.ValRepr.flt_parts {mo : Mem} {ι : Strs} {t : BitVec 8
     (h : ValRepr mo ι t x (.flt y n)) : t = BitVec.ofNat 8 vNumFlt ∧ F64.toModel x = y ∧ x.msb = n := by
   cases h with
   | flt => exact ⟨rfl, rfl, rfl⟩
+
+open Lean Elab Tactic Meta in
+/-- **`at_quiet`** (lane F1-22): an entry payload's quietness
+(`isSNaN x = false`, `ValRepr.flt`'s premise) from the representation in
+context it was read from (the per-operand views keep `hv`): a float value's
+(`ValRepr.quiet`), or one under a float tag fact (`ValRepr.quiet_of_tag`). -/
+elab "at_quiet" : tactic => withMainContext do
+  evalTactic (← `(tactic| try simp only [Loc.den, Fld.den, Nat.add_zero]))
+  withMainContext do
+  let g ← getMainGoal
+  let gt ← whnfR (← instantiateMVars (← g.getType))
+  let some (_, lhs, _) := gt.eq? | throwError "at_quiet: not an equation"
+  let some x := (if lhs.isAppOfArity ``Lua.Bytecode.isSNaN 1 then some lhs.appArg! else none)
+    | throwError "at_quiet: not `isSNaN x = false`"
+  -- the payload is matched up to reducible unfolding only: never a deep
+  -- `slotVal` unification
+  for d in (← getLCtx) do
+    if d.isImplementationDetail then continue
+    let t ← instantiateMVars d.type
+    unless t.isAppOfArity ``Lua.Vm.Sim.ValRepr 5 do continue
+    let args := t.getAppArgs
+    unless ← withReducible (isDefEq args[3]! x) do continue
+    let v ← whnfR args[4]!
+    if v.isAppOfArity ``Lua.Bytecode.Value.flt 2 then
+      g.assign (← mkAppM ``Lua.Vm.Sim.ValRepr.quiet #[d.toExpr])
+      return
+    -- a value under a float tag fact in context
+    let ht ← mkFreshExprMVar (← mkEq args[2]! (mkApp2 (mkConst ``BitVec.ofNat) (mkNatLit 8)
+      (mkConst ``Lua.Vm.Layout.vNumFlt)))
+    let s ← saveState
+    try
+      ht.mvarId!.assumption
+      g.assign (← mkAppM ``Lua.Vm.Sim.ValRepr.quiet_of_tag #[d.toExpr, ht])
+      return
+    catch _ => s.restore
+  throwError "at_quiet: no representation of the payload in context"
 
 /-! ## The comparisons' answers -/
 

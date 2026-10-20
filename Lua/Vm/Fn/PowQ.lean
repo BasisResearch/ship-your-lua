@@ -27,25 +27,8 @@ open Lua.Num Lua.Vm.Fn.PowR
 
 /-- **A model datum's bits are quiet**: `Float.Model`'s only NaN is the
 canonical `0x7ff8000000000000`. -/
-theorem notSNaN_toBits (y : Float.Model) : NotSNaN y.toBits.toBitVec := by
-  intro hn
-  obtain ⟨b, hv⟩ := y
-  have hc : F64.cls b.toBitVec = .nan := by
-    simpa [F64.isNaN] using hn
-  have e : b.toBitVec = 0x7ff8000000000000#64 := by
-    have hpn := hv.eq_packedNaN
-    simp only [F64.cls] at hc
-    split at hc
-    · split at hc
-      · cases hc
-      · rename_i h1 h2
-        rw [hpn ((F64.exp_eq_ones _).2 h1) (fun e => h2 ((F64.man_eq_zero _).1 e))]
-        rfl
-    · split at hc
-      · split at hc <;> cases hc
-      · cases hc
-  show b.toBitVec.toNat / 2 ^ 51 % 2 = 1
-  rw [e]; decide
+theorem notSNaN_toBits (y : Float.Model) : NotSNaN y.toBits.toBitVec :=
+  (Lua.Bytecode.isSNaN_eq_false_iff _).1 (Lua.Bytecode.isSNaN_toBits y)
 
 /-- `__floatdidf`'s result is quiet. -/
 theorem notSNaN_ofInt (i : BitVec 64) : NotSNaN (F64.ofInt i) := by
