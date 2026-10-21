@@ -159,6 +159,7 @@ echo "== (6) axioms"
 tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 cat > "$tmp/Axioms.lean" <<'LEAN'
 import Lua
+import Lua.Compile.EncodeCheck
 import Vsa.Sim.SegToTripleFramed
 import Vsa.Sim.BridgeSegFull
 import Vsa.Sim.DeriveCase
@@ -168,6 +169,27 @@ import VsaIris.Vsa.SymRunO
 import VsaIris.Vsa.SymJalr
 #print axioms Lua.vm_refinement_of_sim
 #print axioms Lua.compile_refinement_of_tv
+#print axioms Lua.Compile.Encode.ax_op
+#print axioms Lua.Compile.Encode.ax_arg
+#print axioms Lua.Compile.Encode.abx_a
+#print axioms Lua.Compile.Encode.abx_arg
+#print axioms Lua.Compile.Encode.abc_fields
+#print axioms Lua.Compile.Encode.ax?_fields
+#print axioms Lua.Compile.Encode.abx?_fields
+#print axioms Lua.Compile.Encode.abc?_fields
+#print axioms Lua.Compile.Encode.ax?_isSome
+#print axioms Lua.Compile.Encode.abx?_isSome
+#print axioms Lua.Compile.Encode.abc?_isSome
+#print axioms Lua.Compile.Encode.sj?_fields
+#print axioms Lua.Compile.Encode.sj?_isSome
+#print axioms Lua.Compile.Encode.patchJump?_isSome
+#print axioms Lua.Compile.Encode.patchJump?_fields
+#print axioms Lua.Compile.Encode.patchJump?_target
+#print axioms Lua.Compile.Encode.patchJumpAt?_isSome
+#print axioms Lua.Compile.Encode.patchJumpAt?_result
+#print axioms Lua.Compile.Encode.c_macro_vectors
+#print axioms Lua.Compile.Encode.overflow_checks
+#print axioms Lua.Compile.Encode.patch_site_checks
 #print axioms Lua.endToEnd_of_layers
 #print axioms Lua.endToEnd_of_obligations
 #print axioms Lua.Refine.refinement

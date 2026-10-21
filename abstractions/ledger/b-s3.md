@@ -77,3 +77,43 @@ same outputs from the `luac -s` chunks, and `luaRun_sound` from the ASTs.
 * The lexer check ties the tree to `str2number` through the generated
   numeral table, not by a traversal of the tree; the table is the same
   parse's.
+
+## B2 encoding / jump patching checkpoint (2026-10-21)
+
+Base `269fb5d`, worker branch `codex-layer-b`. `Lua/Compile/Encode.lean`
+finishes the preserved draft: bounded Ax/ABx/ABCk field roundtrips,
+checked wrappers with exact success bounds, signed JMP construction,
+and word/list jump patching. Reuses `Word`'s decoders,
+`OpCode.ofNat?_toNat`, the existing bytecode `jumpTo`, and `List.set`
+and its access/frame laws. `patchJump?_target` proves the semantic target;
+`patchJumpAt?_result` also proves length and all other instructions stay
+unchanged. No semantics or generated files changed.
+
+Validation:
+
+* Main repo's `scripts/lean-capped.sh lake build Lua.Compile.Encode
+  Lua.Compile.EncodeCheck`: passed, inherited 12 GB scope, one CPU,
+  private worktree `.lake/build`. Available memory exceeded 25 GB.
+* C probe against vendored `lopcodes.h`: all nine raw-word vectors in
+  `c_macro_vectors` match `CREATE_Ax`, `CREATE_ABx`, `CREATE_ABCk`,
+  `CREATE_sJ`, and `SETARG_sJ`. Kernel-checked regressions also reject
+  each field overflow, both signed-range neighbours, missing/non-JMP
+  patch sites, and an excessive backward jump; a forward patch to the
+  current code end succeeds.
+* All 21 public theorem axiom reports: subsets of `[propext, Quot.sound]`.
+  Registered in check.sh stage 6, including the regression theorems;
+  private helper proofs are checked transitively.
+* check.sh's forbidden-token stage, proof discipline (17 rules),
+  abstraction gate, opcode generator drift, shell syntax and whitespace:
+  passed. Full repository `check.sh` remains the manager's landing gate.
+
+Exact premises: Ax < 2^25; A/B/C < 2^8; Bx < 2^17; k is a Bool.
+A signed JMP is accepted exactly on `[-16777215, 16777216]`.
+A word patch additionally requires an existing JMP; a list patch also
+requires the indexed word to exist. Its displacement is
+`dest - (pc + 1)` in Int. Destinations are natural code addresses, may
+equal the current code length, and do not encode `NO_JUMP = -1`.
+The target/frame proofs require only successful checked calls; no open
+proof premise was introduced. These are layout primitives, so opcode/mode
+selection, register allocation, label/goto resolution, a complete B2
+compiler and its `CompileTV` proof remain open. B3 is unchanged.

@@ -893,6 +893,19 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
   `lparser.c`/`lcode.c` on the F1 part of the full syntax (register
   allocation, jump patching including `goto`/label resolution, the
   `RK`/immediate/constant selection that `luac` does).
+  * Encoding foundations: `Lua/Compile/Encode.lean` provides bounded and
+    checked Ax/ABx/ABCk constructors, generic field roundtrips, and checked
+    signed JMP emission and patching (`fixjump`'s range
+    `[-16777215, 16777216]`). `patchJump?_target` reaches the requested
+    destination under the existing `jumpTo`; `patchJumpAt?_result` also
+    preserves length and every other code word. The success equivalences
+    expose exactly the field bounds, existing JMP site and jump range
+    required. `EncodeCheck.lean` checks C-macro vectors and rejection
+    boundaries; all public laws are registered in check.sh stage 6
+    (standard axioms only; lane ledger `abstractions/ledger/b-s3.md`).
+    These are layout primitives: opcode/format selection, register
+    allocation, label resolution, the compiler and its `CompileTV` proof
+    remain open.
   * Check it against `luac` on the corpus (`compile s = luac s`).
   * Prove `CompileTV` for it.
   * Exit: `compile_refinement_Statement (fun s p => compile s = some p)`.
