@@ -65,6 +65,7 @@ import Lua.Programs.PowFoldAst
 import Lua.Compile.TV
 import Lua.Compile.Corpus
 import Lua.Compile.Consts
+import Lua.Compile.EncodeCheck
 import Lua.Os.HtifFs
 import Lua.Os.Htif
 import Lua.Os.ConsoleWrite
