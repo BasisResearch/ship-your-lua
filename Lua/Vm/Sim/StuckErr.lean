@@ -1,6 +1,7 @@
 import Lua.Vm.Sim.Stuck
 import Lua.Vm.Sim.Kit.AtErr
 import Lua.Vm.Sim.Kit.ErrTail
+import Lua.Vm.Sim.Kit.Unwind
 
 /-!
 # The error sites: the arms' paths, the heads, and the shared tail
@@ -263,8 +264,8 @@ structure ErrorSimRest : Prop where
   /-- `luaG_runerror`'s formatting (0x800092cc to `luaG_errormsg`), per message -/
   runerrorHead : ∀ msg ∈ runerrMsgs, Kit.RunerrorHead_Statement symLuaGRunerror msg
   /-- the tail after the throw: `luaD_pcall`'s error branch → `main`'s
-  `fprintf(stderr)` → `exit(2)` -/
-  unwind : Kit.Unwind_Statement
+  `fprintf(stderr)` (lane F1-26: `exit(2)` after it proved, `Kit.unwind_of`) -/
+  unwind : Kit.UnwindRest
   /-- `forprep`'s float zero step's arm path -/
   fpFltZero : FpFltZero_Statement
   opinterror : SiteHead_Statement .opinterror
@@ -278,7 +279,7 @@ structure ErrorSimRest : Prop where
 
 /-- The shared tail of `ErrorSimRest`. -/
 theorem ErrorSimRest.tail (h : ErrorSimRest) : Kit.ErrorTail_Statement :=
-  Kit.errorTail_of_unwind h.unwind
+  Kit.errorTail_of_unwind (Kit.unwind_of h.unwind)
 
 theorem errorSim_of_rest (h : ErrorSimRest) : ErrorSim :=
   ⟨runerrorSim (fun msg hm => Kit.throwFrom_of (h.runerrorHead msg hm) h.tail) h.fpFltZero,
