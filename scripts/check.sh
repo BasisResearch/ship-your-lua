@@ -167,6 +167,9 @@ import VsaIris.Vsa.AllocSltu
 import VsaIris.Vsa.SymRunO
 import VsaIris.Vsa.SymJalr
 #print axioms Lua.vm_refinement_of_sim
+#print axioms Lua.Os.osStep_write_full
+#print axioms Lua.Os.bytesAt_of_BytesAt
+#print axioms Lua.Os.stdout_write_refines
 #print axioms Lua.compile_refinement_of_tv
 #print axioms Lua.endToEnd_of_layers
 #print axioms Lua.endToEnd_of_obligations
