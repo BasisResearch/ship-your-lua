@@ -15,6 +15,7 @@ __pycache__/
 # local tooling state
 .claude/
 .DS_Store
+logs/
 
 # OS-spec validation outputs
 tcb/validation/out/
