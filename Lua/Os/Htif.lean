@@ -6,8 +6,9 @@ import Lua.Vm.Loaded
 
 The instance of `HtifFsImplements` (`Lua/Os/HtifFs.lean`) for
 `c/lua-riscv-htif.elf`: what `c/src/htif.c` must do for the OS spec
-`TCB.Os.next` to describe it. Nothing here is proved; the two statements are
-recorded in PHASES.md (OS bullet).
+`TCB.Os.next` to describe it. The two global statements are recorded in
+PHASES.md (OS bullet); `Lua/Os/ConsoleWrite.lean` proves the stdout write
+boundary from the existing machine summary.
 
 The ELF has twelve functions that implement a `TCB.Os.Call` (addresses
 from `Lua/Vm/Layout.lean`, generated from `nm`, so they follow the ELF):
@@ -224,6 +225,10 @@ structure BootAt (c : Config) : Prop where
   text : Vsa.Sim.Code.FixedBytesLoaded Image.textBase Image.textSize Image.textByte c.σ.mem
   rodata : Vsa.Sim.Code.FixedBytesLoaded Image.rodataBase Image.rodataSize Image.rodataByte c.σ.mem
 
+/-- Agreement between the spec's console bytes and the HTIF output. -/
+def ConsoleAt (c : Config) (st : OsState) : Prop :=
+  (output c.σ).toList = st.streams.console.map (fun b => Char.ofNat b.toNat)
+
 /-- **What a representation relation must satisfy**: it starts at the
 spec's initial state (no arguments, environment or input), holds only in
 good states, and the spec's console stream is what HTIF printed.
@@ -237,7 +242,7 @@ output alone). That frame obligation comes with `OsState` in the semantics
 structure HtifRepr (R : Config → OsState → Prop) : Prop where
   init : ∀ c, BootAt c → R c (OsState.init)
   good : ∀ c st, R c st → Vsa.Sim.GoodState c.σ
-  console : ∀ c st, R c st → (output c.σ).toList = st.streams.console.map (fun b => Char.ofNat b.toNat)
+  console : ∀ c st, R c st → ConsoleAt c st
 
 /-- **`htif.c` implements the OS spec** on every call of its twelve
 functions (statement). The traces accept the current `htif.c`

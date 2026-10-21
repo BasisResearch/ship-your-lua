@@ -97,7 +97,8 @@ Every row is currently unassigned.
 | the ELF's `lparser`/`lcode` refine `compile` | — | B3 | open |
 | **`compile_refinement_Statement`** | `Lua/Theorems.lean` | B1/B2 (by `compile_refinement_of_tv`) | **proved for `CorpusCompiles`** (`compile_refinement_corpus`); open for B2's `compile` |
 | **`endToEnd_lua_Statement luaLayout Compiles`** | `Lua/Theorems.lean` | E (by `endToEnd_of_layers`) | open |
-| `HtifPrint_Statement`: `htif.c`'s `write` to fds 1-2, `read` from fd 0 and `fstat` of fds 0-2 implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open (traces accept it) |
+| Stdout `_write` machine summary against `TCB.Os.OsStep` | `Lua/Os/ConsoleWrite.lean`, `Lua/Os/Htif.lean` | OS | **proved**: `stdout_write_refines` consumes `Kit.write_sum` to produce actual `Steps`, `HtifCallAt`, `ReturnsTo`, `HtifRetAt`, a full-write `OsStep`, `ConsoleAt` (the console field of `HtifRepr`), and the exact `wrRet` memory/ABI frame. Premises: `WrCtx`, return address below `2^63`, present buffer bytes, a live abstract stdout descriptor, the real `SegSt` entry and initial console agreement. Ledger: `abstractions/ledger/os-stdout.md`. No global OS statement is discharged. |
+| `HtifPrint_Statement`: `htif.c`'s `write` to fds 1-2, `read` from fd 0 and `fstat` of fds 0-2 implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open (traces accept it); stdout boundary proved by `stdout_write_refines`, persistent representation/frame and other calls remain open |
 | `HtifFs_Statement`: all twelve system-call functions implement `TCB.Os.next` | `Lua/Os/Htif.lean` | OS | open; plausibly true within `htif.c`'s resource limits (no trace rejected, `experiments/os/RESULTS.md`); needs a resource bound and the `OsState` frame obligation (OS bullet) |
 
 ## P0: validation and scaffold (done)
@@ -790,6 +791,14 @@ and removes its opcodes from `ledger` (`Lua/Fragment.lean`;
     * `Lua/Os/HtifTraces.lean`: the console verdicts as kernel-checked
       facts about `next`, both the old `htif.c`'s rejected returns and the
       current one's accepted returns.
+    * `Lua/Os/ConsoleWrite.lean`: `stdout_write_refines` bridges
+      `Kit.write_sum` to the TCB OS relation for arbitrary stdout bytes
+      under its actual machine entry and descriptor/frame preconditions.
+      `StdoutWriteResult` supplies machine `Steps`, ABI call/return facts,
+      the full-write `OsStep`, `ConsoleAt` and the exact `wrRet` frame.
+      `osStep_write_full` proves that a complete stdout/stderr write is
+      allowed by the unchanged TCB spec; the machine theorem is stdout
+      only. Ledger: `abstractions/ledger/os-stdout.md`.
   * **`HtifFs_Statement` is now plausibly true** (every trace is accepted,
     special or unsupported), with two caveats.
     * **Resources.** Past 64 files and directories, 32 descriptors or the
