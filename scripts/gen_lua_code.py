@@ -123,7 +123,10 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
          # lane F1-F8: FORPREP's string coercion (`luaO_str2num`'s `l_str2int`)
          "luaO_str2num",
          # lane F1-24: `luaL_tolstring` on a function (`"%s: %p"`)
-         "lua_typename", "lua_topointer"]
+         "lua_typename", "lua_topointer",
+         # lane F1-25: `luaL_tolstring` on a float (`lua_pushfstring(L, "%f")`:
+         # `tostringbuff`'s float part, `strspn`)
+         "lua_tonumberx", "tostringbuff.part.0.isra.0", "strspn"]
 # a static name defined twice whose first (lowest) definition is the one
 # pinned: main.c's `l_alloc` (`g->frealloc`; lauxlib.c's is the second)
 DUP_FIRST = {"l_alloc"}

@@ -144,28 +144,39 @@ theorem argBytes_int (x : BitVec 64) : argBytes (.int x) = intBytes x := rfl
 
 /-- (lane F1-24) **What the glue from a `luaL_tolstring` run to `TolPost`
 needs of the argument `v`** whose run interns the bytes `b` (an integer's
-digits, `print`'s `"function: 0x80022f18"`): `print` shows `b` (`argBytes`),
-one to twenty bytes, the class's cost (`argCost`), no literal is `b`, and no
-literal's object holds `b` (`kwalk_of`'s `hnl`). -/
+digits, `print`'s `"function: 0x80022f18"`, lane F1-25 a float's
+`tostringbuff`): `print` shows `b` (`argBytes`), one to forty bytes (a short
+string), the class's cost (`argCost`) at least the string's allocation (lane
+F1-25: a per-class budget; a float's sixteen, `_dtoa_r`'s bignums before the
+string), no literal is `b`, and no literal's object holds `b` (`kwalk_of`'s
+`hnl`). -/
 structure ArgStr (v : Value) (b : List UInt8) : Prop where
   arg : argBytes v = b.map fun c => BitVec.ofNat 8 c.toNat
   len_lo : 1 ≤ b.length
-  len_hi : b.length ≤ 20
-  cost : argCost v = 16384 + 4096 + 128
+  len_hi : b.length ≤ 40
+  cost : 16384 + 4096 + 128 ≤ argCost v
   lits : ∀ ls : LitPtrs, ∀ l ∈ ls.table, l.bytes ≠ b
   no_lit : ∀ {M : Mem} {g sl : Nat} {ls : LitPtrs} {rt : RtPtrs}, LitsIn M g sl ls rt →
     ∀ p ∈ ls.strs, bytesT1 M (p + 11) = BitVec.ofNat 8 b.length →
       (∀ i, i < b.length → bytesT1 M (p + 24 + i) = BitVec.ofNat 8 (b.getD i 0).toNat) → False
 
 /-- An allocating argument makes a string (`prAllocs` counts it). -/
+theorem ArgStr.cost_pos {v : Value} {b : List UInt8} (hc : ArgStr v b) : 0 < argCost v := by
+  have := hc.cost; omega
+
 theorem ArgStr.allocs_pos {v : Value} {b : List UInt8} (hc : ArgStr v b) {args : List Value} {i : Nat}
     (hi : 1 ≤ i) (hv : args[i - 1]? = some v) : 0 < prAllocs args i := by
-  rw [prAllocs_succ hi hv, hc.cost, if_pos (by decide)]; omega
+  rw [prAllocs_succ hi hv, if_pos hc.cost_pos]; omega
+
+/-- (lane F1-25) The arguments after `i` make one string fewer. -/
+theorem ArgStr.allocs_succ {v : Value} {b : List UInt8} (hc : ArgStr v b) {args : List Value} {i : Nat}
+    (hi : 1 ≤ i) (hv : args[i - 1]? = some v) : prAllocs args i = 1 + prAllocs args (i + 1) := by
+  rw [prAllocs_succ hi hv, if_pos hc.cost_pos]
 
 /-- An allocating argument's break room (`prCost` counts it). -/
 theorem ArgStr.cost_succ {v : Value} {b : List UInt8} (hc : ArgStr v b) {args : List Value} {i : Nat}
-    (hi : 1 ≤ i) (hv : args[i - 1]? = some v) : prCost args i = 16384 + 4096 + 128 + prCost args (i + 1) := by
-  rw [prCost_succ hi hv, hc.cost]
+    (hi : 1 ≤ i) (hv : args[i - 1]? = some v) : 16384 + 4096 + 128 + prCost args (i + 1) ≤ prCost args i := by
+  rw [prCost_succ hi hv]; have := hc.cost; omega
 
 /-- The digits as `UInt8`s and back. -/
 theorem intU8_map (x : BitVec 64) : (intU8 x).map (fun c => BitVec.ofNat 8 c.toNat) = intBytes x := by
@@ -180,8 +191,8 @@ theorem intU8_map (x : BitVec 64) : (intU8 x).map (fun c => BitVec.ofNat 8 c.toN
 theorem argStr_int (x : BitVec 64) : ArgStr (.int x) (intU8 x) where
   arg := by rw [argBytes_int, intU8_map]
   len_lo := by rw [intU8_length]; exact (intBytes_len x).1
-  len_hi := by rw [intU8_length]; exact (intBytes_len x).2
-  cost := rfl
+  len_hi := by rw [intU8_length]; have := (intBytes_len x).2; omega
+  cost := Nat.le_refl _
   lits := fun ls => lits_ne_intU8 ls x
   no_lit := fun hL => lits_nomatch hL x
 
@@ -247,10 +258,12 @@ representation, `hrep`; its type's metatable word `g + mto`, NULL at the
 entry, `hmt`), at `luaB_print`'s state before argument `i`. -/
 theorem tolV_in {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
     {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m : Mem}
-    {i : Nat} {r : BitVec 64} {v : Value} {b : List UInt8} {tag : BitVec 8} {mto : Nat} {w : BitVec 64}
+    {i rm : Nat} {r : BitVec 64} {v : Value} {tag : BitVec 8} {mto : Nat} {w : BitVec 64}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n ph H m) (hv : args[i - 1]? = some v)
-    (hcls : ArgStr v b) (hrep : ∀ {mo : Mem} {t : BitVec 8} {x : BitVec 64}, ValRepr mo ι t x v → t = tag ∧ x = w)
+    (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n rm ph H m) (hv : args[i - 1]? = some v)
+    (hcost : 0 < argCost v)
+    (hrep : ValRepr (fillZeroMem m) ι (slotTag m (func + 16 * i)) (slotVal m (func + 16 * i)) v →
+      slotTag m (func + 16 * i) = tag ∧ slotVal m (func + 16 * i) = w)
     (hmo : 480 ≤ mto ∧ mto + 8 ≤ 536) (hmt : bytesT8 M0 (g + mto) = 0#64)
     (hi1 : 1 ≤ i) (hin : i ≤ n) (hr : r.toNat % 4 = 0) :
     TolVIn m (sp0 - 64) L i (sp0 - 56) nci func (func + 16 * n + 16) g tag mto w r := by
@@ -264,7 +277,7 @@ theorem tolV_in {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Va
   have hHS : heapStart = 0x8006ecd0 := rfl
   simp only [stateSize, ciSize, gEnd, gStrcacheOff, strcacheN, strcacheM, hHE, hHS] at p1 p2 p3 p4 p5 p6 p7 p8 p9
   simp only [stateSize, ciSize, gEnd, gStrcacheOff, strcacheN, strcacheM, hHE, hHS] at p10 p11 p12 p13 p14 q1 q6
-  have hpos := hcls.allocs_pos hi1 hv
+  have hpos : 0 < prAllocs args i := by rw [prAllocs_succ hi1 hv, if_pos hcost]; omega
   have hA : ArgsAt func ι args m := hIn.args_fz m fun a ha =>
     hS.keep a (ha.elim (fun h => .inl h) fun h => .inr (.inl h))
   have hidx : func + 16 * (i - 1 + 1) = func + 16 * i := by congr 1; omega
@@ -303,9 +316,10 @@ inputs from the state's budget (`PrSt.room`, `PrSt.strt`) and static words
 (`PrSt.stat`). -/
 theorem tolV_tab {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
     {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m : Mem}
-    {i : Nat} {v : Value} {b : List UInt8}
+    {i rm : Nat} {v : Value} {b : List UInt8}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n ph H m) (hP : PrintSt m ph H)
+    (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n rm ph H m) (hP : PrintSt m ph H)
+    (hrm : 16384 + 4096 + 128 + prCost args (i + 1) ≤ rm)
     (hv : args[i - 1]? = some v) (hcls : ArgStr v b) (hi1 : 1 ≤ i) {rt0 : RtPtrs} (hL : LitsIn m g sl ls rt0) {j : Nat}
     (hjd : (luaHash ls.seed (b)).toNat % rt0.strtSize = j) (hj : j < rt0.strtHeads.length) :
     ∃ d, NlTab m L g (func + 16 * n + 16) (b) ls.seed (Kept H ph)
@@ -364,8 +378,7 @@ theorem tolV_tab {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List V
   have hgw : bytesT8 m (L + 24) = BitVec.ofNat 64 g :=
     (bytesT8_congrT fun j _ => hS.keep _ (.inr (.inr (.inr (.inr (.inr (.inl
       (by simp only [Rng, stateGOff]; omega)))))))).trans hIn.g_w
-  have hroom := hS.room (by rw [hcls.cost_succ hi1 hv]; omega)
-  rw [hcls.cost_succ hi1 hv] at hroom
+  have hroom := hS.room (by omega)
   have hst := hS.strt hpos
   have hnl : rt0.strtNuse < rt0.strtSize := by
     have h1 := hS0.nuse_le
@@ -448,9 +461,10 @@ budget of the arguments after `i` at most argument `i`'s (`PrSt.nextKeep`),
 the string's bytes off what the push writes (`StrtSafe`'s `W` holds `D`). -/
 theorem prStrHit {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
     {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m M3 M : Mem}
-    {i ts : Nat} {v : Value} {b : List UInt8}
+    {i ts rm : Nat} {v : Value} {b : List UInt8}
     (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
-    (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n ph H m) (hP : PrintSt m ph H)
+    (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n rm ph H m) (hP : PrintSt m ph H)
+    (hrm : 16384 + 4096 + 128 + prCost args (i + 1) ≤ rm)
     (hv : args[i - 1]? = some v) (hcls : ArgStr v b) (hi1 : 1 ≤ i)
     (hh : PfHit m M3 (TolFr (sp0 - 64)) (Kept H ph) (fun a => PrX L nci g func n sl G a ∨ B a)
       (fun a => B a ∨ D a) ts (b))
@@ -511,7 +525,7 @@ theorem prStrHit {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List V
   have hts := (hobj ts (Nat.le_refl _) (by omega)).1
   have hapi := hS.api
   refine
-    { lua := ⟨FL, B, hS.nextKeep (by rw [hcls.cost_succ hi1 hv]; omega) (by rw [prAllocs_succ hi1 hv]; omega)
+    { lua := ⟨FL, B, hS.nextKeep (by omega) (by rw [prAllocs_succ hi1 hv]; omega)
         ⟨?_, ?_, ?_, ?_, by have := hapi.tbc_lt; omega⟩ hl' (fun a ha => (kK a ha).trans (hS.keep a ha)) kFL kT
         K.big⟩
       io := hP.keep kP
@@ -586,11 +600,13 @@ abbrev tiM (M : Mem) (sp0 : Nat) (b : List UInt8) : Mem :=
 `rt0` of `g->strt` and the bucket `j` of the digits, the creation path's
 outcome (`IaNewPost`, the object `p`, the heap `H'`) and the push (`PfPost`). -/
 structure TiNew (sp0 L nci func tbc sl g n : Nat) (ls : LitPtrs) (args : List Value) (ι : Strs)
-    (D G B FL : Nat → Prop) (M0 : Mem) (ph0 : StdoutPh) (H0 : HeapIx) (i : Nat) (ph : StdoutPh) (H : HeapIx)
+    (D G B FL : Nat → Prop) (M0 : Mem) (ph0 : StdoutPh) (H0 : HeapIx) (i rm : Nat) (ph : StdoutPh) (H : HeapIx)
     (m M3 M : Mem) (v : Value) (b : List UInt8) (rt0 : RtPtrs) (j p : Nat) (H' : HeapIx) : Prop where
   hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0
   hn : PrNums sp0 L nci func n 0x8000ac8c#64
-  hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n ph H m
+  hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n rm ph H m
+  /-- (lane F1-25) the room for the string and the arguments after `i` -/
+  hrm : 16384 + 4096 + 128 + prCost args (i + 1) ≤ rm
   hP : PrintSt m ph H
   hv : args[i - 1]? = some v
   hi1 : 1 ≤ i
@@ -632,16 +648,6 @@ theorem PrintIn.prX_kept {L nci func n tbc sl g : Nat} {ls : LitPtrs} {args : Li
   · exact .inl (hIn.nci_in a hn.1 hn.2)
   · exact .inr hlo
 
-/-- The allocator's globals lie below the heap. -/
-theorem MallocGlobal.lt {a : Nat} (h : MallocGlobal a) : a < heapStart := by
-  have : symMallocAv = 0x8005c6d0 := rfl
-  have : symMallocSbrkBase = 0x8005d388 := rfl
-  have : symBrk = 0x8005d3b8 := rfl
-  have : symMallocMallinfo = 0x8005e560 := rfl
-  have : errnoAddr = 0x8005d408 := rfl
-  have : heapStart = 0x8006ecd0 := rfl
-  simp only [MallocGlobal] at h; omega
-
 /-- The stdio globals lie below the heap. -/
 theorem stdioGlob_lt {a : Nat} (h : StdioGlob a) : a < heapStart := by
   have : heapStart = 0x8006ecd0 := rfl
@@ -650,20 +656,20 @@ theorem stdioGlob_lt {a : Nat} (h : StdioGlob a) : a < heapStart := by
 section New
 
 variable {sp0 L nci func tbc sl g n : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
-  {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {i : Nat} {ph : StdoutPh} {H : HeapIx}
+  {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {i rm : Nat} {ph : StdoutPh} {H : HeapIx}
   {m M3 M : Mem} {v : Value} {b : List UInt8} {rt0 : RtPtrs} {j p : Nat} {H' : HeapIx}
 
 /-- The new object is fresh: no byte of a chunk in use at `H` (or at the entry). -/
-theorem TiNew.fresh (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+theorem TiNew.fresh (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (hk : Kept H ph a) : ¬ Rng p ((b).length + 25) a := fun hr =>
   h.new.fresh a hr.1 hr.2 hk.inuse
 
-theorem TiNew.fresh0 (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+theorem TiNew.fresh0 (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (hk : Kept H0 ph0 a) : ¬ Rng p ((b).length + 25) a :=
   h.fresh (h.hS.kept hk)
 
 /-- The bucket's word: in a chunk in use, off what the caller keeps and off `W`. -/
-theorem TiNew.bkt (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+theorem TiNew.bkt (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (ha : Rng (rt0.strtHash + 8 * j) 8 a) :
     Kept H ph a ∧ ¬ (PrX L nci g func n sl G a ∨ B a) ∧ ¬ (B a ∨ D a) := by
   have hS0 := h.hL.nil.strt
@@ -673,7 +679,7 @@ theorem TiNew.bkt (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph
 
 /-- **A byte of a chunk in use off the bucket, `nuse`, `g->allgc`, `g`'s
 counters, the pushed slot and `L->top` is kept** by a created string's run. -/
-theorem TiNew.keepU (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+theorem TiNew.keepU (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (hu : InUse H.chunks a) (hlo : heapStart ≤ a) (hhi : a < heapEnd)
     (h1 : ¬ Rng (rt0.strtHash + 8 * j) 8 a) (h2 : ¬ Rng (g + 56) 4 a)
     (h3 : ¬ Rng (g + 112) 8 a) (h4 : ¬ Rng (g + 16) 16 a) (h5 : ¬ Rng (func + 16 * n + 16) 9 a)
@@ -694,14 +700,14 @@ theorem TiNew.keepU (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 
   · simp only [TolFr] at hw; homega
   · simp only [Rng] at hw; homega
 
-theorem TiNew.keepIn (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+theorem TiNew.keepIn (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (hk : Kept H ph a) (h1 : ¬ Rng (rt0.strtHash + 8 * j) 8 a) (h2 : ¬ Rng (g + 56) 4 a)
     (h3 : ¬ Rng (g + 112) 8 a) (h4 : ¬ Rng (g + 16) 16 a) (h5 : ¬ Rng (func + 16 * n + 16) 9 a)
     (h6 : ¬ Rng (L + 16) 8 a) : bytesT1 (tiM M sp0 b) a = bytesT1 m a :=
   h.keepU hk.inuse hk.lo hk.hi h1 h2 h3 h4 h5 h6
 
 /-- **A static byte off the allocator's globals is kept** by a created string's run. -/
-theorem TiNew.keepS (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+theorem TiNew.keepS (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (hlo : a < heapStart) (hm : ¬ MallocGlobal a) : bytesT1 (tiM M sp0 b) a = bytesT1 m a := by
   have hsb := h.hn.sp_big
   have hp := h.hIn.placed
@@ -718,9 +724,9 @@ theorem TiNew.keepS (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 
 
 /-- `g->strt`'s count and size at `luaB_print`'s state, against the budget: room
 for the strings still to make. -/
-theorem PrSt.strt_lt {L nci func tbc sl g n i k : Nat} {ls : LitPtrs} {args : List Value}
+theorem PrStR.strt_lt {L nci func tbc sl g n i k rm : Nat} {ls : LitPtrs} {args : List Value}
     {D G B FL : Nat → Prop} {M0 : Mem} {ph0 : StdoutPh} {H0 : HeapIx} {ph : StdoutPh} {H : HeapIx} {m : Mem}
-    {rt0 : RtPtrs} (hS : PrSt L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k ph H m)
+    {rt0 : RtPtrs} (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i k rm ph H m)
     (hL : LitsIn m g sl ls rt0) (hpos : 0 < prAllocs args i) :
     strtNuse m g = rt0.strtNuse ∧ strtSize m g = rt0.strtSize ∧ rt0.strtNuse + prAllocs args i ≤ rt0.strtSize := by
   have hS0 := hL.nil.strt
@@ -740,7 +746,7 @@ theorem PrSt.strt_lt {L nci func tbc sl g n i k : Nat} {ls : LitPtrs} {args : Li
 /-- **What the push writes leaves a created string's facts**: the object, the
 bucket's word and `nuse`, as the creation path left them. -/
 theorem TiNew.post_keep
-    (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+    (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (hk : ¬ Rng (func + 16 * n + 16) 9 a ∧ ¬ Rng (L + 16) 8 a ∧ ¬ Rng (g + 16) 16 a ∧ a < heapEnd + 32) :
     bytesT1 (tiM M sp0 b) a = bytesT1 M3 a := by
   have hsb := h.hn.sp_big
@@ -755,7 +761,7 @@ theorem TiNew.post_keep
   · simp only [PfFr] at hw; homega
 
 /-- **The new object at `luaL_tolstring`'s return** (`NewObjT`). -/
-theorem TiNew.obj (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.obj (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     NewObjT (tiM M sp0 b) g (rt0.strtHash + 8 * j) p rt0.strtNuse (rt0.strtHeads[j]'h.hj) (b)
       (luaHash ls.seed (b)) (bytesT1 m (g + gCurrentwhiteOff)) := by
   have hp := h.hIn.placed
@@ -809,11 +815,11 @@ theorem TiNew.obj (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph
 
 /-- A byte of the new object is no byte the caller holds, nor a bignum's, nor
 `D`'s: those lie in chunks in use at the entry (or below the heap). -/
-theorem TiNew.obj_off (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+theorem TiNew.obj_off (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (ha : Rng p ((b).length + 25) a) :
     ¬ (PrX L nci g func n sl G a ∨ B a) ∧ ¬ (B a ∨ D a) := by
   have hpl := h.new.lo
-  have nB : ¬ B a := fun hb => h.fresh0 (h.hS.bigIn.inK a hb) ha
+  have nB : ¬ B a := fun hb => h.fresh (h.hS.bigIn.inK a hb) ha
   refine ⟨fun hx => hx.elim (fun hx => ?_) nB, fun hw => hw.elim nB fun hd => h.fresh0 (h.hIn.dirty_in a hd) ha⟩
   rcases h.hIn.prX_kept hx with hk | hlo
   · exact h.fresh0 hk ha
@@ -822,7 +828,7 @@ theorem TiNew.obj_off (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M
 /-- **What the creation path shows of the new string** (`InsOk`, for
 `frozen_insert`): fresh, so apart from the table, the literals, the caller's
 places, the bignums and `D`; in a chunk in use at the new heap. -/
-theorem TiNew.insOk (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.insOk (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     InsOk rt0 ls (Kept H' ph) (fun a => PrX L nci g func n sl G a ∨ B a) (fun a => B a ∨ D a) (b) p := by
   have hp := h.hIn.placed
   have hpl := h.new.lo; have hph := h.new.hi
@@ -890,7 +896,7 @@ theorem tabFoot_rt {m : Mem} {g sl : Nat} {ls : LitPtrs} {rt : RtPtrs} (hL : Lit
   rw [eh, es]
 
 /-- **The literals' footprint after a created string** (`TiIns`). -/
-theorem TiNew.ins (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.ins (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     TiIns L nci func n sl g ls D G B ph H' (tiM M sp0 b)
       (fun a => FL a ∨ InsFoot rt0 j p (b).length a) := by
   have hp := h.hIn.placed
@@ -1021,10 +1027,10 @@ theorem TiNew.ins (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph
       · exact (h.bkt ha).2.2 (.inl hb)
       · simp only [InsG, Rng, gCurrentwhiteOff, gAllgcOff] at ha
         exact hx (.inr (.inr (.inl ⟨by omega, by simp only [gEnd, gStrcacheOff, strcacheN, strcacheM]; omega⟩)))
-      · exact h.fresh0 (h.hS.bigIn.inK a hb) ⟨ha.1, by omega⟩
+      · exact h.fresh (h.hS.bigIn.inK a hb) ⟨ha.1, by omega⟩
 
 /-- `L->top` after the push: one slot more. -/
-theorem TiNew.top_w (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.top_w (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     bytesT8 (tiM M sp0 b) (L + 16) = BitVec.ofNat 64 (func + 16 * (n + 1) + 16) := by
   have hsb := h.hn.sp_big
   have hp := h.hIn.placed
@@ -1043,7 +1049,7 @@ structure TiKeeps (L nci g func n : Nat) (G B : Nat → Prop) (m m' : Mem) : Pro
   big : ∀ a, BigFoot B a → bytesT1 m' a = bytesT1 m a
   size : ∀ k, k < 4 → bytesT1 m' (g + gStrtSizeOff + k) = bytesT1 m (g + gStrtSizeOff + k)
 
-theorem TiNew.keeps (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.keeps (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     TiKeeps L nci g func n G B m (tiM M sp0 b) := by
   have hp := h.hIn.placed
   obtain ⟨p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, -⟩ := hp
@@ -1115,7 +1121,7 @@ theorem TiNew.keeps (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 
   · -- `_dtoa_r`'s bignums
     rcases ha with hb | hr
     · have hx := h.hS.bigIn.x a hb
-      have hk := h.hS.kept (h.hS.bigIn.inK a hb)
+      have hk := h.hS.bigIn.inK a hb
       simp only [PrX, not_or] at hx
       obtain ⟨-, hxL, hxg, hxs, -, -⟩ := hx
       refine h.keepIn hk (fun hw => (h.bkt hw).2.2 (.inl hb)) ?_ ?_ ?_ ?_ ?_
@@ -1138,7 +1144,7 @@ theorem TiNew.keeps (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 
 /-- **`luaB_print`'s state after a created string** (`PrSt` before argument
 `i + 1`): the literals on the footprint with the insertion's (`TiNew.ins`), the
 budget less the argument's allocation, one string more in `g->strt`. -/
-theorem TiNew.st (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.st (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     PrSt L nci func tbc sl g n ls args D G B (fun a => FL a ∨ InsFoot rt0 j p (b).length a) M0 ph0 H0
       (i + 1) (n + 1) ph H' (tiM M sp0 b) := by
   have hI := h.ins
@@ -1146,10 +1152,8 @@ theorem TiNew.st (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0
   have hapi := h.hS.api
   have hpos := h.cls.allocs_pos h.hi1 h.hv
   obtain ⟨e1, e2, hst⟩ := h.hS.strt_lt h.hL hpos
-  have hc := h.cls.cost_succ h.hi1 h.hv
-  have ha := prAllocs_succ h.hi1 h.hv
-  rw [h.cls.cost] at ha
-  simp only [show (0 : Nat) < 16384 + 4096 + 128 from by decide, ite_true] at ha
+  have hc := h.hrm
+  have ha := h.cls.allocs_succ h.hi1 h.hv
   have hsz := h.hL.size_hi
   have hNO := h.obj
   have eN : strtNuse (tiM M sp0 b) g = rt0.strtNuse + 1 := by
@@ -1178,25 +1182,26 @@ theorem TiNew.st (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0
     gc := fun hb => h.hS.gc (by omega)
     stat := fun hb => (h.hS.stat (by omega)).congr K.stat
     big := h.hS.big.trans K.big
-    bigIn := h.hS.bigIn
+    bigIn := ⟨fun a hb => (h.hS.bigIn.inK a hb).mono h.new.kept fun _ hb' => .inl hb', h.hS.bigIn.x,
+      h.hS.bigIn.lit⟩
     big_fl := hI.big_fl }
 
 /-- The new object's bytes: in a chunk in use at the new heap, off `stdout`'s buffer. -/
-theorem TiNew.objKept (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.objKept (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     ∀ a, p ≤ a → a < p + 24 + (b).length + 1 → Kept H' ph a := by
   intro a h1 h2
   have hpl := h.new.lo; have hph := h.new.hi
-  have hl20 : b.length ≤ 20 := h.cls.len_hi
+  have hl20 : b.length ≤ 40 := h.cls.len_hi
   have h3 : a < p + (b).length + 25 := by omega
   exact ⟨h.new.obj_in a h1 h3, by omega, by omega, fun hb => h.new.fresh a h1 h3 (h.hP.io.buf_inUse hb)⟩
 
 /-- **`stdout`'s phase after a created string**, with the new heap: it reads no
 allocator word, its buffer is apart from the run's stores. -/
-theorem TiNew.io (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.io (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     StdoutIn (tiM M sp0 b) H' ph := by
   have hP := h.hP
   have hpos := h.cls.allocs_pos h.hi1 h.hv
-  have hc := h.cls.cost_succ h.hi1 h.hv
+  have hc := h.hrm
   have hbrk := h.new.brk
   refine hP.io.congrA (fun a ha => ?_) (fun hn => ?_) fun buf hb => ?_
   · rcases ha with ha | hb
@@ -1226,7 +1231,7 @@ theorem TiNew.io (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0
     exact ⟨⟨sz, h.new.kept _ hc rfl, hs⟩, hb.lo, hb.hi⟩
 
 /-- **The heap's walk after a created string**: the push's stores lie in chunks in use. -/
-theorem TiNew.heap (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.heap (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     HeapAt (fillZeroMem (tiM M sp0 b)) H'.top H'.brk H'.chunks H'.bins := by
   have hHE : heapEnd = 0x87800000 := rfl
   have hHS : heapStart = 0x8006ecd0 := rfl
@@ -1251,7 +1256,7 @@ theorem TiNew.heap (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 p
     omega
 
 /-- **`stdout`'s cells after a created string**: static words off the allocator's globals. -/
-theorem TiNew.cells (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem TiNew.cells (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     PrintCells (tiM M sp0 b) := by
   have hHS : heapStart = 0x8006ecd0 := rfl
   have hP := h.hP
@@ -1271,7 +1276,7 @@ theorem TiNew.cells (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 
     by rw [bytesAt_congr fun k hk => kL _ (.inl (by omega)) (by omega)]; exact hc.nl⟩
 
 /-- What a created string's run keeps of `luaB_print`'s frame (but the length word). -/
-theorem TiNew.frame (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H')
+theorem TiNew.frame (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H')
     {a : Nat} (h1 : sp0 - 64 ≤ a) (h2 : a < sp0 - 56 ∨ sp0 - 48 ≤ a) : bytesT1 (tiM M sp0 b) a = bytesT1 m a := by
   have hsb := h.hn.sp_big
   have hp := h.hIn.placed
@@ -1279,7 +1284,7 @@ theorem TiNew.frame (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 
   have hHS : heapStart = 0x8006ecd0 := rfl
   have g1 := hp.g_hi; have g2 := hp.L_hi; have g3 := hp.sl_hi; have g4 := h.hIn.room
   have hph := h.new.hi
-  have hl20 : b.length ≤ 20 := h.cls.len_hi
+  have hl20 : b.length ≤ 40 := h.cls.len_hi
   have hbk := (h.bkt (a := rt0.strtHash + 8 * j + 7) ⟨by omega, by omega⟩).1.hi
   simp only [gEnd, gStrcacheOff, strcacheN, strcacheM, stateSize] at g1 g2
   refine ti_keepN h.new h.post (by omega) a fun hw => ?_
@@ -1295,13 +1300,13 @@ argument's `luaL_tolstring`, the string created** (`IaNewPost`): the state befor
 `stdout`'s state with the new heap (`TiNew.io`, `TiNew.heap`, `TiNew.cells`),
 the new string's bytes (`NewObjT`), where they lie (a fresh block, in use at
 the new heap). -/
-theorem prStrNew (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i ph H m M3 M v b rt0 j p H') :
+theorem prStrNew (h : TiNew sp0 L nci func tbc sl g n ls args ι D G B FL M0 ph0 H0 i rm ph H m M3 M v b rt0 j p H') :
     TolPost sp0 n (PrSt' L nci func tbc sl g n ls args D G M0 ph0 H0 (i + 1)) (argBytes v) ph m
       (tiM M sp0 b) (p + 24) H H' := by
   rw [h.cls.arg]
   have hsb := h.hn.sp_big
   have hpl := h.new.lo; have hph := h.new.hi
-  have hl20 : b.length ≤ 20 := h.cls.len_hi
+  have hl20 : b.length ≤ 40 := h.cls.len_hi
   have hobj : ∀ a, p + 24 ≤ a → a < p + 24 + (b.map fun c => BitVec.ofNat 8 c.toNat).length + 1 →
       Kept H' ph a := fun a h1 h2 => h.objKept a (by omega) (by rw [List.length_map] at h2; omega)
   have hsp : heapEnd + 4096 ≤ sp0 - 64 := by homega
@@ -1328,10 +1333,43 @@ end New
 
 /-- (lane F1-24) **The glue from an allocating argument's `luaL_tolstring`
 run to `TolPost`**, once for every class (`ArgStr v b`: an integer's digits,
-`print`'s `"function: 0x80022f18"`): the run `hrun` from any `luaS_newlstr`
-table (`NlTab`) to the string found or created (`PfStr`) and pushed
-(`PfPost`); its table at `luaB_print`'s state (`tolV_tab`), `TolPost` from a
-found string (`prStrHit`) or a created one (`prStrNew`). -/
+`print`'s `"function: 0x80022f18"`, a float's `tostringbuff`): the run `hrun`
+from any `luaS_newlstr` table (`NlTab`) to the string found or created
+(`PfStr`) and pushed (`PfPost`); its table at `luaB_print`'s state
+(`tolV_tab`), `TolPost` from a found string (`prStrHit`) or a created one
+(`prStrNew`). Lane F1-25: from any configurations `P` (the run's rest after a
+prefix, `tolPost_of_split`), at a state `PrStR` whose room `rm` holds the
+string and the arguments after `i` (`hrm`). -/
+theorem tolPost_of_runP {sp0 L nci func n tbc sl g : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
+    {D G B FL : Nat → Prop} {ph0 : StdoutPh} {H0 : HeapIx} {M0 : Mem} {i rm : Nat} {v : Value} {b : List UInt8}
+    {ph : StdoutPh} {H : HeapIx} {m : Mem} {o : Array String} {r : BitVec 64} {f : AbiFrame} {P : Config → Prop}
+    (hIn : PrintIn L nci func n tbc sl g ls args ι D G ph0 H0 M0) (hn : PrNums sp0 L nci func n 0x8000ac8c#64)
+    (hS : PrStR L nci func tbc sl g n ls args D G B FL M0 ph0 H0 i n rm ph H m) (hP : PrintSt m ph H)
+    (hrm : 16384 + 4096 + 128 + prCost args (i + 1) ≤ rm)
+    (hv : args[i - 1]? = some v) (hcls : ArgStr v b) (hi1 : 1 ≤ i)
+    (hrun : ∀ (K X W : Nat → Prop) (cw : BitVec 8) (size hash head d nuse : Nat),
+      NlTab m L g (func + 16 * n + 16) b ls.seed K X W cw size hash head d nuse H →
+      Triple P
+        (fun c => ∃ ts M3 M H', PfStr m M3 (TolFr (sp0 - 64)) g b ls.seed K X W size hash nuse head H ts H' ∧
+          PfPost M3 M (sp0 - 64 - 48) L g (func + 16 * n + 16) ts ∧
+          wrRet r (sp0 - 64) (ts + 24) f (writeMap8 M (sp0 - 56) (sdData_val (BitVec.ofNat 64 b.length))) o c)) :
+    Triple P
+      (fun c => ∃ m' s H', wrRet r (sp0 - 64) s f m' o c ∧
+        TolPost sp0 n (PrSt' L nci func tbc sl g n ls args D G M0 ph0 H0 (i + 1)) (argBytes v) ph m m' s H H') := by
+  obtain ⟨rt0, hL⟩ := hS.lits.facts.self
+  have hS0 := hL.nil.strt
+  have hj : (luaHash ls.seed b).toNat % rt0.strtSize < rt0.strtHeads.length := by
+    rw [hS0.heads_len]; exact Nat.mod_lt _ hS0.size_pos
+  obtain ⟨d, hT⟩ := tolV_tab hIn hn hS hP hrm hv hcls hi1 hL rfl hj
+  intro c h
+  obtain ⟨c', s', ts, M3, M, H', hstr, hpost, hret⟩ := hrun _ _ _ _ _ _ _ _ _ hT c h
+  rcases hstr with ⟨hh, rfl⟩ | hnew
+  · exact ⟨c', s', _, ts + 24, _, hret, prStrHit hIn hn hS hP hrm hv hcls hi1 hh hpost⟩
+  · exact ⟨c', s', _, ts + 24, H', hret, prStrNew ⟨hIn, hn, hS, hrm, hP, hv, hi1, hcls, hL, rfl, hj, hnew, hpost⟩⟩
+
+/-- (lane F1-24) **The glue from an allocating argument's `luaL_tolstring`
+run to `TolPost`** at `luaB_print`'s state (`PrSt`): `tolPost_of_runP` from
+`luaL_tolstring`'s entry. -/
 theorem tolPost_of_run {sp0 L nci func n tbc sl g : Nat} {ls : LitPtrs} {args : List Value} {ι : Strs}
     {D G B FL : Nat → Prop} {ph0 : StdoutPh} {H0 : HeapIx} {M0 : Mem} {i : Nat} {v : Value} {b : List UInt8}
     {ph : StdoutPh} {H : HeapIx} {m : Mem} {o : Array String} {r : BitVec 64} {f : AbiFrame}
@@ -1348,17 +1386,8 @@ theorem tolPost_of_run {sp0 L nci func n tbc sl g : Nat} {ls : LitPtrs} {args : 
     Triple (SegSt 0x80021b2c#64 (callPre [⟨Register.x10, BitVec.ofNat 64 L⟩, ⟨Register.x11, BitVec.ofNat 64 i⟩,
         ⟨Register.x12, BitVec.ofNat 64 (sp0 - 56)⟩] (sp0 - 64) r f) (ArmPay m o))
       (fun c => ∃ m' s H', wrRet r (sp0 - 64) s f m' o c ∧
-        TolPost sp0 n (PrSt' L nci func tbc sl g n ls args D G M0 ph0 H0 (i + 1)) (argBytes v) ph m m' s H H') := by
-  obtain ⟨rt0, hL⟩ := hS.lits.facts.self
-  have hS0 := hL.nil.strt
-  have hj : (luaHash ls.seed b).toNat % rt0.strtSize < rt0.strtHeads.length := by
-    rw [hS0.heads_len]; exact Nat.mod_lt _ hS0.size_pos
-  obtain ⟨d, hT⟩ := tolV_tab hIn hn hS hP hv hcls hi1 hL rfl hj
-  intro c h
-  obtain ⟨c', s', ts, M3, M, H', hstr, hpost, hret⟩ := hrun _ _ _ _ _ _ _ _ _ hT c h
-  rcases hstr with ⟨hh, rfl⟩ | hnew
-  · exact ⟨c', s', _, ts + 24, _, hret, prStrHit hIn hn hS hP hv hcls hi1 hh hpost⟩
-  · exact ⟨c', s', _, ts + 24, H', hret, prStrNew ⟨hIn, hn, hS, hP, hv, hi1, hcls, hL, rfl, hj, hnew, hpost⟩⟩
+        TolPost sp0 n (PrSt' L nci func tbc sl g n ls args D G M0 ph0 H0 (i + 1)) (argBytes v) ph m m' s H H') :=
+  tolPost_of_runP hIn hn hS hP (hcls.cost_succ hi1 hv) hv hcls hi1 hrun
 
 /-! ## `TolInt_Statement` -/
 
@@ -1371,7 +1400,7 @@ theorem tolInt_proved : TolInt_Statement := by
   cases v with
   | int x =>
     have hx : TolIIn m (sp0 - 64) L i (sp0 - 56) nci func (func + 16 * n + 16) g x r :=
-      tolV_in hIn hn hS hv (argStr_int x) (fun h => by obtain ⟨h1, h2⟩ := h.int_inv; exact ⟨h1.trans rfl, h2⟩)
+      tolV_in hIn hn hS hv (argStr_int x).cost_pos (fun h => by obtain ⟨h1, h2⟩ := h.int_inv; exact ⟨h1.trans rfl, h2⟩)
         (by decide) (by rw [show g + 504 = g + gMtOff + 8 * luaTnumber by rfl]; exact hIn.mt luaTnumber (by simp))
         hi1 hin hr
     exact tolPost_of_run hIn hn hS hP hv (argStr_int x) hi1 fun K X W cw size hash head d nuse hT c h => by

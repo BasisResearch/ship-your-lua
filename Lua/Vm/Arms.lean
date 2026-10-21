@@ -238,6 +238,9 @@ import Lua.Vm.Arms.Segs.Hssprint_r
 import Lua.Vm.Arms.Segs.Hssputs_r
 import Lua.Vm.Arms.Segs.Hlua_typename
 import Lua.Vm.Arms.Segs.Hlua_topointer
+import Lua.Vm.Arms.Segs.Hlua_tonumberx
+import Lua.Vm.Arms.Segs.Htostringbuff_part_0_isra_0
+import Lua.Vm.Arms.Segs.Hstrspn
 import Lua.Vm.Arms.Head
 import Lua.Vm.Arms.Prologue
 

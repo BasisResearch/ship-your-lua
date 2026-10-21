@@ -981,7 +981,7 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.TiNew.ins
 #print axioms Lua.Vm.Sim.Kit.TiNew.st
 #print axioms Lua.Vm.Sim.Kit.KWalk.congr
-#print axioms Lua.Vm.Sim.Kit.PrSt.nextKeep
+#print axioms Lua.Vm.Sim.Kit.PrStR.nextKeep
 #print axioms Lua.Vm.Sim.Kit.litKeeps_of
 #print axioms Lua.Vm.Sim.Kit.LitsFoot.trans
 #print axioms Lua.Vm.TabFoot.trans
@@ -1001,7 +1001,35 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.argStr_fn
 #print axioms Lua.Vm.Sim.Kit.tolPost_of_run
 #print axioms Lua.Vm.Sim.Kit.tolFn_proved
-#print axioms Lua.Vm.Sim.Kit.printFn_of_flt
+#print axioms Lua.Vm.Sim.Kit.printFn_of_tol
+#print axioms Lua.Vm.Sim.Kit.printFlt_of_tol
+#print axioms Lua.Vm.Sim.Kit.BigRun.trans
+#print axioms Lua.Vm.Sim.Kit.BigRun.ofFrame
+#print axioms Lua.Vm.Sim.Kit.BigRun.frame_before
+#print axioms Lua.Vm.Sim.Kit.BigRun.frame_after
+#print axioms Lua.Vm.Sim.Kit.BigRun.keep_inUse
+#print axioms Lua.Vm.Sim.Kit.BigRun.apart
+#print axioms Lua.Vm.Sim.Kit.PrStR.bigRun
+#print axioms Lua.Vm.Sim.Kit.TolPost.pre
+#print axioms Lua.Vm.Sim.Kit.tolPost_of_runP
+#print axioms Lua.Vm.Sim.Kit.tolPost_of_split
+#print axioms Lua.Vm.Sim.Kit.strspn_sum
+#print axioms Lua.Vm.Sim.Kit.spanLen_of
+#print axioms Lua.Vm.Sim.Kit.tsbBytes_eq
+#print axioms Lua.Vm.Sim.Kit.tsb_sum
+#print axioms Lua.Vm.Sim.Kit.pff_tsb
+#print axioms Lua.Vm.Sim.Kit.pushfF_pre
+#print axioms Lua.Vm.Sim.Kit.pushfF_post
+#print axioms Lua.Vm.Sim.Kit.tolflt_pre
+#print axioms Lua.Vm.Sim.Kit.tolflt_post
+#print axioms Lua.Vm.Sim.Kit.argStr_flt
+#print axioms Lua.Vm.Sim.Kit.lits_nomatch_flt
+#print axioms Lua.Vm.Sim.Kit.tolFlt_of
+#print axioms Lua.Vm.Sim.Kit.printRel_tol
+#print axioms Lua.Vm.Sim.Kit.CallOpen.print
+#print axioms Lua.Vm.Sim.Kit.printFlt_of
+#print axioms Lua.Vm.Sim.Kit.printFn_of
+#print axioms Lua.Num.fmt14g_byte
 #print axioms Lua.Vm.Sim.Kit.show_ascii
 LEAN
 lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
