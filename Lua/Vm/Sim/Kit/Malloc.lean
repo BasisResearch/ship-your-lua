@@ -100,6 +100,54 @@ def MallocR_Statement : Prop :=
 /-- `_free_r`'s entry. -/
 abbrev symFreeR : Nat := 0x8003be24
 
+/-- The entry chunks other than the block being freed. `InUse` selects
+their live payloads; the freed block carries no survival guarantee. -/
+def freeSurvivors (chunks : List Chunk) (p : Nat) : List Chunk :=
+  chunks.filter (fun c => c.addr + 16 != p)
+
+/-- The resulting heap and surviving allocation ledger of `_free_r`.
+Each surviving allocation keeps its base, capacity and payload bytes. -/
+structure FreeRPost (m m' : Mem) (sp p top : Nat) (chunks : List Chunk)
+    (top' brk' : Nat) (chunks' : List Chunk) (bins' : Nat → List Nat) : Prop where
+  heap : HeapAt (Vsa.Densify.fillZeroMem m') top' brk' chunks' bins'
+  top_le : top' ≤ top
+  live : ∀ c ∈ freeSurvivors chunks p, c.inuse = true →
+    ∃ sz, (⟨c.addr, sz, true⟩ : Chunk) ∈ chunks' ∧ c.size ≤ sz
+  payload : ∀ a, InUse (freeSurvivors chunks p) a → m'[a]? = m[a]?
+  keep : ∀ a, ¬ MallocGlobal a →
+    (a < heapStart ∨ heapEnd ≤ a ∨ InUse (freeSurvivors chunks p) a) →
+    (a + 1024 ≤ sp ∨ sp ≤ a) → m'[a]? = m[a]?
+
+/-- A surviving payload is still part of a chunk in use after the free. -/
+theorem FreeRPost.inUse {m m' : Mem} {sp p top top' brk' : Nat} {chunks chunks' : List Chunk}
+    {bins' : Nat → List Nat} (h : FreeRPost m m' sp p top chunks top' brk' chunks' bins')
+    {a : Nat} (ha : InUse (freeSurvivors chunks p) a) : InUse chunks' a := by
+  obtain ⟨c, hc, hu, h1, h2⟩ := ha
+  obtain ⟨sz, hs, hsz⟩ := h.live c hc hu
+  exact ⟨⟨c.addr, sz, true⟩, hs, rfl, h1, by simp only; omega⟩
+
+/-- The return witness of the heap-retaining free summary. -/
+structure FreeRData (m : Mem) (sp p top0 : Nat) (chunks0 : List Chunk)
+    (r : BitVec 64) (f : AbiFrame) (o : Array String) (c : Vsa.Machine.Config) where
+  mem : Mem
+  top : Nat
+  brk : Nat
+  chunks : List Chunk
+  bins : Nat → List Nat
+  atReturn : SegSt r (⟨Register.x2, BitVec.ofNat 64 sp⟩ ::
+    ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩ :: f.pins) (ArmPay mem o) c
+  post : FreeRPost m mem sp p top0 chunks0 top brk chunks bins
+
+/-- `_free_r` with its resulting heap and all surviving live payloads. -/
+def FreeRHeap_Statement : Prop :=
+  ∀ (sp p top brk : Nat) (chunks : List Chunk) (bins : Nat → List Nat) (r : BitVec 64) (f : AbiFrame)
+    (m : Mem) (o : Array String),
+    HeapAt (Vsa.Densify.fillZeroMem m) top brk chunks bins → r.toNat % 4 = 0 → sp ≤ 2 ^ 32 → sp % 16 = 0 →
+    heapEnd + 1024 ≤ sp → (∃ sz, (⟨p - 16, sz, true⟩ : Chunk) ∈ chunks) → heapStart + 16 ≤ p →
+    Triple (SegSt (BitVec.ofNat 64 symFreeR) (callPre [⟨Register.x10, BitVec.ofNat 64 symImpureData⟩,
+        ⟨Register.x11, BitVec.ofNat 64 p⟩] sp r f) (ArmPay m o))
+      (fun c => Nonempty (FreeRData m sp p top chunks r f o c))
+
 /-- **`_free_r(_REENT, p)`** (lane F1-14; named premise, PHASES A0: the
 dlmalloc proof is ship-your-interpreter's, at its WHILE addresses, as
 `MallocR_Statement`'s): on a heap of the shape `HeapAt` (of the zero fill),
@@ -117,5 +165,15 @@ def FreeR_Statement : Prop :=
       (fun c => ∃ m', SegSt r (⟨Register.x2, BitVec.ofNat 64 sp⟩ ::
           ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩ :: f.pins) (ArmPay m' o) c ∧
         ∀ a, ¬ MallocGlobal a → (a < heapStart ∨ heapEnd ≤ a) → (a + 1024 ≤ sp ∨ sp ≤ a) → m'[a]? = m[a]?)
+
+/-- The original exit-path contract follows by forgetting the heap. -/
+theorem freeR_of_heap (h : FreeRHeap_Statement) : FreeR_Statement := by
+  intro sp p top brk chunks bins r f m o hh hr hs ha hsp hp hlo c hc
+  obtain ⟨c', run, ⟨X⟩⟩ := h sp p top brk chunks bins r f m o hh hr hs ha hsp hp hlo c hc
+  exact ⟨c', run, X.mem, X.atReturn, fun a hg hout hstack =>
+    X.post.keep a hg (by
+      rcases hout with ha | ha
+      · exact .inl ha
+      · exact .inr (.inl ha)) hstack⟩
 
 end Lua.Vm.Sim.Kit

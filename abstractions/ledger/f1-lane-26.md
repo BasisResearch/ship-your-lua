@@ -31,8 +31,7 @@ The seams are named contracts `FprintfPre`/`ErrPrintAt` and
 * The other `ErrorSimRest` fields remain the formatting heads, the per-site
   heads, and the floating zero-step FORPREP path.
 
-The pcall proof still needs an allocator shrink summary, a free summary
-retaining the resulting heap and other live payloads, and invariant facts
+The pcall proof still needs an allocator shrink summary, invariant facts
 for the base CallInfo, successor CallInfo and stderr. These are proof
 obligations, not decisions requiring user permission. `FRet` already
 provides the allocator heap/frame needed for the stronger free summary.
@@ -62,3 +61,99 @@ scope with `MemoryMax=12G` and one CPU core; one build at a time in this
 worktree. The initial virtual-address cap was replaced with this resident
 memory cap after Lean failed to create a thread. No results from that
 failed build count as validation.
+
+## Heap-retaining free summary (sol-1)
+
+The existing `FQ` kept the return PC, SP and s0/s1/s2/s3. It discarded
+`FRet.heap` (including the resulting top/break/chunks/bins, the surviving
+ledger and `top ≤ top0`), `FRet.pres` and `FRet.frame`; `MRegs.ra` was not
+part of the segment return pins. `FRet.heap_named` now consumes the heap's
+anonymous witnesses once. `FQHeap` carries the named heap witness, image,
+presence and frame through `free_body` and `LocalRun.reach`.
+
+`FreeRHeap_Statement` returns a named `FreeRData` witness and `FreeRPost`:
+
+* `HeapAt` of the actual return memory's zero fill, with top no greater
+  than at entry;
+* every entry chunk in use whose payload base differs from `p` retains
+  that base and at least its entry capacity in a resulting chunk in use;
+* every byte of those surviving payloads is unchanged, at presence level;
+* the existing global/arena/stack frame, now also framing surviving payloads.
+
+`freeSurvivors_ledger` identifies the filtered Lua chunks with the existing
+ported ledger. `live_of_ledger` reads its base/capacity guarantee from the
+resulting `PHeapAt`. `heap_agree` lands the heap image in the actual return
+memory and is shared with malloc. The freed block is excluded from the
+ledger; neither its liveness nor its payload bytes are promised.
+`FreeRPost.inUse` transports surviving payload membership, and
+`freeR_of_heap` derives the unchanged `FreeR_Statement`.
+
+No allocator instruction proof, generator or Unwind entry/post field changed.
+`FreeRunAll` adds only the named return-heap witness and its extractor. The pending Unwind file was read in lane-f1-26;
+it depends on that lane's `ExitErr` and generated variants, and is not copied
+into this earlier worktree. Its named witnesses already satisfy R6/R7.
+
+### Exact remaining premises
+
+* `PcallErr_Statement`: from `Supported`, `Reach`, `Core`, `ErrMsgMem`,
+  `sp ≤ X.w.sp`, `ThrowPost`, and the status-2 `SegSt` at `0x8000b4c0`,
+  prove finite steps to `ErrPrintAt`. This still requires the close-protected
+  run (`luaD_rawrunprotected(closepaux)`/`luaF_close`), `luaD_seterrorobj`,
+  `luaD_shrinkstack`/`luaD_reallocstack` with a non-NULL `_realloc_r` shrink
+  summary that retains the resulting heap and other allocations, the
+  `luaE_shrinkCI` loop (using `freeRHeap_proved`), `lua_pcallk` and
+  `lua_tolstring(L, -1, NULL)`. Base CallInfo, successor CallInfo and stderr
+  facts must be established/transported by the invariant; they are not
+  supplied by a free summary.
+* `FprintfErr_Statement`: from `ErrPrintAt` (its `FprintfPre` carries the
+  heap, message `StrZ`, main's saved RA, no atexit, `StdoutIn` with empty
+  pending bytes, initialized stderr when appropriate, `_REENT->_stderr`,
+  locale and rodata), prove finite steps through `fprintf(stderr,
+  "lua: %s\n", msg)`/`_vfprintf_r` to `ErrExitAt` with `ErrExitIn`.
+  The missing summary covers optional `__sinit`, stderr setup and the
+  unbuffered `__sprint_r`/`__sfvwrite_r`/`__swrite`/`_write(2)` path.
+  The pending lane's trace uses `__SRW`, so it does not use `__sbprintf`.
+* `unwind_of` still requires both fields of `UnwindRest`. The formatting
+  heads, other site heads and FORPREP floating zero-step premise remain
+  as before. No `ErrorSimRest` or pcall premise is discharged by this change.
+
+### Validation of this extension
+
+Validated on 2026-10-21 using `bash /tmp/sol1-validate-free.sh` (exit 0).
+It invokes the MAIN `scripts/lean-capped.sh` for each `lake env lean`,
+with explicit output paths under this worktree's private `.lake/build`.
+All processes were awaited; no `lake build` or dependency-cache writes
+were used. The inherited systemd scope has a 12 GB cap, each invocation
+checks available memory, and only one Lean process runs at a time.
+The manager had released the old orphan lock and restored missing private
+cache artifacts before this validation; no missing modules were reported.
+
+* `Kit/Malloc`, `Kit/AllocHeap`, `VsaIris/Vsa/FreeRunAll` and
+  `Kit/AllocProof` all compile. The log is `/tmp/sol1-free-validation.log`.
+* The ten-name audit passes: `AllocProof.freeRHeap_proved`,
+  `AllocProof.freeR_proved`, `AllocProof.mallocR_proved`,
+  `AllocProof.fq_of_ret`, `AllocProof.heap_agree`,
+  `AllocHeap.freeSurvivors_ledger`, `AllocHeap.live_of_ledger`,
+  `FreeRPost.inUse`, `freeR_of_heap` and `VsaIris.VsaHeap.FRet.heap_named`.
+  Every report is a subset of `[propext, Classical.choice, Quot.sound]`.
+  These names are registered in check.sh stage 6.
+* `python3 scripts/check_discipline.py`: passed (17 rules, 1603 files).
+* `python3 abstractions/gate.py`: passed.
+* The forbidden-token checker from check.sh stage 3: passed.
+* `python3 scripts/syi/gen_alloc_steps.py --check`: passed.
+* `bash -n scripts/check.sh` and `git diff --check`: passed.
+
+The ledger induction now normalizes the induction hypothesis to the same
+filter/map form as the goal. The return records use explicit field layout,
+and the surviving-ledger cast exposes `H` before transport. Payload bounds
+use direct inequalities and the existing `homega` approach of generalizing
+`heapEnd`, avoiding large-literal normalization in the full call context.
+No Lean budget was raised. Full integration through check.sh remains the
+manager's landing gate; the unwind premises above remain open.
+
+Commit handoff: `git add` failed because
+`.git/worktrees/codex-layer-b/index.lock` is on a read-only filesystem.
+The validated files remain in this worktree for the manager to commit;
+`/tmp/sol1-free-validated.tar.gz` also carries all seven scoped files, the
+successful log, a complete patch from `0e5af27`, and a fix-only patch from
+the existing WIP `8c3e6a4`. No commit or landing is claimed here.

@@ -257,4 +257,35 @@ theorem inUse_iff {cs : List LC} {a : Nat} :
     refine ⟨toL c, mem_map_toV.1 hc, hu, ?_, ?_⟩ <;> unfold VsaIris.InExt at hin <;> simp only [toL] at * <;>
       omega
 
+/-- The ledger used for free is exactly the entry's surviving live payloads. -/
+theorem freeSurvivors_ledger (cs : List LC) (p : Nat) :
+    inuseBlocks ((freeSurvivors cs p).map toV) =
+      (inuseBlocks (cs.map toV)).filter (fun e => e.1 != p) := by
+  induction cs with
+  | nil => rfl
+  | cons c cs ih =>
+    simp only [freeSurvivors, inuseBlocks, List.filterMap_map] at ih
+    by_cases hp : c.addr + 16 = p <;> cases hu : c.inuse <;>
+      simp [freeSurvivors, inuseBlocks, toV, hp, hu, ih]
+
+/-- A retained ledger entry still has its original base and capacity.
+The resulting physical chunk may have greater capacity; callers retain the
+entry allocation, without needing an equality of chunk lists. -/
+theorem live_of_ledger {m : Mem} {cs : List LC} {H : List (Nat × Nat)}
+    {cs' : List VC} {top' brk' : Nat} {bins' : Nat → List Nat}
+    (hH : ∀ c ∈ cs, c.inuse = true → (c.addr + 16, c.size - 8) ∈ H)
+    (hh' : PHeapAt m H top' brk' cs' bins') :
+    ∀ c ∈ cs, c.inuse = true → ∃ sz, (⟨c.addr, sz, true⟩ : LC) ∈ cs'.map toL ∧ c.size ≤ sz := by
+  intro c hc hu
+  obtain ⟨d, hd, hdu, hda, hds⟩ := hh'.heap.heap.exact _ (hH c hc hu) (hH c hc hu)
+  refine ⟨d.size, mem_map_toL.2 ?_, ?_⟩
+  · have he : toV (⟨c.addr, d.size, true⟩ : LC) = d := by
+      obtain ⟨a, sz, u⟩ := d
+      simp only at hdu hda
+      subst u
+      simp only [toV]
+      congr <;> omega
+    rwa [he]
+  · omega
+
 end Lua.Vm.Sim.Kit.AllocHeap

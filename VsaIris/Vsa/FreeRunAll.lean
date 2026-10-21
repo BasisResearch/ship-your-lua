@@ -5,6 +5,21 @@ namespace VsaIris.VsaHeap
 open Vsa.MemRepr Vsa.Sim Vsa.Sim.DlHeap VsaIris.Inst VsaIris.Sym VsaIris.MallocFast
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail
 
+/-- Named heap witness of `FRet`, retaining its surviving ledger and top bound. -/
+structure FRetHeap (H : List (Nat × Nat)) (top0 : Nat) (Mt : Mem) where
+  top : Nat
+  brk : Nat
+  chunks : List Chunk
+  bins : Nat → List Nat
+  heap : PHeapAt Mt H top brk chunks bins
+  top_le : top ≤ top0
+
+/-- Consume the ported return's heap witnesses in one place. -/
+theorem FRet.heap_named {C : MCtx} {R : Nat → BitVec 64} {Mt : Mem}
+    (h : FRet C R Mt) : Nonempty (FRetHeap C.H C.top0 Mt) := by
+  obtain ⟨top, brk, chunks, bins, hh, ht⟩ := h.heap
+  exact ⟨⟨top, brk, chunks, bins, hh, ht⟩⟩
+
 abbrev fS (H : List (Nat × Nat)) (q : BitVec 64) (n : Nat) (s : BitVec 64) : Nat → Prop :=
   freeBytes vsaLayoutP H q n s allocHeadroom
 
