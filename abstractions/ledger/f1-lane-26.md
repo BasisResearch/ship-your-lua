@@ -41,7 +41,11 @@ provides the allocator heap/frame needed for the stronger free summary.
 
 The takeover audit found and removed an import cycle introduced by the
 lane index: `Kit → Unwind → ErrTail → Fold → Kit`. `StuckErr` imports
-`Unwind` directly, after `Fold` is available.
+`Unwind` directly, after `Fold` is available. The two new entry witnesses
+are named records (`ErrPrintData`, `ErrExitData`), with `Nonempty` as their
+propositional boundary, avoiding anonymous witness/projection towers. They
+carry data and proofs, so the records live in `Type`; their predicates are
+in `Prop`. The refactored consumers build and retain the same axiom set.
 
 * `scripts/abs_inventory.sh` was run before proof work.
 * `python3 scripts/check_discipline.py`: passed (17 rules).

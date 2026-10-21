@@ -84,11 +84,21 @@ structure FprintfPre (M : Mem) (H : HeapIx) (ph : StdoutPh) (sptr n : Nat) : Pro
 /-- **At `fprintf`'s entry** in `main`'s error branch: `a0 = stderr`, `a1`
 the format, `a2` the message's bytes, `ra` back into `main`, `main`'s `sp`,
 `s0 = stderr`, `s1 = L`. -/
-def ErrPrintAt (c : Config) : Prop :=
-  ∃ (M : Mem) (o : Array String) (H : HeapIx) (ph : StdoutPh) (sptr n : Nat) (f : AbiFrame),
-    SegSt (BitVec.ofNat 64 symFprintf) (callPre [⟨Register.x10, BitVec.ofNat 64 stderrFile⟩,
+structure ErrPrintData (c : Config) where
+  M : Mem
+  o : Array String
+  H : HeapIx
+  ph : StdoutPh
+  sptr : Nat
+  n : Nat
+  f : AbiFrame
+  atCall : SegSt (BitVec.ofNat 64 symFprintf) (callPre [⟨Register.x10, BitVec.ofNat 64 stderrFile⟩,
       ⟨Register.x11, BitVec.ofNat 64 fmtLuaS⟩, ⟨Register.x12, BitVec.ofNat 64 sptr⟩] 0x87ffffe0
-      0x80001888#64 f) (ArmPay M o) c ∧ FprintfPre M H ph sptr n
+      0x80001888#64 f) (ArmPay M o) c
+  input : FprintfPre M H ph sptr n
+
+/-- The call has a named entry witness. -/
+def ErrPrintAt (c : Config) : Prop := Nonempty (ErrPrintData c)
 
 /-- **What `main`'s return and `exit(2)` read after the `fprintf`**. -/
 structure ErrExitIn (M : Mem) (H : HeapIx) (ph : StdoutPh) : Prop where
@@ -96,9 +106,17 @@ structure ErrExitIn (M : Mem) (H : HeapIx) (ph : StdoutPh) : Prop where
   exit : ErrExitMem M H ph
 
 /-- **Back in `main` after the `fprintf`** (`0x80001888`), its frame. -/
-def ErrExitAt (c : Config) : Prop :=
-  ∃ (M : Mem) (o : Array String) (H : HeapIx) (ph : StdoutPh) (f : AbiFrame),
-    voidRet 0x80001888#64 0x87ffffe0 f M o c ∧ ErrExitIn M H ph
+structure ErrExitData (c : Config) where
+  M : Mem
+  o : Array String
+  H : HeapIx
+  ph : StdoutPh
+  f : AbiFrame
+  atReturn : voidRet 0x80001888#64 0x87ffffe0 f M o c
+  input : ErrExitIn M H ph
+
+/-- The return has a named entry witness. -/
+def ErrExitAt (c : Config) : Prop := Nonempty (ErrExitData c)
 
 set_option hygiene false in
 local macro_rules | `(tactic| kit_norm $h) => `(tactic|
@@ -118,7 +136,9 @@ local macro_rules
 /-- **After the `fprintf`, the machine halts with code 2**: `main` returns
 2, `_start`'s `tail exit`, `exit(2)` (`exit_run_err`). -/
 theorem errExit_stuck {c : Config} (h : ErrExitAt c) : StuckOut c := by
-  obtain ⟨M, o, H, ph, f, h, hE⟩ := h
+  obtain ⟨X⟩ := h
+  have hE := X.input
+  have h := X.atReturn
   have acc := Steps.refl c
   have hra := hE.main_ra
   simp only [voidRet, AbiFrame.pins] at h
@@ -126,7 +146,7 @@ theorem errExit_stuck {c : Config} (h : ErrExitAt c) : StuckOut c := by
   have h := h.at (Ret.rtgt _ (by decide))
   kit_run h acc until [0x8002f85c]
   have hm := h.armMem
-  obtain ⟨out, hh⟩ := exit_run_err (M := M) (H := H) (ph := ph) (h.repin (by pins_of h)) hE.exit
+  obtain ⟨out, hh⟩ := exit_run_err (M := X.M) (H := X.H) (ph := X.ph) (h.repin (by pins_of h)) hE.exit
   exact .inr ⟨out, 2, Lua.Vm.Sim.Halts.of_steps acc hh, by decide⟩
 
 /-- **Open: `luaD_pcall`'s error branch to `main`'s `fprintf`**, from
