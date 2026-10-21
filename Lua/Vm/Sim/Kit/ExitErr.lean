@@ -30,6 +30,7 @@ namespace Lua.Vm.Sim.Kit
 open Lua.Vm.Sim Lua.Vm.Sim.AtF Lua.Vm.Layout Lua.Vm.DlHeap Vsa.Densify
 open Vsa.Machine (Config Steps)
 
+-- discipline: allow(R7-conj-tower-def) the existentials are a summary's returned memory (`∃ m', wrRet … ∧ keep`) and reached configuration, the posts named structures (`ErrRest`, `ErrOut`, `WQuiet`)
 /-- `stderr`'s one-byte buffer `_nbuf` (`__smakebuf_r` on an unbuffered stream). -/
 abbrev errNbuf : Nat := stderrFile + 0x77
 

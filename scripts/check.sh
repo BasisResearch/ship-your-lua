@@ -868,6 +868,17 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.StdioRest.congrT
 #print axioms Lua.Vm.Sim.Kit.StdioRest.of_first
 #print axioms Lua.Vm.Sim.Kit.StdQuiet.of_std
+#print axioms Lua.Vm.Sim.Kit.fclose_errW
+#print axioms Lua.Vm.Sim.Kit.fclose_out9
+#print axioms Lua.Vm.Sim.Kit.fclose_outF
+#print axioms Lua.Vm.Sim.Kit.exit_handler_err9
+#print axioms Lua.Vm.Sim.Kit.exit_handler_errF
+#print axioms Lua.Vm.Sim.Kit.exit_handler_errU
+#print axioms Lua.Vm.Sim.Kit.outCloseAt_of
+#print axioms Lua.Vm.Sim.Kit.exit_halt2
+#print axioms Lua.Vm.Sim.Kit.exit_run_err
+#print axioms Lua.Vm.Sim.Kit.errExit_stuck
+#print axioms Lua.Vm.Sim.Kit.unwind_of
 #print axioms Lua.Vm.Sim.Kit.printGrow_none
 #print axioms Lua.Vm.Sim.Ret.poscallN
 #print axioms Lua.Vm.Sim.Ret.pn_loop
