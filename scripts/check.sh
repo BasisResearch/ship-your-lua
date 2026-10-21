@@ -137,7 +137,7 @@ else echo "skipped (no syi checkout)"; fi
 [ "${1:-}" = "--static-only" ] && { echo "check: static stages OK (build and axioms not run)"; exit 0; }
 
 echo "== (5) build"
-blog=$(mktemp); lake build Lua Vsa VsaIris > "$blog" 2>&1
+blog=$(mktemp); lake build Lua Vsa VsaIris Lua.Vm.Sim.Kit.Bfree > "$blog" 2>&1
 tail -1 "$blog" | grep -q "Build completed successfully" || { grep -E "^error|^✖" "$blog" | head -20; rm -f "$blog"; fail "lake build"; }
 rm -f "$blog"
 echo "ok"
@@ -160,6 +160,7 @@ tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
 cat > "$tmp/Axioms.lean" <<'LEAN'
 import Lua
 import Lua.Compile.EncodeCheck
+import Lua.Vm.Sim.Kit.Bfree
 import Vsa.Sim.SegToTripleFramed
 import Vsa.Sim.BridgeSegFull
 import Vsa.Sim.DeriveCase
@@ -970,6 +971,15 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.TolLitPost.strt
 #print axioms Lua.Vm.Sim.Kit.TolStrPost.strt
 #print axioms Lua.Vm.Sim.Kit.show_ascii
+#print axioms Lua.Vm.AtF.BfreeNull.Runs.run_null
+#print axioms Lua.Vm.Code.textLoaded__BfreeLoaded
+#print axioms Lua.Vm.AtF.Bfree.Runs.run_push
+#print axioms Lua.Vm.Sim.Kit.bfreeMem_keep
+#print axioms Lua.Vm.Sim.Kit.bfreeMem_push
+#print axioms Lua.Vm.Sim.Kit.bfree_sum
+#print axioms Lua.Vm.BigChain.congr
+#print axioms Lua.Vm.Sim.Kit.bfree_rdLE_keep
+#print axioms Lua.Vm.Sim.Kit.bfree_chain
 #print axioms Lua.Vm.Sim.Kit.prLine_chars
 #print axioms Lua.Vm.Sim.Kit.fwrite_print
 #print axioms Lua.Vm.Sim.Kit.prStrPost

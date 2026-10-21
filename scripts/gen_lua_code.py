@@ -131,6 +131,9 @@ EXTRA = ["luaB_print", "luaL_tolstring", "fwrite", "luaG_opinterror", "__umoddi3
 # pinned: main.c's `l_alloc` (`g->frealloc`; lauxlib.c's is the second)
 DUP_FIRST = {"l_alloc"}
 
+# Imported directly by their helper batteries; keep the aggregate index stable.
+STANDALONE = ["_Bfree"]
+
 FUNC_RE = re.compile(r"^([0-9a-f]{16}) <(.+)>:$")
 INST_RE = re.compile(r"^\s+([0-9a-f]+):\s+([0-9a-f]{8})\s")
 ALLOW = ("  -- discipline: allow(R6-anon-projection-tower) generated "
@@ -326,7 +329,7 @@ def render() -> dict:
     base, text = image_text()
     names = functions()
     files = {}
-    for n in names:
+    for n in names + STANDALONE:
         if not funcs.get(n):
             raise ValueError(f"function {n!r} not (uniquely) in the disassembly")
         files.update(emit(n, funcs[n], base, text))
@@ -343,7 +346,7 @@ def render() -> dict:
 def main():
     if "--list" in sys.argv:
         funcs = disasm()
-        for n in functions():
+        for n in functions() + STANDALONE:
             print(n, len(funcs.get(n) or []))
         return
     files = render()

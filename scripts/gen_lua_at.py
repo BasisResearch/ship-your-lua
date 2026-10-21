@@ -4302,6 +4302,33 @@ def tol_fn(mod):
 
 FNS.update({"luaL_tolstring/fn": tol_fn("TolFn")})
 
+# _Bfree is a leaf: NULL returns without reading memory; otherwise push the
+# block into the class slot. Nat atoms: sp, reent, block, freelists, class.
+FNS.update({
+    "_Bfree/null": dict(
+        mod="BfreeNull", entry=0x8003d700,
+        row=abi_row({10: N((1, 1)), 11: ("lit", 0)}),
+        ok=["sp_hi : X.n 0 ≤ 2 ^ 32", "ra : (X.b 0).toNat % 4 = 0"],
+        runs={"null": dict(at=0x8003d700, ctx="Ok")},
+        doc="`_Bfree(reent, NULL)`: no memory access."),
+    "_Bfree": dict(
+        mod="Bfree", entry=0x8003d700,
+        imports=["Lua.Vm.Sim.Kit.AtNarrow"],
+        row=abi_row({10: N((1, 1)), 11: N((2, 1))}),
+        ok=["sp_hi : X.n 0 ≤ 2 ^ 32", "ra : (X.b 0).toNat % 4 = 0",
+            "r_lo : 0x8005c6d0 ≤ X.n 1", "r_hi : X.n 1 + 112 ≤ 2 ^ 32",
+            "r_al : X.n 1 % 8 = 0",
+            "b_lo : 0x8006ecd0 ≤ X.n 2", "b_hi : X.n 2 + 16 ≤ 2 ^ 32",
+            "b_al : X.n 2 % 8 = 0",
+            "fl_lo : 0x8006ecd0 ≤ X.n 3", "fl_hi : X.n 3 + 520 ≤ 2 ^ 32",
+            "fl_al : X.n 3 % 8 = 0", "k_hi : X.n 4 ≤ 64"],
+        lb={1: 0x8005c6d0, 2: 0x8006ecd0, 3: 0x8006ecd0},
+        rcells={(((1, 1),), 104): N((3, 1)),
+                (((3, 1), (4, 8)), 0): ("bv", 13)},
+        rcellsw={(4, ((2, 1),), 8): N((4, 1))},
+        runs={"push": dict(at=0x8003d700, ctx="Ok")},
+        doc="`_Bfree(reent, b)`: class at b+8, freelists at reent+104, two stores.")})
+
 
 # ---- lane F1-25: `luaL_tolstring` on a float ----------------------------------
 

@@ -688,6 +688,12 @@ HELPERS += [("lua_typename", "Lua_typename", 0x8000211c, 0x80002138, [22, 26], [
             ("lua_topointer", "Lua_topointer", 0x80002e14, 0x80002f1c, [22, 26], [],
              [0x80002e64, 0x80002e8c, 0x80002ea4, 0x80002e48])]
 RESULTS.update({"lua_typename": {"x10"}, "lua_topointer": {"x10"}})
+
+# Bignum primitives have standalone imports, so existing callers do not rebuild.
+HELPERS += [("_Bfree", "_Bfree", 0x8003d700, 0x8003d724, [22, 26],
+             [0x8003d70c, 0x8003d714], [])]
+RESULTS["_Bfree"] = set()
+STANDALONE_HELPERS = {"HBfree"}
 helper_edit("luaO_pushvfstring", roots=[0x80011e54, 0x80011f2c], stops=[0x8001219c, 0x80012148])
 helper_edit("_svfprintf_r", roots=[0x80043c48], stops=[0x80043c70, 0x800438c8, 0x8004434c, 0x80043ed8],
             unstop=[0x800438ac])
@@ -852,11 +858,13 @@ def helper_specs(fn):
     return out
 
 
-def helper_all():
+def helper_all(only=None):
     """[(module, battery, segment module)] for every helper."""
     cuts, owner, extra = helper_cuts()
     out = []
     for fn, cap, lo, hi, temps, roots, stops in HELPERS:
+        if only is not None and fn not in only:
+            continue
         specs, sites = [], {}
         for name, (a, b, path, keep) in cuts.items():
             if owner[name] != fn:
@@ -1199,7 +1207,8 @@ namespace {NS}
     for mod, battery, text in helper_all():
         files[OUT / "Sites" / f"{mod}.lean"] = battery
         files[OUT / "Segs" / f"{mod}.lean"] = text
-        seg_mods.append(mod)
+        if mod not in STANDALONE_HELPERS:
+            seg_mods.append(mod)
     # the fetch head: its own battery and segment (not shared with any arm)
     hname, hspec, hrows = head_spec()
     objs = []
@@ -1336,23 +1345,38 @@ def main() -> int:
                     help="fail if a generated file differs from the committed one")
     ap.add_argument("--only", default=None,
                     help="comma-separated opcodes (for experiments; not with --check)")
+    ap.add_argument("--helper", default=None,
+                    help="regenerate/check only these comma-separated helpers; preserve other files")
     args = ap.parse_args()
+    if args.helper and args.only:
+        ap.error("--helper and --only select different generation modes")
     only = set(args.only.split(",")) if args.only else None
-    files = render(only)
+    if args.helper:
+        selected = set(args.helper.split(","))
+        unknown = selected - {h[0] for h in HELPERS}
+        if unknown:
+            ap.error(f"unknown helpers: {sorted(unknown)}")
+        files = {}
+        for mod, battery, text in helper_all(selected):
+            files[OUT / "Sites" / f"{mod}.lean"] = battery
+            files[OUT / "Segs" / f"{mod}.lean"] = text
+    else:
+        files = render(only)
     if args.check:
         bad = [p for p, t in files.items() if not p.exists() or p.read_text() != t]
-        stale = [p for d in ("Sites", "Segs") for p in (OUT / d).glob("*.lean")
-                 if p not in files]
+        stale = [] if args.helper else [p for d in ("Sites", "Segs") for p in (OUT / d).glob("*.lean")
+                                        if p not in files]
         for p in bad + stale:
             print(f"drift: {p.relative_to(ROOT)}", file=sys.stderr)
         return 1 if bad or stale else 0
-    for d in ("Sites", "Segs"):
+    for d in (() if args.helper else ("Sites", "Segs")):
         (OUT / d).mkdir(parents=True, exist_ok=True)
         for p in (OUT / d).glob("*.lean"):
             if p not in files:
                 p.unlink()
     for p, t in files.items():
-        p.write_text(t)
+        if not p.exists() or p.read_text() != t:
+            p.write_text(t)
     print(f"wrote {len(files)} files")
     return 0
 

@@ -541,6 +541,22 @@ inductive BigChain (m : Mem) : Nat → List (Nat × Nat) → Prop where
   | cons {b nx k : Nat} {bs : List (Nat × Nat)} : b ≠ 0 → rd64 m b = some nx → rd32 m (b + 8) = some k →
       rd32 m (b + 12) = some (2 ^ k) → k ≤ 64 → BigChain m nx bs → BigChain m b ((b, k) :: bs)
 
+/-- The header reads a bignum chain needs in another memory. -/
+structure BigHeaderKeep (m m' : Mem) (b : Nat) : Prop where
+  next : rd64 m' b = rd64 m b
+  cls : rd32 m' (b + 8) = rd32 m (b + 8)
+  maxwds : rd32 m' (b + 12) = rd32 m (b + 12)
+
+/-- Transport a chain through stores apart from its headers. -/
+theorem BigChain.congr {m m' : Mem} {hd : Nat} {bs : List (Nat × Nat)}
+    (h : BigChain m hd bs) (hk : ∀ x ∈ bs, BigHeaderKeep m m' x.1) : BigChain m' hd bs := by
+  induction h with
+  | nil => exact .nil
+  | @cons b nx k bs hn hnext hcls hmax hbound htail ih =>
+    have hh := hk (b, k) (List.mem_cons_self ..)
+    exact .cons hn (hh.next.trans hnext) (hh.cls.trans hcls) (hh.maxwds.trans hmax) hbound
+      (ih fun x hx => hk x (List.mem_cons_of_mem _ hx))
+
 /-- The value of a bignum: `_wds` words of `_x`, base `2^32`. -/
 def bigVal (m : Mem) (b : Nat) : Option Nat :=
   (rd32 m (b + 20)).bind fun wds => (List.range wds).foldr
