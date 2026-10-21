@@ -693,6 +693,21 @@ helper_edit("_svfprintf_r", roots=[0x80043c48], stops=[0x80043c70, 0x800438c8, 0
             unstop=[0x800438ac])
 
 
+def helper_span(fn, lo=None, hi=None):
+    """A helper's range widened by a later lane (in place)."""
+    for k, h in enumerate(HELPERS):
+        if h[0] == fn:
+            HELPERS[k] = (h[0], h[1], h[2] if lo is None else lo, h[3] if hi is None else hi, *h[4:])
+            return
+    raise KeyError(fn)
+
+
+# lane F1-26: the unwind after a Lua error. `main`'s error branch after
+# `lua_pcallk` returns 2 (`lua_tolstring(L, -1, NULL)`, `fprintf(stderr, …)`
+# a call node, `return 2`)
+helper_span("main", hi=0x800018a0)
+
+
 def helper_cfg(lo, hi):
     """{addr: (row, successors, ends_segment)} over one helper's range."""
     out = {}
