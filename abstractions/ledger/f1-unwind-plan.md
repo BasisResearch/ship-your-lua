@@ -22,6 +22,26 @@ This is needed because after pcall restores `L->ci` to `base_ci`,
 its successor (the print frame) if present. Proving merely a null case
 from the current `L->ci` would miss this reachable free path.
 
+The allocator input needs a separate ownership fact. `NciApart.kept`
+places every byte of the print CallInfo in live payload memory, but does
+not identify `nci` as an allocation base. `FreeRHeap_Statement` requires
+an in-use chunk at `nci - 16`. `MallocPost.block` supplies that fact when
+`luaE_extendCI` allocates; retain it through `ExtPost`, the call join,
+print's retained chunks, and call closure. The initial null-successor
+branch needs no new boot assumption. `tasks/cinext-owned.md` scopes this
+extension; interior-pointer liveness is not sufficient to call free.
+
+The actual `luaE_shrinkCI` entry is `0x80016aa8`. The one-successor
+path stores NULL to the retained Lua frame's next link and decrements
+the 16-bit `L->nci`, then calls `luaM_free_(L,nci,64)` at `0x80016b04`.
+The terminal-link invariant excludes another iteration. Its callee at
+`0x80010dec` calls `g->frealloc` through `jalr` and subtracts 64 from
+`g->GCdebt` as a machine word. Main's allocator at `0x8000172c`, with
+new size zero, calls `free` then returns zero. A future summary must
+compose these generated runs with `freeRHeap_proved`, retaining the
+surviving heap and framing the Lua state/global state. Do not replace
+the C allocator wrappers with a direct `_free_r` call at the wrong PC.
+
 ## Base CallInfo
 
 `LuaStateRel.previous` identifies the Lua frame's predecessor as
