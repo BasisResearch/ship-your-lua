@@ -25,7 +25,7 @@ without new axioms, admitted proofs, or weakened semantics.
 | Lane | Worktree | Work |
 |---|---|---|
 | Lead / integration | main and `.claude/worktrees/lane-f1-26` | Run both full gates on isolated sources and private caches |
-| Sol slot 1 / console source regions | `.claude/worktrees/sol-1` | Allow initialized/lazy console writes from read-only data and factor pure imports |
+| Sol slot 1 / stdin EOF | `.claude/worktrees/sol-1` | Prove initialized/lazy `_read(0)` and its empty-stdin OS boundary |
 | Sol slot 2 / successor CallInfo invariant | `.claude/worktrees/sol-2` | Retain nci->next = NULL through allocation, reuse and call_close |
 
 Reviewed checkpoints:
@@ -100,7 +100,7 @@ shrink. Only discipline-table entries and build/audit lists conflicted;
 the resolution retains both lanes. No build runs there yet. The status-2 error-object
 helper is now combined at `50b4d86`; all standalone generator registrations
 were retained, and the merged code/target-arm/target-at checks pass.
-Console source regions will join after review. The queue's project and
+Console source regions are reviewed at `d6df854` and combined at `73bd55c`: final source/OS targets pass (511 jobs), and all 93 axiom reports are standard-only. The earlier consumer build passed 693 jobs; after shared helper edits, final broad consumer validation is consolidated into the queue's full gate. The manager stopped the redundant worker rerun after its final target modules passed and completed the target build/audit before committing. Slot 1 now runs stdin EOF. The queue's project and
 three local dependency caches are separate from main.
 
 ## Remaining obligations

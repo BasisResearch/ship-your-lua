@@ -89,3 +89,9 @@
   retained data with `old_le : B.nOld ≤ C.n.toNat`; reuse its split/free
   tail with a shrink-specific entry/prologue/decision contract and preserve
   only the requested prefix, plus every other live allocation.
+
+- 2026-10-27: editing shared declarations during a broad consumer build
+  means its successful result does not validate the final source revision.
+  Freeze proof sources before broad validation. If final target checks pass
+  but consumers need another rebuild, consolidate that rebuild into the
+  lead's combined gate and state the validation boundary explicitly.
