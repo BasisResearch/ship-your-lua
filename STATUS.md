@@ -25,8 +25,8 @@ without new axioms, admitted proofs, or weakened semantics.
 | Lane | Worktree | Work |
 |---|---|---|
 | Lead / integration | main and `.claude/worktrees/lane-f1-26` | Run both full gates on isolated sources and private caches |
-| Sol slot 1 / Layer B integer emission | `.claude/worktrees/sol-1` | Prove the LOADI/LOADK selector and generic integer-load semantics |
-| Sol slot 2 / realloc shrink | `.claude/worktrees/sol-2` | Port in-place shrink with retained prefix and surviving heap payloads |
+| Sol slot 1 / console source regions | `.claude/worktrees/sol-1` | Allow initialized/lazy console writes from read-only data and factor pure imports |
+| Sol slot 2 / error-object transfer | `.claude/worktrees/sol-2` | Prove status-2 luaD_seterrorobj with exact TValue and frame preservation |
 
 Reviewed checkpoints:
 
@@ -64,7 +64,7 @@ The lazy console write is reviewed at `c5758e7`: target/consumer builds,
 generator and discipline checks, and all 27 axiom reports pass. It awaits
 the next integration. Stderr hooks are reviewed at `5717060`: all stdout
 and formatter consumer builds, targeted static checks and 36 standard-only
-axiom reports pass. Slot 1 now handles Layer B integer emission. Cached Balloc is
+axiom reports pass. Slot 1 completed integer emission at `fb3a27a` and now widens console source regions. Cached Balloc is
 reviewed at `5ac09e4`: generated machine run, ownership transfer, affected
 builds, targeted static checks and all 26 axiom reports pass. It also awaits
 integration (rebased equivalent `9e40987`). The OS boot-output repair
@@ -74,7 +74,15 @@ the old contract mismatch; global OS premises remain open. Slot 2 now
 has completed dtoa result release at `098f68c`: both generated machine
 paths, restored ownership, derived class bound, and zero-growth BigRun pass
 the target build, all 22 axiom reports, and static/full at-generator checks.
-It is prepared in `integration-next`; slot 2 now handles realloc shrink.
+It is prepared in `integration-next`. Slot 2 completed realloc shrink at
+`e23fff3`: both shrink paths, actual Sail steps, retained requested prefix,
+resulting heap and other live payloads pass affected builds, twelve standard-only
+axiom reports and targeted static checks. The allocator seam awaits integration;
+PcallErr composition remains open. Slot 2 now handles status-2 error-object transfer.
+Integer emission `fb3a27a` likewise awaits a later integration gate: checked
+LOADI/LOADK selection and generic load semantics pass target builds, sixteen
+standard-only axiom reports and targeted checks. LOADKX and the full compiler
+remain open.
 
 The idle F1-26 checkout now holds `integration-next`, with the reviewed
 lazy-write, cached-Balloc, boot-contract, dtoa-release and stderr-hook
