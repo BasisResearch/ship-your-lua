@@ -19,6 +19,8 @@ Target: let the proved console-write stack consume .rodata fragments as
 well as heap buffers, so fprintf's literal pieces meet real preconditions.
 Files: Kit/Write.lean, WriteBoot.lean, Swrite.lean and shared frame modules;
 generators only if required; ledger/PHASES/check.sh audits.
+First remove StdioMem's unnecessary import of Write using lower shared
+modules; preserve its APIs so AtFn no longer depends on write executions.
 First inspect WrFrame.buf_lo and WrrCtx.buf_lo: they exclude .rodata below
 tohost/errno. Reuse the scan summaries' below-or-above-MMIO source separation
 and the existing range/Agree abstractions; do not special-case one literal.
