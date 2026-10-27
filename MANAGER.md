@@ -27,3 +27,9 @@ stops that worker’s named systemd scope before resuming validation. Only the l
 and pushes `origin/main`, after the repository
 gate; never force-push. Record failed approaches in `abstractions/DEAD-ENDS.md`
 before issuing another task. Keep `STATUS.md`, including `## Needs user`, current.
+
+Closely related invariant fields share expensive generated consumers. The
+next error lane uses `tasks/unwind-invariant.md` as one invariant target,
+with the three narrower task files retained as audited specifications.
+Do not launch those three separately while the combined lane is active.
+Freeze their final proof sources before the combined consumer build.
