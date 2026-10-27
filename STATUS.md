@@ -5,12 +5,13 @@ without new axioms, admitted proofs, or weakened semantics.
 
 ## Integration
 
-`origin/main` is at `7211f98`. F1-25 is already published and fully gated.
-Two full gates run on frozen proof sources and private caches:
+The main batch through proof head `7893933` and harness fix `35e68a4`
+has passed the complete gate. F1-25 was already published and fully gated.
+Integration batches use frozen proof sources and private caches:
 
 | Batch | Checkout / proof head | State |
 |---|---|---|
-| Main | root / `7893933` | Full Lean build passed; OS harness fix passes focused traces; full gate retry running |
+| Main | root / `7893933` | All stages PASS, including OS traces and standard-only axiom audit |
 | Next | `.claude/worktrees/lane-f1-26` / `17b2fea` (harness `0183758`) | Static stages pass; full build running before OS traces and axiom audit |
 | Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `3dbbcbd` | Reviewed checkpoints combined; merged targeted generator checks pass; full gate not started |
 
@@ -20,8 +21,8 @@ heap-preserving free, and the Bfree machine/ownership summaries.
 Later commits include documentation, tasks, probes and a host trace-driver
 descriptor isolation fix. Proof sources remain at the checked revision.
 The first gate stopped at OS traces because the driver inherited fd 8
-from the build lock; the fixed focused suite has zero rejections. Publish
-after the full retry, including the axiom audit, passes.
+from the build lock. The complete retry passes, with zero OS rejections
+and only standard axioms. See `abstractions/ledger/integration-2026-10-27.md`.
 
 Next's batch adds lazy console initialization, cached Balloc ownership,
 the explicit empty-output OS boot contract, dtoa result release and
