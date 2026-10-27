@@ -5,7 +5,7 @@ without new axioms, admitted proofs, or weakened semantics.
 
 ## Integration
 
-`origin/main` is published at `373c854`. The main batch through proof head `7893933` and harness fix `35e68a4`
+`origin/main` is published at `d0a0c9b`. The main batch through proof head `7893933` and harness fix `35e68a4`
 has passed the complete gate. F1-25 was already published and fully gated.
 Integration batches use frozen proof sources and private caches:
 
@@ -13,7 +13,7 @@ Integration batches use frozen proof sources and private caches:
 |---|---|---|
 | Main | root / `7893933` | All stages PASS, including OS traces and standard-only axiom audit |
 | Next | `.claude/worktrees/lane-f1-26` / `17b2fea` (harness `0183758`) | Static stages pass; full build running before OS traces and axiom audit |
-| Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `3dbbcbd` | Static stages pass; full combined build running |
+| Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `3dbbcbd` | Static stages pass; full build running; gate registration fix and complete rerun required before publication |
 
 Main's batch includes F1-26's exit-after-error proof and import-cycle repair,
 checked B2 encoding/jump patching, stdout/stderr OS write bridges,
@@ -42,6 +42,7 @@ Queue's reviewed checkpoints:
 | `ecff107` | Arbitrary calloc-capacity memset and exact byte frame | 539-job affected build; 27 axiom reports |
 | `dddabd9` | Actual array-growth helper return with spare capacity | 493-job target build; 81 axiom reports |
 | `8f6be1e` | Terminal successor CallInfo link through CALL and errno | 2195-job affected build; 16 axiom reports |
+| `9afc530` | Positive calloc with full physical-capacity zeroing | 1417-job affected build; 271 axiom reports; not yet in queue |
 
 All listed axiom sets are standard-only. Applicable generator, discipline
 and abstraction checks pass. The console source change's final broad
@@ -49,19 +50,23 @@ consumer check is consolidated into the queue gate; an earlier consumer
 pass preceded final shared-helper edits. No queued checkpoint has passed
 its combined full gate yet. The terminal CallInfo change’s subsequent broad
 Fold build was stopped after every changed module passed; its remaining
-consumer and Fold-level axiom checks are consolidated into the queue gate.
+consumer and Fold-level axiom checks are consolidated into the queue gate. The
+GrowRoom build/audit registration initially matched shell header comments.
+Correction `98d5df1` must land after the running gate exits, followed by a
+complete gate rerun. Its focused build and 81 axiom reports remain valid.
+
 
 ## Active lanes
 
 | Lane | Checkout | Current target |
 |---|---|---|
-| Lead | next, queue; `lead-os-fstat` | Full gates and actual console fstat with both stat-buffer alignments |
-| Sol slot 1 | `.claude/worktrees/sol-1` | Actual successful `_calloc_r`, including full physical-capacity zeroing and old-allocation frames |
+| Lead | next, queue; `lead-os-fstat` | Full gates; console fstat target (544 jobs) and 77 axiom reports pass, final static checks running |
+| Sol slot 1 | `.claude/worktrees/sol-1` | Mutable integer constant pool and proved LOADI/LOADK emission |
 | Sol slot 2 | `.claude/worktrees/sol-2` | Complete the missing unwind invariant: base CallInfo, successor allocation ownership and stderr |
 
 The three closely related unwind invariants share one task and consumer
 build. Ready follow-ups cover fresh Balloc, mutable integer constant pools,
-console fstat and string-UNM metamethod lookup. Each has a scoped task and supporting ledger audit.
+persistent console descriptor frames and string-UNM metamethod lookup. Each has a scoped task and supporting ledger audit.
 Do not reassign completed or recorded dead ends unchanged.
 
 Workers are external `codex exec -m gpt-6.1-sol` processes at high reasoning,
