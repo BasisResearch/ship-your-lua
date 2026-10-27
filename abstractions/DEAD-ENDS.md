@@ -71,3 +71,11 @@
   uses that same cache key. `addk` checks the cached index's value/type
   and appends on mismatch. Model this mutable cache when matching lcode,
   including its sharing across functions, rather than deduplicating the pool.
+
+- OS boot contract audit (2026-10-27): `BootAt` pins registers/text/rodata
+  but not `sailOutput`; `GoodState` only constrains registers. Replacing a
+  boot configuration's output therefore preserves these hypotheses, while
+  `HtifRepr.init` plus `console` requires its output to be empty. The old
+  contract cannot represent all such boots if any exists. This is a source
+  audit, pending a Lean diagnostic. Repair the actual initial-output premise
+  explicitly; do not treat the global OS statement as merely vacuous or proved.
