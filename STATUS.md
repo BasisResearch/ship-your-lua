@@ -26,7 +26,7 @@ without new axioms, admitted proofs, or weakened semantics.
 |---|---|---|
 | Lead / integration | main and `.claude/worktrees/lane-f1-26` | Run both full gates on isolated sources and private caches |
 | Sol slot 1 / console source regions | `.claude/worktrees/sol-1` | Allow initialized/lazy console writes from read-only data and factor pure imports |
-| Sol slot 2 / error-object transfer | `.claude/worktrees/sol-2` | Prove status-2 luaD_seterrorobj with exact TValue and frame preservation |
+| Sol slot 2 / successor CallInfo invariant | `.claude/worktrees/sol-2` | Retain nci->next = NULL through allocation, reuse and call_close |
 
 Reviewed checkpoints:
 
@@ -78,7 +78,10 @@ It is prepared in `integration-next`. Slot 2 completed realloc shrink at
 `e23fff3`: both shrink paths, actual Sail steps, retained requested prefix,
 resulting heap and other live payloads pass affected builds, twelve standard-only
 axiom reports and targeted static checks. The allocator seam awaits integration;
-PcallErr composition remains open. Slot 2 now handles status-2 error-object transfer.
+PcallErr composition remains open. The error-object helper is also reviewed at `ed43110`: status-2 machine
+run, exact payload/tag/top stores, alias case, semantic TValue transport,
+target builds and all 95 standard-only public axiom reports pass.
+Slot 2 now retains the terminal successor CallInfo fact in the relation.
 Integer emission `fb3a27a` likewise awaits a later integration gate: checked
 LOADI/LOADK selection and generic load semantics pass target builds, sixteen
 standard-only axiom reports and targeted checks. LOADKX and the full compiler
@@ -94,8 +97,11 @@ copy was needed. Publication waits for the applicable complete gate.
 `integration-queue` in the idle `.claude/worktrees/agent-a5c594d418908fc64`
 checkout combines the next batch with reviewed integer emission and realloc
 shrink. Only discipline-table entries and build/audit lists conflicted;
-the resolution retains both lanes. No build runs there yet. Console source
-regions and the error-object helper will join after review.
+the resolution retains both lanes. No build runs there yet. The status-2 error-object
+helper is now combined at `50b4d86`; all standalone generator registrations
+were retained, and the merged code/target-arm/target-at checks pass.
+Console source regions will join after review. The queue's project and
+three local dependency caches are separate from main.
 
 ## Remaining obligations
 
