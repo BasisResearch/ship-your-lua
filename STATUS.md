@@ -44,6 +44,10 @@ Reviewed checkpoints:
   witnesses, complete lane ledger. `Unwind`/`StuckErr` build; all eleven new
   axiom checks pass. Pcall and fprintf are still named premises.
 
+Preserved handoff branches `codex-layer-b` (`43441ae`) and `codex-os`
+(`190aeb2`) correspond to integrated snapshots `8ee5368` and `7893933`.
+Their WIP history is not additional unmerged proof work.
+
 Workers run as separate `codex exec -m gpt-6.1-sol` processes, high reasoning
 effort, at most two. The initial built-in subagents have stopped; their drafts
 are preserved for the Sol workers. `codexwork.sh` and `MANAGER.md` document
