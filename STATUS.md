@@ -5,7 +5,7 @@ without new axioms, admitted proofs, or weakened semantics.
 
 ## Integration
 
-The main batch through proof head `7893933` and harness fix `35e68a4`
+`origin/main` is published at `373c854`. The main batch through proof head `7893933` and harness fix `35e68a4`
 has passed the complete gate. F1-25 was already published and fully gated.
 Integration batches use frozen proof sources and private caches:
 
@@ -13,7 +13,7 @@ Integration batches use frozen proof sources and private caches:
 |---|---|---|
 | Main | root / `7893933` | All stages PASS, including OS traces and standard-only axiom audit |
 | Next | `.claude/worktrees/lane-f1-26` / `17b2fea` (harness `0183758`) | Static stages pass; full build running before OS traces and axiom audit |
-| Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `3dbbcbd` | Reviewed checkpoints combined; merged targeted generator checks pass; full gate not started |
+| Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `3dbbcbd` | Static stages pass; full combined build running |
 
 Main's batch includes F1-26's exit-after-error proof and import-cycle repair,
 checked B2 encoding/jump patching, stdout/stderr OS write bridges,
@@ -55,7 +55,7 @@ consumer and Fold-level axiom checks are consolidated into the queue gate.
 
 | Lane | Checkout | Current target |
 |---|---|---|
-| Lead | main, next, queue | Review, full gates, integration and publication |
+| Lead | next, queue; `lead-os-fstat` | Full gates and actual console fstat with both stat-buffer alignments |
 | Sol slot 1 | `.claude/worktrees/sol-1` | Actual successful `_calloc_r`, including full physical-capacity zeroing and old-allocation frames |
 | Sol slot 2 | `.claude/worktrees/sol-2` | Complete the missing unwind invariant: base CallInfo, successor allocation ownership and stderr |
 
