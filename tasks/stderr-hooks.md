@@ -16,14 +16,14 @@ Report tests and exact remaining premises. Manager reviews and lands through che
 Final line: RESULT: landed <worker-branch-commit> OR RESULT: stuck <exact obstacle>.
 
 Target: carry the proved stderr console write through _write_r and __swrite,
-so FprintfErr's unbuffered __sfvwrite_r path has a proved write-hook summary.
+including initialized and lazy paths for FprintfErr's unbuffered write hook.
 Files: Lua/Vm/Sim/Kit/Swrite.lean or a factored sibling; generators only if
 needed; relevant lane ledger, CLAUDE availability, PHASES/check.sh audits.
-First inspect write_r_sum/swrite_sum and the new write_console_sum. Generalize
+First inspect write_r_sum/swrite_sum and both write_console{,_boot}_sum. Generalize
 shared reasoning by descriptor/file parameters where it avoids duplicate runs;
 retain existing stdout APIs as corollaries so current callers still build.
-State honest FILE facts for stderr (fd=2, no __SAPP, initialized descriptor),
-errno and buffer/frame separation. Prove the actual finite Sail execution,
+State honest FILE facts for stderr (fd=2, no __SAPP), with ready descriptor
+or the proved lazy-initialization entry, plus errno/buffer separation. Prove
 return n, exact output bytes, ABI preservation and byte/presence memory frame.
 Use the existing generated Hwrite_r/Hswrite segments and shared frame helpers.
 Keep one byte loop: do not copy write_sum or introduce an opaque callee premise.
