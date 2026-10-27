@@ -77,5 +77,7 @@
   boot configuration's output therefore preserves these hypotheses, while
   `HtifRepr.init` plus `console` requires its output to be empty. The old
   contract cannot represent all such boots if any exists. This is a source
-  audit, pending a Lean diagnostic. Repair the actual initial-output premise
-  explicitly; do not treat the global OS statement as merely vacuous or proved.
+  audit checked by `BootImageAt.output_diagnostic` and
+  `HtifRepr.boot_output_diagnostic` in reviewed checkpoint `d425afd`, which
+  explicitly adds the initial-output premise. Do not treat the global OS
+  statement as merely vacuous or proved.

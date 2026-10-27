@@ -26,7 +26,7 @@ without new axioms, admitted proofs, or weakened semantics.
 |---|---|---|
 | Lead / integration | main and `.claude/worktrees/lane-f1-26` | Repair build scheduling; gate and publish reviewed checkpoints |
 | Sol slot 1 / stderr hooks | `.claude/worktrees/sol-1` | Lift both initialized and lazy writes through `_write_r` and `__swrite` |
-| Sol slot 2 / OS boot contract | `.claude/worktrees/sol-2` | Check and repair the missing initial console-output condition |
+| Sol slot 2 / dtoa result release | `.claude/worktrees/sol-2` | Prove the complete release prefix and restore bignum ownership |
 
 Reviewed checkpoints:
 
@@ -65,8 +65,11 @@ generator and discipline checks, and all 27 axiom reports pass. It awaits
 the next integration; slot 1 now handles stderr hooks. Cached Balloc is
 reviewed at `5ac09e4`: generated machine run, ownership transfer, affected
 builds, targeted static checks and all 26 axiom reports pass. It also awaits
-integration. Slot 2 now checks the OS boot-output contract: the old boot
-facts leave output unconstrained, contrary to representation of OsState.init.
+integration (rebased equivalent `9e40987`). The OS boot-output repair
+`d425afd` is also reviewed: affected builds, 19 OS axiom reports and targeted
+static checks pass. It explicitly requires empty initial output and proves
+the old contract mismatch; global OS premises remain open. Slot 2 now
+handles the complete dtoa result-release prefix.
 
 ## Remaining obligations
 
