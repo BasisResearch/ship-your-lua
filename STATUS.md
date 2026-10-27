@@ -91,6 +91,12 @@ scope, using CPUs 9/10; main continues on its unchanged proof sources
 using CPUs 17/25. Both checkouts have private caches. No new checkout/cache
 copy was needed. Publication waits for the applicable complete gate.
 
+`integration-queue` in the idle `.claude/worktrees/agent-a5c594d418908fc64`
+checkout combines the next batch with reviewed integer emission and realloc
+shrink. Only discipline-table entries and build/audit lists conflicted;
+the resolution retains both lanes. No build runs there yet. Console source
+regions and the error-object helper will join after review.
+
 ## Remaining obligations
 
 - Layer A: `CallOpen.floatToStr`; `ErrorSimRest`; string coercion
