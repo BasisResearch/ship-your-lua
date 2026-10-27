@@ -151,9 +151,28 @@ use direct inequalities and the existing `homega` approach of generalizing
 No Lean budget was raised. Full integration through check.sh remains the
 manager's landing gate; the unwind premises above remain open.
 
-Commit handoff: `git add` failed because
-`.git/worktrees/codex-layer-b/index.lock` is on a read-only filesystem.
-The validated files remain in this worktree for the manager to commit;
-`/tmp/sol1-free-validated.tar.gz` also carries all seven scoped files, the
-successful log, a complete patch from `0e5af27`, and a fix-only patch from
-the existing WIP `8c3e6a4`. No commit or landing is claimed here.
+## `_write(2)` console boundary (sol-1)
+
+`Kit.write_stderr_sum` and `Os.stderr_write_refines` supply the real fd=2
+machine/OS boundary through the shared `write_console_sum`, generated
+`Hwrite` segments, `write_loop`, `write_putc`, `wrMem` and `wrRet`.
+The contract requires an initialized fd table (`fs_ready ≠ 0`,
+`fds[2].kind = FD_STDERR`), the explicit stack/buffer bounds, return
+alignment and real `SegSt` entry. The OS bridge additionally requires
+present buffer bytes, a live abstract process with fd 2 bound to stderr,
+entry `ConsoleAt`, and the signed ABI return-address bound.
+See `os-stdout.md` for exact premises and validation.
+
+The resumed descriptor-address side-condition fix is validated: capped
+`lake build Lua.Vm.Sim.Kit.Write Lua.Os.ConsoleWrite` and the existing
+consumer `lake build Lua.Vm.Sim.Kit.Swrite` pass. The 15-name audit includes
+both machine instances and both OS bridges; every axiom set is standard-only.
+Exact wrapper commands and logs are recorded in `os-stdout.md`.
+
+This closes neither `FprintfErr_Statement` nor global `HtifPrint_Statement`.
+The remaining fprintf chain is optional `__sinit`, stderr setup,
+`fprintf`/`_vfprintf_r`, unbuffered `__sprint_r`/`__sfvwrite_r`, and
+`__swrite`/`_write_r`, including their memory and caller invariants.
+Before the first print, `_write` must also run its lazy fs initialization;
+unbuffered stderr setup does not call `_fstat`.
+The pcall and other error-head obligations above remain unchanged.

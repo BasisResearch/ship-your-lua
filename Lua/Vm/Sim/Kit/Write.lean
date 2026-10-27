@@ -6,15 +6,17 @@ import Lua.Vm.LayoutRt
 /-!
 # htif.c's `_write` on the console (A0.2, lane F1-6)
 
-`_write(1, buf, n)` (`0x80000ae8`) with the descriptor table initialised
-(`fs_ready ≠ 0`, `fds[1].kind = FD_STDOUT`): `getfd`'s bound and kind tests,
+`_write(fd, buf, n)` (`0x80000ae8`) for fd 1 or 2 with the descriptor table
+initialised (`fs_ready ≠ 0`, `fds[fd].kind = FD_STDOUT` or `FD_STDERR`): `getfd`'s bound and kind tests,
 then the `htif_putc` loop (`0x80000d2c`) whose `tohost` store is the console
 seam (`Kit/Console.lean`, `segSt_putc`), then the epilogue. It returns `n`,
 appends the `n` bytes at `buf` to the console, and its one store is the saved
 `ra` (`wrMem`).
 
-The lazy `fs_init` is not on this path: on `print`'s path `__smakebuf_r`'s
-`_fstat` runs it before the first `_write` (`gen_lua_arms.py` stops).
+The lazy `fs_init` is not on this path: initialization is an explicit
+precondition. On `print`'s path `__smakebuf_r`'s `_fstat` supplies it.
+`write_sum` retains its established stdout API; `write_stderr_sum` uses
+the same generated prefix, `write_loop`, `write_putc`, `wrMem` and `wrRet`.
 -/
 
 open LeanRV64DExecutable LeanRV64DExecutable.Functions Sail ConcurrencyInterfaceV1 Vsa
@@ -78,6 +80,23 @@ theorem write_putc {L : List Pin} {m : Mem} {o : Array String} {c : BitVec 8}
 
 /-! ## The summary -/
 
+/-- Frame and address bounds shared by both console descriptors and their loop. -/
+structure WrFrame (sp buf n : Nat) (r : BitVec 64) : Prop where
+  ra : r.toNat % 4 = 0
+  sp_lo : symFds + symFdsSize + 96 ≤ sp
+  sp_hi : sp ≤ 2 ^ 32
+  sp_al : sp % 8 = 0
+  buf_lo : tohostAddr + 16 ≤ buf
+  buf_hi : buf + n + 96 ≤ sp
+
+/-- An initialized console descriptor: fd 1 has kind 2, fd 2 has kind 3.
+The common frame keeps both descriptor cells below the saved return address. -/
+structure WrConsoleCtx (m : Mem) (fd sp buf n : Nat) (r : BitVec 64)
+    : Prop extends WrFrame sp buf n r where
+  fd_console : fd = 1 ∨ fd = 2
+  ready : bytesT4 m symFsReady ≠ 0#32
+  kind : bytesT4 m (symFds + 24 * fd) = BitVec.ofNat 32 (fd + 1)
+
 /-- **What `_write(1, buf, n)` needs**: the return address aligned, the
 frame `[sp - 96, sp)` in RAM above htif.c's tables, the bytes below the
 frame, the descriptor table initialised with `fds[1]` the console. -/
@@ -93,14 +112,22 @@ structure WrCtx (m : Mem) (sp buf n : Nat) (r : BitVec 64) : Prop where
   /-- `fds[1].kind = FD_STDOUT` (`struct mfd` is 24 bytes: `symFdsSize = 32 · 24`) -/
   stdout : bytesT4 m (symFds + 24) = 2#32
 
+/-- The established stdout entry supplies the common console contract. -/
+theorem WrCtx.console {m : Mem} {sp buf n : Nat} {r : BitVec 64}
+    (h : WrCtx m sp buf n r) : WrConsoleCtx m 1 sp buf n r :=
+  ⟨⟨h.ra, h.sp_lo, h.sp_hi, h.sp_al, h.buf_lo, h.buf_hi⟩, .inl rfl, h.ready, h.stdout⟩
+
 /-- `_write`'s one store: the saved `ra` at `88(sp - 96)`. -/
 abbrev wrMem (m : Mem) (sp : Nat) (r : BitVec 64) : Mem := writeMap8 m (sp - 8) (sdData_val r)
 
-/-- `_write`'s entry: `a0 = 1`, `a1 = buf`, `a2 = n`. -/
-abbrev wrPre (sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) : List Pin :=
-  ⟨Register.x10, BitVec.ofNat 64 1⟩ :: ⟨Register.x11, BitVec.ofNat 64 buf⟩ ::
+/-- `_write`'s console entry: `a0 = fd`, `a1 = buf`, `a2 = n`. -/
+abbrev wrConsolePre (fd sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) : List Pin :=
+  ⟨Register.x10, BitVec.ofNat 64 fd⟩ :: ⟨Register.x11, BitVec.ofNat 64 buf⟩ ::
     ⟨Register.x12, BitVec.ofNat 64 n⟩ :: ⟨Register.x1, r⟩ :: ⟨Register.x2, BitVec.ofNat 64 sp⟩ ::
     ⟨Register.x3, BitVec.ofNat 64 symGlobalPointer⟩ :: f.pins
+
+/-- The existing stdout entry API. -/
+abbrev wrPre := wrConsolePre 1
 
 /-- The putchar loop at `0x80000d2c`, `i` bytes written. -/
 abbrev wrLoop (sp buf n i : Nat) (f : AbiFrame) : List Pin :=
@@ -151,31 +178,39 @@ theorem wr_ready {m : Mem} {gp : BitVec 64} (hgp : gp = BitVec.ofNat 64 symGloba
   simp only [sign_extend, Sail.BitVec.signExtend, BitVec.getLsbD_signExtend, BitVec.getLsbD_zero] at this
   simpa [hi, show i < 64 by omega] using this
 
-/-- `bltu a4, a3` (`a4 = 31`, `a3 = fd = 1`): the descriptor is in range. -/
-theorem wr_fd : zopz0zI_u ((0#64) + sign_extend (m := 64) (0x01f#12))
-    (BitVec.ofNat 64 1 + sign_extend (m := 64) (0x000#12)) = false := by decide
+/-- Both console descriptors pass `getfd`'s unsigned bound test. -/
+theorem wr_fd (fd : Nat) (hfd : fd = 1 ∨ fd = 2) :
+    zopz0zI_u ((0#64) + sign_extend (m := 64) (0x01f#12))
+      (BitVec.ofNat 64 fd + sign_extend (m := 64) (0x000#12)) = false := by
+  rcases hfd with rfl | rfl <;> decide
 
-/-- `&fds[1]` (`a4 = gp + 1424 + 24·fd`, `fd = 1`). -/
-abbrev wrKindAddr (gp : BitVec 64) : BitVec 64 :=
-  ((gp + sign_extend (m := 64) (0x590#12)) + (shift_bits_left ((shift_bits_left (BitVec.ofNat 64 1 +
-    sign_extend (m := 64) (0x000#12)) (Sail.BitVec.extractLsb (0x01#6) 5 0)) + (BitVec.ofNat 64 1 +
+/-- `&fds[fd]`, computed by the generated prefix. -/
+abbrev wrKindAddr (fd : Nat) (gp : BitVec 64) : BitVec 64 :=
+  ((gp + sign_extend (m := 64) (0x590#12)) + (shift_bits_left ((shift_bits_left (BitVec.ofNat 64 fd +
+    sign_extend (m := 64) (0x000#12)) (Sail.BitVec.extractLsb (0x01#6) 5 0)) + (BitVec.ofNat 64 fd +
       sign_extend (m := 64) (0x000#12))) (Sail.BitVec.extractLsb (0x03#6) 5 0))) + sign_extend (m := 64) (0x000#12)
 
-theorem wrKindAddr_eq : (wrKindAddr (BitVec.ofNat 64 symGlobalPointer)).toNat = symFds + 24 := by decide
+theorem wrKindAddr_eq (fd : Nat) (hfd : fd = 1 ∨ fd = 2) :
+    (wrKindAddr fd (BitVec.ofNat 64 symGlobalPointer)).toNat = symFds + 24 * fd := by
+  rcases hfd with rfl | rfl <;> decide
 
-/-- `bgeu a1, a2` (`a1 = 1`): the kind is above `FD_STDIN`. -/
-theorem wr_kind {M : Mem} {gp : BitVec 64} (hgp : gp = BitVec.ofNat 64 symGlobalPointer)
-    (h : bytesT4 M (symFds + 24) = 2#32) :
+/-- Console kinds are above `FD_STDIN`. -/
+theorem wr_kind {M : Mem} {gp : BitVec 64} {fd : Nat}
+    (hgp : gp = BitVec.ofNat 64 symGlobalPointer) (hfd : fd = 1 ∨ fd = 2)
+    (h : bytesT4 M (symFds + 24 * fd) = BitVec.ofNat 32 (fd + 1)) :
     zopz0zKzJ_u ((0#64) + sign_extend (m := 64) (0x001#12))
-      (sign_extend (m := 64) (bytesT4 M (wrKindAddr gp).toNat : BitVec (8 * 4))) = false := by
-  subst hgp; rw [wrKindAddr_eq, h]; decide
+      (sign_extend (m := 64) (bytesT4 M (wrKindAddr fd gp).toNat : BitVec (8 * 4))) = false := by
+  subst hgp; rw [wrKindAddr_eq fd hfd, h]
+  rcases hfd with rfl | rfl <;> decide
 
-/-- `bne a2, a1` (`a1 = 4`): the kind is not `FD_FILE`. -/
-theorem wr_kind4 {M : Mem} {gp : BitVec 64} (hgp : gp = BitVec.ofNat 64 symGlobalPointer)
-    (h : bytesT4 M (symFds + 24) = 2#32) :
-    ((sign_extend (m := 64) (bytesT4 M (wrKindAddr gp).toNat : BitVec (8 * 4))) !=
+/-- Console kinds are distinct from `FD_FILE`. -/
+theorem wr_kind4 {M : Mem} {gp : BitVec 64} {fd : Nat}
+    (hgp : gp = BitVec.ofNat 64 symGlobalPointer) (hfd : fd = 1 ∨ fd = 2)
+    (h : bytesT4 M (symFds + 24 * fd) = BitVec.ofNat 32 (fd + 1)) :
+    ((sign_extend (m := 64) (bytesT4 M (wrKindAddr fd gp).toNat : BitVec (8 * 4))) !=
       ((0#64) + sign_extend (m := 64) (0x004#12))) = true := by
-  subst hgp; rw [wrKindAddr_eq, h]; decide
+  subst hgp; rw [wrKindAddr_eq fd hfd, h]
+  rcases hfd with rfl | rfl <;> decide
 
 /-- `addi sp, sp, -96`. -/
 theorem wr_fr {sp : Nat} (h1 : 96 ≤ sp) (h2 : sp < 2 ^ 64) :
@@ -205,6 +240,7 @@ set_option hygiene false in
 local macro_rules
   | `(tactic| kit_guard_ext) => `(tactic| first
       | guard_assumption
+      | (rw [haddr]; omega)
       | (rw [wr_ra (by omega) (by omega), Vsa.Sim.ret_tgt _ hra]; exact hra))
 
 set_option hygiene false in
@@ -225,7 +261,7 @@ local macro "wr_ctx" hx:ident : tactic => `(tactic| (
 
 /-- **The putchar loop** from `i` bytes written. -/
 theorem write_loop (sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
-    (hx : WrCtx m sp buf n r) : ∀ i, i < n →
+    (hx : WrFrame sp buf n r) : ∀ i, i < n →
     Triple (SegSt 0x80000d2c#64 (wrLoop sp buf n i f) (ArmPay (wrMem m sp r) (pushes o (bytesAt m buf i))))
       (wrRet r sp n f (wrMem m sp r) (pushes o (bytesAt m buf n))) := by
   intro i₀ hi₀ c₀ h₀
@@ -253,23 +289,27 @@ theorem write_loop (sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o 
     kit_run h acc until [0x80000d2c]
     exact ⟨_, acc, .inl ⟨i + 1, by omega, by omega, h.repin (by pins_of h)⟩⟩
 
-/-- **`_write(1, buf, n)` on the console**: it appends the `n` bytes at
+/-- **`_write(fd, buf, n)` on either initialized console descriptor**: it appends the `n` bytes at
 `buf` to the console and returns `n`, `sp` and the caller's frame restored;
 its one store is the saved `ra` (`wrMem`). -/
-theorem write_sum (sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
-    (hx : WrCtx m sp buf n r) :
-    Triple (SegSt 0x80000ae8#64 (wrPre sp buf n r f) (ArmPay m o))
+theorem write_console_sum (fd sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+    (hx : WrConsoleCtx m fd sp buf n r) :
+    Triple (SegSt 0x80000ae8#64 (wrConsolePre fd sp buf n r f) (ArmPay m o))
       (wrRet r sp n f (wrMem m sp r) (pushes o (bytesAt m buf n))) := by
   intro c h
   have acc := Steps.refl c
   wr_ctx hx
-  have hkind : bytesT4 (writeMap8 m (sp - 8) (sdData_val r)) (symFds + 24) = 2#32 := by
-    rw [bytesT4_wm8_out (by omega)]; exact hx.stdout
+  have hfd := hx.fd_console
+  have hfd_bound : fd ≤ 2 := by rcases hfd with rfl | rfl <;> omega
+  have hkind : bytesT4 (writeMap8 m (sp - 8) (sdData_val r)) (symFds + 24 * fd) =
+      BitVec.ofNat 32 (fd + 1) := by
+    rw [bytesT4_wm8_out (by omega)]; exact hx.kind
   have hg1 := wr_ready (m := m) rfl hx.ready
-  have hg2 := wr_fd
-  have hg3 := wr_kind rfl hkind
-  have hg4 := wr_kind4 rfl hkind
-  simp only [wrKindAddr] at hg3 hg4
+  have hg2 := wr_fd fd hfd
+  have hg3 := wr_kind rfl hfd hkind
+  have hg4 := wr_kind4 rfl hfd hkind
+  have haddr := wrKindAddr_eq fd hfd
+  simp only [wrKindAddr] at hg3 hg4 haddr
   kit_run h acc until [0x80000b34]
   rw [wr_fr (by omega) (by omega), wr_slot (by omega) (by omega)] at h
   have hn := wr_n0 (n := n) (by omega)
@@ -285,7 +325,22 @@ theorem write_sum (sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o :
     kit_run h acc until [0x80000d2c]
     simp only [Vsa.Sim.sext_zero, BitVec.add_zero, BitVec.ofNat_add_ofNat] at h
     have h := h.repin (L' := wrLoop sp buf n 0 f) (by pins_of h)
-    obtain ⟨c', hs, h'⟩ := write_loop sp buf n r f m o hx 0 (by omega) _ h
+    obtain ⟨c', hs, h'⟩ := write_loop sp buf n r f m o hx.toWrFrame 0 (by omega) _ h
     exact ⟨c', acc.trans hs, h'⟩
+
+/-- The established stdout summary, retaining its entry and context API. -/
+theorem write_sum (sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+    (hx : WrCtx m sp buf n r) :
+    Triple (SegSt 0x80000ae8#64 (wrPre sp buf n r f) (ArmPay m o))
+      (wrRet r sp n f (wrMem m sp r) (pushes o (bytesAt m buf n))) :=
+  write_console_sum 1 sp buf n r f m o hx.console
+
+/-- The stderr summary uses the same generated prefix, byte loop and console seam,
+including the zero-length path. It returns the length with the exact ABI/memory frame. -/
+theorem write_stderr_sum (sp buf n : Nat) (r : BitVec 64) (f : AbiFrame) (m : Mem) (o : Array String)
+    (hx : WrConsoleCtx m 2 sp buf n r) :
+    Triple (SegSt 0x80000ae8#64 (wrConsolePre 2 sp buf n r f) (ArmPay m o))
+      (wrRet r sp n f (wrMem m sp r) (pushes o (bytesAt m buf n))) :=
+  write_console_sum 2 sp buf n r f m o hx
 
 end Lua.Vm.Sim.Kit

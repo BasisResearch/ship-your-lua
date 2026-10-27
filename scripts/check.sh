@@ -171,6 +171,8 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.vm_refinement_of_sim
 #print axioms Lua.Os.osStep_write_full
 #print axioms Lua.Os.bytesAt_of_BytesAt
+#print axioms Lua.Os.console_write_refines
+#print axioms Lua.Os.stderr_write_refines
 #print axioms Lua.Os.stdout_write_refines
 #print axioms Lua.compile_refinement_of_tv
 #print axioms Lua.Compile.Encode.ax_op
@@ -759,6 +761,13 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.output_pushes
 #print axioms Lua.Vm.Sim.Kit.write_putc
 #print axioms Lua.Vm.Sim.Kit.write_loop
+#print axioms Lua.Vm.Sim.Kit.WrCtx.console
+#print axioms Lua.Vm.Sim.Kit.wr_fd
+#print axioms Lua.Vm.Sim.Kit.wrKindAddr_eq
+#print axioms Lua.Vm.Sim.Kit.wr_kind
+#print axioms Lua.Vm.Sim.Kit.wr_kind4
+#print axioms Lua.Vm.Sim.Kit.write_console_sum
+#print axioms Lua.Vm.Sim.Kit.write_stderr_sum
 #print axioms Lua.Vm.Sim.Kit.write_sum
 #print axioms Lua.Vm.Sim.Kit.write_r_sum
 #print axioms Lua.Vm.Sim.Kit.swrite_sum
