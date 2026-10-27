@@ -117,3 +117,14 @@ The target/frame proofs require only successful checked calls; no open
 proof premise was introduced. These are layout primitives, so opcode/mode
 selection, register allocation, label/goto resolution, a complete B2
 compiler and its `CompileTV` proof remain open. B3 is unchanged.
+
+## B2 constant-cache constraint
+
+A compiler matching `lcode.c` must model the scanner's mutable constant
+cache, not a canonical search of `Proto.k`. In
+`experiments/compiler/constant-cache.lua`, `luaK_numberK` uses key 2^53+2
+for float 2^53, and the intervening integer overwrites that cache entry.
+`addk` validates type and value at the cached index, then appends a second
+copy of the float when they differ. The vendored host `luac -l -l -p`
+shows the float at indices 0 and 2; this is a compiler execution probe,
+not a new Lean refinement theorem. The generic compiler and B3 remain open.

@@ -63,3 +63,11 @@
   `AtFn -> Sflush -> Swrite -> WriteBoot -> AtFn`. Move shared pure memory
   and return laws below the execution modules; do not duplicate them or
   add a circular import to supply the generated-prefix tactics.
+
+- B2 constant interning is not canonical first-equal lookup in `Proto.k`.
+  `experiments/compiler/constant-cache.lua` (run its documented vendored
+  luac command) produces equal float constants at indices 0 and 2.
+  `luaK_numberK` maps float 2^53 to key 2^53+2; the intervening integer
+  uses that same cache key. `addk` checks the cached index's value/type
+  and appends on mismatch. Model this mutable cache when matching lcode,
+  including its sharing across functions, rather than deduplicating the pool.
