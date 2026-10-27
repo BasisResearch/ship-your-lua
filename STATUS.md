@@ -12,7 +12,7 @@ Two full gates run on frozen proof sources and private caches:
 |---|---|---|
 | Main | root / `7893933` | Full Lean build passed; OS harness fix passes focused traces; full gate retry running |
 | Next | `.claude/worktrees/lane-f1-26` / `17b2fea` (harness `0183758`) | Static stages pass; full build running before OS traces and axiom audit |
-| Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `8575872` (harness `f466f27`) | Reviewed checkpoints combined; merged targeted generator checks pass; full gate not started |
+| Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `3dbbcbd` | Reviewed checkpoints combined; merged targeted generator checks pass; full gate not started |
 
 Main's batch includes F1-26's exit-after-error proof and import-cycle repair,
 checked B2 encoding/jump patching, stdout/stderr OS write bridges,
@@ -39,12 +39,16 @@ Queue's reviewed checkpoints:
 | `133c511` | Ready/lazy stdin EOF machine run and OS bridge | 506-job target build; 194 axiom reports |
 | `ddd2f95` | ELF luaK_codeABx wrapper refines bitfield encoding | 481-job target build; 19 axiom reports |
 | `ecff107` | Arbitrary calloc-capacity memset and exact byte frame | 539-job affected build; 27 axiom reports |
+| `dddabd9` | Actual array-growth helper return with spare capacity | 493-job target build; 81 axiom reports |
+| `8f6be1e` | Terminal successor CallInfo link through CALL and errno | 2195-job affected build; 16 axiom reports |
 
 All listed axiom sets are standard-only. Applicable generator, discipline
 and abstraction checks pass. The console source change's final broad
 consumer check is consolidated into the queue gate; an earlier consumer
 pass preceded final shared-helper edits. No queued checkpoint has passed
-its combined full gate yet.
+its combined full gate yet. The terminal CallInfo change’s subsequent broad
+Fold build was stopped after every changed module passed; its remaining
+consumer and Fold-level axiom checks are consolidated into the queue gate.
 
 ## Active lanes
 
@@ -52,11 +56,11 @@ its combined full gate yet.
 |---|---|---|
 | Lead | main, next, queue | Review, full gates, integration and publication |
 | Sol slot 1 | `.claude/worktrees/sol-1` | Actual successful `_calloc_r`, including full physical-capacity zeroing and old-allocation frames |
-| Sol slot 2 | `.claude/worktrees/sol-2` | Preserve successor CallInfo's terminal NULL link through allocation, reuse and call_close |
+| Sol slot 2 | `.claude/worktrees/sol-2` | Complete the missing unwind invariant: base CallInfo, successor allocation ownership and stderr |
 
-Ready follow-ups cover base CallInfo invariants, successor allocation
-ownership, stderr state, fresh Balloc, mutable integer constant pools,
-and console fstat. Each has a scoped task and supporting ledger audit.
+The three closely related unwind invariants share one task and consumer
+build. Ready follow-ups cover fresh Balloc, mutable integer constant pools,
+console fstat and string-UNM metamethod lookup. Each has a scoped task and supporting ledger audit.
 Do not reassign completed or recorded dead ends unchanged.
 
 Workers are external `codex exec -m gpt-6.1-sol` processes at high reasoning,
