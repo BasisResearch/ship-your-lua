@@ -61,6 +61,8 @@ memory check above 25 GB. Builds run sequentially and are awaited completely.
   reports use only `propext`, `Classical.choice`, `Quot.sound` (the fd and
   address facts use only `propext`). Log `/tmp/sol-1-write-axioms.log`.
 
+* `<wrapper> bash scripts/check.sh --static-only`: passed all stages.
+
 The resumed prefix fix supplies `wrKindAddr_eq` to the address side-condition
 closer before generic arithmetic normalization can lose its shape. The
 generated segment guards, machine semantics, and preconditions are unchanged.
