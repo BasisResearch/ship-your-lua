@@ -912,6 +912,15 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Vm.Sim.Kit.CallOpen.extendCI
 #print axioms Lua.Vm.Sim.Kit.AllocProof.mallocR_proved
 #print axioms Lua.Vm.Sim.Kit.AllocProof.freeR_proved
+-- Heap-retaining free summary and its ledger/return bridges (lane F1-26).
+#print axioms Lua.Vm.Sim.Kit.AllocProof.freeRHeap_proved
+#print axioms Lua.Vm.Sim.Kit.AllocProof.fq_of_ret
+#print axioms Lua.Vm.Sim.Kit.AllocProof.heap_agree
+#print axioms Lua.Vm.Sim.Kit.AllocHeap.freeSurvivors_ledger
+#print axioms Lua.Vm.Sim.Kit.AllocHeap.live_of_ledger
+#print axioms Lua.Vm.Sim.Kit.FreeRPost.inUse
+#print axioms Lua.Vm.Sim.Kit.freeR_of_heap
+#print axioms VsaIris.VsaHeap.FRet.heap_named
 #print axioms Lua.Vm.Sim.Kit.extendCI_proved
 #print axioms Lua.Vm.Sim.Kit.exitUp_proved
 #print axioms Lua.Vm.Sim.Kit.tolStr_proved

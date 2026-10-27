@@ -241,6 +241,22 @@ theorem reach_call {C : MCtx} {c : Config} {pcv : BitVec 64} {L : List Pin} {m :
   exact LocalRun.reach (fun p hp => low_off hs (allocText_lt hp)) (by decide) fuel _ _ hlr c
     (vsaOk_call hc) (roHolds_call hc hgp) (fun _ _ => rfl) (fun _ _ => rfl)
 
+/-- Land an owned heap image in the zero fill of the actual return memory. -/
+theorem heap_agree {H : List (Nat × Nat)} {sp : BitVec 64} {Mt m : Mem}
+    {mv : Nat → BitVec 8}
+    (hpres : ∀ a, vsaFoot H a → (Mt[a]?).isSome)
+    (himg : ∀ a, MWin H sp a → mv a = imgM Mt a)
+    (hmv : ∀ a, MWin H sp a → (m[a]?).getD 0 = mv a) :
+    AgreeP (vsaFoot H) Mt (Densify.fillZeroMem m) := by
+  intro a ha
+  rw [Densify.fillZeroMem_get, if_pos (foot_ram ha)]
+  have hsome := hpres a ha
+  have hi := himg a (.inl ha)
+  rw [← hmv a (.inl ha)] at hi
+  cases hx : Mt[a]? with
+  | none => rw [hx] at hsome; cases hsome
+  | some b => unfold imgM at hi; rw [hx] at hi; simp only [Option.getD_some] at hi; rw [hi]
+
 /-! ## `_malloc_r` -/
 
 theorem brk_hi_aux {brk brk' n : Nat} (h : brk' = brk ∨ brk' ≤ brk + sbReq (physSize n)) :
@@ -364,17 +380,9 @@ theorem mallocR_proved : MallocR_Statement := by
   have hbs := hHH.walk.le
   replace hcbs : n + 8 ≤ cb.size := by rw [← hnN]; exact hcbs
   -- the heap after, through the window
+  have hag0 := heap_agree HQ.pres HQ.img hmv
   have hag : AgreeP (vsaRead (((rv' 10).toNat, B.n.toNat) :: B.H)) Mt
-      (Densify.fillZeroMem c'.σ.mem) := by
-    intro a ha
-    have hf' : vsaFoot B.H a := vsaFoot_cons_sub a ha.1
-    rw [Densify.fillZeroMem_get, if_pos (foot_ram hf')]
-    have hsome := HQ.pres a hf'
-    have himg := HQ.img a (.inl hf')
-    rw [← hmv a (.inl hf')] at himg
-    cases hx : Mt[a]? with
-    | none => rw [hx] at hsome; cases hsome
-    | some b => unfold imgM at himg; rw [hx] at himg; simp only [Option.getD_some] at himg; rw [himg]
+      (Densify.fillZeroMem c'.σ.mem) := fun a ha => hag0 a (vsaFoot_cons_sub a ha.1)
   have hheap' := heapL (HQ.heap.transport_read hag)
   have hblo : brk ≤ brk' := HQ.brk.lo
   have hbonce : brk' = brk ∨ (brk' ≤ brk + sbReq (physSize n) ∧ top + physSize n + 32 ≤ brk') := by
@@ -426,6 +434,14 @@ theorem mallocR_proved : MallocR_Statement := by
 
 /-! ## `_free_r` -/
 
+/-- Heap witnesses and memory frames retained from `FRet`. -/
+structure FQHeap (B : MCtx) (mv : Nat → BitVec 8) where
+  mem : Mem
+  result : FRetHeap B.H B.top0 mem
+  img : ∀ a, B.S a → mv a = imgM mem a
+  pres : ∀ a, vsaFoot B.H a → (mem[a]?).isSome
+  frame : ∀ a, ¬ MWin B.H B.s a → mem[a]? = B.Mt0[a]?
+
 /-- **`_free_r`'s end condition** at the owned values it ends with. -/
 structure FQ (B : MCtx) (rv : Nat → BitVec 64) (mv : Nat → BitVec 8) : Prop where
   pc : rv VsaIris.PC = B.r
@@ -434,6 +450,7 @@ structure FQ (B : MCtx) (rv : Nat → BitVec 64) (mv : Nat → BitVec 8) : Prop 
   s1 : rv 9 = B.rv0 9
   s2 : rv 18 = B.rv0 18
   s3 : rv 19 = B.rv0 19
+  heap : Nonempty (FQHeap B mv)
 
 def fctx (B : MCtx) : MCtx := { B with Q := FQ B }
 
@@ -442,16 +459,18 @@ theorem fq_of_ret {B : MCtx} {R : Nat → BitVec 64} {Mt : Mem} (h : FRet (fctx 
     AW (fctx B).live (fctx B).S (fctx B).Q (fctx B).r R Mt := by
   refine swp_done fun rv mv hmt => ?_
   have hr : ∀ k ∈ aRegs, k ≠ VsaIris.PC → rv k = R k := hmt.regs
+  obtain ⟨H⟩ := h.heap_named
   exact
     { pc := hmt.pc
       sp := (hr 2 (by decide) (by decide)).trans h.regs.sp
       s0 := (hr 8 (by decide) (by decide)).trans h.regs.s0
       s1 := (hr 9 (by decide) (by decide)).trans h.regs.s1
       s2 := (hr 18 (by decide) (by decide)).trans h.regs.s2
-      s3 := (hr 19 (by decide) (by decide)).trans h.regs.s3 }
+      s3 := (hr 19 (by decide) (by decide)).trans h.regs.s3
+      heap := ⟨{ mem := Mt, result := H, img := hmt.img, pres := h.pres, frame := h.frame }⟩ }
 
-/-- **`_free_r(_REENT, p)`** (lane F1-A0-M): the premise of lane F1-14, discharged. -/
-theorem freeR_proved : FreeR_Statement := by
+/-- `_free_r` retains the resulting heap and every surviving live allocation. -/
+theorem freeRHeap_proved : FreeRHeap_Statement := by
   intro sp p top brk chunks bins r f m o hheap hr4 hsp32 hsal hsplo ⟨sz, hcp⟩ hplo c hc
   have hm : c.σ.mem = m := hc.armMem
   have hpins := hc.pins
@@ -507,27 +526,78 @@ theorem freeR_proved : FreeR_Statement := by
       frame := fun _ _ => rfl }
   obtain ⟨c', Ed⟩ := reach_call hc rfl rfl (by show 0x87800000 ≤ (BitVec.ofNat 64 sp).toNat; omega) rfl g3
     (free_body O E Hp)
-  obtain ⟨rv', mv', hq, hrv, -⟩ := Ed.post
+  obtain ⟨rv', mv', hq, hrv, hmv⟩ := Ed.post
   have hq : FQ B rv' mv' := hq
+  obtain ⟨HQ⟩ := hq.heap
+  have hag := heap_agree HQ.pres HQ.img hmv
+  have hheap' := HQ.result.heap.transport_read (fun a ha => hag a ha.1)
+  have hledger : H = inuseBlocks ((freeSurvivors chunks p).map toV) :=
+    (freeSurvivors_ledger chunks p).symm
+  have hlive := live_of_ledger (cs := freeSurvivors chunks p) (H := H)
+    (fun d hd hu => hledger ▸ mem_inuseBlocks.2 ⟨toV d, List.mem_map_of_mem hd, hu, rfl⟩) hheap'
   have hok' := Ed.ok
   obtain ⟨s0e, s1e, s2e, s3e⟩ := frame_regs gf
   have greg : ∀ k ∈ aRegs, 1 ≤ k → k ≤ 31 → gprGet c'.σ k = some (rv' k) :=
     fun k hk h1 h31 => gprGet_eq_of_vsaReg hok' h1 h31 (hrv k hk)
-  refine ⟨c', Ed.steps, c'.σ.mem, ?_, fun a hg ha hs =>
-    (Ed.mem a (not_win hg (by rcases ha with ha | ha; exact .inl ha; exact .inr (.inl ha)) hs hsp64)).trans
-      (by rw [hm])⟩
-  refine ⟨hok'.good, pc_of_vsaReg hok' ((hrv _ (by decide)).trans hq.pc), ?_, hok'.good.minstret,
-    hok'.tick, ret_pay hc hok' (fun a ha => Ed.mem a (low_off (by
-      show 0x87800000 ≤ (BitVec.ofNat 64 sp).toNat; omega) ha)) Ed.out⟩
-  simp only [PinsHold]
-  refine ⟨?_, ?_, ?_⟩
-  · exact (greg 2 (by decide) (by decide) (by decide)).trans (congrArg some hq.sp)
-  · exact gprGet_eq_of_vsaReg hok' (by decide) (by decide)
-      ((Ed.regs 3 (by decide)).trans (vsaReg_of_get (c := c) (k := 3) (by decide) (by decide) g3))
-  · exact ret_pins hok' gf Ed.regs
-      ((greg 8 (by decide) (by decide) (by decide)).trans (congrArg some (hq.s0.trans s0e)))
-      ((greg 9 (by decide) (by decide) (by decide)).trans (congrArg some (hq.s1.trans s1e)))
-      ((greg 18 (by decide) (by decide) (by decide)).trans (congrArg some (hq.s2.trans s2e)))
-      ((greg 19 (by decide) (by decide) (by decide)).trans (congrArg some (hq.s3.trans s3e)))
+  refine ⟨c', Ed.steps, ⟨{
+    mem := c'.σ.mem
+    top := HQ.result.top
+    brk := HQ.result.brk
+    chunks := HQ.result.chunks.map toL
+    bins := HQ.result.bins
+    atReturn := ?_
+    post := ?_ }⟩⟩
+  ·
+    refine ⟨hok'.good, pc_of_vsaReg hok' ((hrv _ (by decide)).trans hq.pc), ?_, hok'.good.minstret,
+      hok'.tick, ret_pay hc hok' (fun a ha => Ed.mem a (low_off (by
+        show 0x87800000 ≤ (BitVec.ofNat 64 sp).toNat; omega) ha)) Ed.out⟩
+    simp only [PinsHold]
+    refine ⟨?_, ?_, ?_⟩
+    · exact (greg 2 (by decide) (by decide) (by decide)).trans (congrArg some hq.sp)
+    · exact gprGet_eq_of_vsaReg hok' (by decide) (by decide)
+        ((Ed.regs 3 (by decide)).trans (vsaReg_of_get (c := c) (k := 3) (by decide) (by decide) g3))
+    · exact ret_pins hok' gf Ed.regs
+        ((greg 8 (by decide) (by decide) (by decide)).trans (congrArg some (hq.s0.trans s0e)))
+        ((greg 9 (by decide) (by decide) (by decide)).trans (congrArg some (hq.s1.trans s1e)))
+        ((greg 18 (by decide) (by decide) (by decide)).trans (congrArg some (hq.s2.trans s2e)))
+        ((greg 19 (by decide) (by decide) (by decide)).trans (congrArg some (hq.s3.trans s3e)))
+  · have hkeep : ∀ a, ¬ MallocGlobal a →
+        (a < Lua.Vm.DlHeap.heapStart ∨ Lua.Vm.DlHeap.heapEnd ≤ a ∨ InUse (freeSurvivors chunks p) a) →
+        (a + 1024 ≤ sp ∨ sp ≤ a) → c'.σ.mem[a]? = m[a]? := by
+      intro a hg ha hs
+      apply (Ed.mem a (not_win hg ?_ hs hsp64)).trans (by rw [hm])
+      rcases ha with ha | ha | ha
+      · exact .inl ha
+      · exact .inr (.inl ha)
+      · obtain ⟨e, he, hin⟩ := inUse_iff.1 ha
+        exact .inr (.inr ⟨e, (show e ∈ H from hledger ▸ he), hin⟩)
+    refine {
+      heap := heapL hheap'
+      top_le := HQ.result.top_le
+      live := hlive
+      keep := hkeep
+      payload := ?_ }
+    intro a ha
+    obtain ⟨d, hd, hu, h1, h2⟩ := ha
+    have hd0 : d ∈ chunks := (List.mem_filter.1 hd).1
+    have hb := (walkV hheap.walk).chunk_bounds (toV d) (List.mem_map_of_mem hd0)
+    simp only [toV] at hb
+    have ht := hheap.top_room
+    have hbrk := hheap.brk_le
+    have hlo : Lua.Vm.DlHeap.heapStart ≤ a :=
+      Nat.le_trans hb.1 (Nat.le_trans (Nat.le_add_right _ _) h1)
+    have hhi : a < Lua.Vm.DlHeap.heapEnd := by
+      generalize Lua.Vm.DlHeap.heapEnd = E at *
+      omega
+    apply hkeep a ?_ (.inr (.inr ⟨d, hd, hu, h1, h2⟩)) (.inl (by
+      generalize Lua.Vm.DlHeap.heapEnd = E at *
+      omega))
+    intro hg
+    rcases allocGlobal_off_arena a ((allocGlobal_iff a).2 hg) with h | h
+    · exact Nat.not_lt_of_ge hlo h
+    · exact Nat.not_le_of_gt hhi h
+
+/-- The original free summary is a corollary of the heap-retaining summary. -/
+theorem freeR_proved : FreeR_Statement := freeR_of_heap freeRHeap_proved
 
 end Lua.Vm.Sim.Kit.AllocProof
