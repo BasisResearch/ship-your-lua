@@ -26,7 +26,7 @@ without new axioms, admitted proofs, or weakened semantics.
 |---|---|---|
 | Lead / integration | main and `.claude/worktrees/lane-f1-26` | Repair build scheduling; gate and publish reviewed checkpoints |
 | Sol slot 1 / stderr hooks | `.claude/worktrees/sol-1` | Lift both initialized and lazy writes through `_write_r` and `__swrite` |
-| Sol slot 2 / cached bignum allocation | `.claude/worktrees/sol-2` | Prove `_Balloc`'s nonempty-freelist path and ownership transfer |
+| Sol slot 2 / OS boot contract | `.claude/worktrees/sol-2` | Check and repair the missing initial console-output condition |
 
 Reviewed checkpoints:
 
@@ -62,7 +62,11 @@ Both worker static gates passed. Bignum consumer validation is consolidated
 into the main full gate; its redundant worker build was stopped.
 The lazy console write is reviewed at `c5758e7`: target/consumer builds,
 generator and discipline checks, and all 27 axiom reports pass. It awaits
-the next integration; slot 1 now handles stderr hooks, slot 2 cached Balloc.
+the next integration; slot 1 now handles stderr hooks. Cached Balloc is
+reviewed at `5ac09e4`: generated machine run, ownership transfer, affected
+builds, targeted static checks and all 26 axiom reports pass. It also awaits
+integration. Slot 2 now checks the OS boot-output contract: the old boot
+facts leave output unconstrained, contrary to representation of OsState.init.
 
 ## Remaining obligations
 
