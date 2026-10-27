@@ -33,8 +33,9 @@ The seams are named contracts `FprintfPre`/`ErrPrintAt` and
 
 The pcall proof still needs an allocator shrink summary, invariant facts
 for the base CallInfo, successor CallInfo and stderr. These are proof
-obligations, not decisions requiring user permission. `FRet` already
-provides the allocator heap/frame needed for the stronger free summary.
+obligations, not decisions requiring user permission. The stronger free
+summary is proved (`freeRHeap_proved`, below) and still needs composition
+into the pcall machine run.
 
 ## Review and validation
 
@@ -89,9 +90,9 @@ ledger; neither its liveness nor its payload bytes are promised.
 `freeR_of_heap` derives the unchanged `FreeR_Statement`.
 
 No allocator instruction proof, generator or Unwind entry/post field changed.
-`FreeRunAll` adds only the named return-heap witness and its extractor. The pending Unwind file was read in lane-f1-26;
-it depends on that lane's `ExitErr` and generated variants, and is not copied
-into this earlier worktree. Its named witnesses already satisfy R6/R7.
+`FreeRunAll` adds only the named return-heap witness and its extractor.
+`Unwind` uses `ExitErr` and its generated variants; its entry and return
+witnesses are named structures under R6/R7.
 
 ### Exact remaining premises
 
