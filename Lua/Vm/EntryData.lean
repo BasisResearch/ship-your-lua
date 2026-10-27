@@ -591,6 +591,8 @@ structure ReentMpAt (m : Mem) (B : Nat → Prop) (fl res rk p5 : Nat) (hds : Lis
   res_k : res ≠ 0 → rk ≤ 64
   p5s : BigChain m p5 ps
   p5v : ∀ j x, ps[j]? = some x → bigVal m x.1 = some (5 ^ (4 * 2 ^ j))
+  /-- Cache digits fit the capacity allocated by `_Balloc`; free nodes need no digit bound. -/
+  p5cap : ∀ x ∈ ps, ∃ w, rd32 m (x.1 + 20) = some w ∧ w ≤ 2 ^ x.2
   apart : (bigBlocks fl res rk lists ps).Pairwise fun x y => Apart x.1 x.2 y.1 y.2
   inB : ∀ x ∈ bigBlocks fl res rk lists ps, ∀ a, x.1 ≤ a → a < x.1 + x.2 → B a
 
@@ -610,7 +612,7 @@ theorem ReentBoot.mp {m : Mem} (h : ReentBoot m) (B : Nat → Prop) : ReentMp m 
   refine .intro 0 0 0 0 (List.replicate 65 0) (List.replicate 65 []) [] ⟨h.res, fun h0 => absurd rfl h0, h.p5,
     h.fl, fun _ => ⟨rfl, rfl, fun l hl => List.eq_of_mem_replicate hl⟩, by simp, by simp,
     fun h0 => absurd rfl h0, fun h0 => absurd rfl h0, fun k hk x hx => ?_, fun h0 => absurd rfl h0, .nil,
-    fun j x hx => by simp at hx, ?_, fun x hx => ?_⟩
+    fun j x hx => by simp at hx, fun x hx => by simp at hx, ?_, fun x hx => ?_⟩
   · simp only [List.getElem_replicate] at hx; cases hx
   · simp [bigBlocks]
   · simp [bigBlocks] at hx

@@ -1,8 +1,7 @@
 # F1-25 bignum primitive: newlib `_Bfree`
 
-Base: `11fdb6d`, worker branch `codex-os`, assigned worktree `sol-2`.
-The F1-25 ledger, `Kit/BigHeap.lean`, and `abstractions/DEAD-ENDS.md` were
-consulted in the main workspace because this worktree predates them.
+The exact machine stores are lifted to `ReentMp` ownership and `BigRun`
+for a separately owned active block.
 
 ## Result
 
@@ -28,8 +27,7 @@ The input and post are named-field structures, `BfreeIn`/`BfreePushIn` and
 
 ## Abstractions and generation
 
-The first action was `scripts/abs_inventory.sh`. This reuses the
-callee-context route: `gen_lua_at.py --fn _Bfree/null,_Bfree`, `FCx`,
+The proof uses the callee-context route: `gen_lua_at.py --fn _Bfree/null,_Bfree`, `FCx`,
 `fat_seg`/`fat_close`, generated `runs`, and `fcx_ok`/`pins_of` for the
 summary. The signed class load and scaled address are separate generated
 segments so existing `AtNarrow` and `fat_shl` close them. No per-site proof,
@@ -60,18 +58,43 @@ and aligned return PC. On the non-NULL branch it additionally requires:
 words and that every old chain block is apart from both the owned block
 and the array (`BfreeOwned`), plus the old `BigChain`.
 
-The full `ReentMp`/`BigRun` update is not claimed. In particular,
-`ReentMpAt.p5v` uses `bigVal`, whose reads follow `_wds`, whereas the
-current `BigChain` only bounds `_k` and pins `_maxwds`. A cache-node bound
-`_wds ≤ 2^_k` would put those digit reads within the owned block; it is
-not a field of the current invariant. Transporting the cache values and
-the complete list-array ownership remains to be proved. That lift must
-also put the returned block in `B` and apart from every current
-`bigBlocks` entry, including `_result` and `_p5s`; `bfree_chain` only
-needs separation from its target chain and the array. The main
-workspace's pending `Kit/BigHeap.lean` is left intact.
+`Kit/BfreeHeap.lean` lifts the existing exact-store run, without another
+machine proof. `bfree_heap_sum` supplies `BfreeHeapPost`: the original
+`BfreePost` and `BigRun F m (bfreeMem m b fl k head) H H B B 0` for any
+caller region `F`. The named `BfreeHeapIn` requires:
 
-`FloatToStr_Statement` remains open: this is its first bignum primitive.
+- `HeapAt` and `ReentMpAt` at the zero fill of the input memory;
+- the existing non-NULL machine/load obligations `BfreePushIn`, plus
+  present class/capacity words at the zero fill;
+- an active block of class `k`, apart from every `bigBlocks` allocation
+  (array, result, all free nodes and power-five cache nodes);
+- the active allocation in old `B`, and every byte of `B` in a live heap
+  payload within the arena (`HeapIn`).
+
+These are input ownership and machine conditions; no desired postcondition
+is assumed. `bfreeLists_perm`/`bfreeBlocks_perm` show the ownership list gains
+exactly `(b, bigSize k)`. `reentMpAt_bfree` changes only head `k` and list `k`,
+keeps the other chains via `BigChain.congr`, and preserves the result and
+power-five cache. `bfree_keep_owned` gives optional-byte equality for each
+old allocation except the array. `bfreeMem_frame` exposes the exact two
+write ranges; `bfreeMem_total` and `bfreeMem_fill` bridge total bytes and
+zero-filled presence. `bfree_frozen` re-establishes `ReentMp` frozen on
+`BigFoot B` at the new memory. `bfree_bigRun` proves both writes lie in `B`,
+hence in live payloads: `HeapAt.ofTotal` then preserves all allocator
+metadata, the chunk list and break. The new bignum region is exactly old
+`B`; no fresh allocation or heap growth is claimed.
+
+Cache footprint audit: `BigChain` bounds `_k` and pins `_maxwds`, but does
+not bound `_wds`, which `bigVal` follows. `ReentMpAt.p5cap` now explicitly
+requires a present `_wds ≤ 2^_k` for each power-five node. This is true at
+boot because the cache is empty (`ReentBoot.mp`); it is preserved by both
+`reentMpAt_congr` and `reentMpAt_bfree`. `bigVal_congr` uses this bound to
+put every value read inside the allocated capacity. Free-list nodes need
+no value bound. Future cache-producing routines must prove the bound when
+they insert or change a cache node.
+
+`FloatToStr_Statement` and `FpStrFlt_Statement` remain open: this is their
+first reusable bignum primitive.
 `_Balloc`, the other `mprec.c` routines, `_dtoa_r`, the `%.14g` formatter,
 and the value/length correctness proof remain.
 
@@ -82,21 +105,25 @@ checks the worktree lock, at least 25 GB available RAM, inherited 12 GB
 scope, and CPU affinity. Builds use this worktree's private `.lake/build`.
 No shared dependency cache or unrelated untracked file is changed.
 
-- `lake build Lua.Vm.Sim.Kit.Bfree`: passes, including both generated runs.
+- `lake build Lua.Vm.Sim.Kit.BfreeHeap`: passes (1,337 jobs), including
+  `EntryData`, `Bfree`, `BigHeap` and both generated runs.
 - `gen_lua_code.py --check` and `gen_lua_at.py --fn _Bfree/null,_Bfree --check`:
   pass.
 - `check_discipline.py` and `abstractions/gate.py`: pass.
-- Axiom reports for the pin, both runs, the memory lemmas, `bfree_sum`,
-  `BigChain.congr`, and `bfree_chain`: all exactly
-  `[propext, Classical.choice, Quot.sound]`. `check.sh` now builds the
-  standalone summary and audits those declarations in stage 6.
+- Targeted axiom audit: all 13 `BfreeHeap` theorems, `ReentBoot.mp`,
+  `BigChain.congr`, `bfree_sum`, and `bfree_chain` (17 reports) pass;
+  every report is exactly `[propext, Classical.choice, Quot.sound]`.
+  `check.sh` builds `BfreeHeap` explicitly and includes these declarations
+  in stage 6 alongside the existing machine/pin audits.
 - `bash scripts/check.sh --static-only`: passes all generator drift checks,
   ELF/hash checks, forbidden-token scan, discipline, abstraction gate, and
   copied-layer checks (`WHILE` roots in the closure: none).
 - Python generator syntax, `bash -n scripts/check.sh`, and
   `git diff --check`: pass.
-- The handoff patch applies to copies of base `11fdb6d` outside Git and
-  reproduces the hashes of all 17 changed files.
 
-The manager performs the full repository build and landing through
-`scripts/check.sh`.
+The combined repository gate checks integration before publication.
+
+The active-block contract does not cover `_dtoa_r`’s result release alone:
+that call temporarily puts the result on a freelist before clearing
+`_result`. Its future summary must cover the complete release prefix
+using the exact-store primitive, as recorded in `abstractions/DEAD-ENDS.md`.
