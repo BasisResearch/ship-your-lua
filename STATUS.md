@@ -25,8 +25,8 @@ without new axioms, admitted proofs, or weakened semantics.
 | Lane | Worktree | Work |
 |---|---|---|
 | Lead / integration | main and `.claude/worktrees/lane-f1-26` | Repair build scheduling; gate and publish reviewed checkpoints |
-| Sol slot 1 / first console write | `.claude/worktrees/sol-1` | Prove lazy fs initialization on `_write`, needed by stderr before the first print |
-| Sol slot 2 / bignum ownership | `.claude/worktrees/sol-2` | Lift `_Bfree` to `ReentMp`/`BigRun`, establishing the required cache bounds |
+| Sol slot 1 / stderr hooks | `.claude/worktrees/sol-1` | Lift both initialized and lazy writes through `_write_r` and `__swrite` |
+| Sol slot 2 / cached bignum allocation | `.claude/worktrees/sol-2` | Prove `_Balloc`'s nonempty-freelist path and ownership transfer |
 
 Reviewed checkpoints:
 
@@ -54,8 +54,11 @@ Generated files are changed through their generators. Landing requires the
 applicable generator, discipline, abstraction, build, and axiom checks.
 
 Latest local proof commits: `8ee5368` (stderr), `7893933` (Bfree ownership).
-Both worker static gates passed. The bignum consumer check is still running;
-slot 1 is proving lazy console initialization. Cached Balloc is queued.
+Both worker static gates passed. Bignum consumer validation is consolidated
+into the main full gate; its redundant worker build was stopped.
+The lazy console write is reviewed at `c5758e7`: target/consumer builds,
+generator and discipline checks, and all 27 axiom reports pass. It awaits
+the next integration; slot 1 now handles stderr hooks, slot 2 cached Balloc.
 
 ## Remaining obligations
 
