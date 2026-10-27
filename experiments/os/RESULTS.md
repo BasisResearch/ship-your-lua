@@ -95,3 +95,17 @@ true, with two caveats recorded there.
 `Lua.Os.HtifPrint_Statement` is the console calls of a `print`-only
 program: `write` to fds 1-2, `read` from fd 0, and `fstat` of fds 0-2. The
 traces accept these (c01-c05, c08-c10, c24).
+
+## Host descriptor isolation (2026-10-27)
+
+The driver now closes inherited descriptors above stderr before executing
+traces. The capped build wrapper holds a lock on fd 8; inheriting it made
+four Linux traces write or seek successfully where the model requires
+`EBADF`. Only the child closes its copy, so the parent retains the build
+lock. Shell redirections give stdin read-only and stdout/stderr write-only
+`/dev/null` handles; stderr also cannot be overwritten by a generated
+write/seek trace. Neither the model nor expected verdicts changed.
+
+The quick suite under `scripts/lean-capped.sh` passes: Linux 324 accepted,
+0 rejected, 5 special; HTIF 264 accepted, 0 rejected, 4 special,
+61 unsupported; console HTIF 25 accepted, 0 rejected, 1 special.

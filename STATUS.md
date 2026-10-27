@@ -10,15 +10,18 @@ Two full gates run on frozen proof sources and private caches:
 
 | Batch | Checkout / proof head | State |
 |---|---|---|
-| Main | root / `7893933` | Static stages pass; full build running before OS traces and axiom audit |
+| Main | root / `7893933` | Full Lean build passed; OS harness descriptor fix passes focused traces; full gate retry pending |
 | Next | `.claude/worktrees/lane-f1-26` / `17b2fea` | Static stages pass; full build running before OS traces and axiom audit |
 | Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `8575872` | Reviewed checkpoints combined; merged targeted generator checks pass; full gate not started |
 
 Main's batch includes F1-26's exit-after-error proof and import-cycle repair,
 checked B2 encoding/jump patching, stdout/stderr OS write bridges,
 heap-preserving free, and the Bfree machine/ownership summaries.
-Later main commits are documentation, task files and probes; they do not
-change the proof sources being checked. Publish after the full gate passes.
+Later commits include documentation, tasks, probes and a host trace-driver
+descriptor isolation fix. Proof sources remain at the checked revision.
+The first gate stopped at OS traces because the driver inherited fd 8
+from the build lock; the fixed focused suite has zero rejections. Publish
+after the full retry, including the axiom audit, passes.
 
 Next's batch adds lazy console initialization, cached Balloc ownership,
 the explicit empty-output OS boot contract, dtoa result release and

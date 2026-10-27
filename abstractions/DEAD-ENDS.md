@@ -95,3 +95,11 @@
   Freeze proof sources before broad validation. If final target checks pass
   but consumers need another rebuild, consolidate that rebuild into the
   lead's combined gate and state the validation boundary explicitly.
+
+- 2026-10-27: a host trace driver must not inherit the capped build's fd 8
+  lock. It makes unknown-descriptor write/lseek traces succeed instead of
+  `EBADF`. Close extra descriptors in the child (preserving the parent's
+  lock), and isolate stderr along with stdout so traces cannot seek in
+  the gate log. Preserve shell read-only stdin/write-only output modes;
+  Python `subprocess.DEVNULL` opens read/write and changes those semantics.
+  The model and expected verdicts need no relaxation.
