@@ -71,3 +71,17 @@ to `.rodata`, needed for fprintf's literal fragments. The remaining
 stderr invariant must establish `_REENT->_stderr` and stdio fields at
 boot/initialization, then preserve them through print. Low-level write
 summaries alone cannot prove those caller facts or full `FprintfErr`.
+
+`StdioBoot.stderr` already pins the pointer at boot. After initialization,
+`SinitPost.stderr` supplies `FileStd`, but `StdioRest` retains only the
+weaker `StdQuiet`. Put the pure `FileStd`/`ErrStd` region below the
+execution modules and retain it, plus the pointer, in `StdioRest`.
+Extend `RestFoot` by the pointer's eight bytes and use its existing
+transport through stdout writes. This avoids strengthening every print
+callee with a new standalone error premise. `ErrStd.tail` reaches offset
+176 whereas `SinitPost.tail` currently stops at 168: the ELF's
+`__retarget_lock_init_recursive` at `0x8003b418` is just `ret`, so the
+generated initialization run can retain those additional eight bytes.
+Prove that frame; do not silently truncate the error contract's tail.
+`tasks/stderr-invariant.md` scopes the invariant extension after console
+source regions and stdin EOF.
