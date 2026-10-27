@@ -32,5 +32,5 @@ Done: capped new module and stdout-consumer builds; standard-only axiom audit;
 relevant discipline/abstraction/generator checks and accurate remaining ledger.
 Do not claim FprintfErr or global HtifPrint closed: unbuffered sfvwrite,
 formatting and persistent OS representation remain distinct obligations.
-The lead runs the complete integration gate. Poll long builds at 45-second
-intervals with concise output; do not dump replay warnings or whole inventories.
+Run targeted static checks; leave full check.sh (including static-only) to the lead.
+Poll long builds at 45-second intervals; do not dump replay warnings or inventories.

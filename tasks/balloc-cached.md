@@ -32,5 +32,5 @@ not assume a desired post. Keep array-allocation and fresh-block paths named
 as remaining work; do not claim a full Balloc or FloatToStr summary.
 Done: capped affected-module build and standard-only public axiom audit;
 relevant generator/discipline/abstraction checks; accurate lane ledger.
-The lead runs the complete integration gate. Poll long builds at 45-second
-intervals with concise output; do not dump replay warnings or whole inventories.
+Run targeted static checks; leave full check.sh (including static-only) to the lead.
+Poll long builds at 45-second intervals; do not dump replay warnings or inventories.
