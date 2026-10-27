@@ -11,9 +11,10 @@ without new axioms, admitted proofs, or weakened semantics.
 - F1-26 is reviewed through `17c714e`: the exit-after-error proof passes
   targeted builds and axiom checks, with its import cycle repaired and
   named witnesses added. It is integrated locally with the B2 encoding
-  and stdout bridge checkpoints. Their combined gate passed static checks
-  but hit a systemd task limit during Lean compilation. Explicit `-j1`
-  elaborator scheduling is being validated before the full gate rerun.
+  and stdout bridge checkpoints. The thread-limit failure is repaired: all
+  four aborted modules build with explicit `-j1` frontend scheduling.
+  The combined full gate now runs on `7893933`, including the stronger
+  free summary, stderr bridge and Bfree ownership lift, before publication.
 - Other existing worktrees are merged ancestors, except the old A-TREE
   bake-off branch. Its report is already on main (`b2d98dd`); A-JOIN was
   adopted instead, so the obsolete implementation will not be merged.
@@ -30,9 +31,9 @@ without new axioms, admitted proofs, or weakened semantics.
 Reviewed checkpoints:
 
 - `e5fbe8c`: `_Bfree` machine run, exact stores and owned-chain push;
-  target build, full static gate and nine axiom checks pass. Awaiting integration.
+  target build, full static gate and nine axiom checks pass. Integrated locally; combined full gate pending.
 - `405ff77`: stronger free summary, resulting heap and surviving payload
-  frame; four modules and ten axiom checks pass. Awaiting integration.
+  frame; four modules and ten axiom checks pass. Integrated locally; combined full gate pending.
 - `0e5af27`: checked B2 instruction emission and signed jump patching;
   exact semantic jump target, unchanged code length and other instructions.
   C-macro boundary vectors and all 21 public axiom checks pass.
@@ -51,6 +52,10 @@ the workflow; `abstractions/DEAD-ENDS.md` records failed approaches.
 Every Lean run is capped at 12 GB. Each worktree has at most one Lake build.
 Generated files are changed through their generators. Landing requires the
 applicable generator, discipline, abstraction, build, and axiom checks.
+
+Latest local proof commits: `8ee5368` (stderr), `7893933` (Bfree ownership).
+The two workers are completing static/consumer checks on those snapshots;
+next tasks cover lazy console initialization and cached Balloc.
 
 ## Remaining obligations
 
