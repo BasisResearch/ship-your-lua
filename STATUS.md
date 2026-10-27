@@ -24,8 +24,8 @@ without new axioms, admitted proofs, or weakened semantics.
 
 | Lane | Worktree | Work |
 |---|---|---|
-| Lead / integration | main and `.claude/worktrees/lane-f1-26` | Gate current main; prepare `integration-next` independently |
-| Sol slot 1 / stderr hooks | `.claude/worktrees/sol-1` | Lift both initialized and lazy writes through `_write_r` and `__swrite` |
+| Lead / integration | main and `.claude/worktrees/lane-f1-26` | Run both full gates on isolated sources and private caches |
+| Sol slot 1 / Layer B integer emission | `.claude/worktrees/sol-1` | Prove the LOADI/LOADK selector and generic integer-load semantics |
 | Sol slot 2 / realloc shrink | `.claude/worktrees/sol-2` | Port in-place shrink with retained prefix and surviving heap payloads |
 
 Reviewed checkpoints:
@@ -62,7 +62,9 @@ Both worker static gates passed. Bignum consumer validation is consolidated
 into the main full gate; its redundant worker build was stopped.
 The lazy console write is reviewed at `c5758e7`: target/consumer builds,
 generator and discipline checks, and all 27 axiom reports pass. It awaits
-the next integration; slot 1 now handles stderr hooks. Cached Balloc is
+the next integration. Stderr hooks are reviewed at `5717060`: all stdout
+and formatter consumer builds, targeted static checks and 36 standard-only
+axiom reports pass. Slot 1 now handles Layer B integer emission. Cached Balloc is
 reviewed at `5ac09e4`: generated machine run, ownership transfer, affected
 builds, targeted static checks and all 26 axiom reports pass. It also awaits
 integration (rebased equivalent `9e40987`). The OS boot-output repair
@@ -75,9 +77,11 @@ the target build, all 22 axiom reports, and static/full at-generator checks.
 It is prepared in `integration-next`; slot 2 now handles realloc shrink.
 
 The idle F1-26 checkout now holds `integration-next`, with the reviewed
-lazy-write, cached-Balloc, boot-contract and dtoa-release checkpoints merged. Its gate
-has not started; stderr hooks will join after worker validation. The main
-gate continues on unchanged proof sources. No new worktree/cache copy was needed.
+lazy-write, cached-Balloc, boot-contract, dtoa-release and stderr-hook
+checkpoints merged. Its full gate runs on `17b2fea` under a separate 12 GB
+scope, using CPUs 9/10; main continues on its unchanged proof sources
+using CPUs 17/25. Both checkouts have private caches. No new checkout/cache
+copy was needed. Publication waits for the applicable complete gate.
 
 ## Remaining obligations
 
