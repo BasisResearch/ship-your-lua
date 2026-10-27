@@ -25,7 +25,7 @@ without new axioms, admitted proofs, or weakened semantics.
 | Lane | Worktree | Work |
 |---|---|---|
 | Lead / integration | main and `.claude/worktrees/lane-f1-26` | Run both full gates on isolated sources and private caches |
-| Sol slot 1 / calloc zeroing | `.claude/worktrees/sol-1` | Prove arbitrary physical-capacity memset zeroing for fresh bignum allocation |
+| Sol slot 1 / calloc composition | `.claude/worktrees/sol-1` | Compose multiplication, malloc and full physical-capacity zeroing through the actual calloc return |
 | Sol slot 2 / successor CallInfo invariant | `.claude/worktrees/sol-2` | Retain nci->next = NULL through allocation, reuse and call_close |
 
 Reviewed checkpoints:
@@ -100,7 +100,7 @@ shrink. Only discipline-table entries and build/audit lists conflicted;
 the resolution retains both lanes. No build runs there yet. The status-2 error-object
 helper is now combined at `50b4d86`; all standalone generator registrations
 were retained, and the merged code/target-arm/target-at checks pass.
-Console source regions are reviewed at `d6df854` and combined at `73bd55c`: final source/OS targets pass (511 jobs), and all 93 axiom reports are standard-only. The earlier consumer build passed 693 jobs; after shared helper edits, final broad consumer validation is consolidated into the queue's full gate. The manager stopped the redundant worker rerun after its final target modules passed and completed the target build/audit before committing. The stdin EOF checkpoint is reviewed at `133c511` and combined at `9605579`: both actual machine paths and the OS bridge pass the 506-job target build and all 194 standard-only axiom reports. Merged generator registrations retain every lane and pass the code/target arms/target at checks. The first local B3 wrapper refinement is reviewed at `ddd2f95` and combined at `8e2d6e5`: 481-job target build, boundary vectors and all 19 standard-only axiom reports pass. Its generator/audit registrations were merged by union and drift checks pass. `luaK_code`, B2 and full B3 remain open. Slot 1 now proves calloc-capacity zeroing. The queue's project and
+Console source regions are reviewed at `d6df854` and combined at `73bd55c`: final source/OS targets pass (511 jobs), and all 93 axiom reports are standard-only. The earlier consumer build passed 693 jobs; after shared helper edits, final broad consumer validation is consolidated into the queue's full gate. The manager stopped the redundant worker rerun after its final target modules passed and completed the target build/audit before committing. The stdin EOF checkpoint is reviewed at `133c511` and combined at `9605579`: both actual machine paths and the OS bridge pass the 506-job target build and all 194 standard-only axiom reports. Merged generator registrations retain every lane and pass the code/target arms/target at checks. The first local B3 wrapper refinement is reviewed at `ddd2f95` and combined at `8e2d6e5`: 481-job target build, boundary vectors and all 19 standard-only axiom reports pass. Its generator/audit registrations were merged by union and drift checks pass. `luaK_code`, B2 and full B3 remain open. The calloc memset checkpoint is reviewed at `ecff107`: arbitrary physical-capacity zeroing, exact byte frame, 539-job affected build and 27 standard-only axiom checks pass. Lead review added the missing explicit build target and complete audit registration; full gate is pending. Slot 1 now composes `_calloc_r`. The queue's project and
 three local dependency caches are separate from main.
 
 ## Remaining obligations
