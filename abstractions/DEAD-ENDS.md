@@ -53,3 +53,13 @@
   returns without `_fstat`; it does not initialize htif.c. The initialized
   `_write(2)` summary alone cannot supply FprintfErr. Prove `_write`
   through its inlined lazy initialization at 0x80000b04 as well.
+
+- 2026-10-27: the existing console-write bounds put sources above
+  `tohost`, and `_write_r` further requires them above `errno`. This does
+  not cover `fprintf`'s literal `.rodata` fragments. Use an honest source
+  region separated from MMIO and the actual stores, as the scan summaries
+  already do, before claiming the complete fprintf chain.
+- 2026-10-27: importing lazy `WriteBoot` directly from `Swrite` exposes
+  `AtFn -> Sflush -> Swrite -> WriteBoot -> AtFn`. Move shared pure memory
+  and return laws below the execution modules; do not duplicate them or
+  add a circular import to supply the generated-prefix tactics.
