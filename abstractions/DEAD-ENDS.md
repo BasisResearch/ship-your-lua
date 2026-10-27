@@ -81,3 +81,11 @@
   `HtifRepr.boot_output_diagnostic` in reviewed checkpoint `d425afd`, which
   explicitly adds the initial-output premise. Do not treat the global OS
   statement as merely vacuous or proved.
+
+- Realloc port boundary (source audit, 2026-10-27): upstream
+  `ReallocCtx.RHeap.grow` and `ReallocRunAll.rHeap_entry` require
+  `B.nOld < C.n.toNat`. Do not instantiate this growth API with the
+  old Lua stack size to prove shrink. `ReallocTail` already supports
+  retained data with `old_le : B.nOld ≤ C.n.toNat`; reuse its split/free
+  tail with a shrink-specific entry/prologue/decision contract and preserve
+  only the requested prefix, plus every other live allocation.
