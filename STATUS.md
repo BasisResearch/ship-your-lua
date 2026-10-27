@@ -24,7 +24,7 @@ without new axioms, admitted proofs, or weakened semantics.
 
 | Lane | Worktree | Work |
 |---|---|---|
-| Lead / integration | main and `.claude/worktrees/lane-f1-26` | Repair build scheduling; gate and publish reviewed checkpoints |
+| Lead / integration | main and `.claude/worktrees/lane-f1-26` | Gate current main; prepare `integration-next` independently |
 | Sol slot 1 / stderr hooks | `.claude/worktrees/sol-1` | Lift both initialized and lazy writes through `_write_r` and `__swrite` |
 | Sol slot 2 / dtoa result release | `.claude/worktrees/sol-2` | Prove the complete release prefix and restore bignum ownership |
 
@@ -70,6 +70,11 @@ integration (rebased equivalent `9e40987`). The OS boot-output repair
 static checks pass. It explicitly requires empty initial output and proves
 the old contract mismatch; global OS premises remain open. Slot 2 now
 handles the complete dtoa result-release prefix.
+
+The idle F1-26 checkout now holds `integration-next`, with the reviewed
+lazy-write, cached-Balloc and boot-contract checkpoints merged. Its gate
+has not started; stderr hooks will join after worker validation. The main
+gate continues on unchanged proof sources. No new worktree/cache copy was needed.
 
 ## Remaining obligations
 
