@@ -41,7 +41,9 @@ seed_private() {
 }
 seed_private "$repo/.lake/packages" "$wt/.lake/packages"
 seed_private "$repo/.lake/build" "$wt/.lake/build"
-seed_private "$repo/riscv-lean/lean_emulator/.lake" "$wt/riscv-lean/lean_emulator/.lake"
+for dep in lean-sail Lean_RV64D_executable lean_emulator; do
+  seed_private "$repo/riscv-lean/$dep/.lake" "$wt/riscv-lean/$dep/.lake"
+done
 printf 'Task: %s\nWorktree: %s\nStart: %s\n' "$task" "$wt" "$(date -u --iso-8601=seconds)"
 codex_bin=${CODEX:-$HOME/.local/share/codex-0.162.0/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex}
 rc=0

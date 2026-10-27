@@ -1,6 +1,6 @@
 # ship-your-lua status
 
-Lead takeover: 2026-10-21. Goal: discharge the premises of `endToEnd_lua`
+Lead takeover: 2026-10-21; resumed 2026-10-27. Goal: discharge the premises of `endToEnd_lua`
 without new axioms, admitted proofs, or weakened semantics.
 
 ## Integration
@@ -10,7 +10,10 @@ without new axioms, admitted proofs, or weakened semantics.
   WHILE exclusion, build, OS traces and standard-only axiom audit.
 - F1-26 is reviewed through `17c714e`: the exit-after-error proof passes
   targeted builds and axiom checks, with its import cycle repaired and
-  named witnesses added. Its integrated full gate is pending.
+  named witnesses added. It is integrated locally with the B2 encoding
+  and stdout bridge checkpoints. Their combined gate passed static checks
+  but hit a systemd task limit during Lean compilation. Explicit `-j1`
+  elaborator scheduling is being validated before the full gate rerun.
 - Other existing worktrees are merged ancestors, except the old A-TREE
   bake-off branch. Its report is already on main (`b2d98dd`); A-JOIN was
   adopted instead, so the obsolete implementation will not be merged.
@@ -20,12 +23,16 @@ without new axioms, admitted proofs, or weakened semantics.
 
 | Lane | Worktree | Work |
 |---|---|---|
-| Lead / integration | main and `.claude/worktrees/lane-f1-26` | Validate F1-25 and F1-26; review and land lanes |
-| Sol slot 1 / error allocator | `.claude/worktrees/sol-1` | Repair and validate the drafted `_free_r` heap/payload summary (`8c3e6a4`, not ready to land) |
-| Sol slot 2 / bignums | `.claude/worktrees/sol-2` | Generated `_Bfree` machine summary for the float formatting/conversion helpers |
+| Lead / integration | main and `.claude/worktrees/lane-f1-26` | Repair build scheduling; gate and publish reviewed checkpoints |
+| Sol slot 1 / stderr | `.claude/worktrees/sol-1` | Prove `_write(2)` and its OS stderr bridge, reusing the proved byte loop |
+| Sol slot 2 / bignum ownership | `.claude/worktrees/sol-2` | Lift `_Bfree` to `ReentMp`/`BigRun`, establishing the required cache bounds |
 
-Reviewed branch checkpoints awaiting the integration gate:
+Reviewed checkpoints:
 
+- `e5fbe8c`: `_Bfree` machine run, exact stores and owned-chain push;
+  target build, full static gate and nine axiom checks pass. Awaiting integration.
+- `405ff77`: stronger free summary, resulting heap and surviving payload
+  frame; four modules and ten axiom checks pass. Awaiting integration.
 - `0e5af27`: checked B2 instruction emission and signed jump patching;
   exact semantic jump target, unchanged code length and other instructions.
   C-macro boundary vectors and all 21 public axiom checks pass.

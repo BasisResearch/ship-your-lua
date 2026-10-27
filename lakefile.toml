@@ -1,5 +1,8 @@
 name = "ShipYourLua"
 defaultTargets = ["Lua"]
+# Bound elaborator threads as well as the outer Lake scheduler on the shared host.
+# Scheduling only: weak arguments do not invalidate proof artifacts.
+weakLeanArgs = ["-j1"]
 
 # Machine layer copied from ship-your-interpreter (module names kept so
 # that its proofs and generators apply unchanged; see ATTRIBUTION.md).

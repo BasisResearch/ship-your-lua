@@ -12,7 +12,8 @@ target, its files, first step, and explicit completion criteria.
 
 Every Lean run uses `scripts/lean-capped.sh`: a 12 GB systemd scope,
 single CPU affinity to avoid shared-host thread exhaustion, and one run
-per worktree. The launcher establishes a 12 GB scope before entering the
+per worktree. `lakefile.toml` also sets weak `-j1` arguments for each
+Lean frontend; CPU affinity alone does not bound its threads. The launcher establishes a 12 GB scope before entering the
 worker sandbox; the wrapper verifies inherited scope membership because
 `workspace-write` cannot contact the user systemd bus. The lead checks
 `free -g` before launching each worker.

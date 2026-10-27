@@ -138,7 +138,7 @@ else echo "skipped (no syi checkout)"; fi
 
 echo "== (5) build"
 blog=$(mktemp); lake build Lua Vsa VsaIris > "$blog" 2>&1
-tail -1 "$blog" | grep -q "Build completed successfully" || { grep -E "^error|^✖" "$blog" | head -20; rm -f "$blog"; fail "lake build"; }
+tail -1 "$blog" | grep -q "Build completed successfully" || { grep -E "^error|^✖" "$blog" | head -20; echo "Full build log: $blog"; fail "lake build"; }
 rm -f "$blog"
 echo "ok"
 
@@ -1068,7 +1068,7 @@ import VsaIris.Vsa.SymJalr
 #print axioms Lua.Num.fmt14g_byte
 #print axioms Lua.Vm.Sim.Kit.show_ascii
 LEAN
-lake env lean "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
+lake env lean -j1 "$tmp/Axioms.lean" > "$tmp/out.txt" 2>&1 || { cat "$tmp/out.txt"; fail "axioms file"; }
 cat "$tmp/out.txt"
 n=$(grep -cE "depends on axioms|does not depend on any axioms" "$tmp/out.txt")
 [ "$n" = "$(grep -c "^#print axioms" "$tmp/Axioms.lean")" ] || fail "expected one axiom report per #print axioms line, got $n"

@@ -29,3 +29,21 @@
 - 2026-10-21: sharing writable dependency-cache symlinks lets Lake rebuild
   another worktree's inputs. The launcher now seeds private dependency
   caches as well as private project output before each new worker starts.
+
+- Bignum ownership: `ReentMpAt.p5v` describes values but does not bound a
+  cache node's `_wds` by its capacity. `BigChain` only pins class/maxwds.
+  Do not derive a digit-read footprint from those fields alone; establish
+  a bounded shape/footprint fact before transporting the power-five cache.
+
+- `_dtoa_r` result release is a multi-instruction ownership boundary:
+  the pinned ELF restores `_k`/`_maxwds` at 0x8004a7c0/0x8004a7c4, calls
+  `_Bfree` at 0x8004a7c8, then clears `_result` at 0x8004a7cc. A full
+  `ReentMp` cannot hold between that call and the clear: the same block
+  is still the result and is now on the freelist. Use the exact-store
+  primitive across the whole release prefix; the active-block `_Bfree`
+  ownership lemma assumes the returned block is apart from existing owners.
+
+- 2026-10-27: CPU affinity and `LEAN_NUM_THREADS=1` alone still let the
+  Lean frontend hit a scope task cap (128 tasks, `pids.events: max 3`).
+  Use package `weakLeanArgs = ["-j1"]` to bound elaborator threads too;
+  changing scheduling must not change proof budgets or trust settings.
