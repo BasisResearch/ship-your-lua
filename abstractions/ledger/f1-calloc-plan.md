@@ -25,6 +25,12 @@ entire fresh capacity from old live payloads. `MallocPost.fresh` alone
 only promises freshness for the requested length: do not use it unchanged
 for all zeroed padding. Use resulting chunk disjointness plus the retained
 old chunks and positive request to prove the larger region is fresh.
+Reuse `AllocHeap.walkV` and `Vsa.Sim.DlHeap.ChunkWalk.chunk_sep` /
+`chunk_bounds` from `VsaIris/Vsa/HeapShape.lean`; no new walk induction is
+needed. For an old live chunk retained in the resulting walk, the equal
+chunk case contradicts `MallocPost.fresh` at `p` (the request is positive).
+Both ordered cases separate the complete payloads, including each one's
+eight bytes in the next chunk's `prev_size` field.
 
 No general calloc, fresh Balloc, or FloatToStr obligation is discharged
 by this audit. The small-capacity stores, multiplication/overflow bounds,
