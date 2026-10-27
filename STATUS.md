@@ -10,9 +10,9 @@ Two full gates run on frozen proof sources and private caches:
 
 | Batch | Checkout / proof head | State |
 |---|---|---|
-| Main | root / `7893933` | Full Lean build passed; OS harness descriptor fix passes focused traces; full gate retry pending |
-| Next | `.claude/worktrees/lane-f1-26` / `17b2fea` | Static stages pass; full build running before OS traces and axiom audit |
-| Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `8575872` | Reviewed checkpoints combined; merged targeted generator checks pass; full gate not started |
+| Main | root / `7893933` | Full Lean build passed; OS harness fix passes focused traces; full gate retry running |
+| Next | `.claude/worktrees/lane-f1-26` / `17b2fea` (harness `0183758`) | Static stages pass; full build running before OS traces and axiom audit |
+| Queue | `.claude/worktrees/agent-a5c594d418908fc64` / `8575872` (harness `f466f27`) | Reviewed checkpoints combined; merged targeted generator checks pass; full gate not started |
 
 Main's batch includes F1-26's exit-after-error proof and import-cycle repair,
 checked B2 encoding/jump patching, stdout/stderr OS write bridges,
