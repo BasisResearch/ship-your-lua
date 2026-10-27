@@ -47,3 +47,9 @@
   Lean frontend hit a scope task cap (128 tasks, `pids.events: max 3`).
   Use package `weakLeanArgs = ["-j1"]` to bound elaborator threads too;
   changing scheduling must not change proof budgets or trust settings.
+
+- 2026-10-27: an error before the first `print` reaches unbuffered stderr
+  with `fs_ready = 0`. The ELF `__smakebuf_r` branch at 0x80049a38
+  returns without `_fstat`; it does not initialize htif.c. The initialized
+  `_write(2)` summary alone cannot supply FprintfErr. Prove `_write`
+  through its inlined lazy initialization at 0x80000b04 as well.
